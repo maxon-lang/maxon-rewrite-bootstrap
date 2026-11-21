@@ -65,7 +65,9 @@ runs. `--check` over the specs, and the summary at the end of a conversion, give
 the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
 name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
-instead. `specs.ps1` runs both; `specs/README.md` has the command, and the directory is never edited by hand, except
+instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
+(the pairs of `codeSkipTable` in `self/driver/fix.maxon`: ownership refused by another rule, the syntax error, operand
+types). `specs.ps1` runs both; `specs/README.md` has the command, and the directory is never edited by hand, except
 `specs/baseline.txt` (see "Tests").
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,

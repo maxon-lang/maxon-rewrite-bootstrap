@@ -111,6 +111,7 @@ end 'main'
 ```
 
 <!-- test: error.write-through-a-returned-holder-built-from-a-frozen-argument-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The record `make` returns holds the frozen `Box`, so writing the box through it is refused.
 

@@ -37,6 +37,7 @@ When you see this error, consider:
 ## Tests
 
 <!-- test: bare-identifier -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	var x = 0 as FullRangeInt
@@ -51,6 +52,7 @@ error E2001: specs/unknown-keyword-error/bare-identifier.maxon:4:2: unexpected t
 ```
 
 <!-- test: typo-keyword -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 5

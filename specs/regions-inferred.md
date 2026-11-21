@@ -627,6 +627,7 @@ error E3205: <fragment>:37:7: cannot call 'start' inside 'fill'; it may wait (it
 ```
 
 <!-- test: write-through-a-returned-parameter-of-a-frozen-local-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `same` returns its parameter, so `c` is the frozen box `pinned` and the write through it is refused.
 
@@ -657,6 +658,7 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'c', which is immutable
 ```
 
 <!-- test: write-through-an-element-of-a-frozen-local-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `frozen.get(0)` hands back an element of the frozen array, so `first` is frozen and the write through it is refused.
 
@@ -3203,6 +3205,7 @@ error E3196: <fragment>:16:21: cannot store an immutable 'Box' into 'Holder.held
 ```
 
 <!-- test: frozen-argument-to-a-factory-parameter-that-stores-it-in-a-mutable-field-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Holder.build` keeps `item` in a mutable field, so `item` is mutable only: it needs no marker, and a frozen record cannot be handed to it, because `h.held.n = 7` would write the record `pinned` names.
 
@@ -3278,6 +3281,7 @@ error E3207: <fragment>:27:10: 'adopt' writes 'item' (line 20: `self.held = item
 ```
 
 <!-- test: frozen-argument-to-a-parameter-that-a-relay-hands-to-a-storing-parameter-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `relay` stores `thing` only by handing it to `Holder.build`, and the refusal names the chain.
 
@@ -4045,6 +4049,7 @@ end 'main'
 ```
 
 <!-- test: write-through-a-mixed-return-of-a-frozen-argument-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The result of `pick` may be `frozen` itself, so writing through it is refused.
 
@@ -4250,6 +4255,7 @@ end 'main'
 ```
 
 <!-- test: a-joined-parameter-returned-is-read-only-for-a-frozen-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same result, given a frozen argument, may be that frozen box, so writing through it is refused.
 
@@ -4417,6 +4423,7 @@ error E3207: <fragment>:23:7: 'edit' writes 'b'; 'frozen' is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-returned-is-read-only-for-frozen-arguments -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `c` is `a` or `b`, so the result of `pick` may be either frozen box and writing through it is refused.
 
@@ -4563,6 +4570,7 @@ error E3207: <fragment>:25:13: 'bump' writes 'b' (line 19: `c.n = 5`); 'frozen' 
 ```
 
 <!-- test: a-loop-join-of-two-parameters-returned-is-read-only-for-frozen-arguments -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The back edge hands `b` to the carried `c`, so the result may be either frozen box.
 

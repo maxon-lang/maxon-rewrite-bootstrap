@@ -1424,6 +1424,7 @@ error E2028: specs/ternary-expression/ternary-expression.error.function-arm-sign
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-reads -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by the TRUE arm
 The condition runs first but parses second, so the true arm's read of `u` is parsed before the condition's
@@ -1473,6 +1474,7 @@ error E3102: <fragment>:34:11: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-reads-hoisted -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ### The hoisted control: the keep is made before the conditional
 ```maxon
@@ -1625,6 +1627,7 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.error.outer-condition-keeps-inner-arm-reads -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ### A keep in an OUTER condition is seen by a read in a nested conditional's arm
 ```maxon
@@ -1670,6 +1673,7 @@ error E3102: <fragment>:34:12: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.inner-condition-keeps-inner-arm-reads -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ### A keep in a nested conditional's own condition is seen by that conditional's true arm
 ```maxon

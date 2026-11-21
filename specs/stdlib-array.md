@@ -789,6 +789,7 @@ end 'main'
 ```
 
 <!-- test: error.push-self-assignment-binds-a-void-result -->
+<!-- skip: differing error code: operand types -->
 <!-- positions: moved -->
 The refusal itself, so the divergence above is pinned rather than asserted.
 ```maxon

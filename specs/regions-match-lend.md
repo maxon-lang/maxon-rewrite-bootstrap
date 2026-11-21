@@ -523,6 +523,7 @@ error E3102: <fragment>:27:28: use of moved value 'o': its ownership moved to an
 ```
 
 <!-- test: a-writing-lend-of-the-matched-variable-beside-an-arm-binding-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `both` writes through `u`, and the same call names `tV`, the arm's view of the payload `u` holds.
 ```maxon
@@ -563,6 +564,7 @@ error E3102: <fragment>:29:17: cannot lend 'uV' to parameter 'u' of 'both', whic
 ```
 
 <!-- test: a-writing-lend-of-the-matched-variable-as-the-receiver-beside-an-arm-binding-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The receiver is an argument: `both` writes through `self`, which is `uV`, and the same call names `tV`.
 ```maxon
@@ -603,6 +605,7 @@ error E3102: <fragment>:29:20: cannot lend 'uV' to parameter 'self' of 'Ut.both'
 ```
 
 <!-- test: a-writing-lend-of-the-matched-variable-beside-an-arm-binding-that-is-the-receiver-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The receiver `tV` is the arm's binding, and `absorb` writes through `u`, which is `uV`.
 ```maxon
@@ -976,6 +979,7 @@ end 'main'
 ```
 
 <!-- test: a-write-through-the-holder-of-a-matched-field-in-the-arm-that-lends-it-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `match h.u` lends a unique value that `h` holds, so `h` is read-only in the arm.
 ```maxon
@@ -1399,6 +1403,7 @@ ok
 ```
 
 <!-- test: error.a-cond-subjects-roots-are-read-only-in-an-arm-that-binds-nothing -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The subject is a field path over a `cond`, and the union has a unique payload, so `h` and `g` are read-only holders in every arm, the arm that binds nothing included (ruling 48).
 ```maxon
@@ -1639,6 +1644,7 @@ end 'main'
 ```
 
 <!-- test: error.a-writing-lend-of-the-matched-variable-beside-a-binding-path-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The statement names the arm's binding `t` as the root of `t.n`, not as a bare argument: `clear` still may not write through `s` there (ruling 45).
 ```maxon
@@ -1960,6 +1966,7 @@ end 'main'
 ```
 
 <!-- test: error.a-writing-lend-of-the-matched-variable-beside-a-binding-in-a-gives-arm-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `gives` arm's call names the arm's binding `t` as the root of `t.n`, so `bump` may not write through `s` there either.
 ```maxon

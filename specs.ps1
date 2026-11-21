@@ -13,6 +13,8 @@ if (-not (Test-Path bin\c2.exe)) {
 	Write-Output 'bin\c2.exe is missing: run .\check.ps1 to build it'
 	exit 1
 }
+# The conversion lays out what it writes with the same compiler, not with whatever minimaxon.exe is in the root.
+$env:MINIMAXON = Join-Path $PSScriptRoot 'bin\c2.exe'
 Remove-Item specs\*.md -Exclude README.md
 go run ./cmd/convert --specs --out=specs $maxonSpecs
 if ($LASTEXITCODE -ne 0) {

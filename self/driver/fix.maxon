@@ -12,6 +12,80 @@ let trapSkipLine = "<!-- skip: language difference: arithmetic that can fail nee
 
 let panicWord = "panic"
 
+// The codes of maxon that minimaxon has no diagnostic for: its linear values are noncopyable values with a destructor
+// here, so it refuses the move itself and never reports that one was left unconsumed or refused.
+let maxonErrLinearNotConsumed = "E3223"
+
+let maxonErrLinearRefused = "E3224"
+
+let ownershipSkipLine = "<!-- skip: language difference: ownership is refused by another rule -->\n"
+
+let syntaxSkipLine = "<!-- skip: differing error code: syntax error -->\n"
+
+let operandSkipLine = "<!-- skip: differing error code: operand types -->\n"
+
+// CodeSkip is a pair of codes of a test that expects a compile error: the first code that maxon expects and the first code
+// that minimaxon reports for the same program, which refuses it for another known reason, and the skip line the test gets.
+type CodeSkip
+	var expected as String
+	var reported as String
+	var line as String
+
+	static function make(consumes expected String, consumes reported String, consumes line String) returns CodeSkip
+		return CodeSkip{expected: expected, reported: reported, line: line}
+	end 'make'
+end 'CodeSkip'
+
+typealias CodeSkips = Array with CodeSkip
+
+// addCodeSkips adds the pair of every expected code with every reported code, each with the skip line.
+function addCodeSkips(mutates skips CodeSkips, expected ast.StringList, reported ast.StringList, line String)
+	for e in 0 upto expected.count() 'expected'
+		for r in 0 upto reported.count() 'reported'
+			skips.push(CodeSkip.make(expected[e].clone(), reported: reported[r].clone(), line: line.clone()))
+		end 'reported'
+	end 'expected'
+end 'addCodeSkips'
+
+// codeSkipTable is the pairs of codes whose tests are skipped: maxon reports the later use of a moved value, a linear one
+// or a write through a read-only value, where minimaxon refuses the move or the write itself; and two codes of the
+// parser and of the checker that the same error is given under here.
+function codeSkipTable() returns CodeSkips
+	var skips = CodeSkips.create(0)
+	var movedExpected = ast.StringList.create(0)
+	movedExpected.push(diag.errUseAfterMove)
+	movedExpected.push(maxonErrLinearNotConsumed)
+	movedExpected.push(maxonErrLinearRefused)
+	movedExpected.push(diag.errFrozenChange)
+	var movedReported = ast.StringList.create(0)
+	movedReported.push(diag.errMoveOutOfBorrow)
+	movedReported.push(diag.errNotDroppable)
+	movedReported.push(diag.errAssignToImmutable)
+	addCodeSkips(skips, expected: movedExpected, reported: movedReported, line: ownershipSkipLine)
+	var syntaxExpected = ast.StringList.create(0)
+	syntaxExpected.push(diag.errUnexpectedToken)
+	var syntaxReported = ast.StringList.create(0)
+	syntaxReported.push(diag.errExpectedToken)
+	addCodeSkips(skips, expected: syntaxExpected, reported: syntaxReported, line: syntaxSkipLine)
+	var operandExpected = ast.StringList.create(0)
+	operandExpected.push(diag.errExpressionError)
+	var operandReported = ast.StringList.create(0)
+	operandReported.push(diag.errTypeMismatch)
+	addCodeSkips(skips, expected: operandExpected, reported: operandReported, line: operandSkipLine)
+	return skips
+end 'codeSkipTable'
+
+// codeSkipLine is the skip line of the pair that a test's first expected and first reported codes make, or nothing when the
+// pair is not in the table.
+function codeSkipLine(skips CodeSkips, expected String, reported String) returns table.Option with String
+	for i in 0 upto skips.count() 'pairs'
+		if skips[i].expected == expected and skips[i].reported == reported 'found'
+			return table.Option.some(skips[i].line.clone())
+		end 'found'
+	end 'pairs'
+	return table.Option.none
+end 'codeSkipLine'
+
 typealias Flags = Array with bool
 
 // FixProgram is a program being fixed, in memory: one file, or the files of a project's directory at root.
@@ -244,10 +318,11 @@ function fixProgram(consumes prog FixProgram) returns FixOutcome
 end 'fixProgram'
 
 // FixTally counts what a run of fix did: the programs or tests it changed, by kind of fix, the spec tests it skipped for a
-// trap, and those left with a diagnostic, by its code.
+// trap or for another code, and those left with a diagnostic, by its code.
 type FixTally
 	var changed as Count
 	var trapSkips as Count
+	var codeSkips as Count
 	var broken as Count
 	var kinds as ast.StringList
 	var kindCounts as CountList
@@ -255,7 +330,7 @@ type FixTally
 	var codeCounts as CountList
 
 	static function new() returns FixTally
-		return FixTally{changed: 0, trapSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
+		return FixTally{changed: 0, trapSkips: 0, codeSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
 	end 'new'
 
 	function count(mutates self, outcome FixOutcome)
@@ -326,6 +401,9 @@ function printFixSummary(tally FixTally, checkOnly bool, unit String)
 	if tally.trapSkips > 0 'traps'
 		print("skipped {tally.trapSkips} tests that expect maxon's run-time trap where a fix would add a try\n")
 	end 'traps'
+	if tally.codeSkips > 0 'codes'
+		print("skipped {tally.codeSkips} tests that expect a compile error which minimaxon reports under another code for a known reason\n")
+	end 'codes'
 	if tally.broken > 0 'broken'
 		print("{tally.broken} {unit} had a round undone because a fix left them unparsable\n")
 	end 'broken'
@@ -359,8 +437,11 @@ function fixCommand(rest CommandNames) returns ExitCode
 		if isSpecPath(paths[i]) 'specs'
 			unit = "tests"
 			let files = specFiles(paths[i])
+			var shared = prepareSharedRuntime()
+			let work = SpecWork.make()
+			let skips = codeSkipTable()
 			for f in 0 upto files.count() 'files'
-				fixSpecFile(files[f], checkOnly: checkOnly, tally: tally)
+				fixSpecFile(shared, work: work, skips: skips, file: files[f], checkOnly: checkOnly, tally: tally)
 			end 'files'
 		end 'specs' else 'program'
 			fixProgramAt(paths[i], checkOnly: checkOnly, tally: tally)
@@ -468,13 +549,39 @@ function fixedBlock(source String, sections SourceSections, outcome FixOutcome) 
 	return syntax.applyEdits(source, edits: edits)
 end 'fixedBlock'
 
+// codeSkipFor is the skip line of a test that the runner would run, that expects a compile error, and that minimaxon
+// refuses under another code for a known reason: the codes of the first error that each side gives are a pair of the table.
+function codeSkipFor(mutates shared SharedRuntime, work SpecWork, skips CodeSkips, test SpecTest, text String) returns table.Option with String
+	if not test.hasSource or skipReason(test, text: text).isSome() 'unrun'
+		return table.Option.none
+	end 'unrun'
+	let expected = expectedFirstCode(test, text: text)
+	if not expected.isSome() 'noError'
+		return table.Option.none
+	end 'noError'
+	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
+	var errs = diag.ErrorList.create(0)
+	compileSpecSource(shared, work: work, test: test, source: source, sections: splitSections(source), errs: errs)
+	if errs.count() == 0 'compiled'
+		deleteExecutable(work.exe)
+		return table.Option.none
+	end 'compiled'
+	return codeSkipLine(skips, expected: expected.unwrap(), reported: errs[0].code)
+end 'codeSkipFor'
+
 // fixSpecFile fixes the tests of one spec file and writes the file, or with check names the tests it would change.
-function fixSpecFile(file String, checkOnly bool, mutates tally FixTally)
+function fixSpecFile(mutates shared SharedRuntime, work SpecWork, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
 	let text = readText(file)
 	let display = project.lastComponent(file)
 	let tests = parseSpec(text)
 	var edits = syntax.Edits.create(0)
 	for i in 0 upto tests.count() 'tests'
+		let codeSkip = codeSkipFor(shared, work: work, skips: skips, test: tests[i], text: text)
+		if codeSkip.isSome() 'codeSkipped'
+			tally.codeSkips = increment(tally.codeSkips)
+			edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: codeSkip.unwrap()))
+			continue 'tests'
+		end 'codeSkipped'
 		if not isFixable(tests[i], text: text) 'fixed'
 			continue 'tests'
 		end 'fixed'

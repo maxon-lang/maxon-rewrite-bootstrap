@@ -156,6 +156,12 @@ git worktree add --detach .claude/worktrees/<task> HEAD
 
 - The brief names the worktree's absolute path as the agent's tree, says every command starts with `cd` into it and
   every Read/Edit/Write path lies under it, and that the main tree must not be touched.
+- An agent's PowerShell and Bash tools start in the main checkout every call, so `.\check.ps1` or `.\specs.ps1`
+  written relative runs the main tree's script on the main tree (`specs.ps1` deletes `specs/*.md` first). The brief
+  gives each script by its absolute path in the worktree (`pwsh -NoProfile -File <worktree>\check.ps1`).
+- A feature task does not regenerate `specs/` in its worktree: parallel regenerations conflict over hundreds of
+  files. It measures by converting into a scratch directory; the main session runs `specs.ps1` after merging and
+  raises `specs/baseline.txt`.
 - `.claude/worktrees/` is in `.git/info/exclude`, so the main tree's `git status` and Grep do not see it.
 - After merging: `git worktree remove --force .claude/worktrees/<task>` (`git worktree unlock` first for one the
   harness created).

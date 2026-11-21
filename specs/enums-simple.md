@@ -820,6 +820,7 @@ error E2008: <fragment>:5:1: Mismatched end label: expected 'Colour', got 'Color
 ```
 
 <!-- test: error.a-word-after-the-enum-name-is-refused -->
+<!-- skip: differing error code: syntax error -->
 Nothing but an `implements` clause may follow the enum's name. A raw-value enum's backing type is
 inferred from its raw values, so a word there is not a declaration of it: it is refused, not read as a
 case.

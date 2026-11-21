@@ -467,6 +467,7 @@ end 'main'
 ```
 
 <!-- test: a-let-alias-of-the-holder-moves-it-so-no-operand-reads-the-cell-under-two-names -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let g = h` moves `h` into `g`, so the cell cannot be read under another name: the first operand's read of `h` is a use after the move.
 

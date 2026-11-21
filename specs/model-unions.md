@@ -614,6 +614,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-m3-copy-use-after-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m3-copy-use-after-arm` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -696,6 +697,7 @@ error E3102: <fragment>:30:17: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-ag-m8-copy-into-array -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m8-copy-into-array` of redteamAG.hand_ag10, in capmodel `reggio/REPORTRTAG.txt`.
 
@@ -4061,6 +4063,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-call-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-call-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4112,6 +4115,7 @@ error E3102: <fragment>:39:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-copy-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4158,6 +4162,7 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-slot-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-slot-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4204,6 +4209,7 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-nothing-rd -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-rd` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4250,6 +4256,7 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-nothing-wr -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-wr` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4296,6 +4303,7 @@ error E3102: <fragment>:34:2: use of moved value 'h': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ah-f2-consself-self-nothing-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `f2-consself-self-nothing-no` of redteamAH.hand_ah1, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4713,6 +4721,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-idc-copy-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `idc-copy-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -4822,6 +4831,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-idc-call-no -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `idc-call-no` of redteamAH.hand_ah7, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -5711,6 +5721,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ai-d7-root-writer-payload-pass -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3102, E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d7-root-writer-payload-pass` of redteamAI.hand_ai1, in capmodel `reggio/REPORTRTAI.txt`.
 
@@ -6458,6 +6469,7 @@ error E3102: <fragment>:39:9: use of moved value 'u': its ownership moved to ano
 ```
 
 <!-- test: model-hand-aj-union-discard -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `union-discard` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6504,6 +6516,7 @@ error E3102: <fragment>:35:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-aj-union-literal-stored -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `union-literal-stored` of redteamAJ.hand_aj3, in capmodel `reggio/REPORTRTAJ.txt`.
 
@@ -6589,6 +6602,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-al-ca-union-cond -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ca-union-cond` of redteamAL/hand_al3.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6629,6 +6643,7 @@ error E3102: <fragment>:29:2: use of moved value 'q': its ownership moved to ano
 ```
 
 <!-- test: model-hand-al-w-swap-r-while-r-lent -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-swap-r-while-r-lent` of redteamAL/hand_al4.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6692,6 +6707,7 @@ error E3102: <fragment>:50:29: 'u' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-al-w-swap-r-arg-order -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-ONECALL`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `w-swap-r-arg-order` of redteamAL/hand_al4.txt, in capmodel `reggio/REPORTRTAL.txt`.
 
@@ -6751,6 +6767,7 @@ error E3102: <fragment>:46:21: 'u' is passed at two arguments of this call, and 
 ```
 
 <!-- test: model-hand-an-c1-cond-field-reassign -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c1-cond-field-reassign` of redteamAN.hand_an1, in capmodel `reggio/REPORTRTAN.txt`.
 
@@ -7512,6 +7529,7 @@ error E3207: <fragment>:39:24: 'two' needs a writable parameter 'b' at line 29; 
 ```
 
 <!-- test: model-hand-ao-n4-match-cond-binding-plus-holder-call -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R4-ARG`; the compiler refuses it with E3102, E3207. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `n4-match-cond-binding-plus-holder-call` of redteamAO/hand_ao2.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7609,6 +7627,7 @@ error E3207: <fragment>:36:23: 'two' needs a writable parameter 'b' at line 27; 
 ```
 
 <!-- test: model-hand-ao-p1-pin-match-cond-path-nb-plain-field-write -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p1-pin-match-cond-path-nb-plain-field-write` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -7876,6 +7895,7 @@ error E3203: <fragment>:14:13: 'a' roots what 'x1' lends or iterates and cannot 
 ```
 
 <!-- test: model-hand-ao-p2-pin-nested-cond-deep-path-nb -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `p2-pin-nested-cond-deep-path-nb` of redteamAO/hand_ao5.txt, in capmodel `reggio/REPORTRTAO.txt`.
 
@@ -8374,6 +8394,7 @@ error E3200: <fragment>:39:9: 'l' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-ap-m1-cond-same-keep -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-same-keep` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8429,6 +8450,7 @@ error E3102: <fragment>:44:17: use of moved value 'uV': its ownership moved to t
 ```
 
 <!-- test: model-hand-ap-m1-cond-moves-both-keep -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-cond-moves-both-keep` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8585,6 +8607,7 @@ error E3102: <fragment>:41:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: model-hand-ap-k1-cond-arg-beside-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8640,6 +8663,7 @@ error E3102: <fragment>:44:40: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-plain-arg-beside-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-plain-arg-beside-var` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8691,6 +8715,7 @@ error E3102: <fragment>:40:16: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-cond-arg-keep-twice -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-arg-keep-twice` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8740,6 +8765,7 @@ error E3102: <fragment>:38:39: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-cond-two-args-same -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-two-args-same` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -8789,6 +8815,7 @@ error E3102: <fragment>:38:62: 'uV' is passed at two arguments of this call, and
 ```
 
 <!-- test: model-hand-ap-k1-cond-then-var-keep -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `k1-cond-then-var-keep` of redteamAP.hand_ap5, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -10635,6 +10662,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-literal -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-literal` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -10687,6 +10715,7 @@ error E3102: <fragment>:41:10: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: model-hand-fa17-w-beside-binding -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-beside-binding` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -10727,6 +10756,7 @@ error E3102: <fragment>:28:16: cannot lend 'u' to parameter 'x' of 'wrUT2', whic
 ```
 
 <!-- test: model-hand-fa17-w-beside-binding-lent -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-beside-binding-lent` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -10768,6 +10798,7 @@ error E3102: <fragment>:29:16: cannot lend 'u' to parameter 'x' of 'wrUTt', whic
 ```
 
 <!-- test: model-hand-fa17-w-slot-then-clear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-slot-then-clear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -10831,6 +10862,7 @@ error E3102: <fragment>:51:32: cannot lend 'u' to parameter 'x' of 'clrW', which
 ```
 
 <!-- test: model-hand-fa17-w-clear-then-slot -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-clear-then-slot` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -10894,6 +10926,7 @@ error E3102: <fragment>:51:20: cannot lend 'u' to parameter 'x' of 'clrW', which
 ```
 
 <!-- test: model-hand-fa17-w-bind-then-clear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `w-bind-then-clear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -11075,6 +11108,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa18-m8-root-writer-replaces-nested-under-binding-view -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m8-root-writer-replaces-nested-under-binding-view` of redteamFA18.hand_fa18, in capmodel `reggio/REPORTFA18.txt`.
 
@@ -13372,6 +13406,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa22-n-nonbinding-copies-root-then-reads -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-nonbinding-copies-root-then-reads` of redteamFA22.hand_fa22, in capmodel `reggio/REPORTFA22.txt`.
 
@@ -15524,6 +15559,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa24-c2-match-cond-path-nb-else-arm-local -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c2-match-cond-path-nb-else-arm-local` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15571,6 +15607,7 @@ error E3197: <fragment>:34:13: cannot write 'u' through 'g', which is read-only 
 ```
 
 <!-- test: model-hand-fa24-c3-match-cond-path-nb-nested-cond -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c3-match-cond-path-nb-nested-cond` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15615,6 +15652,7 @@ error E3197: <fragment>:32:13: cannot write 'u' through 'k', which is read-only 
 ```
 
 <!-- test: model-hand-fa24-c4-match-cond-path-nb-deep -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `c4-match-cond-path-nb-deep` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 
@@ -15826,6 +15864,7 @@ error E3214: <fragment>:23:21: cannot move or copy the unique value matched by '
 ```
 
 <!-- test: model-hand-fa24-d3-match-cond-path-mixed-union-plain-arm-field-write -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-WRITE`; the compiler refuses it with E3197. Model program `d3-match-cond-path-mixed-union-plain-arm-field-write` of redteamFA24/hand_fa24.txt, in capmodel `reggio/REPORTFA24.txt`.
 

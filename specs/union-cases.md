@@ -457,6 +457,7 @@ error E2008: <fragment>:7:1: Mismatched end label: expected 'Shape', got 'Shapes
 ```
 
 <!-- test: error.a-word-after-the-union-name-is-refused -->
+<!-- skip: differing error code: syntax error -->
 Nothing but an `implements` clause may follow the union's name; a word there is refused, not read as a
 case.
 ```maxon

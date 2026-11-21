@@ -29,14 +29,19 @@ What the conversion changes:
 - Files with no test (maxon's `AGENTS.md`) are left out.
 
 What the fix changes: `fix specs` checks the program of every test that is not skipped and does not expect a compile error
-(a ```` ```maxoncstderr ```` test is about a diagnostic), applies the change that each diagnostic's message names (a
+(a ```` ```maxoncstderr ```` test is about a diagnostic, and is only skipped for another code, below), applies the change that each diagnostic's message names (a
 `try ... otherwise panic(...)` around arithmetic or a cast that may fail, `as T` where an integer of another alias is
 needed, `.clone()` where a borrowed value would be moved, `consumes` on a parameter that is stored whole and cannot be
 copied, `mutates` on a parameter that is written, `mutates self` on a method that writes its receiver, `var` for a `let`
 that is changed), formats the block and checks again, until it is clean or what is left names no change. These are
 minimaxon's language differences (the repository's README, "Where it differs from Maxon"). A test that would need a
 `try` and expects a panic on stderr, maxon's run-time trap, is not rewritten: it gets a `<!-- skip: language difference:
-... -->` line instead. Prose and expectation blocks are not touched.
+... -->` line instead. A test that expects a compile error (and is not skipped) is compiled as the runner does, and when
+the first code its `maxoncstderr` block lists and the first code minimaxon reports are a pair of `codeSkipTable` in
+`self/driver/fix.maxon` it gets one skip line, and nothing else is changed: `language difference: ownership is refused by
+another rule` (E3102, E3223, E3224 or E3197 expected, where minimaxon refuses the move itself or a write through a `let`
+under E3900, E3919 or E2013), `differing error code: syntax error` (E2001 expected, E2010 reported) and `differing error
+code: operand types` (E2004 expected, E3005 reported). Prose and expectation blocks are not touched.
 
 `go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs` prints the tests converted cleanly and skipped, and
 the kinds of warning by the number of tests they block, most blocking first.
@@ -53,6 +58,7 @@ specs to; raise it when more pass.
 | 2026-11-21 | the commit that removed the Go compiler | 840 | 5390 | 11419 | 18.8 s |
 | 2026-11-21 | the fix command (`specs.ps1`) | 2251 | 3830 | 11568 | 25 s |
 | 2026-11-21 | a return converts an integer that the range analysis proves fits | 2264 | 3817 | 11568 | 37 s |
+| 2026-11-21 | tests that expect another code for a known reason are skipped | 2264 | 3450 | 11935 | 29 s |
 
 Of the skipped tests, 10719 are skipped by the conversion (`<!-- skip: kind -->`, 368 of them the main-in-a-subdirectory
 difference) and 700 by the runner (508 `tier`, the rest directives, overlays and result blocks it cannot honour yet).
@@ -60,7 +66,8 @@ The failed tests are mostly the stdlib that is not ported (1,064), and the rules
 maxon: an `Integer` returned where an `ExitCode` is declared and not proved to fit (the fix writes a `try`), arithmetic that needs a proof or a `try`, implicit copies, `let`
 mutability, interfaces as types, and diagnostics that minimaxon has no code for or words differently.
 
-Since the fix, 123 more tests are skipped for maxon's run-time trap, and of the four rules above only what names no change
+Since the fix, 123 more tests are skipped for maxon's run-time trap and 367 for the code that they expect (285 ownership,
+43 syntax error, 39 operand types), and of the four rules above only what names no change
 is left: a move out of a borrowed value whose type has a destructor or is a type parameter (E3900), a change of a match
 binding that borrows its subject (E2013), and the moves that `consumes` makes visible to a caller (E3102). The stdlib
 (E3004, E3011) and interfaces as types (E3905) remain the largest groups.

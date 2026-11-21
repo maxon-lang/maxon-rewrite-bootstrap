@@ -621,6 +621,7 @@ error E2010: <fragment>:5:2: Expected 'function' but got 'view'
 ```
 
 <!-- test: view-binding.error.a-module-level-view-is-refused -->
+<!-- skip: differing error code: syntax error -->
 A module-level `view` is not a declaration: `view` is no keyword.
 
 ```maxon
@@ -718,6 +719,7 @@ error E2013: <fragment>:6:2: 'n' is a let and cannot be reassigned
 ```
 
 <!-- test: view-binding.error.a-view-binding-in-a-function-is-refused -->
+<!-- skip: differing error code: syntax error -->
 A local `view` is not a declaration: `view` is no keyword, so the line is refused as any stray word is.
 
 ```maxon

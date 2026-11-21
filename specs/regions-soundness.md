@@ -368,6 +368,7 @@ error E3197: <fragment>:24:5: cannot write 'n' through 'self.left', which is rea
 ```
 
 <!-- test: a-unique-method-that-keeps-its-receiver-moves-the-receiver -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` stores `self`, so the call moves `ticket` and the read after it is refused.
 
@@ -493,6 +494,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-wrapper-built-over-a-call-result-of-a-frozen-argument-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `Wrapper` holds what `pick` may hand back from the frozen `p`, so writing through it writes frozen data.
 

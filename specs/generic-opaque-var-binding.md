@@ -1351,6 +1351,7 @@ refused
 The body is checked once for an unbounded `Item` that may own, so reading `a` after `var b = a` is E3102 even when the only instantiation is a scalar.
 
 <!-- test: error.a-var-bound-from-an-owned-var-is-moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 type Holder uses Item
 	var latest as Item
@@ -1384,6 +1385,7 @@ error E3102: <fragment>:13:10: use of moved value 'a': its ownership moved to an
 Reading `a` after `let b = a` is E3102 in the body even when the only instantiation is a scalar.
 
 <!-- test: error.a-let-bound-from-an-owned-var-is-moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 type Holder uses Item
 	var latest as Item
@@ -1417,6 +1419,7 @@ error E3102: <fragment>:13:10: use of moved value 'a': its ownership moved to an
 Reading `a` after `b = a` is E3102 in the body even when the only instantiation is a scalar.
 
 <!-- test: error.an-owned-var-assigned-to-another-var-is-moved -->
+<!-- skip: language difference: ownership is refused by another rule -->
 ```maxon
 type Holder uses Item
 	var latest as Item

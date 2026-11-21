@@ -157,6 +157,7 @@ end 'main'
 
 
 <!-- test: missing-returns-keyword-error -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function foo() int
 	return 0

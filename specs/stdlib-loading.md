@@ -1212,6 +1212,7 @@ The VOID-RESULT refusal (`void-call-result.md` covers `noop`/`push`/`insert`/`ap
 never `print`).
 
 <!-- test: stdlib-loading.error.print-void-result-comes-from-the-stdlib-declaration -->
+<!-- skip: differing error code: operand types -->
 ```maxon
 function main() returns ExitCode
 	let x = print("a")

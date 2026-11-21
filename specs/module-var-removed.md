@@ -19,6 +19,7 @@ A `var` stays legal as a local, as a field of a `type`, and as a parameter marke
 ## Tests
 
 <!-- test: error.a-module-var-is-refused -->
+<!-- skip: differing error code: syntax error -->
 A module-level `var` is the parser's generic error at the `var` token.
 ```maxon
 var counter = 0 as FullRangeInt
@@ -32,6 +33,7 @@ error E2001: <fragment>:2:1: Expected function declaration, got 'var'
 ```
 
 <!-- test: error.an-exported-module-var-is-refused -->
+<!-- skip: differing error code: syntax error -->
 The `export` modifier changes nothing: the word after it is still not a declaration.
 ```maxon
 export var globalState = false

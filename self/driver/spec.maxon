@@ -32,6 +32,12 @@ let stderrFence = "stderr"
 
 let compilerErrorFence = "maxoncstderr"
 
+// A listed error of a maxoncstderr block starts with "error " and its code, as CompileError.format writes it.
+let errorLinePrefix = "error "
+
+// The length of a diagnostic code such as E3102.
+let diagnosticCodeWidth = 5 as Count
+
 let proseFences = "text"
 
 let traceFences = "-trace"
@@ -874,18 +880,40 @@ function runSpecTest(mutates shared SharedRuntime, work SpecWork, text String, s
 	let source = text.sliceBytes(test.sourceStart, endPos: test.sourceFinish)
 	let sections = splitSections(source)
 	var errs = diag.ErrorList.create(0)
-	if sections.count() == 0 'single'
-		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
-		compileSourceWith(shared, path: fragmentToken, text: fragment, output: work.exe, options: testOptions(), errs: errs)
-	end 'single' else 'project'
-		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: work.exe, options: testOptions(), errs: errs)
-	end 'project'
+	compileSpecSource(shared, work: work, test: test, source: source, sections: sections, errs: errs)
 	let result = checkSpecTest(test, text: text, stem: stem, errs: errs, work: work, sections: sections)
 	if errs.count() == 0 and result.outcome != TestOutcome.testUnsupported 'built'
 		deleteExecutable(work.exe)
 	end 'built'
 	return result
 end 'runSpecTest'
+
+// compileSpecSource compiles the maxon block of a test, split into sections, as the runner does: a fragment under maxon's
+// header line, or the files of a multi-file block. An executable is made at the work's when there is no error.
+function compileSpecSource(mutates shared SharedRuntime, work SpecWork, test SpecTest, source String, sections SourceSections, mutates errs diag.ErrorList)
+	if sections.count() == 0 'single'
+		let fragment = "{fragmentHeader}{test.name}\n{source}\n"
+		compileSourceWith(shared, path: fragmentToken, text: fragment, output: work.exe, options: testOptions(), errs: errs)
+	end 'single' else 'project'
+		compileFilesWith(shared, path: projectRoot, files: sectionFiles(sections), output: work.exe, options: testOptions(), errs: errs)
+	end 'project'
+end 'compileSpecSource'
+
+// expectedFirstCode is the code of the first error that the test's maxoncstderr block lists, or nothing when the test
+// expects no compile error.
+function expectedFirstCode(test SpecTest, text String) returns table.Option with String
+	let expected = fenceText(test, text: text, base: compilerErrorFence)
+	if not expected.isSome() 'none'
+		return table.Option.none
+	end 'none'
+	let block = trimSpace(expected.unwrap())
+	let start = errorLinePrefix.byteLength()
+	let finish = try start + diagnosticCodeWidth otherwise return table.Option.none
+	if not hasPrefix(block, prefix: errorLinePrefix) or block.byteLength() < finish 'unlisted'
+		return table.Option.none
+	end 'unlisted'
+	return table.Option.some(block.sliceBytes(start, endPos: finish))
+end 'expectedFirstCode'
 
 // checkSpecTest is whether a compile that gave errs, and the executable at the work's when it gave none, is what the
 // result blocks of the test say.

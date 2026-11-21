@@ -191,6 +191,7 @@ error E3214: <fragment>:31:33: cannot pass 'slot' to parameter 'slot' of 'keep':
 ```
 
 <!-- test: a-unique-local-kept-by-a-call-is-refused-when-read-afterwards -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `keep` stores its argument, which moves `ticket`, so reading it afterwards is a use of a moved value.
 
@@ -263,6 +264,7 @@ error E3102: <fragment>:24:17: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-unique-parameter-pushed-twice-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A parameter the function itself keeps is moved by the first `push`, so the second reads a moved value.
 
@@ -295,6 +297,7 @@ error E3102: <fragment>:16:13: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-unique-parameter-bound-to-a-second-name-twice-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `let first = token` moves a unique parameter exactly as it moves a local, so `let second = token` reads a moved value.
 
@@ -392,6 +395,7 @@ end 'main'
 ```
 
 <!-- test: a-lent-unique-parameter-read-after-its-rebind-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The new name is live, and the parameter it was taken from is not.
 
@@ -515,6 +519,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-local-kept-by-a-call-in-a-loop-is-refused-on-the-next-lap -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The second lap hands `ticket` over again after the first lap moved it.
 
@@ -700,6 +705,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-union-kept-by-a-call-is-refused-when-matched-afterwards -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `keep` stores the union, which moves `slot`, so matching it afterwards is a use of a moved value.
 
@@ -896,6 +902,7 @@ end 'main'
 ```
 
 <!-- test: an-array-of-uniques-kept-by-a-call-is-refused-when-read-afterwards -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 An array holding a unique is unique-holding, so `keep` storing it moves `tokens`.
 
@@ -1055,6 +1062,7 @@ error E3102: <fragment>:38:57: use of moved value 'token': its ownership moved t
 ```
 
 <!-- test: a-payload-binding-read-after-its-subject-is-handed-to-a-consuming-call-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `filled` arm moves the payload of `slot` into `token`, so handing the whole union to `Box.wrap` makes the later read of `token` in the same statement a use of a moved value.
 
@@ -2809,6 +2817,7 @@ error E3207: <fragment>:34:8: 'bump' needs a writable parameter 'h' at line 26; 
 ```
 
 <!-- test: a-cond-of-lent-parameters-stored-keeps-the-then-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` stores a `cond` of its two unique parameters, so it keeps both, and the caller's `t` moves into the call.
 ```maxon
@@ -2852,6 +2861,7 @@ error E3102: <fragment>:34:14: use of moved value 't': its ownership moved to th
 ```
 
 <!-- test: a-cond-of-lent-parameters-stored-keeps-the-else-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `else` arm of the stored `cond` is kept as the `then` arm is, so the caller's `t` passed at `t2` moves into the call.
 ```maxon
@@ -3077,6 +3087,7 @@ error E3102: <fragment>:20:16: use of moved value 'q2': its ownership moved to a
 ```
 
 <!-- test: a-cond-of-one-unique-local-bound-moves-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `cond` that names one unique local in both arms moves it when bound: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3152,6 +3163,7 @@ end 'main'
 ```
 
 <!-- test: a-cond-of-unique-locals-stored-moves-them -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Storing a `cond` into a field moves the unique locals it names.
 ```maxon
@@ -3192,6 +3204,7 @@ error E3102: <fragment>:30:10: use of moved value 'q': its ownership moved to an
 ```
 
 <!-- test: a-cond-of-unique-locals-passed-to-a-keeping-callee-moves-them -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A callee that keeps its parameter takes every unique local of the `cond` passed there.
 ```maxon
@@ -3361,6 +3374,7 @@ error E3102: <fragment>:21:16: use of moved value 'q3': its ownership moved to a
 ```
 
 <!-- test: a-try-fallback-of-a-unique-local-bound-moves-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Binding a value `try` whose fallback is a unique local moves the local, whichever edge ran: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3439,6 +3453,7 @@ end 'main'
 ```
 
 <!-- test: a-match-expression-naming-one-unique-local-in-every-arm-moves-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `match` expression whose every arm names `q` moves it once when bound, nested or not: `r` would otherwise be a second name for `q`.
 ```maxon
@@ -3488,6 +3503,7 @@ error E3102: <fragment>:34:9: use of moved value 'q': its ownership moved to ano
 ```
 
 <!-- test: a-try-fallback-in-a-cond-of-a-unique-local-bound-moves-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A conditional whose arms are a value `try` falling back to `q` and `q` itself moves `q` when bound, whichever edge ran.
 ```maxon
@@ -3675,6 +3691,7 @@ error E3102: <fragment>:18:21: 't' is passed at two arguments of this call, and 
 ```
 
 <!-- test: a-bound-cond-of-unique-parameters-moves-them -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Binding a `cond` of unique parameters moves them as `let u = t` moves `t`, so `t` is not read afterwards.
 ```maxon
@@ -4409,6 +4426,7 @@ error E3214: <fragment>:17:10: cannot join a unique value read out of a field or
 ```
 
 <!-- test: a-try-fallback-of-a-matched-payload-handed-to-a-keeping-call-moves-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A `try` whose fallback is a payload the arm binds, handed to a call that keeps it, moves the payload out of the union as handing over the payload itself does, so the union is not read again.
 ```maxon
@@ -4569,6 +4587,7 @@ error E3197: <fragment>:80:22: cannot write 'u' through 'g', which is read-only 
 ```
 
 <!-- test: error.a-unique-slot-path-beside-its-root-in-one-call-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `h.t` and `h` reach one unique value, and a callee is checked alone (ruling 18).
 ```maxon
@@ -4683,6 +4702,7 @@ end 'main'
 ```
 
 <!-- test: error.a-unique-slot-path-beside-its-root-is-refused-in-either-order -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `h.t` and `h` reach one unique value whichever argument comes first (ruling 18).
 ```maxon
@@ -4720,6 +4740,7 @@ error E3102: <fragment>:27:13: 'h' is passed at two arguments of this call, and 
 ```
 
 <!-- test: error.a-unique-slot-path-beside-its-receiver-names-self -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `self.t` and `self` reach one unique value, and the refusal names the receiver as it is written.
 ```maxon

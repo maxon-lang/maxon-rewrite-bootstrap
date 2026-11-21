@@ -621,6 +621,7 @@ error E3223: <fragment>:24:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-linear-value-left-by-an-early-return-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -660,6 +661,7 @@ error E3223: <fragment>:23:3: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-linear-value-left-by-a-throw-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -702,6 +704,7 @@ error E3223: <fragment>:27:3: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-linear-value-left-by-a-propagating-try-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -748,6 +751,7 @@ error E3223: <fragment>:32:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: overwriting-a-live-linear-variable-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -781,6 +785,7 @@ error E3223: <fragment>:23:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: discarding-a-linear-value-with-let-underscore-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -912,6 +917,7 @@ error E3102: <fragment>:24:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: a-finalizer-called-twice-on-a-parameter-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1221,6 +1227,7 @@ error E3214: <fragment>:23:10: 'Resp' is unique and cannot be cloned
 ```
 
 <!-- test: a-linear-value-is-refused-in-a-field -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1266,6 +1273,7 @@ error E3224: <fragment>:22:6: the field 'r' holds a linear value, and a linear v
 ```
 
 <!-- test: a-union-carrying-a-linear-value-is-refused-in-a-field -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1315,6 +1323,7 @@ error E3224: <fragment>:27:6: the field 'slot' holds a linear value, and a linea
 ```
 
 <!-- test: a-linear-value-is-refused-as-a-type-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1349,6 +1358,7 @@ error E3224: <fragment>:21:11: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-linear-value-is-refused-as-a-type-argument-of-an-instance-written-inline -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1819,6 +1829,7 @@ error E3223: <fragment>:33:26: a linear value is live across this wait: a wait m
 ```
 
 <!-- test: a-linear-temporary-live-at-a-throw-point-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1870,6 +1881,7 @@ error E3223: <fragment>:39:26: this drops a linear value that was never consumed
 ```
 
 <!-- test: a-linear-temporary-nobody-consumes-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2020,6 +2032,7 @@ error E3223: <fragment>:37:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: a-match-arm-that-leaves-the-linear-payload-unconsumed-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2063,6 +2076,7 @@ error E3223: <fragment>:28:3: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-match-arm-that-binds-no-name-for-a-linear-payload-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2106,6 +2120,7 @@ error E3224: <fragment>:28:3: the case 'some' carries the linear value 'r', and 
 ```
 
 <!-- test: a-default-arm-cannot-cover-a-case-with-a-linear-payload -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3401,6 +3416,7 @@ error E3224: <fragment>:22:11: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-generic-record-instance-inferred-from-a-linear-argument-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3484,6 +3500,7 @@ error E3005: <fragment>:24:35: Cannot return 'Resp' from function declared to re
 ```
 
 <!-- test: a-linear-argument-to-a-generic-function-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Each copy of a generic function is checked against its concrete type, but a linear type argument is refused at the call for the reason a written one is: no generic holds a linear value.
 ```maxon
@@ -3895,6 +3912,7 @@ error E3224: <fragment>:44:25: a `spawn` takes no linear argument: a factory tha
 ```
 
 <!-- test: cond-over-two-linear-locals-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The conditional expression moves `a` in one arm and `b` in the other, so each path drops the local its arm did not name, and the drop is reported at the conditional.
 ```maxon
@@ -4157,6 +4175,7 @@ error E3102: <fragment>:39:2: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: a-cond-of-one-linear-local-lent-to-a-method-call-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The conditional moves `a` even when its value is only lent: the merged value is a temporary the method call borrows and nothing consumes.
 ```maxon
@@ -4194,6 +4213,7 @@ error E3223: <fragment>:23:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: a-cond-naming-a-linear-local-in-one-arm-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Only the first arm names `a`, so the path through the other arm drops it: the verdict an `if` gets when one branch consumes a linear local (`a-branch-consuming-a-linear-local-in-one-arm-is-refused`).
 ```maxon
@@ -4227,6 +4247,7 @@ error E3223: <fragment>:19:12: this drops a linear value that was never consumed
 ```
 
 <!-- test: a-branch-consuming-a-linear-local-in-one-arm-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `if` form of `a-cond-naming-a-linear-local-in-one-arm-is-refused`: the `else` branch drops `a`.
 ```maxon
@@ -4263,6 +4284,7 @@ error E3223: <fragment>:20:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: a-try-fallback-naming-a-linear-local-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A value `try`'s fallback names `a` and its call arm does not, alone or as the arm of a conditional, so the path where the call succeeds drops `a`: the rule `a-cond-naming-a-linear-local-in-one-arm-is-refused` follows.
 ```maxon
@@ -4315,6 +4337,7 @@ error E3223: <fragment>:37:11: this drops a linear value that was never consumed
 ```
 
 <!-- test: a-linear-local-a-try-fallback-moved-is-refused-after-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The value `try` moved `a` into its result, so finalizing `a` afterwards is a use after the move: the record is finalized once.
 ```maxon
@@ -4360,6 +4383,7 @@ error E3102: <fragment>:33:2: use of moved value 'a': its ownership moved to ano
 ```
 
 <!-- test: a-break-out-of-a-loop-with-a-live-linear-value-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -4397,6 +4421,7 @@ error E3223: <fragment>:26:4: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: a-continue-past-a-live-linear-value-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -4534,6 +4559,7 @@ fin 1
 ```
 
 <!-- test: a-consuming-method-that-never-consumes-its-receiver-names-self -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -5169,6 +5195,7 @@ nothing
 ```
 
 <!-- test: overwriting-a-variable-that-holds-the-linear-case-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `m` holds `Maybe.some`, which carries a `Resp` nobody consumed, so assigning it again drops that value.
 ```maxon
@@ -5210,6 +5237,7 @@ error E3223: <fragment>:31:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: overwriting-a-variable-that-holds-the-linear-case-on-one-path-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `if` leaves `m` holding the linear case on one path, so the assignment after it can drop a `Resp`.
 ```maxon
@@ -5258,6 +5286,7 @@ error E3223: <fragment>:40:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: overwriting-a-variable-bound-to-a-call-result-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A call's result may hold the linear case, so overwriting the variable it was bound to is a drop.
 ```maxon
@@ -5612,6 +5641,7 @@ fin 1
 ```
 
 <!-- test: a-union-refilled-in-only-one-arm-is-consumed-on-the-other -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Only the `some` arm refills `m`, so reading it after the match is a use of the union the `nothing` arm consumed.
 ```maxon
@@ -5661,6 +5691,7 @@ error E3102: <fragment>:42:9: use of moved value 'm': its ownership moved to ano
 ```
 
 <!-- test: an-arm-that-refills-the-union-without-consuming-its-payload-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `some` arm binds `r` and drops it: refilling `m` does not consume the payload.
 ```maxon
@@ -5761,6 +5792,7 @@ fin 9
 ```
 
 <!-- test: a-loop-refills-the-union-it-matched-in-only-one-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Only the `some` arm refills `m`, so the `nothing` arm leaves it consumed at the end of the lap.
 ```maxon
@@ -5812,6 +5844,7 @@ error E3102: <fragment>:38:9: use of moved value 'm': it was moved in an earlier
 ```
 
 <!-- test: a-loop-continues-before-refilling-the-union-it-matched -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The `continue` leaves the lap with `m` consumed, and the refill below it is skipped.
 ```maxon
@@ -5981,6 +6014,7 @@ fin 9
 ```
 
 <!-- test: a-while-loop-refills-the-union-it-matched-in-only-one-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Only the `some` arm refills `m`, so the `nothing` arm leaves it consumed at the end of the lap.
 ```maxon
@@ -6093,6 +6127,7 @@ fin 9
 ```
 
 <!-- test: a-nested-loop-refills-the-union-it-matched-in-only-one-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The inner loop's `nothing` arm leaves `m` consumed when the lap ends.
 ```maxon
@@ -6527,6 +6562,7 @@ error E3102: <fragment>:13:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: a-finalizer-writes-nothing-of-its-receiver-after-destruct -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A field write through the receiver is a use of it.
 ```maxon

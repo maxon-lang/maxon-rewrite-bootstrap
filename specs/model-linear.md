@@ -706,6 +706,7 @@ error E3224: <fragment>:30:3: the case 'a1' carries the linear value 'b', and th
 ```
 
 <!-- test: model-finding-ae-union-method-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `union-method-plain` of redteamAE/p11.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1050,6 +1051,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-linear-union-method-self-twice -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `linear-union-method-self-twice` of redteamAE/p23.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1092,6 +1094,7 @@ error E3224: <fragment>:9:4: this linear value is only lent to this code (a para
 ```
 
 <!-- test: model-finding-ae-record-method-linear-self-field-via-match -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `record-method-linear-self-field-via-match` of redteamAE/p23.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1615,6 +1618,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-varpayload-plain-param-twice -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `varpayload-plain-param-twice` of redteamAE/p7.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -1837,6 +1841,7 @@ end 'main'
 ```
 
 <!-- test: model-finding-ae-array-linear-inferred -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `array-linear-inferred` of redteamAE/p9.txt, in capmodel `reggio/REPORTRTAE.txt`.
 
@@ -2310,6 +2315,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-fin-arg-other-dropped -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m-fin-arg-other-dropped` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2574,6 +2580,7 @@ error E3102: <fragment>:17:12: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ab-u-nested-union-dropped -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-nested-union-dropped` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2620,6 +2627,7 @@ error E3224: <fragment>:35:3: the case 'a' carries the linear value 's', and thi
 ```
 
 <!-- test: model-hand-ab-u-array-of-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `u-array-of-union` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2704,6 +2712,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-union-method-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `u-union-method-drop` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2746,6 +2755,7 @@ error E3223: <fragment>:32:2: this drops 'w', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-u-match-in-loop-break -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-match-in-loop-break` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2837,6 +2847,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-match-scrut-expr-bare -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-match-scrut-expr-bare` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2928,6 +2939,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-match-param-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `u-match-param-drop` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3070,6 +3082,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-u-union-two-payloads-one -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `u-union-two-payloads-one` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3624,6 +3637,7 @@ error E3209: <fragment>:22:9: a return does not fit the declared result: 'Resp.c
 ```
 
 <!-- test: model-hand-ab-min-temp-receiver -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `min-temp-receiver` of redteamAB.hand_ab10, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3660,6 +3674,7 @@ error E3223: <fragment>:26:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ab-min-temp-field -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `min-temp-field` of redteamAB.hand_ab10, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3692,6 +3707,7 @@ error E3223: <fragment>:22:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ab-min-discard-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `min-discard-var` of redteamAB.hand_ab10, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3725,6 +3741,7 @@ error E3223: <fragment>:24:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-s-slot-param-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-var` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3762,6 +3779,7 @@ error E3224: <fragment>:22:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-var-after -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-var-after` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3801,6 +3819,7 @@ error E3224: <fragment>:28:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-refill -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-refill` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -3840,6 +3859,7 @@ error E3224: <fragment>:22:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ab-s-slot-param-two -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3102, E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-slot-param-two` of redteamAB.hand_ab12, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4306,6 +4326,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-f-while-break-after-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `f-while-break-after-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4383,6 +4404,7 @@ error E3102: <fragment>:28:3: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ab-f-while-cond-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `f-while-cond-consume` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4543,6 +4565,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-f-loop-continue-before-consume-else -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `f-loop-continue-before-consume-else` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -4587,6 +4610,7 @@ error E3223: <fragment>:31:4: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-f-match-arm-in-loop-continue -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `f-match-arm-in-loop-continue` of redteamAB.hand_ab3, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5415,6 +5439,7 @@ error E3214: <fragment>:32:17: 'Sent' is unique (its field 'r' holds a unique 'R
 ```
 
 <!-- test: model-hand-ab-s-reassign-after-move-in-branch -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-reassign-after-move-in-branch` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5498,6 +5523,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-consume-in-branch-refill-after -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-consume-in-branch-refill-after` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5539,6 +5565,7 @@ error E3223: <fragment>:27:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ab-s-conditional-move-then-assign -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-conditional-move-then-assign` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5622,6 +5649,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-two-vars-aliased-by-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-two-vars-aliased-by-union` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5713,6 +5741,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-shadow-in-nested-block-both-consumed-by-name -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-shadow-in-nested-block-both-consumed-by-name` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5836,6 +5865,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-two-scopes-same-name-sequence -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-two-scopes-same-name-sequence` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5878,6 +5908,7 @@ error E3223: <fragment>:32:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-r-temp-union-field -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `r-temp-union-field` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5919,6 +5950,7 @@ error E3223: <fragment>:30:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ab-r-temp-as-arg-peek -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `r-temp-as-arg-peek` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6023,6 +6055,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-d-let-underscore-passr -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `d-let-underscore-passR` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6060,6 +6093,7 @@ error E3223: <fragment>:28:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-d-cond-var-fresh -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `d-cond-var-fresh` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6094,6 +6128,7 @@ error E3223: <fragment>:23:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ab-d-two-args-same -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `d-two-args-same` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6169,6 +6204,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-d-assign-from-other -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `d-assign-from-other` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6276,6 +6312,7 @@ error E3102: <fragment>:24:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ab-d-param-alias-callee -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `d-param-alias-callee` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6370,6 +6407,7 @@ error E3102: <fragment>:29:11: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ab-d-consume-in-cond-expr -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `d-consume-in-cond-expr` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6407,6 +6445,7 @@ error E3223: <fragment>:27:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ab-d-cond-throw-arm-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `d-cond-throw-arm-consume` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6448,6 +6487,7 @@ error E3223: <fragment>:31:27: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ab-d-cond-arm-moves-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `d-cond-arm-moves-var` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6490,6 +6530,7 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ab-d-cond-arm-moves-var-handled -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `d-cond-arm-moves-var-handled` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6774,6 +6815,7 @@ error E3102: <fragment>:15:12: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ab-fz-finalizer-fields-linear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `fz-finalizer-fields-linear` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -8391,6 +8433,7 @@ error E3224: <fragment>:43:5: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-ub-while-cond-temp -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-while-cond-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8434,6 +8477,7 @@ error E3223: <fragment>:31:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-union-nonlinear-from-temp -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-union-nonlinear-from-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8475,6 +8519,7 @@ error E3223: <fragment>:31:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-cond-cond-arms -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-cond-cond-arms` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8664,6 +8709,7 @@ error E3223: <fragment>:34:19: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ac-ub-new-operand-temp -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-new-operand-temp` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8751,6 +8797,7 @@ error E3223: <fragment>:29:3: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-ub-return-temp-receiver -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `ub-return-temp-receiver` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8838,6 +8885,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-ub-array-of-linear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `ub-array-of-linear` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8873,6 +8921,7 @@ error E3224: <fragment>:3:11: 'Resp' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ac-ub-array-of-linear-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `ub-array-of-linear-union` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8913,6 +8962,7 @@ error E3224: <fragment>:3:11: 'Sent' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ac-wc-underscore-binding -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-binding` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -8958,6 +9008,7 @@ error E3224: <fragment>:34:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ac-wc-underscore-binding-two -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `wc-underscore-binding-two` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9067,6 +9118,7 @@ error E3224: <fragment>:37:4: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-wc-underscore-let -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-underscore-let` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9099,6 +9151,7 @@ error E3223: <fragment>:23:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-wc-underscore-let-call -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-underscore-let-call` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9170,6 +9223,7 @@ error E3223: <fragment>:24:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-wc-underscore-let-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-underscore-let-union` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9346,6 +9400,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-wc-match-arm-assign-scrutinee-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `wc-match-arm-assign-scrutinee-var` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9395,6 +9450,7 @@ error E3102: <fragment>:36:8: use of moved value 's': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-wc-match-var-arm-refill-path -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `wc-match-var-arm-refill-path` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9542,6 +9598,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-wc-match-on-param-union-linear-returned-dropped -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-match-on-param-union-linear-returned-dropped` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -9590,6 +9647,7 @@ error E3223: <fragment>:39:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-wc-return-in-arm-leaves-other-payload -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `wc-return-in-arm-leaves-other-payload` of redteamAC.hand_ac11, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -11337,6 +11395,7 @@ error E3102: <fragment>:36:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-min-h1-control-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `min-h1-control-plain` of redteamAC.hand_ac20, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12466,6 +12525,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-cond-fresh-and-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `cond-fresh-and-var` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12706,6 +12766,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-sh-match-payload-shadow-outer-moved-inside -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `sh-match-payload-shadow-outer-moved-inside` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12862,6 +12923,7 @@ error E3223: <fragment>:42:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-sh-loop-body-continue -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `sh-loop-body-continue` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -12946,6 +13008,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-sh-param-shadow-let -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `sh-param-shadow-let` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13060,6 +13123,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-un-two-linear-payloads-one-consumed -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `un-two-linear-payloads-one-consumed` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13206,6 +13270,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-un-nested-wrap-arm-ignores -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `un-nested-wrap-arm-ignores` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13259,6 +13324,7 @@ error E3224: <fragment>:38:3: the case 'o' carries the linear value 's', and thi
 ```
 
 <!-- test: model-hand-ac-un-match-twice-same-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `un-match-twice-same-var` of redteamAC.hand_ac6, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13450,6 +13516,7 @@ error E3196: <fragment>:28:23: cannot store an isolated 'Resp' into 'Sent.notSen
 ```
 
 <!-- test: model-hand-ac-ul-union-literal-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `ul-union-literal-plain` of redteamAC.hand_ac7, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13862,6 +13929,7 @@ error E3102: <fragment>:28:18: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ac-gh-loopbrk-then-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `gh-loopbrk-then-drop` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13942,6 +14010,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-rec-mutual-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-mutual-plain` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -13988,6 +14057,7 @@ error E3102: <fragment>:36:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-self-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-self-plain` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14074,6 +14144,7 @@ error E3102: <fragment>:32:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-chain-plain -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-chain-plain` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14176,6 +14247,7 @@ error E3102: <fragment>:40:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-rec-forward-ref -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `rec-forward-ref` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14217,6 +14289,7 @@ error E3102: <fragment>:23:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ac-lp-break-skips-refill -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `lp-break-skips-refill` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14383,6 +14456,7 @@ error E3102: <fragment>:24:3: use of moved value 'r': it was moved in an earlier
 ```
 
 <!-- test: model-hand-ac-lp-while-true-consumes-break -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `lp-while-true-consumes-break` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14419,6 +14493,7 @@ error E3223: <fragment>:23:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ac-lp-while-true-consume-after -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `lp-while-true-consume-after` of redteamAC.hand_ac8, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -14784,6 +14859,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-wrap-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `n-wrap-drop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14838,6 +14914,7 @@ error E3223: <fragment>:45:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-n-wrap-twice -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-wrap-twice` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14908,6 +14985,7 @@ error E3102: <fragment>:60:7: use of moved value 'w': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-wrap-match-leak-payload -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-wrap-match-leak-payload` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -14966,6 +15044,7 @@ error E3224: <fragment>:47:3: the case 'w1' carries the linear value 's', and th
 ```
 
 <!-- test: model-hand-ad-n-wrap-match-s-and-w -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-wrap-match-s-and-w` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15039,6 +15118,7 @@ error E3102: <fragment>:63:7: use of moved value 'w': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-n-two-pair -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-two-pair` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15088,6 +15168,7 @@ error E3224: <fragment>:38:3: the case 'pair' carries the linear value 'b', and 
 ```
 
 <!-- test: model-hand-ad-c-break-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-break-drop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15136,6 +15217,7 @@ error E3223: <fragment>:34:4: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-c-continue-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-continue-drop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15184,6 +15266,7 @@ error E3223: <fragment>:35:4: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-c-return-in-loop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-return-in-loop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15280,6 +15363,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-c-loop-consume-outer -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-loop-consume-outer` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15371,6 +15455,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-c-loop-refill-break-before -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-loop-refill-break-before` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15420,6 +15505,7 @@ error E3223: <fragment>:32:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ad-c-loop-refill-break-after-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-loop-refill-break-after-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15470,6 +15556,7 @@ error E3102: <fragment>:40:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-c-loop-refill-cond -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-loop-refill-cond` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15559,6 +15646,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-c-if-one-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-if-one-arm` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15602,6 +15690,7 @@ error E3223: <fragment>:31:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ad-c-nested-if -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `c-nested-if` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15653,6 +15742,7 @@ error E3223: <fragment>:38:3: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ad-c-while-cond-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-while-cond-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15701,6 +15791,7 @@ error E3102: <fragment>:36:13: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-c-while-cond-consume-once -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-while-cond-consume-once` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15753,6 +15844,7 @@ error E3102: <fragment>:37:13: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-c-if-cond-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `c-if-cond-consume` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15847,6 +15939,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-s-shadow-drop-inner -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-shadow-drop-inner` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15891,6 +15984,7 @@ error E3223: <fragment>:33:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-s-overwrite -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-overwrite` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -15975,6 +16069,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-s-overwrite-in-if -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `s-overwrite-in-if` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16111,6 +16206,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-s-let-from-var -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-let-from-var` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16154,6 +16250,7 @@ error E3102: <fragment>:33:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-s-alias-in-if -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-alias-in-if` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16199,6 +16296,7 @@ error E3102: <fragment>:35:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ad-s-alias-in-loop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `s-alias-in-loop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16245,6 +16343,7 @@ error E3102: <fragment>:33:11: use of moved value 'r': it was moved in an earlie
 ```
 
 <!-- test: model-hand-ad-s-assign-alias -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3102. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `s-assign-alias` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16502,6 +16601,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-o-cond-new-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `o-cond-new-drop` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16542,6 +16642,7 @@ error E3223: <fragment>:31:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ad-o-cond-var-fresh -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `o-cond-var-fresh` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16584,6 +16685,7 @@ error E3223: <fragment>:31:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ad-o-iter-array -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-WHERE`; the compiler refuses it with E3224. Model program `o-iter-array` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16894,6 +16996,7 @@ error E3102: <fragment>:14:13: use of moved value 'self': it was moved in an ear
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-field-write-after -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-field-write-after` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17441,6 +17544,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-arm-name-is-scrutinee-after -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `n-arm-name-is-scrutinee-after` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17540,6 +17644,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-n-arm-name-is-outer-linear-drop -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `n-arm-name-is-outer-linear-drop` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17587,6 +17692,7 @@ error E3224: <fragment>:35:3: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-n-arm-name-is-outer-linear-use-outer -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `n-arm-name-is-outer-linear-use-outer` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17633,6 +17739,7 @@ error E3223: <fragment>:33:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-ad-j-break-in-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-break-in-arm` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -17686,6 +17793,7 @@ error E3224: <fragment>:40:4: the case 'notSent' carries the linear value 'r', a
 ```
 
 <!-- test: model-hand-ad-j-return-in-arm -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3224. Model program `j-return-in-arm` of redteamAD.hand_ad4, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -30773,6 +30881,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ap-m1-arms-finalize-different -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m1-arms-finalize-different` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30829,6 +30938,7 @@ error E3223: <fragment>:46:19: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ap-m1-arms-finalize-one-names-other -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m1-arms-finalize-one-names-other` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30884,6 +30994,7 @@ error E3223: <fragment>:45:19: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ap-m1-arms-finalize-one-names-other-b -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m1-arms-finalize-one-names-other-b` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30939,6 +31050,7 @@ error E3223: <fragment>:45:19: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-ap-m1-arms-finalize-one-names-other-c -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m1-arms-finalize-one-names-other-c` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -30995,6 +31107,7 @@ error E3102: <fragment>:46:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ap-m1-cond-loop-linear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m1-cond-loop-linear` of redteamAP.hand_ap4, in capmodel `reggio/REPORTRTAP.txt`.
 
@@ -31507,6 +31620,7 @@ error E3223: <fragment>:12:3: this drops a linear value that was never consumed:
 ```
 
 <!-- test: model-hand-fa14-l-param-dropped -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `l-param-dropped` of redteamFA14.hand_fa14b, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -33516,6 +33630,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-r-linear -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `r-linear` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -33568,6 +33683,7 @@ error E3102: <fragment>:42:10: use of moved value 'r': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa17-m-consume -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-consume` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -33689,6 +33805,7 @@ error E3224: <fragment>:58:4: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-fa17-m-relay-owned -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-relay-owned` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -33845,6 +33962,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa17-m-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `C-LEND`; the compiler refuses it with E3224. The model reports the first rule that fails and the compiler every independent error, so the codes differ. Model program `m-union` of redteamFA17.hand_fa17a, in capmodel `reggio/REPORTFA17.txt`.
 
@@ -36046,6 +36164,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-same-then-use -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-cond-linear-same-then-use` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36098,6 +36217,7 @@ error E3102: <fragment>:42:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-two-vars -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-two-vars` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36150,6 +36270,7 @@ error E3223: <fragment>:41:13: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-var-and-temp -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-var-and-temp` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36251,6 +36372,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-nested-two -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-nested-two` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36419,6 +36541,7 @@ error E3200: <fragment>:37:8: 'r' is not isolated: only a clean call, a `swap` o
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-temp-beside-nested -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-temp-beside-nested` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 
@@ -36547,6 +36670,7 @@ error E3223: <fragment>:57:25: this drops a linear value that was never consumed
 ```
 
 <!-- test: model-hand-fa25-a-cond-linear-nested-both-temps -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-COND`; the compiler refuses it with E3223. Model program `a-cond-linear-nested-both-temps` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
 

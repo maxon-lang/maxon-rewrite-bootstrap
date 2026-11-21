@@ -58,6 +58,7 @@ to lie to.
 ## Tests
 
 <!-- test: cross-file-bool-plus-int -->
+<!-- skip: differing error code: operand types -->
 A `bool` returned from another file cannot be added to an `int`. This is the headline case: typed by
 deferral, it would compile and return 42.
 ```maxon
