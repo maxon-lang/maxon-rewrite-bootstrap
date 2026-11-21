@@ -54,3 +54,4 @@ of C2 building it again.
 | 2026-11-21 | 8041219 | Phase 2: literals, try handler, for over a collection | 52220 | 7730 | 8527 | 4098 |
 | 2026-11-21 | 58013ee | Phase 2: typealiases in types, built-ins, conditional try | 54696 | 8704 | 8466 | 4214 |
 | 2026-11-21 | bd64be8 | Phase 2: message texts, Type from value | 55242 | 9102 | 8231 | 4247 |
+| 2026-11-21 | fa4b30a | seed renewed; closures; one-compiler gate | 56765 | 4217 | 4086 | 4014 |
