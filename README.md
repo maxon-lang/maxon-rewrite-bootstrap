@@ -120,6 +120,13 @@ failures are listed, and the exit code is 0 when nothing failed. With `--verbose
 
 `minimaxon test <specs-dir|file.md> [--verbose] [--skip-passed] [--record-passed]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once, from an executable of its own in the temporary directory. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line before it and its result after, so a crash names its test) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. `--skip-passed` leaves out, without compiling them, the tests that `specs/passed.txt` lists (one `file.md: test name` per line, sorted; skipped under the reason `passed before (specs/passed.txt)`), runs the others, and prints `NEW file.md: test` for one that passes and is not listed; a missing list is an error. `--record-passed` writes the list: with `--skip-passed` as the old list plus the tests that passed in the run, and alone (the full run that starts a list, a usage error when the list exists) as the tests that passed. Until Phase 3 makes the full run fast, `check.ps1` runs `--skip-passed` and `specs.ps1` runs both flags, so a test that has passed is not run again and a regression in one shows only when the full run (`test specs` alone, which reads and writes nothing) is used again. The compiled program inherits the runner's standard input.
 
+`tests/bench/` holds the benchmarks: a counted loop, nested loops over an array, string building, records and unions, and a
+recursive function, each deterministic and ending in the checksum it prints (its `//>` line). The corpus runner leaves
+the directory out, since the programs run long enough to time. `.\bench.ps1 [-Compiler bin\minimaxon.exe]` builds each with
+the compiler and prints a table of the executable's code size (`.text` bytes, read from the PE section header by
+`textsize.ps1`) and its best run time of three, and reports a program whose output is not its checksum; it is how a change
+to the code generator is measured. `.\selftime.ps1` records the `.text` bytes of the compiler it built in `docs/self-compile-times.md`.
+
 Directives in comments say what the program must do:
 
 | Directive | Meaning |
@@ -151,9 +158,9 @@ own declarations, the standard library and the declarations of the modules the m
 always qualified. A call into another module is typed from the callee's declared return type and recorded (`check.PendingCall`);
 the verify stage binds its arguments to the callee's parameters (`check.verifyCalls`), and the bounds of a type argument wait the
 same way (`check.verifyBounds`). The range analysis and the ownership pass run in the verify stage, after those, on a module
-that found no error there. Each stage visits the modules in dependency order and runs only if every stage before it found no
-error. Parallel compilation is planned (see "The modules phase"); the deferral is what lets a module go on to its next stage as
-soon as the modules it names have finished theirs.
+that found no error there. Each stage of a module is a task that waits only for the module's stage before it and for the
+stages of the modules it names (see "The modules phase"); the deferral is what lets a module go on to its next stage as soon as
+the modules it names have finished theirs, which is what parallel compilation, planned, will use.
 
 ## Modules
 
@@ -221,7 +228,7 @@ layering cannot erode:
 | `backend` | the x64 encoder (generated), the assembler and code unit, codegen, the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
-| `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
+| `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
 
 `main.maxon`, in the root module, runs `driver.run`, and holds the `selftest` command with the compiler's own tests
 (`self/*_test.maxon`). The generators are Go, in `internal/`, and `cmd/convert` and `cmd/sample` are standalone tools (see
@@ -336,29 +343,30 @@ generated Maxon on a set of those encodings (in `self/main.maxon`) and compares 
 
 ## Pipeline
 
-`self/driver/compile.maxon` runs the pipeline for `build`, `run`, `check` and the test runner, one stage after the other over
-every module, on one thread. A stage is a barrier: it visits the modules in dependency order (a module after the modules it
-names), and the next stage runs only if the error list is still empty, so the errors reported are those of the first stage that
-has any, from every module. A `check` stops short of code generation but runs the stages that can report an error.
+`self/driver/compile.maxon` runs the pipeline for `build`, `run`, `check`, the interpreter and the test runner as the task graph
+of "The modules phase" (`self/driver/graph.maxon`), on one thread. The errors reported are those of the first stage that has
+any, from every module. A `check` stops short of code generation but runs the stages that can report an error.
 
 | Step | Module | Work |
 |---|---|---|
 | runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below and emitted once (`prepareRuntime`); a test run keeps it and adds each program to a copy of the project (`SharedRuntime`) |
-| discover | `project` | `loadProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module |
-| parse | `syntax`, `project` | reads each module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives each module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
-| resolve | `resolve` | `resolveFrom` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
-| module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in |
-| aliases | `check` | `stageAliases`: the bounds of each type's type parameters, the typealiases that the module's extensions declare under the types they extend, each type written `Type.name` bound to the typealias that the type's body or an extension the module sees declares, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
-| declare | `check` | `stageDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, `E3006` for a second) |
-| constants | `check` | `stageConstantOrder`, `stageConstants`: top-level `let` types, each after the constants of its module that it names (a cycle is `E2012`), then the types of the raw values that enums and unions write that are no literal (see "Raw values") |
-| bodies | `check` | `stageBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
-| verify | `check` | `stageVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
-| lower | `ir` | `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before codegen |
-| emit | `backend` | `emitModule`: IR to x64, one code unit per module, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. The entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
+| discover | `project` | `discoverProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module. Its errors count as the parse's |
+| parse | `syntax`, `project` | `parseModule` reads a module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives the module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
+| resolve | `resolve` | `resolveModule` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
+| module graph | `project` | `newGraph` turns each module's recorded dependencies into edges; `checkAcyclic` sorts the graph (Kahn's algorithm, linear in the edges) and reports `E2012` where the first module of a cycle names the second; `topoOrder` is the order every later stage visits the modules in, and the driver adds the tasks of the stages below |
+| aliases | `check` | `moduleAliases`: the bounds of each type's type parameters, the typealiases that the module's extensions declare under the types they extend, each type written `Type.name` bound to the typealias that the type's body or an extension the module sees declares, then each typealias of an instance, after the typealiases it names (a cycle is `E2012`) |
+| declare | `check` | `moduleDeclare`: the module's fields, cases, function signatures, type parameters and the interfaces its types implement, into the project's `TypeTable` and `FuncTable`; the declare finds `main`, in the first module that declares it (`E3001` when none does, a task of the project: `projectEntry`; `E3006` for a second) |
+| constants | `check` | `moduleConstantOrder`, then `moduleConstants`, two stages: top-level `let` types, each after the constants of its module that it names (a cycle is `E2012`), then the types of the raw values that enums and unions write that are no literal (see "Raw values") |
+| bodies | `check` | `moduleBodies` types every type declaration and function body, a generic one once against its bounds, and the body of a behaviour as a function of its own that captures the variables it uses. A call into another module is recorded, not bound (`PendingCall`); a call that needs an instance of a generic is recorded on its function (`callers`) |
+| verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
+| lower | `ir` | after `endChecks` has given every module's typing back to the project, `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before codegen, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
+| emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
-**Errors.** A stage that finds an error ends the compile after the stage. Within a stage every module is visited, so one run
-reports the errors of all modules. An error raised at a node is a `diag.Site` (module handle, offset); when the compile ends
+**Errors.** Each task's errors are kept with its stage, and the compile reports those of the earliest stage that has any, from
+every module; a task of a later stage than one that failed is not started, since its errors would not be reported. Within a
+stage every module is visited, so one run reports the errors of all modules. Of the lower, only the first module in module
+order that failed is reported, since an instance whose type arguments nest without end fails every module that reaches it. An error raised at a node is a `diag.Site` (module handle, offset); when the compile ends
 `ast.locateAllErrors` gives each its file, line and column, and then sorts them by file, line, column, code and message, so
 the output does not depend on the order the modules were visited in. A compile that finds no error never builds a line
 index. The message of an error about a bare name that was not found names the other modules that declare that name, which only the
@@ -369,18 +377,29 @@ project as a whole knows, so it is written when the error is located (`ast.locat
 (`lowerForInterpreter` in `self/driver/interp.maxon`), and gives the IR to the interpreter instead of codegen. This is how a map,
 a list, a pool, a frozen value, a cown and a behaviour run.
 
-### The modules phase (planned)
+### The modules phase
 
-Not implemented: the compiler visits modules one stage at a time, on one thread. The design is to run each module's stages from
-parse to emit as tasks of one scheduled graph over a pool of workers, as Go's build does (Phase 3 of the plan). A task waits
-only for the module's own stage before it and for the stages of the modules it names whose results it reads, never for every
-module to finish a stage, and a worker that finishes a task goes on to the module's next stage while its data is in cache,
-rather than sweeping every module through one stage and then the next. What each stage reads of another module is what lets
-it start early: resolve reads only the declaration tables of the modules a qualified name passes through; declare needs only
-the type objects of other modules' types, since what it needs of their declarations is checked in verify; a constant waits for
-the constants of the modules it names; a check reads the declarations and constants of the modules it reaches. The module is the
-unit of parallelism, tasks write only their own module's slots, and results are merged in module order, so the output and the
-errors stay those of the barrier order above and do not depend on the schedule.
+The driver runs each module's stages, from parse to emit, as tasks of one graph (`self/driver/graph.maxon`), as Go's build
+does. A task is a stage of one module (`Task`: the stage, the module, a range of the graph's flat list of inputs, its state and
+the range of the error list its errors are in), or a stage of the project as a whole: `parsed` joins the parses, since resolve
+may read the declaration table of any module that a qualified name passes through; `order` makes the module graph and refuses
+a cycle, and only then adds the tasks of the check and after it, since a module's dependencies are known once it is resolved;
+`entry` reports a program with no `main`; `endCheck` gives the modules' typing back to the project; `program` holds the runtime
+and reports refusals; `link` links the units. A task waits for its module's stage before it (or the task of the project before
+it) and, from aliases to lower, for the same stage of each module it names, which comes before it in the module order and
+covers what the stage reads of those modules: resolve reads only the declaration tables of the modules a qualified name passes
+through; declare needs only the type objects of other modules' types, since what it needs of their declarations is checked in
+verify; a constant waits for the constants of the modules it names; a check reads the declarations and constants of the modules
+it reaches. A task that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose
+input failed in an earlier stage, or was skipped, does not (a module whose dependency failed stops).
+
+The executor (`execute`) runs the tasks on one thread, one at a time, in the order they were added: stage by stage, and within
+a stage in the module order (the dependency order from the check on, module order for parse, resolve and emit), so every task's
+inputs have run when it starts, and the tables every module shares (types, functions, instances) are filled in the order the
+stages always filled them, which keeps the executable and the diagnostics as they were. Running a module from one stage to
+the next while its data is in cache waits for a worker pool (Phase 3 of the plan), when the stages take only their own
+module's data: a worker that finishes a task goes on to the module's next stage, results are merged in module order, and the
+output and the errors stay those of the order above and do not depend on the schedule.
 
 ### Reading a module
 

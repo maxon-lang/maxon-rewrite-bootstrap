@@ -5,18 +5,28 @@
 export typealias FunctionLists = Array with ir.IrFunctionList
 
 // buildProgram is the executable image of the functions of every module, in module order, with entry as the function
-// that main is. The units are in the order the link lays them out in: the entry stub, the ready-made units (the ones that
-// the build cache has, and any that are not made from IR), the modules, and the routines. The ready units are lent to the
-// build and are in ready again when it returns, so that many programs can be linked with the same ones. With mapsSymbols the
-// result also holds the map of the code's symbols.
+// that main is: linkProgram of the modules' units. With mapsSymbols the result also holds the map of the code's symbols.
 export function buildProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
+	var units = UnitList.create(0)
+	for i in 0 upto modules.count() 'modules'
+		units.push(emitModule(p, fns: modules[i]))
+	end 'modules'
+	return linkProgram(p, modules: units, ready: ready, entry: entry, options: options, mapsSymbols: mapsSymbols)
+end 'buildProgram'
+
+// linkProgram is the executable image of the units of every module, in module order, with entry as the function that main
+// is. The units are in the order the link lays them out in: the entry stub, the ready-made units (the ones that the build
+// cache has, and any that are not made from IR), the modules, and the routines. The ready units are lent to the build and are
+// in ready again when it returns, so that many programs can be linked with the same ones.
+export function linkProgram(mutates p ast.Project, consumes modules UnitList, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
+	var emitted = modules
 	var units = UnitList.create(0)
 	units.push(emitRuntime(ast.funcLinkName(p, fid: entry), options: options))
 	for i in 0 upto ready.count() 'ready'
 		units.push(exchange(ready[i], value: CodeUnit.new()))
 	end 'ready'
-	for i in 0 upto modules.count() 'modules'
-		units.push(emitModule(p, fns: modules[i]))
+	for i in 0 upto emitted.count() 'modules'
+		units.push(exchange(emitted[i], value: CodeUnit.new()))
 	end 'modules'
 	var routines = emitTypeRoutines(p, units: units)
 	for i in 0 upto routines.count() 'routines'
@@ -27,12 +37,12 @@ export function buildProgram(mutates p ast.Project, modules FunctionLists, mutat
 		ready[i] = exchange(units[try i + 1 otherwise panic("backend: more units than memory")], value: CodeUnit.new())
 	end 'lent'
 	return linked
-end 'buildProgram'
+end 'linkProgram'
 
-// compileProgram writes the executable of the functions of every module to out, and the map of its code's symbols to
-// symbolMap when that is not empty.
-export function compileProgram(mutates p ast.Project, modules FunctionLists, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, out FilePath, symbolMap String) throws FileWriteError
-	let linked = buildProgram(p, modules: modules, ready: ready, entry: entry, options: options, mapsSymbols: symbolMap != "")
+// compileProgram writes the executable that linkProgram makes of the modules' units to out, and the map of its code's symbols
+// to symbolMap when that is not empty.
+export function compileProgram(mutates p ast.Project, consumes modules UnitList, mutates ready UnitList, entry ast.FuncID, options RuntimeOptions, out FilePath, symbolMap String) throws FileWriteError
+	let linked = linkProgram(p, modules: modules, ready: ready, entry: entry, options: options, mapsSymbols: symbolMap != "")
 	try writePeImage(linked.image, path: out)
 	if symbolMap != "" 'map'
 		let mapPath = try FilePath.from(symbolMap) otherwise panic("backend: the symbol map {symbolMap} is not a path")

@@ -1,23 +1,10 @@
 // declareProject runs the stages up to the constants over every module, each after the modules it names, and gives the
 // entry function.
 function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
-	var checks = check.startChecks(p, order: project.topoOrder(project.newGraph(p)), makesProgram: false)
-	check.stageAliases(checks, p: p, errs: errs)
-	if errs.count() == 0 'aliased'
-		check.stageDeclare(checks, p: p, errs: errs)
-	end 'aliased'
-	if errs.count() == 0 'declared'
-		check.stageConstantOrder(checks, p: p, errs: errs)
-	end 'declared'
-	if errs.count() == 0 'ordered'
-		check.stageConstants(checks, p: p, errs: errs)
-	end 'ordered'
-	let entry = checks.entry
-	_ = check.endChecks(p, ch: checks)
-	return entry
+	return driver.declareFront(p, errs: errs).entry
 end 'declareProject'
 
-function loadResolved(path String, mutates errs diag.ErrorList) returns ast.Project
+function loadParsed(path String, mutates errs diag.ErrorList) returns ast.Project
 	var p = match consumes project.loadProject(path, errs: errs) 'pr'
 		some(pv) gives pv
 		none panic("{path}: cannot be loaded")
@@ -25,17 +12,12 @@ function loadResolved(path String, mutates errs diag.ErrorList) returns ast.Proj
 	if errs.count() > 0 'le'
 		panic("{path}: load error {errs[0].format()}")
 	end 'le'
-	resolve.resolveProject(p, errs: errs)
-	if errs.count() > 0 're'
-		ast.locateAllErrors(p.modules, errs: errs)
-		panic("{path}: resolve error {errs[0].format()}")
-	end 're'
 	return p
-end 'loadResolved'
+end 'loadParsed'
 
 function expectDeclared(path String)
 	var errs = diag.ErrorList.create(0)
-	var p = loadResolved(path, errs: errs)
+	var p = loadParsed(path, errs: errs)
 	let entry = declareProject(p, errs: errs)
 	if errs.count() > 0 'de'
 		ast.locateAllErrors(p.modules, errs: errs)
@@ -48,7 +30,7 @@ end 'expectDeclared'
 
 function expectDeclareError(path String, code String, line Count, col Count)
 	var errs = diag.ErrorList.create(0)
-	var p = loadResolved(path, errs: errs)
+	var p = loadParsed(path, errs: errs)
 	_ = declareProject(p, errs: errs)
 	ast.locateAllErrors(p.modules, errs: errs)
 	if errs.count() != 1 'count'

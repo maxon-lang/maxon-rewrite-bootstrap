@@ -1,0 +1,526 @@
+// The task graph of a compile: each stage of each module is a task that waits for the module's stage before it and for the
+// same stage of the modules it names, and a stage of the project as a whole is a task that waits for every module's stage
+// before it. The executor runs the tasks one at a time in the order they were added, which is the order of the stages and,
+// within a stage, the order of the modules the stage visits, so every task's inputs have run when it starts.
+
+// Stage is a step of the compile. A stage of the project as a whole is marked so; every other one is of one module.
+enum Stage
+	parse
+	// parsed (project) joins the parses: resolve may read the declaration table of any module that a qualified name passes
+	// through, which it knows only as it resolves.
+	parsed
+	resolve
+	// order (project) makes the module graph from what resolve recorded, refuses a cycle, and adds the tasks of the check.
+	order
+	aliases
+	declare
+	// entry (project) is the part of the declare that is of no one module: a program in which no module declares main.
+	entry
+	constantOrder
+	constants
+	bodies
+	verify
+	// endCheck (project) gives each module's typing back to the project, which lower reads.
+	endCheck
+	lower
+	// program (project) holds the runtime to the functions the compiler calls, writes --emit-ir and reports what the backend
+	// cannot run yet.
+	program
+	emit
+	// link (project) links the units into the executable, or, for the runtime's own compile, keeps them for the programs.
+	link
+end 'Stage'
+
+// Goal is how far a compile goes, and what it ends with.
+enum Goal
+	// declared stops after the constants.
+	declared
+	// checked stops after verify.
+	checked
+	// instances finds the instances every module needs and holds the runtime, as a check does.
+	instances
+	// lowered lowers every module's functions, for the interpreter.
+	lowered
+	// units lowers and emits the runtime's own project into the units every program is linked with.
+	units
+	// executable links an executable.
+	executable
+end 'Goal'
+
+enum TaskState
+	waiting
+	done
+	failed
+	skipped
+end 'TaskState'
+
+// Task is a stage of one module, or of the project, with its inputs: the tasks whose results it reads, a range of the
+// graph's inputs. The errors it found are a range of the compile's error list.
+type Task
+	var stage as Stage
+	// module is the module of a stage of one module, and nothing for a stage of the project.
+	var module as Count
+	var firstInput as Count
+	var inputCount as Count
+	var state as TaskState
+	var firstError as Count
+	var errorCount as Count
+
+	static function make(stage Stage, module Count, firstInput Count, inputCount Count) returns Task
+		return Task{stage: stage, module: module, firstInput: firstInput, inputCount: inputCount, state: TaskState.waiting, firstError: 0, errorCount: 0}
+	end 'make'
+end 'Task'
+
+typealias Tasks = Array with Task
+
+typealias TaskIDs = Array with Count
+
+// TaskGraph is the tasks in the order they run and, while it is being built, the tasks of the stage added last: by module
+// for a stage of modules, or the one task of a stage of the project.
+type TaskGraph
+	var tasks as Tasks
+	var inputs as TaskIDs
+	// group is the tasks of the stage added last.
+	var group as TaskIDs
+	// groupOfModules is whether that stage is of modules, whose task for a module is moduleTask at the module.
+	var groupOfModules as bool
+	var moduleTask as TaskIDs
+
+	static function new(modules Count) returns TaskGraph
+		var moduleTask = TaskIDs.create(0)
+		for _ in 0 upto modules 'each'
+			moduleTask.push(0)
+		end 'each'
+		return TaskGraph{tasks: Tasks.create(0), inputs: TaskIDs.create(0), group: TaskIDs.create(0), groupOfModules: false, moduleTask: moduleTask}
+	end 'new'
+
+	// addProjectTask adds a stage of the project that waits for every task of the stage added before it.
+	function addProjectTask(mutates self, stage Stage)
+		let id = tasks.count()
+		let firstInput = inputs.count()
+		inputs.append(group)
+		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: group.count()))
+		group = TaskIDs.create(0)
+		group.push(id)
+		groupOfModules = false
+	end 'addProjectTask'
+
+	// addSideTask adds a stage of the project that waits for every task of the stage added before it, as addProjectTask does,
+	// but that no later stage waits for.
+	function addSideTask(mutates self, stage Stage)
+		let firstInput = inputs.count()
+		inputs.append(group)
+		tasks.push(Task.make(stage, module: 0, firstInput: firstInput, inputCount: group.count()))
+	end 'addSideTask'
+
+	// addModuleTasks adds a stage of each module of order, in that order: each waits for its module's task of the stage added
+	// before, or for the task of the project that stage is, and, where the stage reads what the modules it names made of it,
+	// for their tasks of this stage, which come first in order.
+	function addModuleTasks(mutates self, stage Stage, order check.ModuleOrder, p ast.Project, first Count)
+		var added = TaskIDs.create(0)
+		for i in 0 upto order.count() 'modules'
+			let m = ast.modIndex(order[i])
+			let id = tasks.count()
+			let firstInput = inputs.count()
+			if groupOfModules 'previous'
+				inputs.push(moduleTask[m])
+			end 'previous' else 'project'
+				inputs.append(group)
+			end 'project'
+			if readsNamedModules(stage) 'named'
+				for j in 0 upto p.resolutions[m].deps.count() 'deps'
+					let d = ast.modIndex(p.resolutions[m].deps[j].module)
+					if d >= first 'compiled'
+						inputs.push(namedTask(stage, module: d, by: m))
+					end 'compiled'
+				end 'deps'
+			end 'named'
+			let inputCount = try inputs.count() - firstInput otherwise panic("driver: a task's inputs end before they start")
+			tasks.push(Task.make(stage, module: m, firstInput: firstInput, inputCount: inputCount))
+			moduleTask[m] = id
+			added.push(id)
+		end 'modules'
+		group = added
+		groupOfModules = true
+	end 'addModuleTasks'
+
+	// namedTask is the task of stage of module, which module by names and which order put before it.
+	function namedTask(stage Stage, module Count, by Count) returns Count
+		let id = moduleTask[module]
+		if id >= tasks.count() or tasks[id].stage != stage or tasks[id].module != module 'missing'
+			panic("driver: module {by} comes before module {module}, which it names")
+		end 'missing'
+		return id
+	end 'namedTask'
+end 'TaskGraph'
+
+// readsNamedModules is whether a module's stage reads what the same stage made of the modules the module names.
+function readsNamedModules(stage Stage) returns bool
+	return match stage 's'
+		parse gives false
+		parsed gives false
+		resolve gives false
+		order gives false
+		aliases gives true
+		declare gives true
+		entry gives false
+		constantOrder gives true
+		constants gives true
+		bodies gives true
+		verify gives true
+		endCheck gives false
+		lower gives true
+		program gives false
+		emit gives false
+		link gives false
+	end 's'
+end 'readsNamedModules'
+
+// phaseOf is where a stage's errors stand in the order of the stages: the errors reported are those of the earliest phase
+// that has any. The entry check is the declare's.
+function phaseOf(stage Stage) returns Count
+	if stage == Stage.entry 'entry'
+		return Stage.declare.ordinal
+	end 'entry'
+	return stage.ordinal
+end 'phaseOf'
+
+// reportsFirstModule is whether only the first module, in module order, that failed a stage has its errors reported: an
+// instance whose type arguments nest without end fails every module that reaches it.
+function reportsFirstModule(stage Stage) returns bool
+	return stage == Stage.lower
+end 'reportsFirstModule'
+
+// lowersBodies is whether a compile lowers the functions of its modules, rather than only finding the instances they need.
+function lowersBodies(goal Goal) returns bool
+	return match goal 'g'
+		declared gives false
+		checked gives false
+		instances gives false
+		lowered gives true
+		units gives true
+		executable gives true
+	end 'g'
+end 'lowersBodies'
+
+// Run is the state of one compile's task graph: the graph, and what the tasks made that later tasks and the caller read.
+type Run
+	var graph as TaskGraph
+	var goal as Goal
+	// first is the first module that the compile compiles: the ones before it were compiled by an earlier compile.
+	var first as Count
+	var makesProgram as bool
+	var checks as check.Checks
+	var checksStarted as bool
+	var checked as check.Checked
+	var checksEnded as bool
+	// generates is whether the check ended as a task, which it does when every module's verify ran and the goal goes on.
+	var generates as bool
+	// lowered and units are by module from first on.
+	var lowered as backend.FunctionLists
+	var units as backend.UnitList
+	// failed is whether a task failed, and failedPhase the earliest phase that one did in.
+	var failed as bool
+	var failedPhase as Count
+	// earlierErrors is how many errors the error list held when the compile started, which the phase of parse holds.
+	var earlierErrors as Count
+
+	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0}
+	end 'make'
+
+	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
+	function generated(mutates self) returns Generated
+		if not generates 'nothing'
+			return Generated.nothing()
+		end 'nothing'
+		return Generated.make(checked.entry, modules: exchange(lowered, value: backend.FunctionLists.create(0)))
+	end 'generated'
+end 'Run'
+
+// lowersOrFinds is whether a compile goes on past the check to the instances.
+function lowersOrFinds(goal Goal) returns bool
+	return match goal 'g'
+		declared gives false
+		checked gives false
+		instances gives true
+		lowered gives true
+		units gives true
+		executable gives true
+	end 'g'
+end 'lowersOrFinds'
+
+function noChecked() returns check.Checked
+	return check.Checked.make(ast.noFunc, order: check.ModuleOrder.create(0), functions: check.FuncIDLists.create(0), callers: check.FuncIDLists.create(0))
+end 'noChecked'
+
+// runStages compiles the modules of p from the one at index first on, from the stage from (parse, or resolve for modules
+// parsed already) as far as goal. memory holds the files that parse reads from memory rather than disk. The errors are those
+// of the earliest phase that has any, which the error list also holds when it is not empty at the start.
+function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
+	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
+	run.earlierErrors = errs.count()
+	if errs.count() > 0 'earlier'
+		run.failed = true
+		run.failedPhase = phaseOf(Stage.parse)
+	end 'earlier'
+	var modules = check.ModuleOrder.create(0)
+	for m in first upto p.modules.count() 'modules'
+		modules.push(p.modules[m].id)
+	end 'modules'
+	if from == Stage.parse 'parse'
+		run.graph.addModuleTasks(Stage.parse, order: modules, p: p, first: first)
+		run.graph.addProjectTask(Stage.parsed)
+	end 'parse' else if from != Stage.resolve 'from'
+		panic("driver: a compile starts at parse or resolve, not at {from}")
+	end 'from'
+	run.graph.addModuleTasks(Stage.resolve, order: modules, p: p, first: first)
+	run.graph.addProjectTask(Stage.order)
+	execute(run, p: p, memory: memory, output: output, options: options, ready: ready, errs: errs)
+	keepEarliestErrors(run, errs: errs)
+	if not run.checksStarted 'unchecked'
+		run.checks = check.startChecks(p, order: check.ModuleOrder.create(0), makesProgram: makesProgram)
+		run.checksStarted = true
+	end 'unchecked'
+	if not run.checksEnded 'unended'
+		endCheck(run, p: p)
+	end 'unended'
+	return run
+end 'runStages'
+
+// execute runs the tasks in order, the ones that a task adds as well. A task is skipped when an input was, or failed in an
+// earlier phase: a module whose dependency failed stops. A task of a later phase than the earliest that failed is skipped
+// too, since its errors would not be reported.
+function execute(mutates run Run, mutates p ast.Project, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+	var t = 0 as Count
+	while t < run.graph.tasks.count() 'tasks'
+		if mustSkip(run.graph, task: t, failed: run.failed, failedPhase: run.failedPhase) 'skip'
+			run.graph.tasks[t].state = TaskState.skipped
+		end 'skip' else 'run'
+			let mark = errs.count()
+			runTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+			let found = try errs.count() - mark otherwise panic("driver: a task took errors out of the list")
+			run.graph.tasks[t].firstError = mark
+			run.graph.tasks[t].errorCount = found
+			run.graph.tasks[t].state = TaskState.done
+			if found > 0 'failed'
+				run.graph.tasks[t].state = TaskState.failed
+				let phase = phaseOf(run.graph.tasks[t].stage)
+				if not run.failed or phase < run.failedPhase 'earliest'
+					run.failed = true
+					run.failedPhase = phase
+				end 'earliest'
+			end 'failed'
+		end 'run'
+		t = try t + 1 otherwise panic("driver: more tasks than memory")
+	end 'tasks'
+end 'execute'
+
+function mustSkip(graph TaskGraph, task Count, failed bool, failedPhase Count) returns bool
+	let phase = phaseOf(graph.tasks[task].stage)
+	if failed and phase > failedPhase 'later'
+		return true
+	end 'later'
+	let start = graph.tasks[task].firstInput
+	let stop = try start + graph.tasks[task].inputCount otherwise panic("driver: a task's inputs end past memory")
+	for i in start upto stop 'inputs'
+		let input = graph.inputs[i]
+		let state = graph.tasks[input].state
+		if state == TaskState.waiting 'early'
+			panic("driver: task {task} runs before its input {input}")
+		end 'early'
+		if state == TaskState.skipped 'skipped'
+			return true
+		end 'skipped'
+		if state == TaskState.failed and phaseOf(graph.tasks[input].stage) < phase 'failed'
+			return true
+		end 'failed'
+	end 'inputs'
+	return false
+end 'mustSkip'
+
+// runTask runs one task: every stage's work starts and ends here.
+function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+	let m = run.graph.tasks[task].module
+	match run.graph.tasks[task].stage 's'
+		parse then project.parseModule(p, modIdx: m, memory: memory, errs: errs)
+		parsed then return
+		resolve then resolve.resolveModule(p, modIdx: m, errs: errs)
+		order then orderModules(run, p: p, errs: errs)
+		aliases then check.moduleAliases(run.checks, p: p, m: m, errs: errs)
+		declare then check.moduleDeclare(run.checks, p: p, m: m, errs: errs)
+		entry then check.projectEntry(run.checks, p: p, errs: errs)
+		constantOrder then check.moduleConstantOrder(run.checks, p: p, m: m, errs: errs)
+		constants then check.moduleConstants(run.checks, p: p, m: m, errs: errs)
+		bodies then check.moduleBodies(run.checks, p: p, m: m, errs: errs)
+		verify then check.moduleVerify(run.checks, p: p, m: m, errs: errs)
+		endCheck then endCheckTask(run, p: p)
+		lower then lowerModule(run, p: p, m: m, errs: errs)
+		program then holdProgram(run, p: p, output: output, options: options, errs: errs)
+		emit then emitModule(run, p: p, m: m)
+		link then linkUnits(run, p: p, output: output, options: options, ready: ready)
+	end 's'
+end 'runTask'
+
+// orderModules sorts the modules by what they name, each after the modules it names, and adds the tasks of the check and of
+// what the goal makes after it, in that order. A cycle stops the compile here.
+function orderModules(mutates run Run, mutates p ast.Project, mutates errs diag.ErrorList)
+	let graph = project.newGraph(p)
+	match project.checkAcyclic(graph, p: p) 'cycle'
+		some(cycleError) then errs.push(cycleError.clone())
+		none then addCheckTasks(run, p: p, order: modulesFrom(project.topoOrder(graph), first: run.first))
+	end 'cycle'
+end 'orderModules'
+
+function addCheckTasks(mutates run Run, mutates p ast.Project, order check.ModuleOrder)
+	run.checks = check.startChecks(p, order: order.clone(), makesProgram: run.makesProgram)
+	run.checksStarted = true
+	let first = run.first
+	run.graph.addModuleTasks(Stage.aliases, order: order, p: p, first: first)
+	run.graph.addModuleTasks(Stage.declare, order: order, p: p, first: first)
+	run.graph.addSideTask(Stage.entry)
+	run.graph.addModuleTasks(Stage.constantOrder, order: order, p: p, first: first)
+	run.graph.addModuleTasks(Stage.constants, order: order, p: p, first: first)
+	if run.goal == Goal.declared 'declared'
+		return
+	end 'declared'
+	run.graph.addModuleTasks(Stage.bodies, order: order, p: p, first: first)
+	run.graph.addModuleTasks(Stage.verify, order: order, p: p, first: first)
+	if not lowersOrFinds(run.goal) 'checked'
+		return
+	end 'checked'
+	run.graph.addProjectTask(Stage.endCheck)
+	run.graph.addModuleTasks(Stage.lower, order: order, p: p, first: first)
+	if run.goal == Goal.lowered 'lowered'
+		return
+	end 'lowered'
+	run.graph.addProjectTask(Stage.program)
+	if run.goal == Goal.instances 'instances'
+		return
+	end 'instances'
+	var modules = check.ModuleOrder.create(0)
+	for m in first upto p.modules.count() 'modules'
+		modules.push(p.modules[m].id)
+	end 'modules'
+	run.graph.addModuleTasks(Stage.emit, order: modules, p: p, first: first)
+	run.graph.addProjectTask(Stage.link)
+end 'addCheckTasks'
+
+// modulesFrom is the modules of order that stand at index first or after it, in order.
+function modulesFrom(order check.ModuleOrder, first Count) returns check.ModuleOrder
+	var kept = check.ModuleOrder.create(0)
+	for i in 0 upto order.count() 'each'
+		if ast.modIndex(order[i]) >= first 'new'
+			kept.push(order[i])
+		end 'new'
+	end 'each'
+	return kept
+end 'modulesFrom'
+
+// endCheck gives each module's typing back to the project, and keeps what the generate stage needs of the check.
+function endCheck(mutates run Run, mutates p ast.Project)
+	run.checked = check.endChecks(p, ch: exchange(run.checks, value: check.Checks.make(check.ModuleOrder.create(0), makesProgram: run.makesProgram)))
+	run.checksEnded = true
+end 'endCheck'
+
+// endCheckTask is endCheck as the task after every module's verify, which makes a slot for each module's functions and code.
+function endCheckTask(mutates run Run, mutates p ast.Project)
+	endCheck(run, p: p)
+	run.generates = true
+	for _ in run.first upto p.modules.count() 'slots'
+		run.lowered.push(ir.IrFunctionList.create(0))
+		run.units.push(backend.CodeUnit.new())
+	end 'slots'
+end 'endCheckTask'
+
+// lowerModule finds the instances of generic functions that a module needs and, for a compile that lowers, lowers the
+// module's functions and those instances.
+function lowerModule(mutates run Run, mutates p ast.Project, m Count, mutates errs diag.ErrorList)
+	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is lowered again")
+	var found = diag.ErrorList.create(0)
+	if lowersBodies(run.goal) 'lower'
+		run.lowered[slot] = ir.lowerModule(p, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
+	end 'lower' else 'instances'
+		_ = ir.findInstances(p, callers: run.checked.callers[m], errs: found)
+	end 'instances'
+	appendErrors(errs, found: found)
+end 'lowerModule'
+
+// holdProgram holds the runtime's source to the functions the compiler calls in it; then a compile that makes code writes
+// --emit-ir and reports what only the interpreter runs.
+function holdProgram(run Run, p ast.Project, output String, options Options, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	checkRuntimeFunctions(p, first: run.first, errs: errs)
+	if run.goal == Goal.instances or errs.count() > mark 'nothingToMake'
+		return
+	end 'nothingToMake'
+	if run.goal == Goal.executable and options.emitIr 'emitIr'
+		writeIr(p, lowered: run.lowered, path: "{output}{irExtension}")
+	end 'emitIr'
+	refusals(p, lowered: run.lowered, errs: errs)
+end 'holdProgram'
+
+function emitModule(mutates run Run, mutates p ast.Project, m Count)
+	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is emitted again")
+	let unit = backend.emitModule(p, fns: run.lowered[slot])
+	run.units[slot] = unit
+end 'emitModule'
+
+// linkUnits links the modules' units with the ready ones into the executable at output, or, for the runtime's own compile,
+// makes them the ready ones.
+function linkUnits(mutates run Run, mutates p ast.Project, output String, options Options, mutates ready backend.UnitList)
+	if run.goal == Goal.units 'units'
+		for i in 0 upto run.units.count() 'each'
+			ready.push(exchange(run.units[i], value: backend.CodeUnit.new()))
+		end 'each'
+		return
+	end 'units'
+	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
+	var symbolMap = ""
+	if options.emitMap 'emitMap'
+		symbolMap = "{output}{mapExtension}"
+	end 'emitMap'
+	let units = exchange(run.units, value: backend.UnitList.create(0))
+	try backend.compileProgram(p, modules: units, ready: ready, entry: run.checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {output}")
+end 'linkUnits'
+
+// keepEarliestErrors keeps the errors that the list held at the start and those of the earliest phase that has any; of a
+// phase that reports the first module only, those of the first module in module order that has any.
+function keepEarliestErrors(run Run, mutates errs diag.ErrorList)
+	if not run.failed 'clean'
+		return
+	end 'clean'
+	var hasReported = false
+	var reported = 0 as Count
+	for t in 0 upto run.graph.tasks.count() 'first'
+		if isReported(run, task: t) and reportsFirstModule(run.graph.tasks[t].stage) 'candidate'
+			if not hasReported or run.graph.tasks[t].module < run.graph.tasks[reported].module 'earlier'
+				hasReported = true
+				reported = t
+			end 'earlier'
+		end 'candidate'
+	end 'first'
+	var kept = diag.ErrorList.create(0)
+	for i in 0 upto run.earlierErrors 'earlier'
+		kept.push(errs[i].clone())
+	end 'earlier'
+	for t in 0 upto run.graph.tasks.count() 'tasks'
+		if not isReported(run, task: t) 'other'
+			continue 'tasks'
+		end 'other'
+		if reportsFirstModule(run.graph.tasks[t].stage) and t != reported 'notFirst'
+			continue 'tasks'
+		end 'notFirst'
+		let start = run.graph.tasks[t].firstError
+		let stop = try start + run.graph.tasks[t].errorCount otherwise panic("driver: a task's errors end past memory")
+		for i in start upto stop 'errors'
+			kept.push(errs[i].clone())
+		end 'errors'
+	end 'tasks'
+	errs = kept
+end 'keepEarliestErrors'
+
+// isReported is whether a task failed in the earliest phase that any did.
+function isReported(run Run, task Count) returns bool
+	return run.graph.tasks[task].state == TaskState.failed and phaseOf(run.graph.tasks[task].stage) == run.failedPhase
+end 'isReported'

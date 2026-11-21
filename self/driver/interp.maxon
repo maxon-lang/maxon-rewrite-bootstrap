@@ -111,11 +111,7 @@ end 'interpLoaded'
 // lowerForInterpreter checks and lowers a project that has no runtime, as a build does but with no backend, so that the
 // interpreter can run it. What only the interpreter runs is no refusal here; what it lowered is nothing when errs has any.
 function lowerForInterpreter(mutates p ast.Project, mutates errs diag.ErrorList) returns Generated
-	let checked = frontEnd(p, makesProgram: true, errs: errs)
-	var generated = Generated.nothing()
-	if errs.count() == 0 'lower'
-		generated = Generated.make(checked.entry, modules: lowerModules(p, first: 0, checked: checked, lowersBodies: true, errs: errs))
-	end 'lower'
+	let generated = lowerLoaded(p, errs: errs)
 	if errs.count() == 0 'refusals'
 		refusalsBesidesInterpreterOnly(generated.modules, errs: errs)
 	end 'refusals'

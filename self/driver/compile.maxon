@@ -17,9 +17,10 @@ function compileProject(path String, output String, options Options, mutates err
 		return
 	end 'broken'
 	let first = p.modules.count()
-	if project.loadProjectInto(p, rootPath: path, errs: errs) 'loaded'
-		compileLoaded(p, first: first, ready: ready, output: output, options: options, errs: errs)
-	end 'loaded'
+	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
+		some(memory) then _ = compileDiscovered(p, memory: memory, first: first, ready: ready, output: output, options: options, errs: errs)
+		none then return
+	end 'found'
 end 'compileProject'
 
 // SharedRuntime is the runtime of a run of many compiles: its project alone, checked, and its code, made once. Each compile
@@ -85,9 +86,10 @@ function compileProjectWith(mutates shared SharedRuntime, path String, output St
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
 	var generated = Generated.nothing()
-	if project.loadProjectInto(p, rootPath: path, errs: errs) 'loaded'
-		generated = compileLoadedKeeping(p, first: first, ready: shared.ready, output: output, options: options, errs: errs)
-	end 'loaded'
+	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
+		some(memory) then generated = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+		none then generated = Generated.nothing()
+	end 'found'
 	return CompiledProgram.make(p, generated: generated)
 end 'compileProjectWith'
 
@@ -95,191 +97,79 @@ end 'compileProjectWith'
 function compileFilesWith(mutates shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
-	project.loadFilesInto(p, rootPath: path, files: files, errs: errs)
-	compileLoaded(p, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	project.discoverFilesInto(p, rootPath: path, files: files, errs: errs)
+	_ = compileDiscovered(p, memory: files, first: first, ready: shared.ready, output: output, options: options, errs: errs)
 end 'compileFilesWith'
 
 // compileSourceWith is compileProjectWith for a program that is the one file text, named path in the diagnostics.
 function compileSourceWith(mutates shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
-	project.loadSourceInto(p, path: path, text: text, errs: errs)
-	compileLoaded(p, first: first, ready: shared.ready, output: output, options: options, errs: errs)
+	let memory = project.discoverSourceInto(p, path: path, text: text)
+	_ = compileDiscovered(p, memory: memory, first: first, ready: shared.ready, output: output, options: options, errs: errs)
 end 'compileSourceWith'
 
 // prepareRuntime makes p the project of the runtime alone, checked, and ready the runtime's code, so that a program is
 // compiled by adding it to a copy of p and linking it with ready, which is the same for every program: the runtime's own
 // source is then loaded, checked and lowered once however many programs are compiled.
 function prepareRuntime(mutates p ast.Project, mutates ready backend.UnitList, mutates errs diag.ErrorList)
-	project.addRuntime(p, errs: errs)
-	let checked = frontEndFrom(p, first: 0, makesProgram: false, errs: errs)
-	if errs.count() == 0 'checked'
-		checkRuntimeFunctions(p, first: 0, errs: errs)
-	end 'checked'
+	let first = p.modules.count()
+	project.discoverRuntime(p)
+	_ = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: Options.new(), ready: ready, errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
-		return
 	end 'failed'
-	let lowered = ir.lowerModule(p, functions: checked.functions[0], callers: checked.callers[0], errs: errs)
-	var modules = backend.FunctionLists.create(0)
-	modules.push(lowered.clone())
-	refusals(p, lowered: modules, errs: errs)
-	if errs.count() > 0 'refused'
-		ast.locateAllErrors(p.modules, errs: errs)
-		return
-	end 'refused'
-	ready.push(backend.emitModule(p, fns: lowered))
 end 'prepareRuntime'
 
-// compileLoaded is compileProject's compile of the modules of p from the one at index first on, which a project loaded
-// after the modules that p started with. ready are the units the program is linked with.
+// compileDiscovered compiles the modules of p from the one at index first on, which a project discovered after the modules
+// that p started with, from their parse, and gives back what the generate stage lowered. memory holds the files that the
+// parse reads from memory rather than disk; ready are the units the program is linked with.
+function compileDiscovered(mutates p ast.Project, memory project.SourceFiles, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+	return compileFrom(p, from: Stage.parse, memory: memory, first: first, ready: ready, output: output, options: options, errs: errs)
+end 'compileDiscovered'
+
+// compileLoaded is compileDiscovered for modules that are parsed already.
 function compileLoaded(mutates p ast.Project, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList)
-	_ = compileLoadedKeeping(p, first: first, ready: ready, output: output, options: options, errs: errs)
+	_ = compileFrom(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: first, ready: ready, output: output, options: options, errs: errs)
 end 'compileLoaded'
 
-// compileLoadedKeeping is compileLoaded that gives back what the generate stage lowered, which is nothing when an earlier stage
-// found errors.
-function compileLoadedKeeping(mutates p ast.Project, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
-	let makesProgram = output != ""
-	let checked = frontEndFrom(p, first: first, makesProgram: makesProgram, errs: errs)
-	var generated = Generated.nothing()
-	if errs.count() == 0 'generate'
-		generated = generate(p, first: first, checked: checked, ready: ready, output: output, options: options, errs: errs)
-	end 'generate'
+// compileFrom is the compile of compileDiscovered and compileLoaded: with an output, to the executable there, and without one
+// as far as the diagnostics, which it locates.
+function compileFrom(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+	var goal = Goal.instances
+	if output != "" 'makes'
+		goal = Goal.executable
+	end 'makes'
+	var run = runStages(p, from: from, memory: memory, first: first, goal: goal, makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
+	let generated = run.generated()
 	ast.locateAllErrors(p.modules, errs: errs)
 	return generated
-end 'compileLoadedKeeping'
+end 'compileFrom'
 
-// frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
-// first stage that has any. makesProgram says that the compile makes an executable, whose
-// root needs a main even when it is the runtime's own project.
+// frontEnd checks the modules of p, which are parsed: the errors are those of the first stage that has any. makesProgram says
+// that the compile makes an executable, whose root needs a main even when it is the runtime's own project.
 export function frontEnd(mutates p ast.Project, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
-	return frontEndFrom(p, first: 0, makesProgram: makesProgram, errs: errs)
+	return checkLoaded(p, goal: Goal.checked, makesProgram: makesProgram, errs: errs)
 end 'frontEnd'
 
-// frontEndFrom is frontEnd over the modules from the one at index first on; the ones before it are checked already and
-// are only named.
-function frontEndFrom(mutates p ast.Project, first Count, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
-	var order = check.ModuleOrder.create(0)
-	if errs.count() == 0 'discovered'
-		resolve.resolveFrom(p, first: first, errs: errs)
-	end 'discovered'
-	if errs.count() == 0 'resolved'
-		let graph = project.newGraph(p)
-		match project.checkAcyclic(graph, p: p) 'cycle'
-			some(cycleError) then errs.push(cycleError.clone())
-			none then order = modulesFrom(project.topoOrder(graph), first: first)
-		end 'cycle'
-	end 'resolved'
-	if errs.count() > 0 'failed'
-		order = check.ModuleOrder.create(0)
-	end 'failed'
-	var checks = check.startChecks(p, order: order, makesProgram: makesProgram)
-	checkStages(checks, p: p, errs: errs)
-	return check.endChecks(p, ch: checks)
-end 'frontEndFrom'
+// declareFront is frontEnd as far as the constants.
+export function declareFront(mutates p ast.Project, mutates errs diag.ErrorList) returns check.Checked
+	return checkLoaded(p, goal: Goal.declared, makesProgram: false, errs: errs)
+end 'declareFront'
 
-// modulesFrom is the modules of order that stand at index first or after it, in order.
-function modulesFrom(order check.ModuleOrder, first Count) returns check.ModuleOrder
-	var kept = check.ModuleOrder.create(0)
-	for i in 0 upto order.count() 'each'
-		if ast.modIndex(order[i]) >= first 'new'
-			kept.push(order[i])
-		end 'new'
-	end 'each'
-	return kept
-end 'modulesFrom'
+function checkLoaded(mutates p ast.Project, goal Goal, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
+	var ready = backend.UnitList.create(0)
+	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: goal, makesProgram: makesProgram, output: "", options: Options.new(), ready: ready, errs: errs)
+	return exchange(run.checked, value: noChecked())
+end 'checkLoaded'
 
-// checkStages runs the stages of the check over every module, each when the ones before it found nothing.
-function checkStages(mutates checks check.Checks, mutates p ast.Project, mutates errs diag.ErrorList)
-	if errs.count() > 0 'front'
-		return
-	end 'front'
-	check.stageAliases(checks, p: p, errs: errs)
-	if errs.count() > 0 'aliased'
-		return
-	end 'aliased'
-	check.stageDeclare(checks, p: p, errs: errs)
-	if errs.count() > 0 'declared'
-		return
-	end 'declared'
-	check.stageConstantOrder(checks, p: p, errs: errs)
-	if errs.count() > 0 'ordered'
-		return
-	end 'ordered'
-	check.stageConstants(checks, p: p, errs: errs)
-	if errs.count() > 0 'constants'
-		return
-	end 'constants'
-	check.stageBodies(checks, p: p, errs: errs)
-	if errs.count() > 0 'bodies'
-		return
-	end 'bodies'
-	check.stageVerify(checks, p: p, errs: errs)
-end 'checkStages'
-
-typealias ErrorLists = Array with diag.ErrorList
-
-// generate is the stage after the check. Each module from the one at index first on, in the order the check visited them,
-// finds the instances it needs and, for a compile that makes an executable, lowers its functions and those instances. An
-// instance whose type arguments nest without end fails every module that reaches it, so the program gets the failure of
-// the first such module in module order. A compile that makes nothing then holds the
-// runtime's own project to the functions the compiler calls in it; one that makes an executable reports what only the
-// interpreter runs, and otherwise links the modules' functions with the ready units into it.
-function generate(mutates p ast.Project, first Count, checked check.Checked, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
-	let generated = Generated.make(checked.entry, modules: lowerModules(p, first: first, checked: checked, lowersBodies: output != "", errs: errs))
-	if errs.count() > 0 'failed'
-		return generated
-	end 'failed'
-	checkRuntimeFunctions(p, first: first, errs: errs)
-	if output == "" or errs.count() > 0 'nothingToMake'
-		return generated
-	end 'nothingToMake'
-	if options.emitIr 'emitIr'
-		writeIr(p, lowered: generated.modules, path: "{output}{irExtension}")
-	end 'emitIr'
-	refusals(p, lowered: generated.modules, errs: errs)
-	if errs.count() > 0 'refused'
-		return generated
-	end 'refused'
-	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
-	var symbolMap = ""
-	if options.emitMap 'emitMap'
-		symbolMap = "{output}{mapExtension}"
-	end 'emitMap'
-	try backend.compileProgram(p, modules: generated.modules, ready: ready, entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {output}")
-	return generated
-end 'generate'
-
-// lowerModules lowers each module from the one at index first on, in the order the check visited them: the functions of a
-// module and the instances it needs, or only the instances when the compile makes no executable. The lists are in the order of
-// the modules from first on. An instance whose type arguments nest without end fails every module that reaches it, so the
-// program gets the failure of the first such module in module order.
-function lowerModules(mutates p ast.Project, first Count, checked check.Checked, lowersBodies bool, mutates errs diag.ErrorList) returns backend.FunctionLists
-	let count = try p.modules.count() - first otherwise panic("driver: fewer modules than the ones checked already")
-	var lowered = backend.FunctionLists.create(0)
-	var unfinite = ErrorLists.create(0)
-	for _ in 0 upto count 'slots'
-		lowered.push(ir.IrFunctionList.create(0))
-		unfinite.push(diag.ErrorList.create(0))
-	end 'slots'
-	for i in 0 upto checked.order.count() 'modules'
-		let m = ast.modIndex(checked.order[i])
-		let slot = try m - first otherwise panic("driver: a module that was checked already is checked again")
-		if lowersBodies 'lower'
-			lowered[slot] = ir.lowerModule(p, functions: checked.functions[m], callers: checked.callers[m], errs: unfinite[slot])
-		end 'lower' else 'instances'
-			_ = ir.findInstances(p, callers: checked.callers[m], errs: unfinite[slot])
-		end 'instances'
-	end 'modules'
-	for slot in 0 upto count 'failures'
-		if unfinite[slot].count() > 0 'failed'
-			appendErrors(errs, found: unfinite[slot])
-			return lowered
-		end 'failed'
-	end 'failures'
-	return lowered
-end 'lowerModules'
+// lowerLoaded checks the modules of p, which are parsed, and lowers their functions, which is nothing when an error stopped
+// the check.
+function lowerLoaded(mutates p ast.Project, mutates errs diag.ErrorList) returns Generated
+	var ready = backend.UnitList.create(0)
+	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: Goal.lowered, makesProgram: true, output: "", options: Options.new(), ready: ready, errs: errs)
+	return run.generated()
+end 'lowerLoaded'
 
 function appendErrors(mutates errs diag.ErrorList, found diag.ErrorList)
 	for i in 0 upto found.count() 'each'

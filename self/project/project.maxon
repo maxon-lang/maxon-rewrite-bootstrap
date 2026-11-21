@@ -804,32 +804,47 @@ end 'loadProject'
 // that p can start as what many programs share, such as the runtime already checked. The root of the project becomes the
 // root module of p. It is false when the path names no file or directory.
 export function loadProjectInto(mutates p ast.Project, rootPath String, mutates errs diag.ErrorList) returns bool
-	p.root = rootPath.clone()
 	let first = p.modules.count()
-	if isDirectoryPath(rootPath) 'dir'
-		loadDirectory(p, rootPath: rootPath, memory: SourceFiles.create(0), errs: errs)
-	end 'dir' else 'single'
-		match consumes readTextFile(rootPath) 'rf'
-			some(text) then addSingleFile(p, path: rootPath, text: text, errs: errs)
-			none then return failMissingInput(rootPath, errs: errs)
-		end 'rf'
-	end 'single'
-	buildModuleTables(p, first: first, errs: errs)
+	match consumes discoverProjectInto(p, rootPath: rootPath, errs: errs) 'found'
+		some(memory) then parseModules(p, first: first, memory: memory, errs: errs)
+		none then return false
+	end 'found'
 	return true
 end 'loadProjectInto'
+
+// discoverProjectInto is loadProjectInto short of parsing: it adds the modules of the project at rootPath to p, and gives the
+// files that parseModule reads their source from, which is none but the one file of a single-file project, or none at all
+// when the path names no file or directory.
+export function discoverProjectInto(mutates p ast.Project, rootPath String, mutates errs diag.ErrorList) returns table.Option with SourceFiles
+	p.root = rootPath.clone()
+	if isDirectoryPath(rootPath) 'dir'
+		discoverDirectory(p, rootPath: rootPath, memory: SourceFiles.create(0), errs: errs)
+		return table.Option.some(SourceFiles.create(0))
+	end 'dir'
+	match consumes readTextFile(rootPath) 'rf'
+		some(text) then return table.Option.some(discoverSingleFile(p, path: rootPath, text: text))
+		none then _ = failMissingInput(rootPath, errs: errs)
+	end 'rf'
+	return table.Option.none
+end 'discoverProjectInto'
 
 // loadFilesInto is loadProjectInto for a project whose files are held in memory, as a directory rootPath that holds them
 // at the paths they name.
 export function loadFilesInto(mutates p ast.Project, rootPath String, files SourceFiles, mutates errs diag.ErrorList)
-	p.root = rootPath.clone()
 	let first = p.modules.count()
-	loadDirectory(p, rootPath: rootPath, memory: files, errs: errs)
-	buildModuleTables(p, first: first, errs: errs)
+	discoverFilesInto(p, rootPath: rootPath, files: files, errs: errs)
+	parseModules(p, first: first, memory: files, errs: errs)
 end 'loadFilesInto'
 
-// loadDirectory adds the modules of the directory at rootPath, the files of which are the ones in memory when there are any.
-function loadDirectory(mutates p ast.Project, rootPath String, memory SourceFiles, mutates errs diag.ErrorList)
-	let first = p.modules.count()
+// discoverFilesInto is loadFilesInto short of parsing; parseModule reads the modules' source from files.
+export function discoverFilesInto(mutates p ast.Project, rootPath String, files SourceFiles, mutates errs diag.ErrorList)
+	p.root = rootPath.clone()
+	discoverDirectory(p, rootPath: rootPath, memory: files, errs: errs)
+end 'discoverFilesInto'
+
+// discoverDirectory adds the modules of the directory at rootPath, the files of which are the ones in memory when there are
+// any.
+function discoverDirectory(mutates p ast.Project, rootPath String, memory SourceFiles, mutates errs diag.ErrorList)
 	var nodes = DiscDirList.create(0)
 	_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, memory: memory, errs: errs)
 	if memory.count() == 0 'onDisk'
@@ -840,22 +855,24 @@ function loadDirectory(mutates p ast.Project, rootPath String, memory SourceFile
 		p.rootModule = rootMid
 		p.modules[ast.modIndex(rootMid)].isRuntime = isRuntimeDirectory(rootPath)
 	end 'collect'
-	for i in first upto p.modules.count() 'parseEach'
-		parseSingleModule(p, modIdx: i, memory: memory, errs: errs)
-	end 'parseEach'
-end 'loadDirectory'
+end 'discoverDirectory'
 
 // loadSourceInto adds a program that is the one file text, named path in diagnostics, to p, as loadProjectInto adds a
 // project. It is how a test of the corpus compiles a program it holds in memory.
 export function loadSourceInto(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList)
-	p.root = path.clone()
 	let first = p.modules.count()
-	addSingleFile(p, path: path, text: text, errs: errs)
-	buildModuleTables(p, first: first, errs: errs)
+	let memory = discoverSourceInto(p, path: path, text: text)
+	parseModules(p, first: first, memory: memory, errs: errs)
 end 'loadSourceInto'
 
-// addSingleFile adds a module that is the one file at path, whose text is given, and makes it the root.
-function addSingleFile(mutates p ast.Project, path String, text String, mutates errs diag.ErrorList)
+// discoverSourceInto is loadSourceInto short of parsing, and gives the file that parseModule reads the module from.
+export function discoverSourceInto(mutates p ast.Project, path String, text String) returns SourceFiles
+	p.root = path.clone()
+	return discoverSingleFile(p, path: path, text: text)
+end 'discoverSourceInto'
+
+// discoverSingleFile adds a module that is the one file at path, whose text is given, makes it the root, and gives the file.
+function discoverSingleFile(mutates p ast.Project, path String, text String) returns SourceFiles
 	var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0))
 	m.dir = parentDir(path)
 	m.filePaths.push(path.clone())
@@ -863,19 +880,34 @@ function addSingleFile(mutates p ast.Project, path String, text String, mutates 
 	p.rootModule = rootMid
 	var memory = SourceFiles.create(0)
 	memory.push(SourceFile.make(path.clone(), text: text.clone()))
-	parseSingleModule(p, modIdx: ast.modIndex(rootMid), memory: memory, errs: errs)
-end 'addSingleFile'
+	return memory
+end 'discoverSingleFile'
 
-function buildModuleTables(mutates p ast.Project, first Count, mutates errs diag.ErrorList)
-	for i in first upto p.modules.count() 'buildTbl'
-		let mid = p.modules[i].id
-		buildModuleTable(p, modID: mid, errs: errs)
-	end 'buildTbl'
-end 'buildModuleTables'
+// parseModules parses the modules of p from the one at index first on.
+export function parseModules(mutates p ast.Project, first Count, memory SourceFiles, mutates errs diag.ErrorList)
+	for i in first upto p.modules.count() 'each'
+		parseModule(p, modIdx: i, memory: memory, errs: errs)
+	end 'each'
+end 'parseModules'
+
+// parseModule reads a module's files, from memory when they are held there and from disk otherwise, parses them into the
+// module's tree and declarations, and gives the declarations their names and each type declaration its shell type.
+export function parseModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
+	parseSingleModule(p, modIdx: modIdx, memory: memory, errs: errs)
+	let modID = p.modules[modIdx].id
+	buildModuleTable(p, modID: modID, errs: errs)
+end 'parseModule'
 
 // addRuntime loads the runtime's source as a module of p, so that it is checked, lowered and linked with the programs
 // compiled after it.
 export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
+	let first = p.modules.count()
+	discoverRuntime(p)
+	parseModules(p, first: first, memory: SourceFiles.create(0), errs: errs)
+end 'addRuntime'
+
+// discoverRuntime is addRuntime short of parsing: the runtime's module, whose files parseModule reads from disk.
+export function discoverRuntime(mutates p ast.Project)
 	let dir = match consumes runtimeDirectory() 'found'
 		some(found) gives found
 		none panic("there is no runtime directory in the compiler's directory or above it")
@@ -888,9 +920,7 @@ export function addRuntime(mutates p ast.Project, mutates errs diag.ErrorList)
 	_ = listDirectory(dir, memory: SourceFiles.create(0), files: m.filePaths, projectFiles: projectFiles, dirs: subdirectories)
 	let mid = ast.addModule(p, m: m)
 	p.rootModule = mid
-	parseSingleModule(p, modIdx: ast.modIndex(mid), memory: SourceFiles.create(0), errs: errs)
-	buildModuleTable(p, modID: mid, errs: errs)
-end 'addRuntime'
+end 'discoverRuntime'
 
 function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns bool
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)
