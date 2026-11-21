@@ -101,6 +101,9 @@ function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if k == ast.NodeKind.indexExpr 'indexExpr'
 		return checkIndex(c, p: p, e: e, errs: errs)
 	end 'indexExpr'
+	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
+		return checkCollectionLit(c, p: p, e: e, errs: errs)
+	end 'collectionLitExpr'
 	if k == ast.NodeKind.matchExpr 'matchExpr'
 		let core = ast.matchExprMatch(p.modules[c.modIdx].tree, id: e)
 		return checkMatch(c, p: p, core: core, isExpr: true, errs: errs)

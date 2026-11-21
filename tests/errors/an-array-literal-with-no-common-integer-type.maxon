@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let big = 5 as Count
+	let xs = [big, -1]
+	return xs.count() as ExitCode
+end 'main'
+
+// expect-error: E3005 at 3:17

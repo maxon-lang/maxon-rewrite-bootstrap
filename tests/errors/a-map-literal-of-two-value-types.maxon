@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	let m = ["a": 1, "b": "two"]
+	return m.count() as ExitCode
+end 'main'
+
+// expect-error: E3005 at 2:24

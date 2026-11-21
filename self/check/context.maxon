@@ -168,6 +168,9 @@ export type Checker
 	export var allowCalls as bool
 	export var dead as bool
 	export var expect as ast.TypeID
+	// literalWide is whether an array or map literal being typed is inside another, so that its bare numbers take the whole word
+	// instead of the range they span.
+	export var literalWide as bool
 	export var scopes as ScopeList
 	export var blocks as BlockFrameList
 	export var nextSlot as Count
@@ -201,7 +204,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -385,9 +388,17 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, src as
 	if sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange 'integers'
 		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
 	end 'integers'
-	checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: ast.typeName(p.types, t: src), castable: false), fix: fix, errs: errs)
+	checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: false), fix: fix, errs: errs)
 	return false
 end 'coerce'
+
+// gotName is how a message names the type of the value it refuses: a bare number is an 'int', whatever its value.
+function gotName(p ast.Project, t ast.TypeID) returns String
+	if p.types.entries[t as Count].kind == ast.TypeKind.constInt 'bare'
+		return "int"
+	end 'bare'
+	return ast.typeName(p.types, t: t)
+end 'gotName'
 
 export function requireOneAlias(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
 	if l == ast.noType or r == ast.noType 'e'

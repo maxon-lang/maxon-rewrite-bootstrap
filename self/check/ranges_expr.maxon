@@ -226,6 +226,9 @@ function rangeEval(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	if k == ast.NodeKind.structLitExpr 'structLit'
 		return rangeStructLit(r, p: p, e: e)
 	end 'structLit'
+	if k == ast.NodeKind.collectionLitExpr 'collectionLit'
+		return rangeCollectionLit(r, p: p, e: e)
+	end 'collectionLit'
 	if k == ast.NodeKind.nameExpr 'name'
 		return rangeNameExpr(r, p: p, e: e)
 	end 'name'
@@ -285,6 +288,18 @@ function rangeStructLit(mutates r Ranges, p ast.Project, e ast.NodeID) returns S
 	end 'fields'
 	return noSpan()
 end 'rangeStructLit'
+
+function rangeCollectionLit(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
+	let elemsRef = ast.collectionLitExprElemsRef(p.modules[r.modIdx].tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(p.modules[r.modIdx].tree, id: e)
+	for i in 0 upto p.modules[r.modIdx].tree.listLen(elemsRef) 'each'
+		_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID)
+		if p.modules[r.modIdx].tree.listLen(valuesRef) > 0 'pair'
+			_ = rangeEval(r, p: p, e: p.modules[r.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID)
+		end 'pair'
+	end 'each'
+	return noSpan()
+end 'rangeCollectionLit'
 
 function rangeNameExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
 	let t = typeOf(r, e: e)

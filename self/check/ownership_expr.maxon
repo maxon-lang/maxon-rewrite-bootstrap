@@ -245,6 +245,9 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	if k == ast.NodeKind.structLitExpr 'structLit'
 		return structLitOwn(o, p: p, e: e, s: s)
 	end 'structLit'
+	if k == ast.NodeKind.collectionLitExpr 'collectionLit'
+		return collectionLitOwn(o, p: p, e: e, s: s)
+	end 'collectionLit'
 	if k == ast.NodeKind.matchExpr 'match'
 		return matchOwn(o, p: p, core: ast.matchExprMatch(p.modules[o.c.modIdx].tree, id: e), s: s)
 	end 'match'
@@ -632,3 +635,17 @@ function structLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	end 'fields'
 	return out
 end 'structLitOwn'
+
+// collectionLitOwn moves each element, or each key and its value, into the collection in the order they are written.
+function collectionLitOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
+	let elemsRef = ast.collectionLitExprElemsRef(p.modules[o.c.modIdx].tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(p.modules[o.c.modIdx].tree, id: e)
+	var out = s
+	for i in 0 upto p.modules[o.c.modIdx].tree.listLen(elemsRef) 'each'
+		out = consume(o, p: p, e: p.modules[o.c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, dest: OwnDest.of(OwnDestKind.destLiteral), s: out)
+		if p.modules[o.c.modIdx].tree.listLen(valuesRef) > 0 'pair'
+			out = consume(o, p: p, e: p.modules[o.c.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, dest: OwnDest.of(OwnDestKind.destLiteral), s: out)
+		end 'pair'
+	end 'each'
+	return out
+end 'collectionLitOwn'

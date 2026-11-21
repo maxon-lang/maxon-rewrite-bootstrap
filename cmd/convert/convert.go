@@ -1100,8 +1100,8 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				warn(line, "character literals are not supported in minimaxon")
 			}
 		case tokPunct:
-			if t.text == "[" && isCollectionLiteralBracket(toks, i) {
-				warn(line, "array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert")
+			if t.text == "[" && isCollectionLiteralBracket(toks, i) && i+1 < len(toks) && toks[i+1].text == "]" {
+				warn(line, "an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array")
 			}
 			if t.text == "(" && isTupleParen(toks, i) {
 				warn(line, "tuple values and types are not supported in minimaxon")

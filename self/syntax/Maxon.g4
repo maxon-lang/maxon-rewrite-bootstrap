@@ -433,13 +433,14 @@ expr
     | strLit
     | boolLit
     | structLitExpr
+    | collectionLitExpr
     | selfExpr
     | nameExpr
     | panicExpr
     | matchExpr
     | '(' expr ')'
     | obj=expr '.' name=Name                                         # MemberExpr
-    | obj=expr '[' args+=expr (',' args+=expr)* ']'                  # IndexExpr
+    | obj=expr ^'[' args+=expr (',' args+=expr)* ']'                 # IndexExpr
     | callee=expr ^'(' (args+=arg (',' args+=arg)*)? ')'               # CallExpr
     | op=('-'^ | 'not') e=expr                                       # UnaryExpr
     | e=expr 'as' target=typeRef                                     # CastExpr
@@ -522,6 +523,12 @@ structField
     : name=Name ':' value=expr
     ;
 
+// An array literal [a, b] or a map literal [k: v, k: v]: the first element's following token says which. The empty [] parses
+// so that the checker can say why it has no type.
+collectionLitExpr
+    : '[' (elems+=expr (':' values+=expr (',' elems+=expr ':' values+=expr)* | (',' elems+=expr)*))? ']'
+    ;
+
 /** an argument */
 arg
     : (label=(Name | Keyword) ':')? value=expr
@@ -572,7 +579,7 @@ RBrace : '}' -> noSpaceBefore ;
 Comma : ',' -> noSpaceBefore ;
 Colon : ':' -> noSpaceBefore ;
 Dot : '.' -> noSpace ;
-LBracket : '[' -> noSpace ;
+LBracket : '[' -> noSpaceAfter ;
 RBracket : ']' -> noSpaceBefore ;
 Plus : '+' ;
 Minus : '-' ;

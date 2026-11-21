@@ -768,7 +768,10 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		resolveCallExpr(r, p: p, id: id, errs: errs)
 	end 'call' else if k == ast.NodeKind.structLitExpr 'slit'
 		resolveStructLitExpr(r, p: p, id: id, errs: errs)
-	end 'slit' else if k == ast.NodeKind.castExpr 'cast'
+	end 'slit' else if k == ast.NodeKind.collectionLitExpr 'coll'
+		resolveExprList(r, p: p, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
+		resolveExprList(r, p: p, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
+	end 'coll' else if k == ast.NodeKind.castExpr 'cast'
 		resolveExpr(r, p: p, id: ast.castExprE(r.tree, id: id), errs: errs)
 		resolveTypeRef(r, p: p, tr: ast.castExprTarget(r.tree, id: id), errs: errs)
 	end 'cast' else if k == ast.NodeKind.matchExpr 'me'
@@ -779,6 +782,12 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		panic("resolveExpr: unexpected node kind")
 	end 'unk'
 end 'resolveExpr'
+
+function resolveExprList(mutates r Resolver, p ast.Project, list diag.U32, mutates errs diag.ErrorList)
+	for i in 0 upto r.tree.listLen(list) 'each'
+		resolveExpr(r, p: p, id: r.tree.listAt(list, index: i) as ast.NodeID, errs: errs)
+	end 'each'
+end 'resolveExprList'
 
 function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	let callee = ast.callExprCallee(r.tree, id: id)

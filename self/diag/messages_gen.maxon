@@ -359,3 +359,13 @@ end 'typeReferenceCycle'
 export function rawIntrinsicOutsideRuntime(callee String) returns String
 	return "call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/"
 end 'rawIntrinsicOutsideRuntime'
+
+// The text of errUnsupportedFeature for: Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array
+export function emptyArrayLiteral() returns String
+	return "Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array"
+end 'emptyArrayLiteral'
+
+// The text of errTypeMismatch for: no common integer type for {low} and {high}: cast the elements to an alias
+export function noCommonIntegerType(low String, high String) returns String
+	return "no common integer type for {low} and {high}: cast the elements to an alias"
+end 'noCommonIntegerType'

@@ -50,6 +50,7 @@ export enum NodeKind
 	selfExpr
 	structLitExpr
 	structField
+	collectionLitExpr
 	arg
 	panicExpr
 	matchExpr
@@ -1561,6 +1562,27 @@ end 'structFieldValue'
 export function setStructFieldValue(mutates t Tree, id NodeID, value NodeID)
 	t.records[id as Count].b = value as diag.U32
 end 'setStructFieldValue'
+
+export function newCollectionLitExpr(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.collectionLitExpr, start: start)
+	return id
+end 'newCollectionLitExpr'
+
+export function collectionLitExprElemsRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'collectionLitExprElemsRef'
+
+export function setCollectionLitExprElemsRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setCollectionLitExprElemsRef'
+
+export function collectionLitExprValuesRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].b
+end 'collectionLitExprValuesRef'
+
+export function setCollectionLitExprValuesRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].b = ref
+end 'setCollectionLitExprValuesRef'
 
 export function newArg(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.arg, start: start)

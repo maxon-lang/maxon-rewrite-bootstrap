@@ -237,7 +237,7 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 	if k == NodeKind.memberExpr 'member'
 		return table.Option.some(wordEnd(t.text, at: skipSpace(t.text, at: stepOn(start))))
 	end 'member'
-	if k == NodeKind.indexExpr or k == NodeKind.callExpr 'bracketed'
+	if k == NodeKind.indexExpr or k == NodeKind.callExpr or k == NodeKind.collectionLitExpr 'bracketed'
 		return table.Option.some(closingEnd(t.text, at: start))
 	end 'bracketed'
 	if k == NodeKind.intLit and t.text.byteAt(start) == minusByte 'negative'

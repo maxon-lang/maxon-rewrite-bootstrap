@@ -111,6 +111,9 @@ function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	if k == ast.NodeKind.indexExpr 'indexExpr'
 		return visitIndexExpr(l, p: p, e: e)
 	end 'indexExpr'
+	if k == ast.NodeKind.collectionLitExpr 'collectionLitExpr'
+		return visitCollectionLitExpr(l, p: p, e: e)
+	end 'collectionLitExpr'
 	if k == ast.NodeKind.matchExpr 'matchExpr'
 		return lowerMatch(l, p: p, core: ast.matchExprMatch(p.modules[l.mi].tree, id: e), resultType: exprType(p, module: l.module, node: e))
 	end 'matchExpr'

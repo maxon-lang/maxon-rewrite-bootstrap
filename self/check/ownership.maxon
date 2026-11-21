@@ -17,6 +17,7 @@ export enum OwnDestKind
 	destReturn
 	destResult
 	destElement
+	destLiteral
 	destBehaviour
 	destMatch
 	destDestructor
@@ -43,6 +44,7 @@ export type OwnDest
 			destReturn gives "the return value"
 			destResult gives "the result of a conditional or match"
 			destElement gives "an element of '{name}'"
+			destLiteral gives "an element of a literal"
 			destBehaviour gives "a behaviour"
 			destMatch gives "a 'match consumes'"
 			destDestructor gives "a destructor"

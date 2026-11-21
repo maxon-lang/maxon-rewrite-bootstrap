@@ -1,0 +1,41 @@
+//> 3 2 20 7000
+//> 15 2
+//> p q 2 yy 2
+//> 2 4
+
+typealias Counts = Array with Count
+
+type Box
+	export var name as String
+
+	static function make(consumes name String) returns Box
+		return Box{name: name}
+	end 'make'
+end 'Box'
+
+function sum(items Counts) returns Count
+	var total = 0 as Count
+	for i in 0 upto items.count() 'each'
+		total = try total + items[i] otherwise panic("overflow")
+	end 'each'
+	return total
+end 'sum'
+
+function words() returns Array with String
+	return ["x", "yy {1 + 1}"]
+end 'words'
+
+function main() returns ExitCode
+	let a = [10, 20, 30]
+	var v = [5 as Count, 6]
+	v.push(7000)
+	print("{a.count()} {words().count()} {a[1]} {v[2]}\n")
+	print("{sum([4, 5, 6])} {words().count()}\n")
+	let boxes = [Box.make("p"), Box.make("q")]
+	let rows = [[1, 2], [3, 4, 5]]
+	print("{boxes[0].name} {boxes[1].name} {boxes.count()} {words()[1]}\n")
+	print("{rows[0][1]} {rows[1][1]}\n")
+	return try a.get(2) otherwise 0
+end 'main'
+
+// expect-exit: 30

@@ -50,7 +50,7 @@ function constRefs(p ast.Project, modIdx Count, e ast.NodeID, mutates out DeclRe
 		constRefsOfMatch(p, modIdx: modIdx, core: ast.matchExprMatch(p.modules[modIdx].tree, id: e), out: out)
 		return
 	end 'match'
-	if k == ast.NodeKind.callExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.structLitExpr 'lists'
+	if k == ast.NodeKind.callExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.structLitExpr or k == ast.NodeKind.collectionLitExpr 'lists'
 		constRefsOfLists(p, modIdx: modIdx, e: e, k: k, out: out)
 		return
 	end 'lists'
@@ -120,13 +120,24 @@ function constRefsOfLists(p ast.Project, modIdx Count, e ast.NodeID, k ast.NodeK
 		for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'indices'
 			constRefs(p, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
 		end 'indices'
-	end 'index' else 'literal'
+	end 'index' else if k == ast.NodeKind.structLitExpr 'literal'
 		let fieldsRef = ast.structLitExprFieldsRef(p.modules[modIdx].tree, id: e)
 		for i in 0 upto p.modules[modIdx].tree.listLen(fieldsRef) 'fields'
 			let field = p.modules[modIdx].tree.listAt(fieldsRef, index: i) as ast.NodeID
 			constRefs(p, modIdx: modIdx, e: ast.structFieldValue(p.modules[modIdx].tree, id: field), out: out)
 		end 'fields'
-	end 'literal'
+	end 'literal' else if k == ast.NodeKind.collectionLitExpr 'collection'
+		let elemsRef = ast.collectionLitExprElemsRef(p.modules[modIdx].tree, id: e)
+		for i in 0 upto p.modules[modIdx].tree.listLen(elemsRef) 'elems'
+			constRefs(p, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)
+		end 'elems'
+		let valuesRef = ast.collectionLitExprValuesRef(p.modules[modIdx].tree, id: e)
+		for i in 0 upto p.modules[modIdx].tree.listLen(valuesRef) 'values'
+			constRefs(p, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, out: out)
+		end 'values'
+	end 'collection' else 'unknown'
+		panic("the node {e} of kind {k.name} holds no list of operands")
+	end 'unknown'
 end 'constRefsOfLists'
 
 // constRefsOfMatch covers a match expression: its subject and, in each arm, its patterns' values and the arm's value. A

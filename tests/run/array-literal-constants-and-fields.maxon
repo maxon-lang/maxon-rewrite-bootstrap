@@ -1,0 +1,27 @@
+//> 15 b 3 3
+
+let Table = [3, 5, 7]
+
+let Names = ["a", "b"]
+
+type Holder
+	export var items as Array with Count
+
+	static function make() returns Holder
+		return Holder{items: [1, 2, 3]}
+	end 'make'
+end 'Holder'
+
+function total() returns Count
+	var t = 0 as Count
+	for i in 0 upto Table.count() 'each'
+		t = try t + Table[i] otherwise panic("o")
+	end 'each'
+	return t
+end 'total'
+
+function main() returns ExitCode
+	let h = Holder.make()
+	print("{total()} {Names[1]} {Table.count()} {h.items[2]}\n")
+	return 0
+end 'main'

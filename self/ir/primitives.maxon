@@ -237,6 +237,40 @@ function assignElement(mutates l Lowerer, mutates p ast.Project, target ast.Node
 	emit(l, i: newStoreAt(addr, src: v))
 end 'assignElement'
 
+// visitCollectionLitExpr builds the collection of a literal as the explicit code does: an empty one, then a push or an
+// upsert of each element in order. The collection is in flight while the elements are computed, and owns each one once it
+// is in.
+function visitCollectionLitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let ty = exprType(p, module: l.module, node: e)
+	let site = siteOf(l, p: p, node: e)
+	let elemsRef = ast.collectionLitExprElemsRef(p.modules[l.mi].tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(p.modules[l.mi].tree, id: e)
+	let isMap = p.modules[l.mi].tree.listLen(valuesRef) > 0
+	var collection = noReg
+	var box = ArrayBox.make(site.clone(), ty: ty)
+	if isMap 'map'
+		collection = entry(l, p: p, site: site, symbol: Rt.rtMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
+	end 'map' else 'array'
+		box = arrayOf(l, p: p, site: site, t: ty)
+		collection = arrayNew(l, p: p, box: box)
+	end 'array'
+	let mark = l.pending.count()
+	let flight = dropType(l, p: p, t: ty)
+	l.pending.push(PendingDrop.ofReg(collection, ty: flight))
+	for i in 0 upto p.modules[l.mi].tree.listLen(elemsRef) 'each'
+		let first = lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(elemsRef, index: i) as ast.NodeID)
+		if isMap 'upsert'
+			let value = lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(valuesRef, index: i) as ast.NodeID)
+			entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(collection, b: first, c: value))
+		end 'upsert' else 'push'
+			arrayPush(l, p: p, box: box, arr: collection, v: first)
+		end 'push'
+		popPending(l, n: succ(mark))
+	end 'each'
+	popPending(l, n: mark)
+	return collection
+end 'visitCollectionLitExpr'
+
 // lowerIntrinsic lowers a call of a built-in method into the runtime entries of its primitive.
 function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
 	let op = p.funcs.entries[c.info.fn as Count].intrinsic

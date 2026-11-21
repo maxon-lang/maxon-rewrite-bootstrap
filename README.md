@@ -915,7 +915,7 @@ and nothing else.
   whose every branch returns or panics) is allowed and type-checked, but never compiled (`ast.Live`): its calls make no
   instance of a generic. A `break` or `continue` inside a branch does not end the code after the `if` or `match`,
   since a `break` can leave a `match`.
-- Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
+- Integer, bool and string literals, array literals `[a, b]` and map literals `[k: v, k: w]` (see "Primitives"), interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
   positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
@@ -1400,6 +1400,18 @@ one anywhere.
 An array of an integer type whose range fits in a `Byte` holds one byte to an element, natively and under the
 interpreter, and any other array a word; the program cannot tell, except by how much memory it takes.
 
+**Array and map literals.** `[a, b, c]` is an `Array` and `[k: v, l: w]` a `Map`, written on one line with at least one element:
+`[]` is `E2015`, as in maxon (its element type cannot be inferred), and there is no `Alias from [...]`. A literal is what the explicit code
+does: an empty collection, then a `push` or an `upsert` of each element in the order written, so each element is checked against
+`value` (and `key`) as that call's argument is, moved in under the same rules, and a later `upsert` of a key replaces its value. The
+element type is the one the context expects when it is an `Array with T` or a `Map with (K, V)` (an argument, a return, a field, an
+assignment, a typealias'd `let`), else the first element's, with a later integer joined to it as the branches of a conditional are
+(`E3005` for two types that do not join; for a negative number and one above `i64.max`, "no common integer type"). Bare numbers have
+no alias, so a literal of them keeps the range it spans, `[1, 2, 3]` being `Array with int(1 to 3)`, which a `let` reads at any alias that holds it
+(`return try [10, 20, 30].get(0) otherwise 0` is an `ExitCode`); a literal inside another takes the whole word instead. A `var` cannot
+start from a collection of bare numbers, which could not take another later (`E2004`, as for `var x = 5`): `var xs = [5 as Count, 6]`. A
+module-level `let` of a literal is a constant that each use builds again.
+
 `create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
 the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`.
 `dropEmpty()` takes `consumes self`, ends the collection and traps if an element is left: it is how a collection of values with destructors, which cannot be
@@ -1657,6 +1669,10 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
+- Array and map literals (see "Primitives") are the maxon literals without `Alias from [...]`, `Type from [...]`, a literal spread over several
+  lines, or constant image data: a `let` literal is a fresh `Array` or `Map` like any other value, not an immutable image shared by its
+  uses, and its bare numbers keep their range as the element type of that one array instead of fitting any alias at each use, so
+  passing `let xs = [1, 2]` to a parameter of `Array with Count` is `E3005` until the literal is written where the parameter is.
 - `Array`, `Map` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`

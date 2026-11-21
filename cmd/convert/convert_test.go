@@ -39,6 +39,21 @@ end 'Counter'
 `,
 		},
 		{
+			name: "array and map literals convert without a warning",
+			in: `function f() returns Count
+    let xs = [1, 2, 3]
+    let m = ["a": 1]
+    return xs[0] + m.count()
+end 'f'
+`,
+			want: `function f() returns Count
+	let xs = [1, 2, 3]
+	let m = ["a": 1]
+	return xs[0] + m.count()
+end 'f'
+`,
+		},
+		{
 			name: "consuming self without destruct becomes consumes self",
 			in: `type Box
 	var n as Count
@@ -286,6 +301,11 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "default throws",
 			in:       "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred gives 1\n\t\tdefault throws ColorError.unsupported\n\tend 'which'\nend 'f'\n",
 			wantTodo: "'default throws' in a match",
+		},
+		{
+			name:     "empty array literal",
+			in:       "function f() returns Count\n\tlet xs = []\n\treturn 0\nend 'f'\n",
+			wantTodo: "an empty array literal",
 		},
 		{
 			name:     "Type from value",

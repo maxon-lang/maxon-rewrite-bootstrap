@@ -1,0 +1,30 @@
+//> 2 2 one
+//> 1 2 2
+
+type Box
+	export var name as String
+
+	static function make(consumes name String) returns Box
+		return Box{name: name}
+	end 'make'
+end 'Box'
+
+typealias Names = Map with (Count, String)
+
+function names() returns Names
+	return [1: "one", 2: "two"]
+end 'names'
+
+function main() returns ExitCode
+	let m = [1 as Count: "one", 2 as Count: "two"]
+	let n = ["a": 1, "b": 2, "a": 3]
+	let boxes = ["p": Box.make("p {n.count()}")]
+	let found = names()
+	var seen = "none"
+	if found.contains(1) 'has'
+		seen = "one"
+	end 'has'
+	print("{m.count()} {n.count()} {seen}\n")
+	print("{boxes.count()} {n.count()} {found.count()}\n")
+	return 0
+end 'main'

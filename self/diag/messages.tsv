@@ -78,3 +78,5 @@ exposesLessVisibleType	ErrExposesHiddenType	{tier} {noun} '{name}' names {typeTi
 unsignedNegation	ErrUnsignedNegation	unary '-' cannot negate a value of '{alias}': it holds 0 to u64.max, so the negation of any value above 0 is outside it. Write a deliberately wrapping negation over a `bits(64)` typealias, or convert the value to a signed typealias first with `as`
 typeReferenceCycle	ErrTypeCycle	type '{name}' contains a reference cycle (via {path}); recursive type references are not allowed
 rawIntrinsicOutsideRuntime	ErrRawIntrinsicOutsideRuntime	call to '{callee}' from outside the runtime source tier: '__Raw' names a raw runtime intrinsic, callable only from a source file under runtime/
+emptyArrayLiteral	ErrUnsupportedFeature	Unsupported: an empty array literal `[]` — its element type cannot be inferred; use `Array with T` + `.create()` for an empty typed array
+noCommonIntegerType	ErrTypeMismatch	no common integer type for {low} and {high}: cast the elements to an alias

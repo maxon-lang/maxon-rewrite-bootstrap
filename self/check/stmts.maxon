@@ -266,7 +266,7 @@ function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 		failAt(c, p: p, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
 		return
 	end 'noValue'
-	if isVar and (isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t)) 'bareNumber'
+	if isVar and (isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t) or holdsBareNumbers(p, t: t)) 'bareNumber'
 		failAt(c, p: p, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
 		return
 	end 'bareNumber'
