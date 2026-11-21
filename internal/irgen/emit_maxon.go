@@ -5,9 +5,8 @@ import (
 	"strings"
 )
 
-// self/ir holds the records the way internal/ir does: an Instr and a Term of fixed fields, read through a getter per
-// operand of each operation (binLeft(x)), with the pools in the hand-written IrFunction. A small field that Go keeps in
-// a narrower integer is an Index here, and a number a Word.
+// self/ir holds the records as an Instr and a Term of fixed fields, read through a getter per operand of each operation
+// (binLeft(x)), with the pools in the hand-written IrFunction. A small field is an Index, and a number a Word.
 
 func maxonConst(o op) string {
 	if o.Term {

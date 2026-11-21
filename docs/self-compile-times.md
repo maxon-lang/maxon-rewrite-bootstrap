@@ -1,8 +1,12 @@
 # Compile time of `self/`
 
-One uncached build of `self/` per row (`.\selftime.ps1 -Note <stage>`). Total is the Go compiler's wall time
-(`minimaxon build self --timings`); check and generate are its task time summed over the modules. C1 is `self/`
-built by the Go compiler and C2 is `self/` built by C1; their columns are the wall time of each building `self/`.
+One build of `self/` per row (`.\selftime.ps1 -Note <stage>`).
+
+## Until 2026-11-21: built by the Go compiler
+
+Total is the Go compiler's wall time (`minimaxon build self --timings`, uncached); check and generate are its task time
+summed over the modules. C1 is `self/` built by the Go compiler and C2 is `self/` built by C1; their columns are the
+wall time of each building `self/`. The Go compiler was removed on 2026-11-21, and its columns end with it.
 
 | Date | Commit | Stage | `self/` lines | Total ms | Check ms | Generate ms | C1 ms | C2 ms |
 |---|---|---|---:|---:|---:|---:|---:|---:|
@@ -32,3 +36,11 @@ built by the Go compiler and C2 is `self/` built by C1; their columns are the wa
 | 2026-11-21 | 054227e | 1.5 self-compile works | 33606 | 48.2 | 38.8 | 37.7 | 2032 | 4471 |
 | 2026-11-21 | 7260842 | 1.5 M1 gate: c1 and c2 test pass | 34043 | 131.0 | 120.0 | 221.6 | 3896 | 7034 |
 | 2026-11-21 | 5b316e8 | 1.6 interpreter, 1.7 spec runner | 41083 | 49.7 | 53.4 | 45.5 | 2387 | 5719 |
+
+## From 2026-11-21: built from the seed
+
+Seed is the wall time of `seed\minimaxon.exe` building `self/` into C1, C1 that of C1 building it into C2, and C2 that
+of C2 building it again.
+
+| Date | Commit | Stage | `self/` lines | Seed ms | C1 ms | C2 ms |
+|---|---|---|---:|---:|---:|---:|

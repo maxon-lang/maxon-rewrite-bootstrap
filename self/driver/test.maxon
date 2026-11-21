@@ -1,13 +1,17 @@
-// The test runner: minimaxon's `test` command, which compiles and runs the corpus in this process, with the expectations
-// of the Go compiler's runner.
+// The test runner: minimaxon's `test` command, which compiles and runs the corpus in this process.
 
 let testsDirName = "tests"
 
 let modulesDir = "modules"
 
+// The programs of this directory of the corpus are only compiled: one that expects no error must compile clean, and none is run.
+let checkOnlyDir = "check"
+
 let sourceExtension = ".maxon"
 
 let expectErrorPrefix = "// expect-error:"
+
+let expectFreePrefix = "// expect-free:"
 
 let expectExitPrefix = "// expect-exit:"
 
@@ -37,7 +41,7 @@ let tabByte = 9 as Byte
 // The width of the text after "//>" that is the program's stdout: one space after the marker belongs to the marker.
 let stdoutMarkerBytes = 3 as Count
 
-// An exit code at or above this is a negative number to the system, as the Go runner prints it.
+// An exit code at or above this is a negative number to the system, and is printed as one.
 let signBit = 2147483648
 
 let exitCodeRange = 4294967296
@@ -46,15 +50,17 @@ let decimalBase = 10 as Count
 
 // Expectation is what the directives of a test program say.
 type Expectation
-	var error as String
-	var hasError as bool
+	var errors as ast.StringList
 	var exit as ExitCode
 	var stdout as String
 	var memoryLimitMB as Count
 	var nativeOnly as bool
+	// frees is the order in which the interpreter must free the values of the program, when the program says it.
+	var frees as ast.StringList
+	var checkOnly as bool
 
 	static function new() returns Expectation
-		return Expectation{error: "", hasError: false, exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false}
+		return Expectation{errors: ast.StringList.create(0), exit: 0, stdout: "", memoryLimitMB: 0, nativeOnly: false, frees: ast.StringList.create(0), checkOnly: false}
 	end 'new'
 end 'Expectation'
 
@@ -220,12 +226,22 @@ function afterPrefix(line String, prefix String) returns String
 	return line.sliceBytes(prefix.byteLength(), endPos: line.byteLength())
 end 'afterPrefix'
 
+// afterMarkerSpace is the text of a directive after the one space that follows its marker, so that what the directive holds may
+// start or end with spaces of its own.
+function afterMarkerSpace(text String) returns String
+	if text.byteLength() > 0 and text.byteAt(0) == spaceByte 'space'
+		return text.sliceBytes(1, endPos: text.byteLength())
+	end 'space'
+	return text.clone()
+end 'afterMarkerSpace'
+
 // applyDirective adds what one line of a test program says, when it is a directive, to the expectation.
 function applyDirective(mutates expect Expectation, mutates stdout ByteArray, line String, file String)
 	if hasPrefix(line, prefix: expectErrorPrefix) 'error'
-		expect.error = trimSpace(afterPrefix(line, prefix: expectErrorPrefix))
-		expect.hasError = true
-	end 'error' else if hasPrefix(line, prefix: expectExitPrefix) 'exit'
+		expect.errors.push(trimSpace(afterPrefix(line, prefix: expectErrorPrefix)))
+	end 'error' else if hasPrefix(line, prefix: expectFreePrefix) 'free'
+		expect.frees.push(afterMarkerSpace(afterPrefix(line, prefix: expectFreePrefix)))
+	end 'free' else if hasPrefix(line, prefix: expectExitPrefix) 'exit'
 		let n = directiveNumber(afterPrefix(line, prefix: expectExitPrefix), file: file, directive: "expect-exit")
 		expect.exit = try n as ExitCode otherwise panic("test: {file}: malformed expect-exit")
 	end 'exit' else if hasPrefix(line, prefix: expectMemoryPrefix) 'memory'
@@ -363,11 +379,14 @@ function runTests(dir String, updatePositions bool) returns ExitCode
 	var failures = ast.StringList.create(0)
 	var unsupported = 0 as Count
 	var shared = prepareSharedRuntime()
+	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
 		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
-		let result = runTest(shared, file: file, expect: readExpectation(file), updatePositions: updatePositions)
+		var expect = readExpectation(file)
+		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
+		let result = runTest(shared, file: file, expect: expect, updatePositions: updatePositions)
 		var status = "PASS"
 		if result.outcome == TestOutcome.testFailed 'failed'
 			status = "FAIL"
@@ -461,13 +480,16 @@ end 'runTest'
 // that only the interpreter runs is run under it alone; any other is run natively and then under it too, unless it says it
 // is too heavy for that.
 function checkTest(expect Expectation, file String, compiled CompiledProgram, errs diag.ErrorList, exe String, updatePositions bool) returns TestResult
-	if expect.hasError 'expected'
-		return checkExpectedError(expect, file: file, errs: errs, updatePositions: updatePositions)
+	if expect.errors.count() > 0 'expected'
+		return checkExpectedErrors(expect, file: file, errs: errs, updatePositions: updatePositions)
 	end 'expected'
 	let interpreterOnly = onlyInterpreterErrors(errs)
 	if errs.count() > 0 and not interpreterOnly 'failed'
 		return TestResult.failed(joinErrors(errs))
 	end 'failed'
+	if expect.checkOnly 'checked'
+		return TestResult.passed()
+	end 'checked'
 	if interpreterOnly 'interpreted'
 		return runInterpreted(compiled, expect: expect)
 	end 'interpreted'
@@ -482,7 +504,7 @@ end 'checkTest'
 // the memory model. A program that schedules behaviours runs under several schedules, and each must give the same output.
 function runInterpreted(compiled CompiledProgram, expect Expectation) returns TestResult
 	for schedule in 0 upto scheduleSeeds 'schedules'
-		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: false)
+		let out = interp.run(compiled.p, modules: compiled.generated.modules, entry: compiled.generated.entry, stepLimit: interp.defaultStepLimit, seed: interp.seedOf(schedule), wantFrees: expect.frees.count() > 0)
 		var atSeed = ""
 		if out.behaviours > 0 'scheduled'
 			atSeed = " under the schedule of seed {schedule}"
@@ -500,6 +522,9 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 		if out.stdout != expect.stdout 'stdout'
 			return TestResult.failed("the interpreter's stdout differs{atSeed}\n--- expected\n{expect.stdout}--- actual\n{out.stdout}")
 		end 'stdout'
+		if expect.frees.count() > 0 and not sameLines(out.frees, expected: expect.frees) 'frees'
+			return TestResult.failed("the interpreter freed in another order{atSeed}\n--- expected\n{joinLines(expect.frees)}\n--- actual\n{joinLines(out.frees)}")
+		end 'frees'
 		if out.behaviours == 0 'oneSchedule'
 			break 'schedules'
 		end 'oneSchedule'
@@ -507,18 +532,42 @@ function runInterpreted(compiled CompiledProgram, expect Expectation) returns Te
 	return TestResult.passed()
 end 'runInterpreted'
 
-// checkExpectedError is whether errs holds the error of the expect-error directive: its code, and its position when the
-// directive gives one.
-function checkExpectedError(expect Expectation, file String, errs diag.ErrorList, updatePositions bool) returns TestResult
-	var code = expect.error.clone()
+// sameLines is whether two lists hold the same lines in the same order.
+function sameLines(actual ast.StringList, expected ast.StringList) returns bool
+	if actual.count() != expected.count() 'counts'
+		return false
+	end 'counts'
+	for i in 0 upto actual.count() 'each'
+		if actual[i] != expected[i] 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'sameLines'
+
+// checkExpectedErrors is whether errs holds the error of every expect-error directive of the program.
+function checkExpectedErrors(expect Expectation, file String, errs diag.ErrorList, updatePositions bool) returns TestResult
+	for i in 0 upto expect.errors.count() 'directives'
+		let result = checkExpectedError(expect.errors[i], file: file, errs: errs, updatePositions: updatePositions)
+		if result.outcome != TestOutcome.testPassed 'notFound'
+			return result
+		end 'notFound'
+	end 'directives'
+	return TestResult.passed()
+end 'checkExpectedErrors'
+
+// checkExpectedError is whether errs holds the error of one expect-error directive, which says expected: its code, and its
+// position when the directive gives one.
+function checkExpectedError(expected String, file String, errs diag.ErrorList, updatePositions bool) returns TestResult
+	var code = expected.clone()
 	var at = ""
-	let split = findText(expect.error, needle: errorLocationSplit)
+	let split = findText(expected, needle: errorLocationSplit)
 	let hasAt = split.isSome()
 	if hasAt 'positioned'
 		let found = split.unwrap()
-		code = expect.error.sliceBytes(0, endPos: found)
-		let atStart = try found + errorLocationSplit.byteLength() otherwise panic("test: {expect.error} is too long")
-		at = expect.error.sliceBytes(atStart, endPos: expect.error.byteLength())
+		code = expected.sliceBytes(0, endPos: found)
+		let atStart = try found + errorLocationSplit.byteLength() otherwise panic("test: {expected} is too long")
+		at = expected.sliceBytes(atStart, endPos: expected.byteLength())
 	end 'positioned'
 	for i in 0 upto errs.count() 'each'
 		if errs[i].code == code and (not hasAt or at == positionText(errs[i])) 'found'
@@ -528,15 +577,15 @@ function checkExpectedError(expect Expectation, file String, errs diag.ErrorList
 	if updatePositions and hasAt 'moving'
 		for i in 0 upto errs.count() 'moved'
 			if errs[i].code == code 'sameCode'
-				moveExpectedError(file, old: expect.error, replacement: "{code}{errorLocationSplit}{positionText(errs[i])}")
+				moveExpectedError(file, old: expected, replacement: "{code}{errorLocationSplit}{positionText(errs[i])}")
 				return TestResult.passed()
 			end 'sameCode'
 		end 'moved'
 	end 'moving'
 	if errs.count() == 0 'compiled'
-		return TestResult.failed("expected {expect.error}, but it compiled")
+		return TestResult.failed("expected {expected}, but it compiled")
 	end 'compiled'
-	return TestResult.failed("expected {expect.error}, got: {joinErrors(errs)}")
+	return TestResult.failed("expected {expected}, got: {joinErrors(errs)}")
 end 'checkExpectedError'
 
 // exitCodeText is an exit code as a signed number, as the system reports a crash.

@@ -1,4 +1,4 @@
-// The parts of internal/ir that ir_gen.maxon reads: a function's records and the pools that they index, and the texts the
+// The parts of the IR that ir_gen.maxon reads: a function's records and the pools that they index, and the texts the
 // printer puts together.
 
 export enum IrKind

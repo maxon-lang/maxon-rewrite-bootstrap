@@ -51,8 +51,8 @@ function isSourcePath(path String) returns bool
 	return endsWithText(path, suffix: sourceExtension) or endsWithText(path, suffix: markdownExtension)
 end 'isSourcePath'
 
-// withoutCurrentDirectory is a path that a listing of the current directory gave, as the Go compiler lists it: without
-// the leading separator-terminated dot that names the directory.
+// withoutCurrentDirectory is a path that a listing of the current directory gave, without the leading
+// separator-terminated dot that names the directory.
 function withoutCurrentDirectory(path String) returns String
 	if path.byteLength() > 2 and path.byteAt(0 as Count) == dotByte and isSeparator(path.byteAt(1 as Count)) 'current'
 		return path.sliceBytes(2 as Count, endPos: path.byteLength())

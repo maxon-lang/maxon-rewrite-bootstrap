@@ -1,5 +1,0 @@
-function main() returns ExitCode
-	let b = Box.create(4)
-	print("{b.v}\n")
-	return 0
-end 'main'

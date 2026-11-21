@@ -1,0 +1,4 @@
+function f()
+	return )
+end 'f'
+// expect-error: E2010 at 2:9

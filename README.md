@@ -1,46 +1,66 @@
 # minimaxon
 
-A small Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is
-written in Go, targets x64 Windows only, and is about 18,000 hand-written lines in thirteen packages, plus the generator
-that writes its parser and AST. It compiles modules in parallel and writes a
-PE executable directly, with no external assembler, linker or C runtime.
+> **The Go compiler was removed at the commit that added `seed/`.** minimaxon is now `self/`, built from the committed
+> seed (`seed/README.md`). The sections from "Philosophy" on that describe the compiler's design ("Packages",
+> "Pipeline", "The AST", "Allocation", "Build cache", "The IR", "The interpreter", "The runtime" and the rest) were
+> written for the Go compiler, whose design `self/` ports; their package paths (`internal/check`, `internal/ir` and so
+> on) and anything about the build cache, `--jobs`, `--timings` or `--trace` describe that compiler, not this tree.
+> They are being rewritten for `self/`. "Use" and "Tests" below are true of this tree.
+
+A Maxon compiler for trying out language changes, and the seed of the next full Maxon compiler. It is written in
+Maxon (`self/`), compiles itself, targets x64 Windows only, and writes a PE executable directly, with no external
+assembler, linker or C runtime.
 
 It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
-replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
-compiles itself, `self/` grows into the full compiler. Built, `self/` is a compiler with the commands `check <file|dir>` (the diagnostics of `minimaxon check`, exit code 1 when there are any), `build <file|dir> [-o out.exe]` and `run <file|dir>` (with `--emit-ir` and `--count-allocations`, as `minimaxon`'s; the runtime of `runtime/` is loaded as a module of every program, checked, lowered and linked with it), `test [dir]` (the corpus, below), `fmt [--check] <path>...` (as `minimaxon fmt`: `self/syntax/format.maxon` and `self/driver/fmt.maxon`), `interp <file|dir> [--seed=N]` (the tracking interpreter of "The interpreter", `self/interp`), `fuzz` (random programs checked and run under the interpreter, "The interpreter", `self/fuzz`), `rewrite`, `qualify` and `rename` (the tools of "Changing the language": `self/driver/rewrite.maxon`, `qualify.maxon`, `rename.maxon`, over `self/syntax/rewrite.maxon` and the resolver's record of the names it did not find), `test --update-positions`, `build --emit-map` (`symbolMapText` in `self/backend/linker.maxon`), and `selftest` (its own tests). It has no `cache` command (it has no build cache yet) and no `--timings`, `--trace=`, `--jobs=`, `--no-cache` or `--with=`: it says so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test runner build their executables in the temporary directory as `minimaxon-run-<process id>-<name>.exe`, so two compilers running at once never write the same file. It is compatible with current Maxon except for the language
-changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
-slices, and no runtime-specific tricks the design depends on.
+replaces it: `self/` grows into the full compiler. It is compatible with current Maxon except for the language changes
+developed here ("Where it differs from Maxon"). The runtime is Maxon source too (`runtime/`): it is loaded as a module
+of every program, checked, lowered and linked with it. Go is used only for the generators under `internal/` and the
+tools under `cmd/`.
 
 ## Use
 
-Needs Go 1.27.
+`seed\minimaxon.exe` is a compiler built from `self/` and committed (`seed/README.md` says how it is renewed). The
+day-to-day compiler is built from the seed:
 
 ```powershell
-go build -o minimaxon.exe .
+.\build.ps1
+```
+
+which has the seed build `bin\c1.exe` and C1 build `minimaxon.exe` in the root of the repository: `self/` compiled by
+itself. It finds `runtime/` by walking up from its own executable, so it stays in the tree.
+
+```powershell
+.\minimaxon.exe run tests/run/arithmetic.maxon
 ```
 
 ```powershell
-.\minimaxon.exe run tests/run/enums-unions.maxon
+.\check.ps1
 ```
 
-```powershell
-go test ./...
-```
+runs every check (see "Tests"). The generators and the tools need Go 1.27; `go generate ./internal/...` runs every
+generator.
 
 | Command | What it does |
 |---|---|
-| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory; modules that did not change come from the build cache (see "Build cache") |
-| `minimaxon run <file\|dir>` | compile to `%TEMP%\minimaxon\` and run; exits with the program's code |
-| `minimaxon check <file\|dir>` | diagnostics only; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
-| `minimaxon test [--with=<exe>] [dir]` | run the corpus (default: `tests` beside the executable); with `--with`, with another compiler (see "Tests") |
+| `minimaxon build <file\|dir> [-o out.exe]` | compile; a directory is a project, one module per directory |
+| `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
+| `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
+| `minimaxon test [--update-positions] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
+| `minimaxon test <specs-dir\|file.md> [--verbose]` | run maxon's spec tests (see "Tests") |
+| `minimaxon selftest` | run the compiler's own tests (`self/*_test.maxon`) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
-| `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `rename.go`) |
+| `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
-| `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
-| `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
-| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made |
+| `minimaxon interp <file\|dir> [--seed=N] [--frees]` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; `--frees` lists the values freed, in order |
+| `minimaxon fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]` | development only: write random programs, check them and run them under the interpreter (`self/fuzz`) |
+| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
+
+The compiler has no build cache and no `cache` command, and no `--timings`, `--trace=`, `--jobs=`, `--no-cache` or
+`--with=`: it says so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
+runner build their executables in the temporary directory under names that hold the process id, so two compilers
+running at once never write the same file.
 
 `specs/` holds maxon's spec tests converted by `cmd/convert --specs`, in maxon's own format: `<!-- test: name -->` and the
 fenced blocks ```` ```maxon ````, ```` ```exitcode ````, ```` ```stdout ````, ```` ```stderr ```` and ```` ```maxoncstderr ````. The tool
@@ -49,60 +69,50 @@ the rest, with line endings made LF. A test whose conversion warned, or whose so
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
 the kinds by tests blocked, most blocking first. `specs/README.md` has the command that regenerates the directory; it is
-never edited by hand.
+never edited by hand, except `specs/baseline.txt` (see "Tests").
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
-`.\minimaxon.exe build self -o c1.exe --emit-map`, then `go run ./cmd/sample c1.exe check self`. `--jobs=N` sets how many
-modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
-whatever the value. `--no-cache` makes a `build` or `run` neither read nor write the build cache, and the environment variable
-`MINIMAXON_CACHE` names the directory it lives in, or says `off` (see "Build cache"). `--timings` prints to stderr each phase's wall time, busy cores, the kernel's share of that work,
-allocation, garbage collections and GC pause time, then the total with the share of the processors kept busy. Busy
-cores are the processor time a phase used over its wall time, so a phase that keeps every core working reads as the
-processor count; the kernel's share is mostly committing fresh pages (see "Allocation"). Windows counts processor time
-in clock ticks of about 15.6 ms, so a phase needs to last several ticks for its cores to mean anything. With the build
-cache on, the `modules` phase also prints a line of how many modules were hits and misses, how many checks were skipped and
-how much was read and written.
-`--trace=FILE` writes a Go execution trace of a `build`, `run` or `check` to FILE, with a mark where each phase
-ends; `go tool trace FILE` shows what each core did over time, so idle cores at a phase's end and serial steps are
-visible. `--seed=N` picks the schedule of behaviours that `interp` runs (default 0). `--count-allocations` builds an
-executable that counts its live heap boxes (see "Counting allocations"); it is for development, and `minimaxon test` always
-uses it. `--update-positions` makes `test` rewrite the `at L:C` of an `expect-error` whose code was reported at another
-place, and count the test as passed.
+`.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
+`--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
+development, and `minimaxon test` always uses it. `--update-positions` makes `test` rewrite the `at L:C` of an
+`expect-error` whose code was reported at another place, and count the test as passed.
 
 ### Tests
 
-There are two kinds. **Unit tests** (`internal/<package>/*_test.go`) test one package with `go test`, which builds
-only that package and the ones it imports, so a change is checked in a few hundred milliseconds without rebuilding
-the compiler. `internal/check`'s tests show how to run the front end on a program. The Maxon source of unit tests lives in
-`.maxon` files under each package's `testdata/`, read with `internal/srctest`: a program per file, or a file of cases
-split at `// case: name` lines with `// expect-error: CODE` directives, after a prelude of shared declarations. Every
-such file must lex on its own, which `TestEveryFileOfTestSourceLexes` checks, so `minimaxon rewrite` reaches it. **Corpus tests**
-run whole programs through `minimaxon test`.
+`.\check.ps1` is the gate. In order, it formats, `go fix`es and vets the Go of the generators and tools; runs the
+generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\c1.exe` and C1 build
+`bin\c2.exe`; runs the Go tests of the generators and tools (`go test ./...`, with C2 as `cmd/convert`'s formatter);
+and then, with C2: `selftest`, `check runtime`, `fmt --check self runtime tests`, the corpus (`test`, with no standard
+input), the spec tests held to the count of passed tests in `specs/baseline.txt` (which may go up, never down: raise
+it when more pass), `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter), and
+a build of `self/` into `bin\c3.exe`, which must be byte-identical to C2. It stops at the first step that fails.
 
-Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project
-and its root files carry the directives. The runner compiles every program to an executable, a program that must
-fail included, because some errors come after type checking (lowering refuses what has no native code yet).
-The runner never uses the build cache, so a test compiles exactly what is in its files and leaves nothing behind in the user's
-cache; the driver's own tests use a cache in a temporary directory. A program that compiles is run twice, as the executable and under the tracking interpreter (see "The interpreter"),
-and both must give the stdout and the exit code the directives say; the interpreter must also find no violation of the
-memory model, and the executable, built with `--count-allocations`, must end with no heap box live (a program that
-traps skips that check). A program that uses a map, a list, a pool, a frozen value, a cown or a behaviour has no
-executable yet: it fails to compile with `E9900`, and the runner then runs it under the interpreter alone. No directive is needed for
-that. A program that schedules behaviours runs under 20 schedules (seeds 0 to 19), and every one must give the same
-stdout and exit code and no violation, so the directives of such a program must say an output that does not depend on the
-schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown.
-`minimaxon test --with=<exe>` runs the same corpus against another compiler, the one that `self/` makes, with the same
-expectations. Each compile is a subprocess, `<exe> build <path> -o <out> --count-allocations` for every test as the
-in-process runner compiles every test to an executable, so an error the generate stage raises (`E9900`, `E3906`) is
-found; the diagnostics are read from its stderr lines `error CODE: path:L:C: message` (exit code 1 with no such line is a
-failure). A run test then runs the executable, and the interpreter has no part in it: a program that only the
-interpreter runs (only `E9900`) is counted as not yet supported, as is any test of a compiler that exits 6
-(it does not have the command yet; `self/`'s compiler exits 2 for a command it does not have). The summary is `N passed, M failed, K not yet supported`, the failures are listed, and the exit code is 0
-when nothing failed. `self/`'s `c1.exe test [dir]` is the same runner in Maxon (`self/driver/test.maxon`): it compiles each test in the same process, one after another, with the driver's own pipeline, writes the executable to the temporary directory and deletes it after the run, and prints what `test --with` prints (`PASS`, `FAIL`; `SKIP` is for a test the runner cannot attempt, which none of the corpus is now). It runs a program as the Go runner does: natively, then under the tracking interpreter (20 schedules for a program that schedules behaviours) unless the program says `// native-only`, and a program that only the interpreter runs under it alone, from the IR that the native build lowered, so a test is compiled once. Without a directory it takes the nearest `tests` directory from the executable's upward. The runtime (the module of `runtime/`) is loaded, checked and compiled once per run, and each test is added to a copy of that project (`SharedRuntime` in `self/driver/compile.maxon`; the runtime's source and check, which no program reads, are not copied) and linked with the runtime's code, so a compile costs what the program costs. It does not enforce `// memory-limit:`. A test executable runs under a 10 second deadline, as in the Go runner, and a program that outlives it fails the test with `timed out`; the spec runner's executables have the same deadline.
+There are three kinds of test. **Corpus tests** run whole programs through `minimaxon test`. **The compiler's own
+tests** (`self/*_test.maxon`, run by `minimaxon selftest`) test its parts on programs and IR built by hand. **Go tests**
+test the generators (each regenerates its outputs and fails if the checked-in ones differ; `internal/x64gen` proves the
+instruction table against the bytes in its `testdata`) and `cmd/convert`.
 
-`c1.exe test <specs-dir|file.md> [--verbose]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. The compiled program inherits the runner's standard input.
+Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project and its files
+carry the directives. The runner (`self/driver/test.maxon`) compiles every program to an executable, a program that
+must fail included, because some errors come after type checking (lowering refuses what has no native code yet), in
+the same process, one after another; the runtime is loaded, checked and compiled once per run, and each test is added
+to a copy of that project (`SharedRuntime` in `self/driver/compile.maxon`). A program under `tests/check/` is only
+compiled: one that expects no error must compile clean (a program that only the interpreter can run counts as clean),
+and none is run. Any other program that compiles is run twice, as the executable and under the tracking interpreter
+(see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
+directives say; the interpreter must also find no violation of the memory model, and the executable, built with
+`--count-allocations`, must end with no heap box live (a program that traps skips that check). A program that uses a
+map, a list, a pool, a frozen value, a cown or a behaviour has no executable yet: it fails to compile with `E9900`, and
+the runner then runs it under the interpreter alone. A program that schedules behaviours runs under 20 schedules
+(seeds 0 to 19), and every one must give the same stdout and exit code and no violation, so the directives of such a
+program must say an output that does not depend on the schedule: print only from behaviours that the cowns put in
+order, such as one chain, or behaviours on one cown. A test executable runs under a 10 second deadline, and a program
+that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
+failures are listed, and the exit code is 0 when nothing failed.
+
+`minimaxon test <specs-dir|file.md> [--verbose]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. The compiled program inherits the runner's standard input.
 
 Directives in comments say what the program must do:
 
@@ -110,16 +120,17 @@ Directives in comments say what the program must do:
 |---|---|
 | `//> text` | one expected line of stdout, in order (none means stdout must be empty) |
 | `// expect-exit: N` | expected exit code (default 0; a panic exits 1) |
-| `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column (`E9900`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
-| `// memory-limit: N` | the native run may use at most N megabytes: the runner puts the process in a job object with a memory cap, so a program that never gives memory back fails (an allocation fails and it crashes), whatever the machine has |
+| `// expect-error: E3102` | compiling must fail with this code; `E3102 at 7:5` also pins the line and column. A program may have several, and each must be reported (`E9900`, a program that needs something that has no native code yet, is the one error that is not a failure in a program that expects none) |
+| `// expect-free: label` | the interpreter must free the program's values in the order of these lines, one value each, as `minimaxon interp --frees` prints them (`string "a1"`, `array`, `record`, `pool`) |
+| `// memory-limit: N` | the native run may use at most N megabytes; the runner does not enforce it yet |
 | `// native-only` | do not run the program under the interpreter; for a program whose point is what the executable does with memory, which the interpreter runs far too slowly |
 
 ### Errors
 
-A diagnostic is `error E….: file:line:col: message`, the layout of the current Maxon compiler, and compiling stops at the first error in each
-function. An error raised at a node is located, given its file, line and column, when the compile reports it. A diagnostic is a `*CompileError` panic that `Guard` (`internal/diag`) turns into a list entry; any other
-panic is a bug in minimaxon, not in the program. It prints `internal compiler error` with a stack trace and
-exits 3.
+A diagnostic is `error E….: file:line:col: message`, the layout of the current Maxon compiler, and compiling stops at the
+first error in each function. An error raised at a node is located, given its file, line and column, when the compile
+reports it. A diagnostic is a property of the program; any other failure of the compiler is a `panic` in `self/`, a
+bug in minimaxon and not in the program.
 
 ## Philosophy: assume the source is correct
 
@@ -193,7 +204,7 @@ to minimaxon syntax and layout, and `cmd/sample` the profiler of the executables
 ### Generated code
 
 Code that only restates a fact is generated from the one place that fact is written, so it cannot drift from it
-or be written wrong. That place is `internal/syntax/Maxon.g4`, the grammar, in a subset of ANTLR 4 notation that its
+or be written wrong. That place is `self/syntax/Maxon.g4`, the grammar, in a subset of ANTLR 4 notation that its
 header explains. It says how each construct is written and which AST node it builds: a label such as `cond=expr` is
 a field of the node, `@ast::Node { ... }` adds the fields later phases fill in or, written `Name Slot[Counter]`, says that the
 nodes of that kind are numbered from a counter after the parse (see "The AST"), `@ast::Structs { ... }` names the nodes that
@@ -237,28 +248,27 @@ each phase that has not handled it yet. A switch on `Kind()` or a call of `AsCal
 few members, such as whether an expression can be assigned to. Regenerate after editing the grammar:
 
 ```powershell
-go generate ./internal/syntax
-go generate ./internal/ast
+go generate ./internal/...
 ```
 
 The built-ins have one table, `internal/builtingen/table.go`: the built-in types, the functions and methods on them
 with their signatures and the intrinsic each lowers to, and the runtime entries with the unit that defines each. From
-it `go generate ./internal/ast` writes the declarations (`internal/ast/builtins_gen.go`, and
+it `go generate ./internal/...` writes the declarations (`internal/ast/builtins_gen.go`, and
 `self/ast/builtins_gen.maxon` for `self/`), the `Intrinsic` and `Rt` enums, and the dispatch from each intrinsic and
 entry to its hand-written body: `check<Intrinsic>Args` in the checker for an intrinsic the table marks checked,
 `lower<Intrinsic>` in the lowering, `entry<Entry>` in the interpreter (`self/interp/builtins_gen.maxon` for `self/`), and `emit<Entry>` on the backend unit that defines
 the entry. A dispatch names a method for every row, so a row added to the table fails the build wherever its body is
 missing.
 
-The error codes are a table, `internal/diag/codes.tsv`: each row is a constant, its code, the case of maxon's `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it refuses. Edit the table, then `go generate ./internal/diag` writes `internal/diag/codes_gen.go` and `self/diag/codes_gen.maxon`, and `go test ./internal/diaggen` fails if either differs. `go run minimaxon/internal/diaggen --maxon <maxon repository>` checks every row against maxon's registry.
+The error codes are a table, `self/diag/codes.tsv`: each row is a constant, its code, the case of maxon's `ErrorCodeRegistry.maxon` that has that number (or `-` for a code of minimaxon's own, numbered from `E3900`) and what it refuses. Edit the table, then `go generate ./internal/...` writes `internal/diag/codes_gen.go` and `self/diag/codes_gen.maxon`, and `go test ./internal/diaggen` fails if either differs. `go run minimaxon/internal/diaggen --maxon <maxon repository>` checks every row against maxon's registry.
 
-The text of a diagnostic that carries a maxon code is maxon's, so that a spec's expected stderr matches byte for byte. `internal/diag/messages.tsv` holds it, one row per situation maxon words alone: a function name, the code constant and maxon's message with `{placeholders}`. The same `go generate` writes a function per row to `internal/diag/messages_gen.go` (`diag.UndefinedFunction(name)`) and to `self/diag/messages_gen.maxon`, which return the text while the raise site still chooses where the error is. A situation that only minimaxon refuses, or that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
+The text of a diagnostic that carries a maxon code is maxon's, so that a spec's expected stderr matches byte for byte. `self/diag/messages.tsv` holds it, one row per situation maxon words alone: a function name, the code constant and maxon's message with `{placeholders}`. The same `go generate` writes a function per row to `internal/diag/messages_gen.go` (`diag.UndefinedFunction(name)`) and to `self/diag/messages_gen.maxon`, which return the text while the raise site still chooses where the error is. A situation that only minimaxon refuses, or that maxon words for a rule minimaxon changed, keeps its own text at the place that raises it.
 
 The IR has one table, `internal/irgen/table.go`: a row per instruction and terminator with its operands (each a name,
 a kind such as register, slot, block, flag or pool index, and the field of the record that holds it), what it gives
 (a register, an optional one or nothing), its effects (reads or writes memory, calls, allocates, frees, leaves the
 function; one with a failure block may also fail) and the template the printer writes it by, plus the small enums
-(`BinOp`, `CmpOp`, `GuardKind`) and the flags. From it `go generate ./internal/ir` writes `internal/ir/ir_gen.go`:
+(`BinOp`, `CmpOp`, `GuardKind`) and the flags. From it `go generate ./internal/...` writes `internal/ir/ir_gen.go`:
 the `Opcode` and `TermKind` enums, the `Instr` and `Term` records, a constructor per row (unexported, for the
 builder, when it indexes a pool), a view per row with an accessor per operand (`ir.BinInstr.Left()`), `Def`, `Fail`,
 `Effects` and `Successors`, `InstrString` and `TermString` (the `--emit-ir` text), `EncodeInstr`/`DecodeInstr` and
@@ -2044,15 +2054,13 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   blocks tagged `maxon` or not tagged; prose, and a span or block that does not lex (IR text, a command), are left
   alone, and the first such span holding the word is named.
 - **`minimaxon fmt [--check] <path>...`** is the tool for a layout change (a rule about spaces, indentation, blank
-  lines or comments): change the rule in the parser or the grammar, run `minimaxon fmt tests internal docs README.md`,
+  lines or comments): change the rule in the parser or the grammar, run `minimaxon fmt self runtime tests docs README.md`,
   then check. It rewrites every `.maxon` file under the paths, and the fenced blocks of `.md` files that are tagged
   `maxon` or not tagged and parse as whole programs; other blocks, code spans and prose are left alone. `fmt --check`
   writes nothing and exits 1 listing the files that are not in the layout. Over a directory it skips a file that
   contains `// expect-error: E2001` or `// expect-error: E2010`: those tests are laid out wrongly on purpose, and a
   formatter would put them right. A file that does not parse is reported and left alone (over a directory, a corpus
-  holds such files on purpose; a file named on the command line that does not parse is an error and exits 1). The
-  unit-test sources under `internal/*/testdata`, case files included, are whole files of declarations and comments,
-  so `fmt` handles them like any other.
+  holds such files on purpose; a file named on the command line that does not parse is an error and exits 1).
 - **`minimaxon qualify <dir>...`** qualifies, in each project, every bare name of another module's declaration, as a
   program must write it: it resolves each module and writes the module's path (`export` for the root's) before each
   name that the module, the standard library and its scopes do not declare and another module does. The name is taken
@@ -2065,19 +2073,18 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   A rule can write a call again from a template, reordering its arguments or wrapping it in a `try`, and write a call of
   a built-in free function again as a whole (`isDir()=Directory.isDirectory({path})`); a file of cases is
   checked case by case after its `--prelude`. What the checker does not reach, in a program that stops at an error
-  first, is listed for a hand edit; a program that does not parse has no tree to list, so `self/`'s `rename` leaves it alone
-  and says nothing of it, where the Go one lists the names of the part it parsed.
+  first, is listed for a hand edit; a program that does not parse has no tree to list, so `rename` leaves it alone and says
+  nothing of it.
 - **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,
   as after a rename that changes a line's length. It never changes the code a test expects, so a test that now fails
   with another error still fails.
-- **Unit tests.** `minimaxon rewrite` over `internal` renames keywords in the unit tests' `testdata/*.maxon` too. The
-  only keyword spellings left in Go are the constants in `internal/interp/keywords_test.go`, which the program generator
-  builds programs from, and a few assertions that name one keyword, which the Go tests find.
-- **`.\check.ps1`** runs every check this repository requires, formatting and applying `go fix` first, and stops at the
-  first failure. After the two test suites it runs `minimaxon check runtime`, since neither compiles the runtime, and then
-  the self-hosting loop: the Go compiler builds `self/` as `bin\c1.exe`, `c1.exe` compiles `self/` again as `bin\c2.exe`,
-  and `c2.exe test` runs the corpus, so a change that only the compiled `self/` shows (a symbol that two modules share, a
-  runtime behaviour) fails here. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
+- **The compiler's own source.** `minimaxon rewrite` over `self` and `runtime` renames keywords in the compiler, its
+  tests and its runtime. The only keyword spellings left in Go are in the generators' tests (`internal/grammargen`),
+  which the Go tests find.
+- **`.\check.ps1`** runs every check this repository requires (see "Tests"), formatting and applying `go fix` first,
+  and stops at the first failure. The seed builds `self/` as `bin\c1.exe` and `c1.exe` compiles `self/` again as
+  `bin\c2.exe`, which runs every later step, so a change that only the compiled `self/` shows (a symbol that two modules
+  share, a runtime behaviour) fails here. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
 
 A refactoring is a list of `syntax.Edit`s (a byte range and its new text), applied by `syntax.ApplyEdits`, so a language
 server can send the same edits to an editor. `.claude/skills/language-change` holds the checklist for a change to the
@@ -2087,23 +2094,23 @@ language.
 
 A typical change touches one file per stage:
 
-1. **Syntax:** a rule in `internal/syntax/Maxon.g4`, listed in the set it belongs to (`stmt`, `expr`, `decl`), with
-   an `@ast::Node` block for the fields later phases fill in; then `go generate ./internal/syntax`. That writes the
-   node, its parse function and its keywords. `go build` now names every visitor that lacks the node's `Visit`
-   method, and any token conversion the grammar asks for; the steps below fill them in.
-2. **Resolution:** `Visit<Node>` on `Resolver`, binding any names the node holds.
-3. **Typing:** `Visit<Node>` on `Checker`, and on `termination` (`internal/ast/flow.go`) for a statement. Store what codegen needs on the
-   node. Read the types and signatures of the modules the module reaches freely (its stages wait for theirs), but never
+1. **Syntax:** a rule in `self/syntax/Maxon.g4`, listed in the set it belongs to (`stmt`, `expr`, `decl`), with
+   an `@ast::Node` block for the fields later phases fill in; then `go generate ./internal/...`. That writes the
+   node, its parse function and its keywords into `self/`; a token conversion the grammar asks for is a function to
+   write in `self/syntax`, and the steps below handle the node.
+2. **Resolution:** the resolver (`self/resolve`), binding any names the node holds.
+3. **Typing:** the checker (`self/check`), and the flow of `self/ast/flow.maxon` for a statement. Store what codegen
+   needs on the node. Read the types and signatures of the modules the module reaches freely (its stages wait for theirs), but never
    write them: only a module's declare stage writes its own declarations.
-4. **Ownership:** `Visit<Node>` on `Ownership`. An expression whose value goes to a new owner is passed through
+4. **Ownership:** the ownership pass (`self/check/ownership*.maxon`). An expression whose value goes to a new owner is passed through
    `consume`, which is what marks it for lowering.
-5. **Lowering:** `Visit<Node>` on `Lowerer`, built from the existing instructions where it can. A value it makes that
+5. **Lowering:** the lowerer (`self/ir`), built from the existing instructions where it can. A value it makes that
    nothing consumes is a temporary, and a place it declares or assigns drops what it held (see "Drops"). A new
    instruction is a row of the IR table (`internal/irgen/table.go`, see "Generated code"); after `go generate
-   ./internal/ir`, `go build` names its missing `Visit` method in codegen (`internal/backend`) and the interpreter.
-6. **Tests:** a unit test in the package that changed, a `tests/run/` program for the behaviour (it runs natively
-   and under the interpreter), and a `tests/errors/` program for each diagnostic. A new construct that the memory
-   model's rules cover also goes into the program generator (`internal/interp/generator_*_test.go`).
+   ./internal/...`, codegen (`self/backend`) and the interpreter (`self/interp`) handle it.
+6. **Tests:** a `tests/run/` program for the behaviour (it runs natively and under the interpreter), a
+   `tests/errors/` program for each diagnostic, and a test in `self/*_test.maxon` only when a part needs one. A new
+   construct that the memory model's rules cover also goes into the program generator (`self/fuzz`).
 
 A rule that is only a diagnostic, such as a new ownership or sharing check, usually needs steps 3 or 4 and
 a test, and nothing else.

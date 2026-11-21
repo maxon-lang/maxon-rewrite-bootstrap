@@ -2,8 +2,6 @@ package main
 
 import (
 	"fmt"
-	"minimaxon/internal/ast"
-	"minimaxon/internal/syntax"
 	"slices"
 	"strings"
 )
@@ -70,11 +68,8 @@ func Convert(file, src string) Result {
 	transformLines(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
-	formatted, errs := syntax.Format(file, candidate)
-	if len(errs) == 0 {
-		return Result{Text: formatted, Warnings: warnings, Formatted: true}
-	}
-	return Result{Text: candidate, Warnings: warnings, Formatted: false, Rejected: errs[0].Message}
+	laid := formatter.format(candidate)
+	return Result{Text: laid.text, Warnings: warnings, Formatted: laid.formatted, Rejected: laid.rejected}
 }
 
 // normalizeText strips BOM, converts CRLF/CR to LF, converts leading space indentation to tabs, indents each line by
@@ -1368,7 +1363,7 @@ func isCapabilityWord(word string) bool {
 
 // isKeywordName reports whether word is a keyword of minimaxon, other than the discard `_` that a declaration may name.
 func isKeywordName(word string) bool {
-	return word != "_" && ast.IsReserved(word)
+	return word != "_" && reservedWords[word]
 }
 
 // keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not. A parameter may be
@@ -1558,7 +1553,7 @@ func isExprPrefixKeyword(word string) bool {
 }
 
 // renderFallbackLayout formats lines in minimaxon's layout (spacing, blank lines, comment indentation)
-// so both clean files (before syntax.Format) and files with unsupported constructs get consistent layout.
+// so both clean files (before the compiler formats them) and files with unsupported constructs get consistent layout.
 func renderFallbackLayout(lines []sourceLine) string {
 	// Expand inline TODOs into comment-only lines right before their code line.
 	var expanded []sourceLine

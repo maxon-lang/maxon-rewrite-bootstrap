@@ -1,0 +1,31 @@
+type Label
+	export var text as String
+
+	static function make(consumes text String) returns Label
+		return Label{text: text}
+	end 'make'
+
+	function resetOwn(mutates self)
+		self.text = "x"
+	end 'resetOwn'
+
+	function again(mutates self)
+		self.resetOwn()
+		replaceText(self.text)
+	end 'again'
+end 'Label'
+
+function replaceText(mutates t String)
+	t = "z"
+end 'replaceText'
+
+function fill(sets out String, from String)
+	out = from.clone()
+end 'fill'
+
+// expect-error: E3901 at 28:25
+function main() returns ExitCode
+	let s = Label.make("a").text
+	print(s)
+	return 0
+end 'main'

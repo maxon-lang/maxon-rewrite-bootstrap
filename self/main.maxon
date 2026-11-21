@@ -441,7 +441,7 @@ function expectEncoded(code ByteArray, expected String, label String)
 	end 'mismatch'
 end 'expectEncoded'
 
-// The bytes are those that internal/backend/x64.go writes for the same instructions (internal/x64gen checks them).
+// The bytes are those the Go compiler's assembler wrote for the same instructions, which internal/x64gen keeps and checks.
 function testX64Encoder()
 	let rax = backend.X64Register.rax
 	let rcx = backend.X64Register.rcx

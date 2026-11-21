@@ -15,7 +15,7 @@ function copyToReg(mutates vm Vm, dst ir.Reg, c Count)
 	vm.regR[at] = vm.h.cellR[c]
 end 'copyToReg'
 
-// The exec functions run one operation each, as the Go interpreter's Visit methods do. An operation whose check fails leaves
+// The exec functions run one operation each. An operation whose check fails leaves
 // the block it goes to in failTo.
 
 function execConst(mutates vm Vm, x ir.Instr)

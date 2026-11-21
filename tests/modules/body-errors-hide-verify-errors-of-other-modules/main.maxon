@@ -1,0 +1,20 @@
+typealias Score = int(i64.min to i64.max)
+
+type Box
+	export var v as Score
+
+	static function create(v Score) returns Box
+		return Box{v: v}
+	end 'create'
+end 'Box'
+
+function main() returns ExitCode
+	var a = Box.create(1)
+	let b = a
+	print("{b.v} {a.v}\n")
+	a = Box.create(3)
+	print("{a.v}\n")
+	return 0
+end 'main'
+
+// expect-error: E3005 at 2:9

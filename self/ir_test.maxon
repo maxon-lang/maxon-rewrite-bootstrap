@@ -1,6 +1,6 @@
 // The lowering needs the bodies check, which is not ported yet, so these build functions the way the lowering does, with
-// its own helpers over a project made by hand, and compare the text of the IR with what the Go compiler prints under
-// --emit-ir for the same program.
+// its own helpers over a project made by hand, and compare the text of the IR with what --emit-ir printed for the
+// same program.
 
 function linesText(lines ast.StringList) returns String
 	var b = ByteArray.create(0)
@@ -14,7 +14,7 @@ end 'linesText'
 function expectIr(label String, got String, want ast.StringList)
 	let text = linesText(want)
 	if got != text 'differs'
-		panic("{label}: the IR is\n{got}but the Go compiler prints\n{text}")
+		panic("{label}: the IR is\n{got}but it should be\n{text}")
 	end 'differs'
 end 'expectIr'
 
@@ -306,7 +306,7 @@ function rawSite(p ast.Project, first ast.NodeID, consumes ordered ast.NodeIDLis
 end 'rawSite'
 
 // The runtime's raw intrinsics, lowered through the dispatch the lowering of a call goes through, in the function
-// below. The Go compiler never compiles the runtime, so the text is written from the printer's templates.
+// below. The text is written from the printer's templates.
 //
 //	function probe() returns Count
 //		var w as Count

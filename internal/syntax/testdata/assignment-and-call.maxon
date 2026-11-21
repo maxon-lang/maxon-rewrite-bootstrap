@@ -1,4 +1,0 @@
-function f()
-	x.y = 1
-	g(x)
-end 'f'

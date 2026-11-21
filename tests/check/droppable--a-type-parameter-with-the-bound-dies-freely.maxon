@@ -1,0 +1,30 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, note Score)
+end 'Step'
+
+function forget(consumes x T) uses T where T implements Droppable
+	print("x")
+end 'forget'
+
+function main() returns ExitCode
+	return 0
+end 'main'

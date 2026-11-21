@@ -1,0 +1,113 @@
+typealias Score = int(i64.min to i64.max)
+
+type Socket is noncopyable
+	var fd as Score
+
+	static function open() returns Socket
+		return Socket{fd: 3}
+	end 'open'
+end 'Socket'
+
+type Conn
+	var sock as Socket
+
+	static function open() returns Conn
+		return Conn{sock: Socket.open()}
+	end 'open'
+end 'Conn'
+
+type Plain
+	var n as Score
+
+	static function make() returns Plain
+		return Plain{n: 1}
+	end 'make'
+end 'Plain'
+
+type Box uses T
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+end 'Box'
+
+type Needs uses T where T implements Copyable
+	var item as T
+end 'Needs'
+
+function needsDroppable(x T) uses T where T implements Droppable
+	print("x")
+end 'needsDroppable'
+
+type Stack uses T
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function peek() returns T where T implements Copyable
+		return item.clone()
+	end 'peek'
+
+	function size() returns Score
+		return 1
+	end 'size'
+
+	function boxed() returns Box with T where T implements Copyable
+		return Box.make(item.clone()).clone()
+	end 'boxed'
+end 'Stack'
+
+typealias PlainArray = Array with Plain
+
+typealias SocketArray = Array with Socket
+
+interface Peekable
+	function size() returns Score
+end 'Peekable'
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit")
+	end 'commit'
+end 'Txn'
+
+interface Closeable
+	function close(destructs self)
+end 'Closeable'
+
+type Door implements Closeable
+	var open as Score
+
+	static function make() returns Door
+		return Door{open: 1}
+	end 'make'
+
+	function close(destructs self)
+		print("closed")
+	end 'close'
+end 'Door'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, reason String)
+end 'Step'
+
+typealias TxnArray = Array with Txn
+
+// expect-error: E3017 at 108:10
+function store(mutates m Map with (String, V), consumes value V) uses V
+	m.upsert("key", value: value)
+end 'store'
+
+function main() returns ExitCode
+	return 0
+end 'main'

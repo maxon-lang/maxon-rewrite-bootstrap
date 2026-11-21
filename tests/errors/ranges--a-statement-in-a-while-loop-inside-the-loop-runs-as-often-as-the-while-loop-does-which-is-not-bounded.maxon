@@ -1,0 +1,32 @@
+typealias Score = int(i64.min to i64.max)
+
+typealias Digit = int(0 to 9)
+
+type Cell
+	export var n as Count
+
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function touch(mutates c Cell)
+	c.n = 0
+end 'touch'
+
+// expect-error: E3057 at 23:18
+function f(n Digit, m Count) returns Count
+	var total = 0 as Count
+	for i in 0 upto n 'each'
+		var k = 0 as Count
+		while k < m 'inner'
+			total = total + 1
+			k = k + 1
+		end 'inner'
+	end 'each'
+	return total
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

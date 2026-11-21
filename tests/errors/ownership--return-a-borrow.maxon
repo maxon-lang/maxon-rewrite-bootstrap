@@ -1,0 +1,46 @@
+typealias Score = int(i64.min to i64.max)
+
+type Pair
+	export var first as Score
+	export var second as Score
+	export var label as String
+
+	function assign(mutates self, value Score)
+		first = value
+	end 'assign'
+
+	static function create(first Score, second Score) returns Pair
+		return Pair{first: first, second: second, label: "pair"}
+	end 'create'
+end 'Pair'
+
+function change(mutates p Pair)
+	p.first = 1
+end 'change'
+
+function swap(mutates a Score, mutates b Score)
+	let t = a
+	a = b
+	b = t
+end 'swap'
+
+function take(consumes p Pair) returns Score
+	return p.first
+end 'take'
+
+function make(sets n Score, flag bool)
+	if flag 'early'
+		n = 1
+	end 'early' else 'late'
+		n = 2
+	end 'late'
+end 'make'
+
+// expect-error: E3900 at 41:9
+function f(p Pair) returns Pair
+	return p
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

@@ -1,7 +1,0 @@
-function main() returns ExitCode
-	var a = Box.create(1)
-	let b = a
-	print("{a.v} {b.v}\n")
-	a = Box.create(2)
-	return 0
-end 'main'

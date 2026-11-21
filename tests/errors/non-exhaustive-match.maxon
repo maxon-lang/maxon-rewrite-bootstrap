@@ -1,0 +1,13 @@
+enum Color
+	red
+	green
+end 'Color'
+
+function main() returns ExitCode
+	match Color.red 'm'
+		red then print("r\n")
+	end 'm'
+	return 0
+end 'main'
+
+// expect-error: E2026 at 7:2

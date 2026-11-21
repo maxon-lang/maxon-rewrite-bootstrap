@@ -56,8 +56,7 @@ let byteLBrace = 123 as Byte
 
 let byteRBrace = 125 as Byte
 
-// maxTokenLength is the longest token: the Go compiler keeps a token's length in 24 bits, and a program both compilers
-// read lexes the same in each.
+// maxTokenLength is the longest token: a token keeps its length in 24 bits.
 let maxTokenLength = 16777215 as Count
 
 // The bytes that start a UTF-8 sequence of two, three and four bytes are at least these, and a byte after the first
@@ -167,21 +166,77 @@ function runeAt(text String, at Count, limit Count) returns String
 	if at >= limit 'none'
 		return ""
 	end 'none'
+	let n = runeLength(text, at: at, limit: limit)
+	if n == 0 'invalid'
+		var shown = ByteArray.create(0)
+		appendRune(shown, ch: replacementCharacter)
+		return String.from(shown)
+	end 'invalid'
+	return text.sliceBytes(at, endPos: try at + n otherwise limit)
+end 'runeAt'
+
+// The lowest lead byte of a sequence that can be valid, the first that cannot (its code points would pass U+10FFFF), and
+// the lead bytes whose second byte has a narrower range: E0 and F0 (utf8Lead3 and utf8Lead4), where a lower one would be an overlong form, and ED
+// and F4, where a higher one would be a surrogate or past U+10FFFF.
+let utf8LeadMin = 194 as Count
+
+let utf8LeadPast = 245 as Count
+
+let utf8LeadED = 237 as Count
+
+let utf8LeadF4 = 244 as Count
+
+let utf8ContinuationLast = 191 as Count
+
+let utf8SecondAfterE0 = 160 as Count
+
+let utf8SecondBeforeED = 159 as Count
+
+let utf8SecondAfterF0 = 144 as Count
+
+let utf8SecondBeforeF4 = 143 as Count
+
+// runeLength is the number of bytes of the UTF-8 sequence at the offset, or 0 when the bytes there are no valid
+// sequence: the rule Go's utf8.DecodeRune applies, so an error names a byte that starts no character as U+FFFD.
+function runeLength(text String, at Count, limit Count) returns Count
 	let lead = text.byteAt(at) as Count
-	var n = 1 as Count
+	if lead < utf8Max1 'ascii'
+		return 1 as Count
+	end 'ascii'
+	if lead < utf8LeadMin or lead >= utf8LeadPast 'badLead'
+		return 0 as Count
+	end 'badLead'
+	var n = 2 as Count
 	if lead >= utf8Lead4 'four'
 		n = 4 as Count
 	end 'four' else if lead >= utf8Lead3 'three'
 		n = 3 as Count
-	end 'three' else if lead >= utf8Lead2 'two'
-		n = 2 as Count
-	end 'two'
-	var stop = try at + n otherwise limit
-	if stop > limit 'clamp'
-		stop = limit
-	end 'clamp'
-	return text.sliceBytes(at, endPos: stop)
-end 'runeAt'
+	end 'three'
+	let stop = try at + n otherwise return 0 as Count
+	if stop > limit 'short'
+		return 0 as Count
+	end 'short'
+	var low = utf8ContinuationTag
+	var high = utf8ContinuationLast
+	if lead == utf8Lead3 'e0'
+		low = utf8SecondAfterE0
+	end 'e0' else if lead == utf8LeadED 'ed'
+		high = utf8SecondBeforeED
+	end 'ed' else if lead == utf8Lead4 'f0'
+		low = utf8SecondAfterF0
+	end 'f0' else if lead == utf8LeadF4 'f4'
+		high = utf8SecondBeforeF4
+	end 'f4'
+	for i in 1 upto n 'continuation'
+		let b = text.byteAt(try at + i otherwise return 0 as Count) as Count
+		if b < low or b > high 'outside'
+			return 0 as Count
+		end 'outside'
+		low = utf8ContinuationTag
+		high = utf8ContinuationLast
+	end 'continuation'
+	return n
+end 'runeLength'
 
 // appendRune appends the UTF-8 bytes of a code point an escape writes, which is at most four hex digits.
 function appendRune(mutates buf ByteArray, ch Count)

@@ -1,6 +1,6 @@
 // The programs here are written as IR, because the checker refuses every one that breaks a rule, and the interpreter has to
 // catch it: each breaks a rule that the interpreter has to catch, which is what makes it trustworthy on the programs the
-// checker accepts. The others show how behaviours are scheduled. They are internal/interp's interp_test.go and sched_test.go.
+// checker accepts. The others show how behaviours are scheduled.
 
 typealias ConvList = Array with ast.Convention
 

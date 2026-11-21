@@ -1,0 +1,51 @@
+typealias CountArray = Array with Count
+
+type Doc
+	export var title as String
+	export var n as Count
+	export var words as Array with Count
+
+	static function make(consumes title String) returns Doc
+		return Doc{title: title, n: 1, words: CountArray.create(0)}
+	end 'make'
+
+	function read() returns Count
+		return n
+	end 'read'
+
+	function grow(mutates self)
+		n = n + 1 if n < 1000 else n
+	end 'grow'
+
+	function finish(consumes self) returns Count
+		return n
+	end 'finish'
+end 'Doc'
+
+type Shelf
+	export var doc as frozen with Doc
+	export var tray as cown with Doc
+
+	static function make(consumes doc frozen with Doc, consumes tray cown with Doc) returns Shelf
+		return Shelf{doc: doc, tray: tray}
+	end 'make'
+end 'Shelf'
+
+function glance(d Doc) returns Count
+	return d.n
+end 'glance'
+
+function bump(mutates x Count)
+	x = x + 1 if x < 1000 else x
+end 'bump'
+
+function keep(consumes d Doc)
+	let kept = d
+end 'keep'
+
+// expect-error: E3197 at 49:7
+function main() returns ExitCode
+	let d = freeze(Doc.make("a"))
+	keep(d)
+	return 0
+end 'main'

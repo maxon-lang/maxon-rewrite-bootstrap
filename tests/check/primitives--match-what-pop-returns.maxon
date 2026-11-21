@@ -1,0 +1,101 @@
+union Option uses T
+	some(value T)
+	none
+
+	function isSome() returns bool
+		return match self 'o'
+			some(v) gives true
+			none gives false
+		end 'o'
+	end 'isSome'
+
+	function unwrap(consumes self) returns T
+		match consumes self 'o'
+			some(value) then return value
+			none then panic("unwrap of an Option that holds no value")
+		end 'o'
+	end 'unwrap'
+end 'Option'
+
+typealias CellArray = Array with Cell
+
+type Cell
+	export var n as Count
+
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+type Entry
+	export var key as Count
+	export var value as String
+
+	static function make(key Count, consumes value String) returns Entry
+		return Entry{key: key, value: value}
+	end 'make'
+end 'Entry'
+
+type Rack
+	export var left as Array with Cell
+	export var right as Array with Cell
+	export var node as Handle with Cell
+
+	static function make(node Handle with Cell) returns Rack
+		return Rack{left: CellArray.create(0), right: CellArray.create(0), node: node}
+	end 'make'
+end 'Rack'
+
+interface Shape
+	function area() returns Count
+end 'Shape'
+
+function touch(mutates c Cell)
+	c.n = c.n + 1 if c.n < 1000 else c.n
+end 'touch'
+
+function bump(mutates n Count)
+	n = n + 1 if n < 1000 else n
+end 'bump'
+
+function pair(mutates a Cell, mutates b Cell)
+	a.n = b.n
+end 'pair'
+
+function grow(mutates xs Array with Count, n Count)
+	xs.push(n)
+end 'grow'
+
+function drop(mutates xs Array with Cell) returns Count
+	return xs.count()
+end 'drop'
+
+function look(c Cell, n Count) returns Count
+	return n if n > c.n else c.n
+end 'look'
+
+function take(consumes c Cell) returns Count
+	return c.n
+end 'take'
+
+function make() returns Array with Cell
+	return CellArray.create(0)
+end 'make'
+
+function total(x T) uses T returns Count where T implements Shape
+	return x.area()
+end 'total'
+
+function main() returns ExitCode
+	var a = CellArray.create(0)
+	try 'm'
+		let c = a.pop()
+		print("{c.n}")
+	end 'm' otherwise (e) 'empty'
+		match e 'why'
+			indexOutOfBounds then print("empty")
+			emptySlot then print("never filled")
+		end 'why'
+	end 'empty'
+	return 0
+end 'main'

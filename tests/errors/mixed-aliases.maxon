@@ -9,4 +9,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3005
+// expect-error: E3005 at 8:12

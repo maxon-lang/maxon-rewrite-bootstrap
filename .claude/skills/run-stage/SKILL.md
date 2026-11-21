@@ -23,15 +23,15 @@ spawns no agents.
   `docs/LANGUAGE_REFERENCE.md` ~420 KB; search them with Grep and read line ranges. Each subagent gets one narrow task,
   file paths (never pasted contents), reads big files only by search and line ranges, passes large intermediate results
   through scratch files, and returns a short summary. A fresh subagent per task; do not reuse one across tasks.
-- **A repetitive multi-file change is made by a tool first**: plain Go in `cmd/<name>/` (as `cmd/convert` is), run
-  once, reviewed by its diff. Hand edits across many files are a sign the tool is missing.
+- **A repetitive multi-file change is made by a tool first**: a command of the compiler or plain Go in `cmd/<name>/`
+  (as `cmd/convert` is), run once, reviewed by its diff. Hand edits across many files are a sign the tool is missing.
 - **Open decisions go to the user**, batched in one message, the recommended option first, before delegating any work
   that depends on them.
 
 ## Decisions that hold (do not re-argue)
 
-- The Go compiler implements only what `self/` needs (`C:\Users\Eric\Dev\minimaxon\self`). Once `self/` self-hosts,
-  compiler work in Go ends. `cmd/convert` and `internal/grammargen` stay Go tools until the cutover.
+- The compiler is `self/` (`C:\Users\Eric\Dev\minimaxon\self`), built from the seed (`seed/README.md`). Go is for the
+  generators (`internal/`) and the tools (`cmd/`) only.
 - Compatible with current maxon (`C:\Users\Eric\Dev\maxon`: `maxon-bin/`, `stdlib/`, `specs/`, `docs/`) except deliberate
   minimaxon changes, recorded in README "Where it differs from Maxon". Where maxon code is not converted it is still
   the reference for behaviour, edge cases and names.
@@ -52,15 +52,15 @@ spawns no agents.
    same files, or where one needs the other's output, are sequential or one subagent. Put a generator or conversion tool
    task before the tasks that use its output. Choose the model per task (rules above).
 4. **Brief each task** with the template below. Name the skills the brief should use: `language-change` (exists) for any
-   grammar, syntax or diagnostic change and `convert-from-maxon` (exists) for pulling code or tests from maxon;
-   `port-to-self` is planned (no plan stage names it), so give its steps in the brief itself.
+   grammar, syntax or diagnostic change, `convert-from-maxon` (exists) for pulling code or tests from maxon, and
+   `write-self` (exists) for any code in `self/` or `runtime/`.
 5. **Run, monitor and merge.** Start subagents, wait for their short reports, and monitor them (next section) after
    each round, before merging. Subagents in a worktree leave their changes
    uncommitted; transfer each with `git -C <worktree> add -A`, then
    `git -C <worktree> diff --cached --binary --no-renames HEAD > <scratch>/task.patch`, then
    `git apply --3way <scratch>/task.patch` in the main tree (a plain `git diff` after `add -N` breaks when the agent
    moved a file with `git mv`). Resolve conflicts by script where both sides ran a rewrite (take the main tree's side
-   and re-run the rewrite on those files), run `go generate ./internal/syntax ./internal/diag ./internal/ast` on the
+   and re-run the rewrite on those files), run `go generate ./internal/...` on the
    merged tree, then `git worktree remove --force`. The main tree is for merging only: every agent gets a worktree.
    Run git against a worktree with `git -C`, never `cd` into it (the shell's working directory would stay there). Then run the checks once, on the merged tree. A failure goes to a fresh subagent with
    the failing output saved to a scratch file; `opus` when the cause is not obvious.
@@ -85,7 +85,7 @@ A standing rule, applied after every task or workflow round and before merging.
   transcripts are 400-800 KB) and returns the causes ranked by tokens wasted, each with a fix, in under ~250 words. The
   main session never reads transcripts itself.
 - **Fold each fix in before the next brief.** A repo fact (a command, a path, a pattern minimaxon refuses) goes into
-  the skill that covers it (`port-to-self`, `convert-from-maxon`, `language-change`); a briefing lesson goes into the
+  the skill that covers it (`write-self`, `convert-from-maxon`, `language-change`); a briefing lesson goes into the
   brief template or the pitfalls below.
 
 ## Brief pitfalls (from the first audit)
@@ -96,34 +96,32 @@ A standing rule, applied after every task or workflow round and before merging.
   files, which repos).
 - State the working directory, the shell (PowerShell is primary; Bash is Git Bash) and that Go is at
   `C:\Program Files\Go\bin` if not on `PATH`, so agents do not repeat `cd` or rediscover.
-- State the standard facts: the `self/` packages that exist (`ast`, `check`, `diag`, `project`, `resolve`, `syntax`,
-  `table`, plus `self/main.maxon`; re-list with Glob before briefing), the gates (`.\check.ps1`, and `.\minimaxon.exe
-  check self`, which compiles `self` without writing an executable and exits 0 silently when clean), and that the Write
-  tool creates missing directories.
+- State the standard facts: the `self/` modules (re-list with Glob before briefing), the gates (`.\check.ps1`, and
+  `.\build.ps1` then `.\minimaxon.exe check self`, which compiles `self` without writing an executable and exits 0
+  silently when clean), and that the Write tool creates missing directories.
 - Ask agents to prefer Read with offset/limit and Grep over `cat`/`sed`/`grep` through the shell. An auto-mode reminder
   tells them otherwise; following it works but costs more output.
 
 ## Before a commit
 
-Only these, from the repository root (Go is at `C:\Program Files\Go\bin` if not on `PATH`):
+From the repository root (Go is at `C:\Program Files\Go\bin` if not on `PATH`):
 
 ```powershell
-go build -o minimaxon.exe . ; go vet ./... ; gofmt -l . ; go fix -diff ./... ; go test ./... ; .\minimaxon.exe test
+.\check.ps1
 ```
 
-`gofmt -l .` and `go fix -diff ./...` must print nothing (AGENTS.md requires both). `.\check.ps1` is the shortcut: it
-runs `gofmt -w` and `go fix ./...`, which modify files, then vet, unit tests, build and the corpus; use it to save a
-round. Both suites green with 0 leaks. AGENTS.md's other rules still apply.
+It formats and vets the Go of the generators and tools, regenerates, builds the compiler from the seed, and runs
+every suite (README "Tests"); it must end with `all checks passed`. AGENTS.md's other rules still apply.
 
 ## Self compile time
 
-After each task's commit, record how long the Go compiler takes to build `self/`:
+After each task's commit, record how long the seed, C1 and C2 take to build `self/`:
 
 ```powershell
 .\selftime.ps1 -Note '<stage>: <task>'
 ```
 
-It appends a row (one uncached build) to `docs/self-compile-times.md`; the row goes into the next commit.
+It appends a row (one build each) to `docs/self-compile-times.md`; the row goes into the next commit.
 Report the number with the task, and say so when it jumps: a jump is looked into only for an algorithmic blow-up.
 
 ## Brief template
@@ -137,11 +135,10 @@ Read (by Grep and line ranges; the large ones are never read whole):
   - minimaxon: <paths>
   - maxon reference: <paths under C:\Users\Eric\Dev\maxon>
 Decisions that apply: <the relevant ones, quoted short>. Do not re-argue them.
-Skills to use: <language-change | port-to-self | convert-from-maxon | none>.
+Skills to use: <language-change | write-self | convert-from-maxon | none>.
 Rules: AGENTS.md applies (no workarounds, no silent unhandled cases, no magic values, comments say why). Converted
   files are regenerated, never hand-edited. Repetitive changes across many files: write a tool in cmd/<name>/ first.
-Checks when done: go build -o minimaxon.exe . ; go vet ./... ; gofmt -l . ; go fix -diff ./... ; go test ./... ;
-  .\minimaxon.exe test (or .\check.ps1). Do not commit.
+Checks when done: .\check.ps1 (it ends with `all checks passed`). Do not commit.
 Context: implement directly; do not spawn agents and do not use the run-stage skill. Read big files only by search
   and line ranges. Keep large intermediate output in <scratch path>, not in your reply.
 Worktree: <path, changes left uncommitted; or "main tree" and the disjoint paths you own>.

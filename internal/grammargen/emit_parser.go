@@ -8,8 +8,8 @@ import (
 )
 
 // pgen walks the grammar and makes every decision of the parser: which lookahead picks an alternative, where each
-// value goes and which lists are built on which stack. It writes the parser through a lang, so that the Go parser and
-// the Maxon one come out of the same walk and cannot drift apart.
+// value goes and which lists are built on which stack. It writes the parser through a lang, which spells the
+// decisions in Maxon.
 type pgen struct {
 	m *model
 	a *analysis
@@ -42,8 +42,6 @@ type cond struct {
 	text     string
 	compound bool
 }
-
-func emitParser(m *model, a *analysis) string { return walkParser(m, a, &goLang{}) }
 
 // walkParser makes the decisions of the parser and has l write them; l writes the file around them.
 func walkParser(m *model, a *analysis, l lang) string {
@@ -78,30 +76,6 @@ func walkParser(m *model, a *analysis, l lang) string {
 }
 
 func (g *pgen) fail(line int, format string, args ...any) { g.m.fail(line, format, args...) }
-
-// qualify writes a type of package ast as seen from package syntax.
-func qualify(t string) string {
-	var b strings.Builder
-	for i := 0; i < len(t); {
-		c := t[i]
-		if isIdentStart(c) {
-			j := i
-			for j < len(t) && isIdentPart(t[j]) {
-				j++
-			}
-			word := t[i:j]
-			if isUpper(word) && (i == 0 || t[i-1] != '.') {
-				b.WriteString("ast.")
-			}
-			b.WriteString(word)
-			i = j
-			continue
-		}
-		b.WriteByte(c)
-		i++
-	}
-	return b.String()
-}
 
 func parseFunc(r *rule) string { return "parse" + capitalize(r.name) }
 
@@ -929,4 +903,114 @@ func (g *pgen) operatorRule(r *rule) {
 	}
 	g.l.tailsClose("left")
 	g.l.funcClose()
+}
+
+// lang writes the parser that pgen decides in one language. Expressions come back as text; statements are written
+// to the body. pgen makes every decision, so a lang only spells them: what to test, where a value goes, which list
+// it is pushed on.
+type lang interface {
+	// start gives the lang the walk it writes for and the body it writes to; file wraps the body in the rest of the file.
+	start(g *pgen, body *writer)
+	file(body string) string
+
+	// Conditions on the current and the next token, and their combinations.
+	at(term string) string
+	in(set string) string
+	peekIs(term string) string
+	peekIn(set string) string
+	and(a, b string) string
+	or(parts []cond) string
+	not(c string) string
+	less(prec int, v string) string
+
+	// Control flow. A lang without a switch on the token kind decides every choice with an if chain.
+	hasSwitch() bool
+	switchOpen()
+	caseOpen(terms []string)
+	defaultOpen()
+	switchClose()
+	ifOpen(c string)
+	elseIfOpen(c string)
+	elseOpen()
+	whileOpen(c string)
+	close()
+	// tailsOpen starts the loop over operator tails, which start with the tokens all; tailOpen starts the i-th tail,
+	// and tailsClose ends the loop and returns left.
+	tailsOpen(all []string)
+	tailOpen(i int, terms []string)
+	tailsClose(left string)
+	refuse(desc string)
+
+	// Calls that consume tokens or parse a rule.
+	expect(term, desc string) string
+	next() string
+	call(r *rule) string
+	callAfter(r *rule, first string) string
+	callPrec(fn, prec string) string
+
+	// Statements and the values they store.
+	stmt(expr string)
+	line(stmt string)
+	assign(dst, value string)
+	assignText(dst, value string) string
+	setJoin()
+	joinsOpen(c string) string
+	joinsClose(joins string)
+	// bind is a value as something that can be used where another value of the parser is being changed: in a
+	// language that refuses overlapping access, a local that holds it.
+	bind(expr string) string
+	text(tok string) string
+	textRef(tok string) string
+	conversion(n *node, f *field, tok string) string
+	setStructField(n *node, f *field, value string) string
+	setRecordField(n *node, fp *fieldPlan, value string) string
+	setRecordFlag(n *node, fp *fieldPlan) string
+	convert(n *node, dst, value string) string
+	asSet(n *node, value string) string
+	pushed(typ, value string) string
+	push(stack, value string)
+
+	// The stacks lists are built on.
+	mark(name, stack string)
+	takeRecords(elem, stack, mark string) string
+	takeTexts(stack, mark string) string
+	takeStructs(stack, mark string) string
+	pushedSince(stack, mark string) string
+
+	// Functions, their types and their locals.
+	funcOpen(name string, params []param, ret string)
+	funcClose()
+	startType() string
+	valueType(r *rule) string
+	nodeType(n *node) string
+	setType(s *set) string
+	helperType(typ string) string
+	precType() string
+	startVar()
+	startOf() string
+	curStart() string
+	newNode(n *node, start string)
+	endOfNode(n *node)
+	ret(value string)
+	helperVar(name, typ string)
+	firstVar(call string)
+	setVar(name string, s *set)
+}
+
+// param is a parameter of a generated function.
+type param struct{ name, typ string }
+
+// joinConds joins conditions with op, parenthesizing each that joins two tests when there is more than one.
+func joinConds(parts []cond, op string) string {
+	if len(parts) == 1 {
+		return parts[0].text
+	}
+	texts := make([]string, len(parts))
+	for i, c := range parts {
+		texts[i] = c.text
+		if c.compound {
+			texts[i] = "(" + c.text + ")"
+		}
+	}
+	return strings.Join(texts, op)
 }

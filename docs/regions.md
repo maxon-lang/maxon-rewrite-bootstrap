@@ -544,7 +544,7 @@ Where this document was open, minimaxon does the following.
 
 - **One checker package** owns ownership, conventions, exclusivity and the generic bound checks. Nothing else
   decides one of those questions.
-- **A tracking interpreter, for development only** (`internal/interp`). It runs the IR and records every value's
+- **A tracking interpreter, for development only** (`self/interp`). It runs the IR and records every value's
   owner and every borrow a call is holding. It checks that nothing is used after it is freed, that everything is freed
   exactly once, that nothing is used after it moved, and that exclusivity holds. Since step 5 it also schedules
   behaviours, tracks which thread, cown or frozen value owns each value, and counts the owners of a frozen value and a
@@ -552,7 +552,7 @@ Where this document was open, minimaxon does the following.
   Done in steps 4 and 5.
 - **Generated programs** over the constructs the rules cover: every accepted program must run clean under the
   interpreter, under several schedules when it schedules behaviours. Done in steps 4 and 5
-  (`internal/interp/generator_*_test.go`).
+  (`self/fuzz`, which the `fuzz` command runs).
 - **The primitives get their own tests**, including stale handles after removal and slot reuse, since they are the
   trusted code.
 - **Hylo's tour examples** become corpus tests for layer 1.
@@ -563,24 +563,24 @@ minimaxon settles whether the rules are sound, which is a question for the check
 implements the rules completely and the runtime only as far as testing them needs.
 
 1. Layer 1 checks: ownership and moves, `clone()`, the four conventions (`mutates` being Hylo's `inout`),
-   second-class borrows, and the law of exclusivity over paths. **Done**, in `internal/check` (see "Choices made
+   second-class borrows, and the law of exclusivity over paths. **Done**, in `self/check` (see "Choices made
    in step 1").
 2. Generics, checked once against their bounds. Second, because how they meet ownership is the unknown that
-   hurt maxon. **Done**, in `internal/check` (bounds, inference, the uniform rules over `T`) and `internal/ir`
+   hurt maxon. **Done**, in `self/check` (bounds, inference, the uniform rules over `T`) and `self/ir`
    (instances; see "Choices made in step 2").
 3. The primitives' signatures (`array`, `map`, `list`, `pool`): ownership of elements, projections, handles. **Done**,
-   in `internal/ast` (the types), `internal/check` (subscripts, element paths, the held borrows) and `internal/ir`
+   in `self/ast` (the types), `self/check` (subscripts, element paths, the held borrows) and `self/ir`
    (lowering to runtime entries); an array also runs natively (see "Choices made in step 3").
-4. The tracking interpreter and the program generator. The primitives run here, in Go. **Done**, in `internal/ir`
-   (drops at owner death), `internal/interp` (the interpreter, and the generator in its tests) and `main.go` (the test
+4. The tracking interpreter and the program generator. The primitives run here, in the interpreter. **Done**, in `self/ir`
+   (drops at owner death), `self/interp` (the interpreter, and the generator in its tests) and `self/driver` (the test
    runner runs every program under it); see "Choices made in step 4".
 5. The rules for behaviours: what a `when` may capture, cowns, `share`. The interpreter runs behaviours with a
-   simulated scheduler, in random orders, to test them. **Done**, in `internal/check` (frozen contents as a path step,
-   captures, the cycle rule), `internal/ir` (the boxes, `when`, the behaviour bodies) and `internal/interp` (the
+   simulated scheduler, in random orders, to test them. **Done**, in `self/check` (frozen contents as a path step,
+   captures, the cycle rule), `self/ir` (the boxes, `when`, the behaviour bodies) and `self/interp` (the
    scheduler, owners by thread, counts); see "Choices made in step 5".
 6. Native freeing: a move empties its source, a frame starts with its managed slots empty, and each drop and copy is a
    routine for its type, so a compiled program frees every value where its owner dies and a count of live boxes proves it
-   (see "Choices made in step 6"). **Done**, in `internal/backend` and `internal/ir`.
+   (see "Choices made in step 6"). **Done**, in `self/backend` and `self/ir`.
 
 Not built here, because they teach nothing about soundness: green threads, a scheduler, atomic counts and cowns
 in generated code; native implementations of `map`, `list` and `pool` (the array is native, since corpus programs need it).

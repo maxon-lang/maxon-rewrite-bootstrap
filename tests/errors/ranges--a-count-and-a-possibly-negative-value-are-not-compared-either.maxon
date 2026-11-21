@@ -1,0 +1,24 @@
+typealias Score = int(i64.min to i64.max)
+
+typealias Digit = int(0 to 9)
+
+type Cell
+	export var n as Count
+
+	static function make(n Count) returns Cell
+		return Cell{n: n}
+	end 'make'
+end 'Cell'
+
+function touch(mutates c Cell)
+	c.n = 0
+end 'touch'
+
+// expect-error: E3005 at 19:11
+function f(a Count, b Score) returns bool
+	return a < b
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

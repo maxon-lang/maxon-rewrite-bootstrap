@@ -1,0 +1,88 @@
+typealias Score = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Score
+	function grow(mutates self, by Score)
+end 'Shape'
+
+type Square implements Shape
+	export var side as Score
+
+	static function create(side Score) returns Square
+		return Square{side: side}
+	end 'create'
+
+	function area() returns Score
+		return side
+	end 'area'
+
+	function grow(mutates self, by Score)
+		side = by
+	end 'grow'
+end 'Square'
+
+type Plain
+	export var n as Score
+end 'Plain'
+
+type Box uses T where T implements Droppable
+	export var item as T
+	export let tag as Score
+
+	static function make(consumes item T, tag Score) returns Self
+		return Self{item: item, tag: tag}
+	end 'make'
+
+	function peek() returns T where T implements Copyable
+		return item.clone()
+	end 'peek'
+
+	function replace(mutates self, consumes next T)
+		item = next
+	end 'replace'
+end 'Box'
+
+union Slot uses T
+	full(value T)
+	empty
+end 'Slot'
+
+function swap(mutates a T, mutates b T) uses T where T implements Copyable
+	var tmp = a.clone()
+	a = b.clone()
+	b = tmp
+end 'swap'
+
+function consume(consumes a T) uses T returns Score where T implements Droppable
+	return 1
+end 'consume'
+
+function total(a T, b T) uses T returns Score where T implements Shape
+	return a.area() if a.area() > b.area() else b.area()
+end 'total'
+
+interface Scale
+	function doubled() returns Self
+end 'Scale'
+
+type Mark implements Scale
+	export var n as Score
+
+	static function create(n Score) returns Mark
+		return Mark{n: n}
+	end 'create'
+
+	function doubled() returns Mark
+		return Mark{n: n}
+	end 'doubled'
+end 'Mark'
+
+function twice(a T) uses T returns T where T implements Scale and Droppable
+	return a.doubled().doubled()
+end 'twice'
+
+function main() returns ExitCode
+	let m = twice(Mark.create(1))
+	print("{m.n}")
+	return 0
+end 'main'

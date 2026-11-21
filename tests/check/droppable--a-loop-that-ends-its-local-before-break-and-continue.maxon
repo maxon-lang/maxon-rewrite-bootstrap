@@ -1,0 +1,43 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, note Score)
+end 'Step'
+
+function spin(n Score)
+	var i = 0 as Score
+	while i < n 'w'
+		i = i + 1
+		let t = Txn.begin()
+		if i == 2 'skip'
+			t.rollback()
+			continue
+		end 'skip'
+		if i == 3 'stop'
+			t.commit()
+			break
+		end 'stop'
+		t.commit()
+	end 'w'
+end 'spin'
+
+function main() returns ExitCode
+	return 0
+end 'main'

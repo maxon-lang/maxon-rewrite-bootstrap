@@ -1,9 +1,0 @@
-typealias StringArray = Array with String
-
-function main() returns ExitCode
-	var a = StringArray.create(0)
-	a.push("e{1}")
-	a.push("e{2}")
-	a.push("e{3}")
-	return 0
-end 'main'

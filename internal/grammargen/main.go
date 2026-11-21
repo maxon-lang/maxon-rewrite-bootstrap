@@ -1,19 +1,20 @@
-// Command grammargen generates the parser, the token kinds, and the AST nodes, keywords and visitors from
-// internal/syntax/Maxon.g4. `go generate ./internal/syntax` runs it in that directory.
+// Command grammargen generates the parser, the token kinds, and the AST nodes, keywords and visitors of self/ from
+// self/syntax/Maxon.g4, and the keywords cmd/convert reserves. `go generate ./internal/grammargen` runs it.
 package main
+
+//go:generate go run .
 
 import (
 	"fmt"
 	"go/format"
 	"os"
+	"path/filepath"
 )
 
-const (
-	grammarFile = "Maxon.g4"
-	parserFile  = "parser_gen.go"
-	tokensFile  = "tokens_gen.go"
-	nodesFile   = "../ast/nodes_gen.go"
-)
+const grammarFile = "../../self/syntax/Maxon.g4"
+
+// grammarName is how the generated files name the grammar, whatever directory they are generated from.
+var grammarName = filepath.Base(grammarFile)
 
 type output struct {
 	path string
@@ -25,7 +26,7 @@ func main() {
 	if err != nil {
 		fail(err)
 	}
-	outs, err := generate(grammarFile, src)
+	outs, err := generate(grammarName, src)
 	if err != nil {
 		fail(err)
 	}
@@ -54,24 +55,14 @@ func generate(file string, src []byte) (outs []output, err error) {
 	g := parseGrammar(file, string(src))
 	m := buildModel(g)
 	a := analyze(m)
-	for _, o := range []struct {
-		path string
-		code string
-	}{
-		{nodesFile, emitNodes(m)},
-		{tokensFile, emitTokens(m)},
-		{parserFile, emitParser(m, a)},
-	} {
-		code, err := format.Source([]byte(o.code))
-		if err != nil {
-			return nil, fmt.Errorf("%s does not parse as Go: %w\n%s", o.path, err, o.code)
-		}
-		outs = append(outs, output{o.path, code})
+	reserved, err := format.Source([]byte(emitReserved(m)))
+	if err != nil {
+		return nil, fmt.Errorf("%s does not parse as Go: %w", reservedFile, err)
 	}
-	outs = append(outs,
-		output{maxonNodesFile, []byte(emitMaxonNodes(m))},
-		output{maxonTokensFile, []byte(emitMaxonTokens(m))},
-		output{maxonParserFile, []byte(emitMaxonParser(m, a))},
-	)
-	return outs, nil
+	return []output{
+		{maxonNodesFile, []byte(emitMaxonNodes(m))},
+		{maxonTokensFile, []byte(emitMaxonTokens(m))},
+		{maxonParserFile, []byte(emitMaxonParser(m, a))},
+		{reservedFile, reserved},
+	}, nil
 }

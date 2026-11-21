@@ -1,0 +1,16 @@
+typealias StringPool = Pool with String
+
+function main() returns ExitCode
+	var p = StringPool.create()
+	let first = p.insert("p{1}")
+	let second = p.insert("p{2}")
+	let gone = try p.remove(first) otherwise panic("the handle names no element")
+	let again = try p.remove(first) otherwise "none"
+	return 0
+end 'main'
+
+// expect-free: string "1"
+// expect-free: string "2"
+// expect-free: string "p1"
+// expect-free: pool
+// expect-free: string "p2"

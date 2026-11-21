@@ -1,16 +1,18 @@
 ---
 name: language-change
-description: Checklist for changing minimaxon's language — a keyword, syntax, layout, a rule or a diagnostic — across the grammar, the Go compiler, self/ and cmd/convert. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
+description: Checklist for changing minimaxon's language — a keyword, syntax, layout, a rule or a diagnostic — across the grammar, self/, runtime/, the seed and cmd/convert. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
 ---
 
 # Changing the language
 
-A language change reaches the grammar, the checker's messages, every program that uses the construct (corpus, unit
-test `testdata`, `self/`, the generator), `cmd/convert`, and the docs. Work through the list; skip a step only when it
-clearly does not apply.
+A language change reaches the grammar, the checker's messages, every program that uses the construct (corpus,
+`self/`, `runtime/`, the program generator), `cmd/convert`, and the docs. Work through the list; skip a step only when
+it clearly does not apply.
 
-The Go compiler implements only what `self/` needs; once `self/` self-hosts, compiler work in Go ends. `cmd/convert`
-and `internal/grammargen` stay Go tools until then.
+The compiler is `self/`, built from the seed (`seed/README.md`). The seed has the old language, so a change that
+`self/` or `runtime/` must follow takes two commits: first the compiler accepts the new form while `self/` and
+`runtime/` still use the old one, and `.\seed.ps1` renews the seed; then `self/` and `runtime/` move to the new form,
+and the old one goes. A change that `self/` and `runtime/` do not use needs no new seed.
 
 ## 0. Look at current maxon first
 
@@ -27,21 +29,22 @@ choosing a spelling, rule or message, see how maxon does it, and follow maxon un
 
 ## 1. Programs first, while the old syntax still lexes
 
-- **A keyword rename:** run the token-aware rewrite before touching the grammar. It covers the corpus, the unit tests'
-  `testdata` files, `self/`, and the code spans and untagged or `maxon` blocks of the docs:
+- **A keyword rename:** run the token-aware rewrite before touching the grammar. It covers the corpus, `self/`,
+  `runtime/`, and the code spans and untagged or `maxon` blocks of the docs:
 
   ```powershell
-  go build -o minimaxon.exe . ; .\minimaxon.exe rewrite --keyword=old=new tests internal self docs README.md
+  .\build.ps1 ; .\minimaxon.exe rewrite --keyword=old=new tests self runtime docs README.md
   ```
 
   It changes only keyword tokens (not names, labels, comments, string text or Markdown prose) and names what it could
-  not lex but that contains the word: fix those by hand. It refuses once `old` is no longer reserved.
+  not lex but that contains the word: fix those by hand. It refuses once `old` is no longer reserved. Rewriting
+  `self/` and `runtime/` belongs to the second commit (see above).
 - **A layout change** (spaces, joins, indentation, blank lines, comments): change the rule first (`Maxon.g4`'s
-  `noSpaceBefore`/`^`, or `gapBefore`, `lineFault` and `endFault` in `internal/syntax/parser.go`), then let the formatter
-  rewrite every program in the new layout, and check:
+  `noSpaceBefore`/`^`, or `gapBefore`, `lineFault` and `endFault` in `self/syntax/parser.maxon`), then let the
+  formatter rewrite every program in the new layout, and check:
 
   ```powershell
-  go build -o minimaxon.exe . ; .\minimaxon.exe fmt tests internal self docs README.md ; .\minimaxon.exe fmt --check tests internal self docs README.md
+  .\build.ps1 ; .\minimaxon.exe fmt tests self runtime docs README.md ; .\minimaxon.exe fmt --check tests self runtime docs README.md
   ```
 
   `fmt` reads the old layout through the lenient lexer, so a rule the lexer enforces (`E2001`) may need its lenient case
@@ -49,41 +52,43 @@ choosing a spelling, rule or message, see how maxon does it, and follow maxon un
   skips files that contain `// expect-error: E2001` or `E2010`, the tests of the layout rules: update those by hand to
   break the new rule. A file it cannot parse is listed and left alone.
 - **Other syntax changes:** no tool yet. Edit by hand, or write a throwaway script in the scratchpad (a reusable one
-  goes in `cmd/<name>/` as plain Go). Match on declaration shapes, never bare words, and read the diff for prose hits in
-  `.md` files.
+  is a command of the compiler or goes in `cmd/<name>/` as plain Go). Match on declaration shapes, never bare words,
+  and read the diff for prose hits in `.md` files.
 
 ## 2. The grammar and what it generates
 
-- Edit `internal/syntax/Maxon.g4`, then `go generate ./internal/syntax`. Never edit `*_gen.go` or `*_gen.maxon`.
-- The same run also regenerates the Maxon files under `self/`: `self/ast/nodes_gen.maxon` (`emit_maxon.go`),
-  `self/syntax/tokens_gen.maxon` (`emit_maxon_tokens.go`) and `self/syntax/parser_gen.maxon` (`emit_parser.go` through
-  `emit_parser_maxon.go`, the same walk that writes the Go parser). `go test ./internal/grammargen` fails when a
+- Edit `self/syntax/Maxon.g4`, then `go generate ./internal/...`. Never edit a `*_gen.*` file.
+- That regenerates `self/ast/nodes_gen.maxon` (`emit_maxon.go`), `self/syntax/tokens_gen.maxon`
+  (`emit_maxon_tokens.go`), `self/syntax/parser_gen.maxon` (`emit_parser.go` through `emit_parser_maxon.go`) and the
+  keywords `cmd/convert` reserves (`cmd/convert/reserved_gen.go`). `go test ./internal/grammargen` fails when a
   checked-in generated file is stale.
-- `go build ./...` names every visitor that lacks a new node's method.
-- `self/`'s hand-written Maxon code that uses the construct is rewritten with step 1's tools (`rewrite`, `fmt`) or a
-  script, so it compiles under the new grammar. A `self/` file that `cmd/convert` produced is regenerated by
-  `convert`, never hand-edited.
+- `self/`'s hand-written code that uses the construct is rewritten with step 1's tools (`rewrite`, `fmt`) or a script,
+  so it compiles under the new grammar. A `self/` file that `cmd/convert` produced is regenerated by `convert`, never
+  hand-edited.
 
 ## 3. Words the compiler says
 
-- Grep `internal/check` (and `internal/resolve`, `internal/ir`) for messages that spell the old syntax as a fix:
-  `grep -rn "'[^']*old[^']*'" internal --include=*.go`. Diagnostics name the fix, so they quote syntax often.
-- Go identifiers named after a keyword (`ConvMutates`): rename them too, so the code reads like the language.
+- Grep `self/check` (and `self/resolve`, `self/ir`) for messages that spell the old syntax as a fix:
+  `grep -rn "'[^']*old[^']*'" self --include=*.maxon`. Diagnostics name the fix, so they quote syntax often.
+- Identifiers named after a keyword (`convMutates`): rename them too, so the code reads like the language.
 - A new diagnostic takes maxon's code and message text where maxon has one (`ErrorCodeRegistry.maxon`). A code with no
   maxon equivalent takes a number the registry does not use: check with
-  `grep -n '"E3xxx"' C:\Users\Eric\Dev\maxon\maxon-bin\Compiler\ErrorCodeRegistry.maxon` before adding it to
-  `internal/diag/diag.go`. A deliberately different message or code goes in "Where it differs from Maxon".
+  `grep -n '"E3xxx"' C:\Users\Eric\Dev\maxon\maxon-bin\Compiler\ErrorCodeRegistry.maxon` before adding its row to
+  `self/diag/codes.tsv` (and its text to `messages.tsv` where maxon words it), then `go generate ./internal/...`. A
+  deliberately different message or code goes in "Where it differs from Maxon".
 
-## 4. Maxon built in Go
+## 4. Programs built as text
 
-- The program generator (`internal/interp/generator_*_test.go`) builds programs in Go; it spells each keyword through
-  one named constant (`internal/interp/keywords_test.go`), so a rename edits that constant.
-- Anything else that still builds Maxon in Go strings: grep for the old form; the Go tests catch what grep misses.
+- The program generator (`self/fuzz`) spells each keyword it writes through one named constant
+  (`self/fuzz/keywords.maxon`), so a rename edits that constant.
+- Anything else that builds Maxon in strings (the self tests, the generators' Go tests over tiny grammars): grep for
+  the old form; the tests catch what grep misses.
 
 ## 5. cmd/convert
 
-`cmd/convert` turns maxon code into minimaxon code (`go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]`).
-Its rules are in `cmd/convert/convert.go`, tested by `cmd/convert/convert_test.go`:
+`cmd/convert` turns maxon code into minimaxon code (`go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]`;
+it lays out its output with `minimaxon.exe fmt`, so build the compiler first). Its rules are in
+`cmd/convert/convert.go`, tested by `cmd/convert/convert_test.go`:
 
 - Converting maxon code must produce the new form: add or change the rule for the construct (`transformStmtAndExpr`,
   `transformFunctionHeader`, `transformTypealias`, the header transforms, `isNewReservedWord`, `renderFallbackLayout`).
@@ -111,7 +116,6 @@ Its rules are in `cmd/convert/convert.go`, tested by `cmd/convert/convert_test.g
 .\check.ps1 --update-positions
 ```
 
-It formats (`gofmt -w .`) and applies `go fix`, then runs vet, `go test ./...`, the build and the corpus
-(`minimaxon.exe test`, which receives the arguments), stopping at the first failure. `--update-positions` moves
-`expect-error` positions that a change of line length shifted; read what moved. Before a commit the gates are
-build, vet, gofmt and both suites passing with 0 leaks. Commit only when asked, on `main`.
+It runs every check (README "Tests"), stopping at the first failure; the corpus step receives the arguments.
+`--update-positions` moves `expect-error` positions that a change of line length shifted; read what moved. Before a
+commit, `.\check.ps1` passes. Commit only when asked, on `main`.

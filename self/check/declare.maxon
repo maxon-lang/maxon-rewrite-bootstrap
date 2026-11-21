@@ -9,8 +9,7 @@ let enumWord = "enum"
 
 let unionWord = "union"
 
-// A phase of the declare stage stops at its first error, as the Go checker's guard does by unwinding: each step
-// that can fail compares the error count with the mark it took at the start.
+// A phase of the declare stage stops at its first error: each step that can fail compares the error count with the mark it took at the start.
 function failedSince(errs diag.ErrorList, mark Count) returns bool
 	return errs.count() > mark
 end 'failedSince'

@@ -222,8 +222,7 @@ end 'joinNames'
 
 // A link name is the text that a code unit names a function or a type by, and the linker resolves symbols by it. It starts
 // with the module that declares what it names, so two modules may each declare a `helper` or a `Counter`, and a generic
-// instance applied to one of them is not the one applied to the other. It is what the Go compiler forms (internal/ast
-// linkname.go):
+// instance applied to one of them is not the one applied to the other. It is formed so:
 //
 //	function      geometry::area             export::main
 //	method        export::Counter.inc        (export::Box with stdlib::Count).make

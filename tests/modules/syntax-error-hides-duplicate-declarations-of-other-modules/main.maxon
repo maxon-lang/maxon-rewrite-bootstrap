@@ -1,0 +1,5 @@
+typealias Apples = int(0 to 1)
+
+typealias Apples = int(0 to 2)
+
+// expect-error: E2001 at 1:12

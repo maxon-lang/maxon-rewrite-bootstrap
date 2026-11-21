@@ -7,7 +7,7 @@ import (
 
 // This file is the source of truth for minimaxon's built-ins: the types every project has before it declares
 // anything, the functions and methods on them, the intrinsic each lowers to, and the runtime entries those intrinsics
-// call. `go generate ./internal/ast` writes from it the declarations, the enums and the dispatch in every package.
+// call. `go generate ./internal/builtingen` writes from it the declarations, the enums and the dispatch in self/.
 //
 // A type in a signature is written as a program spells an instance, with the table's keys as names: a key of
 // primTypes, a type row's Key, the parameters of the owner or of the function, Self for the owner's own instance,
@@ -16,17 +16,16 @@ import (
 // primType is a type the table names but other code declares.
 type primType struct {
 	Key   string
-	Go    string // the Go expression of it inside ast.Builtins
 	Maxon string // the Maxon expression of it inside self's declaration code
 }
 
 var primTypes = []primType{
-	{"Bool", "BoolTy", "b.boolTy"},
-	{"String", "StringTy", "b.stringTy"},
-	{"Void", "VoidTy", "b.voidTy"},
-	{"Count", "b.Count", "b.countTy"},
-	{"Byte", "b.Byte", "b.byteTy"},
-	{"ExitCode", "b.exitCode()", "b.exitCodeTy"},
+	{"Bool", "b.boolTy"},
+	{"String", "b.stringTy"},
+	{"Void", "b.voidTy"},
+	{"Count", "b.countTy"},
+	{"Byte", "b.byteTy"},
+	{"ExitCode", "b.exitCodeTy"},
 }
 
 // builtinType is a runtime primitive: an ast.BuiltinTy of its own BuiltinKind.
@@ -227,7 +226,7 @@ type function struct {
 	// OwnsOperands is whether the lowering evaluates the receiver and arguments itself rather than being given them.
 	OwnsOperands bool
 	// RuntimeOnly is whether only the runtime module may call it (E3152): a raw operation with no runtime between it and
-	// the machine. The Go compiler never compiles the runtime, so its lowering refuses one.
+	// the machine.
 	RuntimeOnly bool
 }
 
@@ -377,20 +376,17 @@ var tableFunctions = []function{
 // unit is a code unit of the backend's runtime, or a place an entry lives that has no code of its own.
 type unit struct {
 	Key string // ir.RtUnit+Key
-	// Emitter is the backend type whose emit+Entry methods write the unit's entries, in defineEntries; "" for a unit
-	// the backend writes no code for.
-	Emitter string
-	Doc     string
+	Doc string
 }
 
 var units = []unit{
-	{Key: "Runtime", Emitter: "runtimeUnit", Doc: "the runtime unit every executable links"},
-	{Key: "Arrays", Emitter: "arraysUnit", Doc: "the array unit, linked into a program that calls an array entry"},
-	{Key: "Bytes", Emitter: "bytesUnit", Doc: "the byte array unit, linked into a program that calls a byte array entry"},
-	{Key: "Os", Emitter: "osUnit", Doc: "the OS unit, linked into a program that calls an OS entry"},
+	{Key: "Runtime", Doc: "the runtime unit every executable links"},
+	{Key: "Arrays", Doc: "the array unit, linked into a program that calls an array entry"},
+	{Key: "Bytes", Doc: "the byte array unit, linked into a program that calls a byte array entry"},
+	{Key: "Os", Doc: "the OS unit, linked into a program that calls an OS entry"},
 	{Key: "Linker", Doc: "the linker, which defines the symbol itself"},
 	{Key: "Interpreter", Doc: "no unit: only the interpreter runs the entry, and the compiler refuses a call of it"},
-	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which self compiles with every program and the Go compiler never compiles"},
+	{Key: "Source", Doc: "the runtime's Maxon source (runtime/), which the compiler compiles with every program"},
 }
 
 // The roles of a runtime symbol.
@@ -433,7 +429,7 @@ var entries = []entry{
 	{"Heap", "g.heap", "Runtime", roleGlobal, "the process heap"},
 	{"Stdout", "g.stdout", "Runtime", roleGlobal, "the handle of standard output"},
 	{"Stderr", "g.stderr", "Runtime", roleGlobal, "the handle of standard error"},
-	{"Live", "g.live", "Runtime", roleGlobal, "the number of heap boxes allocated and not yet freed, which the runtime source always keeps and the Go compiler's runtime only in an executable built to count them"},
+	{"Live", "g.live", "Runtime", roleGlobal, "the number of heap boxes allocated and not yet freed, which the runtime always keeps"},
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 	{"CheckLeaks", "rt.checkLeaks", "Source", roleInternal, "(exit code) -> exit code: what the entry of an executable built to count its allocations calls after main, which exits with a leak report when a box is still live"},

@@ -1,13 +1,11 @@
 // Command abigen generates, from the layouts table in table.go, the constants that the runtime and the compilers share:
-// the offsets and sizes of the string, array, byte array and union boxes. `go generate ./internal/abigen` runs it in
-// that directory.
+// the offsets and sizes of the string, array, byte array and union boxes. `go generate ./internal/abigen` runs it.
 package main
 
 //go:generate go run .
 
 import (
 	"fmt"
-	"go/format"
 	"os"
 	"strconv"
 	"strings"
@@ -26,8 +24,6 @@ var outputs = []output{
 	{"../../runtime/layout_gen.maxon", toRuntime, func(r []layoutConst) string { return maxonFile(r, false, true) }},
 	{"../../self/ir/layout_gen.maxon", toSelfIR, func(r []layoutConst) string { return maxonFile(r, true, true) }},
 	{"../../self/backend/layout_gen.maxon", toSelfBack, func(r []layoutConst) string { return maxonFile(r, true, false) }},
-	{"../ir/layout_gen.go", toGoIR, func(r []layoutConst) string { return goFile(r, "ir", true) }},
-	{"../backend/layout_gen.go", toGoBackend, func(r []layoutConst) string { return goFile(r, "backend", false) }},
 }
 
 func main() {
@@ -75,41 +71,4 @@ func maxonFile(rows []layoutConst, export, count bool) string {
 		b.WriteString("\n")
 	}
 	return b.String()
-}
-
-// goFile is a Go file of the rows, whose names are exported when the package's own code is not the only reader. A row
-// that is a count of words is written as the multiple of wordBytes it is.
-func goFile(rows []layoutConst, pkg string, export bool) string {
-	var b strings.Builder
-	b.WriteString("// " + header + "\n\npackage " + pkg + "\n\nconst (")
-	for _, c := range rows {
-		name := c.name
-		if export {
-			name = strings.ToUpper(name[:1]) + name[1:]
-		}
-		b.WriteString("\n\t// " + name + " is " + c.doc + "\n\t" + name + " = " + goValue(c, export) + "\n")
-	}
-	b.WriteString(")\n")
-	src, err := format.Source([]byte(b.String()))
-	if err != nil {
-		panic(err)
-	}
-	return string(src)
-}
-
-func goValue(c layoutConst, export bool) string {
-	if c.plain {
-		return strconv.Itoa(c.value)
-	}
-	word := wordBytesName
-	if export {
-		word = "WordBytes"
-	}
-	switch c.value {
-	case 0:
-		return "0"
-	case 1:
-		return word
-	}
-	return strconv.Itoa(c.value) + " * " + word
 }

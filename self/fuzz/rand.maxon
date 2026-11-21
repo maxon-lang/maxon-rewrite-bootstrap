@@ -1,5 +1,5 @@
-// Go's math/rand generator, with the draws of the methods the program generator uses, so that a seed makes the same program in the
-// Go compiler's generator and in this one. It is an additive lagged Fibonacci generator seeded by a linear congruential one.
+// Go's math/rand generator, with the draws of the methods the program generator uses, so that a seed makes the same program
+// whichever generator draws it. It is an additive lagged Fibonacci generator seeded by a linear congruential one.
 
 typealias CountList = Array with Count
 

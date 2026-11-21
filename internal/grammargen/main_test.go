@@ -3,29 +3,26 @@ package main
 import (
 	"bytes"
 	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 )
 
-var syntaxDir = filepath.Join("..", "syntax")
-
 func TestGeneratedFilesAreCurrent(t *testing.T) {
-	src, err := os.ReadFile(filepath.Join(syntaxDir, grammarFile))
+	src, err := os.ReadFile(grammarFile)
 	if err != nil {
 		t.Fatal(err)
 	}
-	outs, err := generate(grammarFile, src)
+	outs, err := generate(grammarName, src)
 	if err != nil {
 		t.Fatal(err)
 	}
 	for _, o := range outs {
-		got, err := os.ReadFile(filepath.Join(syntaxDir, o.path))
+		got, err := os.ReadFile(o.path)
 		if err != nil {
 			t.Fatal(err)
 		}
 		if !bytes.Equal(bytes.ReplaceAll(got, []byte("\r\n"), []byte("\n")), o.code) {
-			t.Errorf("%s is not what %s generates; run `go generate ./internal/syntax`", o.path, grammarFile)
+			t.Errorf("%s is not what %s generates; run `go generate ./internal/grammargen`", o.path, grammarName)
 		}
 	}
 }
@@ -74,26 +71,19 @@ func generateTiny(t *testing.T, src string) map[string]string {
 }
 
 func TestNodesTakeTheirFieldsFromLabels(t *testing.T) {
-	nodes := generateTiny(t, tiny)[nodesFile]
+	nodes := generateTiny(t, tiny)[maxonNodesFile]
 	for _, want := range []string{
-		// A struct keeps its fields, and what it starts with is its position and number.
-		"type Circle struct {\n\tHead\n\tRadius I128\n\n\tArea I128\n}",
-		"n.Area = Zero",
-		"func (t *Tree) NewCircle(start uint32) *Circle {",
-		// A record is a view with an accessor for each field, and a constructor that makes its record.
-		"type Square struct{ Ref }",
-		"func (t *Tree) NewSquare(start uint32) Square {\n\tid := t.alloc(KindSquare, start)",
-		"func (n Square) Side() I128 {",
-		"func (n Square) Named() bool { return n.T.Records[n.ID].Flags&flagSquareNamed != 0 }",
-		"func (n Square) Tags() TextList { return TextListAt(n.T, n.T.Lists[n.T.Records[n.ID].B+1]) }",
-		"func (n Square) Op() string { return squareOpTexts[uint8(n.T.Records[n.ID].Aux>>0)] }",
-		"func (n Union) L() Shape {",
-		"type ShapeList = List[Shape]",
-		"func (n Union) Shape() Shape { return Shape{n.Ref} }",
-		"func (s Shape) AsUnion() (Union, bool) {",
-		"VisitUnion(n Union, s S) R",
-		"case KindSquare:\n\t\treturn v.VisitSquare(Square{n.Ref}, s)",
-		`"square": true`,
+		// A struct keeps the fields the parse fills, and what it starts with is its number.
+		"export type Circle\n\texport var id as NodeID\n\texport var radius as I128\n",
+		"export function newCircle(mutates t Tree, start diag.U32) returns Circle\n",
+		// A record has an accessor for each field, and a constructor that makes its record.
+		"export function newSquare(mutates t Tree, start diag.U32) returns NodeID\n\tlet id = t.alloc(NodeKind.square, start: start)\n",
+		"export function squareSide(t Tree, id NodeID) returns I128\n",
+		"export function squareNamed(t Tree, id NodeID) returns bool\n\treturn (t.records[id as Count].flags and (1 as Byte)) != 0\n",
+		"export function squareTagsRef(t Tree, id NodeID) returns diag.U32\n\treturn t.blockWordAt(id, offset: 1 as Count)\n",
+		"export function squareOp(t Tree, id NodeID) returns String\n\tlet code = (t.records[id as Count].aux and (255 as U16)) as Count\n",
+		"export function unionL(t Tree, id NodeID) returns NodeID\n",
+		"\t\t\"square\" or\n",
 	} {
 		if !strings.Contains(nodes, want) {
 			t.Errorf("nodes lack %q:\n%s", want, nodes)
@@ -107,18 +97,18 @@ func TestARecordKeepsItsFirstWordAndABlockForTheRest(t *testing.T) {
 three : 'three' a=Name b=Name c=Name ;
 two : 'two' a=Name b=Name ;
 Name : [a-z]+ ;
-`)[nodesFile]
+`)[maxonNodesFile]
 	for _, want := range []string{
-		"t.Records[id].B = t.reserve(2)",
-		"func (n Three) A() string { return n.T.NameAt(n.T.Records[n.ID].A) }",
-		"func (n Three) C() string { return n.T.NameAt(n.T.Lists[n.T.Records[n.ID].B+1]) }",
-		"func (n Two) B() string { return n.T.NameAt(n.T.Records[n.ID].B) }",
+		"\tlet blk = t.reserve(2 as Count)\n",
+		"export function threeA(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.records[id as Count].a)\n",
+		"export function threeC(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.blockWordAt(id, offset: 1 as Count))\n",
+		"export function twoB(t Tree, id NodeID) returns String\n\treturn t.nameAt(t.records[id as Count].b)\n",
 	} {
 		if !strings.Contains(nodes, want) {
 			t.Errorf("nodes lack %q:\n%s", want, nodes)
 		}
 	}
-	if strings.Contains(nodes, "func (t *Tree) NewTwo(start uint32) Two {\n\tid := t.alloc(KindTwo, start)\n\tt.Records[id].B = t.reserve") {
+	if strings.Contains(nodes, "let id = t.alloc(NodeKind.two, start: start)\n\tlet blk = t.reserve") {
 		t.Errorf("a record of two words reserves a block:\n%s", nodes)
 	}
 }
@@ -141,14 +131,13 @@ circle : 'circle' radius=Name ;
 	Ring Slot[Rings]
 }
 Name : [a-z]+ ;
-`)[nodesFile]
+`)[maxonNodesFile]
 	for _, want := range []string{
-		"type Square struct{ Ref }",
-		"type Circle struct {\n\tHead\n\tRadius string\n}",
-		"type Slots struct {\n\tSides uint32\n\tRings uint32\n}",
-		"func (t *Tree) NumberSlots(slots []uint32) (count Slots) {",
-		"case KindSquare, KindCircle:\n\t\t\tcount.Sides++\n\t\t\tslots[id] = count.Sides",
-		"case KindCircle:\n\t\t\tcount.Rings++\n\t\t\tslots[id] = count.Rings",
+		"export type Circle\n\texport var id as NodeID\n\texport var radius as String\n",
+		"export type Slots\n\texport var sidesSlots as diag.U32\n\texport var ringsSlots as diag.U32\n",
+		"export function numberSlots(tree Tree, mutates slots U32List) returns Slots\n",
+		"\t\t\tcount.sidesSlots = try count.sidesSlots + 1 otherwise panic(\"slot overflow\")\n\t\t\tslots[id] = count.sidesSlots\n",
+		"\t\t\tcount.ringsSlots = try count.ringsSlots + 1 otherwise panic(\"slot overflow\")\n\t\t\tslots[id] = count.ringsSlots\n",
 	} {
 		if !strings.Contains(nodes, want) {
 			t.Errorf("nodes lack %q:\n%s", want, nodes)
@@ -157,19 +146,18 @@ Name : [a-z]+ ;
 }
 
 func TestParserConvertsAndClimbs(t *testing.T) {
-	parser := generateTiny(t, tiny)[parserFile]
+	parser := generateTiny(t, tiny)[maxonParserFile]
 	for _, want := range []string{
-		"n.SetSide(p.squareSide(p.expect(TInteger, \"an integer\")))",
-		"n.SetNamed()",
-		"p.lists.ids_Square_Tags.push(p.textRef(p.expect(TName, \"a name\")))",
-		"n.SetTags(takeTexts(p, &p.lists.ids_Square_Tags, mark_n_Tags))",
-		"n.SetOp(p.text(p.next()))",
-		"n.Radius = p.circleRadius(p.expect(TInteger, \"an integer\"))",
-		"n := p.tree.NewSquare(t.Start)",
-		"func (p *Parser) parseShapePrec(minPrec int) ast.Shape {",
-		"n.SetR(p.parseShapePrec(2))",
-		"left = n.Shape()",
-		"left = p.parseSquare().Shape()",
+		"\tlet v1 = try p.expect(TokenKind.integer, what: \"an integer\")\n\tlet v2 = try squareSide(p, t: v1)\n\tast.setSquareSide(p.tree, id: n, value: v2)\n",
+		"\t\tast.setSquareNamed(p.tree, id: n)\n",
+		"\t\tlet v4 = p.textRef(v3)\n\t\tp.lists.ids_Square_Tags.push(v4)\n",
+		"\tlet v7 = takeIDs(p.tree, stack: p.lists.ids_Square_Tags, mark: mark_n_Tags)\n\tast.setSquareTagsRef(p.tree, id: n, ref: v7)\n",
+		"\t\tlet v5 = try p.next()\n\t\tlet v6 = p.text(v5)\n\t\tast.setSquareOp(p.tree, id: n, text: v6)\n",
+		"\tlet v2 = try circleRadius(p, t: v1)\n\tn.radius = v2\n",
+		"\tlet n = ast.newSquare(p.tree, start: t)\n",
+		"function parseShapePrec(mutates p Parser, minPrec Count) returns ast.NodeID throws SyntaxError\n",
+		"\t\t\tlet v3 = try parseShapePrec(p, minPrec: 2)\n\t\t\tast.setUnionR(p.tree, id: n, value: v3)\n\t\t\tleft = n\n",
+		"\t\tlet v1 = try parseSquare(p)\n\t\tleft = v1\n",
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
@@ -190,19 +178,19 @@ LParen : '(' -> noSpaceAfter ;
 RParen : ')' -> noSpaceBefore ;
 Minus : '-' ;
 `)
-	parser, tokens := outs[parserFile], outs[tokensFile]
+	parser, tokens := outs[maxonParserFile], outs[maxonTokensFile]
 	for _, want := range []string{
-		"p.joinNext = true\n\tp.expect(TLParen",
-		"joins := p.at(TMinus)",
-		"p.joinNext = p.joinNext || joins",
+		"\tp.joinNext = true\n\t_ = try p.expect(TokenKind.lParen",
+		"\tlet joins1 = p.at(TokenKind.minus)\n",
+		"\tp.joinNext = p.joinNext or joins1\n",
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
 		}
 	}
 	for _, want := range []string{
-		"var tokenNoSpaceBefore = [numTokens]bool{TRParen: true}",
-		"var tokenNoSpaceAfter = [numTokens]bool{TLParen: true}",
+		"export let tokenNoSpaceBefore = \"0001000\"\n",
+		"export let tokenNoSpaceAfter = \"0010000\"\n",
 	} {
 		if !strings.Contains(tokens, want) {
 			t.Errorf("tokens lack %q:\n%s", want, tokens)
@@ -218,8 +206,12 @@ call : e=expr ;
 expr : name=Name ;
 Name : [a-z]+ ;
 Assign : '=' ;
-`)[parserFile]
-	for _, want := range []string{"first := p.parseExpr()", "return p.parseAssignAfter(t, first)", "return p.parseCallAfter(t, first)"} {
+`)[maxonParserFile]
+	for _, want := range []string{
+		"\t\tlet first = try parseExpr(p)\n",
+		"try parseAssignAfter(p, t: t, first: first)\n",
+		"try parseCallAfter(p, t: t, first: first)\n",
+	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
 		}
@@ -236,7 +228,7 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\na : x=a 'p' ;\n":                       "g.g4:2: only a set rule may be left-recursive, and 'a' is not one",
 		"grammar G;\na : 'p' ;\n@ast::Nothing {\n}\n":       "g.g4:3: @ast::Nothing names no node and no set base",
 		"grammar G;\na : 'p' ;\n@ast::A {\n\tX Slot[]\n}\n": "g.g4:4: the type of field X is Slot[]; a slot is written Slot[Counter]",
-		"grammar G;\nh returns [int v] : w='p' ;\n":         "g.g4:2: helper rule 'h' returns 'v'; label 'w' names nothing",
+		"grammar G;\nh returns [string v] : w='p' ;\n":      "g.g4:2: helper rule 'h' returns 'v'; label 'w' names nothing",
 		"grammar G;\nA : 'x' ;\nB : 'x' ;\n":                "g.g4:3: token 'B' can never be matched: an earlier token always wins",
 		"grammar G;\nA : 'x'* ;\n":                          "g.g4:2: token 'A' matches the empty string, so the lexer would never move on",
 		"grammar G;\nA : 'x' .*? 'y' ;\n":                   "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
@@ -313,13 +305,13 @@ holder : 'if' (rest+=Name | 'else' rest=names) ;
 names returns [[]string list] : list+=Name (',' list+=Name)* ;
 Name : [a-z]+ ;
 Comma : ',' ;
-`)[parserFile]
+`)[maxonParserFile]
 	for _, want := range []string{
-		"mark_n_Rest := p.lists.string.mark()",
-		"if p.lists.string.pushedSince(mark_n_Rest) {\n\t\tn.Rest = p.lists.string.take(mark_n_Rest)\n\t}",
-		"mark_list := p.lists.string.mark()",
-		"list = p.lists.string.take(mark_list)",
-		"type listStacks struct {\n\tstring listStack[string]\n}",
+		"\tlet mark_n_Rest = p.lists.string.mark()\n",
+		"\tif p.lists.string.pushedSince(mark_n_Rest) 'b4'\n\t\tlet v4 = p.lists.string.take(mark_n_Rest)\n\t\tn.rest = v4\n",
+		"\tlet mark_list = p.lists.string.mark()\n",
+		"\tlet v5 = p.lists.string.take(mark_list)\n\tlist = v5\n",
+		"type ListStacks\n\tvar string as ListStack with String\n",
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)
@@ -331,13 +323,13 @@ func TestEachListOfARecordHasAStackOfItsOwn(t *testing.T) {
 	parser := generateTiny(t, `grammar T;
 both : 'both' xs+=Name* 'and' ys+=Name* ;
 Name : [a-z]+ ;
-`)[parserFile]
+`)[maxonParserFile]
 	for _, want := range []string{
-		"type listStacks struct {\n\tids_Both_Xs listStack[uint32]\n\tids_Both_Ys listStack[uint32]\n}",
-		"mark_n_Xs := p.lists.ids_Both_Xs.mark()",
-		"mark_n_Ys := p.lists.ids_Both_Ys.mark()",
-		"n.SetXs(takeTexts(p, &p.lists.ids_Both_Xs, mark_n_Xs))",
-		"n.SetYs(takeTexts(p, &p.lists.ids_Both_Ys, mark_n_Ys))",
+		"type ListStacks\n\tvar ids_Both_Xs as ListStack with diag.U32\n\tvar ids_Both_Ys as ListStack with diag.U32\n",
+		"\tlet mark_n_Xs = p.lists.ids_Both_Xs.mark()\n",
+		"\tlet mark_n_Ys = p.lists.ids_Both_Ys.mark()\n",
+		"takeIDs(p.tree, stack: p.lists.ids_Both_Xs, mark: mark_n_Xs)\n",
+		"takeIDs(p.tree, stack: p.lists.ids_Both_Ys, mark: mark_n_Ys)\n",
 	} {
 		if !strings.Contains(parser, want) {
 			t.Errorf("parser lacks %q:\n%s", want, parser)

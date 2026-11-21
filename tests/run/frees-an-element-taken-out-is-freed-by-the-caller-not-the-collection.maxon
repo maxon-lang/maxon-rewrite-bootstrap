@@ -1,0 +1,22 @@
+typealias StringArray = Array with String
+
+function main() returns ExitCode
+	var a = StringArray.create(0)
+	a.push("e{1}")
+	a.push("e{2}")
+	a.push("e{3}")
+	let taken = try a.remove(1) otherwise panic("index out of range")
+	_ = try a.remove(0) otherwise panic("index out of range")
+	let last = "z{4}"
+	return 0
+end 'main'
+
+// expect-free: string "1"
+// expect-free: string "2"
+// expect-free: string "3"
+// expect-free: string "e1"
+// expect-free: string "4"
+// expect-free: string "z4"
+// expect-free: string "e2"
+// expect-free: array
+// expect-free: string "e3"

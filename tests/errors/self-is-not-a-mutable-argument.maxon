@@ -1,0 +1,17 @@
+type Label
+	export var text as String
+
+	function reset(mutates self)
+		replace(self)
+	end 'reset'
+end 'Label'
+
+function replace(mutates l Label)
+	l.text = "y"
+end 'replace'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E2013 at 5:11

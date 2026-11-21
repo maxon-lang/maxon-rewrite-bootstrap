@@ -1,7 +1,0 @@
-function f(p Plain) returns Score
-	return total(p, b: p)
-end 'f'
-
-function main() returns ExitCode
-	return 0
-end 'main'

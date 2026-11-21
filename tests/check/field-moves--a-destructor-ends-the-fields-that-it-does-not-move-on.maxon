@@ -1,0 +1,73 @@
+typealias Score = int(i64.min to i64.max)
+
+type Pair
+	export var left as String
+	export var right as String
+
+	static function make(consumes left String, consumes right String) returns Pair
+		return Pair{left: left, right: right}
+	end 'make'
+end 'Pair'
+
+type Wrapper
+	export var pair as Pair
+	export var tag as String
+
+	static function make(consumes pair Pair, consumes tag String) returns Wrapper
+		return Wrapper{pair: pair, tag: tag}
+	end 'make'
+end 'Wrapper'
+
+type Txn
+	export var id as Score
+	export var note as String
+
+	static function begin(id Score) returns Txn
+		return Txn{id: id, note: "n"}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function abort(destructs self, reason String)
+		print("abort\n")
+	end 'abort'
+
+	function rollback(destructs self)
+		self.abort("rolled back")
+	end 'rollback'
+
+	function take(destructs self) returns String
+		return note
+	end 'take'
+end 'Txn'
+
+type Session
+	var conn as Txn
+	var name as String
+
+	static function open(consumes conn Txn, consumes name String) returns Session
+		return Session{conn: conn, name: name}
+	end 'open'
+
+	function close(destructs self) returns String
+		conn.commit()
+		return name
+	end 'close'
+end 'Session'
+
+type Holder
+	export var txn as Txn
+	export var label as String
+
+	static function make(consumes txn Txn, consumes label String) returns Holder
+		return Holder{txn: txn, label: label}
+	end 'make'
+end 'Holder'
+
+function main() returns ExitCode
+	let s = Session.open(Txn.begin(1), name: "s")
+	print(s.close())
+	return 0
+end 'main'

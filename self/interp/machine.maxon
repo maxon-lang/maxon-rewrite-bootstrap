@@ -59,7 +59,7 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		execLoadGlobal(vm, x: x)
 	end 'visitLoadGlobal'
 
-	// The raw operations are the runtime's source's, which no IR the Go compiler lowers has.
+	// The raw operations are the runtime's source's, which the interpreter never runs.
 	function visitLoadRaw(mutates self, f ir.IrFunction, x ir.Instr)
 		panic("interp: loadraw is the runtime source's, which the interpreter never runs")
 	end 'visitLoadRaw'

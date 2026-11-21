@@ -1,0 +1,32 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, note Score)
+end 'Step'
+
+function make() returns Txn
+	let t = Txn.begin()
+	return t
+end 'make'
+
+function main() returns ExitCode
+	make().commit()
+	return 0
+end 'main'

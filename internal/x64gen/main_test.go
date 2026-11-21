@@ -9,8 +9,6 @@ import (
 	"os"
 	"strings"
 	"testing"
-
-	"minimaxon/internal/backend"
 )
 
 func TestGeneratedFileIsCurrent(t *testing.T) {
@@ -27,7 +25,7 @@ func TestGeneratedFileIsCurrent(t *testing.T) {
 	}
 }
 
-// refEncode encodes a form the way the table says, independently of internal/backend and of the Maxon that is generated
+// refEncode encodes a form the way the table says, independently of the assembler and of the Maxon that is generated
 // from the table: vals are the values of the form's parameters, in order.
 func refEncode(f form, vals []int64) []byte {
 	var regField, rmField, opcodeReg, base, disp, imm int64
@@ -240,58 +238,6 @@ func product(sets [][]int64, f func(vals []int64)) {
 	rec(0)
 }
 
-func r(v int64) backend.R { return backend.R(v) }
-
-// direct is the method of the backend's assembler that makes the same instruction as a form.
-var direct = map[string]func(a *backend.Asm, v []int64){
-	"MovRegReg":            func(a *backend.Asm, v []int64) { a.Mov(r(v[0]), r(v[1])) },
-	"AddRegReg":            func(a *backend.Asm, v []int64) { a.Add(r(v[0]), r(v[1])) },
-	"SubRegReg":            func(a *backend.Asm, v []int64) { a.Sub(r(v[0]), r(v[1])) },
-	"AndRegReg":            func(a *backend.Asm, v []int64) { a.And(r(v[0]), r(v[1])) },
-	"OrRegReg":             func(a *backend.Asm, v []int64) { a.Or(r(v[0]), r(v[1])) },
-	"XorRegReg":            func(a *backend.Asm, v []int64) { a.Xor(r(v[0]), r(v[1])) },
-	"CmpRegReg":            func(a *backend.Asm, v []int64) { a.Cmp(r(v[0]), r(v[1])) },
-	"TestRegReg":           func(a *backend.Asm, v []int64) { a.Test(r(v[0]), r(v[1])) },
-	"ImulRegReg":           func(a *backend.Asm, v []int64) { a.Imul(r(v[0]), r(v[1])) },
-	"LoadRegBaseDisp":      func(a *backend.Asm, v []int64) { a.Load(r(v[0]), r(v[1]), int(v[2])) },
-	"StoreBaseDispReg":     func(a *backend.Asm, v []int64) { a.Store(r(v[0]), int(v[1]), r(v[2])) },
-	"LeaRegBaseDisp":       func(a *backend.Asm, v []int64) { a.Lea(r(v[0]), r(v[1]), int(v[2])) },
-	"MovzxRegByteBaseDisp": func(a *backend.Asm, v []int64) { a.LoadByte(r(v[0]), r(v[1]), int(v[2])) },
-	"StoreBaseDispReg8":    func(a *backend.Asm, v []int64) { a.StoreByte(r(v[0]), int(v[1]), r(v[2])) },
-	"MovzxRegWordBaseDisp": func(a *backend.Asm, v []int64) { a.LoadWord16(r(v[0]), r(v[1]), int(v[2])) },
-	"LoadReg32BaseDisp":    func(a *backend.Asm, v []int64) { a.Load32(r(v[0]), r(v[1]), int(v[2])) },
-	"StoreBaseDispReg16":   func(a *backend.Asm, v []int64) { a.Store16(r(v[0]), int(v[1]), r(v[2])) },
-	"StoreBaseDispReg32":   func(a *backend.Asm, v []int64) { a.Store32(r(v[0]), int(v[1]), r(v[2])) },
-	"NotReg":               func(a *backend.Asm, v []int64) { a.Not(r(v[0])) },
-	"NegReg":               func(a *backend.Asm, v []int64) { a.Neg(r(v[0])) },
-	"MulReg":               func(a *backend.Asm, v []int64) { a.MulRax(r(v[0])) },
-	"DivReg":               func(a *backend.Asm, v []int64) { a.Div(r(v[0])) },
-	"IdivReg":              func(a *backend.Asm, v []int64) { a.Idiv(r(v[0])) },
-	"Cqo":                  func(a *backend.Asm, v []int64) { a.Cqo() },
-	"ShlRegCl":             func(a *backend.Asm, v []int64) { a.ShlCl(r(v[0])) },
-	"ShrRegCl":             func(a *backend.Asm, v []int64) { a.ShrCl(r(v[0])) },
-	"SarRegCl":             func(a *backend.Asm, v []int64) { a.SarCl(r(v[0])) },
-	"SarRegImm8":           func(a *backend.Asm, v []int64) { a.SarImm(r(v[0]), byte(v[1])) },
-	"PushReg":              func(a *backend.Asm, v []int64) { a.Push(r(v[0])) },
-	"PopReg":               func(a *backend.Asm, v []int64) { a.Pop(r(v[0])) },
-	"Ret":                  func(a *backend.Asm, v []int64) { a.Ret() },
-	"RepMovsb":             func(a *backend.Asm, v []int64) { a.RepMovsb() },
-	"RepStosq":             func(a *backend.Asm, v []int64) { a.RepStosq() },
-	"LeaRegRip":            func(a *backend.Asm, v []int64) { a.LeaData(r(v[0]), 0) },
-	"LoadRegRip":           func(a *backend.Asm, v []int64) { a.LoadData(r(v[0]), 0) },
-	"StoreRipReg":          func(a *backend.Asm, v []int64) { a.StoreData(0, r(v[1])) },
-	"CallRip":              func(a *backend.Asm, v []int64) { a.CallImport(0) },
-}
-
-// choiceOf are the methods of the backend that pick a form by the value of an immediate, as the choices do. These are the forms that the backend makes only as the alternative of a choice, by the value of the immediate.
-var choiceOf = map[string]func(a *backend.Asm, v []int64){
-	"AddRegImm": func(a *backend.Asm, v []int64) { a.AddImm(r(v[0]), int(v[1])) },
-	"AndRegImm": func(a *backend.Asm, v []int64) { a.AndImm(r(v[0]), int(v[1])) },
-	"SubRegImm": func(a *backend.Asm, v []int64) { a.SubImm(r(v[0]), int(v[1])) },
-	"CmpRegImm": func(a *backend.Asm, v []int64) { a.CmpImm(r(v[0]), int(v[1])) },
-	"MovRegImm": func(a *backend.Asm, v []int64) { a.MovImm(r(v[0]), v[1]) },
-}
-
 // literal are the forms that the backend writes as raw bytes, with the arguments of the one use it has.
 var literal = []struct {
 	form string
@@ -302,90 +248,6 @@ var literal = []struct {
 	{"RepeCmpsb", nil, []byte{0xF3, 0xA6}},
 	{"StoreBaseDispImm8", []int64{6, 0, '-'}, []byte{0xC6, 0x06, '-'}},
 	{"SubRegImm32", []int64{4, 0}, []byte{0x48, 0x81, 0xEC, 0, 0, 0, 0}},
-}
-
-func asmBytes(emit func(a *backend.Asm)) []byte {
-	a := &backend.Asm{}
-	emit(a)
-	return a.Code
-}
-
-func TestFormsEncodeAsTheBackendDoes(t *testing.T) {
-	check()
-	tested := map[string]bool{}
-	for _, f := range forms {
-		emit, ok := direct[f.name]
-		if !ok {
-			continue
-		}
-		tested[f.name] = true
-		n := 0
-		product(spreads(f.operands), func(vals []int64) {
-			n++
-			got := refEncode(f, vals)
-			want := asmBytes(func(a *backend.Asm) { emit(a, vals) })
-			if !bytes.Equal(got, want) {
-				t.Fatalf("%s %v: the table gives %x, the backend %x", f.name, vals, got, want)
-			}
-		})
-		if n == 0 {
-			t.Errorf("%s was tried with no values", f.name)
-		}
-	}
-	for _, l := range literal {
-		tested[l.form] = true
-		if got := refEncode(formByName(l.form), l.vals); !bytes.Equal(got, l.want) {
-			t.Errorf("%s: the table gives %x, the backend writes %x", l.form, got, l.want)
-		}
-	}
-	for _, c := range choices {
-		emit, ok := choiceOf[c.name]
-		if !ok {
-			t.Errorf("choice %s has no method of the backend to compare with", c.name)
-			continue
-		}
-		picked := map[string]bool{}
-		first := formByName(c.alternatives[0])
-		product(spreads(withoutImmediate(first.operands)), func(base []int64) {
-			product([][]int64{immediateSpread(c.immediateKind())}, func(imm []int64) {
-				vals := append(append([]int64{}, base...), imm[0])
-				f := refChoose(c, vals)
-				picked[f.name] = true
-				got := refEncode(f, vals)
-				want := asmBytes(func(a *backend.Asm) { emit(a, vals) })
-				if !bytes.Equal(got, want) {
-					t.Fatalf("%s %v: the table gives %x (%s), the backend %x", c.name, vals, got, f.name, want)
-				}
-			})
-		})
-		for _, name := range c.alternatives {
-			tested[name] = true
-			if !picked[name] {
-				t.Errorf("no value picked %s in choice %s", name, c.name)
-			}
-		}
-	}
-	for _, s := range sequences {
-		if s.name != "SetccRax" {
-			t.Errorf("sequence %s has no method of the backend to compare with", s.name)
-			continue
-		}
-		for _, st := range s.steps {
-			tested[st.form] = true
-		}
-		product(spreads(s.operands), func(vals []int64) {
-			got := refSequence(s, vals)
-			want := asmBytes(func(a *backend.Asm) { a.SetccRax(backend.Cc(vals[0])) })
-			if !bytes.Equal(got, want) {
-				t.Fatalf("%s %v: the table gives %x, the backend %x", s.name, vals, got, want)
-			}
-		})
-	}
-	for _, f := range forms {
-		if !tested[f.name] && !isBranch(f) {
-			t.Errorf("form %s is compared with nothing", f.name)
-		}
-	}
 }
 
 func immediateSpread(k kind) []int64 {
@@ -403,11 +265,120 @@ func immediateSpread(k kind) []int64 {
 	}
 }
 
-func isBranch(f form) bool { return hasKind(f, kindRel32) }
+// goldenFile holds the bytes that the Go compiler's assembler wrote for every encoding these tests compare the table
+// with, captured from it before it was removed: a line is a key, " = " and the bytes in hex. The table was proved
+// against that assembler, and stays proved against what it wrote.
+const goldenFile = "testdata/assembler.golden"
 
-// A branch to a label that is bound is written relative to the end of its own field, whatever came before it.
-func TestBranchesAreRelative(t *testing.T) {
-	for _, pad := range []int{0, 1, 5, 127, 128, 1000, 70000} {
+// branchPads are the bytes put between a label and a branch back to it.
+var branchPads = []int{0, 1, 5, 127, 128, 1000, 70000}
+
+func formKey(name string, vals []int64) string     { return fmt.Sprintf("form %s %v", name, vals) }
+func choiceKey(name string, vals []int64) string   { return fmt.Sprintf("choice %s %v", name, vals) }
+func sequenceKey(name string, vals []int64) string { return fmt.Sprintf("sequence %s %v", name, vals) }
+func branchKey(name string, pad int, cc int64) string {
+	return fmt.Sprintf("branch %s pad %d cc %d", name, pad, cc)
+}
+func selfKey(call string) string { return "self " + call }
+
+// readGolden is the golden file, by key.
+func readGolden(t *testing.T) map[string][]byte {
+	t.Helper()
+	data, err := os.ReadFile(goldenFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	out := map[string][]byte{}
+	for line := range strings.SplitSeq(strings.TrimRight(strings.ReplaceAll(string(data), "\r\n", "\n"), "\n"), "\n") {
+		key, text, ok := strings.Cut(line, " = ")
+		if !ok {
+			t.Fatalf("%s: %q is not a key, \" = \" and bytes", goldenFile, line)
+		}
+		b, err := hex.DecodeString(text)
+		if err != nil {
+			t.Fatalf("%s: %q: %v", goldenFile, line, err)
+		}
+		out[key] = b
+	}
+	return out
+}
+
+// against compares what the table encodes with what the assembler wrote, and counts the keys it used.
+type against struct {
+	t      *testing.T
+	golden map[string][]byte
+	used   map[string]bool
+}
+
+func (c *against) compare(key string, got []byte) {
+	c.t.Helper()
+	want, ok := c.golden[key]
+	if !ok {
+		c.t.Fatalf("%s holds nothing for %s: the assembler never wrote it, so the table cannot be proved there", goldenFile, key)
+	}
+	c.used[key] = true
+	if !bytes.Equal(got, want) {
+		c.t.Fatalf("%s: the table gives %x, the assembler wrote %x", key, got, want)
+	}
+}
+
+func TestFormsEncodeAsTheAssemblerDid(t *testing.T) {
+	check()
+	c := &against{t: t, golden: readGolden(t), used: map[string]bool{}}
+	tested := map[string]bool{}
+	for _, f := range forms {
+		if !assembled[f.name] {
+			continue
+		}
+		tested[f.name] = true
+		n := 0
+		product(spreads(f.operands), func(vals []int64) {
+			n++
+			c.compare(formKey(f.name, vals), refEncode(f, vals))
+		})
+		if n == 0 {
+			t.Errorf("%s was tried with no values", f.name)
+		}
+	}
+	for _, l := range literal {
+		tested[l.form] = true
+		if got := refEncode(formByName(l.form), l.vals); !bytes.Equal(got, l.want) {
+			t.Errorf("%s: the table gives %x, the backend writes %x", l.form, got, l.want)
+		}
+	}
+	for _, ch := range choices {
+		picked := map[string]bool{}
+		first := formByName(ch.alternatives[0])
+		product(spreads(withoutImmediate(first.operands)), func(base []int64) {
+			product([][]int64{immediateSpread(ch.immediateKind())}, func(imm []int64) {
+				vals := append(append([]int64{}, base...), imm[0])
+				f := refChoose(ch, vals)
+				picked[f.name] = true
+				c.compare(choiceKey(ch.name, vals), refEncode(f, vals))
+			})
+		})
+		for _, name := range ch.alternatives {
+			tested[name] = true
+			if !picked[name] {
+				t.Errorf("no value picked %s in choice %s", name, ch.name)
+			}
+		}
+	}
+	for _, s := range sequences {
+		for _, st := range s.steps {
+			tested[st.form] = true
+		}
+		product(spreads(s.operands), func(vals []int64) {
+			c.compare(sequenceKey(s.name, vals), refSequence(s, vals))
+		})
+	}
+	for _, f := range forms {
+		if !tested[f.name] && !isBranch(f) {
+			t.Errorf("form %s is compared with nothing", f.name)
+		}
+	}
+	// A branch to a label that is bound is written relative to the end of its own field, whatever came before it.
+	for _, pad := range branchPads {
 		for _, f := range forms {
 			if !isBranch(f) {
 				continue
@@ -417,76 +388,66 @@ func TestBranchesAreRelative(t *testing.T) {
 				ccs = condSpread
 			}
 			for _, cc := range ccs {
-				a := &backend.Asm{}
-				l := backend.NewLabel()
-				a.Bind(l)
-				a.Raw(make([]byte, pad)...)
-				opcodeLen := len(f.opcode)
 				var vals []int64
-				switch f.name {
-				case "JmpRel32":
-					a.Jmp(l)
-				case "CallRel32":
-					a.Call(l)
-				case "JccRel32":
-					a.Jcc(backend.Cc(cc), l)
-				default:
-					t.Fatalf("branch %s has no method of the backend to compare with", f.name)
-				}
 				if hasKind(f, kindCond) {
 					vals = append(vals, cc)
 				}
-				vals = append(vals, int64(-(pad + opcodeLen + rel32Bytes)))
-				want := a.Code[pad:]
-				if got := refEncode(f, vals); !bytes.Equal(got, want) {
-					t.Fatalf("%s pad %d: the table gives %x, the backend %x", f.name, pad, got, want)
-				}
+				vals = append(vals, int64(-(pad + len(f.opcode) + rel32Bytes)))
+				c.compare(branchKey(f.name, pad, cc), refEncode(f, vals))
 			}
+		}
+	}
+	for _, call := range selfChecks {
+		c.used[selfKey(call)] = true
+	}
+	for key := range c.golden {
+		if !c.used[key] {
+			t.Errorf("%s holds %s, which no test compares with: a form, a spread or a check changed since the assembler wrote it", goldenFile, key)
 		}
 	}
 }
 
-// golden are encodings that self/main.maxon checks the generated Maxon against, so that the Maxon is proved against the
-// backend through these bytes.
-var golden = []struct {
-	call string
-	emit func(a *backend.Asm)
-}{
-	{"movRegReg rax, rcx", func(a *backend.Asm) { a.Mov(backend.Rax, backend.Rcx) }},
-	{"movRegReg r9, r12", func(a *backend.Asm) { a.Mov(backend.R9, backend.R12) }},
-	{"addRegReg rbx, r15", func(a *backend.Asm) { a.Add(backend.Rbx, backend.R15) }},
-	{"loadRegBaseDisp rax, rsp, 8", func(a *backend.Asm) { a.Load(backend.Rax, backend.Rsp, 8) }},
-	{"loadRegBaseDisp rax, rbp, 0", func(a *backend.Asm) { a.Load(backend.Rax, backend.Rbp, 0) }},
-	{"loadRegBaseDisp r13, r13, -129", func(a *backend.Asm) { a.Load(backend.R13, backend.R13, -129) }},
-	{"storeBaseDispReg r12, 256, rax", func(a *backend.Asm) { a.Store(backend.R12, 0x100, backend.Rax) }},
-	{"storeBaseDispReg8 rax, 0, rcx", func(a *backend.Asm) { a.StoreByte(backend.Rax, 0, backend.Rcx) }},
-	{"storeBaseDispReg8 rax, 0, rsi", func(a *backend.Asm) { a.StoreByte(backend.Rax, 0, backend.Rsi) }},
-	{"storeBaseDispReg8 r8, 0, r12", func(a *backend.Asm) { a.StoreByte(backend.R8, 0, backend.R12) }},
-	{"movRegImm rax, 5", func(a *backend.Asm) { a.MovImm(backend.Rax, 5) }},
-	{"movRegImm rax, -1", func(a *backend.Asm) { a.MovImm(backend.Rax, -1) }},
-	{"movRegImm r10, 1 shl 40", func(a *backend.Asm) { a.MovImm(backend.R10, 1<<40) }},
-	{"movRegImm rax, i64.min", func(a *backend.Asm) { a.MovImm(backend.Rax, math.MinInt64) }},
-	{"addRegImm rsp, -16", func(a *backend.Asm) { a.AddImm(backend.Rsp, -16) }},
-	{"subRegImm rsp, 4096", func(a *backend.Asm) { a.SubImm(backend.Rsp, 4096) }},
-	{"cmpRegImm r8, 127", func(a *backend.Asm) { a.CmpImm(backend.R8, 127) }},
-	{"pushReg r14", func(a *backend.Asm) { a.Push(backend.R14) }},
-	{"popReg rbx", func(a *backend.Asm) { a.Pop(backend.Rbx) }},
-	{"setccRax less", func(a *backend.Asm) { a.SetccRax(backend.CcL) }},
-	{"cqo", func(a *backend.Asm) { a.Cqo() }},
-	{"repStosq", func(a *backend.Asm) { a.RepStosq() }},
-	{"leaRegRip r11, 0", func(a *backend.Asm) { a.LeaData(backend.R11, 0) }},
-	{"callRip 0", func(a *backend.Asm) { a.CallImport(0) }},
-	{"jmpRel32 patched back to its own start", func(a *backend.Asm) {
-		l := backend.NewLabel()
-		a.Bind(l)
-		a.Jmp(l)
-	}},
-	{"jmpRel32 patched past ten bytes", func(a *backend.Asm) {
-		l := backend.NewLabel()
-		a.Jmp(l)
-		a.Raw(make([]byte, 10)...)
-		a.Bind(l)
-	}},
+// assembled are the forms that the assembler made with a method of their own, and were compared with every value of
+// their spreads.
+var assembled = map[string]bool{
+	"MovRegReg": true, "AddRegReg": true, "SubRegReg": true, "AndRegReg": true, "OrRegReg": true, "XorRegReg": true,
+	"CmpRegReg": true, "TestRegReg": true, "ImulRegReg": true, "LoadRegBaseDisp": true, "StoreBaseDispReg": true,
+	"LeaRegBaseDisp": true, "MovzxRegByteBaseDisp": true, "StoreBaseDispReg8": true, "MovzxRegWordBaseDisp": true,
+	"LoadReg32BaseDisp": true, "StoreBaseDispReg16": true, "StoreBaseDispReg32": true, "NotReg": true, "NegReg": true,
+	"MulReg": true, "DivReg": true, "IdivReg": true, "Cqo": true, "ShlRegCl": true, "ShrRegCl": true, "SarRegCl": true,
+	"SarRegImm8": true, "PushReg": true, "PopReg": true, "Ret": true, "RepMovsb": true, "RepStosq": true,
+	"LeaRegRip": true, "LoadRegRip": true, "StoreRipReg": true, "CallRip": true,
+}
+
+// selfChecks are encodings that self/main.maxon checks the generated Maxon against, so that the Maxon is proved through
+// these bytes against what the assembler wrote.
+var selfChecks = []string{
+	"movRegReg rax, rcx",
+	"movRegReg r9, r12",
+	"addRegReg rbx, r15",
+	"loadRegBaseDisp rax, rsp, 8",
+	"loadRegBaseDisp rax, rbp, 0",
+	"loadRegBaseDisp r13, r13, -129",
+	"storeBaseDispReg r12, 256, rax",
+	"storeBaseDispReg8 rax, 0, rcx",
+	"storeBaseDispReg8 rax, 0, rsi",
+	"storeBaseDispReg8 r8, 0, r12",
+	"movRegImm rax, 5",
+	"movRegImm rax, -1",
+	"movRegImm r10, 1 shl 40",
+	"movRegImm rax, i64.min",
+	"addRegImm rsp, -16",
+	"subRegImm rsp, 4096",
+	"cmpRegImm r8, 127",
+	"pushReg r14",
+	"popReg rbx",
+	"setccRax less",
+	"cqo",
+	"repStosq",
+	"leaRegRip r11, 0",
+	"callRip 0",
+	"jmpRel32 patched back to its own start",
+	"jmpRel32 patched past ten bytes",
 }
 
 // The golden encodings in self/main.maxon are these, written as the expected hex of each call.
@@ -495,10 +456,16 @@ func TestGoldenBytesAreInTheSelfTest(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, g := range golden {
-		want := hex.EncodeToString(asmBytes(g.emit))
-		if !strings.Contains(string(source), `"`+want+`"`) {
-			t.Errorf("self/main.maxon has no check for %s, %s", g.call, want)
+	golden := readGolden(t)
+	for _, call := range selfChecks {
+		want, ok := golden[selfKey(call)]
+		if !ok {
+			t.Fatalf("%s holds nothing for %s", goldenFile, selfKey(call))
+		}
+		if !strings.Contains(string(source), `"`+hex.EncodeToString(want)+`"`) {
+			t.Errorf("self/main.maxon has no check for %s, %x", call, want)
 		}
 	}
 }
+
+func isBranch(f form) bool { return hasKind(f, kindRel32) }

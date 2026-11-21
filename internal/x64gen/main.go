@@ -1,10 +1,9 @@
 // Command x64gen generates, from the instruction table in table.go, the x64 instruction encoder of self/backend: the
 // register and condition code enums, one encoder function per form that appends the bytes of the instruction to a code
 // buffer, the choices and sequences of forms the backend asks for, the effects of each form, and the helpers that patch
-// the 32-bit fields of labels and calls. `go generate ./internal/x64gen` runs it in that directory.
+// the 32-bit fields of labels and calls. `go generate ./internal/x64gen` runs it.
 //
-// The Go compiler's own backend (internal/backend/x64.go) is not generated: it goes when self/ compiles itself, and
-// the test of this package proves the table against it.
+// The test of this package proves the table against the bytes the Go compiler's assembler wrote, kept in testdata.
 package main
 
 //go:generate go run .

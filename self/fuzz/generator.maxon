@@ -6,8 +6,8 @@
 // it writes reaches the interpreter, and leans toward the edges of the rules where a hole would be: arguments that overlap,
 // values moved out of branches and loops, borrows held across changes.
 //
-// A type, a variable and a place are handles into the generator's tables, as the Go generator's pointers are: a type is its
-// index in `tys`, a variable its index in `vars` and a place its index in `store`.
+// A type, a variable and a place are handles into the generator's tables: a type is its index in `tys`, a variable its
+// index in `vars` and a place its index in `store`.
 
 typealias Depth = int(-16 to 8)
 

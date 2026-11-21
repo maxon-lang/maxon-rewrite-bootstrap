@@ -1,18 +1,16 @@
 package main
 
-// The ABI layouts table: what a box of each kind holds and at which offset, which the compiler's code (self/ir,
-// self/backend, and the Go compiler's own) and the runtime (runtime/) must agree on. Each row says which of them
-// get the constant, so none keeps a copy that can drift.
+// The ABI layouts table: what a box of each kind holds and at which offset, which the compiler's code (self/ir and
+// self/backend) and the runtime (runtime/) must agree on. Each row says which of them get the constant, so none keeps a
+// copy that can drift.
 
 // dest is a place a constant is written to.
 type dest uint8
 
 const (
-	toRuntime   dest = 1 << iota // runtime/layout_gen.maxon
-	toSelfIR                     // self/ir/layout_gen.maxon
-	toSelfBack                   // self/backend/layout_gen.maxon
-	toGoIR                       // internal/ir/layout_gen.go
-	toGoBackend                  // internal/backend/layout_gen.go
+	toRuntime  dest = 1 << iota // runtime/layout_gen.maxon
+	toSelfIR                    // self/ir/layout_gen.maxon
+	toSelfBack                  // self/backend/layout_gen.maxon
 )
 
 // layoutConst is one named number of the ABI.
@@ -33,34 +31,34 @@ const wordBytesName = "wordBytes"
 const wordSize = 8
 
 var layouts = []layoutConst{
-	{wordBytesName, wordSize, true, toRuntime | toSelfIR | toSelfBack | toGoIR | toGoBackend,
+	{wordBytesName, wordSize, true, toRuntime | toSelfIR | toSelfBack,
 		"the size of a word: an address, a length, an integer, a handle, and each field of a box."},
 
 	{"noBox", 0, true, toRuntime,
 		"the empty place: a box address that names nothing, which a move leaves behind and a free skips."},
 
-	{"tagOffset", 0, false, toSelfIR | toGoIR,
+	{"tagOffset", 0, false, toSelfIR,
 		"where a union box holds its case index; the payload follows it."},
 
-	{"stringLengthOffset", 0, false, toRuntime | toSelfBack | toGoBackend,
+	{"stringLengthOffset", 0, false, toRuntime | toSelfBack,
 		"where a String's box holds its length in bytes, a word."},
-	{"stringBytesOffset", 1, false, toRuntime | toGoBackend,
+	{"stringBytesOffset", 1, false, toRuntime,
 		"where a String's bytes begin, UTF-8 with no terminator."},
 
 	// A byte array's box is an array's box, so its routines read the same offsets; only its buffer differs.
-	{"arrayLengthOffset", 0, false, toRuntime | toSelfBack | toGoBackend,
+	{"arrayLengthOffset", 0, false, toRuntime | toSelfBack,
 		"where the box of an array, and of a byte array, holds its length, a count of elements."},
-	{"arrayCapacityOffset", 1, false, toRuntime | toSelfBack | toGoBackend,
+	{"arrayCapacityOffset", 1, false, toRuntime | toSelfBack,
 		"where the box of an array, and of a byte array, holds its capacity, a count of elements."},
-	{"arrayDataOffset", 2, false, toRuntime | toSelfBack | toGoBackend,
+	{"arrayDataOffset", 2, false, toRuntime | toSelfBack,
 		"where the box of an array, and of a byte array, holds the address of its buffer, which has a word of 8 bytes to an element of an array and a byte to an element of a byte array."},
-	{"arrayHeaderBytes", 3, false, toRuntime | toSelfBack | toGoBackend,
+	{"arrayHeaderBytes", 3, false, toRuntime | toSelfBack,
 		"the size of the box of an array and of a byte array."},
-	{"arrayFirstCapacity", 4, true, toRuntime | toGoBackend,
+	{"arrayFirstCapacity", 4, true, toRuntime,
 		"the capacity of an empty array's first buffer, which it doubles from."},
 
 	{"byteBytes", 1, true, toRuntime,
 		"the size of an element of a byte array."},
-	{"bytesFirstCapacity", 16, true, toRuntime | toGoBackend,
+	{"bytesFirstCapacity", 16, true, toRuntime,
 		"the capacity of an empty byte array's first buffer, which it doubles from."},
 }

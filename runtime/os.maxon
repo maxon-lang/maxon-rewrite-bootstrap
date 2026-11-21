@@ -1,7 +1,7 @@
 // The OS entries for files, directories, paths, the environment and the command line. Each calls Win32's `W` functions
-// with UTF-16 that it converts from the program's UTF-8 (text.maxon), and reports a failure as the Go compiler's runtime
-// did: an entry that can fail takes last the address of a word of the caller's, which it sets to the case of the error that
-// the operation throws plus 1, or to 0 when it did not fail. What such an entry returns on a failure is nothing to read.
+// with UTF-16 that it converts from the program's UTF-8 (text.maxon), and reports a failure so: an entry that can fail
+// takes last the address of a word of the caller's, which it sets to the case of the error that the operation throws
+// plus 1, or to 0 when it did not fail. What such an entry returns on a failure is nothing to read.
 
 // What the entries read of an array and of a byte array until the array routines' layouts are in layout.maxon.
 let osArrayHeaderBytes = 24 as Count

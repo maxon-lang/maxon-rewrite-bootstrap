@@ -151,7 +151,7 @@ function compileLoadedKeeping(mutates p ast.Project, first Count, mutates ready 
 end 'compileLoadedKeeping'
 
 // frontEnd is the pipeline: each stage runs only when the stages before it found nothing, so the errors are those of the
-// first stage that has any, as the Go compiler reports them. makesProgram says that the compile makes an executable, whose
+// first stage that has any. makesProgram says that the compile makes an executable, whose
 // root needs a main even when it is the runtime's own project.
 export function frontEnd(mutates p ast.Project, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
 	return frontEndFrom(p, first: 0, makesProgram: makesProgram, errs: errs)
@@ -223,7 +223,7 @@ typealias ErrorLists = Array with diag.ErrorList
 // generate is the stage after the check. Each module from the one at index first on, in the order the check visited them,
 // finds the instances it needs and, for a compile that makes an executable, lowers its functions and those instances. An
 // instance whose type arguments nest without end fails every module that reaches it, so the program gets the failure of
-// the first such module in module order, as the Go compiler reports it. A compile that makes nothing then holds the
+// the first such module in module order. A compile that makes nothing then holds the
 // runtime's own project to the functions the compiler calls in it; one that makes an executable reports what only the
 // interpreter runs, and otherwise links the modules' functions with the ready units into it.
 function generate(mutates p ast.Project, first Count, checked check.Checked, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
@@ -254,7 +254,7 @@ end 'generate'
 // lowerModules lowers each module from the one at index first on, in the order the check visited them: the functions of a
 // module and the instances it needs, or only the instances when the compile makes no executable. The lists are in the order of
 // the modules from first on. An instance whose type arguments nest without end fails every module that reaches it, so the
-// program gets the failure of the first such module in module order, as the Go compiler reports it.
+// program gets the failure of the first such module in module order.
 function lowerModules(mutates p ast.Project, first Count, checked check.Checked, lowersBodies bool, mutates errs diag.ErrorList) returns backend.FunctionLists
 	let count = try p.modules.count() - first otherwise panic("driver: fewer modules than the ones checked already")
 	var lowered = backend.FunctionLists.create(0)

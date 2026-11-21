@@ -1,7 +1,8 @@
 # specs
 
-maxon's spec tests, converted. Never edit a file here: regenerate the directory from the maxon repository, from the
-root of this one.
+maxon's spec tests, converted. Never edit a file here but `baseline.txt`: regenerate the directory from the maxon
+repository, from the root of this one, with the compiler built (`.\build.ps1`), whose `fmt` lays out what the
+conversion writes.
 
 ```powershell
 Remove-Item specs\*.md -Exclude README.md; go run ./cmd/convert --specs --out=specs C:\Users\Eric\Dev\maxon\specs
@@ -31,12 +32,14 @@ the kinds of warning by the number of tests they block, most blocking first.
 
 ## Baseline
 
-`c1.exe test specs` runs the specs in the self-built compiler. The count of passed tests is the measure of Phases 2 to 4:
-each feature that lands unskips or fixes tests, so the numbers below only go up.
+`minimaxon test specs` runs the specs. The count of passed tests is the measure of Phases 2 to 4: each feature that
+lands unskips or fixes tests, so the numbers below only go up. `baseline.txt` holds the count `.\check.ps1` holds the
+specs to; raise it when more pass.
 
 | date | commit | passed | failed | skipped | wall time |
 |---|---|---:|---:|---:|---|
 | 2026-11-21 | dc8bc40 and the spec runner | 837 | 5393 | 11419 | 11.4 s to 12.5 s |
+| 2026-11-21 | the commit that removed the Go compiler | 840 | 5390 | 11419 | 18.8 s |
 
 Of the skipped tests, 10719 are skipped by the conversion (`<!-- skip: kind -->`, 368 of them the main-in-a-subdirectory
 difference) and 700 by the runner (508 `tier`, the rest directives, overlays and result blocks it cannot honour yet).

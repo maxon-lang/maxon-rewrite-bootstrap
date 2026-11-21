@@ -1,0 +1,30 @@
+function pick(n Count) returns Count
+	let a = "a{1}"
+	for i in 0 upto 5 'l'
+		let b = "b{2}"
+		if i == n 'hit'
+			let c = "c{3}"
+			return i
+		end 'hit'
+		if i == 1 'skip'
+			continue
+		end 'skip'
+	end 'l'
+	return 99
+end 'pick'
+
+function main() returns ExitCode
+	_ = pick(2)
+	return 0
+end 'main'
+
+// expect-free: string "1"
+// expect-free: string "2"
+// expect-free: string "b2"
+// expect-free: string "2"
+// expect-free: string "b2"
+// expect-free: string "2"
+// expect-free: string "3"
+// expect-free: string "c3"
+// expect-free: string "b2"
+// expect-free: string "a1"

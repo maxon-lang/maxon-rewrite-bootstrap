@@ -1,0 +1,5 @@
+function fine() returns ExitCode
+	return 0
+end 'fine'
+
+// expect-error: E2007 at 3:1

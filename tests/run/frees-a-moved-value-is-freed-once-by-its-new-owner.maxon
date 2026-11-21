@@ -1,0 +1,19 @@
+function keep(consumes s String) returns Count
+	let after = "z{9}"
+	return 1
+end 'keep'
+
+function main() returns ExitCode
+	let a = "a{1}"
+	let b = a
+	_ = keep(b)
+	let c = "c{3}"
+	return 0
+end 'main'
+
+// expect-free: string "1"
+// expect-free: string "9"
+// expect-free: string "z9"
+// expect-free: string "a1"
+// expect-free: string "3"
+// expect-free: string "c3"

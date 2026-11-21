@@ -291,8 +291,8 @@ func (m *maxonBody) errorType(f fn, id string) {
 	}
 }
 
-// emitMaxonRt writes self/ir's Rt, numbered as Go's Rt is, so that an instruction holds one as a number in either
-// compiler. Its symbols are self's: an entry that the runtime's source defines is linked by its function's link name.
+// emitMaxonRt writes self/ir's Rt, numbered in the order of the table's entries. Its symbols are self's: an entry that
+// the runtime's source defines is linked by its function's link name.
 func emitMaxonRt(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)
@@ -349,7 +349,7 @@ func emitMaxonRtFunctions(sb *strings.Builder, t table) {
 		}
 		fmt.Fprintf(sb, "\t%s params%d = RtParamList.create(0)\n", binding, i)
 		for _, p := range r.params {
-			fmt.Fprintf(sb, "\tparams%d.push(RtParam.make(ast.Convention.%s, name: %q, ty: %s))\n", i, lowerFirst(goConv(p.conv)), p.name, primOf(p.ty.name).Maxon)
+			fmt.Fprintf(sb, "\tparams%d.push(RtParam.make(ast.%s, name: %q, ty: %s))\n", i, maxonConv(p.conv), p.name, primOf(p.ty.name).Maxon)
 		}
 		fmt.Fprintf(sb, "\tfns.push(RtFunction.make(Rt.rt%s, name: %q, params: params%d, result: %s))\n", r.entry.Name, r.name, i, primOf(r.result.name).Maxon)
 	}
@@ -405,7 +405,7 @@ func emitMaxonCheck(t table) string {
 }
 
 // emitMaxonInterp writes self/interp's dispatch from a runtime entry to the function of the interpreter that runs it, which
-// is entry+Name, as the Go interpreter's is.
+// is entry+Name.
 func emitMaxonInterp(t table) string {
 	var sb strings.Builder
 	sb.WriteString(maxonHeader)

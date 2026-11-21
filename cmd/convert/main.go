@@ -161,6 +161,14 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		return exitUsage
 	}
 
+	formatter.collect(func() {
+		for _, job := range jobs {
+			if data, err := os.ReadFile(job.srcPath); err == nil {
+				convertFile(specs, job.srcPath, string(data))
+			}
+		}
+	})
+
 	changed := false
 	hasWarnings := false
 	changedFiles := 0

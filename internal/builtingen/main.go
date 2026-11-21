@@ -1,26 +1,18 @@
-// Command builtingen generates, from the table in table.go, the declarations of minimaxon's built-ins, the
-// Intrinsic and runtime-symbol enums, and the dispatch from each intrinsic and each runtime entry to its hand-written
-// body in the checker, the lowering, the interpreter and the backend, plus self's declarations and Rt. `go generate
-// ./internal/ast` runs it in that directory.
-//
-// A dispatch calls a method named after each intrinsic or entry on the package's own type, so a row added to the
-// table fails the build in every package that has no body for it yet.
+// Command builtingen generates, from the table in table.go, the declarations of minimaxon's built-ins in self/, the
+// Intrinsic and runtime-symbol enums, and the dispatch from each intrinsic to its hand-written body in the checker and
+// the interpreter. `go generate ./internal/builtingen` runs it.
 package main
+
+//go:generate go run .
 
 import (
 	"fmt"
-	"go/format"
 	"os"
 	"slices"
 	"strings"
 )
 
 const (
-	astFile             = "builtins_gen.go"
-	checkFile           = "../check/builtins_gen.go"
-	irFile              = "../ir/builtins_gen.go"
-	interpFile          = "../interp/builtins_gen.go"
-	backendFile         = "../backend/builtins_gen.go"
 	maxonFile           = "../../self/ast/builtins_gen.maxon"
 	maxonRtFile         = "../../self/ir/runtime_gen.maxon"
 	maxonIntrinsicsFile = "../../self/ir/intrinsics_gen.maxon"
@@ -69,22 +61,6 @@ func generate() (outs []output, err error) {
 		}
 	}()
 	t := load()
-	for _, o := range []struct {
-		path string
-		code string
-	}{
-		{astFile, emitAst(t)},
-		{checkFile, emitCheck(t)},
-		{irFile, emitIr(t)},
-		{interpFile, emitInterp(t)},
-		{backendFile, emitBackend(t)},
-	} {
-		code, err := format.Source([]byte(o.code))
-		if err != nil {
-			return nil, fmt.Errorf("%s does not parse as Go: %w\n%s", o.path, err, o.code)
-		}
-		outs = append(outs, output{o.path, code})
-	}
 	outs = append(outs, output{maxonFile, []byte(emitMaxon(t))}, output{maxonRtFile, []byte(emitMaxonRt(t))}, output{maxonIntrinsicsFile, []byte(emitMaxonIntrinsics(t))}, output{maxonCheckFile, []byte(emitMaxonCheck(t))}, output{maxonInterpFile, []byte(emitMaxonInterp(t))})
 	return outs, nil
 }
@@ -353,7 +329,7 @@ func parseField(s string) field {
 	return f
 }
 
-// fieldConst is the Go constant of the index of a field of a built-in record.
+// fieldConst is the constant of the index of a field of a built-in record.
 func fieldConst(r recordType, f field) string { return r.Key + upperFirst(f.name) + "Field" }
 
 func ownerParams(name string) []string {

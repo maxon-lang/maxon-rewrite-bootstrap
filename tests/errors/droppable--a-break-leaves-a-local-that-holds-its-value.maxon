@@ -1,0 +1,34 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, note Score)
+end 'Step'
+
+// expect-error: E3919 at 28:3
+function f()
+	while true 'w'
+		let t = Txn.begin()
+		break
+	end 'w'
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

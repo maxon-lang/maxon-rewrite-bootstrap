@@ -1,0 +1,35 @@
+typealias Score = int(i64.min to i64.max)
+
+type Txn
+	var id as Score
+
+	static function begin() returns Txn
+		return Txn{id: 1}
+	end 'begin'
+
+	function commit(destructs self)
+		print("commit\n")
+	end 'commit'
+
+	function rollback(destructs self)
+		print("rollback\n")
+	end 'rollback'
+end 'Txn'
+
+union Step
+	done(txn Txn)
+	failed(txn Txn, note Score)
+end 'Step'
+
+function pick(flag bool)
+	let t = Txn.begin()
+	if flag 'f'
+		t.commit()
+	end 'f' else 'g'
+		t.rollback()
+	end 'g'
+end 'pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'

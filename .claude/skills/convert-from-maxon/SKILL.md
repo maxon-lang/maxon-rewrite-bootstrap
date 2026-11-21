@@ -11,11 +11,13 @@ for behaviour, edge cases and names, unless the difference is a deliberate chang
 from Maxon".
 
 Converted files are regenerated from the maxon repository and never hand-edited. A needed change goes to the tool (or,
-for a missing feature, to the Go compiler), then the file is regenerated.
+for a missing feature, to `self/`), then the file is regenerated.
 
 ## Running the tool
 
-Go may not be on `PATH`; it is at `C:\Program Files\Go\bin`. Run from `c:\Users\Eric\Dev\minimaxon`:
+Go may not be on `PATH`; it is at `C:\Program Files\Go\bin`. The tool lays out what it converts with the compiler's
+`fmt`, so build `minimaxon.exe` first (`.\build.ps1`), or name a compiler in the environment variable `MINIMAXON`. Run
+from `c:\Users\Eric\Dev\minimaxon`:
 
 ```powershell
 go run ./cmd/convert --out=C:\temp\conv C:\Users\Eric\Dev\maxon\stdlib\Array.maxon   # one file, to a scratch dir
@@ -43,10 +45,8 @@ go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                     
 ## Where outputs go
 
 - A stdlib file or a self-contained `maxon-bin/` piece goes under `self/<package>/` (for example the PE writer and x64
-  tables to `self/backend/`, which does not exist yet and arrives with plan Stage 1.4 step 8; the diagnostic messages to
-  `self/diag/`, `stdlib/Map.maxon` in place of `self/table/`).
-- Runtime pieces (the command-line splitter, UTF-16 conversion) go to `self/runtime/`. That directory does not exist
-  yet; it arrives with plan Stage 1.4 step 8. maxon's emitter form (`maxon-bin/Compiler/Runtime/*.maxon`) must be
+  tables to `self/backend/`, the diagnostic messages to `self/diag/`, `stdlib/Map.maxon` in place of `self/table/`).
+- Runtime pieces (the command-line splitter, UTF-16 conversion) go to `runtime/`. maxon's emitter form (`maxon-bin/Compiler/Runtime/*.maxon`) must be
   rewritten into plain runtime source, so convert, then adapt in the tool or the compiler, not in the output.
 - Convert into a scratch directory with `--out`, read the warnings, and copy into `self/` only a file that converts
   without a warning (or whose warnings are all for features the plan lands before that package is used).
@@ -65,8 +65,7 @@ Each warning is one of two kinds. Decide per message, not per file.
    specifiers, array/map literals, capabilities, `extends`, and so on. README "Where it differs from Maxon" lists what
    minimaxon still lacks and what it spells differently on purpose; the converter rewrites the second and warns of the
    first, and nothing else. Leave the file out, or skip
-   that test, until the feature lands in `self/`'s plan. Do not hand-edit the TODO away. The Go compiler implements only
-   what `self/` needs; a feature that nothing in `self/` needs is not added to it.
+   that test, until the feature lands in `self/`'s plan. Do not hand-edit the TODO away.
 2. **A rewrite the tool should do.** The construct exists in minimaxon in another form, or the tool misses it: a
    reserved word used as a name ("rename it"), a layout the formatter rejects, a shape `convert_test.go` does not
    cover. Fix `cmd/convert`, run `go test ./cmd/convert`, then regenerate. Add a `convert_test.go` case only when the
@@ -110,17 +109,13 @@ go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs   # what bloc
   counts under each of its kinds), the files, the kind, most blocking first, then `N tests: C converted cleanly, S skipped`.
 - Triage as for any file: a feature minimaxon lacks is left (its tests stay skipped until it lands); a construct with
   an equivalent is rewritten by the tool, which regenerates `specs/`.
-- `minimaxon.exe test` does not read `specs/` yet; the runner is the second half of plan Stage 1.7. The positions in a
-  `maxoncstderr` block are authored against maxon's layout of the block, which the conversion changes (blank lines,
-  indentation), so a position can point at other text after conversion; the runner task decides how to compare.
-
-To use one maxon test before the runner exists: copy its ```` ```maxon ```` block to a scratch file, convert it, and if
-it converts clean, add it under `tests/run/` (exit code from the `exitcode` block) only when nothing in the corpus
-covers that feature (AGENTS.md: tests are added when a bug would come back or a feature is uncovered).
+- `minimaxon.exe test specs` runs them (README "Tests"); `.\check.ps1` holds the count that passes to
+  `specs/baseline.txt`, which a change that makes more pass raises. The positions in a `maxoncstderr` block are
+  authored against maxon's layout of the block, which the conversion changes (blank lines, indentation), so such a
+  test carries `<!-- positions: moved -->` and the runner compares codes and messages only.
 
 
 ## Finish
 
-Before a commit: `go build -o minimaxon.exe .`, `go vet ./...`, `gofmt`, `go test ./...`, `.\minimaxon.exe test`.
-`.\check.ps1` formats and applies `go fix` first, then runs the checks and stops at the first failure. Commit only when
-asked, on `main`. A change to what `cmd/convert` does updates the README line that describes it.
+Before a commit, `.\check.ps1` passes: it formats and applies `go fix` first, then runs every check and stops at the
+first failure. Commit only when asked, on `main`. A change to what `cmd/convert` does updates the README line that describes it.
