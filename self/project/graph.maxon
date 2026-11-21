@@ -1,0 +1,144 @@
+export typealias ModIDList = array with diag.ModuleID
+
+typealias ModDepArray = array with ast.ModuleDepList
+
+typealias ModIDListArray = array with ModIDList
+
+typealias CountList = array with Count
+
+typealias BoolList = array with bool
+
+export type Graph
+	export var deps as ModDepArray
+	export var dependents as ModIDListArray
+
+	export static function new(n Count) returns Graph
+		var d = ModDepArray.new()
+		var dt = ModIDListArray.new()
+		for _ in 0 upto n 'init'
+			d.append(ast.ModuleDepList.new())
+			dt.append(ModIDList.new())
+		end 'init'
+		return Graph{deps: d, dependents: dt}
+	end 'new'
+end 'Graph'
+
+export function newGraph(p ast.Project) returns Graph
+	let n = p.modules.count()
+	var g = Graph.new(n)
+	for i in 0 upto n 'copyDeps'
+		let mDepsCount = p.resolutions[i].deps.count()
+		for j in 0 upto mDepsCount 'each'
+			let depMod = p.resolutions[i].deps[j].module
+			let depOff = p.resolutions[i].deps[j].offset
+			g.deps[i].append(ast.ModuleDep.make(depMod, offset: depOff))
+			let iMod = try i as diag.ModuleID otherwise panic("too many modules")
+			g.dependents[ast.modIndex(depMod)].append(iMod)
+		end 'each'
+	end 'copyDeps'
+	return g
+end 'newGraph'
+
+export function topoOrder(g Graph) returns ModIDList
+	let n = g.deps.count()
+	var waiting = CountList.new()
+	var order = ModIDList.new()
+	for i in 0 upto n 'init'
+		let cnt = g.deps[i].count()
+		waiting.append(cnt)
+		if cnt == 0 'ready'
+			order.append(try i as diag.ModuleID otherwise panic("too many modules"))
+		end 'ready'
+	end 'init'
+	var next = 0 as Count
+	while next < order.count() 'kahn'
+		let cur = ast.modIndex(order[next])
+		let dCount = g.dependents[cur].count()
+		for i in 0 upto dCount 'notify'
+			let dependent = g.dependents[cur][i]
+			let depIdx = ast.modIndex(dependent)
+			let w = waiting[depIdx]
+			if w > 0 'dec'
+				let nw = w - 1
+				waiting[depIdx] = nw
+				if nw == 0 'enqueue'
+					order.append(dependent)
+				end 'enqueue'
+			end 'dec'
+		end 'notify'
+		next = try next + 1 otherwise next
+	end 'kahn'
+	return order
+end 'topoOrder'
+
+function edgeOffset(g Graph, fromMod diag.ModuleID, target diag.ModuleID) returns diag.U32
+	let fIdx = ast.modIndex(fromMod)
+	let n = g.deps[fIdx].count()
+	for i in 0 upto n 'each'
+		if g.deps[fIdx][i].module == target 'hit'
+			return g.deps[fIdx][i].offset
+		end 'hit'
+	end 'each'
+	panic("graph: missing dependency edge")
+end 'edgeOffset'
+
+export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.CompileError
+	let n = g.deps.count()
+	let order = topoOrder(g)
+	if order.count() == n 'acyclic'
+		return Option.none
+	end 'acyclic'
+	var done = BoolList.new()
+	for _ in 0 upto n 'initDone'
+		done.append(false)
+	end 'initDone'
+	for i in 0 upto order.count() 'mark'
+		done[ast.modIndex(order[i])] = true
+	end 'mark'
+	var startIdx = 0 as Count
+	while startIdx < n and done[startIdx] 'findStart'
+		startIdx = try startIdx + 1 otherwise n
+	end 'findStart'
+	let start = try startIdx as diag.ModuleID otherwise panic("too many modules")
+	var path = ModIDList.new()
+	path.append(start)
+	while true 'walk'
+		let last = ast.modIndex(path[try path.count() - 1 otherwise 0 as Count])
+		var found = false
+		var nextMod = 0 as diag.ModuleID
+		for i in 0 upto g.deps[last].count() 'out'
+			let cand = g.deps[last][i].module
+			if not done[ast.modIndex(cand)] 'firstNotDone'
+				nextMod = cand
+				found = true
+				break 'out'
+			end 'firstNotDone'
+		end 'out'
+		if not found 'broken'
+			panic("module left out of topological order has no incomplete dependency")
+		end 'broken'
+		for at in 0 upto path.count() 'checkLoop'
+			if path[at] == nextMod 'cycleFound'
+				var msgBuf = Bytes.new()
+				msgBuf.appendString("modules depend on each other in a cycle: ")
+				for k in at upto path.count() 'fmtCycle'
+					if k > at 'arr'
+						msgBuf.appendString(" -> ")
+					end 'arr'
+					msgBuf.appendString(p.modules[ast.modIndex(path[k])].display())
+				end 'fmtCycle'
+				msgBuf.appendString(" -> ")
+				msgBuf.appendString(p.modules[ast.modIndex(nextMod)].display())
+				let firstMod = path[at]
+				var secondMod = nextMod
+				if at + 1 < path.count() 'hasSecond'
+					secondMod = path[try at + 1 otherwise at]
+				end 'hasSecond'
+				let off = edgeOffset(g, fromMod: firstMod, target: secondMod)
+				return Option.some(diag.CompileError.atSite(diag.errImportCycle, message: msgBuf.toString(), site: diag.Site.make(firstMod, offset: off)))
+			end 'cycleFound'
+		end 'checkLoop'
+		path.append(nextMod)
+	end 'walk'
+	return Option.none
+end 'checkAcyclic'

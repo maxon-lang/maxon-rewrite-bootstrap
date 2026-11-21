@@ -1,0 +1,17 @@
+//> 5
+//> 104 101 108 108 111
+//> ell
+//>
+//> hello
+function main() returns ExitCode
+	let s = "hello"
+	print("{s.byteCount()}\n")
+	print("{s.byteAt(0)} {s.byteAt(1)} {s.byteAt(2)} {s.byteAt(3)} {s.byteAt(4)}\n")
+	let sub = s.slice(1, until: 4)
+	print("{sub}\n")
+	let empty = s.slice(3, until: 3)
+	print("{empty}\n")
+	let full = s.slice(0, until: s.byteCount())
+	print("{full}\n")
+	return 0
+end 'main'

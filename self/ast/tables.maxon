@@ -1,0 +1,346 @@
+export enum PatternKind
+	patLiteral
+	patRange
+	patCase
+end 'PatternKind'
+
+export enum ArmKind
+	armThen
+	armGives
+	armPanic
+end 'ArmKind'
+
+export enum NameKind
+	nameUnresolved
+	nameLocal
+	nameConst
+	nameSelfField
+end 'NameKind'
+
+export enum CallKind
+	callUnresolved
+	callFunction
+	callMethod
+	callStatic
+	callUnionCtor
+	callPrint
+	callPrintError
+	callCopy
+	callBound
+end 'CallKind'
+
+export enum MemberKind
+	memberUnresolved
+	memberField
+	memberEnumCase
+	memberUnionCase
+	memberEnumName
+	memberEnumOrdinal
+	memberEnumRaw
+	memberUnionName
+	memberUnionOrdinal
+end 'MemberKind'
+
+export let failNone = 0 as Byte
+
+export let failOverflow = 1 as Byte
+
+export let failDivZero = 2 as Byte
+
+export let failShift = 4 as Byte
+
+export let failRange = 8 as Byte
+
+export let failArithmetic = 7 as Byte
+
+export type ArithInfo
+	export var operand as TypeID
+	export var word as TypeID
+	export var fails as Byte
+	export var unreached as bool
+	export var checkedFail as bool
+
+	export static function make(operand TypeID, word TypeID, fails Byte, unreached bool, checkedFail bool) returns ArithInfo
+		return ArithInfo{operand: operand, word: word, fails: fails, unreached: unreached, checkedFail: checkedFail}
+	end 'make'
+end 'ArithInfo'
+
+export type NameInfo
+	export var kind as NameKind
+	export var local as LocalID
+	export var hasDecl as bool
+	export var decl as DeclRef
+	export var fieldName as String
+	export var fieldIndex as Count
+
+	export static function localName(local LocalID) returns NameInfo
+		return NameInfo{kind: NameKind.nameLocal, local: local, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: "", fieldIndex: 0 as Count}
+	end 'localName'
+
+	export static function constName(consumes decl DeclRef) returns NameInfo
+		return NameInfo{kind: NameKind.nameConst, local: noLocal, hasDecl: true, decl: decl, fieldName: "", fieldIndex: 0 as Count}
+	end 'constName'
+
+	export static function selfFieldName(consumes fieldName String, fieldIndex Count) returns NameInfo
+		return NameInfo{kind: NameKind.nameSelfField, local: noLocal, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), fieldName: fieldName, fieldIndex: fieldIndex}
+	end 'selfFieldName'
+end 'NameInfo'
+
+export type MemberInfo
+	export var kind as MemberKind
+	export var hasMethod as bool
+	export var method as FuncID
+	export var ownerTy as TypeID
+	export var fieldIndex as Count
+	export var enumCase as Count
+	export var typeArgs as TypeIDList
+
+	export static function make(kind MemberKind, ownerTy TypeID) returns MemberInfo
+		return MemberInfo{kind: kind, hasMethod: false, method: noFunc, ownerTy: ownerTy, fieldIndex: 0 as Count, enumCase: 0 as Count, typeArgs: TypeIDList.new()}
+	end 'make'
+end 'MemberInfo'
+
+export type CallInfo
+	export var kind as CallKind
+	export var fn as FuncID
+	export var typeArgs as TypeIDList
+	export var paramSpecs as ParamSpecList
+	export var selfConv as Convention
+	export var receiverTy as TypeID
+	export var argOrder as array with Count
+	export var unionTy as TypeID
+	export var unionCase as Count
+	export var hasDrop as bool
+	export var dropFn as FuncID
+	export var dropArgOrder as array with Count
+	export var intrinsic as Intrinsic
+
+	export static function make(kind CallKind, fn FuncID, receiverTy TypeID) returns CallInfo
+		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.new(), paramSpecs: ParamSpecList.new(), selfConv: Convention.convLet, receiverTy: receiverTy, argOrder: array.new(), unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropArgOrder: array.new(), intrinsic: Intrinsic.intrNone}
+	end 'make'
+end 'CallInfo'
+
+export type StructLitInfo
+	export var ty as TypeID
+	export var fieldOrder as array with Count
+
+	export static function make(ty TypeID, consumes fieldOrder array with Count) returns StructLitInfo
+		return StructLitInfo{ty: ty, fieldOrder: fieldOrder}
+	end 'make'
+end 'StructLitInfo'
+
+export type PatternInfo
+	export var kind as PatternKind
+	export var caseIdx as Count
+	export var bindings as LocalIDList
+	export var hasConstInt as bool
+	export var constVal as I128
+
+	export static function makeCase(caseIdx Count, consumes bindings LocalIDList) returns PatternInfo
+		return PatternInfo{kind: PatternKind.patCase, caseIdx: caseIdx, bindings: bindings, hasConstInt: false, constVal: I128.zero()}
+	end 'makeCase'
+
+	export static function makeLiteral() returns PatternInfo
+		return PatternInfo{kind: PatternKind.patLiteral, caseIdx: 0 as Count, bindings: LocalIDList.new(), hasConstInt: false, constVal: I128.zero()}
+	end 'makeLiteral'
+end 'PatternInfo'
+
+export type Capture
+	export var name as String
+	export var refNode as NodeID
+	export var outerLocal as LocalID
+	export var innerLocal as LocalID
+	export var conv as Convention
+
+	export static function make(consumes name String, refNode NodeID, outerLocal LocalID, innerLocal LocalID, conv Convention) returns Capture
+		return Capture{name: name, refNode: refNode, outerLocal: outerLocal, innerLocal: innerLocal, conv: conv}
+	end 'make'
+end 'Capture'
+
+export typealias CaptureList = array with Capture
+
+export type WhenInfo
+	export var fn as FuncID
+	export var cowns as TypeIDList
+	export var captures as CaptureList
+	export var dropFuncs as FuncIDList
+
+	export static function new() returns WhenInfo
+		return WhenInfo{fn: noFunc, cowns: TypeIDList.new(), captures: CaptureList.new(), dropFuncs: FuncIDList.new()}
+	end 'new'
+end 'WhenInfo'
+
+export typealias NodeDeclMap = table.IntMap with DeclRef
+
+export typealias NodeModMap = table.IntMap with diag.ModuleID
+
+export typealias NodeBoolMap = table.IntMap with bool
+
+export typealias NodeStrMap = table.IntMap with String
+
+export typealias NodeStrListMap = table.IntMap with StringList
+
+export typealias NodeTypeMap = table.IntMap with TypeID
+
+export typealias NodeArithMap = table.IntMap with ArithInfo
+
+export typealias NodeNameMap = table.IntMap with NameInfo
+
+export typealias NodeMemberMap = table.IntMap with MemberInfo
+
+export typealias NodeCallMap = table.IntMap with CallInfo
+
+export typealias NodeStructLitMap = table.IntMap with StructLitInfo
+
+export typealias NodePatternMap = table.IntMap with PatternInfo
+
+export typealias NodeArmMap = table.IntMap with ArmKind
+
+export typealias NodeWhenMap = table.IntMap with WhenInfo
+
+export typealias NodeLocalMap = table.IntMap with LocalID
+
+export typealias NodeLocalListMap = table.IntMap with LocalIDList
+
+export type ModuleDep
+	export var module as diag.ModuleID
+	export var offset as diag.U32
+
+	export static function make(module diag.ModuleID, offset diag.U32) returns ModuleDep
+		return ModuleDep{module: module, offset: offset}
+	end 'make'
+end 'ModuleDep'
+
+export typealias ModuleDepList = array with ModuleDep
+
+export typealias NodeSlotMap = table.IntMap with Count
+
+export type Resolution
+	export var module as diag.ModuleID
+	export var decls as NodeDeclMap
+	export var modules as NodeModMap
+	export var becomeNames as NodeBoolMap
+	export var typeParams as TypeParamList
+	export var typeParamSlots as NodeSlotMap
+	export var deps as ModuleDepList
+	export var depSeen as NodeBoolMap
+	export var captures as NodeStrListMap
+
+	export static function new(module diag.ModuleID) returns Resolution
+		let dm = NodeDeclMap.new()
+		let mm = NodeModMap.new()
+		let bm = NodeBoolMap.new()
+		let tps = TypeParamList.new()
+		let tpsm = NodeSlotMap.new()
+		let ds = NodeBoolMap.new()
+		let cm = NodeStrListMap.new()
+		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, deps: ModuleDepList.new(), depSeen: ds, captures: cm}
+	end 'new'
+
+	export function addTypeParam(mutates self, consumes tp TypeParam) returns Count
+		let slot = typeParams.count()
+		typeParams.append(tp)
+		return slot
+	end 'addTypeParam'
+
+	export function bindTypeParam(mutates self, node NodeID, slot Count)
+		typeParamSlots.insert(node as Count, value: slot)
+	end 'bindTypeParam'
+
+	export function bindDecl(mutates self, node NodeID, consumes d DeclRef)
+		decls.insert(node as Count, value: d)
+	end 'bindDecl'
+
+	export function addDep(mutates self, dep diag.ModuleID, offset diag.U32)
+		if dep == module or dep == diag.stdlibID 'skip'
+			return
+		end 'skip'
+		let key = dep as Count
+		if depSeen.has(key) 'dup'
+			return
+		end 'dup'
+		depSeen.insert(key, value: true)
+		let entry = ModuleDep.make(dep, offset: offset)
+		deps.append(entry)
+		// Keep deps ascending by module ID for deterministic Graph order
+		var i = deps.count()
+		while i > 1 'ins'
+			let cur = try i - 1 otherwise 0 as Count
+			let prev = try i - 2 otherwise 0 as Count
+			if deps[cur].module < deps[prev].module 'swap'
+				let tmp = deps[cur].copy()
+				deps[cur] = deps[prev].copy()
+				deps[prev] = tmp
+				i = cur
+			end 'swap' else 'done'
+				break 'ins'
+			end 'done'
+		end 'ins'
+	end 'addDep'
+end 'Resolution'
+
+export typealias NodeJumpMap = table.IntMap with NodeID
+
+export typealias NodeIDList = array with NodeID
+
+export typealias NodeUsesMap = table.IntMap with NodeIDList
+
+export type Typing
+	export var module as diag.ModuleID
+	export var types as NodeTypeMap
+	export var arith as NodeArithMap
+	export var names as NodeNameMap
+	export var members as NodeMemberMap
+	export var calls as NodeCallMap
+	export var structLits as NodeStructLitMap
+	export var patterns as NodePatternMap
+	export var arms as NodeArmMap
+	export var whens as NodeWhenMap
+	export var jumps as NodeJumpMap
+	export var locals as LocalEntryList
+	export var nodeLocals as NodeLocalMap
+	export var funcLocals as NodeLocalListMap
+	export var funcUses as NodeUsesMap
+	export var fieldUses as NodeUsesMap
+	export var consumed as NodeBoolMap
+
+	export static function new(module diag.ModuleID) returns Typing
+		var ls = LocalEntryList.new()
+		ls.append(LocalEntry.make("<invalid>", ty: noType, isVar: false, isParam: false, conv: Convention.convLet, definedAt: 0 as NodeID))
+		let tm = NodeTypeMap.new()
+		let am = NodeArithMap.new()
+		let nm = NodeNameMap.new()
+		let mm = NodeMemberMap.new()
+		let cm = NodeCallMap.new()
+		let sm = NodeStructLitMap.new()
+		let pm = NodePatternMap.new()
+		let ak = NodeArmMap.new()
+		let wm = NodeWhenMap.new()
+		let jm = NodeJumpMap.new()
+		let nlm = NodeLocalMap.new()
+		let flm = NodeLocalListMap.new()
+		let fum = NodeUsesMap.new()
+		let fdum = NodeUsesMap.new()
+		let con = NodeBoolMap.new()
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, jumps: jm, locals: ls, nodeLocals: nlm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con}
+	end 'new'
+
+	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID
+		let id = try locals.count() as LocalID otherwise panic("too many locals")
+		var e = entry
+		e.id = id
+		locals.append(e)
+		return id
+	end 'allocLocal'
+end 'Typing'
+
+export function setNodeType(mutates tp Typing, node NodeID, ty TypeID)
+	tp.types.insert(node as Count, value: ty)
+end 'setNodeType'
+
+export function nodeType(tp Typing, node NodeID) returns TypeID
+	return match tp.types.get(node as Count) 'hit'
+		some(t) gives t
+		none gives noType
+	end 'hit'
+end 'nodeType'

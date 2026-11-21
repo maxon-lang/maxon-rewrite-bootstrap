@@ -380,6 +380,14 @@ func usesArrays(fns []*ir.IrFunction) bool {
 	return slices.ContainsFunc(fns, func(fn *ir.IrFunction) bool { return fn.UsesArrays })
 }
 
+func usesBytes(fns []*ir.IrFunction) bool {
+	return slices.ContainsFunc(fns, func(fn *ir.IrFunction) bool { return fn.UsesBytes })
+}
+
+func usesOs(fns []*ir.IrFunction) bool {
+	return slices.ContainsFunc(fns, func(fn *ir.IrFunction) bool { return fn.UsesOs })
+}
+
 func stepAllocated(timings bool) uint64 {
 	if !timings {
 		return 0

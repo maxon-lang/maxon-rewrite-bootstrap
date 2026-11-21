@@ -245,8 +245,12 @@ func (e *routineEmitter) drop(t ast.Ty) {
 		e.dropUnion(t)
 		return
 	case *ast.BuiltinTy:
-		if t.Kind == ast.BuiltinArray {
+		switch t.Kind {
+		case ast.BuiltinArray:
 			e.dropArray(t)
+			return
+		case ast.BuiltinBytes:
+			e.dropBytes()
 			return
 		}
 	}
@@ -267,8 +271,12 @@ func (e *routineEmitter) copy(t ast.Ty) {
 		e.copyUnion(t)
 		return
 	case *ast.BuiltinTy:
-		if t.Kind == ast.BuiltinArray {
+		switch t.Kind {
+		case ast.BuiltinArray:
 			e.copyArray(t)
+			return
+		case ast.BuiltinBytes:
+			e.copyBytes()
 			return
 		}
 	}
@@ -397,6 +405,18 @@ func (e *routineEmitter) dropString() {
 	e.prologue(0)
 	e.returnIfEmpty(done)
 	e.jumpIfImmortal(done)
+	e.freeArgument()
+	e.a.Bind(done)
+	e.epilogue()
+}
+
+func (e *routineEmitter) dropBytes() {
+	done := NewLabel()
+	e.prologue(0)
+	e.returnIfEmpty(done)
+	e.a.Load(Rcx, Rbp, routineArg)
+	e.a.Load(Rax, Rcx, bytesDataOffset)
+	e.callWithRax(e.free)
 	e.freeArgument()
 	e.a.Bind(done)
 	e.epilogue()
@@ -541,5 +561,39 @@ func (e *routineEmitter) copyString() {
 	e.epilogue()
 	a.Bind(immortal)
 	a.Load(Rax, Rbp, routineArg)
+	e.epilogue()
+}
+
+func (e *routineEmitter) copyBytes() {
+	a := e.a
+	const (
+		header = routineLocal0
+		length = routineLocal1
+		buffer = routineLocal2
+	)
+	done := NewLabel()
+	e.prologue(3)
+	e.allocate(bytesHeaderBytes)
+	a.Store(Rbp, header, Rax)
+	a.Load(Rcx, Rbp, routineArg)
+	a.Load(Rax, Rcx, bytesLengthOffset)
+	a.Store(Rbp, length, Rax)
+	a.Test(Rax, Rax)
+	a.Jcc(CcE, done)
+	e.callWithRax(e.alloc)
+	a.Store(Rbp, buffer, Rax)
+	a.Load(Rcx, Rbp, header)
+	a.Load(Rax, Rbp, length)
+	a.Store(Rcx, bytesLengthOffset, Rax)
+	a.Store(Rcx, bytesCapacityOffset, Rax)
+	a.Load(Rdx, Rbp, buffer)
+	a.Store(Rcx, bytesDataOffset, Rdx)
+	a.Mov(Rdi, Rdx)
+	a.Load(Rsi, Rbp, routineArg)
+	a.Load(Rsi, Rsi, bytesDataOffset)
+	a.Mov(Rcx, Rax)
+	a.RepMovsb()
+	a.Bind(done)
+	a.Load(Rax, Rbp, header)
 	e.epilogue()
 }

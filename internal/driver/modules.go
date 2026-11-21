@@ -108,6 +108,8 @@ type moduleOutput struct {
 	irText     string
 	refusals   []*diag.CompileError
 	usesArrays bool
+	usesBytes  bool
+	usesOs     bool
 }
 
 // modulePhase runs what is left of the compile once the front is done: the check and the generate of every module, each as
@@ -314,6 +316,8 @@ func (p *modulePhase) generate(w *generateScratch, id ast.ModuleID) {
 	w.fns = fns
 	out.refusals = refusals(fns, p.matters)
 	out.usesArrays = usesArrays(fns)
+	out.usesBytes = usesBytes(fns)
+	out.usesOs = usesOs(fns)
 	if p.options.EmitIr {
 		var text strings.Builder
 		for _, fn := range fns {
@@ -375,8 +379,15 @@ func (p *modulePhase) conclude(output string, mark func(string)) []*diag.Compile
 		return nil
 	}
 	units := append(p.units, backend.EmitTypeRoutines(p.units, p.options.Jobs)...)
-	if slices.ContainsFunc(p.outputs, func(out moduleOutput) bool { return out.usesArrays }) {
+	needsOs := slices.ContainsFunc(p.outputs, func(out moduleOutput) bool { return out.usesOs })
+	if needsOs || slices.ContainsFunc(p.outputs, func(out moduleOutput) bool { return out.usesArrays }) {
 		units = append(units, backend.EmitArrayRuntime())
+	}
+	if slices.ContainsFunc(p.outputs, func(out moduleOutput) bool { return out.usesBytes }) {
+		units = append(units, backend.EmitBytesRuntime())
+	}
+	if needsOs {
+		units = append(units, backend.EmitOsRuntime())
 	}
 	mark("routines")
 	backend.Link(output, units, ir.RtEntry.String(), p.options.Jobs)

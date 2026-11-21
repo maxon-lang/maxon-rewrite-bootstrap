@@ -1,0 +1,96 @@
+export type ErrorLocation
+	export var file as String
+	export var line as Count
+	export var col as Count
+
+	export static function make(consumes file String, line Count, col Count) returns ErrorLocation
+		return ErrorLocation{file: file, line: line, col: col}
+	end 'make'
+end 'ErrorLocation'
+
+function findFileIndex(files FileSpanList, offset diag.U32) returns Count
+	let n = files.count()
+	if n <= 1 'one'
+		return 0 as Count
+	end 'one'
+	var lo = 0 as Count
+	var hi = n
+	while lo < hi 'bs'
+		let mid = try lo + (hi - lo) / 2 otherwise lo
+		if files[mid].start <= offset 'le'
+			lo = try mid + 1 otherwise n
+		end 'le' else 'gt'
+			hi = mid
+		end 'gt'
+	end 'bs'
+	if lo == 0 'first'
+		return 0 as Count
+	end 'first'
+	return lo - 1
+end 'findFileIndex'
+
+export function locateTextOffset(text String, files FileSpanList, offset diag.U32) returns ErrorLocation
+	if files.count() == 0 'synth'
+		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
+	end 'synth'
+	let fi = findFileIndex(files, offset: offset)
+	var target = offset as Count
+	let beginPos = files[fi].start as Count
+	var endPos = files[fi].endOff as Count
+	let textLen = text.byteCount()
+	if endPos > textLen 'clampText'
+		endPos = textLen
+	end 'clampText'
+	if target < beginPos 'clampLo'
+		target = beginPos
+	end 'clampLo'
+	if target > endPos 'clampHi'
+		target = endPos
+	end 'clampHi'
+	var line = 1 as Count
+	var lineStart = beginPos
+	for pos in beginPos upto target 'scan'
+		if text.byteAt(pos) == 10 'nl'
+			line = try line + 1 otherwise line
+			lineStart = try pos + 1 otherwise lineStart
+		end 'nl'
+	end 'scan'
+	let col = try (target - lineStart) + 1 otherwise 1 as Count
+	return ErrorLocation.make(files[fi].path.copy(), line: line, col: col)
+end 'locateTextOffset'
+
+export function locateModuleOffset(m Module, offset diag.U32) returns ErrorLocation
+	if m.id == diag.stdlibID or m.files.count() == 0 'synth'
+		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
+	end 'synth'
+	return locateTextOffset(m.tree.text, files: m.files, offset: offset)
+end 'locateModuleOffset'
+
+export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocation
+	if site.module < 0 'std'
+		return ErrorLocation.make("<stdlib>", line: 0 as Count, col: 0 as Count)
+	end 'std'
+	let idx = site.module as Count
+	if idx >= mods.count() 'oob'
+		return ErrorLocation.make("<unknown>", line: 0 as Count, col: 0 as Count)
+	end 'oob'
+	return locateModuleOffset(mods[idx], offset: site.offset)
+end 'locateSite'
+
+export function locateError(mods ModuleList, mutates e diag.CompileError)
+	if e.located 'already'
+		return
+	end 'already'
+	let loc = locateSite(mods, site: e.site)
+	e.file = loc.file
+	e.line = loc.line
+	e.col = loc.col
+	e.located = true
+end 'locateError'
+
+export function locateAllErrors(mods ModuleList, mutates errs diag.ErrorList)
+	for i in 0 upto errs.count() 'each'
+		locateError(mods, e: errs[i])
+	end 'each'
+	diag.sortErrors(errs)
+end 'locateAllErrors'

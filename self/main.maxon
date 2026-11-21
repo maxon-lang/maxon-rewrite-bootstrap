@@ -1,0 +1,339 @@
+function assertKind(tokens syntax.Tokens, index Count, expected syntax.TokenKind, label String)
+	if index >= tokens.count() 'oob'
+		panic("{label}: expected token at {index}, only {tokens.count()} tokens")
+	end 'oob'
+	let got = tokens[index].kind
+	if got != expected 'mismatch'
+		panic("{label}: token {index} expected {expected.name}, got {got.name}")
+	end 'mismatch'
+end 'assertKind'
+
+function assertText(tokens syntax.Tokens, src String, index Count, expected String, label String)
+	let got = tokens[index].text(src)
+	if got != expected 'mismatch'
+		panic("{label}: token {index} expected '{expected}', got '{got}'")
+	end 'mismatch'
+end 'assertText'
+
+function expectOk(src String, label String) returns syntax.Tokens
+	return match consumes syntax.lex(src) 'res'
+		ok(tokens) gives tokens
+		err(e) panic("{label}: unexpected lex error at {e.offset}: {e.message}")
+	end 'res'
+end 'expectOk'
+
+function expectError(src String, expectedMessage String, label String)
+	match syntax.lex(src) 'res'
+		ok(_) then panic("{label}: expected error '{expectedMessage}', but lexing succeeded")
+		err(e) then checkErrorMessage(e.message, expected: expectedMessage, label: label)
+	end 'res'
+end 'expectError'
+
+function checkErrorMessage(got String, expected String, label String)
+	if got != expected 'mismatch'
+		panic("{label}: expected error '{expected}', got '{got}'")
+	end 'mismatch'
+end 'checkErrorMessage'
+
+function testProgram()
+	let src = "// greeting\nfunction main() returns ExitCode\n\tlet x = 42 // answer\n\treturn x\nend 'main'\n"
+	let toks = expectOk(src, label: "program")
+	assertKind(toks, index: 0, expected: syntax.TokenKind.kwFunction, label: "program")
+	assertKind(toks, index: 1, expected: syntax.TokenKind.name, label: "program")
+	assertText(toks, src: src, index: 1, expected: "main", label: "program")
+	assertKind(toks, index: 2, expected: syntax.TokenKind.lParen, label: "program")
+	assertKind(toks, index: 3, expected: syntax.TokenKind.rParen, label: "program")
+	assertKind(toks, index: 4, expected: syntax.TokenKind.kwReturns, label: "program")
+	assertKind(toks, index: 5, expected: syntax.TokenKind.name, label: "program")
+	assertKind(toks, index: 6, expected: syntax.TokenKind.newline, label: "program")
+	assertKind(toks, index: 7, expected: syntax.TokenKind.indent, label: "program")
+	assertKind(toks, index: 8, expected: syntax.TokenKind.kwLet, label: "program")
+	assertKind(toks, index: 9, expected: syntax.TokenKind.name, label: "program")
+	assertKind(toks, index: 10, expected: syntax.TokenKind.assign, label: "program")
+	assertKind(toks, index: 11, expected: syntax.TokenKind.integer, label: "program")
+	assertText(toks, src: src, index: 11, expected: "42", label: "program")
+	assertKind(toks, index: 12, expected: syntax.TokenKind.newline, label: "program")
+	assertKind(toks, index: 13, expected: syntax.TokenKind.kwReturn, label: "program")
+	assertKind(toks, index: 14, expected: syntax.TokenKind.name, label: "program")
+	assertKind(toks, index: 15, expected: syntax.TokenKind.newline, label: "program")
+	assertKind(toks, index: 16, expected: syntax.TokenKind.dedent, label: "program")
+	assertKind(toks, index: 17, expected: syntax.TokenKind.kwEnd, label: "program")
+	assertKind(toks, index: 18, expected: syntax.TokenKind.label, label: "program")
+	assertText(toks, src: src, index: 18, expected: "main", label: "program")
+	assertKind(toks, index: 19, expected: syntax.TokenKind.newline, label: "program")
+	assertKind(toks, index: 20, expected: syntax.TokenKind.fileEnd, label: "program")
+	assertKind(toks, index: 21, expected: syntax.TokenKind.eof, label: "program")
+end 'testProgram'
+
+function testNumbersAndOperators()
+	let src = "let a = 1_000 + 0xFF - 0b1010 * 0o77 / 2\nlet b = a == 1 and a != 2 and a <= 3 and a >= 0\n"
+	let toks = expectOk(src, label: "numbers")
+	assertText(toks, src: src, index: 3, expected: "1_000", label: "numbers")
+	assertText(toks, src: src, index: 5, expected: "0xFF", label: "numbers")
+	assertText(toks, src: src, index: 7, expected: "0b1010", label: "numbers")
+	assertText(toks, src: src, index: 9, expected: "0o77", label: "numbers")
+	assertKind(toks, index: 17, expected: syntax.TokenKind.eqEq, label: "numbers")
+	assertKind(toks, index: 21, expected: syntax.TokenKind.notEq, label: "numbers")
+	assertKind(toks, index: 25, expected: syntax.TokenKind.le, label: "numbers")
+	assertKind(toks, index: 29, expected: syntax.TokenKind.ge, label: "numbers")
+end 'testNumbersAndOperators'
+
+function testStringsAndInterpolation()
+	let src = "let s = \"hi \{a + 1\}\\n\\x41\\u0042\"\n"
+	let toks = expectOk(src, label: "strings")
+	assertKind(toks, index: 3, expected: syntax.TokenKind.string, label: "strings")
+	let interpSrc = "a + 1"
+	let interpToks = match consumes syntax.lexInterpolation(interpSrc, begin: 0, until: interpSrc.byteCount()) 'res'
+		ok(t) gives t
+		err(e) panic("interp: unexpected error {e.message}")
+	end 'res'
+	assertKind(interpToks, index: 0, expected: syntax.TokenKind.name, label: "interp")
+	assertKind(interpToks, index: 1, expected: syntax.TokenKind.plus, label: "interp")
+	assertKind(interpToks, index: 2, expected: syntax.TokenKind.integer, label: "interp")
+	assertKind(interpToks, index: 3, expected: syntax.TokenKind.fileEnd, label: "interp")
+end 'testStringsAndInterpolation'
+
+function testErrors()
+	expectError("let x = 1", expectedMessage: "the file does not end with a newline", label: "noNewline")
+	expectError("  let x = 1\n", expectedMessage: "a line is indented with a space; indent with tabs only", label: "spaceIndent")
+	expectError("\t\nlet x = 1\n", expectedMessage: "a blank line holds tabs; remove the trailing whitespace", label: "blankTabs")
+	expectError("\t// bad\nlet x = 1\n", expectedMessage: "a comment line is indented 1 tabs, but the code line after it 0; indent them alike", label: "commentIndent")
+	expectError("let x = /* no */ 1\n", expectedMessage: "a block comment is not allowed; write // comments on their own lines or after code", label: "blockComment")
+	expectError("let  x = 1\n", expectedMessage: "tokens are separated by one space, not several", label: "doubleSpace")
+	expectError("let x = (\n1)\n", expectedMessage: "a line breaks inside parentheses; keep what they hold on one line", label: "breakInParens")
+	expectError("let x = 0x\n", expectedMessage: "incomplete integer", label: "incompleteHex")
+	expectError("let s = \"oops\n", expectedMessage: "unterminated string literal", label: "unterminatedStr")
+	expectError("let s = \"\{x:04x\}\"\n", expectedMessage: "format specifiers are not supported by minimaxon", label: "formatSpec")
+	expectError("let s = \"\}\"\n", expectedMessage: "a '\}' in a string is written '\\\}'", label: "bareBrace")
+end 'testErrors'
+
+typealias StrToCount = table.StringMap with Count
+
+typealias CountToStr = table.IntMap with String
+
+function testTables()
+	var sm = StrToCount.new()
+	for i in 0 upto 100 'fillStr'
+		let k = "key_{i}"
+		sm.insert(k, value: i as Count)
+	end 'fillStr'
+	if sm.count() != 100 'cnt1'
+		panic("StringMap count expected 100, got {sm.count()}")
+	end 'cnt1'
+	sm.insert("key_42", value: 999 as Count)
+	if sm.get("key_42").unwrap() != 999 'ovr'
+		panic("StringMap overwrite failed")
+	end 'ovr'
+	let removed = sm.remove("key_10")
+	if removed.unwrap() != 10 or sm.has("key_10") or sm.count() != 99 'rem'
+		panic("StringMap remove failed")
+	end 'rem'
+	var im = CountToStr.new()
+	for i in 0 upto 100 'fillInt'
+		im.insert(i as Count, value: "val_{i}")
+	end 'fillInt'
+	if im.count() != 100 or im.get(77 as Count).unwrap() != "val_77" 'intGet'
+		panic("IntMap get failed")
+	end 'intGet'
+	let r2 = im.remove(77 as Count)
+	if r2.unwrap() != "val_77" or im.has(77 as Count) or im.count() != 99 'intRem'
+		panic("IntMap remove failed")
+	end 'intRem'
+end 'testTables'
+
+function endsWithMaxon(name String) returns bool
+	let suffix = ".maxon"
+	let sn = suffix.byteCount()
+	let n = name.byteCount()
+	if n <= sn 'short'
+		return false
+	end 'short'
+	let start = n - sn
+	return name.slice(start, until: n) == suffix
+end 'endsWithMaxon'
+
+function parseDirTests(dir String) returns Count
+	var count = 0 as Count
+	let entries = listDir(dir).unwrap()
+	for i in 0 upto entries.count() 'each'
+		let name = entries[i].copy()
+		let full = "{dir}\\{name}"
+		if isDir(full) 'sub'
+			let sub = parseDirTests(full)
+			count = try count + sub otherwise count
+		end 'sub' else if endsWithMaxon(name) 'src'
+			let text = readFile(full).unwrap()
+			match syntax.parseSource(0 as diag.ModuleID, path: full.copy(), src: text) 'pr'
+				ok(m) then count = try count + m.decls.count() otherwise count
+				err(e) then panic("parse failed on {full}: {e.offset}: {e.message}")
+			end 'pr'
+		end 'src'
+	end 'each'
+	return count
+end 'parseDirTests'
+
+function testParser()
+	let declCount = parseDirTests("self")
+	if declCount < 30 'few'
+		panic("expected >= 30 decls across self, got {declCount}")
+	end 'few'
+	let interpSrc = "function f(x Count) returns String\n\treturn \"a=\{x + 1\}b\\n\"\nend 'f'\n"
+	match syntax.parseSource(0 as diag.ModuleID, path: "interp.maxon", src: interpSrc) 'ir'
+		ok(m) then checkInterpAst(m)
+		err(e) then panic("interp parse failed: {e.message}")
+	end 'ir'
+end 'testParser'
+
+function checkInterpAst(m ast.Module)
+	if m.decls.count() != 1 'cnt'
+		panic("expected 1 decl in interp test")
+	end 'cnt'
+end 'checkInterpAst'
+
+function assertEqStr(got String, expected String, label String)
+	if got != expected 'neq'
+		panic("{label}: expected '{expected}', got '{got}'")
+	end 'neq'
+end 'assertEqStr'
+
+function testI128()
+	let a = ast.I128.fromInt(-42 as FullRangeInt)
+	let b = ast.I128.fromInt(100 as FullRangeInt)
+	let sum = a.add(b)
+	assertEqStr(sum.toString(), expected: "58", label: "i128.add")
+	let diff = a.sub(b)
+	assertEqStr(diff.toString(), expected: "-142", label: "i128.sub")
+	assertEqStr(a.neg().toString(), expected: "42", label: "i128.neg")
+	if not a.lt(b) or b.le(a) or not sum.eq(ast.I128.fromInt(58 as FullRangeInt)) 'cmp'
+		panic("i128 compare failed")
+	end 'cmp'
+	let big = ast.mulWide(ast.I128.fromCount(10000000000 as Count), b: ast.I128.fromCount(10000000000 as Count))
+	assertEqStr(big.toString(), expected: "100000000000000000000", label: "i128.mulWide")
+	let q = ast.quoTrunc(big.neg(), b: ast.I128.fromInt(10000000000 as FullRangeInt))
+	assertEqStr(q.toString(), expected: "-10000000000", label: "i128.quoTrunc")
+	assertEqStr(ast.I128.i64Min().toString(), expected: "-9223372036854775808", label: "i128.i64Min")
+	assertEqStr(ast.I128.u64Max().toString(), expected: "18446744073709551615", label: "i128.u64Max")
+end 'testI128'
+
+function testPositionsAndDiag()
+	var paths = ast.StringList.new()
+	paths.append("a.maxon")
+	paths.append("b.maxon")
+	var texts = ast.StringList.new()
+	texts.append("function one()\n\treturn\nend 'one'\n")
+	texts.append("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
+	let pr = syntax.parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts)
+	var m as ast.Module
+	match consumes pr 'r'
+		ok(modVal) then m = modVal
+		err(e) then panic("unexpected parseModuleFiles error: {e.message}")
+	end 'r'
+	if m.decls.count() != 2 'd2'
+		panic("expected 2 decls, got {m.decls.count()}")
+	end 'd2'
+	let d0Off = m.decls[0].offset(m.tree)
+	let d1Off = m.decls[1].offset(m.tree)
+	let loc0 = ast.locateModuleOffset(m, offset: d0Off)
+	let loc1 = ast.locateModuleOffset(m, offset: d1Off)
+	assertEqStr(loc0.file, expected: "a.maxon", label: "loc0.file")
+	assertEqStr(loc1.file, expected: "b.maxon", label: "loc1.file")
+	if loc0.line != 1 or loc0.col != 1 or loc1.line != 1 or loc1.col != 1 'lc'
+		panic("unexpected decl locs")
+	end 'lc'
+	var mods = ast.ModuleList.new()
+	mods.append(m)
+	var errs = diag.ErrorList.new()
+	diag.pushSiteError(errs, code: "E3001", message: "second", module: 0 as diag.ModuleID, offset: d1Off)
+	diag.pushSiteError(errs, code: "E2001", message: "first", module: 0 as diag.ModuleID, offset: d0Off)
+	ast.locateAllErrors(mods, errs: errs)
+	assertEqStr(errs[0].file, expected: "a.maxon", label: "sort0")
+	assertEqStr(errs[1].file, expected: "b.maxon", label: "sort1")
+end 'testPositionsAndDiag'
+
+function testAstModel()
+	var proj = ast.Project.new("self")
+	if proj.stdlib.decls.count() < 20 'std'
+		panic("expected >= 20 stdlib decls")
+	end 'std'
+	var args = ast.TypeIDList.new()
+	args.append(proj.builtins.countTy)
+	let arrCount = ast.instantiateType(proj.types, origin: proj.builtins.arrayOrigin, args: args)
+	assertEqStr(ast.typeName(proj.types, t: arrCount), expected: "array with Count", label: "arrCount")
+	var nested = ast.TypeIDList.new()
+	nested.append(arrCount)
+	let optArrCount = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
+	assertEqStr(ast.typeName(proj.types, t: optArrCount), expected: "Option with (array with Count)", label: "optArrCount")
+	let optArrCount2 = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
+	if optArrCount != optArrCount2 'intern'
+		panic("type interning failed")
+	end 'intern'
+	let fid = proj.types.entries[proj.builtins.arrayOrigin as Count].findMethod("append").unwrap()
+	let instFid = ast.instantiateFunc(proj.funcs, tt: proj.types, origin: fid, args: args)
+	let ln = ast.funcLinkName(proj, fid: instFid)
+	assertEqStr(ln, expected: "array[Count]::append[Count]", label: "funcLinkName")
+end 'testAstModel'
+
+function testProject()
+	var errs = diag.ErrorList.new()
+	let optProj = project.loadProject("self", errs: errs)
+	var p as ast.Project
+	match consumes optProj 'pr'
+		some(pv) then p = pv
+		none then panic("loadProject(\"self\") returned none")
+	end 'pr'
+	if errs.count() > 0 'hasErr'
+		panic("loadProject(\"self\") reported {errs[0].format()}")
+	end 'hasErr'
+	if p.modules.count() < 6 'mods'
+		panic("expected >= 6 modules in self, got {p.modules.count()}")
+	end 'mods'
+	if not p.byPath.has("") or not p.byPath.has("ast") or not p.byPath.has("project") or not p.byPath.has("syntax") 'paths'
+		panic("expected root, ast, project, syntax modules in p.byPath")
+	end 'paths'
+	let g = project.newGraph(p)
+	match project.checkAcyclic(g, p: p) 'cyc'
+		some(ce) then panic("unexpected cycle: {ce.format()}")
+		none then _ = 0
+	end 'cyc'
+end 'testProject'
+
+function testResolve()
+	var errs = diag.ErrorList.new()
+	var p = match consumes project.loadProject("self", errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("loadProject(\"self\") returned none")
+	end 'pr'
+	if errs.count() > 0 'pe'
+		panic("load error: {errs[0].format()}")
+	end 'pe'
+	resolve.resolveProject(p, errs: errs)
+	if errs.count() > 0 're'
+		ast.locateAllErrors(p.modules, errs: errs)
+		panic("resolve error on self: {errs[0].format()}")
+	end 're'
+	let g = project.newGraph(p)
+	match project.checkAcyclic(g, p: p) 'cyc'
+		some(ce) then panic("unexpected module cycle: {ce.format()}")
+		none then _ = 0
+	end 'cyc'
+	let order = project.topoOrder(g)
+	if order.count() != p.modules.count() 'ord'
+		panic("expected topoOrder count {p.modules.count()}, got {order.count()}")
+	end 'ord'
+end 'testResolve'
+
+function main() returns ExitCode
+	testProgram()
+	testNumbersAndOperators()
+	testStringsAndInterpolation()
+	testErrors()
+	testTables()
+	testParser()
+	testI128()
+	testPositionsAndDiag()
+	testAstModel()
+	testProject()
+	testResolve()
+	print("self: all checks passed\n")
+	return 0
+end 'main'

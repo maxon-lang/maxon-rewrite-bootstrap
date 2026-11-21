@@ -15,6 +15,9 @@ const (
 	RtConcat
 	RtItoa
 	RtStreq
+	RtStrLen
+	RtStrByteAt
+	RtStrSlice
 	RtPanicIndex
 	RtHeap
 	RtStdout
@@ -30,7 +33,30 @@ const (
 
 const RtDll = "kernel32.dll"
 
-var RtImports = []string{"GetProcessHeap", "HeapAlloc", "GetStdHandle", "WriteFile", "ExitProcess", "HeapFree"}
+var RtImports = []string{
+	"GetProcessHeap",
+	"HeapAlloc",
+	"GetStdHandle",
+	"WriteFile",
+	"ExitProcess",
+	"HeapFree",
+	"GetCommandLineA",
+	"CreateFileA",
+	"ReadFile",
+	"GetFileSizeEx",
+	"CloseHandle",
+	"MoveFileExA",
+	"DeleteFileA",
+	"FindFirstFileA",
+	"FindNextFileA",
+	"FindClose",
+	"GetFileAttributesA",
+	"CreateDirectoryA",
+	"GetEnvironmentVariableA",
+	"CreateProcessA",
+	"WaitForSingleObject",
+	"GetExitCodeProcess",
+}
 
 // The entries of the runtime primitives (README, "The IR"). Each is a CallRuntimeInstr. A primitive owns its elements:
 // an entry that takes one moves it in, an entry that returns one moves it out, and an entry that returns an address
@@ -84,11 +110,41 @@ const (
 	RtFrozenGet                            // (frozen) -> what it holds, lent: an immutable borrow, valid while the frozen value is
 	RtShare                                // (frozen or cown) -> the same box: another owner, with the count raised by 1
 	RtCownNew                              // (value) -> cown: moves the value into a new cown with a count of 1; the instruction's Routine, when it has one, ends the value instead of a drop
+
+	RtBytesNew       // () -> Bytes
+	RtBytesLen       // (Bytes) -> count
+	RtBytesGet       // (Bytes, index) -> byte
+	RtBytesSet       // (Bytes, index, byte)
+	RtBytesPush      // (Bytes, byte)
+	RtBytesAppend    // (Bytes, other Bytes)
+	RtBytesAppendStr // (Bytes, text String)
+	RtBytesToString  // (Bytes) -> String
+
+	RtOsCliArgs    // () -> array with String
+	RtOsGetEnv     // (name String) -> String or 0
+	RtOsReadFile   // (path String) -> String or 0
+	RtOsWriteFile  // (path String, text String) -> bool
+	RtOsWriteBytes // (path String, data Bytes) -> bool
+	RtOsRenameFile // (from String, dest String) -> bool
+	RtOsRemoveFile // (path String) -> bool
+	RtOsIsDir      // (path String) -> bool
+	RtOsMkdir      // (path String) -> bool
+	RtOsListDir    // (path String) -> array with String or 0
+	RtOsRunProcess // (commandLine String) -> (exitCode<<1)|1 or 0
 )
 
-// IsNativeEntry is whether the backend implements a primitive's runtime entry. Only the array has native code; the
-// others run under the interpreter, so a program that reaches one is refused before code generation.
-func IsNativeEntry(symbol Rt) bool { return symbol >= RtArrayNew && symbol <= RtArrayRemove }
+// IsNativeEntry is whether the backend implements a primitive's runtime entry.
+func IsNativeEntry(symbol Rt) bool {
+	return (symbol >= RtArrayNew && symbol <= RtArrayRemove) ||
+		(symbol >= RtBytesNew && symbol <= RtBytesToString) ||
+		(symbol >= RtOsCliArgs && symbol <= RtOsRunProcess)
+}
+
+// IsBytesEntry is whether symbol lives in the bytes runtime unit.
+func IsBytesEntry(symbol Rt) bool { return symbol >= RtBytesNew && symbol <= RtBytesToString }
+
+// IsOsEntry is whether symbol lives in the OS runtime unit.
+func IsOsEntry(symbol Rt) bool { return symbol >= RtOsCliArgs && symbol <= RtOsRunProcess }
 
 var rtNames = [...]string{
 	RtEntry:           "rt.entry",
@@ -99,6 +155,9 @@ var rtNames = [...]string{
 	RtConcat:          "rt.concat",
 	RtItoa:            "rt.itoa",
 	RtStreq:           "rt.streq",
+	RtStrLen:          "rt.str.len",
+	RtStrByteAt:       "rt.str.byteAt",
+	RtStrSlice:        "rt.str.slice",
 	RtPanicIndex:      "rt.panicIndex",
 	RtHeap:            "g.heap",
 	RtStdout:          "g.stdout",
@@ -144,6 +203,25 @@ var rtNames = [...]string{
 	RtFrozenGet:       "rt.frozen.get",
 	RtShare:           "rt.share",
 	RtCownNew:         "rt.cown.new",
+	RtBytesNew:        "rt.bytes.new",
+	RtBytesLen:        "rt.bytes.len",
+	RtBytesGet:        "rt.bytes.get",
+	RtBytesSet:        "rt.bytes.set",
+	RtBytesPush:       "rt.bytes.push",
+	RtBytesAppend:     "rt.bytes.append",
+	RtBytesAppendStr:  "rt.bytes.appendStr",
+	RtBytesToString:   "rt.bytes.toString",
+	RtOsCliArgs:       "rt.os.cliArgs",
+	RtOsGetEnv:        "rt.os.getEnv",
+	RtOsReadFile:      "rt.os.readFile",
+	RtOsWriteFile:     "rt.os.writeFile",
+	RtOsWriteBytes:    "rt.os.writeBytes",
+	RtOsRenameFile:    "rt.os.renameFile",
+	RtOsRemoveFile:    "rt.os.removeFile",
+	RtOsIsDir:         "rt.os.isDir",
+	RtOsMkdir:         "rt.os.mkdir",
+	RtOsListDir:       "rt.os.listDir",
+	RtOsRunProcess:    "rt.os.runProcess",
 }
 
 func (r Rt) String() string {

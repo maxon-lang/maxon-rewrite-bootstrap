@@ -1,16 +1,24 @@
 # minimaxon — instructions for agents
 
-minimaxon is the Go bootstrap of the next Maxon compiler. Today it is a small compiler for trying out language
-changes; if it succeeds it grows into the full Maxon compiler, which will later be ported to Maxon by hand,
-checked by the port producing byte-identical output to this compiler.
+minimaxon is the Go bootstrap of the next Maxon compiler, which replaces the current one (`maxon-bin/` in the maxon
+repository). The Go compiler implements only the subset needed to compile `self/`, a port of minimaxon to Maxon; once
+`self/` compiles itself, Go work ends and `self/` grows into the full Maxon compiler.
 Treat every design choice as the foundation of that compiler, not as experiment code. `README.md` describes the
 language subset, the pipeline, the packages and the IR; read it before changing the compiler.
 
 ## Direction
 
-- **Compatibility with current Maxon is not a criterion.** Change any syntax, rule, diagnostic or error code when
-  the change improves the compiler. Never keep something only because the current compiler (the maxon repository)
-  does it, and never add a shim or a deprecation period.
+- **Finish fast.** Reaching a self-hosted compiler and then full Maxon quickly is the priority. This is a
+  re-implementation of a language that already has a compiler and 17,649 spec tests, so do not spend time on extra
+  tests, reviews or re-checking beyond what is required below; do what moves the plan forward.
+- **Compatible with current Maxon, except for minimaxon's language changes.** Where minimaxon has not deliberately
+  changed the language (README, "Where it differs from Maxon"), do what the current compiler does: its syntax, rules,
+  error codes, and runtime behaviour such as Win32 calls and command-line splitting. A new difference is a language
+  change made on purpose and recorded in that README section, never an accident of implementation. A language change
+  gets no shim and no deprecation period.
+- **Reuse maxon's code and tests.** Pull code from the maxon repository with `cmd/convert` wherever it fits rather than
+  writing it again, and regenerate converted files instead of hand-editing them. Where maxon's code is not converted,
+  read it first and follow its behaviour, edge cases and names.
 - **Assume the source being compiled is correct.** Phases keep running in parallel without waiting on each other.
   A check that needs another module's results is deferred to the latest point where the answer is actually needed,
   and done there quickly: a call to a function the module does not declare is assumed to exist elsewhere until the
@@ -25,12 +33,11 @@ language subset, the pipeline, the packages and the IR; read it before changing 
   from the grammar). The generator is plain Go in this repository, its output is checked in and deterministic, and a
   test regenerates it and fails if the checked-in file differs.
 - **Speed is a requirement.** Both the compiler's own build and its compile speed must stay fast. Measure with
-  `--timings` on a large generated project before and after a change to a hot phase, and report the numbers.
+  `--timings` only when asked.
 - **The design is CPU-cache optimized.** A worker keeps a module on its core from one stage to the next while its data
   is hot, rather than sweeping every module through one phase. Data is flat and indexed by handles: small fixed-size
   records in slices (the 8-byte token is the model), frequently used fields apart from rarely used ones, and no
-  pointer graphs or maps on hot paths. Allocation is memory traffic, so watch the MB column; for a change aimed at
-  memory behaviour, measure cache misses with hardware counters as well as wall time.
+  pointer graphs or maps on hot paths. Allocation is memory traffic, so keep it down.
 
 ## Building and testing
 
@@ -48,19 +55,16 @@ go test ./...
 .\minimaxon.exe test
 ```
 
-- **Every change keeps `go vet ./...` clean, `go fix -diff ./...` empty, the code `gofmt`-formatted, and both test
-  suites green.** `go fix` runs the modernizers the Go language server suggests; `go fix ./...` applies them.
-- **Unit tests** live beside the package they test (`internal/<package>/*_test.go`) and build only that package and
-  its imports, so prefer them for anything a package can answer alone. `internal/check/check_test.go` runs the front
-  end on a source string in memory; copy its helper for new front-end tests.
+- **Before a commit, `go build`, `go vet ./...` and both test suites pass, and the code is `gofmt`-formatted.**
+  Nothing else is required: no test written first, no test per change, no timing.
+- **Add a test only when** a bug would otherwise come back, or nothing in the corpus covers a feature. Unit tests live
+  beside their package (`internal/<package>/*_test.go`); `internal/check/check_test.go` runs the front end on a source
+  string in memory.
 - **Corpus tests** under `tests/` run whole programs (`tests/run/`), diagnostics (`tests/errors/`, with
-  `// expect-error: CODE [at L:C]`) and multi-module projects (`tests/modules/<case>/`). A behaviour change gets a
-  run test; every new diagnostic gets an error test.
-- **Watch a test fail before you fix it.** A fix without a test that failed first is not done.
-- **Determinism is part of correctness.** The executable must be byte-identical for any `--jobs` value. Never let Go
-  map iteration order reach output, diagnostics, or the order in which registers, slots, blocks, strings or symbols
-  are allocated: iterate slices or sorted keys, and merge parallel results in source order. When a change should not
-  alter output, compare the executable and `--emit-ir` text of a large project before and after.
+  `// expect-error: CODE [at L:C]`) and multi-module projects (`tests/modules/<case>/`). After M1, maxon's spec tests
+  (`specs/`) are the corpus.
+- **Determinism.** Never let Go map iteration order reach output, diagnostics, or the order in which registers, slots,
+  blocks, strings or symbols are allocated: iterate slices or sorted keys, and merge parallel results in source order.
 
 ## Structure
 
@@ -93,8 +97,12 @@ go test ./...
 
 ## Working in this repository
 
+- **Automate repetitive work with tools.** A change that repeats across many files (renaming built-ins, renumbering
+  error codes, rewriting `tests/` and `self/`, importing maxon code or specs) is done by a tool, not by hand. A tool
+  that will be run again goes in `cmd/<name>/` as plain Go with no dependencies, as `cmd/convert` does; a one-off
+  goes in the scratch directory.
 - **Scratch files stay out of the repository**: logs, generated test projects, diffs and notes go in the system temp
   directory or your session's scratch directory.
 - **Commit only when the user asks.** Commit messages describe what changed and why; the first line is a summary.
-- **Keep `README.md` true.** A change to the language subset, a command or flag, the packages, the pipeline or the IR
-  updates the README in the same commit.
+- **Keep `README.md` true per stage.** When a stage of the plan lands, update the README for what it changed (the
+  language subset, commands and flags, packages, pipeline, IR, and "Where it differs from Maxon").

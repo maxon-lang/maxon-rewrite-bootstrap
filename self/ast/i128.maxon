@@ -1,0 +1,312 @@
+let u64MaxCount = 18446744073709551615 as Count
+
+let i64MaxCount = 9223372036854775807 as Count
+
+let i64MinSigned = -9223372036854775808 as FullRangeInt
+
+let satHi = 4611686018427387904 as FullRangeInt
+
+// I128 is a 128-bit signed integer stored as low (unsigned 64-bit) and high (signed 64-bit) words.
+export type I128
+	export var lo as Count
+	export var hi as FullRangeInt
+
+	export static function fromCount(v Count) returns I128
+		return I128{lo: v, hi: 0 as FullRangeInt}
+	end 'fromCount'
+
+	export static function fromInt(v FullRangeInt) returns I128
+		if v < 0 'neg'
+			let lo = (try v + (9223372036854775807 as FullRangeInt) + 1 otherwise 0 as FullRangeInt) as Count
+			return I128{lo: lo or (9223372036854775808 as Count), hi: -1 as FullRangeInt}
+		end 'neg'
+		return I128{lo: v as Count, hi: 0 as FullRangeInt}
+	end 'fromInt'
+
+	export static function make(lo Count, hi FullRangeInt) returns I128
+		return I128{lo: lo, hi: hi}
+	end 'make'
+
+	export static function zero() returns I128
+		return I128{lo: 0 as Count, hi: 0 as FullRangeInt}
+	end 'zero'
+
+	export static function one() returns I128
+		return I128{lo: 1 as Count, hi: 0 as FullRangeInt}
+	end 'one'
+
+	export static function i64Min() returns I128
+		return I128.fromInt(i64MinSigned)
+	end 'i64Min'
+
+	export static function i64Max() returns I128
+		return I128.fromCount(i64MaxCount)
+	end 'i64Max'
+
+	export static function u64Max() returns I128
+		return I128.fromCount(u64MaxCount)
+	end 'u64Max'
+
+	export function isZero() returns bool
+		return lo == 0 and hi == 0
+	end 'isZero'
+
+	export function isNeg() returns bool
+		return hi < 0
+	end 'isNeg'
+
+	export function eq(other I128) returns bool
+		return lo == other.lo and hi == other.hi
+	end 'eq'
+
+	export function cmp(other I128) returns FullRangeInt
+		if hi < other.hi 'h1'
+			return -1 as FullRangeInt
+		end 'h1'
+		if hi > other.hi 'h2'
+			return 1 as FullRangeInt
+		end 'h2'
+		if lo < other.lo 'l1'
+			return -1 as FullRangeInt
+		end 'l1'
+		if lo > other.lo 'l2'
+			return 1 as FullRangeInt
+		end 'l2'
+		return 0 as FullRangeInt
+	end 'cmp'
+
+	export function lt(other I128) returns bool
+		return self.cmp(other) < 0
+	end 'lt'
+
+	export function le(other I128) returns bool
+		return self.cmp(other) <= 0
+	end 'le'
+
+	export function gt(other I128) returns bool
+		return self.cmp(other) > 0
+	end 'gt'
+
+	export function ge(other I128) returns bool
+		return self.cmp(other) >= 0
+	end 'ge'
+
+	export function add(other I128) returns I128
+		let rem = u64MaxCount - other.lo
+		var nextLo = 0 as Count
+		var carry = 0 as FullRangeInt
+		if lo > rem 'wrap'
+			let diff = lo - rem
+			nextLo = diff - 1
+			carry = 1 as FullRangeInt
+		end 'wrap' else 'plain'
+			nextLo = try lo + other.lo otherwise 0 as Count
+		end 'plain'
+		let nextHi = try hi + other.hi + carry otherwise hi
+		return I128{lo: nextLo, hi: nextHi}
+	end 'add'
+
+	export function sub(other I128) returns I128
+		var nextLo = 0 as Count
+		var borrow = 0 as FullRangeInt
+		if lo >= other.lo 'noBorrow'
+			nextLo = lo - other.lo
+		end 'noBorrow' else 'borrow'
+			let diff = (other.lo - lo) - 1
+			nextLo = u64MaxCount - diff
+			borrow = 1 as FullRangeInt
+		end 'borrow'
+		let nextHi = try (hi - other.hi) - borrow otherwise hi
+		return I128{lo: nextLo, hi: nextHi}
+	end 'sub'
+
+	export function neg() returns I128
+		return I128.zero().sub(self)
+	end 'neg'
+
+	export function magnitude() returns Count
+		if self.isNeg() 'neg'
+			return self.neg().lo
+		end 'neg'
+		return lo
+	end 'magnitude'
+
+	export function toSigned() returns FullRangeInt
+		if hi < 0 'neg'
+			let masked = lo and i64MaxCount
+			return try (masked as FullRangeInt) + i64MinSigned otherwise 0 as FullRangeInt
+		end 'neg'
+		return try lo as FullRangeInt otherwise 0 as FullRangeInt
+	end 'toSigned'
+
+	export function fitsI64() returns bool
+		return self.ge(I128.i64Min()) and self.le(I128.i64Max())
+	end 'fitsI64'
+
+	export function fitsU64() returns bool
+		return hi == 0
+	end 'fitsU64'
+
+	export function toString() returns String
+		if hi == 0 'u64'
+			return "{lo}"
+		end 'u64'
+		if hi == -1 and lo >= (9223372036854775808 as Count) 'i64'
+			return "{self.toSigned()}"
+		end 'i64'
+		var mag = self.copy()
+		var negPrefix = ""
+		if self.isNeg() 'neg'
+			mag = self.neg()
+			negPrefix = "-"
+		end 'neg'
+		var digits = Bytes.new()
+		while not mag.isZero() 'divLoop'
+			let rem = divMod10(mag)
+			if rem < 10 'digit'
+				digits.push((48 + rem) as Byte)
+			end 'digit'
+		end 'divLoop'
+		var out = Bytes.new()
+		out.appendString(negPrefix)
+		let n = digits.count()
+		for i in 0 upto n 'rev'
+			let idx = try (n - 1) - i otherwise 0 as Count
+			out.push(digits.byteAt(idx))
+		end 'rev'
+		return out.toString()
+	end 'toString'
+end 'I128'
+
+function divMod10(mutates n I128) returns Count
+	let hiU = try n.hi as Count otherwise 0 as Count
+	let w0 = (hiU shr 32) and (4294967295 as Count)
+	let w1 = hiU and (4294967295 as Count)
+	let w2 = (n.lo shr 32) and (4294967295 as Count)
+	let w3 = n.lo and (4294967295 as Count)
+	let q0 = (w0 / 10) as Count
+	let r0 = (w0 mod 10) as Count
+	let d1 = try (r0 shl 32) + w1 otherwise 0 as Count
+	let q1 = (d1 / 10) as Count
+	let r1 = (d1 mod 10) as Count
+	let d2 = try (r1 shl 32) + w2 otherwise 0 as Count
+	let q2 = (d2 / 10) as Count
+	let r2 = (d2 mod 10) as Count
+	let d3 = try (r2 shl 32) + w3 otherwise 0 as Count
+	let q3 = (d3 / 10) as Count
+	let r3 = d3 mod 10
+	let newHi = (try (q0 shl 32) + q1 otherwise 0 as Count) as FullRangeInt
+	let newLo = try (q2 shl 32) + q3 otherwise 0 as Count
+	n = I128.make(newLo, hi: newHi)
+	return r3
+end 'divMod10'
+
+export function maxI128(a I128, b I128) returns I128
+	if a.gt(b) 'gt'
+		return a.copy()
+	end 'gt'
+	return b.copy()
+end 'maxI128'
+
+export function minI128(a I128, b I128) returns I128
+	if a.lt(b) 'lt'
+		return a.copy()
+	end 'lt'
+	return b.copy()
+end 'minI128'
+
+export function mulWide(a I128, b I128) returns I128
+	let x = a.magnitude()
+	let y = b.magnitude()
+	let mask32 = 4294967295 as Count
+	let x0 = x and mask32
+	let x1 = x shr 32
+	let y0 = y and mask32
+	let y1 = y shr 32
+	let p00 = try x0 * y0 otherwise 0 as Count
+	let p01 = try x0 * y1 otherwise 0 as Count
+	let p10 = try x1 * y0 otherwise 0 as Count
+	let p11 = try x1 * y1 otherwise 0 as Count
+	let mid = (try (p00 shr 32) + (p01 and mask32) + (p10 and mask32) otherwise 0 as Count)
+	let lo = (try ((mid and mask32) shl 32) + (p00 and mask32) otherwise 0 as Count)
+	let hiU = try p11 + (p01 shr 32) + (p10 shr 32) + (mid shr 32) otherwise 0 as Count
+	let hi = try hiU as FullRangeInt otherwise satHi
+	var m = I128.make(lo, hi: hi)
+	if hiU >= (satHi as Count) 'sat'
+		m = I128.make(0 as Count, hi: satHi)
+	end 'sat'
+	if a.isNeg() != b.isNeg() 'neg'
+		return m.neg()
+	end 'neg'
+	return m
+end 'mulWide'
+
+function signedToU64Bits(x FullRangeInt) returns Count
+	if x >= 0 'pos'
+		return x as Count
+	end 'pos'
+	let low = (try x + (9223372036854775807 as FullRangeInt) + 1 otherwise 0 as FullRangeInt) as Count
+	return low or (9223372036854775808 as Count)
+end 'signedToU64Bits'
+
+function u64BitsToSigned(x Count) returns FullRangeInt
+	if x <= i64MaxCount 'pos'
+		return x as FullRangeInt
+	end 'pos'
+	let low = (x and i64MaxCount) as FullRangeInt
+	return try low + i64MinSigned otherwise 0 as FullRangeInt
+end 'u64BitsToSigned'
+
+function divU128(aHi Count, aLo Count, bHi Count, bLo Count) returns I128
+	if bHi == 0 and aHi == 0 and bLo != 0 'fast'
+		return I128.fromCount(aLo / bLo)
+	end 'fast'
+	var qHi = 0 as Count
+	var qLo = 0 as Count
+	var rHi = 0 as Count
+	var rLo = 0 as Count
+	var curHi = aHi
+	var curLo = aLo
+	for _ in 0 upto 128 'bits'
+		let rCarry = (curHi shr 63) and 1
+		let rLoCarry = (rLo shr 63) and 1
+		rHi = ((rHi and i64MaxCount) shl 1) or rLoCarry
+		rLo = ((rLo and i64MaxCount) shl 1) or rCarry
+		let curLoCarry = (curLo shr 63) and 1
+		curHi = ((curHi and i64MaxCount) shl 1) or curLoCarry
+		curLo = (curLo and i64MaxCount) shl 1
+		qHi = ((qHi and i64MaxCount) shl 1) or ((qLo shr 63) and 1)
+		qLo = (qLo and i64MaxCount) shl 1
+		if rHi > bHi or (rHi == bHi and rLo >= bLo) 'ge'
+			if rLo >= bLo 'noB'
+				rLo = rLo - bLo
+				rHi = try rHi - bHi otherwise 0 as Count
+			end 'noB' else 'subB'
+				let diff = try (bLo - rLo) - 1 otherwise 0 as Count
+				rLo = u64MaxCount - diff
+				rHi = try (rHi - bHi) - 1 otherwise 0 as Count
+			end 'subB'
+			qLo = qLo or 1
+		end 'ge'
+	end 'bits'
+	return I128.make(qLo, hi: u64BitsToSigned(qHi))
+end 'divU128'
+
+export function quoTrunc(a I128, b I128) returns I128
+	if b.isZero() 'zero'
+		return I128.zero()
+	end 'zero'
+	var magA = a.copy()
+	if magA.isNeg() 'negA'
+		magA = magA.neg()
+	end 'negA'
+	var magB = b.copy()
+	if magB.isNeg() 'negB'
+		magB = magB.neg()
+	end 'negB'
+	let q = divU128(signedToU64Bits(magA.hi), aLo: magA.lo, bHi: signedToU64Bits(magB.hi), bLo: magB.lo)
+	if a.isNeg() != b.isNeg() 'neg'
+		return q.neg()
+	end 'neg'
+	return q
+end 'quoTrunc'

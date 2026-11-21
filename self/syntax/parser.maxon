@@ -1,0 +1,851 @@
+export type ParseError
+	export let offset as Count
+	export let code as String
+	export let message as String
+	export let file as String
+	export let line as Count
+	export let col as Count
+
+	export static function make(offset Count, consumes code String, consumes message String) returns ParseError
+		return ParseError{offset: offset, code: code, message: message, file: "", line: 0 as Count, col: 0 as Count}
+	end 'make'
+
+	export static function makeLocated(offset Count, consumes code String, consumes message String, consumes file String, line Count, col Count) returns ParseError
+		return ParseError{offset: offset, code: code, message: message, file: file, line: line, col: col}
+	end 'makeLocated'
+end 'ParseError'
+
+export union ParseResult
+	ok(module ast.Module)
+	err(error ParseError)
+end 'ParseResult'
+
+type Parser
+	var src as String
+	var tokens as Tokens
+	var pos as Count
+	var tree as ast.Tree
+	var hasError as bool
+	var errOffset as Count
+	var errCode as String
+	var errMessage as String
+
+	static function new(module diag.ModuleID, consumes src String, consumes tokens Tokens) returns Parser
+		let srcCopy = src.copy()
+		return Parser{src: src, tokens: tokens, pos: 0 as Count, tree: ast.Tree.new(module, text: srcCopy), hasError: false, errOffset: 0 as Count, errCode: "", errMessage: ""}
+	end 'new'
+
+	function curKind() returns TokenKind
+		if pos >= tokens.count() 'eof'
+			return TokenKind.eof
+		end 'eof'
+		return tokens[pos].kind
+	end 'curKind'
+
+	function peekKind(ahead Count) returns TokenKind
+		let idx = try pos + ahead otherwise tokens.count()
+		if idx >= tokens.count() 'eof'
+			return TokenKind.eof
+		end 'eof'
+		return tokens[idx].kind
+	end 'peekKind'
+
+	function curStart() returns diag.U32
+		if pos >= tokens.count() 'eof'
+			return try src.byteCount() as diag.U32 otherwise 0 as diag.U32
+		end 'eof'
+		return try tokens[pos].start as diag.U32 otherwise 0 as diag.U32
+	end 'curStart'
+
+	function curText() returns String
+		if pos >= tokens.count() 'eof'
+			return ""
+		end 'eof'
+		return tokens[pos].text(src)
+	end 'curText'
+
+	function curTextRef() returns diag.U32
+		if pos >= tokens.count() 'eof'
+			return 0 as diag.U32
+		end 'eof'
+		return try (tokens[pos].start + 1) as diag.U32 otherwise 0 as diag.U32
+	end 'curTextRef'
+
+	function fail(mutates self, consumes code String, consumes message String)
+		if not hasError 'first'
+			hasError = true
+			errOffset = self.curStart() as Count
+			errCode = code
+			errMessage = message
+		end 'first'
+	end 'fail'
+
+	function advance(mutates self) returns Token
+		if pos >= tokens.count() 'eof'
+			return Token.make(TokenKind.eof, start: src.byteCount(), length: 0 as Count)
+		end 'eof'
+		let tok = tokens[pos].copy()
+		pos = try pos + 1 otherwise pos
+		return tok
+	end 'advance'
+
+	function accept(mutates self, kind TokenKind) returns bool
+		if self.curKind() == kind 'yes'
+			_ = self.advance()
+			return true
+		end 'yes'
+		return false
+	end 'accept'
+
+	function expect(mutates self, kind TokenKind, what String) returns Token
+		if self.curKind() == kind 'ok'
+			return self.advance()
+		end 'ok'
+		self.fail(diag.errExpectedToken, message: "expected {what}, found '{self.curText()}'")
+		return Token.make(kind, start: self.curStart() as Count, length: 0 as Count)
+	end 'expect'
+
+	function skipNewlines(mutates self)
+		while self.curKind() == TokenKind.newline or self.curKind() == TokenKind.fileEnd 'skip'
+			_ = self.advance()
+		end 'skip'
+	end 'skipNewlines'
+
+	function parseEndLabel(mutates self) returns ast.NodeID
+		if self.curKind() != TokenKind.label 'none'
+			return 0 as ast.NodeID
+		end 'none'
+		let start = self.curStart()
+		let ref = self.curTextRef()
+		_ = self.advance()
+		let id = ast.newEndLabel(self.tree, start: start)
+		ast.setEndLabelNameRef(self.tree, id: id, ref: ref)
+		return id
+	end 'parseEndLabel'
+
+	function parseVisibility(mutates self) returns String
+		if self.accept(TokenKind.kwExport) 'exp'
+			return "export"
+		end 'exp'
+		if self.accept(TokenKind.kwPublic) 'pub'
+			return "public"
+		end 'pub'
+		return ""
+	end 'parseVisibility'
+
+	function parseUsesClause(mutates self) returns ast.TypeParamList
+		var out = ast.TypeParamList.new()
+		if not self.accept(TokenKind.kwUses) 'none'
+			return out
+		end 'none'
+		while not hasError 'more'
+			let start = self.curStart()
+			let tok = self.expect(TokenKind.name, what: "a type parameter")
+			let id = self.tree.alloc(ast.NodeKind.typeParam, start: start)
+			out.append(ast.TypeParam.make(id, name: tok.text(src)))
+			if not self.accept(TokenKind.comma) 'done'
+				break 'more'
+			end 'done'
+		end 'more'
+		return out
+	end 'parseUsesClause'
+end 'Parser'
+
+function parseConformsClause(mutates p Parser) returns ast.U32List
+	var out = ast.U32List.new()
+	if not p.accept(TokenKind.kwImplements) 'none'
+		return out
+	end 'none'
+	while not p.hasError 'more'
+		let tr = parseTypeRef(p)
+		out.append(tr as diag.U32)
+		if not p.accept(TokenKind.kwAnd) 'done'
+			break 'more'
+		end 'done'
+	end 'more'
+	return out
+end 'parseConformsClause'
+
+function parseWhereClause(mutates p Parser) returns ast.ConstraintList
+	var out = ast.ConstraintList.new()
+	if not p.accept(TokenKind.kwWhere) 'none'
+		return out
+	end 'none'
+	while not p.hasError 'more'
+		let start = p.curStart()
+		let nameTok = p.expect(TokenKind.name, what: "a type parameter")
+		_ = p.expect(TokenKind.kwImplements, what: "'implements'")
+		var bounds = ast.U32List.new()
+		while not p.hasError 'b'
+			let b = parseTypeRef(p)
+			bounds.append(b as diag.U32)
+			if not p.accept(TokenKind.kwAnd) 'bdone'
+				break 'b'
+			end 'bdone'
+		end 'b'
+		let id = p.tree.alloc(ast.NodeKind.constraint, start: start)
+		out.append(ast.Constraint.make(id, paramName: nameTok.text(p.src), bounds: bounds))
+		if not p.accept(TokenKind.comma) 'done'
+			break 'more'
+		end 'done'
+	end 'more'
+	return out
+end 'parseWhereClause'
+
+function parseParam(mutates p Parser) returns ast.Param
+	let start = p.curStart()
+	var conv = ""
+	if p.accept(TokenKind.kwMutates) 'm'
+		conv = "mutates"
+	end 'm' else if p.accept(TokenKind.kwConsumes) 'c'
+		conv = "consumes"
+	end 'c' else if p.accept(TokenKind.kwSets) 's'
+		conv = "sets"
+	end 's'
+	var pname = ""
+	if p.accept(TokenKind.kwUnderscore) 'u'
+		pname = "_"
+	end 'u' else 'n'
+		let tok = p.expect(TokenKind.name, what: "a parameter name")
+		pname = tok.text(p.src)
+	end 'n'
+	let tr = parseTypeRef(p)
+	let id = p.tree.alloc(ast.NodeKind.param, start: start)
+	return ast.Param.make(id, convention: conv, name: pname, typeRef: tr)
+end 'parseParam'
+
+function parseFuncDecl(mutates p Parser, consumes vis String, isStatic bool, start diag.U32) returns ast.FuncDecl
+	_ = p.expect(TokenKind.kwFunction, what: "'function'")
+	let nameTok = p.expect(TokenKind.name, what: "a function name")
+	_ = p.expect(TokenKind.lParen, what: "'('")
+	var receiver = ""
+	var params = ast.ParamList.new()
+	if p.curKind() != TokenKind.rParen 'hasParams'
+		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
+			receiver = p.advance().text(p.src)
+			_ = p.advance()
+			if p.accept(TokenKind.comma) 'moreAfterRecv'
+				while not p.hasError 'pm'
+					params.append(parseParam(p))
+					if not p.accept(TokenKind.comma) 'pdone'
+						break 'pm'
+					end 'pdone'
+				end 'pm'
+			end 'moreAfterRecv'
+		end 'recv' else 'regular'
+			while not p.hasError 'pm'
+				params.append(parseParam(p))
+				if not p.accept(TokenKind.comma) 'pdone'
+					break 'pm'
+				end 'pdone'
+			end 'pm'
+		end 'regular'
+	end 'hasParams'
+	_ = p.expect(TokenKind.rParen, what: "')'")
+	let typeParams = p.parseUsesClause()
+	var retRef = 0 as ast.NodeID
+	if p.accept(TokenKind.kwReturns) 'ret'
+		retRef = parseTypeRef(p)
+	end 'ret'
+	var throwsRef = 0 as ast.NodeID
+	if p.accept(TokenKind.kwThrows) 'thr'
+		throwsRef = parseTypeRef(p)
+	end 'thr'
+	let constraints = parseWhereClause(p)
+	let bodyRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLabel = p.parseEndLabel()
+	let id = p.tree.alloc(ast.NodeKind.funcDecl, start: start)
+	return ast.FuncDecl.make(id, visibility: vis, isStatic: isStatic, name: nameTok.text(p.src), receiver: receiver, params: params, typeParams: typeParams, returnsRef: retRef, throwsRef: throwsRef, constraints: constraints, bodyRef: bodyRef, endLabel: endLabel)
+end 'parseFuncDecl'
+
+function parseFuncSig(mutates p Parser) returns ast.FuncSig
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwFunction, what: "'function'")
+	let nameTok = p.expect(TokenKind.name, what: "a function name")
+	_ = p.expect(TokenKind.lParen, what: "'('")
+	var receiver = ""
+	var params = ast.ParamList.new()
+	if p.curKind() != TokenKind.rParen 'hasParams'
+		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
+			receiver = p.advance().text(p.src)
+			_ = p.advance()
+			if p.accept(TokenKind.comma) 'more'
+				while not p.hasError 'pm'
+					params.append(parseParam(p))
+					if not p.accept(TokenKind.comma) 'pdone'
+						break 'pm'
+					end 'pdone'
+				end 'pm'
+			end 'more'
+		end 'recv' else 'regular'
+			while not p.hasError 'pm'
+				params.append(parseParam(p))
+				if not p.accept(TokenKind.comma) 'pdone'
+					break 'pm'
+				end 'pdone'
+			end 'pm'
+		end 'regular'
+	end 'hasParams'
+	_ = p.expect(TokenKind.rParen, what: "')'")
+	var retRef = 0 as ast.NodeID
+	if p.accept(TokenKind.kwReturns) 'ret'
+		retRef = parseTypeRef(p)
+	end 'ret'
+	var throwsRef = 0 as ast.NodeID
+	if p.accept(TokenKind.kwThrows) 'thr'
+		throwsRef = parseTypeRef(p)
+	end 'thr'
+	let id = p.tree.alloc(ast.NodeKind.funcSig, start: start)
+	return ast.FuncSig.make(id, name: nameTok.text(p.src), receiver: receiver, params: params, returnsRef: retRef, throwsRef: throwsRef)
+end 'parseFuncSig'
+
+function parseBlock(mutates p Parser) returns diag.U32
+	_ = p.expect(TokenKind.newline, what: "a newline")
+	_ = p.expect(TokenKind.indent, what: "an indented block")
+	var stmts = ast.U32List.new()
+	while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof and p.curKind() != TokenKind.fileEnd 'each'
+		let st = parseStmt(p)
+		stmts.append(st as diag.U32)
+		_ = p.expect(TokenKind.newline, what: "a newline")
+	end 'each'
+	_ = p.expect(TokenKind.dedent, what: "the end of the block")
+	return p.tree.pushList(stmts)
+end 'parseBlock'
+
+function parseStmt(mutates p Parser) returns ast.NodeID
+	let k = p.curKind()
+	if k == TokenKind.kwLet or k == TokenKind.kwVar 'letSt'
+		return parseLetStmt(p)
+	end 'letSt'
+	if k == TokenKind.kwUnderscore 'disc'
+		let start = p.curStart()
+		_ = p.advance()
+		_ = p.expect(TokenKind.assign, what: "'='")
+		let val = parseExpr(p)
+		let id = ast.newDiscardStmt(p.tree, start: start)
+		ast.setDiscardStmtValue(p.tree, id: id, value: val)
+		return id
+	end 'disc'
+	if k == TokenKind.kwIf 'ifSt'
+		return parseIfStmt(p)
+	end 'ifSt'
+	if k == TokenKind.kwWhile 'whSt'
+		return parseWhileStmt(p)
+	end 'whSt'
+	if k == TokenKind.kwFor 'forSt'
+		return parseForStmt(p)
+	end 'forSt'
+	if k == TokenKind.kwMatch 'mSt'
+		let start = p.curStart()
+		let core = parseMatchCore(p)
+		let id = ast.newMatchStmt(p.tree, start: start)
+		ast.setMatchStmtMatch(p.tree, id: id, value: core)
+		return id
+	end 'mSt'
+	if k == TokenKind.kwWhen 'wSt'
+		return parseWhenStmt(p)
+	end 'wSt'
+	if k == TokenKind.kwTry and p.peekKind(1 as Count) == TokenKind.label 'trySt'
+		return parseTryStmt(p)
+	end 'trySt'
+	if k == TokenKind.kwReturn 'retSt'
+		let start = p.curStart()
+		_ = p.advance()
+		let id = ast.newReturnStmt(p.tree, start: start)
+		if p.curKind() != TokenKind.newline and p.curKind() != TokenKind.eof and p.curKind() != TokenKind.fileEnd 'hasVal'
+			let val = parseExpr(p)
+			ast.setReturnStmtValue(p.tree, id: id, value: val)
+		end 'hasVal'
+		return id
+	end 'retSt'
+	if k == TokenKind.kwBreak 'brkSt'
+		let start = p.curStart()
+		_ = p.advance()
+		let id = ast.newBreakStmt(p.tree, start: start)
+		if p.curKind() == TokenKind.label 'lbl'
+			let ref = p.curTextRef()
+			_ = p.advance()
+			ast.setBreakStmtLabelRef(p.tree, id: id, ref: ref)
+		end 'lbl'
+		return id
+	end 'brkSt'
+	if k == TokenKind.kwContinue 'contSt'
+		let start = p.curStart()
+		_ = p.advance()
+		let id = ast.newContinueStmt(p.tree, start: start)
+		if p.curKind() == TokenKind.label 'lbl'
+			let ref = p.curTextRef()
+			_ = p.advance()
+			ast.setContinueStmtLabelRef(p.tree, id: id, ref: ref)
+		end 'lbl'
+		return id
+	end 'contSt'
+	let start = p.curStart()
+	let lhs = parseExpr(p)
+	if p.accept(TokenKind.assign) 'assign'
+		let rhs = parseExpr(p)
+		let id = ast.newAssignStmt(p.tree, start: start)
+		ast.setAssignStmtTarget(p.tree, id: id, value: lhs)
+		ast.setAssignStmtValue(p.tree, id: id, value: rhs)
+		return id
+	end 'assign'
+	let id = ast.newExprStmt(p.tree, start: start)
+	ast.setExprStmtE(p.tree, id: id, value: lhs)
+	return id
+end 'parseStmt'
+
+function parseLetStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	let isVar = p.curKind() == TokenKind.kwVar
+	_ = p.advance()
+	let nameRef = p.curTextRef()
+	_ = p.expect(TokenKind.name, what: "a variable name")
+	let id = ast.newLetStmt(p.tree, start: start)
+	if isVar 'v'
+		ast.setLetStmtIsVar(p.tree, id: id)
+	end 'v'
+	ast.setLetStmtNameRef(p.tree, id: id, ref: nameRef)
+	if isVar and p.accept(TokenKind.kwAs) 'typed'
+		let tr = parseTypeRef(p)
+		ast.setLetStmtType(p.tree, id: id, value: tr)
+		return id
+	end 'typed'
+	_ = p.expect(TokenKind.assign, what: "'='")
+	let initExpr = parseExpr(p)
+	ast.setLetStmtInit(p.tree, id: id, value: initExpr)
+	return id
+end 'parseLetStmt'
+
+function parseIfStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwIf, what: "'if'")
+	let cond = parseExpr(p)
+	let lblRef = p.curTextRef()
+	_ = p.expect(TokenKind.label, what: "a block label")
+	let thenRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = ast.newIfStmt(p.tree, start: start)
+	ast.setIfStmtCond(p.tree, id: id, value: cond)
+	ast.setIfStmtLabelRef(p.tree, id: id, ref: lblRef)
+	ast.setIfStmtThenRef(p.tree, id: id, ref: thenRef)
+	ast.setIfStmtEnd(p.tree, id: id, value: endLbl)
+	if p.accept(TokenKind.kwElse) 'hasElse'
+		ast.setIfStmtHasElse(p.tree, id: id)
+		if p.curKind() == TokenKind.kwIf 'elseIf'
+			var elseStmts = ast.U32List.new()
+			elseStmts.append(parseIfStmt(p) as diag.U32)
+			let elseRef = p.tree.pushList(elseStmts)
+			ast.setIfStmtElseRef(p.tree, id: id, ref: elseRef)
+		end 'elseIf' else 'elseBlk'
+			let eLblRef = p.curTextRef()
+			_ = p.expect(TokenKind.label, what: "a block label")
+			let elseRef = parseBlock(p)
+			_ = p.expect(TokenKind.kwEnd, what: "'end'")
+			let elseEnd = p.parseEndLabel()
+			ast.setIfStmtElseLabelRef(p.tree, id: id, ref: eLblRef)
+			ast.setIfStmtElseRef(p.tree, id: id, ref: elseRef)
+			ast.setIfStmtElseEnd(p.tree, id: id, value: elseEnd)
+		end 'elseBlk'
+	end 'hasElse'
+	return id
+end 'parseIfStmt'
+
+function parseWhileStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwWhile, what: "'while'")
+	let cond = parseExpr(p)
+	let lblRef = p.curTextRef()
+	_ = p.expect(TokenKind.label, what: "a block label")
+	let bodyRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = ast.newWhileStmt(p.tree, start: start)
+	ast.setWhileStmtCond(p.tree, id: id, value: cond)
+	ast.setWhileStmtLabelRef(p.tree, id: id, ref: lblRef)
+	ast.setWhileStmtBodyRef(p.tree, id: id, ref: bodyRef)
+	ast.setWhileStmtEnd(p.tree, id: id, value: endLbl)
+	return id
+end 'parseWhileStmt'
+
+function parseForStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwFor, what: "'for'")
+	let varRef = p.curTextRef()
+	if not p.accept(TokenKind.kwUnderscore) 'named'
+		_ = p.expect(TokenKind.name, what: "a loop variable")
+	end 'named'
+	_ = p.expect(TokenKind.kwIn, what: "'in'")
+	let fromExpr = parseExpr(p)
+	var inclusive = false
+	if p.accept(TokenKind.kwTo) 'to'
+		inclusive = true
+	end 'to' else 'upto'
+		_ = p.expect(TokenKind.kwUpto, what: "'to' or 'upto'")
+	end 'upto'
+	let toExpr = parseExpr(p)
+	let lblRef = p.curTextRef()
+	_ = p.expect(TokenKind.label, what: "a block label")
+	let bodyRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = ast.newForStmt(p.tree, start: start)
+	ast.setForStmtVarRef(p.tree, id: id, ref: varRef)
+	ast.setForStmtFrom(p.tree, id: id, value: fromExpr)
+	if inclusive 'inc'
+		ast.setForStmtInclusive(p.tree, id: id)
+	end 'inc'
+	ast.setForStmtTo(p.tree, id: id, value: toExpr)
+	ast.setForStmtLabelRef(p.tree, id: id, ref: lblRef)
+	ast.setForStmtBodyRef(p.tree, id: id, ref: bodyRef)
+	ast.setForStmtEnd(p.tree, id: id, value: endLbl)
+	return id
+end 'parseForStmt'
+
+function parseTryStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwTry, what: "'try'")
+	let lblRef = p.curTextRef()
+	_ = p.expect(TokenKind.label, what: "a block label")
+	let bodyRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = ast.newTryStmt(p.tree, start: start)
+	ast.setTryStmtLabelRef(p.tree, id: id, ref: lblRef)
+	ast.setTryStmtBodyRef(p.tree, id: id, ref: bodyRef)
+	ast.setTryStmtEnd(p.tree, id: id, value: endLbl)
+	if p.accept(TokenKind.kwOtherwise) 'hasOth'
+		ast.setTryStmtHasOtherwise(p.tree, id: id)
+		if p.accept(TokenKind.lParen) 'bind'
+			let bRef = p.curTextRef()
+			_ = p.expect(TokenKind.name, what: "an error binding name")
+			_ = p.expect(TokenKind.rParen, what: "')'")
+			ast.setTryStmtBindingRef(p.tree, id: id, ref: bRef)
+		end 'bind'
+		let hLblRef = p.curTextRef()
+		_ = p.expect(TokenKind.label, what: "a handler label")
+		let hRef = parseBlock(p)
+		_ = p.expect(TokenKind.kwEnd, what: "'end'")
+		let hEnd = p.parseEndLabel()
+		ast.setTryStmtHandlerLabelRef(p.tree, id: id, ref: hLblRef)
+		ast.setTryStmtHandlerRef(p.tree, id: id, ref: hRef)
+		ast.setTryStmtHandlerEnd(p.tree, id: id, value: hEnd)
+	end 'hasOth'
+	return id
+end 'parseTryStmt'
+
+function parseWhenStmt(mutates p Parser) returns ast.NodeID
+	let start = p.curStart()
+	_ = p.expect(TokenKind.kwWhen, what: "'when'")
+	var cowns = ast.U32List.new()
+	while not p.hasError 'c'
+		let cStart = p.curStart()
+		let cRef = p.curTextRef()
+		_ = p.expect(TokenKind.name, what: "a cown name")
+		let cNode = ast.newNameExpr(p.tree, start: cStart)
+		ast.setNameExprNameRef(p.tree, id: cNode, ref: cRef)
+		cowns.append(cNode as diag.U32)
+		if not p.accept(TokenKind.comma) 'cdone'
+			break 'c'
+		end 'cdone'
+	end 'c'
+	_ = p.expect(TokenKind.kwAs, what: "'as'")
+	var names = ast.U32List.new()
+	while not p.hasError 'n'
+		let nRef = p.curTextRef()
+		_ = p.expect(TokenKind.name, what: "a binding name")
+		names.append(nRef)
+		if not p.accept(TokenKind.comma) 'ndone'
+			break 'n'
+		end 'ndone'
+	end 'n'
+	let lblRef = p.curTextRef()
+	_ = p.expect(TokenKind.label, what: "a block label")
+	let bodyRef = parseBlock(p)
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = ast.newWhenStmt(p.tree, start: start)
+	let cownsRef = p.tree.pushList(cowns)
+	let namesRef = p.tree.pushList(names)
+	ast.setWhenStmtCownsRef(p.tree, id: id, ref: cownsRef)
+	ast.setWhenStmtNamesRef(p.tree, id: id, ref: namesRef)
+	ast.setWhenStmtLabelRef(p.tree, id: id, ref: lblRef)
+	ast.setWhenStmtBodyRef(p.tree, id: id, ref: bodyRef)
+	ast.setWhenStmtEnd(p.tree, id: id, value: endLbl)
+	return id
+end 'parseWhenStmt'
+
+function parseDecl(mutates p Parser) returns ast.Decl
+	let start = p.curStart()
+	let vis = p.parseVisibility()
+	let k = p.curKind()
+	if k == TokenKind.kwStatic or k == TokenKind.kwFunction 'fn'
+		let isStatic = p.accept(TokenKind.kwStatic)
+		return ast.Decl.funcDecl(parseFuncDecl(p, vis: vis, isStatic: isStatic, start: start))
+	end 'fn'
+	if k == TokenKind.kwLet 'cn'
+		_ = p.advance()
+		let nameTok = p.expect(TokenKind.name, what: "a constant name")
+		_ = p.expect(TokenKind.assign, what: "'='")
+		let val = parseExpr(p)
+		let id = p.tree.alloc(ast.NodeKind.constDecl, start: start)
+		return ast.Decl.constDecl(ast.ConstDecl.make(id, visibility: vis, name: nameTok.text(p.src), valueExpr: val))
+	end 'cn'
+	if k == TokenKind.kwType 'ty'
+		return ast.Decl.typeDecl(parseTypeDecl(p, vis: vis, start: start))
+	end 'ty'
+	if k == TokenKind.kwEnum 'en'
+		return ast.Decl.enumDecl(parseEnumDecl(p, vis: vis, start: start))
+	end 'en'
+	if k == TokenKind.kwUnion 'un'
+		return ast.Decl.unionDecl(parseUnionDecl(p, vis: vis, start: start))
+	end 'un'
+	if k == TokenKind.kwTypealias 'al'
+		return ast.Decl.aliasDecl(parseAliasDecl(p, vis: vis, start: start))
+	end 'al'
+	if k == TokenKind.kwInterface 'ifd'
+		return ast.Decl.interfaceDecl(parseInterfaceDecl(p, vis: vis, start: start))
+	end 'ifd'
+	p.fail(diag.errUnexpectedToken, message: "expected a declaration, found '{p.curText()}'")
+	return ast.Decl.constDecl(ast.ConstDecl.make(0 as ast.NodeID, visibility: "", name: "", valueExpr: 0 as ast.NodeID))
+end 'parseDecl'
+
+function parseTypeDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.TypeDecl
+	_ = p.expect(TokenKind.kwType, what: "'type'")
+	let nameTok = p.expect(TokenKind.name, what: "a type name")
+	var isNoncopyable = false
+	if p.accept(TokenKind.kwIs) 'nc'
+		_ = p.expect(TokenKind.kwNoncopyable, what: "'noncopyable'")
+		isNoncopyable = true
+	end 'nc'
+	let typeParams = p.parseUsesClause()
+	let conforms = parseConformsClause(p)
+	let constraints = parseWhereClause(p)
+	_ = p.expect(TokenKind.newline, what: "a newline")
+	var fields = ast.FieldDeclList.new()
+	var methods = ast.FuncDeclList.new()
+	if p.accept(TokenKind.indent) 'body'
+		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
+			let mStart = p.curStart()
+			let mVis = p.parseVisibility()
+			if p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
+				let isStatic = p.accept(TokenKind.kwStatic)
+				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+			end 'meth' else 'fld'
+				let isVar = p.curKind() == TokenKind.kwVar
+				if not isVar 'chkLet'
+					_ = p.expect(TokenKind.kwLet, what: "'let' or 'var'")
+				end 'chkLet' else 'advVar'
+					_ = p.advance()
+				end 'advVar'
+				let fTok = p.expect(TokenKind.name, what: "a field name")
+				var fType = 0 as ast.NodeID
+				var fDef = 0 as ast.NodeID
+				if p.accept(TokenKind.kwAs) 'asType'
+					fType = parseTypeRef(p)
+				end 'asType' else 'defVal'
+					_ = p.expect(TokenKind.assign, what: "'as' or '='")
+					fDef = parseExpr(p)
+				end 'defVal'
+				let fId = p.tree.alloc(ast.NodeKind.fieldDecl, start: mStart)
+				fields.append(ast.FieldDecl.make(fId, visibility: mVis, isVar: isVar, name: fTok.text(p.src), typeRef: fType, defaultExpr: fDef))
+			end 'fld'
+			_ = p.expect(TokenKind.newline, what: "a newline")
+		end 'item'
+		_ = p.expect(TokenKind.dedent, what: "the end of the type")
+	end 'body'
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = p.tree.alloc(ast.NodeKind.typeDecl, start: start)
+	return ast.TypeDecl.make(id, visibility: vis, name: nameTok.text(p.src), isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, fields: fields, methods: methods, endLabel: endLbl)
+end 'parseTypeDecl'
+
+function parseEnumDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.EnumDecl
+	_ = p.expect(TokenKind.kwEnum, what: "'enum'")
+	let nameTok = p.expect(TokenKind.name, what: "an enum name")
+	let conforms = parseConformsClause(p)
+	_ = p.expect(TokenKind.newline, what: "a newline")
+	var cases = ast.EnumCaseList.new()
+	var methods = ast.FuncDeclList.new()
+	if p.accept(TokenKind.indent) 'body'
+		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
+			let mStart = p.curStart()
+			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
+				let mVis = p.parseVisibility()
+				let isStatic = p.accept(TokenKind.kwStatic)
+				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+			end 'meth' else 'cs'
+				let cTok = p.expect(TokenKind.name, what: "a case name")
+				var raw = 0 as ast.NodeID
+				if p.accept(TokenKind.assign) 'hasRaw'
+					raw = parseIntLit(p)
+				end 'hasRaw'
+				let cId = p.tree.alloc(ast.NodeKind.enumCaseDecl, start: mStart)
+				cases.append(ast.EnumCaseDecl.make(cId, name: cTok.text(p.src), rawExpr: raw))
+			end 'cs'
+			_ = p.expect(TokenKind.newline, what: "a newline")
+		end 'item'
+		_ = p.expect(TokenKind.dedent, what: "the end of the enum")
+	end 'body'
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = p.tree.alloc(ast.NodeKind.enumDecl, start: start)
+	return ast.EnumDecl.make(id, visibility: vis, name: nameTok.text(p.src), conforms: conforms, cases: cases, methods: methods, endLabel: endLbl)
+end 'parseEnumDecl'
+
+function parseUnionDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.UnionDecl
+	_ = p.expect(TokenKind.kwUnion, what: "'union'")
+	let nameTok = p.expect(TokenKind.name, what: "a union name")
+	var isNoncopyable = false
+	if p.accept(TokenKind.kwIs) 'nc'
+		_ = p.expect(TokenKind.kwNoncopyable, what: "'noncopyable'")
+		isNoncopyable = true
+	end 'nc'
+	let typeParams = p.parseUsesClause()
+	let conforms = parseConformsClause(p)
+	let constraints = parseWhereClause(p)
+	_ = p.expect(TokenKind.newline, what: "a newline")
+	var cases = ast.UnionCaseList.new()
+	var methods = ast.FuncDeclList.new()
+	if p.accept(TokenKind.indent) 'body'
+		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
+			let mStart = p.curStart()
+			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
+				let mVis = p.parseVisibility()
+				let isStatic = p.accept(TokenKind.kwStatic)
+				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+			end 'meth' else 'cs'
+				let cTok = p.expect(TokenKind.name, what: "a case name")
+				var fields = ast.ParamList.new()
+				if p.accept(TokenKind.lParen) 'pay'
+					if p.curKind() != TokenKind.rParen 'nonEmpty'
+						while not p.hasError 'pm'
+							fields.append(parseParam(p))
+							if not p.accept(TokenKind.comma) 'pdone'
+								break 'pm'
+							end 'pdone'
+						end 'pm'
+					end 'nonEmpty'
+					_ = p.expect(TokenKind.rParen, what: "')'")
+				end 'pay'
+				let cId = p.tree.alloc(ast.NodeKind.unionCaseDecl, start: mStart)
+				cases.append(ast.UnionCaseDecl.make(cId, name: cTok.text(p.src), fields: fields))
+			end 'cs'
+			_ = p.expect(TokenKind.newline, what: "a newline")
+		end 'item'
+		_ = p.expect(TokenKind.dedent, what: "the end of the union")
+	end 'body'
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = p.tree.alloc(ast.NodeKind.unionDecl, start: start)
+	return ast.UnionDecl.make(id, visibility: vis, name: nameTok.text(p.src), isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, cases: cases, methods: methods, endLabel: endLbl)
+end 'parseUnionDecl'
+
+function parseAliasDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.AliasDecl
+	_ = p.expect(TokenKind.kwTypealias, what: "'typealias'")
+	let nameTok = p.expect(TokenKind.name, what: "a typealias name")
+	_ = p.expect(TokenKind.assign, what: "'='")
+	if p.accept(TokenKind.kwInt) 'rng'
+		_ = p.expect(TokenKind.lParen, what: "'('")
+		let low = parseBound(p)
+		var inclusive = false
+		if p.accept(TokenKind.kwTo) 'to'
+			inclusive = true
+		end 'to' else 'upto'
+			_ = p.expect(TokenKind.kwUpto, what: "'to' or 'upto'")
+		end 'upto'
+		let high = parseBound(p)
+		_ = p.expect(TokenKind.rParen, what: "')'")
+		let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
+		return ast.AliasDecl.makeRange(id, visibility: vis, name: nameTok.text(p.src), inclusive: inclusive, low: low, high: high)
+	end 'rng'
+	let inst = parseTypeRef(p)
+	let id = p.tree.alloc(ast.NodeKind.aliasDecl, start: start)
+	return ast.AliasDecl.makeInstance(id, visibility: vis, name: nameTok.text(p.src), instanceRef: inst)
+end 'parseAliasDecl'
+
+function parseInterfaceDecl(mutates p Parser, consumes vis String, start diag.U32) returns ast.InterfaceDecl
+	_ = p.expect(TokenKind.kwInterface, what: "'interface'")
+	let nameTok = p.expect(TokenKind.name, what: "an interface name")
+	_ = p.expect(TokenKind.newline, what: "a newline")
+	var sigs = ast.FuncSigList.new()
+	if p.accept(TokenKind.indent) 'body'
+		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
+			sigs.append(parseFuncSig(p))
+			_ = p.expect(TokenKind.newline, what: "a newline")
+		end 'item'
+		_ = p.expect(TokenKind.dedent, what: "the end of the interface")
+	end 'body'
+	_ = p.expect(TokenKind.kwEnd, what: "'end'")
+	let endLbl = p.parseEndLabel()
+	let id = p.tree.alloc(ast.NodeKind.interfaceDecl, start: start)
+	return ast.InterfaceDecl.make(id, visibility: vis, name: nameTok.text(p.src), methods: sigs, endLabel: endLbl)
+end 'parseInterfaceDecl'
+
+function parseTokensIntoModule(module diag.ModuleID, consumes path String, consumes text String, consumes files ast.FileSpanList, consumes toks Tokens) returns ParseResult
+	var p = Parser.new(module, src: text, tokens: toks)
+	var decls = ast.DeclList.new()
+	p.skipNewlines()
+	while not p.hasError and p.curKind() != TokenKind.eof 'top'
+		let d = parseDecl(p)
+		if not p.hasError 'keep'
+			decls.append(d)
+		end 'keep'
+		p.skipNewlines()
+	end 'top'
+	if p.hasError 'failed'
+		let off32 = try p.errOffset as diag.U32 otherwise 0 as diag.U32
+		let loc = ast.locateTextOffset(p.tree.text, files: files, offset: off32)
+		return ParseResult.err(ParseError.makeLocated(p.errOffset, code: p.errCode.copy(), message: p.errMessage.copy(), file: loc.file, line: loc.line, col: loc.col))
+	end 'failed'
+	var m = ast.Module.new(module, path: path, text: "", files: files)
+	m.tree = p.tree
+	for _ in 0 upto decls.count() 'addDecls'
+		m.appendRawDecl(decls.remove(0 as Count))
+	end 'addDecls'
+	return ParseResult.ok(m)
+end 'parseTokensIntoModule'
+
+export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
+	let lexRes = lex(src)
+	var files = ast.FileSpanList.new()
+	files.append(ast.FileSpan.make(path.copy(), start: 0 as diag.U32, endOff: try src.byteCount() as diag.U32 otherwise 0 as diag.U32))
+	var toks as Tokens
+	match consumes lexRes 'lr'
+		ok(t) then toks = t
+		err(e) then return makeLexErr(src, files: files, offset: e.offset, message: e.message.copy())
+	end 'lr'
+	return parseTokensIntoModule(module, path: path.copy(), text: src, files: files, toks: toks)
+end 'parseSource'
+
+function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes message String) returns ParseResult
+	let off32 = try offset as diag.U32 otherwise 0 as diag.U32
+	let loc = ast.locateTextOffset(src, files: files, offset: off32)
+	return ParseResult.err(ParseError.makeLocated(offset, code: diag.errUnexpectedToken, message: message, file: loc.file, line: loc.line, col: loc.col))
+end 'makeLexErr'
+
+export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
+	var buf = Bytes.new()
+	var files = ast.FileSpanList.new()
+	var starts = Offsets.new()
+	var ends = Offsets.new()
+	for i in 0 upto filePaths.count() 'concat'
+		let startOff = buf.count()
+		buf.appendString(fileTexts[i])
+		let endOff = buf.count()
+		starts.append(startOff)
+		ends.append(endOff)
+		let s32 = try startOff as diag.U32 otherwise panic("module text > 4GB")
+		let e32 = try endOff as diag.U32 otherwise panic("module text > 4GB")
+		files.append(ast.FileSpan.make(filePaths[i].copy(), start: s32, endOff: e32))
+	end 'concat'
+	let fullText = buf.toString()
+	let lexRes = lexSpans(fullText, starts: starts, ends: ends)
+	var toks as Tokens
+	match consumes lexRes 'lr'
+		ok(t) then toks = t
+		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, message: e.message.copy())
+	end 'lr'
+	return parseTokensIntoModule(module, path: path, text: fullText, files: files, toks: toks)
+end 'parseModuleFiles'

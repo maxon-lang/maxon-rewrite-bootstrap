@@ -317,6 +317,21 @@ func (a *Asm) LoadByte(dst, b R, disp int) {
 	a.mem(int(dst), b, disp)
 }
 
+func (a *Asm) StoreByte(b R, disp int, src R) {
+	if src >= 4 || b >= 8 {
+		rex := byte(0x40)
+		if src >= 8 {
+			rex |= 0x04
+		}
+		if b >= 8 {
+			rex |= 0x01
+		}
+		a.Code = append(a.Code, rex)
+	}
+	a.Code = append(a.Code, 0x88)
+	a.mem(int(src), b, disp)
+}
+
 func (a *Asm) MovImm(dst R, imm int64) {
 	if imm >= 0 && imm <= math.MaxUint32 {
 		a.rex(false, 0, int(dst))

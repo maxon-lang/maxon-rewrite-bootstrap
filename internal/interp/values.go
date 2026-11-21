@@ -23,9 +23,10 @@ const (
 	// kindFrozen and kindCown are boxes with many owners: a count of them, not one owner, decides when the box is freed.
 	kindFrozen
 	kindCown
+	kindBytes
 )
 
-var kindNames = [...]string{"record", "string", "array", "map", "list", "pool", "frozen value", "cown"}
+var kindNames = [...]string{"record", "string", "array", "map", "list", "pool", "frozen value", "cown", "bytes"}
 
 // site is a place in a function, for a report: where a value was made or freed.
 type site struct {
@@ -87,6 +88,7 @@ type object struct {
 	allocated site
 	freedAt   site
 	text      string
+	buf       []byte
 	fields    []cell
 	elems     []*cell
 	table     *table

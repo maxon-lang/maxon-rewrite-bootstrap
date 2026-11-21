@@ -1,0 +1,55 @@
+//> empty=true count=0 emptyStr=<>
+//> count=5 text=Hello
+//> patched=Jello
+//> combined=Jello, world!
+//> copy=Jello, world! orig=Jello, world!x
+//> emptyCopy=0
+//> grown=40 b0=0 b39=39
+//> nested=AB
+
+type Packet
+	var payload as Bytes
+
+	static function make() returns Packet
+		return Packet{payload: Bytes.new()}
+	end 'make'
+end 'Packet'
+
+typealias Packets = array with Packet
+
+function main() returns ExitCode
+	var b = Bytes.new()
+	print("empty={b.isEmpty()} count={b.count()} emptyStr=<{b.toString()}>\n")
+	b.push(72 as Byte)
+	b.push(101 as Byte)
+	b.push(108 as Byte)
+	b.push(108 as Byte)
+	b.push(111 as Byte)
+	print("count={b.count()} text={b.toString()}\n")
+	b.setByte(0, value: 74 as Byte)
+	print("patched={b.toString()}\n")
+	var suffix = Bytes.new()
+	suffix.appendString(", world!")
+	b.append(suffix)
+	print("combined={b.toString()}\n")
+	let snap = b.copy()
+	b.push(120 as Byte)
+	print("copy={snap.toString()} orig={b.toString()}\n")
+	let empty = Bytes.new()
+	let emptySnap = empty.copy()
+	print("emptyCopy={emptySnap.count()}\n")
+	var big = Bytes.new()
+	for i in 0 upto 40 'fill'
+		big.push(i as Byte)
+	end 'fill'
+	print("grown={big.count()} b0={big.byteAt(0)} b39={big.byteAt(39)}\n")
+	var p = Packet.make()
+	p.payload.appendString("A")
+	let p2 = p.copy()
+	p.payload.appendString("B")
+	var list = Packets.new()
+	list.append(p)
+	list.append(p2)
+	print("nested={list[0].payload.toString()}\n")
+	return 0
+end 'main'

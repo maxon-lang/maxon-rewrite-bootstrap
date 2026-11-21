@@ -1,0 +1,265 @@
+export typealias ModuleID = int(-1 to 2147483647)
+
+export typealias U32 = int(0 to 4294967295)
+
+export let stdlibID = -1 as ModuleID
+
+export let errUnexpectedToken = "E2001"
+
+export let errExpectedType = "E2003"
+
+export let errExpressionError = "E2004"
+
+export let errUnexpectedEnd = "E2007"
+
+export let errMismatchedEndLabel = "E2008"
+
+export let errExpectedToken = "E2010"
+
+export let errIntegerLiteralRange = "E2011"
+
+export let errDependsOnItself = "E2012"
+
+export let errAssignToImmutable = "E2013"
+
+export let errMatchNotExhaustive = "E2026"
+
+export let errMatchDefaultEnumMustThrow = "E2046"
+
+export let errMatchBlockStatement = "E2049"
+
+export let errCallFirstArgNamed = "E2052"
+
+export let errCallArgMissingLabel = "E2053"
+
+export let errNoMainFunction = "E3001"
+
+export let errMainWrongReturnType = "E3002"
+
+export let errUnknownFunction = "E3004"
+
+export let errTypeMismatch = "E3005"
+
+export let errDuplicateDefinition = "E3006"
+
+export let errNotExported = "E3008"
+
+export let errUnknownType = "E3011"
+
+export let errMissingReturn = "E3013"
+
+export let errFieldNotExported = "E3014"
+
+export let errUnknownField = "E3018"
+
+export let errEnumDuplicateCase = "E3030"
+
+export let errEnumUnknownCase = "E3034"
+
+export let errEnumWrongBindingCount = "E3035"
+
+export let errCallArgCountMismatch = "E3036"
+
+export let errCallUnknownArgLabel = "E3037"
+
+export let errCallDuplicateArg = "E3038"
+
+export let errAmbiguousType = "E3063"
+
+export let errEnumNotComparable = "E3066"
+
+export let errConstructorRestriction = "E3076"
+
+export let errEmptyBlock = "E3082"
+
+export let errFieldNotInitialized = "E3086"
+
+export let errAmbiguousName = "E3095"
+
+export let errUseAfterMove = "E3102"
+
+export let errDivisionByZero = "E3103"
+
+export let errMoveOutOfBorrow = "E3110"
+
+export let errMoveOutOfField = "E3111"
+
+export let errExclusivity = "E3112"
+
+export let errUseBeforeInit = "E3113"
+
+export let errSetNotInitialized = "E3114"
+
+export let errSetArgument = "E3115"
+
+export let errTypeArgumentCount = "E3116"
+
+export let errBoundNotMet = "E3117"
+
+export let errCannotInfer = "E3118"
+
+export let errInterfaceAsType = "E3119"
+
+export let errConformance = "E3120"
+
+export let errAmbiguousBound = "E3121"
+
+export let errInstantiationTooDeep = "E3122"
+
+export let errGenericDeclaration = "E3123"
+
+export let errMapKey = "E3124"
+
+export let errFrozenChange = "E3125"
+
+export let errBehaviourBorrow = "E3126"
+
+export let errFreezeScalar = "E3127"
+
+export let errShareTarget = "E3128"
+
+export let errWhenCowns = "E3129"
+
+export let errWhenSameCown = "E3130"
+
+export let errCownCycle = "E3131"
+
+export let errCownAccess = "E3132"
+
+export let errUnknownTypeParam = "E3133"
+
+export let errAliasTarget = "E3134"
+
+export let errNotCopyable = "E3135"
+
+export let errNotDroppable = "E3136"
+
+export let errDestructorMisuse = "E3137"
+
+export let errCapabilityMisuse = "E3138"
+
+export let errTakeApartDestructible = "E3139"
+
+export let errUncheckedFailure = "E3140"
+
+export let errNothingToPropagate = "E3141"
+
+export let errThrows = "E3142"
+
+export let errBadModuleName = "E3182"
+
+export let errUnsignedNegation = "E3218"
+
+export let errTypeCycle = "E4014"
+
+export let errUnsupported = "E9000"
+
+export let errImportCycle = "E9001"
+
+export let errInterpreterOnly = "E9002"
+
+export type Site
+	export var module as ModuleID
+	export var offset as U32
+
+	export static function make(module ModuleID, offset U32) returns Site
+		return Site{module: module, offset: offset}
+	end 'make'
+end 'Site'
+
+export type CompileError
+	export var code as String
+	export var message as String
+	export var file as String
+	export var line as Count
+	export var col as Count
+	export var site as Site
+	export var located as bool
+
+	export static function at(consumes code String, consumes message String, consumes file String, line Count, col Count) returns CompileError
+		return CompileError{code: code, message: message, file: file, line: line, col: col, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true}
+	end 'at'
+
+	export static function atSite(consumes code String, consumes message String, consumes site Site) returns CompileError
+		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: site, located: false}
+	end 'atSite'
+
+	export function format() returns String
+		if located 'loc'
+			return "{file}:{line}:{col}: error {code}: {message}"
+		end 'loc'
+		return "module {site.module} offset {site.offset}: error {code}: {message}"
+	end 'format'
+end 'CompileError'
+
+export typealias ErrorList = array with CompileError
+
+export function stringLess(a String, b String) returns bool
+	let an = a.byteCount()
+	let bn = b.byteCount()
+	var lim = an
+	if bn < lim 'bmin'
+		lim = bn
+	end 'bmin'
+	for i in 0 upto lim 'cmp'
+		let ca = a.byteAt(i)
+		let cb = b.byteAt(i)
+		if ca != cb 'diff'
+			return ca < cb
+		end 'diff'
+	end 'cmp'
+	return an < bn
+end 'stringLess'
+
+export function pushSiteError(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32)
+	errs.append(CompileError.atSite(code, message: message, site: Site.make(module, offset: offset)))
+end 'pushSiteError'
+
+export function pushLocatedError(mutates errs ErrorList, consumes code String, consumes message String, consumes file String, line Count, col Count)
+	errs.append(CompileError.at(code, message: message, file: file, line: line, col: col))
+end 'pushLocatedError'
+
+function errorBefore(a CompileError, b CompileError) returns bool
+	if a.located and b.located 'bothLoc'
+		if a.file != b.file 'fileCmp'
+			return stringLess(a.file, b: b.file)
+		end 'fileCmp'
+		if a.line != b.line 'lineCmp'
+			return a.line < b.line
+		end 'lineCmp'
+		if a.col != b.col 'colCmp'
+			return a.col < b.col
+		end 'colCmp'
+	end 'bothLoc' else if a.located != b.located 'oneLoc'
+		return a.located
+	end 'oneLoc' else 'siteCmp'
+		if a.site.module != b.site.module 'modCmp'
+			return a.site.module < b.site.module
+		end 'modCmp'
+		if a.site.offset != b.site.offset 'offCmp'
+			return a.site.offset < b.site.offset
+		end 'offCmp'
+	end 'siteCmp'
+	if a.code != b.code 'codeCmp'
+		return stringLess(a.code, b: b.code)
+	end 'codeCmp'
+	return stringLess(a.message, b: b.message)
+end 'errorBefore'
+
+export function sortErrors(mutates errs ErrorList)
+	let n = errs.count()
+	for i in 1 upto n 'ins'
+		var j = i
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise 0 as Count
+			if errorBefore(errs[j], b: errs[prev]) 'swap'
+				let cur = errs[j].copy()
+				errs[j] = errs[prev].copy()
+				errs[prev] = cur
+				j = prev
+			end 'swap' else 'done'
+				break 'shift'
+			end 'done'
+		end 'shift'
+	end 'ins'
+end 'sortErrors'

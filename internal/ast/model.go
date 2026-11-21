@@ -123,6 +123,7 @@ func NewProject(root *Module) *Project {
 		{"ExitCode", Zero, U64(0xFFFFFFFF)},
 		{"Count", Zero, U64Max},
 		{"FullRangeInt", I64Min, I64Max},
+		{"Byte", Zero, U64(255)},
 	} {
 		alias := p.Stdlib.Tree.NewAliasDecl(0)
 		alias.Name = b.name
@@ -131,7 +132,7 @@ func NewProject(root *Module) *Project {
 		alias.Ty = &IntTy{Alias: b.name, Min: b.min, Max: b.max}
 		p.Stdlib.Declare(alias)
 	}
-	p.Builtins = NewBuiltins(p.Stdlib, p.Stdlib.Names["Count"].(*AliasDecl).Ty.(*IntTy))
+	p.Builtins = NewBuiltins(p.Stdlib, p.Stdlib.Names["Count"].(*AliasDecl).Ty.(*IntTy), p.Stdlib.Names["Byte"].(*AliasDecl).Ty.(*IntTy))
 	return p
 }
 

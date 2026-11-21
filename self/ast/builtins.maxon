@@ -1,0 +1,412 @@
+export let optionSome = 0 as Count
+
+export let optionNone = 1 as Count
+
+export let arithOverflow = 0 as Count
+
+export let arithDivByZero = 1 as Count
+
+export let arithNegativeShift = 2 as Count
+
+export let dropWithLabel = "dropWith"
+
+export typealias FuncIDMap = table.StringMap with FuncID
+
+export typealias TypeIDMap = table.StringMap with TypeID
+
+export type Builtins
+	export var boolTy as TypeID
+	export var stringTy as TypeID
+	export var voidTy as TypeID
+	export var neverTy as TypeID
+	export var anon64Ty as TypeID
+	export var anonU64Ty as TypeID
+	export var exitCodeTy as TypeID
+	export var countTy as TypeID
+	export var fullRangeIntTy as TypeID
+	export var byteTy as TypeID
+	export var arrayOrigin as TypeID
+	export var mapOrigin as TypeID
+	export var listOrigin as TypeID
+	export var poolOrigin as TypeID
+	export var handleOrigin as TypeID
+	export var frozenOrigin as TypeID
+	export var cownOrigin as TypeID
+	export var bytesTy as TypeID
+	export var optionOrigin as TypeID
+	export var arithErrTy as TypeID
+	export var copyableTy as TypeID
+	export var droppableTy as TypeID
+	export var freezeFunc as FuncID
+	export var shareFunc as FuncID
+	export var thawFunc as FuncID
+	export var cownNewFunc as FuncID
+	export var cownNewDropWithFunc as FuncID
+	export var exchangeFunc as FuncID
+	export var printFunc as FuncID
+	export var printErrorFunc as FuncID
+	export var stringMethods as FuncIDMap
+	export var stdlibTypeMap as TypeIDMap
+	export var stdlibFuncMap as FuncIDMap
+
+	export static function empty() returns Builtins
+		let sm = FuncIDMap.new()
+		let stm = TypeIDMap.new()
+		let sfm = FuncIDMap.new()
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithErrTy: noType, copyableTy: noType, droppableTy: noType, freezeFunc: noFunc, shareFunc: noFunc, thawFunc: noFunc, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, exchangeFunc: noFunc, printFunc: noFunc, printErrorFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+	end 'empty'
+
+	export function isCapability(iface TypeID) returns bool
+		return iface == copyableTy or iface == droppableTy
+	end 'isCapability'
+end 'Builtins'
+
+function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, consumes lo I128, consumes hi I128) returns TypeID
+	let tid = internIntRange(tt, aliasName: name.copy(), minVal: lo.copy(), maxVal: hi.copy(), inferred: false)
+	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	tt.entries[tid as Count].hasDecl = true
+	tt.entries[tid as Count].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	let z = Bound.makeInt(0 as NodeID, negative: false, value: I128.zero())
+	let ad = AliasDecl.makeRange(0 as NodeID, visibility: "export", name: name.copy(), inclusive: true, low: z.copy(), high: z)
+	_ = std.declare(Decl.aliasDecl(ad))
+	typeMap.insert(name, value: tid)
+	return tid
+end 'registerStdAlias'
+
+function addStdTypeParam(mutates tt TypeTable, mutates std Module, owner TypeID, consumes name String) returns TypeID
+	var tp = TypeEntry.make(TypeKind.typeParam, name: name.copy())
+	let tid = allocType(tt, e: tp)
+	tt.entries[owner as Count].typeParams.append(tid)
+	return tid
+end 'addStdTypeParam'
+
+function registerPrimType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, kind TypeKind, consumes name String, paramNames StringList) returns TypeID
+	var e = TypeEntry.make(kind, name: name.copy())
+	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	e.hasDecl = true
+	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+	let tid = allocType(tt, e: e)
+	var tps = TypeParamList.new()
+	for i in 0 upto paramNames.count() 'eachP'
+		let pn = paramNames[i].copy()
+		tps.append(TypeParam.make(0 as NodeID, name: pn.copy()))
+		_ = addStdTypeParam(tt, std: std, owner: tid, name: pn)
+	end 'eachP'
+	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.copy(), isNoncopyable: false, typeParams: tps, conforms: U32List.new(), constraints: ConstraintList.new(), fields: FieldDeclList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.typeDecl(td))
+	typeMap.insert(name, value: tid)
+	return tid
+end 'registerPrimType'
+
+function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, owner TypeID, op Intrinsic, consumes name String, isStatic bool, selfConv Convention, ret TypeID, consumes params ParamSpecList) returns FuncID
+	var fn = FuncEntry.make(name.copy(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	fn.isStatic = isStatic
+	fn.ownerTy = selfType(tt, declTy: owner)
+	fn.hasReceiver = not isStatic
+	fn.selfConv = selfConv
+	fn.generics = cloneTypeArgs(tt.entries[owner as Count].typeParams)
+	fn.retTy = ret
+	fn.intrinsic = op
+	for i in 0 upto params.count() 'eachP'
+		let pName = params[i].name.copy()
+		let pTy = params[i].ty
+		let pConv = params[i].conv
+		fn.params.append(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		fn.paramTypes.append(pTy)
+	end 'eachP'
+	let fid = allocFunc(ft, f: fn)
+	tt.entries[owner as Count].methods.append(MethodRef.make(name, func: fid))
+	return fid
+end 'registerMethodOn'
+
+function registerStdFunc(mutates ft FuncTable, mutates std Module, mutates funcMap FuncIDMap, op Intrinsic, consumes name String, generics TypeIDList, ret TypeID, consumes params ParamSpecList, declareInStd bool) returns FuncID
+	var fn = FuncEntry.make(name.copy(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	fn.generics = cloneTypeArgs(generics)
+	fn.retTy = ret
+	fn.intrinsic = op
+	for i in 0 upto params.count() 'eachP'
+		let pName = params[i].name.copy()
+		let pTy = params[i].ty
+		let pConv = params[i].conv
+		fn.params.append(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		fn.paramTypes.append(pTy)
+	end 'eachP'
+	if declareInStd 'addStd'
+		let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+		fn.hasDecl = true
+		fn.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
+		let fd = FuncDecl.make(0 as NodeID, visibility: "export", isStatic: false, name: name.copy(), receiver: "", params: ParamList.new(), typeParams: TypeParamList.new(), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, constraints: ConstraintList.new(), bodyRef: 0 as diag.U32, endLabel: 0 as NodeID)
+		_ = std.declare(Decl.funcDecl(fd))
+	end 'addStd'
+	let fid = allocFunc(ft, f: fn)
+	if declareInStd 'regMap'
+		funcMap.insert(name, value: fid)
+	end 'regMap'
+	return fid
+end 'registerStdFunc'
+
+function oneParam(consumes name String, ty TypeID, conv Convention) returns ParamSpecList
+	var ps = ParamSpecList.new()
+	ps.append(ParamSpec.make(name, ty: ty, conv: conv))
+	return ps
+end 'oneParam'
+
+function twoParams(consumes n1 String, t1 TypeID, c1 Convention, consumes n2 String, t2 TypeID, c2 Convention) returns ParamSpecList
+	var ps = ParamSpecList.new()
+	ps.append(ParamSpec.make(n1, ty: t1, conv: c1))
+	ps.append(ParamSpec.make(n2, ty: t2, conv: c2))
+	return ps
+end 'twoParams'
+
+function oneArgList(a TypeID) returns TypeIDList
+	var xs = TypeIDList.new()
+	xs.append(a)
+	return xs
+end 'oneArgList'
+
+function declareOptionAndErrors(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins)
+	var optEntry = TypeEntry.make(TypeKind.unionTy, name: "Option")
+	let optOrd = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	optEntry.hasDecl = true
+	optEntry.decl = DeclRef.make(diag.stdlibID, ordinal: optOrd)
+	b.optionOrigin = allocType(tt, e: optEntry)
+	let optT = addStdTypeParam(tt, std: std, owner: b.optionOrigin, name: "T")
+	var someFields = CaseFieldList.new()
+	someFields.append(CaseFieldInfo.make("value", ty: optT))
+	tt.entries[b.optionOrigin as Count].cases.append(CaseInfo.make("some", payload: someFields, hasRaw: false, rawValue: I128.zero()))
+	tt.entries[b.optionOrigin as Count].cases.append(CaseInfo.make("none", payload: CaseFieldList.new(), hasRaw: false, rawValue: I128.zero()))
+	let optUd = UnionDecl.make(0 as NodeID, visibility: "export", name: "Option", isNoncopyable: false, typeParams: TypeParamList.new(), conforms: U32List.new(), constraints: ConstraintList.new(), cases: UnionCaseList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.unionDecl(optUd))
+	b.stdlibTypeMap.insert("Option", value: b.optionOrigin)
+	var aeEntry = TypeEntry.make(TypeKind.enumTy, name: "ArithmeticError")
+	let aeOrd = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	aeEntry.hasDecl = true
+	aeEntry.decl = DeclRef.make(diag.stdlibID, ordinal: aeOrd)
+	aeEntry.cases.append(CaseInfo.make("overflow", payload: CaseFieldList.new(), hasRaw: false, rawValue: I128.zero()))
+	aeEntry.cases.append(CaseInfo.make("divisionByZero", payload: CaseFieldList.new(), hasRaw: false, rawValue: I128.zero()))
+	aeEntry.cases.append(CaseInfo.make("negativeShift", payload: CaseFieldList.new(), hasRaw: false, rawValue: I128.zero()))
+	b.arithErrTy = allocType(tt, e: aeEntry)
+	let aeEd = EnumDecl.make(0 as NodeID, visibility: "export", name: "ArithmeticError", conforms: U32List.new(), cases: EnumCaseList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.enumDecl(aeEd))
+	b.stdlibTypeMap.insert("ArithmeticError", value: b.arithErrTy)
+	var cpEntry = TypeEntry.make(TypeKind.interfaceTy, name: "Copyable")
+	let cpOrd = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	cpEntry.hasDecl = true
+	cpEntry.decl = DeclRef.make(diag.stdlibID, ordinal: cpOrd)
+	b.copyableTy = allocType(tt, e: cpEntry)
+	let cpId = InterfaceDecl.make(0 as NodeID, visibility: "export", name: "Copyable", methods: FuncSigList.new(), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.interfaceDecl(cpId))
+	b.stdlibTypeMap.insert("Copyable", value: b.copyableTy)
+	var drEntry = TypeEntry.make(TypeKind.interfaceTy, name: "Droppable")
+	let drOrd = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
+	drEntry.hasDecl = true
+	drEntry.decl = DeclRef.make(diag.stdlibID, ordinal: drOrd)
+	b.droppableTy = allocType(tt, e: drEntry)
+	let drId = InterfaceDecl.make(0 as NodeID, visibility: "export", name: "Droppable", methods: FuncSigList.new(), endLabel: 0 as NodeID)
+	_ = std.declare(Decl.interfaceDecl(drId))
+	b.stdlibTypeMap.insert("Droppable", value: b.droppableTy)
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.optionOrigin, op: Intrinsic.intrOptionIsSome, name: "isSome", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.optionOrigin, op: Intrinsic.intrOptionUnwrap, name: "unwrap", isStatic: false, selfConv: Convention.convConsumes, ret: optT, params: ParamSpecList.new())
+end 'declareOptionAndErrors'
+
+function declareArrayMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, b Builtins)
+	let arrT = tt.entries[b.arrayOrigin as Count].typeParams[0]
+	let arrSelf = selfType(tt, declTy: b.arrayOrigin)
+	let optArrT = instantiateType(tt, origin: b.optionOrigin, args: oneArgList(arrT))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayNew, name: "new", isStatic: true, selfConv: Convention.convLet, ret: arrSelf, params: ParamSpecList.new())
+	let filledFid = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayFilled, name: "filled", isStatic: true, selfConv: Convention.convLet, ret: arrSelf, params: twoParams("count", t1: b.countTy, c1: Convention.convLet, n2: "value", t2: arrT, c2: Convention.convConsumes))
+	ft.entries[filledFid as Count].bounds.append(ParamBound.make(arrT, ifaceTy: b.copyableTy))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: oneParam("item", ty: arrT, conv: Convention.convConsumes))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: twoParams("item", t1: arrT, c1: Convention.convConsumes, n2: "at", t2: b.countTy, c2: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: arrT, params: oneParam("at", ty: b.countTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayPop, name: "pop", isStatic: false, selfConv: Convention.convMutates, ret: optArrT, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.arrayOrigin, op: Intrinsic.intrArrayDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.new())
+end 'declareArrayMethods'
+
+function declareMapListPoolMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, b Builtins)
+	let mapK = tt.entries[b.mapOrigin as Count].typeParams[0]
+	let mapV = tt.entries[b.mapOrigin as Count].typeParams[1]
+	let mapSelf = selfType(tt, declTy: b.mapOrigin)
+	let optMapV = instantiateType(tt, origin: b.optionOrigin, args: oneArgList(mapV))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapNew, name: "new", isStatic: true, selfConv: Convention.convLet, ret: mapSelf, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapHas, name: "has", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: oneParam("key", ty: mapK, conv: Convention.convLet))
+	let mapInsFid = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: twoParams("key", t1: mapK, c1: Convention.convConsumes, n2: "value", t2: mapV, c2: Convention.convConsumes))
+	ft.entries[mapInsFid as Count].bounds.append(ParamBound.make(mapV, ifaceTy: b.droppableTy))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapReplace, name: "replace", isStatic: false, selfConv: Convention.convMutates, ret: optMapV, params: twoParams("key", t1: mapK, c1: Convention.convConsumes, n2: "value", t2: mapV, c2: Convention.convConsumes))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: optMapV, params: oneParam("key", ty: mapK, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.mapOrigin, op: Intrinsic.intrMapDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.new())
+	let listT = tt.entries[b.listOrigin as Count].typeParams[0]
+	let listSelf = selfType(tt, declTy: b.listOrigin)
+	let listH = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(listT))
+	let optListT = instantiateType(tt, origin: b.optionOrigin, args: oneArgList(listT))
+	let optListH = instantiateType(tt, origin: b.optionOrigin, args: oneArgList(listH))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListNew, name: "new", isStatic: true, selfConv: Convention.convLet, ret: listSelf, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: oneParam("handle", ty: listH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPushFront, name: "pushFront", isStatic: false, selfConv: Convention.convMutates, ret: listH, params: oneParam("item", ty: listT, conv: Convention.convConsumes))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPushBack, name: "pushBack", isStatic: false, selfConv: Convention.convMutates, ret: listH, params: oneParam("item", ty: listT, conv: Convention.convConsumes))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPopFront, name: "popFront", isStatic: false, selfConv: Convention.convMutates, ret: optListT, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPopBack, name: "popBack", isStatic: false, selfConv: Convention.convMutates, ret: optListT, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListFirst, name: "first", isStatic: false, selfConv: Convention.convLet, ret: optListH, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListLast, name: "last", isStatic: false, selfConv: Convention.convLet, ret: optListH, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListNext, name: "next", isStatic: false, selfConv: Convention.convLet, ret: optListH, params: oneParam("handle", ty: listH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListPrev, name: "prev", isStatic: false, selfConv: Convention.convLet, ret: optListH, params: oneParam("handle", ty: listH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: optListT, params: oneParam("handle", ty: listH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListMoveToFront, name: "moveToFront", isStatic: false, selfConv: Convention.convMutates, ret: b.voidTy, params: oneParam("handle", ty: listH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.listOrigin, op: Intrinsic.intrListDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.new())
+	let poolT = tt.entries[b.poolOrigin as Count].typeParams[0]
+	let poolSelf = selfType(tt, declTy: b.poolOrigin)
+	let poolH = instantiateType(tt, origin: b.handleOrigin, args: oneArgList(poolT))
+	let optPoolT = instantiateType(tt, origin: b.optionOrigin, args: oneArgList(poolT))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolNew, name: "new", isStatic: true, selfConv: Convention.convLet, ret: poolSelf, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolContains, name: "contains", isStatic: false, selfConv: Convention.convLet, ret: b.boolTy, params: oneParam("handle", ty: poolH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolInsert, name: "insert", isStatic: false, selfConv: Convention.convMutates, ret: poolH, params: oneParam("item", ty: poolT, conv: Convention.convConsumes))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolRemove, name: "remove", isStatic: false, selfConv: Convention.convMutates, ret: optPoolT, params: oneParam("handle", ty: poolH, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.poolOrigin, op: Intrinsic.intrPoolDropEmpty, name: "dropEmpty", isStatic: false, selfConv: Convention.convConsumes, ret: b.voidTy, params: ParamSpecList.new())
+end 'declareMapListPoolMethods'
+
+function declareBytesStringSharingOs(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)
+	let bTy = b.bytesTy
+	let cTy = b.countTy
+	let boolTy = b.boolTy
+	let byteTy = b.byteTy
+	let strTy = b.stringTy
+	let voidTy = b.voidTy
+	let dropTy = b.droppableTy
+	let copyTy = b.copyableTy
+	let frozOrig = b.frozenOrigin
+	let cownOrig = b.cownOrigin
+	let arrOrig = b.arrayOrigin
+	let optOrig = b.optionOrigin
+	let exitTy = b.exitCodeTy
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesNew, name: "new", isStatic: true, selfConv: Convention.convLet, ret: bTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesCount, name: "count", isStatic: false, selfConv: Convention.convLet, ret: cTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesIsEmpty, name: "isEmpty", isStatic: false, selfConv: Convention.convLet, ret: boolTy, params: ParamSpecList.new())
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesByteAt, name: "byteAt", isStatic: false, selfConv: Convention.convLet, ret: byteTy, params: oneParam("index", ty: cTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesSetByte, name: "setByte", isStatic: false, selfConv: Convention.convMutates, ret: voidTy, params: twoParams("index", t1: cTy, c1: Convention.convLet, n2: "value", t2: byteTy, c2: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesPush, name: "push", isStatic: false, selfConv: Convention.convMutates, ret: voidTy, params: oneParam("value", ty: byteTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesAppend, name: "append", isStatic: false, selfConv: Convention.convMutates, ret: voidTy, params: oneParam("other", ty: bTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesAppendString, name: "appendString", isStatic: false, selfConv: Convention.convMutates, ret: voidTy, params: oneParam("text", ty: strTy, conv: Convention.convLet))
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: bTy, op: Intrinsic.intrBytesToString, name: "toString", isStatic: false, selfConv: Convention.convLet, ret: strTy, params: ParamSpecList.new())
+	let sCntFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteCount, name: "byteCount", generics: TypeIDList.new(), ret: cTy, params: ParamSpecList.new(), declareInStd: false)
+	ft.entries[sCntFid as Count].ownerTy = strTy
+	ft.entries[sCntFid as Count].hasReceiver = true
+	b.stringMethods.insert("byteCount", value: sCntFid)
+	let sAtFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringByteAt, name: "byteAt", generics: TypeIDList.new(), ret: byteTy, params: oneParam("index", ty: cTy, conv: Convention.convLet), declareInStd: false)
+	ft.entries[sAtFid as Count].ownerTy = strTy
+	ft.entries[sAtFid as Count].hasReceiver = true
+	b.stringMethods.insert("byteAt", value: sAtFid)
+	let sSliceFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrStringSlice, name: "slice", generics: TypeIDList.new(), ret: strTy, params: twoParams("from", t1: cTy, c1: Convention.convLet, n2: "until", t2: cTy, c2: Convention.convLet), declareInStd: false)
+	ft.entries[sSliceFid as Count].ownerTy = strTy
+	ft.entries[sSliceFid as Count].hasReceiver = true
+	b.stringMethods.insert("slice", value: sSliceFid)
+	var freezeTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	freezeTP.boundIface = dropTy
+	let freezeT = allocType(tt, e: freezeTP)
+	let frozenT = instantiateType(tt, origin: frozOrig, args: oneArgList(freezeT))
+	let fFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrFreeze, name: "freeze", generics: oneArgList(freezeT), ret: frozenT, params: oneParam("x", ty: freezeT, conv: Convention.convConsumes), declareInStd: true)
+	b.freezeFunc = fFid
+	ft.entries[fFid as Count].bounds.append(ParamBound.make(freezeT, ifaceTy: dropTy))
+	var shareTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	let shareT = allocType(tt, e: shareTP)
+	let shFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrShare, name: "share", generics: oneArgList(shareT), ret: shareT, params: oneParam("x", ty: shareT, conv: Convention.convLet), declareInStd: true)
+	b.shareFunc = shFid
+	var thawTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	thawTP.boundIface = copyTy
+	let thawT = allocType(tt, e: thawTP)
+	let frozenThawT = instantiateType(tt, origin: frozOrig, args: oneArgList(thawT))
+	let thFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrThaw, name: "thaw", generics: oneArgList(thawT), ret: thawT, params: oneParam("x", ty: frozenThawT, conv: Convention.convLet), declareInStd: true)
+	b.thawFunc = thFid
+	ft.entries[thFid as Count].bounds.append(ParamBound.make(thawT, ifaceTy: copyTy))
+	var exchTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	let exchT = allocType(tt, e: exchTP)
+	let exFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrExchange, name: "exchange", generics: oneArgList(exchT), ret: exchT, params: twoParams("place", t1: exchT, c1: Convention.convMutates, n2: "value", t2: exchT, c2: Convention.convConsumes), declareInStd: true)
+	b.exchangeFunc = exFid
+	var cownTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	cownTP.boundIface = dropTy
+	let cownT = allocType(tt, e: cownTP)
+	let cownOfT = instantiateType(tt, origin: cownOrig, args: oneArgList(cownT))
+	let cwFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrCown, name: "cown", generics: oneArgList(cownT), ret: cownOfT, params: oneParam("x", ty: cownT, conv: Convention.convConsumes), declareInStd: false)
+	b.cownNewFunc = cwFid
+	ft.entries[cwFid as Count].bounds.append(ParamBound.make(cownT, ifaceTy: dropTy))
+	var cownDWTP = TypeEntry.make(TypeKind.typeParam, name: "T")
+	let cownDWT = allocType(tt, e: cownDWTP)
+	let cownDWOfT = instantiateType(tt, origin: cownOrig, args: oneArgList(cownDWT))
+	let cwDWFid = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrCown, name: "cown", generics: oneArgList(cownDWT), ret: cownDWOfT, params: oneParam("x", ty: cownDWT, conv: Convention.convConsumes), declareInStd: false)
+	b.cownNewDropWithFunc = cwDWFid
+	let stringsArr = instantiateType(tt, origin: arrOrig, args: oneArgList(strTy))
+	let optStr = instantiateType(tt, origin: optOrig, args: oneArgList(strTy))
+	let optStrings = instantiateType(tt, origin: optOrig, args: oneArgList(stringsArr))
+	let optExit = instantiateType(tt, origin: optOrig, args: oneArgList(exitTy))
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsCliArgs, name: "cliArgs", generics: TypeIDList.new(), ret: stringsArr, params: ParamSpecList.new(), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsGetEnv, name: "getEnv", generics: TypeIDList.new(), ret: optStr, params: oneParam("name", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsReadFile, name: "readFile", generics: TypeIDList.new(), ret: optStr, params: oneParam("path", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsWriteFile, name: "writeFile", generics: TypeIDList.new(), ret: boolTy, params: twoParams("path", t1: strTy, c1: Convention.convLet, n2: "text", t2: strTy, c2: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsWriteBytes, name: "writeBytes", generics: TypeIDList.new(), ret: boolTy, params: twoParams("path", t1: strTy, c1: Convention.convLet, n2: "data", t2: bTy, c2: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsRenameFile, name: "renameFile", generics: TypeIDList.new(), ret: boolTy, params: twoParams("from", t1: strTy, c1: Convention.convLet, n2: "dest", t2: strTy, c2: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsRemoveFile, name: "removeFile", generics: TypeIDList.new(), ret: boolTy, params: oneParam("path", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsIsDir, name: "isDir", generics: TypeIDList.new(), ret: boolTy, params: oneParam("path", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsMkdir, name: "mkdir", generics: TypeIDList.new(), ret: boolTy, params: oneParam("path", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsListDir, name: "listDir", generics: TypeIDList.new(), ret: optStrings, params: oneParam("path", ty: strTy, conv: Convention.convLet), declareInStd: true)
+	_ = registerStdFunc(ft, std: std, funcMap: funcMap, op: Intrinsic.intrOsRunProcess, name: "runProcess", generics: TypeIDList.new(), ret: optExit, params: oneParam("commandLine", ty: strTy, conv: Convention.convLet), declareInStd: true)
+end 'declareBytesStringSharingOs'
+
+export function initBuiltins(mutates tt TypeTable, mutates ft FuncTable, mutates std Module) returns Builtins
+	var b = Builtins.empty()
+	var typeMap = TypeIDMap.new()
+	var funcMap = FuncIDMap.new()
+	b.boolTy = allocType(tt, e: TypeEntry.make(TypeKind.primBool, name: "bool"))
+	b.stringTy = allocType(tt, e: TypeEntry.make(TypeKind.primString, name: "String"))
+	b.voidTy = allocType(tt, e: TypeEntry.make(TypeKind.primVoid, name: "void"))
+	b.neverTy = allocType(tt, e: TypeEntry.make(TypeKind.primNever, name: "never"))
+	b.anon64Ty = internIntRange(tt, aliasName: "", minVal: I128.i64Min(), maxVal: I128.i64Max(), inferred: false)
+	b.anonU64Ty = internIntRange(tt, aliasName: "", minVal: I128.zero(), maxVal: I128.u64Max(), inferred: false)
+	let exitTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "ExitCode", lo: I128.zero(), hi: I128.fromCount(4294967295 as Count))
+	let countTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "Count", lo: I128.zero(), hi: I128.u64Max())
+	let fullTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "FullRangeInt", lo: I128.i64Min(), hi: I128.i64Max())
+	let byteTy = registerStdAlias(tt, std: std, typeMap: typeMap, name: "Byte", lo: I128.zero(), hi: I128.fromCount(255 as Count))
+	b.exitCodeTy = exitTy
+	b.countTy = countTy
+	b.fullRangeIntTy = fullTy
+	b.byteTy = byteTy
+	var emptyNames = StringList.new()
+	var tName = StringList.new()
+	tName.append("T")
+	var kvNames = StringList.new()
+	kvNames.append("K")
+	kvNames.append("V")
+	let arrOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinArray, name: "array", paramNames: tName)
+	let mapOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinMap, name: "map", paramNames: kvNames)
+	let listOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinList, name: "list", paramNames: tName)
+	let poolOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinPool, name: "pool", paramNames: tName)
+	let handleOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinHandle, name: "Handle", paramNames: tName)
+	let frozenOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinFrozen, name: "frozen", paramNames: tName)
+	let cownOrig = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinCown, name: "cown", paramNames: tName)
+	let bytesTy = registerPrimType(tt, std: std, typeMap: typeMap, kind: TypeKind.builtinBytes, name: "Bytes", paramNames: emptyNames)
+	b.arrayOrigin = arrOrig
+	b.mapOrigin = mapOrig
+	b.listOrigin = listOrig
+	b.poolOrigin = poolOrig
+	b.handleOrigin = handleOrig
+	b.frozenOrigin = frozenOrig
+	b.cownOrigin = cownOrig
+	b.bytesTy = bytesTy
+	declareOptionAndErrors(tt, ft: ft, std: std, b: b)
+	typeMap.insert("Option", value: b.optionOrigin)
+	typeMap.insert("ArithmeticError", value: b.arithErrTy)
+	typeMap.insert("Copyable", value: b.copyableTy)
+	typeMap.insert("Droppable", value: b.droppableTy)
+	declareArrayMethods(tt, ft: ft, std: std, b: b)
+	declareMapListPoolMethods(tt, ft: ft, std: std, b: b)
+	declareBytesStringSharingOs(tt, ft: ft, std: std, b: b, funcMap: funcMap)
+	b.stdlibTypeMap = typeMap
+	b.stdlibFuncMap = funcMap
+	return b
+end 'initBuiltins'

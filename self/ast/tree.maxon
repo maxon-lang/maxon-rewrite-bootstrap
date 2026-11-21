@@ -1,0 +1,231 @@
+export typealias NodeID = int(0 to 4294967295)
+
+export typealias U16 = int(0 to 65535)
+
+export typealias U32List = array with diag.U32
+
+export typealias StringList = array with String
+
+export type Record
+	export var kind as NodeKind
+	export var flags as Byte
+	export var aux as U16
+	export var start as diag.U32
+	export var a as diag.U32
+	export var b as diag.U32
+
+	export static function make(kind NodeKind, start diag.U32) returns Record
+		return Record{kind: kind, flags: 0 as Byte, aux: 0 as U16, start: start, a: 0 as diag.U32, b: 0 as diag.U32}
+	end 'make'
+end 'Record'
+
+export typealias RecordList = array with Record
+
+function isIdentByte(b Byte) returns bool
+	if b >= 65 and b <= 90 'upper'
+		return true
+	end 'upper'
+	if b >= 97 and b <= 122 'lower'
+		return true
+	end 'lower'
+	if b >= 48 and b <= 57 'digit'
+		return true
+	end 'digit'
+	return b == 95
+end 'isIdentByte'
+
+// Tree holds a module's flat AST records, list words, escaped strings, and source text.
+export type Tree
+	export var module as diag.ModuleID
+	export var text as String
+	export var records as RecordList
+	export var lists as U32List
+	export var strings as StringList
+
+	export static function new(module diag.ModuleID, consumes text String) returns Tree
+		var recs = RecordList.new()
+		recs.append(Record.make(NodeKind.none, start: 0 as diag.U32))
+		var ls = U32List.new()
+		ls.append(0 as diag.U32)
+		return Tree{module: module, text: text, records: recs, lists: ls, strings: StringList.new()}
+	end 'new'
+
+	export function alloc(mutates self, kind NodeKind, start diag.U32) returns NodeID
+		let id = try records.count() as NodeID otherwise panic("AST node count exceeded U32")
+		records.append(Record.make(kind, start: start))
+		return id
+	end 'alloc'
+
+	export function reserve(mutates self, words Count) returns diag.U32
+		let base = try lists.count() as diag.U32 otherwise panic("AST list count exceeded U32")
+		for _ in 0 upto words 'zero'
+			lists.append(0 as diag.U32)
+		end 'zero'
+		return base
+	end 'reserve'
+
+	export function pushList(mutates self, items U32List) returns diag.U32
+		let n = items.count()
+		if n == 0 'empty'
+			return 0 as diag.U32
+		end 'empty'
+		let ref = try lists.count() as diag.U32 otherwise panic("AST list count exceeded U32")
+		let n32 = try n as diag.U32 otherwise panic("AST list length exceeded U32")
+		lists.append(n32)
+		for i in 0 upto n 'each'
+			lists.append(items[i])
+		end 'each'
+		return ref
+	end 'pushList'
+
+	export function listLen(ref diag.U32) returns Count
+		if ref == 0 'empty'
+			return 0 as Count
+		end 'empty'
+		return lists[ref as Count] as Count
+	end 'listLen'
+
+	export function listAt(ref diag.U32, index Count) returns diag.U32
+		let pos = try (ref as Count) + 1 + index otherwise panic("AST list index overflow")
+		return lists[pos]
+	end 'listAt'
+
+	export function nameAt(ref diag.U32) returns String
+		if ref == 0 'empty'
+			return ""
+		end 'empty'
+		let start = (ref - 1) as Count
+		var endPos = start
+		let n = text.byteCount()
+		while endPos < n and isIdentByte(text.byteAt(endPos)) 'scan'
+			endPos = endPos + 1
+		end 'scan'
+		return text.slice(start, until: endPos)
+	end 'nameAt'
+
+	export function labelAt(ref diag.U32) returns String
+		if ref == 0 'empty'
+			return ""
+		end 'empty'
+		let start = (ref - 1) as Count
+		var endPos = start
+		let n = text.byteCount()
+		while endPos < n and text.byteAt(endPos) != 39 'scan'
+			endPos = endPos + 1
+		end 'scan'
+		return text.slice(start, until: endPos)
+	end 'labelAt'
+
+	export function kindOf(id NodeID) returns NodeKind
+		return records[id as Count].kind
+	end 'kindOf'
+
+	export function startOf(id NodeID) returns diag.U32
+		return records[id as Count].start
+	end 'startOf'
+
+	export function posOf(id NodeID) returns diag.Site
+		return diag.Site.make(module, offset: records[id as Count].start)
+	end 'posOf'
+
+	export function wordAt(id NodeID, word Count) returns diag.U32
+		if word == 0 'w0'
+			return records[id as Count].a
+		end 'w0'
+		let base = records[id as Count].b as Count
+		if word == 1 'w1'
+			return records[id as Count].b
+		end 'w1'
+		let idx = try base + (word - 1) otherwise panic("AST word index overflow")
+		return lists[idx]
+	end 'wordAt'
+
+	export function setWordAt(mutates self, id NodeID, word Count, value diag.U32)
+		if word == 0 'w0'
+			records[id as Count].a = value
+			return
+		end 'w0'
+		let idx = try (records[id as Count].b as Count) + (word - 1) otherwise panic("AST word index overflow")
+		lists[idx] = value
+	end 'setWordAt'
+
+	export function blockWordAt(id NodeID, offset Count) returns diag.U32
+		let idx = try (records[id as Count].b as Count) + offset otherwise panic("AST block index overflow")
+		return lists[idx]
+	end 'blockWordAt'
+
+	export function setBlockWordAt(mutates self, id NodeID, offset Count, value diag.U32)
+		let idx = try (records[id as Count].b as Count) + offset otherwise panic("AST block index overflow")
+		lists[idx] = value
+	end 'setBlockWordAt'
+
+	export function addString(mutates self, consumes s String) returns diag.U32
+		let idx = try strings.count() as diag.U32 otherwise panic("AST string count overflow")
+		strings.append(s)
+		return idx
+	end 'addString'
+
+	export function strPartCount(partsRef diag.U32) returns Count
+		let words = self.listLen(partsRef)
+		return words / 2
+	end 'strPartCount'
+
+	export function strPartIsExpr(partsRef diag.U32, index Count) returns bool
+		let tag = self.listAt(partsRef, index: try index * 2 otherwise panic("strPart index"))
+		return tag == 0
+	end 'strPartIsExpr'
+
+	export function strPartExpr(partsRef diag.U32, index Count) returns NodeID
+		let arg = self.listAt(partsRef, index: try index * 2 + 1 otherwise panic("strPart index"))
+		return arg as NodeID
+	end 'strPartExpr'
+
+	export function strPartText(partsRef diag.U32, index Count) returns String
+		let base = try index * 2 otherwise panic("strPart index")
+		let tag = self.listAt(partsRef, index: base)
+		let arg = self.listAt(partsRef, index: try base + 1 otherwise panic("strPart index"))
+		if tag == 1 'decoded'
+			return strings[arg as Count].copy()
+		end 'decoded'
+		let n = try (tag - 2) as Count otherwise panic("strPart raw tag")
+		let off = arg as Count
+		return text.slice(off, until: try off + n otherwise panic("strPart slice overflow"))
+	end 'strPartText'
+
+	export function strIsPlain(partsRef diag.U32) returns bool
+		let n = self.strPartCount(partsRef)
+		for i in 0 upto n 'chk'
+			if self.strPartIsExpr(partsRef, index: i) 'expr'
+				return false
+			end 'expr'
+		end 'chk'
+		return true
+	end 'strIsPlain'
+
+	export function becomeName(mutates self, target NodeID, head NodeID)
+		let nameRef = records[target as Count].b
+		let headStart = records[head as Count].start
+		var rec = Record.make(NodeKind.nameExpr, start: headStart)
+		rec.a = nameRef
+		records[target as Count] = rec
+	end 'becomeName'
+
+	export function appendCaptureRefs(mutates self, useNode NodeID, depth Count)
+		let first = try records.count() as diag.U32 otherwise panic("AST node count overflow")
+		let nRef = records[useNode as Count].a
+		let st = records[useNode as Count].start
+		for _ in 0 upto depth 'cap'
+			let cID = self.alloc(NodeKind.nameExpr, start: st)
+			records[cID as Count].a = nRef
+		end 'cap'
+		records[useNode as Count].b = first
+	end 'appendCaptureRefs'
+
+	export function captureRef(useNode NodeID, depth Count) returns NodeID
+		let first = records[useNode as Count].b
+		if first == 0 'miss'
+			panic("missing capture ref")
+		end 'miss'
+		return try (first + (depth as diag.U32)) as NodeID otherwise panic("capture ref overflow")
+	end 'captureRef'
+end 'Tree'

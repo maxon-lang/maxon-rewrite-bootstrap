@@ -19,6 +19,9 @@ func TestEncodings(t *testing.T) {
 		{"load through rsp needs a SIB", func(a *Asm) { a.Load(Rax, Rsp, 8) }, "488b442408"},
 		{"load through rbp needs a displacement", func(a *Asm) { a.Load(Rax, Rbp, 0) }, "488b4500"},
 		{"store through r12, disp32", func(a *Asm) { a.Store(R12, 0x100, Rax) }, "4989842400010000"},
+		{"store byte cl through rax", func(a *Asm) { a.StoreByte(Rax, 0, Rcx) }, "8808"},
+		{"store byte sil through rax", func(a *Asm) { a.StoreByte(Rax, 0, Rsi) }, "408830"},
+		{"store byte r12b through r8", func(a *Asm) { a.StoreByte(R8, 0, R12) }, "458820"},
 	}
 	for _, c := range cases {
 		a := &Asm{}

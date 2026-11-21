@@ -1,0 +1,7 @@
+// expect-exit: 1
+
+function main() returns ExitCode
+	let b = Bytes.new()
+	_ = b.byteAt(0)
+	return 0
+end 'main'

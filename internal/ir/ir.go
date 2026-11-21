@@ -359,6 +359,10 @@ type IrFunction struct {
 	Refusals []Refusal
 	// UsesArrays is whether the function calls an array entry, which the backend then links the array runtime for.
 	UsesArrays bool
+	// UsesBytes is whether the function calls a Bytes entry, which the backend then links the bytes runtime for.
+	UsesBytes bool
+	// UsesOs is whether the function calls an OS entry, which the backend then links the OS runtime for.
+	UsesOs bool
 	// Behaviours are the bodies of the `when` statements in the function, in source order. A `when` in one of them has its
 	// body in that one.
 	Behaviours []*IrFunction

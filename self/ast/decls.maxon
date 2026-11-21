@@ -1,0 +1,392 @@
+export typealias DeclOrdinal = int(0 to 4294967295)
+
+export enum DeclKind
+	funcDecl
+	constDecl
+	typeDecl
+	enumDecl
+	unionDecl
+	aliasDecl
+	interfaceDecl
+end 'DeclKind'
+
+export type DeclRef
+	export var module as diag.ModuleID
+	export var ordinal as DeclOrdinal
+
+	export static function make(module diag.ModuleID, ordinal DeclOrdinal) returns DeclRef
+		return DeclRef{module: module, ordinal: ordinal}
+	end 'make'
+end 'DeclRef'
+
+export type Param
+	export var id as NodeID
+	export var convention as String
+	export var name as String
+	export var typeRef as NodeID
+
+	export static function make(id NodeID, consumes convention String, consumes name String, typeRef NodeID) returns Param
+		return Param{id: id, convention: convention, name: name, typeRef: typeRef}
+	end 'make'
+end 'Param'
+
+export typealias ParamList = array with Param
+
+export type TypeParam
+	export var id as NodeID
+	export var name as String
+
+	export static function make(id NodeID, consumes name String) returns TypeParam
+		return TypeParam{id: id, name: name}
+	end 'make'
+end 'TypeParam'
+
+export typealias TypeParamList = array with TypeParam
+
+export type Constraint
+	export var id as NodeID
+	export var paramName as String
+	export var bounds as U32List
+
+	export static function make(id NodeID, consumes paramName String, consumes bounds U32List) returns Constraint
+		return Constraint{id: id, paramName: paramName, bounds: bounds}
+	end 'make'
+end 'Constraint'
+
+export typealias ConstraintList = array with Constraint
+
+export type FieldDecl
+	export var id as NodeID
+	export var visibility as String
+	export var isVar as bool
+	export var name as String
+	export var typeRef as NodeID
+	export var defaultExpr as NodeID
+
+	export static function make(id NodeID, consumes visibility String, isVar bool, consumes name String, typeRef NodeID, defaultExpr NodeID) returns FieldDecl
+		return FieldDecl{id: id, visibility: visibility, isVar: isVar, name: name, typeRef: typeRef, defaultExpr: defaultExpr}
+	end 'make'
+end 'FieldDecl'
+
+export typealias FieldDeclList = array with FieldDecl
+
+export type EnumCaseDecl
+	export var id as NodeID
+	export var name as String
+	export var rawExpr as NodeID
+
+	export static function make(id NodeID, consumes name String, rawExpr NodeID) returns EnumCaseDecl
+		return EnumCaseDecl{id: id, name: name, rawExpr: rawExpr}
+	end 'make'
+end 'EnumCaseDecl'
+
+export typealias EnumCaseList = array with EnumCaseDecl
+
+export type UnionCaseDecl
+	export var id as NodeID
+	export var name as String
+	export var fields as ParamList
+
+	export static function make(id NodeID, consumes name String, consumes fields ParamList) returns UnionCaseDecl
+		return UnionCaseDecl{id: id, name: name, fields: fields}
+	end 'make'
+end 'UnionCaseDecl'
+
+export typealias UnionCaseList = array with UnionCaseDecl
+
+export type FuncSig
+	export var id as NodeID
+	export var name as String
+	export var receiver as String
+	export var params as ParamList
+	export var returnsRef as NodeID
+	export var throwsRef as NodeID
+
+	export static function make(id NodeID, consumes name String, consumes receiver String, consumes params ParamList, returnsRef NodeID, throwsRef NodeID) returns FuncSig
+		return FuncSig{id: id, name: name, receiver: receiver, params: params, returnsRef: returnsRef, throwsRef: throwsRef}
+	end 'make'
+end 'FuncSig'
+
+export typealias FuncSigList = array with FuncSig
+
+export type FuncDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var isStatic as bool
+	export var name as String
+	export var receiver as String
+	export var params as ParamList
+	export var typeParams as TypeParamList
+	export var returnsRef as NodeID
+	export var throwsRef as NodeID
+	export var constraints as ConstraintList
+	export var bodyRef as diag.U32
+	export var endLabel as NodeID
+
+	export static function make(id NodeID, consumes visibility String, isStatic bool, consumes name String, consumes receiver String, consumes params ParamList, consumes typeParams TypeParamList, returnsRef NodeID, throwsRef NodeID, consumes constraints ConstraintList, bodyRef diag.U32, endLabel NodeID) returns FuncDecl
+		return FuncDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, isStatic: isStatic, name: name, receiver: receiver, params: params, typeParams: typeParams, returnsRef: returnsRef, throwsRef: throwsRef, constraints: constraints, bodyRef: bodyRef, endLabel: endLabel}
+	end 'make'
+end 'FuncDecl'
+
+export typealias FuncDeclList = array with FuncDecl
+
+export type ConstDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var valueExpr as NodeID
+
+	export static function make(id NodeID, consumes visibility String, consumes name String, valueExpr NodeID) returns ConstDecl
+		return ConstDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, valueExpr: valueExpr}
+	end 'make'
+end 'ConstDecl'
+
+export type TypeDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var isNoncopyable as bool
+	export var typeParams as TypeParamList
+	export var conforms as U32List
+	export var constraints as ConstraintList
+	export var fields as FieldDeclList
+	export var methods as FuncDeclList
+	export var endLabel as NodeID
+
+	export static function make(id NodeID, consumes visibility String, consumes name String, isNoncopyable bool, consumes typeParams TypeParamList, consumes conforms U32List, consumes constraints ConstraintList, consumes fields FieldDeclList, consumes methods FuncDeclList, endLabel NodeID) returns TypeDecl
+		return TypeDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, fields: fields, methods: methods, endLabel: endLabel}
+	end 'make'
+end 'TypeDecl'
+
+export type EnumDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var conforms as U32List
+	export var cases as EnumCaseList
+	export var methods as FuncDeclList
+	export var endLabel as NodeID
+
+	export static function make(id NodeID, consumes visibility String, consumes name String, consumes conforms U32List, consumes cases EnumCaseList, consumes methods FuncDeclList, endLabel NodeID) returns EnumDecl
+		return EnumDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, conforms: conforms, cases: cases, methods: methods, endLabel: endLabel}
+	end 'make'
+end 'EnumDecl'
+
+export type UnionDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var isNoncopyable as bool
+	export var typeParams as TypeParamList
+	export var conforms as U32List
+	export var constraints as ConstraintList
+	export var cases as UnionCaseList
+	export var methods as FuncDeclList
+	export var endLabel as NodeID
+
+	export static function make(id NodeID, consumes visibility String, consumes name String, isNoncopyable bool, consumes typeParams TypeParamList, consumes conforms U32List, consumes constraints ConstraintList, consumes cases UnionCaseList, consumes methods FuncDeclList, endLabel NodeID) returns UnionDecl
+		return UnionDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isNoncopyable: isNoncopyable, typeParams: typeParams, conforms: conforms, constraints: constraints, cases: cases, methods: methods, endLabel: endLabel}
+	end 'make'
+end 'UnionDecl'
+
+export type Bound
+	export var id as NodeID
+	export var negative as bool
+	export var isSized as bool
+	export var sizedName as String
+	export var limitName as String
+	export var value as I128
+
+	export static function makeInt(id NodeID, negative bool, consumes value I128) returns Bound
+		return Bound{id: id, negative: negative, isSized: false, sizedName: "", limitName: "", value: value}
+	end 'makeInt'
+
+	export static function makeSized(id NodeID, negative bool, consumes sizedName String, consumes limitName String) returns Bound
+		return Bound{id: id, negative: negative, isSized: true, sizedName: sizedName, limitName: limitName, value: I128.fromCount(0 as Count)}
+	end 'makeSized'
+end 'Bound'
+
+export type AliasDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var isRange as bool
+	export var inclusive as bool
+	export var low as Bound
+	export var high as Bound
+	export var instanceRef as NodeID
+
+	export static function makeRange(id NodeID, consumes visibility String, consumes name String, inclusive bool, consumes low Bound, consumes high Bound) returns AliasDecl
+		return AliasDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isRange: true, inclusive: inclusive, low: low, high: high, instanceRef: 0 as NodeID}
+	end 'makeRange'
+
+	export static function makeInstance(id NodeID, consumes visibility String, consumes name String, instanceRef NodeID) returns AliasDecl
+		let zero = Bound.makeInt(0 as NodeID, negative: false, value: I128.fromCount(0 as Count))
+		return AliasDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isRange: false, inclusive: false, low: zero.copy(), high: zero, instanceRef: instanceRef}
+	end 'makeInstance'
+end 'AliasDecl'
+
+export type InterfaceDecl
+	export var id as NodeID
+	export var ordinal as DeclOrdinal
+	export var visibility as String
+	export var name as String
+	export var methods as FuncSigList
+	export var endLabel as NodeID
+
+	export static function make(id NodeID, consumes visibility String, consumes name String, consumes methods FuncSigList, endLabel NodeID) returns InterfaceDecl
+		return InterfaceDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, methods: methods, endLabel: endLabel}
+	end 'make'
+end 'InterfaceDecl'
+
+export union Decl
+	funcDecl(value FuncDecl)
+	constDecl(value ConstDecl)
+	typeDecl(value TypeDecl)
+	enumDecl(value EnumDecl)
+	unionDecl(value UnionDecl)
+	aliasDecl(value AliasDecl)
+	interfaceDecl(value InterfaceDecl)
+
+	export function name() returns String
+		return match self 'd'
+			funcDecl(v) gives v.name.copy()
+			constDecl(v) gives v.name.copy()
+			typeDecl(v) gives v.name.copy()
+			enumDecl(v) gives v.name.copy()
+			unionDecl(v) gives v.name.copy()
+			aliasDecl(v) gives v.name.copy()
+			interfaceDecl(v) gives v.name.copy()
+		end 'd'
+	end 'name'
+
+	export function visibility() returns String
+		return match self 'd'
+			funcDecl(v) gives v.visibility.copy()
+			constDecl(v) gives v.visibility.copy()
+			typeDecl(v) gives v.visibility.copy()
+			enumDecl(v) gives v.visibility.copy()
+			unionDecl(v) gives v.visibility.copy()
+			aliasDecl(v) gives v.visibility.copy()
+			interfaceDecl(v) gives v.visibility.copy()
+		end 'd'
+	end 'visibility'
+
+	export function nodeID() returns NodeID
+		return match self 'd'
+			funcDecl(v) gives v.id
+			constDecl(v) gives v.id
+			typeDecl(v) gives v.id
+			enumDecl(v) gives v.id
+			unionDecl(v) gives v.id
+			aliasDecl(v) gives v.id
+			interfaceDecl(v) gives v.id
+		end 'd'
+	end 'nodeID'
+
+	export function isExported() returns bool
+		return self.visibility() == "export"
+	end 'isExported'
+
+	export function isType() returns bool
+		return match self 'd'
+			funcDecl(_) gives false
+			constDecl(_) gives false
+			typeDecl(_) gives true
+			enumDecl(_) gives true
+			unionDecl(_) gives true
+			aliasDecl(_) gives true
+			interfaceDecl(_) gives true
+		end 'd'
+	end 'isType'
+
+	export function offset(t Tree) returns diag.U32
+		let id = self.nodeID() as Count
+		return t.records[id].start
+	end 'offset'
+end 'Decl'
+
+export typealias DeclList = array with Decl
+
+export typealias DeclIndex = table.StringMap with DeclOrdinal
+
+export type FileSpan
+	export var path as String
+	export var start as diag.U32
+	export var endOff as diag.U32
+
+	export static function make(consumes path String, start diag.U32, endOff diag.U32) returns FileSpan
+		return FileSpan{path: path, start: start, endOff: endOff}
+	end 'make'
+end 'FileSpan'
+
+export typealias FileSpanList = array with FileSpan
+
+export type Module
+	export var id as diag.ModuleID
+	export var path as String
+	export var dir as String
+	export var filePaths as StringList
+	export var childNames as StringList
+	export var childIDs as array with diag.ModuleID
+	export var files as FileSpanList
+	export var tree as Tree
+	export var decls as DeclList
+	export var names as DeclIndex
+
+	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
+		return Module{id: id, path: path, dir: "", filePaths: StringList.new(), childNames: StringList.new(), childIDs: array.new(), files: files, tree: Tree.new(id, text: text), decls: DeclList.new(), names: DeclIndex.new()}
+	end 'new'
+
+	export function display() returns String
+		if id == diag.stdlibID 'std'
+			return "<stdlib>"
+		end 'std'
+		if path == "" 'rt'
+			return "root module"
+		end 'rt'
+		return path.copy()
+	end 'display'
+
+	export function findChild(name String) returns Option with diag.ModuleID
+		for i in 0 upto childNames.count() 'each'
+			if childNames[i] == name 'hit'
+				return Option.some(childIDs[i])
+			end 'hit'
+		end 'each'
+		return Option.none
+	end 'findChild'
+
+	export function appendRawDecl(mutates self, consumes d Decl)
+		decls.append(d)
+	end 'appendRawDecl'
+
+	export function indexDecl(mutates self, ord DeclOrdinal) returns Option with DeclOrdinal
+		let n = decls[ord as Count].name()
+		let prev = names.get(n)
+		match prev 'dup'
+			some(_) then return prev
+			none then names.insert(n, value: ord)
+		end 'dup'
+		return Option.none
+	end 'indexDecl'
+
+	export function declare(mutates self, consumes d Decl) returns bool
+		let n = d.name()
+		if names.has(n) 'dup'
+			return false
+		end 'dup'
+		let ord = try decls.count() as DeclOrdinal otherwise panic("too many declarations")
+		names.insert(n, value: ord)
+		decls.append(d)
+		return true
+	end 'declare'
+end 'Module'
+
+export typealias ModuleList = array with Module

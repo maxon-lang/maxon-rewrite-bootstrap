@@ -1,0 +1,199 @@
+export typealias DeclRefList = array with DeclRef
+
+export type ConstValue
+	export var ty as TypeID
+	export var isBool as bool
+	export var boolVal as bool
+	export var isStr as bool
+	export var strVal as String
+	export var intVal as I128
+
+	export static function makeInt(ty TypeID, consumes v I128) returns ConstValue
+		return ConstValue{ty: ty, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: v}
+	end 'makeInt'
+
+	export static function makeBool(ty TypeID, v bool) returns ConstValue
+		return ConstValue{ty: ty, isBool: true, boolVal: v, isStr: false, strVal: "", intVal: I128.zero()}
+	end 'makeBool'
+
+	export static function makeString(ty TypeID, consumes v String) returns ConstValue
+		return ConstValue{ty: ty, isBool: false, boolVal: false, isStr: true, strVal: v, intVal: I128.zero()}
+	end 'makeString'
+end 'ConstValue'
+
+export function declKey(ref DeclRef) returns Count
+	let m = (ref.module + 1) as Count
+	return (try m shl 32 otherwise 0 as Count) or (ref.ordinal as Count)
+end 'declKey'
+
+export function nodeKey(module diag.ModuleID, node NodeID) returns Count
+	let m = (module + 1) as Count
+	return (try m shl 32 otherwise 0 as Count) or (node as Count)
+end 'nodeKey'
+
+export function modIndex(m diag.ModuleID) returns Count
+	if m < 0 'neg'
+		panic("negative ModuleID")
+	end 'neg'
+	return m as Count
+end 'modIndex'
+
+export typealias DeclTypeMap = table.IntMap with TypeID
+
+export typealias DeclFuncMap = table.IntMap with FuncID
+
+export typealias NodeFuncMap = table.IntMap with FuncID
+
+export typealias DeclConstMap = table.IntMap with ConstValue
+
+export typealias PathModMap = table.StringMap with diag.ModuleID
+
+export typealias NameDeclsMap = table.StringMap with DeclRefList
+
+export type Project
+	export var root as String
+	export var rootModule as diag.ModuleID
+	export var modules as ModuleList
+	export var stdlib as Module
+	export var byPath as PathModMap
+	export var byName as NameDeclsMap
+	export var types as TypeTable
+	export var funcs as FuncTable
+	export var builtins as Builtins
+	export var resolutions as array with Resolution
+	export var typings as array with Typing
+	export var declTypes as DeclTypeMap
+	export var declFuncs as DeclFuncMap
+	export var nodeFuncs as NodeFuncMap
+	export var declConsts as DeclConstMap
+
+	export static function new(consumes root String) returns Project
+		var tt = TypeTable.new()
+		var ft = FuncTable.new()
+		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.new())
+		let bs = initBuiltins(tt, ft: ft, std: std)
+		let bp = PathModMap.new()
+		let bn = NameDeclsMap.new()
+		let dtm = DeclTypeMap.new()
+		let dfm = DeclFuncMap.new()
+		let nfm = NodeFuncMap.new()
+		let dcm = DeclConstMap.new()
+		var p = Project{root: root, rootModule: 0 as diag.ModuleID, modules: ModuleList.new(), stdlib: std, byPath: bp, byName: bn, types: tt, funcs: ft, builtins: bs, resolutions: array.new(), typings: array.new(), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
+		for i in 0 upto p.stdlib.decls.count() 'stdReg'
+			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
+			let ref = DeclRef.make(diag.stdlibID, ordinal: ord)
+			let name = p.stdlib.decls[i].name()
+			match p.builtins.stdlibTypeMap.get(name) 'tm'
+				some(tid) then p.declTypes.insert(declKey(ref), value: tid)
+				none then _ = 0
+			end 'tm'
+			match p.builtins.stdlibFuncMap.get(name) 'fm'
+				some(fid) then p.declFuncs.insert(declKey(ref), value: fid)
+				none then _ = 0
+			end 'fm'
+		end 'stdReg'
+		return p
+	end 'new'
+end 'Project'
+
+export function addModule(mutates p Project, consumes m Module) returns diag.ModuleID
+	let id = try p.modules.count() as diag.ModuleID otherwise panic("too many modules")
+	var copyM = m
+	copyM.id = id
+	copyM.tree.module = id
+	p.byPath.insert(copyM.path, value: id)
+	p.modules.append(copyM)
+	p.resolutions.append(Resolution.new(id))
+	p.typings.append(Typing.new(id))
+	return id
+end 'addModule'
+
+export function addGlobalDecl(mutates p Project, consumes name String, consumes ref DeclRef)
+	match consumes p.byName.get(name) 'hit'
+		some(list) then beginUpdate(p, name: name, cur: list, ref: ref)
+		none then insertFirstGlobal(p, name: name, ref: ref)
+	end 'hit'
+end 'addGlobalDecl'
+
+function beginUpdate(mutates p Project, consumes name String, consumes cur DeclRefList, consumes ref DeclRef)
+	var xs = cur
+	xs.append(ref)
+	p.byName.insert(name, value: xs)
+end 'beginUpdate'
+
+function insertFirstGlobal(mutates p Project, consumes name String, consumes ref DeclRef)
+	var xs = DeclRefList.new()
+	xs.append(ref)
+	p.byName.insert(name, value: xs)
+end 'insertFirstGlobal'
+
+export function moduleDecl(p Project, ref DeclRef) returns Decl
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].copy()
+	end 'std'
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].copy()
+end 'moduleDecl'
+
+function joinWithComma(items StringList) returns String
+	var b = Bytes.new()
+	for i in 0 upto items.count() 'each'
+		if i > 0 'sep'
+			b.appendString(",")
+		end 'sep'
+		b.appendString(items[i])
+	end 'each'
+	return b.toString()
+end 'joinWithComma'
+
+export function typeArgsLinkPart(tt TypeTable, args TypeIDList) returns String
+	var parts = StringList.new()
+	for i in 0 upto args.count() 'each'
+		parts.append(typeLinkName(tt, t: args[i]))
+	end 'each'
+	return joinWithComma(parts)
+end 'typeArgsLinkPart'
+
+export function typeLinkName(tt TypeTable, t TypeID) returns String
+	if t == noType 'none'
+		return "<invalid>"
+	end 'none'
+	let orig = tt.entries[t as Count].effectiveOrigin()
+	let baseName = tt.entries[orig as Count].name.copy()
+	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
+		let argStr = typeArgsLinkPart(tt, args: tt.entries[t as Count].typeArgs)
+		return "{baseName}[{argStr}]"
+	end 'inst'
+	return baseName
+end 'typeLinkName'
+
+export function funcLinkName(p Project, fid FuncID) returns String
+	let fnName = p.funcs.entries[fid as Count].name.copy()
+	let modID = p.funcs.entries[fid as Count].module
+	var base = ""
+	if p.funcs.entries[fid as Count].ownerTy != noType 'meth'
+		let oName = typeLinkName(p.types, t: p.funcs.entries[fid as Count].ownerTy)
+		if p.funcs.entries[fid as Count].isDestructor 'dtor'
+			base = "{oName}::~{fnName}"
+		end 'dtor' else 'plainMeth'
+			base = "{oName}::{fnName}"
+		end 'plainMeth'
+	end 'meth' else 'free'
+		if modID == diag.stdlibID 'std'
+			base = "stdlib::{fnName}"
+		end 'std' else if p.funcs.entries[fid as Count].isExtern 'ext'
+			return fnName
+		end 'ext' else 'user'
+			let mp = p.modules[modID as Count].path.copy()
+			if mp == "" 'rt'
+				base = fnName
+			end 'rt' else 'sub'
+				base = "{mp}::{fnName}"
+			end 'sub'
+		end 'user'
+	end 'free'
+	if p.funcs.entries[fid as Count].typeArgs.count() > 0 'inst'
+		let argsPart = typeArgsLinkPart(p.types, args: p.funcs.entries[fid as Count].typeArgs)
+		return "{base}[{argsPart}]"
+	end 'inst'
+	return base
+end 'funcLinkName'

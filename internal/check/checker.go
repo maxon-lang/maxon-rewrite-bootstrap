@@ -1637,6 +1637,11 @@ func (c *Checker) VisitCallExpr(call ast.CallExpr) ast.Ty {
 				return c.callFunction(call, ast.CallMethod, method, recv.Base().Args)
 			}
 		}
+		if content == ast.StringTy {
+			if method, found := c.project.Builtins.StringMethods[m.Name()]; found {
+				return c.callFunction(call, ast.CallMethod, method, nil)
+			}
+		}
 		panic(call.Error(diag.ErrUnknownFunction, fmt.Sprintf("%s has no method '%s'", rt.Name(), m.Name())))
 	}
 

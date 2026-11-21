@@ -669,6 +669,7 @@ func (vm *vm) free(o *object) {
 		for _, c := range o.elems {
 			vm.freeCell(c)
 		}
+	case kindBytes:
 	case kindMap:
 		for _, e := range o.mapped.entries {
 			vm.freeCell(&e.key)

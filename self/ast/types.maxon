@@ -1,0 +1,727 @@
+export typealias TypeID = int(0 to 2147483647)
+
+export typealias TypeIDList = array with TypeID
+
+export typealias FuncID = int(0 to 2147483647)
+
+export typealias FuncIDList = array with FuncID
+
+export typealias LocalID = int(0 to 2147483647)
+
+export typealias LocalIDList = array with LocalID
+
+export let noType = 0 as TypeID
+
+export let noFunc = 0 as FuncID
+
+export let noLocal = 0 as LocalID
+
+export let maxTypeDepth = 16 as Count
+
+export enum TypeKind
+	invalid
+	primBool
+	primString
+	primVoid
+	primNever
+	intRange
+	constInt
+	record
+	enumTy
+	unionTy
+	builtinArray
+	builtinMap
+	builtinList
+	builtinPool
+	builtinHandle
+	builtinFrozen
+	builtinCown
+	builtinBytes
+	typeParam
+	interfaceTy
+
+	export function isBuiltin() returns bool
+		return match self 'k'
+			builtinArray gives true
+			builtinMap gives true
+			builtinList gives true
+			builtinPool gives true
+			builtinHandle gives true
+			builtinFrozen gives true
+			builtinCown gives true
+			builtinBytes gives true
+			invalid gives false
+			primBool gives false
+			primString gives false
+			primVoid gives false
+			primNever gives false
+			intRange gives false
+			constInt gives false
+			record gives false
+			enumTy gives false
+			unionTy gives false
+			typeParam gives false
+			interfaceTy gives false
+		end 'k'
+	end 'isBuiltin'
+end 'TypeKind'
+
+export enum Convention
+	convLet
+	convMutates
+	convSets
+	convConsumes
+	convDestructs
+
+	export function keyword() returns String
+		return match self 'c'
+			convLet gives "let"
+			convMutates gives "mutates"
+			convSets gives "sets"
+			convConsumes gives "consumes"
+			convDestructs gives "destructs"
+		end 'c'
+	end 'keyword'
+end 'Convention'
+
+export function parseConvention(kw String) returns Convention
+	if kw == "mutates" 'm'
+		return Convention.convMutates
+	end 'm'
+	if kw == "sets" 's'
+		return Convention.convSets
+	end 's'
+	if kw == "consumes" 'c'
+		return Convention.convConsumes
+	end 'c'
+	if kw == "destructs" 'd'
+		return Convention.convDestructs
+	end 'd'
+	return Convention.convLet
+end 'parseConvention'
+
+export enum Intrinsic
+	intrNone
+	intrArrayNew
+	intrArrayFilled
+	intrArrayCount
+	intrArrayIsEmpty
+	intrArrayAppend
+	intrArrayInsert
+	intrArrayRemove
+	intrArrayPop
+	intrArrayDropEmpty
+	intrMapNew
+	intrMapCount
+	intrMapIsEmpty
+	intrMapHas
+	intrMapInsert
+	intrMapRemove
+	intrMapReplace
+	intrMapDropEmpty
+	intrListNew
+	intrListCount
+	intrListIsEmpty
+	intrListContains
+	intrListPushFront
+	intrListPushBack
+	intrListPopFront
+	intrListPopBack
+	intrListFirst
+	intrListLast
+	intrListNext
+	intrListPrev
+	intrListRemove
+	intrListMoveToFront
+	intrListDropEmpty
+	intrPoolNew
+	intrPoolCount
+	intrPoolIsEmpty
+	intrPoolContains
+	intrPoolInsert
+	intrPoolRemove
+	intrPoolDropEmpty
+	intrOptionIsSome
+	intrOptionUnwrap
+	intrFreeze
+	intrShare
+	intrThaw
+	intrCown
+	intrExchange
+	intrStringByteCount
+	intrStringByteAt
+	intrStringSlice
+	intrBytesNew
+	intrBytesCount
+	intrBytesIsEmpty
+	intrBytesByteAt
+	intrBytesSetByte
+	intrBytesPush
+	intrBytesAppend
+	intrBytesAppendString
+	intrBytesToString
+	intrOsCliArgs
+	intrOsGetEnv
+	intrOsReadFile
+	intrOsWriteFile
+	intrOsWriteBytes
+	intrOsRenameFile
+	intrOsRemoveFile
+	intrOsIsDir
+	intrOsMkdir
+	intrOsListDir
+	intrOsRunProcess
+	intrPrint
+	intrPrintError
+end 'Intrinsic'
+
+export type FieldInfo
+	export var name as String
+	export var ty as TypeID
+	export var isVar as bool
+	export var exported as bool
+	export var hasDefault as bool
+	export var defaultExpr as NodeID
+	export var index as Count
+
+	export static function make(consumes name String, ty TypeID, isVar bool, exported bool, hasDefault bool, defaultExpr NodeID, index Count) returns FieldInfo
+		return FieldInfo{name: name, ty: ty, isVar: isVar, exported: exported, hasDefault: hasDefault, defaultExpr: defaultExpr, index: index}
+	end 'make'
+end 'FieldInfo'
+
+export typealias FieldInfoList = array with FieldInfo
+
+export type CaseFieldInfo
+	export var name as String
+	export var ty as TypeID
+
+	export static function make(consumes name String, ty TypeID) returns CaseFieldInfo
+		return CaseFieldInfo{name: name, ty: ty}
+	end 'make'
+end 'CaseFieldInfo'
+
+export typealias CaseFieldList = array with CaseFieldInfo
+
+export type CaseInfo
+	export var name as String
+	export var payload as CaseFieldList
+	export var hasRaw as bool
+	export var rawValue as I128
+
+	export static function make(consumes name String, consumes payload CaseFieldList, hasRaw bool, consumes rawValue I128) returns CaseInfo
+		return CaseInfo{name: name, payload: payload, hasRaw: hasRaw, rawValue: rawValue}
+	end 'make'
+end 'CaseInfo'
+
+export typealias CaseInfoList = array with CaseInfo
+
+export type ParamSpec
+	export var name as String
+	export var ty as TypeID
+	export var conv as Convention
+
+	export static function make(consumes name String, ty TypeID, conv Convention) returns ParamSpec
+		return ParamSpec{name: name, ty: ty, conv: conv}
+	end 'make'
+end 'ParamSpec'
+
+export typealias ParamSpecList = array with ParamSpec
+
+export type ParamBound
+	export var paramTy as TypeID
+	export var ifaceTy as TypeID
+
+	export static function make(paramTy TypeID, ifaceTy TypeID) returns ParamBound
+		return ParamBound{paramTy: paramTy, ifaceTy: ifaceTy}
+	end 'make'
+end 'ParamBound'
+
+export typealias ParamBoundList = array with ParamBound
+
+export type MethodRef
+	export var name as String
+	export var func as FuncID
+
+	export static function make(consumes name String, func FuncID) returns MethodRef
+		return MethodRef{name: name, func: func}
+	end 'make'
+end 'MethodRef'
+
+export typealias MethodRefList = array with MethodRef
+
+export type TypeEntry
+	export var id as TypeID
+	export var kind as TypeKind
+	export var name as String
+	export var inferred as bool
+	export var minVal as I128
+	export var maxVal as I128
+	export var hasDecl as bool
+	export var decl as DeclRef
+	export var isNoncopyable as bool
+	export var origin as TypeID
+	export var declaring as bool
+	export var typeParams as TypeIDList
+	export var typeArgs as TypeIDList
+	export var conforms as TypeIDList
+	export var bounds as ParamBoundList
+	export var fields as FieldInfoList
+	export var cases as CaseInfoList
+	export var hasExplicitRaw as bool
+	export var methods as MethodRefList
+	export var sigs as FuncIDList
+	export var boundIface as TypeID
+	export var dropFunc as FuncID
+
+	export static function make(kind TypeKind, consumes name String) returns TypeEntry
+		let z = I128.zero()
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.copy(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.new(), typeArgs: TypeIDList.new(), conforms: TypeIDList.new(), bounds: ParamBoundList.new(), fields: FieldInfoList.new(), cases: CaseInfoList.new(), hasExplicitRaw: false, methods: MethodRefList.new(), sigs: FuncIDList.new(), boundIface: noType, dropFunc: noFunc}
+	end 'make'
+
+	export function findMethod(methodName String) returns Option with FuncID
+		for i in 0 upto methods.count() 'each'
+			if methods[i].name == methodName 'hit'
+				return Option.some(methods[i].func)
+			end 'hit'
+		end 'each'
+		return Option.none
+	end 'findMethod'
+
+	export function findField(fieldName String) returns Option with Count
+		for i in 0 upto fields.count() 'each'
+			if fields[i].name == fieldName 'hit'
+				return Option.some(i)
+			end 'hit'
+		end 'each'
+		return Option.none
+	end 'findField'
+
+	export function findCase(caseName String) returns Option with Count
+		for i in 0 upto cases.count() 'each'
+			if cases[i].name == caseName 'hit'
+				return Option.some(i)
+			end 'hit'
+		end 'each'
+		return Option.none
+	end 'findCase'
+
+	export function effectiveOrigin() returns TypeID
+		if origin != noType 'inst'
+			return origin
+		end 'inst'
+		return id
+	end 'effectiveOrigin'
+end 'TypeEntry'
+
+export typealias TypeEntryList = array with TypeEntry
+
+export type FuncEntry
+	export var id as FuncID
+	export var name as String
+	export var visibility as String
+	export var hasDecl as bool
+	export var decl as DeclRef
+	export var module as diag.ModuleID
+	export var nodeID as NodeID
+	export var isStatic as bool
+	export var isDestructor as bool
+	export var isExtern as bool
+	export var hasReceiver as bool
+	export var ownerTy as TypeID
+	export var selfConv as Convention
+	export var generics as TypeIDList
+	export var bounds as ParamBoundList
+	export var params as ParamSpecList
+	export var paramTypes as TypeIDList
+	export var paramLocals as LocalIDList
+	export var selfLocal as LocalID
+	export var retTy as TypeID
+	export var errTy as TypeID
+	export var genericOrigin as FuncID
+	export var typeArgs as TypeIDList
+	export var intrinsic as Intrinsic
+	export var linkName as String
+	export var bodyRef as diag.U32
+
+	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, isExtern: false, hasReceiver: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.new(), bounds: ParamBoundList.new(), params: ParamSpecList.new(), paramTypes: TypeIDList.new(), paramLocals: LocalIDList.new(), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.new(), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32}
+	end 'make'
+end 'FuncEntry'
+
+export typealias FuncEntryList = array with FuncEntry
+
+export type LocalEntry
+	export var id as LocalID
+	export var name as String
+	export var ty as TypeID
+	export var isVar as bool
+	export var isParam as bool
+	export var isSelf as bool
+	export var projected as bool
+	export var paramIndex as Count
+	export var conv as Convention
+	export var definedAt as NodeID
+	export var isUninitialized as bool
+	export var isCapture as bool
+	export var captureConv as Convention
+
+	export static function make(consumes name String, ty TypeID, isVar bool, isParam bool, conv Convention, definedAt NodeID) returns LocalEntry
+		return LocalEntry{id: noLocal, name: name, ty: ty, isVar: isVar, isParam: isParam, isSelf: false, projected: false, paramIndex: 0 as Count, conv: conv, definedAt: definedAt, isUninitialized: false, isCapture: false, captureConv: Convention.convLet}
+	end 'make'
+end 'LocalEntry'
+
+export typealias LocalEntryList = array with LocalEntry
+
+export typealias TypeInternMap = table.StringMap with TypeID
+
+export typealias FuncInternMap = table.StringMap with FuncID
+
+export type TypeTable
+	export var entries as TypeEntryList
+	export var rangeCache as TypeInternMap
+	export var constCache as TypeInternMap
+	export var instCache as TypeInternMap
+
+	export static function new() returns TypeTable
+		var es = TypeEntryList.new()
+		es.append(TypeEntry.make(TypeKind.invalid, name: "<invalid>"))
+		return TypeTable{entries: es, rangeCache: TypeInternMap.new(), constCache: TypeInternMap.new(), instCache: TypeInternMap.new()}
+	end 'new'
+end 'TypeTable'
+
+export function allocType(mutates tt TypeTable, consumes e TypeEntry) returns TypeID
+	let id = try tt.entries.count() as TypeID otherwise panic("too many types")
+	var copyE = e
+	copyE.id = id
+	tt.entries.append(copyE)
+	return id
+end 'allocType'
+
+export function cloneTypeArgs(args TypeIDList) returns TypeIDList
+	var out = TypeIDList.new()
+	for i in 0 upto args.count() 'each'
+		out.append(args[i])
+	end 'each'
+	return out
+end 'cloneTypeArgs'
+
+export function internIntRange(mutates tt TypeTable, consumes aliasName String, consumes minVal I128, consumes maxVal I128, inferred bool) returns TypeID
+	var infTag = "0"
+	if inferred 'inf'
+		infTag = "1"
+	end 'inf'
+	let key = "{aliasName}|{minVal.toString()}|{maxVal.toString()}|{infTag}"
+	match tt.rangeCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	var e = TypeEntry.make(TypeKind.intRange, name: aliasName)
+	e.inferred = inferred
+	e.minVal = minVal
+	e.maxVal = maxVal
+	let id = allocType(tt, e: e)
+	tt.rangeCache.insert(key, value: id)
+	return id
+end 'internIntRange'
+
+export function internConstInt(mutates tt TypeTable, consumes val I128) returns TypeID
+	let key = val.toString()
+	match tt.constCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	var e = TypeEntry.make(TypeKind.constInt, name: "const({key})")
+	e.minVal = val.copy()
+	e.maxVal = val
+	let id = allocType(tt, e: e)
+	tt.constCache.insert(key, value: id)
+	return id
+end 'internConstInt'
+
+export function instanceKey(origin TypeID, args TypeIDList) returns String
+	var b = Bytes.new()
+	b.appendString("{origin}:")
+	for i in 0 upto args.count() 'each'
+		if i > 0 'sep'
+			b.push(44 as Byte)
+		end 'sep'
+		b.appendString("{args[i]}")
+	end 'each'
+	return b.toString()
+end 'instanceKey'
+
+export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeIDList) returns TypeID
+	let baseOrigin = tt.entries[origin as Count].effectiveOrigin()
+	if args.count() == 0 'none'
+		return baseOrigin
+	end 'none'
+	let key = instanceKey(baseOrigin, args: args)
+	match tt.instCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	let origKind = tt.entries[baseOrigin as Count].kind
+	let origName = tt.entries[baseOrigin as Count].name.copy()
+	let origNoncopyable = tt.entries[baseOrigin as Count].isNoncopyable
+	let hasOrigDecl = tt.entries[baseOrigin as Count].hasDecl
+	let origDecl = tt.entries[baseOrigin as Count].decl.copy()
+	var e = TypeEntry.make(origKind, name: origName)
+	e.origin = baseOrigin
+	e.typeArgs = cloneTypeArgs(args)
+	e.isNoncopyable = origNoncopyable
+	e.hasDecl = hasOrigDecl
+	e.decl = origDecl
+	let id = allocType(tt, e: e)
+	tt.instCache.insert(key, value: id)
+	return id
+end 'instantiateType'
+
+export function selfType(mutates tt TypeTable, declTy TypeID) returns TypeID
+	let orig = tt.entries[declTy as Count].effectiveOrigin()
+	if tt.entries[orig as Count].declaring or tt.entries[orig as Count].typeParams.count() == 0 'self'
+		return orig
+	end 'self'
+	let args = cloneTypeArgs(tt.entries[orig as Count].typeParams)
+	return instantiateType(tt, origin: orig, args: args)
+end 'selfType'
+
+export function typeArgsOf(tt TypeTable, t TypeID) returns TypeIDList
+	if tt.entries[t as Count].typeArgs.count() > 0 'hasArgs'
+		return cloneTypeArgs(tt.entries[t as Count].typeArgs)
+	end 'hasArgs'
+	return cloneTypeArgs(tt.entries[t as Count].typeParams)
+end 'typeArgsOf'
+
+export function originOf(tt TypeTable, t TypeID) returns TypeID
+	return tt.entries[t as Count].effectiveOrigin()
+end 'originOf'
+
+export function substituteType(mutates tt TypeTable, t TypeID, params TypeIDList, args TypeIDList) returns TypeID
+	if t == noType or params.count() == 0 'noop'
+		return t
+	end 'noop'
+	let kind = tt.entries[t as Count].kind
+	if kind == TypeKind.typeParam 'tp'
+		for i in 0 upto params.count() 'each'
+			if params[i] == t and i < args.count() 'hit'
+				return args[i]
+			end 'hit'
+		end 'each'
+		return t
+	end 'tp'
+	let origArgs = cloneTypeArgs(tt.entries[t as Count].typeArgs)
+	if origArgs.count() == 0 'nonInst'
+		return t
+	end 'nonInst'
+	var nextArgs = TypeIDList.new()
+	var changed = false
+	for i in 0 upto origArgs.count() 'eachArg'
+		let sub = substituteType(tt, t: origArgs[i], params: params, args: args)
+		if sub != origArgs[i] 'diff'
+			changed = true
+		end 'diff'
+		nextArgs.append(sub)
+	end 'eachArg'
+	if not changed 'same'
+		return t
+	end 'same'
+	let orig = tt.entries[t as Count].effectiveOrigin()
+	return instantiateType(tt, origin: orig, args: nextArgs)
+end 'substituteType'
+
+export function hasTypeDepthOverflow(tt TypeTable, t TypeID, depth Count) returns bool
+	if depth > maxTypeDepth 'over'
+		return true
+	end 'over'
+	let n = tt.entries[t as Count].typeArgs.count()
+	if n == 0 'leaf'
+		return false
+	end 'leaf'
+	let nextDepth = try depth + 1 otherwise maxTypeDepth
+	for i in 0 upto n 'each'
+		let child = tt.entries[t as Count].typeArgs[i]
+		if hasTypeDepthOverflow(tt, t: child, depth: nextDepth) 'deep'
+			return true
+		end 'deep'
+	end 'each'
+	return false
+end 'hasTypeDepthOverflow'
+
+export function isIntType(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	let k = tt.entries[t as Count].kind
+	return k == TypeKind.intRange or k == TypeKind.constInt
+end 'isIntType'
+
+export function isUnsignedInt(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	if tt.entries[t as Count].kind != TypeKind.intRange 'notRange'
+		return false
+	end 'notRange'
+	return not tt.entries[t as Count].minVal.isNeg() and not tt.entries[t as Count].maxVal.fitsI64()
+end 'isUnsignedInt'
+
+export function isSharedType(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	let k = tt.entries[t as Count].kind
+	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown
+end 'isSharedType'
+
+export function isManagedType(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	return match tt.entries[t as Count].kind 'k'
+		primString gives true
+		record gives true
+		unionTy gives true
+		builtinArray gives true
+		builtinMap gives true
+		builtinList gives true
+		builtinPool gives true
+		builtinFrozen gives true
+		builtinCown gives true
+		builtinBytes gives true
+		invalid gives false
+		primBool gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		enumTy gives false
+		builtinHandle gives false
+		typeParam gives false
+		interfaceTy gives false
+	end 'k'
+end 'isManagedType'
+
+export function contentType(tt TypeTable, t TypeID) returns TypeID
+	var cur = t
+	while cur != noType and tt.entries[cur as Count].kind == TypeKind.builtinFrozen 'unwrap'
+		if tt.entries[cur as Count].typeArgs.count() > 0 'arg'
+			cur = tt.entries[cur as Count].typeArgs[0]
+		end 'arg' else if tt.entries[cur as Count].typeParams.count() > 0 'tp'
+			cur = tt.entries[cur as Count].typeParams[0]
+		end 'tp' else 'stop'
+			break 'unwrap'
+		end 'stop'
+	end 'unwrap'
+	return cur
+end 'contentType'
+
+export function instanceSpelling(base String, args array with String) returns String
+	if args.count() == 1 'one'
+		var hasWith = false
+		let s = args[0].copy()
+		let sn = s.byteCount()
+		if sn >= 6 'chk'
+			for i in 0 upto (sn - 5) 'scan'
+				if s.slice(i, until: try i + 6 otherwise i) == " with " 'hit'
+					hasWith = true
+					break 'scan'
+				end 'hit'
+			end 'scan'
+		end 'chk'
+		if not hasWith 'plain'
+			return "{base} with {s}"
+		end 'plain'
+	end 'one'
+	var b = Bytes.new()
+	b.appendString("{base} with (")
+	for i in 0 upto args.count() 'each'
+		if i > 0 'sep'
+			b.appendString(", ")
+		end 'sep'
+		b.appendString(args[i])
+	end 'each'
+	b.push(41 as Byte)
+	return b.toString()
+end 'instanceSpelling'
+
+export function typeName(tt TypeTable, t TypeID) returns String
+	if t == noType 'none'
+		return "<invalid>"
+	end 'none'
+	let k = tt.entries[t as Count].kind
+	if k == TypeKind.intRange 'rng'
+		if tt.entries[t as Count].name != "" 'named'
+			return tt.entries[t as Count].name.copy()
+		end 'named'
+		return "int({tt.entries[t as Count].minVal.toString()} to {tt.entries[t as Count].maxVal.toString()})"
+	end 'rng'
+	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
+		var argNames = StringList.new()
+		for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+			argNames.append(typeName(tt, t: tt.entries[t as Count].typeArgs[i]))
+		end 'each'
+		return instanceSpelling(tt.entries[t as Count].name, args: argNames)
+	end 'inst'
+	return tt.entries[t as Count].name.copy()
+end 'typeName'
+
+export type FuncTable
+	export var entries as FuncEntryList
+	export var instCache as FuncInternMap
+
+	export static function new() returns FuncTable
+		var es = FuncEntryList.new()
+		es.append(FuncEntry.make("<invalid>", visibility: "", module: 0 as diag.ModuleID, nodeID: 0 as NodeID))
+		return FuncTable{entries: es, instCache: FuncInternMap.new()}
+	end 'new'
+end 'FuncTable'
+
+export function allocFunc(mutates ft FuncTable, consumes f FuncEntry) returns FuncID
+	let id = try ft.entries.count() as FuncID otherwise panic("too many functions")
+	var copyF = f
+	copyF.id = id
+	ft.entries.append(copyF)
+	return id
+end 'allocFunc'
+
+export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, origin FuncID, args TypeIDList) returns FuncID
+	if args.count() == 0 'none'
+		return origin
+	end 'none'
+	let key = instanceKey(origin as TypeID, args: args)
+	match ft.instCache.get(key) 'hit'
+		some(id) then return id
+		none then _ = 0
+	end 'hit'
+	let origName = ft.entries[origin as Count].name.copy()
+	let origVis = ft.entries[origin as Count].visibility.copy()
+	let origMod = ft.entries[origin as Count].module
+	let origNode = ft.entries[origin as Count].nodeID
+	var inst = FuncEntry.make(origName, visibility: origVis, module: origMod, nodeID: origNode)
+	inst.hasDecl = ft.entries[origin as Count].hasDecl
+	inst.decl = ft.entries[origin as Count].decl.copy()
+	inst.isStatic = ft.entries[origin as Count].isStatic
+	inst.isDestructor = ft.entries[origin as Count].isDestructor
+	inst.isExtern = ft.entries[origin as Count].isExtern
+	inst.hasReceiver = ft.entries[origin as Count].hasReceiver
+	inst.selfConv = ft.entries[origin as Count].selfConv
+	inst.intrinsic = ft.entries[origin as Count].intrinsic
+	inst.errTy = ft.entries[origin as Count].errTy
+	inst.genericOrigin = origin
+	inst.typeArgs = cloneTypeArgs(args)
+	let origParams = cloneTypeArgs(ft.entries[origin as Count].generics)
+	if ft.entries[origin as Count].ownerTy != noType 'own'
+		inst.ownerTy = substituteType(tt, t: ft.entries[origin as Count].ownerTy, params: origParams, args: args)
+	end 'own'
+	inst.retTy = substituteType(tt, t: ft.entries[origin as Count].retTy, params: origParams, args: args)
+	for i in 0 upto ft.entries[origin as Count].params.count() 'eachP'
+		let pName = ft.entries[origin as Count].params[i].name.copy()
+		let pConv = ft.entries[origin as Count].params[i].conv
+		let pTy = substituteType(tt, t: ft.entries[origin as Count].params[i].ty, params: origParams, args: args)
+		inst.params.append(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		inst.paramTypes.append(pTy)
+	end 'eachP'
+	let id = allocFunc(ft, f: inst)
+	ft.instCache.insert(key, value: id)
+	return id
+end 'instantiateFunc'

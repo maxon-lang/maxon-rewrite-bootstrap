@@ -13,9 +13,10 @@ const (
 	BuiltinHandle
 	BuiltinFrozen
 	BuiltinCown
+	BuiltinBytes
 )
 
-var builtinNames = [...]string{"array", "map", "list", "pool", "Handle", "frozen", "cown"}
+var builtinNames = [...]string{"array", "map", "list", "pool", "Handle", "frozen", "cown", "Bytes"}
 
 // BuiltinTy is a runtime primitive: array with T, map with (K, V), list with T, pool with T, the Handle with T that
 // names an element of a pool or a list, or one of the two types that cross between threads: frozen with T, an
@@ -188,6 +189,29 @@ const (
 	IntrinsicThaw
 	IntrinsicCown
 	IntrinsicExchange
+	IntrinsicStringByteCount
+	IntrinsicStringByteAt
+	IntrinsicStringSlice
+	IntrinsicBytesNew
+	IntrinsicBytesCount
+	IntrinsicBytesIsEmpty
+	IntrinsicBytesByteAt
+	IntrinsicBytesSetByte
+	IntrinsicBytesPush
+	IntrinsicBytesAppend
+	IntrinsicBytesAppendString
+	IntrinsicBytesToString
+	IntrinsicOsCliArgs
+	IntrinsicOsGetEnv
+	IntrinsicOsReadFile
+	IntrinsicOsWriteFile
+	IntrinsicOsWriteBytes
+	IntrinsicOsRenameFile
+	IntrinsicOsRemoveFile
+	IntrinsicOsIsDir
+	IntrinsicOsMkdir
+	IntrinsicOsListDir
+	IntrinsicOsRunProcess
 )
 
 // Option cases, in the order the union declares them.
@@ -200,8 +224,8 @@ const (
 // primitives and Option, the result of an operation that can miss. They belong to the stdlib module, so a name
 // resolves to them last.
 type Builtins struct {
-	Array, Map, List, Pool, Handle, Frozen, Cown *BuiltinTy
-	Option                                       *UnionTy
+	Array, Map, List, Pool, Handle, Frozen, Cown, Bytes *BuiltinTy
+	Option                                              *UnionTy
 	// Copyable and Droppable are the capabilities every type has unless it opts out or holds a part that lacks them.
 	// They are interfaces only so a bound can name them: no declaration implements them, and the checker answers
 	// whether a type has one from the type's own parts.
@@ -211,6 +235,10 @@ type Builtins struct {
 	CownNew, CownNewDropWith *FuncDecl
 	// Count is the type of a length and of a position in an array.
 	Count *IntTy
+	// Byte is the type of one UTF-8 byte of a String (0 to 255).
+	Byte *IntTy
+	// StringMethods are the built-in methods on String.
+	StringMethods map[string]*FuncDecl
 	// ArithmeticError is the error of an integer operation that fails, which 'try' catches.
 	ArithmeticError *EnumTy
 	stdlib          *Module
@@ -266,8 +294,8 @@ func (b *Builtins) newPrimitive(kind BuiltinKind, params ...string) *BuiltinTy {
 }
 
 // NewBuiltins declares the primitives and Option in the stdlib module.
-func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
-	b := &Builtins{stdlib: stdlib, Count: count}
+func NewBuiltins(stdlib *Module, count, byteTy *IntTy) *Builtins {
+	b := &Builtins{stdlib: stdlib, Count: count, Byte: byteTy, StringMethods: map[string]*FuncDecl{}}
 	b.Array = b.newPrimitive(BuiltinArray, "T")
 	b.Map = b.newPrimitive(BuiltinMap, "K", "V")
 	b.List = b.newPrimitive(BuiltinList, "T")
@@ -275,6 +303,7 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 	b.Handle = b.newPrimitive(BuiltinHandle, "T")
 	b.Frozen = b.newPrimitive(BuiltinFrozen, "T")
 	b.Cown = b.newPrimitive(BuiltinCown, "T")
+	b.Bytes = b.newPrimitive(BuiltinBytes)
 	b.declareOption()
 	b.declareArithmeticError()
 	b.Copyable = b.declareCapability("Copyable")
@@ -283,7 +312,10 @@ func NewBuiltins(stdlib *Module, count *IntTy) *Builtins {
 	b.declareMap()
 	b.declareList()
 	b.declarePool()
+	b.declareBytes()
+	b.declareString()
 	b.declareSharing()
+	b.declareOs()
 	return b
 }
 
@@ -439,6 +471,26 @@ func (b *Builtins) declareList() {
 	b.method(l, IntrinsicListDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
 }
 
+func (b *Builtins) declareString() {
+	add := func(op Intrinsic, name string, ret Ty, params ...ParamSpec) {
+		f := b.stdlib.Tree.NewFuncDecl(0)
+		f.Name = name
+		f.Visibility = "public"
+		f.Module = b.stdlib
+		f.Pass = Passing{SelfConv: ConvLet, Specs: params}
+		f.ParamTypes = make([]Ty, len(params))
+		for i, p := range params {
+			f.ParamTypes[i] = p.Type
+		}
+		f.ReturnType = ret
+		f.Intrinsic = op
+		b.StringMethods[name] = f
+	}
+	add(IntrinsicStringByteCount, "byteCount", b.Count)
+	add(IntrinsicStringByteAt, "byteAt", b.Byte, param("index", b.Count, ConvLet))
+	add(IntrinsicStringSlice, "slice", StringTy, param("from", b.Count, ConvLet), param("until", b.Count, ConvLet))
+}
+
 func (b *Builtins) declarePool() {
 	p := b.Pool
 	t := p.Params[0]
@@ -450,6 +502,19 @@ func (b *Builtins) declarePool() {
 	b.method(p, IntrinsicPoolInsert, "insert", ConvMutates, h, param("item", t, ConvConsumes))
 	b.method(p, IntrinsicPoolRemove, "remove", ConvMutates, b.OptionOf(t), param("handle", h, ConvLet))
 	b.method(p, IntrinsicPoolDropEmpty, "dropEmpty", ConvConsumes, VoidTy)
+}
+
+func (b *Builtins) declareBytes() {
+	bs := b.Bytes
+	b.static(bs, IntrinsicBytesNew, "new", bs)
+	b.method(bs, IntrinsicBytesCount, "count", ConvLet, b.Count)
+	b.method(bs, IntrinsicBytesIsEmpty, "isEmpty", ConvLet, BoolTy)
+	b.method(bs, IntrinsicBytesByteAt, "byteAt", ConvLet, b.Byte, param("index", b.Count, ConvLet))
+	b.method(bs, IntrinsicBytesSetByte, "setByte", ConvMutates, VoidTy, param("index", b.Count, ConvLet), param("value", b.Byte, ConvLet))
+	b.method(bs, IntrinsicBytesPush, "push", ConvMutates, VoidTy, param("value", b.Byte, ConvLet))
+	b.method(bs, IntrinsicBytesAppend, "append", ConvMutates, VoidTy, param("other", bs, ConvLet))
+	b.method(bs, IntrinsicBytesAppendString, "appendString", ConvMutates, VoidTy, param("text", StringTy, ConvLet))
+	b.method(bs, IntrinsicBytesToString, "toString", ConvLet, StringTy)
 }
 
 // declareSharing declares the functions that make and use the values which cross between threads:
@@ -483,6 +548,37 @@ func (b *Builtins) declareSharing() {
 
 func (b *Builtins) declareGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) {
 	b.stdlib.Declare(b.makeGeneric(op, name, t, ret, params...))
+}
+
+func (b *Builtins) declareFunc(op Intrinsic, name string, ret Ty, params ...ParamSpec) {
+	f := b.stdlib.Tree.NewFuncDecl(0)
+	f.Name = name
+	f.Visibility = "public"
+	f.Module = b.stdlib
+	f.Intrinsic = op
+	f.Pass = Passing{Specs: params}
+	f.ParamTypes = make([]Ty, len(params))
+	for i, p := range params {
+		f.ParamTypes[i] = p.Type
+	}
+	f.ReturnType = ret
+	b.stdlib.Declare(f)
+}
+
+func (b *Builtins) declareOs() {
+	strings := Instantiate(b.Array, []Ty{StringTy})
+	exitCode := b.stdlib.Names["ExitCode"].(*AliasDecl).Ty
+	b.declareFunc(IntrinsicOsCliArgs, "cliArgs", strings)
+	b.declareFunc(IntrinsicOsGetEnv, "getEnv", b.OptionOf(StringTy), param("name", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsReadFile, "readFile", b.OptionOf(StringTy), param("path", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsWriteFile, "writeFile", BoolTy, param("path", StringTy, ConvLet), param("text", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsWriteBytes, "writeBytes", BoolTy, param("path", StringTy, ConvLet), param("data", b.Bytes, ConvLet))
+	b.declareFunc(IntrinsicOsRenameFile, "renameFile", BoolTy, param("from", StringTy, ConvLet), param("dest", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsRemoveFile, "removeFile", BoolTy, param("path", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsIsDir, "isDir", BoolTy, param("path", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsMkdir, "mkdir", BoolTy, param("path", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsListDir, "listDir", b.OptionOf(strings), param("path", StringTy, ConvLet))
+	b.declareFunc(IntrinsicOsRunProcess, "runProcess", b.OptionOf(exitCode), param("commandLine", StringTy, ConvLet))
 }
 
 func (b *Builtins) makeGeneric(op Intrinsic, name string, t *TypeParamTy, ret Ty, params ...ParamSpec) *FuncDecl {

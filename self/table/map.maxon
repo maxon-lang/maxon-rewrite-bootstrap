@@ -1,0 +1,312 @@
+enum SlotState
+	empty = 0
+	occupied = 1
+	deleted = 2
+end 'SlotState'
+
+typealias States = array with SlotState
+
+typealias Strings = array with String
+
+typealias Counts = array with Count
+
+let fnvOffset = 14695981039346656037 as Count
+
+let fnvPrime = 1099511628211 as Count
+
+function hashString(s String) returns Count
+	var h = fnvOffset
+	for i in 0 upto s.byteCount() 'each'
+		let b = s.byteAt(i) as Count
+		h = h xor b
+		h = try h * fnvPrime otherwise 0 as Count
+	end 'each'
+	return h
+end 'hashString'
+
+function hashCount(k Count) returns Count
+	var x = k
+	x = x xor (x shr 33)
+	x = try x * (18397679294719823053 as Count) otherwise 0 as Count
+	x = x xor (x shr 33)
+	return x
+end 'hashCount'
+
+// StringMap is an open-addressing hash map from String to V built on array.
+export type StringMap uses V
+	var states as States
+	var keys as Strings
+	var vals as array with (Option with V)
+	var len as Count
+	var used as Count
+
+	export static function new() returns Self
+		return Self{states: States.new(), keys: Strings.new(), vals: array.new(), len: 0 as Count, used: 0 as Count}
+	end 'new'
+
+	export function count() returns Count
+		return len
+	end 'count'
+
+	export function isEmpty() returns bool
+		return len == 0
+	end 'isEmpty'
+
+	function findSlot(key String) returns Option with Count
+		let cap = states.count()
+		if cap == 0 'empty'
+			return Option.none
+		end 'empty'
+		let mask = cap - 1
+		var idx = hashString(key) and mask
+		for _ in 0 upto cap 'probe'
+			let st = states[idx]
+			if st == SlotState.empty 'miss'
+				return Option.none
+			end 'miss'
+			if st == SlotState.occupied and keys[idx] == key 'hit'
+				return Option.some(idx)
+			end 'hit'
+			idx = (try idx + 1 otherwise 0 as Count) and mask
+		end 'probe'
+		return Option.none
+	end 'findSlot'
+
+	export function has(key String) returns bool
+		return self.findSlot(key).isSome()
+	end 'has'
+
+	export function get(key String) returns Option with V where V implements Copyable
+		match self.findSlot(key) 'slot'
+			some(i) then return vals[i].copy()
+			none then return Option.none
+		end 'slot'
+	end 'get'
+
+	function grow(mutates self, newCap Count) where V implements Droppable
+		if newCap == 0 'zero'
+			return
+		end 'zero'
+		var nextStates = States.filled(newCap, value: SlotState.empty)
+		var nextKeys = Strings.filled(newCap, value: "")
+		var nextVals as array with (Option with V)
+		nextVals = array.new()
+		for _ in 0 upto newCap 'init'
+			nextVals.append(Option.none)
+		end 'init'
+		let oldCap = states.count()
+		let mask = newCap - 1
+		for i in 0 upto oldCap 'rehash'
+			if states[i] == SlotState.occupied 'move'
+				let k = keys[i].copy()
+				var emptyVal as Option with V
+				emptyVal = Option.none
+				let v = exchange(vals[i], value: emptyVal)
+				var idx = hashString(k) and mask
+				while nextStates[idx] == SlotState.occupied 'probe'
+					idx = (try idx + 1 otherwise 0 as Count) and mask
+				end 'probe'
+				nextStates[idx] = SlotState.occupied
+				nextKeys[idx] = k
+				nextVals[idx] = v
+			end 'move'
+		end 'rehash'
+		states = nextStates
+		keys = nextKeys
+		vals = nextVals
+		used = len
+	end 'grow'
+
+	export function insert(mutates self, key String, consumes value V) where V implements Droppable
+		let cap = states.count()
+		if cap == 0 'first'
+			self.grow(16 as Count)
+		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
+			self.grow(try cap * 2 otherwise cap)
+		end 'needGrow'
+		let curCap = states.count()
+		if curCap == 0 'noCap'
+			return
+		end 'noCap'
+		let mask = curCap - 1
+		var idx = hashString(key) and mask
+		var firstDeleted = curCap
+		for _ in 0 upto curCap 'probe'
+			let st = states[idx]
+			if st == SlotState.empty 'stop'
+				break 'probe'
+			end 'stop'
+			if st == SlotState.occupied and keys[idx] == key 'replace'
+				vals[idx] = Option.some(value)
+				return
+			end 'replace'
+			if st == SlotState.deleted and firstDeleted == curCap 'mark'
+				firstDeleted = idx
+			end 'mark'
+			idx = (try idx + 1 otherwise 0 as Count) and mask
+		end 'probe'
+		let target = firstDeleted if firstDeleted < curCap else idx
+		if states[target] == SlotState.empty 'bumpUsed'
+			used = try used + 1 otherwise used
+		end 'bumpUsed'
+		states[target] = SlotState.occupied
+		keys[target] = key.copy()
+		vals[target] = Option.some(value)
+		len = try len + 1 otherwise len
+	end 'insert'
+
+	export function remove(mutates self, key String) returns Option with V
+		match self.findSlot(key) 'slot'
+			some(i) then return self.removeAt(i)
+			none then return Option.none
+		end 'slot'
+	end 'remove'
+
+	function removeAt(mutates self, idx Count) returns Option with V
+		states[idx] = SlotState.deleted
+		keys[idx] = ""
+		len = try len - 1 otherwise 0 as Count
+		var emptyVal as Option with V
+		emptyVal = Option.none
+		return exchange(vals[idx], value: emptyVal)
+	end 'removeAt'
+end 'StringMap'
+
+// IntMap is an open-addressing hash map from Count to V built on array.
+export type IntMap uses V
+	var states as States
+	var keys as Counts
+	var vals as array with (Option with V)
+	var len as Count
+	var used as Count
+
+	export static function new() returns Self
+		return Self{states: States.new(), keys: Counts.new(), vals: array.new(), len: 0 as Count, used: 0 as Count}
+	end 'new'
+
+	export function count() returns Count
+		return len
+	end 'count'
+
+	export function isEmpty() returns bool
+		return len == 0
+	end 'isEmpty'
+
+	function findSlot(key Count) returns Option with Count
+		let cap = states.count()
+		if cap == 0 'empty'
+			return Option.none
+		end 'empty'
+		let mask = cap - 1
+		var idx = hashCount(key) and mask
+		for _ in 0 upto cap 'probe'
+			let st = states[idx]
+			if st == SlotState.empty 'miss'
+				return Option.none
+			end 'miss'
+			if st == SlotState.occupied and keys[idx] == key 'hit'
+				return Option.some(idx)
+			end 'hit'
+			idx = (try idx + 1 otherwise 0 as Count) and mask
+		end 'probe'
+		return Option.none
+	end 'findSlot'
+
+	export function has(key Count) returns bool
+		return self.findSlot(key).isSome()
+	end 'has'
+
+	export function get(key Count) returns Option with V where V implements Copyable
+		match self.findSlot(key) 'slot'
+			some(i) then return vals[i].copy()
+			none then return Option.none
+		end 'slot'
+	end 'get'
+
+	function grow(mutates self, newCap Count) where V implements Droppable
+		if newCap == 0 'zero'
+			return
+		end 'zero'
+		var nextStates = States.filled(newCap, value: SlotState.empty)
+		var nextKeys = Counts.filled(newCap, value: 0 as Count)
+		var nextVals as array with (Option with V)
+		nextVals = array.new()
+		for _ in 0 upto newCap 'init'
+			nextVals.append(Option.none)
+		end 'init'
+		let oldCap = states.count()
+		let mask = newCap - 1
+		for i in 0 upto oldCap 'rehash'
+			if states[i] == SlotState.occupied 'move'
+				let k = keys[i]
+				var emptyVal as Option with V
+				emptyVal = Option.none
+				let v = exchange(vals[i], value: emptyVal)
+				var idx = hashCount(k) and mask
+				while nextStates[idx] == SlotState.occupied 'probe'
+					idx = (try idx + 1 otherwise 0 as Count) and mask
+				end 'probe'
+				nextStates[idx] = SlotState.occupied
+				nextKeys[idx] = k
+				nextVals[idx] = v
+			end 'move'
+		end 'rehash'
+		states = nextStates
+		keys = nextKeys
+		vals = nextVals
+		used = len
+	end 'grow'
+
+	export function insert(mutates self, key Count, consumes value V) where V implements Droppable
+		let cap = states.count()
+		if cap == 0 'first'
+			self.grow(16 as Count)
+		end 'first' else if (try (used + 1) * 10 otherwise cap) >= (try cap * 7 otherwise cap) 'needGrow'
+			self.grow(try cap * 2 otherwise cap)
+		end 'needGrow'
+		let curCap = states.count()
+		if curCap == 0 'noCap'
+			return
+		end 'noCap'
+		let mask = curCap - 1
+		var idx = hashCount(key) and mask
+		var firstDeleted = curCap
+		for _ in 0 upto curCap 'probe'
+			let st = states[idx]
+			if st == SlotState.empty 'stop'
+				break 'probe'
+			end 'stop'
+			if st == SlotState.occupied and keys[idx] == key 'replace'
+				vals[idx] = Option.some(value)
+				return
+			end 'replace'
+			if st == SlotState.deleted and firstDeleted == curCap 'mark'
+				firstDeleted = idx
+			end 'mark'
+			idx = (try idx + 1 otherwise 0 as Count) and mask
+		end 'probe'
+		let target = firstDeleted if firstDeleted < curCap else idx
+		if states[target] == SlotState.empty 'bumpUsed'
+			used = try used + 1 otherwise used
+		end 'bumpUsed'
+		states[target] = SlotState.occupied
+		keys[target] = key
+		vals[target] = Option.some(value)
+		len = try len + 1 otherwise len
+	end 'insert'
+
+	export function remove(mutates self, key Count) returns Option with V
+		match self.findSlot(key) 'slot'
+			some(i) then return self.removeAt(i)
+			none then return Option.none
+		end 'slot'
+	end 'remove'
+
+	function removeAt(mutates self, idx Count) returns Option with V
+		states[idx] = SlotState.deleted
+		len = try len - 1 otherwise 0 as Count
+		var emptyVal as Option with V
+		emptyVal = Option.none
+		return exchange(vals[idx], value: emptyVal)
+	end 'removeAt'
+end 'IntMap'

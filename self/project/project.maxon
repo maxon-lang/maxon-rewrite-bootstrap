@@ -1,0 +1,374 @@
+typealias BoolStrMap = table.StringMap with bool
+
+typealias DiscDirList = array with DiscoveredDir
+
+typealias DeclRefListArray = array with ast.DeclRefList
+
+type DiscoveredDir
+	export var modPath as String
+	export var dir as String
+	export var filePaths as ast.StringList
+	export var subNames as ast.StringList
+	export var children as CountList
+
+	export static function make(consumes modPath String, consumes dir String) returns DiscoveredDir
+		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.new(), subNames: ast.StringList.new(), children: CountList.new()}
+	end 'make'
+end 'DiscoveredDir'
+
+function endsWithMaxon(name String) returns bool
+	let sn = 6 as Count
+	let n = name.byteCount()
+	if n <= sn 'short'
+		return false
+	end 'short'
+	let start = n - sn
+	return name.slice(start, until: n) == ".maxon"
+end 'endsWithMaxon'
+
+function sortStrings(mutates xs ast.StringList)
+	let n = xs.count()
+	for i in 1 upto n 'ins'
+		var j = i
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise 0 as Count
+			if diag.stringLess(xs[j], b: xs[prev]) 'swap'
+				let cur = xs[j].copy()
+				xs[j] = xs[prev].copy()
+				xs[prev] = cur
+				j = prev
+			end 'swap' else 'done'
+				break 'shift'
+			end 'done'
+		end 'shift'
+	end 'ins'
+end 'sortStrings'
+
+function trimTrailingSlash(p String) returns String
+	var endPos = p.byteCount()
+	while endPos > 0 'trim'
+		let lastIdx = try endPos - 1 otherwise 0 as Count
+		let ch = p.byteAt(lastIdx)
+		if ch != 47 and ch != 92 'stop'
+			break 'trim'
+		end 'stop'
+		if endPos == 3 and p.byteAt(1 as Count) == 58 'driveRoot'
+			break 'trim'
+		end 'driveRoot'
+		endPos = lastIdx
+	end 'trim'
+	return p.slice(0 as Count, until: endPos)
+end 'trimTrailingSlash'
+
+function joinPath(dir String, name String) returns String
+	let clean = trimTrailingSlash(dir)
+	if clean == "" or clean == "." 'cur'
+		if clean == "." 'dot'
+			return ".\\{name}"
+		end 'dot'
+		return name.copy()
+	end 'cur'
+	let cn = clean.byteCount()
+	if cn > 0 'chkLast'
+		let last = clean.byteAt(try cn - 1 otherwise 0 as Count)
+		if last == 47 or last == 92 'hasSep'
+			return "{clean}{name}"
+		end 'hasSep'
+	end 'chkLast'
+	return "{clean}\\{name}"
+end 'joinPath'
+
+function parentDir(path String) returns String
+	var i = path.byteCount()
+	while i > 0 'back'
+		let prev = try i - 1 otherwise 0 as Count
+		let ch = path.byteAt(prev)
+		if ch == 47 or ch == 92 'sep'
+			if prev == 0 'rootSlash'
+				return path.slice(0 as Count, until: 1 as Count)
+			end 'rootSlash'
+			return path.slice(0 as Count, until: prev)
+		end 'sep'
+		i = prev
+	end 'back'
+	return "."
+end 'parentDir'
+
+function isQualifier(name String) returns bool
+	if name == "" or ast.isReserved(name) 'res'
+		return false
+	end 'res'
+	let n = name.byteCount()
+	for i in 0 upto n 'ch'
+		let c = name.byteAt(i)
+		let isAlpha = (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or c == 95
+		let isDigit = c >= 48 and c <= 57
+		if not isAlpha and not (i > 0 and isDigit) 'bad'
+			return false
+		end 'bad'
+	end 'ch'
+	return true
+end 'isQualifier'
+
+function isReservedTopLevel(name String) returns bool
+	return name == "export" or name == "stdlib" or name == "runtime" or name == "scriptlib"
+end 'isReservedTopLevel'
+
+function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes modPath String, isRoot bool, mutates errs diag.ErrorList) returns Option with Count
+	let optEntries = listDir(dir)
+	var entries as ast.StringList
+	match consumes optEntries 'ld'
+		some(xs) then entries = xs
+		none then entries = ast.StringList.new()
+	end 'ld'
+	var rawFiles = ast.StringList.new()
+	var rawDirs = ast.StringList.new()
+	for i in 0 upto entries.count() 'split'
+		let name = entries[i].copy()
+		let full = joinPath(dir, name: name)
+		if isDir(full) 'd'
+			let startsDot = name.byteCount() > 0 and name.byteAt(0 as Count) == 46
+			if not startsDot and name != "bin" and name != "obj" 'keepDir'
+				rawDirs.append(name)
+			end 'keepDir'
+		end 'd' else if endsWithMaxon(name) 'f'
+			rawFiles.append(full)
+		end 'f'
+	end 'split'
+	sortStrings(rawFiles)
+	sortStrings(rawDirs)
+	let myIdx = nodes.count()
+	nodes.append(DiscoveredDir.make(modPath.copy(), dir: dir.copy()))
+	nodes[myIdx].filePaths = rawFiles
+	var childNames = ast.StringList.new()
+	var childIdxs = CountList.new()
+	for i in 0 upto rawDirs.count() 'eachSub'
+		let subName = rawDirs[i].copy()
+		var childModPath = subName.copy()
+		if modPath != "" 'sub'
+			childModPath = "{modPath}.{subName}"
+		end 'sub'
+		let childDir = joinPath(dir, name: subName)
+		match scanDirectory(nodes, dir: childDir.copy(), modPath: childModPath, isRoot: false, errs: errs) 'res'
+			some(childIdx) then checkChildQualifier(isRoot, subName: subName, childDir: childDir, childIdx: childIdx, childNames: childNames, childIdxs: childIdxs, errs: errs)
+			none then _ = 0
+		end 'res'
+	end 'eachSub'
+	let emptyMod = (not isRoot) and nodes[myIdx].filePaths.count() == 0 and childIdxs.count() == 0
+	nodes[myIdx].subNames = childNames
+	nodes[myIdx].children = childIdxs
+	if emptyMod 'skip'
+		return Option.none
+	end 'skip'
+	return Option.some(myIdx)
+end 'scanDirectory'
+
+function checkChildQualifier(isRoot bool, consumes subName String, consumes childDir String, childIdx Count, mutates childNames ast.StringList, mutates childIdxs CountList, mutates errs diag.ErrorList)
+	if (not isQualifier(subName)) or (isRoot and isReservedTopLevel(subName)) 'bad'
+		diag.pushLocatedError(errs, code: diag.errBadModuleName, message: "the directory '{subName}' cannot be written as a qualifier; rename it to an identifier that is not reserved", file: childDir, line: 1 as Count, col: 1 as Count)
+		return
+	end 'bad'
+	childNames.append(subName)
+	childIdxs.append(childIdx)
+end 'checkChildQualifier'
+
+function collectModuleTree(nodes DiscDirList, nodeIdx Count, mutates p ast.Project) returns diag.ModuleID
+	var m = ast.Module.new(0 as diag.ModuleID, path: nodes[nodeIdx].modPath.copy(), text: "", files: ast.FileSpanList.new())
+	m.dir = nodes[nodeIdx].dir.copy()
+	for i in 0 upto nodes[nodeIdx].filePaths.count() 'fp'
+		m.filePaths.append(nodes[nodeIdx].filePaths[i].copy())
+	end 'fp'
+	let mid = ast.addModule(p, m: m)
+	for i in 0 upto nodes[nodeIdx].children.count() 'ch'
+		let subIdx = nodes[nodeIdx].children[i]
+		let subName = nodes[nodeIdx].subNames[i].copy()
+		let childMid = collectModuleTree(nodes, nodeIdx: subIdx, p: p)
+		let mIdx = ast.modIndex(mid)
+		p.modules[mIdx].childNames.append(subName)
+		p.modules[mIdx].childIDs.append(childMid)
+	end 'ch'
+	return mid
+end 'collectModuleTree'
+
+function allocShellTypeParams(mutates p ast.Project, modID diag.ModuleID, tid ast.TypeID, tps ast.TypeParamList, mutates errs diag.ErrorList)
+	var seen = BoolStrMap.new()
+	let mIdx = ast.modIndex(modID)
+	for i in 0 upto tps.count() 'each'
+		let tpName = tps[i].name.copy()
+		let tpNode = tps[i].id
+		if seen.has(tpName) 'dup'
+			let off = p.modules[mIdx].tree.records[tpNode as Count].start
+			diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{tpName}' is already declared as a type parameter", module: modID, offset: off)
+			continue 'each'
+		end 'dup'
+		seen.insert(tpName.copy(), value: true)
+		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
+		let tpTid = ast.allocType(p.types, e: tpEntry)
+		p.types.entries[tid as Count].typeParams.append(tpTid)
+	end 'each'
+end 'allocShellTypeParams'
+
+function createShellType(mutates p ast.Project, modID diag.ModuleID, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+	let ref = ast.DeclRef.make(modID, ordinal: ord)
+	let d = ast.moduleDecl(p, ref: ref)
+	match d 'k'
+		typeDecl(td) then allocRecordShell(p, ref: ref, td: td, errs: errs)
+		enumDecl(ed) then allocEnumShell(p, ref: ref, ed: ed)
+		unionDecl(ud) then allocUnionShell(p, ref: ref, ud: ud, errs: errs)
+		interfaceDecl(ifd) then allocIfaceShell(p, ref: ref, ifd: ifd)
+		aliasDecl(_) then _ = 0
+		funcDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+	end 'k'
+end 'createShellType'
+
+function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDecl, mutates errs diag.ErrorList)
+	var e = ast.TypeEntry.make(ast.TypeKind.record, name: td.name.copy())
+	e.hasDecl = true
+	e.decl = ref.copy()
+	e.isNoncopyable = td.isNoncopyable
+	let tid = ast.allocType(p.types, e: e)
+	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
+	p.declTypes.insert(ast.declKey(ref), value: tid)
+end 'allocRecordShell'
+
+function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
+	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.copy())
+	e.hasDecl = true
+	e.decl = ref.copy()
+	let tid = ast.allocType(p.types, e: e)
+	p.declTypes.insert(ast.declKey(ref), value: tid)
+end 'allocEnumShell'
+
+function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, mutates errs diag.ErrorList)
+	var e = ast.TypeEntry.make(ast.TypeKind.unionTy, name: ud.name.copy())
+	e.hasDecl = true
+	e.decl = ref.copy()
+	e.isNoncopyable = ud.isNoncopyable
+	let tid = ast.allocType(p.types, e: e)
+	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
+	p.declTypes.insert(ast.declKey(ref), value: tid)
+end 'allocUnionShell'
+
+function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl)
+	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.copy())
+	e.hasDecl = true
+	e.decl = ref.copy()
+	let tid = ast.allocType(p.types, e: e)
+	p.declTypes.insert(ast.declKey(ref), value: tid)
+end 'allocIfaceShell'
+
+function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList) returns ast.DeclRefList
+	var kept = ast.DeclRefList.new()
+	let mIdx = ast.modIndex(modID)
+	let count = p.modules[mIdx].decls.count()
+	for i in 0 upto count 'each'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many decls")
+		createShellType(p, modID: modID, ord: ord, errs: errs)
+		let dName = p.modules[mIdx].decls[i].name()
+		let dOff = p.modules[mIdx].decls[i].offset(p.modules[mIdx].tree)
+		match p.modules[mIdx].indexDecl(ord) 'dup'
+			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, prevOrd: prevOrd, modID: modID, errs: errs)
+			none then kept.append(ast.DeclRef.make(modID, ordinal: ord))
+		end 'dup'
+	end 'each'
+	return kept
+end 'buildModuleTable'
+
+function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let prevOff = m.decls[prevOrd as Count].offset(m.tree)
+	let prevLoc = ast.locateModuleOffset(m, offset: prevOff)
+	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{dName}' is already declared in {m.display()} at {prevLoc.file}:{prevLoc.line}", module: modID, offset: dOff)
+end 'pushDuplicateDecl'
+
+function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc Option with String, mutates errs diag.ErrorList)
+	let mPath = p.modules[modIdx].path.copy()
+	var fPaths = ast.StringList.new()
+	var fTexts = ast.StringList.new()
+	for i in 0 upto p.modules[modIdx].filePaths.count() 'readF'
+		let fp = p.modules[modIdx].filePaths[i].copy()
+		fPaths.append(fp.copy())
+		if i == 0 'chkSingle'
+			match singleSrc 'ss'
+				some(txt) then appendCopyStr(fTexts, s: txt)
+				none then readOneFile(fp, fTexts: fTexts, errs: errs)
+			end 'ss'
+		end 'chkSingle' else 'readNext'
+			readOneFile(fp, fTexts: fTexts, errs: errs)
+		end 'readNext'
+	end 'readF'
+	if fTexts.count() != fPaths.count() 'ioFail'
+		return
+	end 'ioFail'
+	let modID = p.modules[modIdx].id
+	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts)
+	match consumes res 'pr'
+		ok(parsedMod) then copyParsedIntoModule(p, modIdx: modIdx, parsedMod: parsedMod)
+		err(pe) then diag.pushLocatedError(errs, code: pe.code.copy(), message: pe.message.copy(), file: pe.file.copy(), line: pe.line, col: pe.col)
+	end 'pr'
+end 'parseSingleModule'
+
+function appendCopyStr(mutates fTexts ast.StringList, s String)
+	fTexts.append(s.copy())
+end 'appendCopyStr'
+
+function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag.ErrorList)
+	match consumes readFile(fp) 'rf'
+		some(txt) then fTexts.append(txt)
+		none then diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "cannot read '{fp}'", file: fp.copy(), line: 1 as Count, col: 1 as Count)
+	end 'rf'
+end 'readOneFile'
+
+function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes parsedMod ast.Module)
+	var pm = parsedMod
+	p.modules[modIdx].files = pm.files
+	p.modules[modIdx].tree = pm.tree
+	p.modules[modIdx].decls = pm.decls
+	p.modules[modIdx].names = pm.names
+end 'copyParsedIntoModule'
+
+export function loadProject(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
+	var p = ast.Project.new(rootPath.copy())
+	if isDir(rootPath) 'dir'
+		var nodes = DiscDirList.new()
+		_ = scanDirectory(nodes, dir: rootPath.copy(), modPath: "", isRoot: true, errs: errs)
+		if nodes.count() > 0 'collect'
+			let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
+			p.rootModule = rootMid
+		end 'collect'
+		for i in 0 upto p.modules.count() 'parseEach'
+			parseSingleModule(p, modIdx: i, singleSrc: Option.none, errs: errs)
+		end 'parseEach'
+	end 'dir' else 'single'
+		var singleText = ""
+		match consumes readFile(rootPath) 'rf'
+			some(txt) then singleText = txt
+			none then return failMissingInput(rootPath, errs: errs)
+		end 'rf'
+		var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.new())
+		m.dir = parentDir(rootPath)
+		m.filePaths.append(rootPath.copy())
+		let rootMid = ast.addModule(p, m: m)
+		p.rootModule = rootMid
+		parseSingleModule(p, modIdx: 0 as Count, singleSrc: Option.some(singleText), errs: errs)
+	end 'single'
+	var keptPerMod = DeclRefListArray.new()
+	for i in 0 upto p.modules.count() 'buildTbl'
+		let mid = p.modules[i].id
+		keptPerMod.append(buildModuleTable(p, modID: mid, errs: errs))
+	end 'buildTbl'
+	for i in 0 upto keptPerMod.count() 'idxGlobal'
+		for j in 0 upto keptPerMod[i].count() 'eachD'
+			let ref = keptPerMod[i][j].copy()
+			let mIdx = ast.modIndex(ref.module)
+			let dName = p.modules[mIdx].decls[ref.ordinal as Count].name()
+			ast.addGlobalDecl(p, name: dName, ref: ref)
+		end 'eachD'
+	end 'idxGlobal'
+	return Option.some(p)
+end 'loadProject'
+
+function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
+	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.copy(), line: 1 as Count, col: 1 as Count)
+	return Option.none
+end 'failMissingInput'

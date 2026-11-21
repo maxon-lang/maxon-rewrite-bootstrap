@@ -22,7 +22,7 @@ import (
 // Version is the layout of an entry's file. It is written in the entry, and an entry with another is a miss, so a compiler
 // that changes the layout never reads what an older one wrote even if the two share a directory. The payload's own layout
 // is the caller's, and the compiler's identity in every key covers it.
-const Version = 1
+const Version = 3
 
 // Key names an entry: a hash of everything the entry's content depends on.
 type Key [sha256.Size]byte

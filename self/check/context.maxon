@@ -1,0 +1,865 @@
+export typealias LocalScope = table.StringMap with ast.LocalID
+
+export typealias ScopeList = array with LocalScope
+
+export typealias LackMap = table.StringMap with LackInfo
+
+export typealias VisitMap = table.StringMap with bool
+
+export typealias BoolIntMap = table.IntMap with bool
+
+export typealias ModConstList = array with ast.ConstValue
+
+export type PendingCall
+	export var modID as diag.ModuleID
+	export var callNode as ast.NodeID
+	export var calleeName as String
+	export var fnID as ast.FuncID
+	export var params as ast.ParamSpecList
+	export var hasOmittedArg as bool
+	export var omittedArgIdx as Count
+
+	export static function make(modID diag.ModuleID, callNode ast.NodeID, consumes calleeName String, fnID ast.FuncID, consumes params ast.ParamSpecList, hasOmittedArg bool, omittedArgIdx Count) returns PendingCall
+		return PendingCall{modID: modID, callNode: callNode, calleeName: calleeName, fnID: fnID, params: params, hasOmittedArg: hasOmittedArg, omittedArgIdx: omittedArgIdx}
+	end 'make'
+end 'PendingCall'
+
+export typealias PendingCallList = array with PendingCall
+
+export type PendingBound
+	export var modID as diag.ModuleID
+	export var off as diag.U32
+	export var paramTy as ast.TypeID
+	export var argTy as ast.TypeID
+	export var ifaceTy as ast.TypeID
+	export var withinFn as ast.FuncID
+	export var hasMethod as bool
+	export var methodFn as ast.FuncID
+
+	export static function make(modID diag.ModuleID, off diag.U32, paramTy ast.TypeID, argTy ast.TypeID, ifaceTy ast.TypeID, withinFn ast.FuncID, hasMethod bool, methodFn ast.FuncID) returns PendingBound
+		return PendingBound{modID: modID, off: off, paramTy: paramTy, argTy: argTy, ifaceTy: ifaceTy, withinFn: withinFn, hasMethod: hasMethod, methodFn: methodFn}
+	end 'make'
+end 'PendingBound'
+
+export typealias PendingBoundList = array with PendingBound
+
+export type BlockFrame
+	export var label as String
+	export var isLoop as bool
+	export var node as ast.NodeID
+
+	export static function make(consumes label String, isLoop bool, node ast.NodeID) returns BlockFrame
+		return BlockFrame{label: label, isLoop: isLoop, node: node}
+	end 'make'
+end 'BlockFrame'
+
+export typealias BlockFrameList = array with BlockFrame
+
+export type OuterLevel
+	export var fn as ast.FuncID
+	export var scopes as ScopeList
+	export var blocks as BlockFrameList
+	export var nextSlot as Count
+	export var whens as Count
+	export var hasBehaviour as bool
+	export var behIdx as Count
+
+	export static function make(fn ast.FuncID, consumes scopes ScopeList, consumes blocks BlockFrameList, nextSlot Count, whens Count, hasBehaviour bool, behIdx Count) returns OuterLevel
+		return OuterLevel{fn: fn, scopes: scopes, blocks: blocks, nextSlot: nextSlot, whens: whens, hasBehaviour: hasBehaviour, behIdx: behIdx}
+	end 'make'
+end 'OuterLevel'
+
+export type BehaviourFrame
+	export var fn as ast.FuncID
+	export var accesses as ast.LocalIDList
+	export var capturedOuter as ast.LocalIDList
+	export var capturedInner as ast.LocalIDList
+	export var captures as ast.CaptureList
+
+	export static function make(fn ast.FuncID) returns BehaviourFrame
+		return BehaviourFrame{fn: fn, accesses: ast.LocalIDList.new(), capturedOuter: ast.LocalIDList.new(), capturedInner: ast.LocalIDList.new(), captures: ast.CaptureList.new()}
+	end 'make'
+end 'BehaviourFrame'
+
+export enum LackReason
+	lackNone
+	lackDeclared
+	lackDestructor
+	lackUnbounded
+end 'LackReason'
+
+export type LackStep
+	export var owner as ast.TypeID
+	export var partTy as ast.TypeID
+	export var place as String
+	export var reason as LackReason
+
+	export static function root(owner ast.TypeID, reason LackReason) returns LackStep
+		return LackStep{owner: owner, partTy: ast.noType, place: "", reason: reason}
+	end 'root'
+
+	export static function part(owner ast.TypeID, partTy ast.TypeID, consumes place String) returns LackStep
+		return LackStep{owner: owner, partTy: partTy, place: place, reason: LackReason.lackNone}
+	end 'part'
+end 'LackStep'
+
+export type LackInfo
+	export var missing as bool
+	export var steps as array with LackStep
+
+	export static function ok() returns LackInfo
+		return LackInfo{missing: false, steps: array.new()}
+	end 'ok'
+
+	export static function fail(consumes rootStep LackStep) returns LackInfo
+		var xs as array with LackStep
+		xs = array.new()
+		xs.append(rootStep)
+		return LackInfo{missing: true, steps: xs}
+	end 'fail'
+
+	export static function wrap(consumes step LackStep, consumes inner LackInfo) returns LackInfo
+		var xs as array with LackStep
+		xs = array.new()
+		xs.append(step)
+		for i in 0 upto inner.steps.count() 'cp'
+			xs.append(inner.steps[i].copy())
+		end 'cp'
+		return LackInfo{missing: true, steps: xs}
+	end 'wrap'
+end 'LackInfo'
+
+export type Checker
+	export var modID as diag.ModuleID
+	export var modIdx as Count
+	export var typing as ast.Typing
+	export var pendingCalls as PendingCallList
+	export var pendingBounds as PendingBoundList
+	export var callers as ast.FuncIDList
+	export var callersSeen as BoolIntMap
+	export var fn as ast.FuncID
+	export var rootFn as ast.FuncID
+	export var boundedFn as ast.FuncID
+	export var owner as ast.TypeID
+	export var allowCalls as bool
+	export var dead as bool
+	export var expect as ast.TypeID
+	export var scopes as ScopeList
+	export var blocks as BlockFrameList
+	export var nextSlot as Count
+	export var whens as Count
+	export var outers as array with OuterLevel
+	export var bFrames as array with BehaviourFrame
+	export var inBehaviour as bool
+	export var activeBehIdx as Count
+	export var isFieldDefault as bool
+	export var defaultFieldKey as Count
+	export var hasOmitted as bool
+	export var omittedCall as ast.NodeID
+	export var omittedArgIdx as Count
+	export var capKnown as LackMap
+	export var capVisiting as VisitMap
+
+	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
+		let mIdx = ast.modIndex(modID)
+		let csMap = BoolIntMap.new()
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.new(), pendingBounds: PendingBoundList.new(), callers: ast.FuncIDList.new(), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.new(), blocks: BlockFrameList.new(), nextSlot: 0 as Count, whens: 0 as Count, outers: array.new(), bFrames: array.new(), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new()}
+	end 'make'
+end 'Checker'
+
+export function checkFail(modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String, mutates errs diag.ErrorList)
+	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
+end 'checkFail'
+
+export function checkerStartMod(mutates p ast.Project, modIdx Count) returns Checker
+	let modID = p.modules[modIdx].id
+	let swapped = exchange(p.typings[modIdx], value: ast.Typing.new(modID))
+	return Checker.make(modID, typing: swapped)
+end 'checkerStartMod'
+
+export function checkerEndMod(mutates p ast.Project, consumes c Checker)
+	var mc = c
+	let mIdx = mc.modIdx
+	let finalTp = exchange(mc.typing, value: ast.Typing.new(mc.modID))
+	p.typings[mIdx] = finalTp
+end 'checkerEndMod'
+
+export function typeIsAnonInt(tt ast.TypeTable, t ast.TypeID) returns bool
+	if t == ast.noType 'n'
+		return false
+	end 'n'
+	return tt.entries[t as Count].kind == ast.TypeKind.intRange and tt.entries[t as Count].name == ""
+end 'typeIsAnonInt'
+
+export function typeIsNamedInt(tt ast.TypeTable, t ast.TypeID) returns bool
+	if t == ast.noType 'n'
+		return false
+	end 'n'
+	return tt.entries[t as Count].kind == ast.TypeKind.intRange and tt.entries[t as Count].name != ""
+end 'typeIsNamedInt'
+
+export function intRangeHolds(tt ast.TypeTable, dst ast.TypeID, v ast.I128) returns bool
+	return v.ge(tt.entries[dst as Count].minVal) and v.le(tt.entries[dst as Count].maxVal)
+end 'intRangeHolds'
+
+export function intRangeCovers(tt ast.TypeTable, dst ast.TypeID, src ast.TypeID) returns bool
+	return tt.entries[dst as Count].minVal.le(tt.entries[src as Count].minVal) and tt.entries[dst as Count].maxVal.ge(tt.entries[src as Count].maxVal)
+end 'intRangeCovers'
+
+export function rangeLo(tt ast.TypeTable, t ast.TypeID) returns ast.I128
+	return tt.entries[t as Count].minVal.copy()
+end 'rangeLo'
+
+export function rangeHi(tt ast.TypeTable, t ast.TypeID) returns ast.I128
+	return tt.entries[t as Count].maxVal.copy()
+end 'rangeHi'
+
+export function sameType(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
+	if a == b 'eq'
+		return true
+	end 'eq'
+	if a == ast.noType or b == ast.noType 'n'
+		return false
+	end 'n'
+	let ka = tt.entries[a as Count].kind
+	let kb = tt.entries[b as Count].kind
+	if ka != kb 'diff'
+		return false
+	end 'diff'
+	if ka == ast.TypeKind.intRange 'rng'
+		if tt.entries[a as Count].name != "" or tt.entries[b as Count].name != "" 'named'
+			return a == b
+		end 'named'
+		return tt.entries[a as Count].minVal.eq(tt.entries[b as Count].minVal) and tt.entries[a as Count].maxVal.eq(tt.entries[b as Count].maxVal)
+	end 'rng'
+	return false
+end 'sameType'
+
+export function assignable(p ast.Project, src ast.TypeID, dst ast.TypeID) returns bool
+	if src == ast.noType or dst == ast.noType 'err'
+		return true
+	end 'err'
+	if sameType(p.types, a: src, b: dst) or src == p.builtins.neverTy 'sameOrNever'
+		return true
+	end 'sameOrNever'
+	let dk = p.types.entries[dst as Count].kind
+	if dk == ast.TypeKind.intRange 'dstInt'
+		let sk = p.types.entries[src as Count].kind
+		if sk == ast.TypeKind.constInt 'c'
+			return intRangeHolds(p.types, dst: dst, v: p.types.entries[src as Count].minVal)
+		end 'c'
+		if sk == ast.TypeKind.intRange 'i'
+			return (typeIsAnonInt(p.types, t: src) or typeIsAnonInt(p.types, t: dst)) and intRangeCovers(p.types, dst: dst, src: src)
+		end 'i'
+		return false
+	end 'dstInt'
+	return false
+end 'assignable'
+
+export function requireSigned64(c Checker, off diag.U32, t ast.TypeID, mutates p ast.Project, mutates errs diag.ErrorList) returns bool
+	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.constInt 'c'
+		if p.types.entries[t as Count].minVal.gt(ast.I128.i64Max()) 'over'
+			let vs = p.types.entries[t as Count].minVal.toString()
+			checkFail(c.modID, off: off, code: diag.errIntegerLiteralRange, msg: "Integer literal '{vs}' is above i64.max, so it needs an alias whose range admits it: write '{vs} as <alias>'", errs: errs)
+			return false
+		end 'over'
+	end 'c'
+	return true
+end 'requireSigned64'
+
+export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, what String, mutates errs diag.ErrorList) returns bool
+	if src == ast.noType or target == ast.noType 'okErr'
+		return true
+	end 'okErr'
+	if assignable(p, src: src, dst: target) 'ok'
+		return true
+	end 'ok'
+	let sk = p.types.entries[src as Count].kind
+	let dk = p.types.entries[target as Count].kind
+	if sk == ast.TypeKind.constInt and dk == ast.TypeKind.intRange 'kFit'
+		let ks = p.types.entries[src as Count].minVal.toString()
+		let tName = ast.typeName(p.types, t: target)
+		let tLo = p.types.entries[target as Count].minVal.toString()
+		let tHi = p.types.entries[target as Count].maxVal.toString()
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: {ks} does not fit {tName} ({tLo} to {tHi})", errs: errs)
+		return false
+	end 'kFit'
+	if typeIsAnonInt(p.types, t: src) and dk == ast.TypeKind.intRange 'aFit'
+		let sName = ast.typeName(p.types, t: src)
+		let tName = ast.typeName(p.types, t: target)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: a value of {sName} may not fit {tName}; cast it with 'as {tName}'", errs: errs)
+		return false
+	end 'aFit'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{what}: expected {ast.typeName(p.types, t: target)}, found {ast.typeName(p.types, t: src)}", errs: errs)
+	return false
+end 'coerce'
+
+export function requireOneAlias(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns bool
+	if l == ast.noType or r == ast.noType 'e'
+		return false
+	end 'e'
+	if typeIsNamedInt(p.types, t: l) and typeIsNamedInt(p.types, t: r) and l != r 'diff'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the operands are {ast.typeName(p.types, t: l)} and {ast.typeName(p.types, t: r)}; cast one so both are the same type", errs: errs)
+		return false
+	end 'diff'
+	return true
+end 'requireOneAlias'
+
+export function wordOf(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let lmin = rangeLo(p.types, t: l)
+	let lmax = rangeHi(p.types, t: l)
+	let rmin = rangeLo(p.types, t: r)
+	let rmax = rangeHi(p.types, t: r)
+	let i64m = ast.I128.i64Max()
+	if not lmax.gt(i64m) and not rmax.gt(i64m) 'signed'
+		return p.builtins.anon64Ty
+	end 'signed'
+	if lmin.isNeg() or rmin.isNeg() 'badMix'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "no 64-bit word holds both {ast.typeName(p.types, t: l)} and {ast.typeName(p.types, t: r)}: one may be negative and the other is past i64.max; cast one with 'as <Alias>' to a range that is not negative, or that stays within i64.max", errs: errs)
+		return ast.noType
+	end 'badMix'
+	return p.builtins.anonU64Ty
+end 'wordOf'
+
+export function operandWord(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireOneAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'bad'
+		return ast.noType
+	end 'bad'
+	return wordOf(c, p: p, off: off, l: l, r: r, errs: errs)
+end 'operandWord'
+
+export function exactType(mutates p ast.Project, word ast.TypeID, lo ast.I128, hi ast.I128) returns ast.TypeID
+	if word == ast.noType 'n'
+		return ast.noType
+	end 'n'
+	let wLo = rangeLo(p.types, t: word)
+	let wHi = rangeHi(p.types, t: word)
+	let cLo = ast.maxI128(lo, b: wLo)
+	let cHi = ast.minI128(hi, b: wHi)
+	if cLo.gt(cHi) or (cLo.eq(wLo) and cHi.eq(wHi)) 'word'
+		return word
+	end 'word'
+	return ast.internIntRange(p.types, aliasName: "", minVal: cLo, maxVal: cHi, inferred: true)
+end 'exactType'
+
+export function unifyInts(c Checker, p ast.Project, off diag.U32, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not requireOneAlias(c, p: p, off: off, l: l, r: r, errs: errs) 'bad'
+		return ast.noType
+	end 'bad'
+	var alias = ast.noType
+	var other = r
+	if typeIsNamedInt(p.types, t: l) 'la'
+		alias = l
+		other = r
+	end 'la' else if typeIsNamedInt(p.types, t: r) 'ra'
+		alias = r
+		other = l
+	end 'ra'
+	if alias == ast.noType 'noAlias'
+		return wordOf(c, p: p, off: off, l: l, r: r, errs: errs)
+	end 'noAlias'
+	if not assignable(p, src: other, dst: alias) 'notFit'
+		let oName = ast.typeName(p.types, t: other)
+		let aName = ast.typeName(p.types, t: alias)
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an operand of {oName} does not fit {aName}; cast it with 'as {aName}'", errs: errs)
+		return ast.noType
+	end 'notFit'
+	return alias
+end 'unifyInts'
+
+export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, a ast.TypeID, b ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if a == ast.noType or b == ast.noType 'e'
+		return ast.noType
+	end 'e'
+	if a == p.builtins.neverTy 'na'
+		return b
+	end 'na'
+	if b == p.builtins.neverTy or sameType(p.types, a: a, b: b) 'nbOrEq'
+		return a
+	end 'nbOrEq'
+	if ast.isIntType(p.types, t: a) and ast.isIntType(p.types, t: b) 'ints'
+		if not requireOneAlias(c, p: p, off: off, l: a, r: b, errs: errs) 'bad'
+			return ast.noType
+		end 'bad'
+		var alias = ast.noType
+		var other = b
+		if typeIsNamedInt(p.types, t: a) 'alA'
+			alias = a
+			other = b
+		end 'alA' else if typeIsNamedInt(p.types, t: b) 'alB'
+			alias = b
+			other = a
+		end 'alB'
+		if alias != ast.noType and assignable(p, src: other, dst: alias) 'useAlias'
+			return alias
+		end 'useAlias'
+		let w = wordOf(c, p: p, off: off, l: a, r: b, errs: errs)
+		if w == ast.noType 'badW'
+			return ast.noType
+		end 'badW'
+		let nLo = ast.minI128(rangeLo(p.types, t: a), b: rangeLo(p.types, t: b))
+		let nHi = ast.maxI128(rangeHi(p.types, t: a), b: rangeHi(p.types, t: b))
+		return ast.internIntRange(p.types, aliasName: "", minVal: nLo, maxVal: nHi, inferred: true)
+	end 'ints'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the branches produce {ast.typeName(p.types, t: a)} and {ast.typeName(p.types, t: b)}", errs: errs)
+	return ast.noType
+end 'joinTypes'
+
+export function boundsOfParam(p ast.Project, boundedFn ast.FuncID, paramTy ast.TypeID) returns ast.TypeIDList
+	var out = ast.TypeIDList.new()
+	let bi = p.types.entries[paramTy as Count].boundIface
+	if bi != ast.noType 'std'
+		out.append(bi)
+	end 'std'
+	for i in 0 upto p.types.entries[paramTy as Count].bounds.count() 'pb'
+		out.append(p.types.entries[paramTy as Count].bounds[i].ifaceTy)
+	end 'pb'
+	if boundedFn != ast.noFunc 'fnBnd'
+		for i in 0 upto p.funcs.entries[boundedFn as Count].bounds.count() 'fb'
+			if p.funcs.entries[boundedFn as Count].bounds[i].paramTy == paramTy 'hit'
+				out.append(p.funcs.entries[boundedFn as Count].bounds[i].ifaceTy)
+			end 'hit'
+		end 'fb'
+	end 'fnBnd'
+	return out
+end 'boundsOfParam'
+
+export function isKeyType(tt ast.TypeTable, b ast.Builtins, t ast.TypeID) returns bool
+	if t == ast.noType 'n'
+		return false
+	end 'n'
+	let k = tt.entries[t as Count].kind
+	return t == b.boolTy or t == b.stringTy or k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.enumTy or k == ast.TypeKind.builtinHandle
+end 'isKeyType'
+
+export function typeIsNominal(tt ast.TypeTable, t ast.TypeID) returns bool
+	if t == ast.noType 'n'
+		return false
+	end 'n'
+	return match tt.entries[t as Count].kind 'k'
+		record gives true
+		enumTy gives true
+		unionTy gives true
+		builtinArray gives true
+		builtinMap gives true
+		builtinList gives true
+		builtinPool gives true
+		builtinHandle gives true
+		builtinFrozen gives true
+		builtinCown gives true
+		builtinBytes gives true
+		invalid gives false
+		primBool gives false
+		primString gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		typeParam gives false
+		interfaceTy gives false
+	end 'k'
+end 'typeIsNominal'
+
+export function hasDestructorOn(p ast.Project, t ast.TypeID) returns bool
+	let orig = ast.originOf(p.types, t: t)
+	return p.types.entries[orig as Count].dropFunc != ast.noFunc
+end 'hasDestructorOn'
+
+export function hasBoundCap(p ast.Project, boundedFn ast.FuncID, paramTy ast.TypeID, wantCopy bool) returns bool
+	let ifaces = boundsOfParam(p, boundedFn: boundedFn, paramTy: paramTy)
+	for i in 0 upto ifaces.count() 'each'
+		let iface = ifaces[i]
+		if iface == p.builtins.copyableTy or ((not wantCopy) and iface == p.builtins.droppableTy) 'yes'
+			return true
+		end 'yes'
+	end 'each'
+	return false
+end 'hasBoundCap'
+
+export function typeFieldType(mutates p ast.Project, ownerTy ast.TypeID, fieldIdx Count) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: ownerTy)
+	let ft = p.types.entries[orig as Count].fields[fieldIdx].ty
+	if ownerTy == orig or p.types.entries[ownerTy as Count].typeArgs.count() == 0 'base'
+		return ft
+	end 'base'
+	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
+	let args = ast.cloneTypeArgs(p.types.entries[ownerTy as Count].typeArgs)
+	return ast.substituteType(p.types, t: ft, params: params, args: args)
+end 'typeFieldType'
+
+export function typePayloadType(mutates p ast.Project, ownerTy ast.TypeID, caseIdx Count, fieldIdx Count) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: ownerTy)
+	let pt = p.types.entries[orig as Count].cases[caseIdx].payload[fieldIdx].ty
+	if ownerTy == orig or p.types.entries[ownerTy as Count].typeArgs.count() == 0 'base'
+		return pt
+	end 'base'
+	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
+	let args = ast.cloneTypeArgs(p.types.entries[ownerTy as Count].typeArgs)
+	return ast.substituteType(p.types, t: pt, params: params, args: args)
+end 'typePayloadType'
+
+export function typeElemType(mutates p ast.Project, ownerTy ast.TypeID) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: ownerTy)
+	let k = p.types.entries[orig as Count].kind
+	let args = ast.typeArgsOf(p.types, t: ownerTy)
+	if k == ast.TypeKind.builtinMap and args.count() >= 2 'map'
+		return args[1]
+	end 'map'
+	if args.count() >= 1 'one'
+		return args[0]
+	end 'one'
+	return ast.noType
+end 'typeElemType'
+
+export function typeIndexType(mutates p ast.Project, ownerTy ast.TypeID) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: ownerTy)
+	let k = p.types.entries[orig as Count].kind
+	if k == ast.TypeKind.builtinArray 'arr'
+		return p.builtins.countTy
+	end 'arr'
+	let args = ast.typeArgsOf(p.types, t: ownerTy)
+	if k == ast.TypeKind.builtinMap and args.count() >= 1 'map'
+		return args[0]
+	end 'map'
+	if (k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool) and args.count() >= 1 'hl'
+		var hArgs = ast.TypeIDList.new()
+		hArgs.append(args[0])
+		return ast.instantiateType(p.types, origin: p.builtins.handleOrigin, args: hArgs)
+	end 'hl'
+	return ast.noType
+end 'typeIndexType'
+
+export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool, t ast.TypeID) returns LackInfo
+	if t == ast.noType 'err'
+		return LackInfo.ok()
+	end 'err'
+	let k = p.types.entries[t as Count].kind
+	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
+		return LackInfo.ok()
+	end 'scalar'
+	if k == ast.TypeKind.typeParam 'tp'
+		if hasBoundCap(p, boundedFn: c.boundedFn, paramTy: t, wantCopy: wantCopy) 'ok'
+			return LackInfo.ok()
+		end 'ok'
+		return LackInfo.fail(LackStep.root(t, reason: LackReason.lackUnbounded))
+	end 'tp'
+	var capTag = "D"
+	if wantCopy 'cpTag'
+		capTag = "C"
+	end 'cpTag'
+	let key = "{capTag}|{t}|{c.boundedFn}"
+	match consumes c.capKnown.get(key) 'hit'
+		some(l) then return l
+		none then _ = 0
+	end 'hit'
+	if c.capVisiting.has(key) 'cyc'
+		return LackInfo.ok()
+	end 'cyc'
+	c.capVisiting.insert(key.copy(), value: true)
+	var res = LackInfo.ok()
+	if k == ast.TypeKind.record 'rec'
+		let orig = ast.originOf(p.types, t: t)
+		if hasDestructorOn(p, t: orig) 'dtor'
+			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDestructor))
+		end 'dtor' else if wantCopy and p.types.entries[orig as Count].isNoncopyable 'nc'
+			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDeclared))
+		end 'nc' else 'fields'
+			let fCount = p.types.entries[orig as Count].fields.count()
+			for fi in 0 upto fCount 'eachF'
+				let fTy = typeFieldType(p, ownerTy: t, fieldIdx: fi)
+				let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: fTy)
+				if sub.missing 'fMiss'
+					let fName = p.types.entries[orig as Count].fields[fi].name.copy()
+					res = LackInfo.wrap(LackStep.part(t, partTy: fTy, place: "in its field '{fName}'"), inner: sub)
+					break 'eachF'
+				end 'fMiss'
+			end 'eachF'
+		end 'fields'
+	end 'rec' else if k == ast.TypeKind.unionTy 'uni'
+		let orig = ast.originOf(p.types, t: t)
+		if hasDestructorOn(p, t: orig) 'dtor'
+			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDestructor))
+		end 'dtor' else if wantCopy and p.types.entries[orig as Count].isNoncopyable 'nc'
+			res = LackInfo.fail(LackStep.root(t, reason: LackReason.lackDeclared))
+		end 'nc' else 'cases'
+			let cCount = p.types.entries[orig as Count].cases.count()
+			for ci in 0 upto cCount 'eachC'
+				let cName = p.types.entries[orig as Count].cases[ci].name.copy()
+				let pCount = p.types.entries[orig as Count].cases[ci].payload.count()
+				for pi in 0 upto pCount 'eachP'
+					let pTy = typePayloadType(p, ownerTy: t, caseIdx: ci, fieldIdx: pi)
+					let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: pTy)
+					if sub.missing 'pMiss'
+						let pName = p.types.entries[orig as Count].cases[ci].payload[pi].name.copy()
+						res = LackInfo.wrap(LackStep.part(t, partTy: pTy, place: "in the payload '{pName}' of its case '{cName}'"), inner: sub)
+						break 'eachC'
+					end 'pMiss'
+				end 'eachP'
+			end 'eachC'
+		end 'cases'
+	end 'uni' else if k == ast.TypeKind.builtinArray or k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool or k == ast.TypeKind.builtinMap 'col'
+		let elTy = typeElemType(p, ownerTy: t)
+		let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: elTy)
+		if sub.missing 'elMiss'
+			var placeStr = "as its elements"
+			if k == ast.TypeKind.builtinMap 'mp'
+				placeStr = "as its values"
+			end 'mp'
+			res = LackInfo.wrap(LackStep.part(t, partTy: elTy, place: placeStr), inner: sub)
+		end 'elMiss'
+	end 'col'
+	_ = c.capVisiting.remove(key)
+	if res.missing or c.capVisiting.isEmpty() 'cache'
+		c.capKnown.insert(key, value: res.copy())
+	end 'cache'
+	return res
+end 'lacksCap'
+
+export function lackWhyText(tt ast.TypeTable, info LackInfo, capName String) returns String
+	var buf = Bytes.new()
+	let n = info.steps.count()
+	for i in 0 upto n 'each'
+		if i > 0 'sep'
+			buf.appendString("; ")
+		end 'sep'
+		let oName = ast.typeName(tt, t: info.steps[i].owner)
+		let r = info.steps[i].reason
+		if r == LackReason.lackNone 'part'
+			let pName = ast.typeName(tt, t: info.steps[i].partTy)
+			buf.appendString("'{oName}' holds '{pName}' {info.steps[i].place}")
+		end 'part' else if r == LackReason.lackDeclared 'dec'
+			buf.appendString("'{oName}' is declared 'is noncopyable'")
+		end 'dec' else if r == LackReason.lackDestructor 'dtor'
+			buf.appendString("'{oName}' has a destructor")
+		end 'dtor' else 'unb'
+			buf.appendString("the type parameter '{oName}' is not known to be {capName}")
+		end 'unb'
+	end 'each'
+	return buf.toString()
+end 'lackWhyText'
+
+export function lackFixText(tt ast.TypeTable, info LackInfo, capName String) returns String
+	let lastIdx = try info.steps.count() - 1 otherwise 0 as Count
+	let oName = ast.typeName(tt, t: info.steps[lastIdx].owner)
+	let r = info.steps[lastIdx].reason
+	if r == LackReason.lackDeclared 'dec'
+		return "remove 'is noncopyable' from '{oName}' if its values can be copied"
+	end 'dec'
+	if r == LackReason.lackDestructor 'dtor'
+		return "a '{oName}' is ended only by calling one of its destructors; remove them if its values may be copied and dropped"
+	end 'dtor'
+	if r == LackReason.lackUnbounded 'unb'
+		return "add the bound 'where {oName} implements {capName}'"
+	end 'unb'
+	return ""
+end 'lackFixText'
+
+export function copyAdviceText(mutates c Checker, mutates p ast.Project, t ast.TypeID, ifCopyable String, otherwiseText String) returns String
+	let l = lacksCap(c, p: p, wantCopy: true, t: t)
+	if not l.missing 'cp'
+		if otherwiseText == "" 'only'
+			return ifCopyable.copy()
+		end 'only'
+		return "{ifCopyable}, or {otherwiseText}"
+	end 'cp'
+	var ow = otherwiseText.copy()
+	if ow == "" 'def'
+		ow = "move the whole value instead of copying it"
+	end 'def'
+	let why = lackWhyText(p.types, info: l, capName: "Copyable")
+	return "'{ast.typeName(p.types, t: t)}' cannot be copied ({why}), so {ow}"
+end 'copyAdviceText'
+
+export function queueBounds(mutates c Checker, p ast.Project, off diag.U32, params ast.TypeIDList, args ast.TypeIDList)
+	for i in 0 upto params.count() 'each'
+		let pid = params[i]
+		let bCount = p.types.entries[pid as Count].bounds.count()
+		let stdB = p.types.entries[pid as Count].boundIface
+		if stdB != ast.noType 'hasStd'
+			c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+		end 'hasStd'
+		for bi in 0 upto bCount 'eachB'
+			let iface = p.types.entries[pid as Count].bounds[bi].ifaceTy
+			c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+		end 'eachB'
+	end 'each'
+end 'queueBounds'
+
+export function queueMethodBounds(mutates c Checker, p ast.Project, off diag.U32, method ast.FuncID, args ast.TypeIDList)
+	if p.funcs.entries[method as Count].bounds.count() == 0 'none'
+		return
+	end 'none'
+	let bCount = p.funcs.entries[method as Count].bounds.count()
+	let generics = ast.cloneTypeArgs(p.funcs.entries[method as Count].generics)
+	for bi in 0 upto bCount 'eachB'
+		let pTy = p.funcs.entries[method as Count].bounds[bi].paramTy
+		let iface = p.funcs.entries[method as Count].bounds[bi].ifaceTy
+		for gi in 0 upto generics.count() 'findG'
+			if generics[gi] == pTy and gi < args.count() 'hit'
+				c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method))
+				break 'findG'
+			end 'hit'
+		end 'findG'
+	end 'eachB'
+end 'queueMethodBounds'
+
+export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off diag.U32, orig ast.TypeID, args ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
+	let base = ast.originOf(p.types, t: orig)
+	let params = ast.cloneTypeArgs(p.types.entries[base as Count].typeParams)
+	if args.count() != params.count() 'badCount'
+		var pNames = ast.StringList.new()
+		for i in 0 upto params.count() 'pn'
+			pNames.append(ast.typeName(p.types, t: params[i]))
+		end 'pn'
+		let bName = p.types.entries[base as Count].name.copy()
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{bName}' takes {params.count()} type argument(s), given {args.count()}: write '{ast.instanceSpelling(bName, args: pNames)}'", errs: errs)
+		return ast.noType
+	end 'badCount'
+	let bk = p.types.entries[base as Count].kind
+	if bk == ast.TypeKind.builtinMap 'mp'
+		if not isKeyType(p.types, b: p.builtins, t: args[0]) 'badK'
+			checkFail(c.modID, off: off, code: diag.errMapKey, msg: "'{ast.typeName(p.types, t: args[0])}' cannot be the key of a map: a key is an integer alias, a bool, an enum, a String or a Handle", errs: errs)
+			return ast.noType
+		end 'badK'
+	end 'mp' else if bk == ast.TypeKind.builtinFrozen 'fr'
+		if args[0] != ast.noType and not ast.isManagedType(p.types, t: args[0]) and p.types.entries[args[0] as Count].kind != ast.TypeKind.typeParam 'badF'
+			checkFail(c.modID, off: off, code: diag.errFreezeScalar, msg: "'{ast.typeName(p.types, t: args[0])}' is a plain value, which is immutable already and copied freely, so there is nothing to freeze: freeze a record, a union, a String or a collection", errs: errs)
+			return ast.noType
+		end 'badF'
+	end 'fr'
+	queueBounds(c, p: p, off: off, params: params, args: args)
+	return ast.instantiateType(p.types, origin: base, args: args)
+end 'instantiateGeneric'
+
+export function resolveBoundTypeRef(c Checker, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = p.modules[c.modIdx].tree.startOf(tr)
+	let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
+	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
+	match p.resolutions[c.modIdx].decls.get(tr as Count) 'hit'
+		some(ref) then return checkInterfaceRef(c, p: p, tr: tr, off: off, tName: tName, ref: ref, hasArgs: p.modules[c.modIdx].tree.listLen(argsRef) > 0, errs: errs)
+		none then _ = 0
+	end 'hit'
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+	return ast.noType
+end 'resolveBoundTypeRef'
+
+function checkInterfaceRef(c Checker, p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return verifyInterfaceTarget(c, p: p, off: off, tName: tName, tid: tid, hasArgs: hasArgs, errs: errs)
+		none then _ = 0
+	end 'dt'
+	checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
+	return ast.noType
+end 'checkInterfaceRef'
+
+function verifyInterfaceTarget(c Checker, p ast.Project, off diag.U32, tName String, tid ast.TypeID, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
+	if p.types.entries[tid as Count].kind != ast.TypeKind.interfaceTy 'notIface'
+		checkFail(c.modID, off: off, code: diag.errGenericDeclaration, msg: "'{tName}' is not an interface, and only an interface can be a bound or be implemented", errs: errs)
+		return ast.noType
+	end 'notIface'
+	if hasArgs 'hasArgs'
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "the interface '{tName}' is not generic and takes no type arguments", errs: errs)
+		return ast.noType
+	end 'hasArgs'
+	return tid
+end 'verifyInterfaceTarget'
+
+export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let t = resolveNamedTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
+	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.interfaceTy 'ifTy'
+		let off = p.modules[c.modIdx].tree.startOf(tr)
+		let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
+		checkFail(c.modID, off: off, code: diag.errInterfaceAsType, msg: "'{tName}' is an interface, which only bounds a type parameter: declare a type parameter with 'uses T where T implements {tName}' and use T as the type", errs: errs)
+		return ast.noType
+	end 'ifTy'
+	return t
+end 'resolveTypeRef'
+
+function resolveNamedTypeRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = p.modules[c.modIdx].tree.startOf(tr)
+	let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
+	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
+	let hasArgs = p.modules[c.modIdx].tree.listLen(argsRef) > 0
+	match p.resolutions[c.modIdx].typeParamSlots.get(tr as Count) 'tpSlot'
+		some(slot) then return resolveBoundTP(c, p: p, off: off, name: tName, slot: slot, hasArgs: hasArgs, errs: errs)
+		none then _ = 0
+	end 'tpSlot'
+	let qualCount = p.modules[c.modIdx].tree.listLen(ast.typeRefQualifierRef(p.modules[c.modIdx].tree, id: tr))
+	if qualCount == 0 'unqual'
+		if tName == "bool" 'bl'
+			if hasArgs 'badA'
+				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'bool' is not generic and takes no type arguments", errs: errs)
+			end 'badA'
+			return p.builtins.boolTy
+		end 'bl'
+		if tName == "String" 'str'
+			if hasArgs 'badA'
+				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'String' is not generic and takes no type arguments", errs: errs)
+			end 'badA'
+			return p.builtins.stringTy
+		end 'str'
+		if tName == "Self" 'slf'
+			if selfTy == ast.noType 'noS'
+				checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)
+				return ast.noType
+			end 'noS'
+			if hasArgs 'badA'
+				checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'Self' is not generic and takes no type arguments", errs: errs)
+			end 'badA'
+			return selfTy
+		end 'slf'
+		if tName == "int" or tName == "float" 'barePrim'
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a bare '{tName}' needs a ranged typealias", errs: errs)
+			return ast.noType
+		end 'barePrim'
+	end 'unqual'
+	match p.resolutions[c.modIdx].decls.get(tr as Count) 'declHit'
+		some(ref) then return applyTypeArgs(c, p: p, tr: tr, off: off, tName: tName, ref: ref, selfTy: selfTy, errs: errs)
+		none then _ = 0
+	end 'declHit'
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+	return ast.noType
+end 'resolveNamedTypeRef'
+
+function resolveBoundTP(c Checker, p ast.Project, off diag.U32, name String, slot Count, hasArgs bool, mutates errs diag.ErrorList) returns ast.TypeID
+	if hasArgs 'badA'
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{name}' is not generic and takes no type arguments", errs: errs)
+	end 'badA'
+	let tpNode = p.resolutions[c.modIdx].typeParams[slot].id
+	match p.declTypes.get(ast.nodeKey(c.modID, node: tpNode)) 'tid'
+		some(id) then return id
+		none then _ = 0
+	end 'tid'
+	checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{name}'", errs: errs)
+	return ast.noType
+end 'resolveBoundTP'
+
+function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var target = ast.noType
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then target = tid
+		none then target = ast.noType
+	end 'dt'
+	if target == ast.noType 'unk'
+		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "unknown type '{tName}'", errs: errs)
+		return ast.noType
+	end 'unk'
+	let argsRef = ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: tr)
+	let argCount = p.modules[c.modIdx].tree.listLen(argsRef)
+	if p.types.entries[target as Count].typeParams.count() == 0 'nonGen'
+		if argCount > 0 'badA'
+			checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is not generic and takes no type arguments", errs: errs)
+		end 'badA'
+		return target
+	end 'nonGen'
+	var resolvedArgs = ast.TypeIDList.new()
+	for i in 0 upto argCount 'eachA'
+		let aNode = p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
+		let at = resolveTypeRef(c, p: p, tr: aNode, selfTy: selfTy, errs: errs)
+		if at == ast.noType 'fail'
+			return ast.noType
+		end 'fail'
+		resolvedArgs.append(at)
+	end 'eachA'
+	return instantiateGeneric(c, p: p, off: off, orig: target, args: resolvedArgs, errs: errs)
+end 'applyTypeArgs'

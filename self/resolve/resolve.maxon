@@ -1,0 +1,1003 @@
+typealias BoolStrMap = table.StringMap with bool
+
+typealias ScopeStack = array with BoolStrMap
+
+typealias TypeParamMap = table.StringMap with Count
+
+type LookupResult
+	export var found as bool
+	export var decl as ast.DeclRef
+	export var hasErr as bool
+	export var errCode as String
+	export var errMsg as String
+
+	export static function hit(consumes d ast.DeclRef) returns LookupResult
+		return LookupResult{found: true, decl: d, hasErr: false, errCode: "", errMsg: ""}
+	end 'hit'
+
+	export static function miss() returns LookupResult
+		return LookupResult{found: false, decl: ast.DeclRef.make(0 as diag.ModuleID, ordinal: 0 as ast.DeclOrdinal), hasErr: false, errCode: "", errMsg: ""}
+	end 'miss'
+
+	export static function fail(consumes code String, consumes msg String) returns LookupResult
+		return LookupResult{found: false, decl: ast.DeclRef.make(0 as diag.ModuleID, ordinal: 0 as ast.DeclOrdinal), hasErr: true, errCode: code, errMsg: msg}
+	end 'fail'
+end 'LookupResult'
+
+type Segment
+	export var name as String
+	export var node as ast.NodeID
+
+	export static function make(consumes name String, node ast.NodeID) returns Segment
+		return Segment{name: name, node: node}
+	end 'make'
+end 'Segment'
+
+typealias SegmentList = array with Segment
+
+type Resolver
+	export var modID as diag.ModuleID
+	export var tree as ast.Tree
+	export var res as ast.Resolution
+	export var scopes as ScopeStack
+	export var fields as BoolStrMap
+	export var typeParams as TypeParamMap
+	export var whenDepth as Count
+
+	export static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.new(), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), whenDepth: 0 as Count}
+	end 'make'
+end 'Resolver'
+
+function isPrimTypeName(name String) returns bool
+	return name == "bool" or name == "String" or name == "Self" or name == "int" or name == "float"
+end 'isPrimTypeName'
+
+function pushErr(mutates errs diag.ErrorList, modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String)
+	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
+end 'pushErr'
+
+function checkEnd(mutates r Resolver, label String, endNode ast.NodeID, mutates errs diag.ErrorList)
+	if endNode == 0 'none'
+		return
+	end 'none'
+	let got = ast.endLabelName(r.tree, id: endNode)
+	if got != label 'bad'
+		let off = r.tree.startOf(endNode)
+		pushErr(errs, modID: r.modID, off: off, code: diag.errMismatchedEndLabel, msg: "'end' names '{got}', but the block is '{label}'")
+	end 'bad'
+end 'checkEnd'
+
+function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
+	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
+		return true
+	end 'ownOrStd'
+	let mIdx = ast.modIndex(ref.module)
+	return p.modules[mIdx].decls[ref.ordinal as Count].isExported()
+end 'isDeclVisible'
+
+function hiddenMessage(p ast.Project, ref ast.DeclRef) returns String
+	let mIdx = ast.modIndex(ref.module)
+	let dName = p.modules[mIdx].decls[ref.ordinal as Count].name()
+	return "'{dName}' is not exported from module {p.modules[mIdx].display()}"
+end 'hiddenMessage'
+
+function modDisplayFor(p ast.Project, modID diag.ModuleID) returns String
+	if modID == diag.stdlibID 'std'
+		return p.stdlib.display()
+	end 'std'
+	return p.modules[ast.modIndex(modID)].display()
+end 'modDisplayFor'
+
+function takeLookup(mutates r Resolver, p ast.Project, consumes lr LookupResult, off diag.U32, mutates errs diag.ErrorList) returns Option with ast.DeclRef
+	if lr.hasErr 'err'
+		pushErr(errs, modID: r.modID, off: off, code: lr.errCode, msg: lr.errMsg)
+		return Option.none
+	end 'err'
+	if not lr.found 'none'
+		return Option.none
+	end 'none'
+	if lr.decl.module != r.modID and lr.decl.module != diag.stdlibID 'dep'
+		r.res.addDep(lr.decl.module, offset: off)
+	end 'dep'
+	return Option.some(lr.decl)
+end 'takeLookup'
+
+function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
+	let ownIdx = ast.modIndex(r.modID)
+	match p.modules[ownIdx].names.get(name) 'own'
+		some(ord) then return LookupResult.hit(ast.DeclRef.make(r.modID, ordinal: ord))
+		none then _ = 0
+	end 'own'
+	let rootIdx = ast.modIndex(p.rootModule)
+	match p.modules[rootIdx].names.get(name) 'rt'
+		some(ord) then return checkRootLookup(r, p: p, ref: ast.DeclRef.make(p.rootModule, ordinal: ord))
+		none then _ = 0
+	end 'rt'
+	var vis = ast.DeclRefList.new()
+	var hiddenFirst as Option with ast.DeclRef
+	hiddenFirst = Option.none
+	match p.byName.get(name) 'glob'
+		some(allRefs) then collectVisible(r, p: p, allRefs: allRefs, vis: vis, hiddenFirst: hiddenFirst)
+		none then _ = 0
+	end 'glob'
+	if vis.count() == 1 'one'
+		return LookupResult.hit(vis[0].copy())
+	end 'one'
+	if vis.count() > 1 'ambig'
+		let firstIdx = ast.modIndex(vis[0].module)
+		var code = diag.errAmbiguousName
+		if p.modules[firstIdx].decls[vis[0].ordinal as Count].isType() 'ty'
+			code = diag.errAmbiguousType
+		end 'ty'
+		var whereBuf = Bytes.new()
+		for i in 0 upto vis.count() 'each'
+			if i > 0 'sep'
+				whereBuf.appendString(", ")
+			end 'sep'
+			let mi = ast.modIndex(vis[i].module)
+			let mp = p.modules[mi].path.copy()
+			if mp == "" 'emptyP'
+				whereBuf.appendString(name)
+			end 'emptyP' else 'modP'
+				whereBuf.appendString("{mp}.{name}")
+			end 'modP'
+		end 'each'
+		return LookupResult.fail(code, msg: "'{name}' is ambiguous: qualify it as one of {whereBuf.toString()}")
+	end 'ambig'
+	match consumes hiddenFirst 'hid'
+		some(hf) then return LookupResult.fail(diag.errNotExported, msg: hiddenMessage(p, ref: hf))
+		none then _ = 0
+	end 'hid'
+	match p.stdlib.names.get(name) 'std'
+		some(ord) then return LookupResult.hit(ast.DeclRef.make(diag.stdlibID, ordinal: ord))
+		none then _ = 0
+	end 'std'
+	return LookupResult.miss()
+end 'bareLookup'
+
+function checkRootLookup(r Resolver, p ast.Project, consumes ref ast.DeclRef) returns LookupResult
+	if isDeclVisible(r, p: p, ref: ref) 'ok'
+		return LookupResult.hit(ref)
+	end 'ok'
+	return LookupResult.fail(diag.errNotExported, msg: hiddenMessage(p, ref: ref))
+end 'checkRootLookup'
+
+function collectVisible(r Resolver, p ast.Project, allRefs ast.DeclRefList, mutates vis ast.DeclRefList, mutates hiddenFirst Option with ast.DeclRef)
+	for i in 0 upto allRefs.count() 'each'
+		let d = allRefs[i].copy()
+		if d.module != r.modID and d.module != p.rootModule 'other'
+			if isDeclVisible(r, p: p, ref: d) 'v'
+				vis.append(d)
+			end 'v' else 'h'
+				match hiddenFirst 'setFirst'
+					none then hiddenFirst = Option.some(d)
+					some(_) then _ = 0
+				end 'setFirst'
+			end 'h'
+		end 'other'
+	end 'each'
+end 'collectVisible'
+
+function isModuleRoot(p ast.Project, name String) returns bool
+	if name == "export" or name == "stdlib" 'special'
+		return true
+	end 'special'
+	let rIdx = ast.modIndex(p.rootModule)
+	return p.modules[rIdx].findChild(name).isSome()
+end 'isModuleRoot'
+
+function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff diag.U32, rest ast.StringList, offs ast.U32List, mutates errs diag.ErrorList) returns Count
+	var curMod = p.rootModule
+	if head == "export" 'exp'
+		curMod = p.rootModule
+	end 'exp' else if head == "stdlib" 'std'
+		curMod = diag.stdlibID
+	end 'std' else 'child'
+		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
+			some(cid) then curMod = cid
+			none then return 0 as Count
+		end 'ch'
+	end 'child'
+	var i = 0 as Count
+	while i < rest.count() 'walk'
+		let segName = rest[i].copy()
+		if curMod == diag.stdlibID 'inStd'
+			if p.stdlib.names.has(segName) 'hitStd'
+				break 'walk'
+			end 'hitStd'
+			break 'walk'
+		end 'inStd'
+		let cIdx = ast.modIndex(curMod)
+		if p.modules[cIdx].names.has(segName) 'hitDecl'
+			break 'walk'
+		end 'hitDecl'
+		match p.modules[cIdx].findChild(segName) 'sub'
+			some(nextMod) then curMod = nextMod
+			none then break 'walk'
+		end 'sub'
+		i = try i + 1 otherwise i
+	end 'walk'
+	if i == rest.count() 'isMod'
+		var joined = Bytes.new()
+		for k in 0 upto rest.count() 'j'
+			if k > 0 'dot'
+				joined.push(46 as Byte)
+			end 'dot'
+			joined.appendString(rest[k])
+		end 'j'
+		pushErr(errs, modID: r.modID, off: headOff, code: diag.errExpressionError, msg: "'{head}.{joined.toString()}' is a module, not a value")
+		return 0 as Count
+	end 'isMod'
+	let targetName = rest[i].copy()
+	var optOrd as Option with ast.DeclOrdinal
+	optOrd = Option.none
+	if curMod == diag.stdlibID 'stdGet'
+		optOrd = p.stdlib.names.get(targetName)
+	end 'stdGet' else 'modGet'
+		optOrd = p.modules[ast.modIndex(curMod)].names.get(targetName)
+	end 'modGet'
+	match optOrd 'found'
+		some(ord) then return finishQualified(r, p: p, ref: ast.DeclRef.make(curMod, ordinal: ord), off: offs[i], used: try i + 1 otherwise 0 as Count, errs: errs)
+		none then _ = 0
+	end 'found'
+	pushErr(errs, modID: r.modID, off: offs[i], code: "E2073", msg: "module {modDisplayFor(p, modID: curMod)} declares no '{targetName}'")
+	return 0 as Count
+end 'qualifiedLookup'
+
+function finishQualified(mutates r Resolver, p ast.Project, consumes ref ast.DeclRef, off diag.U32, used Count, mutates errs diag.ErrorList) returns Count
+	if not isDeclVisible(r, p: p, ref: ref) 'hid'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errNotExported, msg: hiddenMessage(p, ref: ref))
+		return 0 as Count
+	end 'hid'
+	if ref.module != r.modID and ref.module != diag.stdlibID 'dep'
+		r.res.addDep(ref.module, offset: off)
+	end 'dep'
+	return used
+end 'finishQualified'
+
+function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) returns Option with ast.DeclRef
+	var curMod = p.rootModule
+	if head == "export" 'exp'
+		curMod = p.rootModule
+	end 'exp' else if head == "stdlib" 'std'
+		curMod = diag.stdlibID
+	end 'std' else 'child'
+		match p.modules[ast.modIndex(p.rootModule)].findChild(head) 'ch'
+			some(cid) then curMod = cid
+			none then return Option.none
+		end 'ch'
+	end 'child'
+	var i = 0 as Count
+	while i < rest.count() 'walk'
+		let segName = rest[i].copy()
+		if curMod == diag.stdlibID 'inStd'
+			break 'walk'
+		end 'inStd'
+		let cIdx = ast.modIndex(curMod)
+		if p.modules[cIdx].names.has(segName) 'hitDecl'
+			break 'walk'
+		end 'hitDecl'
+		match p.modules[cIdx].findChild(segName) 'sub'
+			some(nextMod) then curMod = nextMod
+			none then break 'walk'
+		end 'sub'
+		i = try i + 1 otherwise i
+	end 'walk'
+	if i == rest.count() 'isMod'
+		return Option.none
+	end 'isMod'
+	let targetName = rest[i].copy()
+	var optOrd as Option with ast.DeclOrdinal
+	optOrd = Option.none
+	if curMod == diag.stdlibID 'stdGet'
+		optOrd = p.stdlib.names.get(targetName)
+	end 'stdGet' else 'modGet'
+		optOrd = p.modules[ast.modIndex(curMod)].names.get(targetName)
+	end 'modGet'
+	match optOrd 'hit'
+		some(ord) then return Option.some(ast.DeclRef.make(curMod, ordinal: ord))
+		none then return Option.none
+	end 'hit'
+end 'qualifiedDeclRef'
+
+function cloneTypeParamMap(m TypeParamMap) returns TypeParamMap
+	return m.copy()
+end 'cloneTypeParamMap'
+
+function enterTypeParams(mutates r Resolver, p ast.Project, owner String, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList) returns TypeParamMap
+	let outer = cloneTypeParamMap(r.typeParams)
+	for i in 0 upto params.count() 'add'
+		let tp = ast.TypeParam.make(params[i].id, name: params[i].name.copy())
+		let tpName = tp.name.copy()
+		let slot = r.res.addTypeParam(tp)
+		r.typeParams.insert(tpName, value: slot)
+	end 'add'
+	for i in 0 upto constraints.count() 'cons'
+		let c = constraints[i].copy()
+		match r.typeParams.get(c.paramName) 'hit'
+			some(slot) then bindConstraintSlot(r, p: p, owner: owner, constraints: constraints, curIdx: i, c: c, slot: slot, errs: errs)
+			none then reportUnknownTP(r, c: c, owner: owner, errs: errs)
+		end 'hit'
+		let bCount = c.bounds.count()
+		for bi in 0 upto bCount 'bnd'
+			let bNode = c.bounds[bi] as ast.NodeID
+			resolveTypeRef(r, p: p, tr: bNode, errs: errs)
+		end 'bnd'
+	end 'cons'
+	return outer
+end 'enterTypeParams'
+
+function bindConstraintSlot(mutates r Resolver, p ast.Project, owner String, constraints ast.ConstraintList, curIdx Count, c ast.Constraint, slot Count, mutates errs diag.ErrorList)
+	var firstDup = false
+	for j in 0 upto curIdx 'prev'
+		if constraints[j].paramName == c.paramName 'dup'
+			firstDup = true
+			break 'prev'
+		end 'dup'
+	end 'prev'
+	if firstDup 'errDup'
+		let off = r.tree.startOf(c.id)
+		pushErr(errs, modID: r.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{c.paramName}' is constrained twice: join its bounds with 'and', as 'where {c.paramName} implements A and B'")
+		return
+	end 'errDup'
+	r.res.bindTypeParam(c.id, slot: slot)
+end 'bindConstraintSlot'
+
+function reportUnknownTP(mutates r Resolver, c ast.Constraint, owner String, mutates errs diag.ErrorList)
+	let off = r.tree.startOf(c.id)
+	pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownTypeParam, msg: "'{c.paramName}' is not a type parameter of '{owner}': declare it with 'uses {c.paramName}', or constrain one that '{owner}' declares")
+end 'reportUnknownTP'
+
+function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutates errs diag.ErrorList)
+	if tr == 0 'nil'
+		return
+	end 'nil'
+	let argsRef = ast.typeRefTypeArgsRef(r.tree, id: tr)
+	let argCount = r.tree.listLen(argsRef)
+	for i in 0 upto argCount 'args'
+		let aNode = r.tree.listAt(argsRef, index: i) as ast.NodeID
+		resolveTypeRef(r, p: p, tr: aNode, errs: errs)
+	end 'args'
+	let qualRef = ast.typeRefQualifierRef(r.tree, id: tr)
+	let qualCount = r.tree.listLen(qualRef)
+	let tName = ast.typeRefName(r.tree, id: tr)
+	let off = r.tree.startOf(tr)
+	if qualCount == 0 'unqual'
+		match r.typeParams.get(tName) 'tp'
+			some(slot) then r.res.bindTypeParam(tr, slot: slot)
+			none then resolveUnqualDeclType(r, p: p, tr: tr, tName: tName, off: off, errs: errs)
+		end 'tp'
+		return
+	end 'unqual'
+	let firstQual = r.tree.nameAt(r.tree.listAt(qualRef, index: 0 as Count))
+	if not isModuleRoot(p, name: firstQual) 'noMod'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "no module '{firstQual}'")
+		return
+	end 'noMod'
+	var path = ast.StringList.new()
+	var offs = ast.U32List.new()
+	for i in 1 upto qualCount 'qp'
+		path.append(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
+		offs.append(off)
+	end 'qp'
+	path.append(tName.copy())
+	offs.append(off)
+	let used = qualifiedLookup(r, p: p, head: firstQual, headOff: off, rest: path, offs: offs, errs: errs)
+	if used == 0 'failed'
+		return
+	end 'failed'
+	match consumes qualifiedDeclRef(p, head: firstQual, rest: path) 'hit'
+		some(decl) then checkAndBindTypeDecl(r, p: p, tr: tr, decl: decl, used: used, pathLen: path.count(), qualRef: qualRef, tName: tName, off: off, errs: errs)
+		none then _ = 0
+	end 'hit'
+end 'resolveTypeRef'
+
+function resolveUnqualDeclType(mutates r Resolver, p ast.Project, tr ast.NodeID, tName String, off diag.U32, mutates errs diag.ErrorList)
+	if isPrimTypeName(tName) 'prim'
+		return
+	end 'prim'
+	let lr = bareLookup(r, p: p, name: tName)
+	match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
+		some(ref) then checkTypeKindAndBind(r, p: p, tr: tr, ref: ref, tName: tName, off: off, errs: errs)
+		none then _ = 0
+	end 'hit'
+end 'resolveUnqualDeclType'
+
+function checkTypeKindAndBind(mutates r Resolver, p ast.Project, tr ast.NodeID, consumes ref ast.DeclRef, tName String, off diag.U32, mutates errs diag.ErrorList)
+	if not isRefType(p, ref: ref) 'notTy'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "'{tName}' is not a type")
+		return
+	end 'notTy'
+	r.res.bindDecl(tr, d: ref)
+end 'checkTypeKindAndBind'
+
+function isRefType(p ast.Project, ref ast.DeclRef) returns bool
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.decls[ref.ordinal as Count].isType()
+	end 'std'
+	return p.modules[ast.modIndex(ref.module)].decls[ref.ordinal as Count].isType()
+end 'isRefType'
+
+function checkAndBindTypeDecl(mutates r Resolver, p ast.Project, tr ast.NodeID, consumes decl ast.DeclRef, used Count, pathLen Count, qualRef diag.U32, tName String, off diag.U32, mutates errs diag.ErrorList)
+	if used != pathLen or not isRefType(p, ref: decl) 'notTy'
+		var qBuf = Bytes.new()
+		let qLen = r.tree.listLen(qualRef)
+		for i in 0 upto qLen 'each'
+			if i > 0 'd'
+				qBuf.push(46 as Byte)
+			end 'd'
+			qBuf.appendString(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
+		end 'each'
+		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "'{qBuf.toString()}.{tName}' is not a type")
+		return
+	end 'notTy'
+	r.res.bindDecl(tr, d: decl)
+end 'checkAndBindTypeDecl'
+
+function pushScope(mutates r Resolver)
+	r.scopes.append(BoolStrMap.new())
+end 'pushScope'
+
+function pushScopeWith(mutates r Resolver, name String)
+	var m = BoolStrMap.new()
+	m.insert(name.copy(), value: true)
+	r.scopes.append(m)
+end 'pushScopeWith'
+
+function pushScopeList(mutates r Resolver, names ast.StringList)
+	var m = BoolStrMap.new()
+	for i in 0 upto names.count() 'each'
+		m.insert(names[i].copy(), value: true)
+	end 'each'
+	r.scopes.append(m)
+end 'pushScopeList'
+
+function popScope(mutates r Resolver)
+	_ = r.scopes.pop()
+end 'popScope'
+
+function bindLocalName(mutates r Resolver, name String)
+	let top = try r.scopes.count() - 1 otherwise 0 as Count
+	r.scopes[top].insert(name.copy(), value: true)
+end 'bindLocalName'
+
+function isNameBound(r Resolver, name String) returns bool
+	for i in 0 upto r.scopes.count() 'sc'
+		if r.scopes[i].has(name) 'hit'
+			return true
+		end 'hit'
+	end 'sc'
+	return r.fields.has(name)
+end 'isNameBound'
+
+function resolvesDeclMember(p ast.Project, ref ast.DeclRef, memberName String) returns bool
+	let d = ast.moduleDecl(p, ref: ref)
+	match d 'k'
+		typeDecl(td) then return typeHasStatic(p, ref: ref, td: td, memberName: memberName)
+		enumDecl(ed) then return enumHasCase(p, ref: ref, ed: ed, memberName: memberName)
+		unionDecl(ud) then return unionHasCase(p, ref: ref, ud: ud, memberName: memberName)
+		interfaceDecl(_) then return false
+		funcDecl(_) then return false
+		constDecl(_) then return false
+		aliasDecl(_) then return false
+	end 'k'
+end 'resolvesDeclMember'
+
+function typeHasStatic(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, memberName String) returns bool
+	for i in 0 upto td.methods.count() 'each'
+		if td.methods[i].isStatic and td.methods[i].name == memberName 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return typeEntryHasMethod(p, tid: tid, memberName: memberName)
+		none then return false
+	end 'dt'
+end 'typeHasStatic'
+
+function typeEntryHasMethod(p ast.Project, tid ast.TypeID, memberName String) returns bool
+	return p.types.entries[tid as Count].findMethod(memberName).isSome()
+end 'typeEntryHasMethod'
+
+function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName String) returns bool
+	for i in 0 upto ed.cases.count() 'each'
+		if ed.cases[i].name == memberName 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return p.types.entries[tid as Count].findCase(memberName).isSome()
+		none then return false
+	end 'dt'
+end 'enumHasCase'
+
+function unionHasCase(p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, memberName String) returns bool
+	for i in 0 upto ud.cases.count() 'each'
+		if ud.cases[i].name == memberName 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return p.types.entries[tid as Count].findCase(memberName).isSome()
+		none then return false
+	end 'dt'
+end 'unionHasCase'
+
+function resolveBlock(mutates r Resolver, p ast.Project, listRef diag.U32, mutates errs diag.ErrorList)
+	pushScope(r)
+	let n = r.tree.listLen(listRef)
+	for i in 0 upto n 'each'
+		let s = r.tree.listAt(listRef, index: i) as ast.NodeID
+		resolveStmt(r, p: p, id: s, errs: errs)
+	end 'each'
+	popScope(r)
+end 'resolveBlock'
+
+function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	if id == 0 'nil'
+		return
+	end 'nil'
+	let k = r.tree.kindOf(id)
+	if k == ast.NodeKind.letStmt 'sLet'
+		let initNode = ast.letStmtInit(r.tree, id: id)
+		if initNode != 0 'hi'
+			resolveExpr(r, p: p, id: initNode, errs: errs)
+		end 'hi' else 'tp'
+			resolveTypeRef(r, p: p, tr: ast.letStmtType(r.tree, id: id), errs: errs)
+		end 'tp'
+		bindLocalName(r, name: ast.letStmtName(r.tree, id: id))
+	end 'sLet' else if k == ast.NodeKind.assignStmt 'sAss'
+		resolveExpr(r, p: p, id: ast.assignStmtTarget(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.assignStmtValue(r.tree, id: id), errs: errs)
+	end 'sAss' else if k == ast.NodeKind.discardStmt 'sDisc'
+		resolveExpr(r, p: p, id: ast.discardStmtValue(r.tree, id: id), errs: errs)
+	end 'sDisc' else if k == ast.NodeKind.exprStmt 'sExpr'
+		resolveExpr(r, p: p, id: ast.exprStmtE(r.tree, id: id), errs: errs)
+	end 'sExpr' else if k == ast.NodeKind.ifStmt 'sIf'
+		checkEnd(r, label: ast.ifStmtLabel(r.tree, id: id), endNode: ast.ifStmtEnd(r.tree, id: id), errs: errs)
+		checkEnd(r, label: ast.ifStmtElseLabel(r.tree, id: id), endNode: ast.ifStmtElseEnd(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.ifStmtCond(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, listRef: ast.ifStmtThenRef(r.tree, id: id), errs: errs)
+		if ast.ifStmtHasElse(r.tree, id: id) 'el'
+			resolveBlock(r, p: p, listRef: ast.ifStmtElseRef(r.tree, id: id), errs: errs)
+		end 'el'
+	end 'sIf' else if k == ast.NodeKind.whileStmt 'sWh'
+		checkEnd(r, label: ast.whileStmtLabel(r.tree, id: id), endNode: ast.whileStmtEnd(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
+	end 'sWh' else if k == ast.NodeKind.forStmt 'sFor'
+		checkEnd(r, label: ast.forStmtLabel(r.tree, id: id), endNode: ast.forStmtEnd(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.forStmtFrom(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.forStmtTo(r.tree, id: id), errs: errs)
+		pushScopeWith(r, name: ast.forStmtVar(r.tree, id: id))
+		resolveBlock(r, p: p, listRef: ast.forStmtBodyRef(r.tree, id: id), errs: errs)
+		popScope(r)
+	end 'sFor' else if k == ast.NodeKind.matchStmt 'sM'
+		resolveMatchCore(r, p: p, mc: ast.matchStmtMatch(r.tree, id: id), errs: errs)
+	end 'sM' else if k == ast.NodeKind.whenStmt 'sWhen'
+		resolveWhenStmt(r, p: p, id: id, errs: errs)
+	end 'sWhen' else if k == ast.NodeKind.tryStmt 'sTry'
+		resolveTryStmt(r, p: p, id: id, errs: errs)
+	end 'sTry' else if k == ast.NodeKind.returnStmt 'sRet'
+		let rv = ast.returnStmtValue(r.tree, id: id)
+		if rv != 0 'rv'
+			resolveExpr(r, p: p, id: rv, errs: errs)
+		end 'rv'
+	end 'sRet' else if k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'sBrk'
+		_ = 0
+	end 'sBrk' else 'unk'
+		panic("resolveStmt: unexpected node kind")
+	end 'unk'
+end 'resolveStmt'
+
+function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	checkEnd(r, label: ast.whenStmtLabel(r.tree, id: id), endNode: ast.whenStmtEnd(r.tree, id: id), errs: errs)
+	let cRef = ast.whenStmtCownsRef(r.tree, id: id)
+	let cLen = r.tree.listLen(cRef)
+	for i in 0 upto cLen 'cw'
+		let cNode = r.tree.listAt(cRef, index: i) as ast.NodeID
+		resolveNameExpr(r, p: p, id: cNode, errs: errs)
+	end 'cw'
+	let nRef = ast.whenStmtNamesRef(r.tree, id: id)
+	let nLen = r.tree.listLen(nRef)
+	var bNames = ast.StringList.new()
+	for i in 0 upto nLen 'nm'
+		bNames.append(r.tree.nameAt(r.tree.listAt(nRef, index: i)))
+	end 'nm'
+	pushScopeList(r, names: bNames)
+	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
+	resolveBlock(r, p: p, listRef: ast.whenStmtBodyRef(r.tree, id: id), errs: errs)
+	if r.whenDepth > 0 'dec'
+		r.whenDepth = r.whenDepth - 1
+	end 'dec'
+	popScope(r)
+end 'resolveWhenStmt'
+
+function resolveTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	checkEnd(r, label: ast.tryStmtLabel(r.tree, id: id), endNode: ast.tryStmtEnd(r.tree, id: id), errs: errs)
+	resolveBlock(r, p: p, listRef: ast.tryStmtBodyRef(r.tree, id: id), errs: errs)
+	if ast.tryStmtHasOtherwise(r.tree, id: id) 'ho'
+		checkEnd(r, label: ast.tryStmtHandlerLabel(r.tree, id: id), endNode: ast.tryStmtHandlerEnd(r.tree, id: id), errs: errs)
+		let bnd = ast.tryStmtBinding(r.tree, id: id)
+		var bs = ast.StringList.new()
+		if bnd != "" 'hasB'
+			bs.append(bnd)
+		end 'hasB'
+		pushScopeList(r, names: bs)
+		resolveBlock(r, p: p, listRef: ast.tryStmtHandlerRef(r.tree, id: id), errs: errs)
+		popScope(r)
+	end 'ho'
+end 'resolveTryStmt'
+
+function resolveMatchCore(mutates r Resolver, p ast.Project, mc ast.NodeID, mutates errs diag.ErrorList)
+	checkEnd(r, label: ast.matchCoreLabel(r.tree, id: mc), endNode: ast.matchCoreEnd(r.tree, id: mc), errs: errs)
+	resolveExpr(r, p: p, id: ast.matchCoreSubject(r.tree, id: mc), errs: errs)
+	let armsRef = ast.matchCoreArmsRef(r.tree, id: mc)
+	let armCount = r.tree.listLen(armsRef)
+	for i in 0 upto armCount 'eachArm'
+		let arm = r.tree.listAt(armsRef, index: i) as ast.NodeID
+		let patsRef = ast.matchArmPatternsRef(r.tree, id: arm)
+		let patCount = r.tree.listLen(patsRef)
+		var bNames = ast.StringList.new()
+		for pi in 0 upto patCount 'eachPat'
+			let pat = r.tree.listAt(patsRef, index: pi) as ast.NodeID
+			let bRef = ast.patternBindingsRef(r.tree, id: pat)
+			let bCount = r.tree.listLen(bRef)
+			for bi in 0 upto bCount 'eachB'
+				bNames.append(r.tree.nameAt(r.tree.listAt(bRef, index: bi)))
+			end 'eachB'
+		end 'eachPat'
+		pushScopeList(r, names: bNames)
+		let act = ast.matchArmAction(r.tree, id: arm)
+		if act != 0 'act'
+			resolveStmt(r, p: p, id: act, errs: errs)
+		end 'act'
+		let val = ast.matchArmValue(r.tree, id: arm)
+		if val != 0 'val'
+			resolveExpr(r, p: p, id: val, errs: errs)
+		end 'val'
+		popScope(r)
+	end 'eachArm'
+end 'resolveMatchCore'
+
+function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let n = ast.nameExprName(r.tree, id: id)
+	if n == "Self" 's'
+		return
+	end 's'
+	if not isNameBound(r, name: n) 'free'
+		let off = r.tree.startOf(id)
+		let lr = bareLookup(r, p: p, name: n)
+		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
+			some(ref) then r.res.bindDecl(id, d: ref)
+			none then _ = 0
+		end 'hit'
+	end 'free' else if r.whenDepth > 0 'cap'
+		r.tree.appendCaptureRefs(id, depth: r.whenDepth)
+	end 'cap'
+end 'resolveNameExpr'
+
+function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	var revSegs = SegmentList.new()
+	var cur = id
+	while r.tree.kindOf(cur) == ast.NodeKind.memberExpr 'collect'
+		revSegs.append(Segment.make(ast.memberExprName(r.tree, id: cur), node: cur))
+		cur = ast.memberExprObj(r.tree, id: cur)
+	end 'collect'
+	var segs = SegmentList.new()
+	let rc = revSegs.count()
+	for i in 0 upto rc 'rev'
+		let idx = try (rc - 1) - i otherwise 0 as Count
+		segs.append(revSegs[idx].copy())
+	end 'rev'
+	if r.tree.kindOf(cur) != ast.NodeKind.nameExpr 'notName'
+		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
+		return
+	end 'notName'
+	let headName = ast.nameExprName(r.tree, id: cur)
+	if isNameBound(r, name: headName) or headName == "Self" 'bound'
+		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
+		return
+	end 'bound'
+	let bare = bareLookup(r, p: p, name: headName)
+	if bare.found 'hasBare'
+		let isConst = ast.moduleDecl(p, ref: bare.decl).nodeID() != 0 and match ast.moduleDecl(p, ref: bare.decl) 'k'
+			constDecl(_) gives true
+			funcDecl(_) gives false
+			typeDecl(_) gives false
+			enumDecl(_) gives false
+			unionDecl(_) gives false
+			aliasDecl(_) gives false
+			interfaceDecl(_) gives false
+		end 'k'
+		let isTy = isRefType(p, ref: bare.decl)
+		let hasMem = isTy and resolvesDeclMember(p, ref: bare.decl, memberName: segs[0].name)
+		if isConst or hasMem or (not isModuleRoot(p, name: headName)) 'keepBare'
+			let headOff = r.tree.startOf(cur)
+			match consumes takeLookup(r, p: p, lr: bare, off: headOff, errs: errs) 'tk'
+				some(ref) then r.res.bindDecl(cur, d: ref)
+				none then _ = 0
+			end 'tk'
+			return
+		end 'keepBare'
+	end 'hasBare'
+	if not isModuleRoot(p, name: headName) 'notRoot'
+		if bare.hasErr 'repBare'
+			let headOff = r.tree.startOf(cur)
+			_ = takeLookup(r, p: p, lr: bare, off: headOff, errs: errs)
+		end 'repBare'
+		return
+	end 'notRoot'
+	var names = ast.StringList.new()
+	var offs = ast.U32List.new()
+	for i in 0 upto segs.count() 'cp'
+		names.append(segs[i].name.copy())
+		offs.append(r.tree.startOf(segs[i].node))
+	end 'cp'
+	let headOff = r.tree.startOf(cur)
+	let used = qualifiedLookup(r, p: p, head: headName, headOff: headOff, rest: names, offs: offs, errs: errs)
+	if used == 0 'fail'
+		return
+	end 'fail'
+	match consumes qualifiedDeclRef(p, head: headName, rest: names) 'hit'
+		some(target) then rewriteMemberToName(r, targetNode: segs[try used - 1 otherwise 0 as Count].node, headNode: cur, targetDecl: target)
+		none then _ = 0
+	end 'hit'
+end 'resolveMemberExpr'
+
+function rewriteMemberToName(mutates r Resolver, targetNode ast.NodeID, headNode ast.NodeID, consumes targetDecl ast.DeclRef)
+	r.tree.becomeName(targetNode, head: headNode)
+	r.res.becomeNames.insert(targetNode as Count, value: true)
+	r.res.bindDecl(targetNode, d: targetDecl)
+end 'rewriteMemberToName'
+
+function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	if id == 0 'nil'
+		return
+	end 'nil'
+	let k = r.tree.kindOf(id)
+	if k == ast.NodeKind.intLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr 'leaf'
+		return
+	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
+		resolveNameExpr(r, p: p, id: id, errs: errs)
+	end 'nm' else if k == ast.NodeKind.memberExpr 'mem'
+		resolveMemberExpr(r, p: p, id: id, errs: errs)
+	end 'mem' else if k == ast.NodeKind.indexExpr 'idx'
+		resolveExpr(r, p: p, id: ast.indexExprObj(r.tree, id: id), errs: errs)
+		let argsRef = ast.indexExprArgsRef(r.tree, id: id)
+		for i in 0 upto r.tree.listLen(argsRef) 'each'
+			resolveExpr(r, p: p, id: r.tree.listAt(argsRef, index: i) as ast.NodeID, errs: errs)
+		end 'each'
+	end 'idx' else if k == ast.NodeKind.strLit 'str'
+		let partsRef = ast.strLitPartsRef(r.tree, id: id)
+		let n = r.tree.strPartCount(partsRef)
+		for i in 0 upto n 'each'
+			if r.tree.strPartIsExpr(partsRef, index: i) 'expr'
+				resolveExpr(r, p: p, id: r.tree.strPartExpr(partsRef, index: i), errs: errs)
+			end 'expr'
+		end 'each'
+	end 'str' else if k == ast.NodeKind.binaryExpr 'bin'
+		resolveExpr(r, p: p, id: ast.binaryExprL(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: id), errs: errs)
+	end 'bin' else if k == ast.NodeKind.unaryExpr 'un'
+		resolveExpr(r, p: p, id: ast.unaryExprE(r.tree, id: id), errs: errs)
+	end 'un' else if k == ast.NodeKind.condExpr 'cnd'
+		resolveExpr(r, p: p, id: ast.condExprCond(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.condExprThen(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, id: ast.condExprElse(r.tree, id: id), errs: errs)
+	end 'cnd' else if k == ast.NodeKind.tryExpr 'tryE'
+		resolveExpr(r, p: p, id: ast.tryExprE(r.tree, id: id), errs: errs)
+		let val = ast.tryExprValue(r.tree, id: id)
+		if val != 0 'v'
+			resolveExpr(r, p: p, id: val, errs: errs)
+		end 'v'
+		let ret = ast.tryExprRet(r.tree, id: id)
+		if ret != 0 'rt'
+			let rv = ast.returnStmtValue(r.tree, id: ret)
+			if rv != 0 'rv'
+				resolveExpr(r, p: p, id: rv, errs: errs)
+			end 'rv'
+		end 'rt'
+	end 'tryE' else if k == ast.NodeKind.callExpr 'call'
+		resolveCallExpr(r, p: p, id: id, errs: errs)
+	end 'call' else if k == ast.NodeKind.structLitExpr 'slit'
+		resolveStructLitExpr(r, p: p, id: id, errs: errs)
+	end 'slit' else if k == ast.NodeKind.castExpr 'cast'
+		resolveExpr(r, p: p, id: ast.castExprE(r.tree, id: id), errs: errs)
+		resolveTypeRef(r, p: p, tr: ast.castExprTarget(r.tree, id: id), errs: errs)
+	end 'cast' else if k == ast.NodeKind.matchExpr 'me'
+		resolveMatchCore(r, p: p, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
+	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
+		resolveExpr(r, p: p, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
+	end 'pe' else 'unk'
+		panic("resolveExpr: unexpected node kind")
+	end 'unk'
+end 'resolveExpr'
+
+function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let callee = ast.callExprCallee(r.tree, id: id)
+	resolveExpr(r, p: p, id: callee, errs: errs)
+	var constructsCown = false
+	if r.tree.kindOf(callee) == ast.NodeKind.nameExpr 'nm'
+		match r.res.decls.get(callee as Count) 'd'
+			some(ref) then constructsCown = (ref.module == diag.stdlibID and ast.moduleDecl(p, ref: ref).name() == "cown")
+			none then _ = 0
+		end 'd'
+	end 'nm'
+	let argsRef = ast.callExprArgsRef(r.tree, id: id)
+	let n = r.tree.listLen(argsRef)
+	for i in 0 upto n 'each'
+		let aNode = r.tree.listAt(argsRef, index: i) as ast.NodeID
+		if constructsCown and ast.argLabel(r.tree, id: aNode) == ast.dropWithLabel 'skipDW'
+			continue 'each'
+		end 'skipDW'
+		resolveExpr(r, p: p, id: ast.argValue(r.tree, id: aNode), errs: errs)
+	end 'each'
+end 'resolveCallExpr'
+
+function resolveStructLitExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let tName = ast.structLitExprTypeName(r.tree, id: id)
+	if tName != "Self" 'named'
+		let off = r.tree.startOf(id)
+		let lr = bareLookup(r, p: p, name: tName)
+		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
+			some(ref) then r.res.bindDecl(id, d: ref)
+			none then _ = 0
+		end 'hit'
+	end 'named'
+	let fieldsRef = ast.structLitExprFieldsRef(r.tree, id: id)
+	let n = r.tree.listLen(fieldsRef)
+	for i in 0 upto n 'each'
+		let fi = r.tree.listAt(fieldsRef, index: i) as ast.NodeID
+		resolveExpr(r, p: p, id: ast.structFieldValue(r.tree, id: fi), errs: errs)
+	end 'each'
+end 'resolveStructLitExpr'
+
+function resolveConforms(mutates r Resolver, p ast.Project, conforms ast.U32List, mutates errs diag.ErrorList)
+	for i in 0 upto conforms.count() 'each'
+		resolveTypeRef(r, p: p, tr: conforms[i] as ast.NodeID, errs: errs)
+	end 'each'
+end 'resolveConforms'
+
+function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, fieldNames BoolStrMap, mutates errs diag.ErrorList)
+	let outer = enterTypeParams(r, p: p, owner: f.name, params: f.typeParams, constraints: f.constraints, errs: errs)
+	checkEnd(r, label: f.name, endNode: f.endLabel, errs: errs)
+	for i in 0 upto f.params.count() 'pars'
+		resolveTypeRef(r, p: p, tr: f.params[i].typeRef, errs: errs)
+	end 'pars'
+	resolveTypeRef(r, p: p, tr: f.returnsRef, errs: errs)
+	resolveTypeRef(r, p: p, tr: f.throwsRef, errs: errs)
+	r.scopes = ScopeStack.new()
+	pushScope(r)
+	r.fields = cloneBoolStrMap(fieldNames)
+	for i in 0 upto f.params.count() 'pNames'
+		bindLocalName(r, name: f.params[i].name)
+	end 'pNames'
+	resolveBlock(r, p: p, listRef: f.bodyRef, errs: errs)
+	popScope(r)
+	r.typeParams = outer
+end 'resolveFuncDecl'
+
+function cloneBoolStrMap(m BoolStrMap) returns BoolStrMap
+	return m.copy()
+end 'cloneBoolStrMap'
+
+function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates errs diag.ErrorList)
+	let emptyFields = BoolStrMap.new()
+	match d 'k'
+		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, fieldNames: emptyFields, errs: errs)
+		constDecl(cd) then resolveConstDecl(r, p: p, cd: cd, errs: errs)
+		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, errs: errs)
+		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, errs: errs)
+		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, errs: errs)
+		aliasDecl(ad) then resolveAliasDecl(r, p: p, ad: ad, errs: errs)
+		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ifd: ifd, errs: errs)
+	end 'k'
+end 'resolveTopDecl'
+
+function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
+	r.scopes = ScopeStack.new()
+	pushScope(r)
+	r.fields = BoolStrMap.new()
+	resolveExpr(r, p: p, id: cd.valueExpr, errs: errs)
+	popScope(r)
+end 'resolveConstDecl'
+
+function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, mutates errs diag.ErrorList)
+	checkEnd(r, label: td.name, endNode: td.endLabel, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: td.name, params: td.typeParams, constraints: td.constraints, errs: errs)
+	resolveConforms(r, p: p, conforms: td.conforms, errs: errs)
+	var fNames = BoolStrMap.new()
+	for i in 0 upto td.fields.count() 'flds'
+		fNames.insert(td.fields[i].name.copy(), value: true)
+		let tRef = td.fields[i].typeRef
+		if tRef != 0 'ht'
+			resolveTypeRef(r, p: p, tr: tRef, errs: errs)
+		end 'ht'
+		let dExpr = td.fields[i].defaultExpr
+		if dExpr != 0 'hd'
+			r.scopes = ScopeStack.new()
+			pushScope(r)
+			r.fields = BoolStrMap.new()
+			resolveExpr(r, p: p, id: dExpr, errs: errs)
+			popScope(r)
+		end 'hd'
+	end 'flds'
+	let emptyFields = BoolStrMap.new()
+	for i in 0 upto td.methods.count() 'meths'
+		if td.methods[i].isStatic 'st'
+			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+		end 'st' else 'inst'
+			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), fieldNames: fNames, errs: errs)
+		end 'inst'
+	end 'meths'
+	r.typeParams = outer
+end 'resolveTypeDecl'
+
+function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, mutates errs diag.ErrorList)
+	checkEnd(r, label: ed.name, endNode: ed.endLabel, errs: errs)
+	resolveConforms(r, p: p, conforms: ed.conforms, errs: errs)
+	let emptyFields = BoolStrMap.new()
+	for i in 0 upto ed.methods.count() 'meths'
+		resolveFuncDecl(r, p: p, f: ed.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+	end 'meths'
+end 'resolveEnumDecl'
+
+function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, mutates errs diag.ErrorList)
+	checkEnd(r, label: ud.name, endNode: ud.endLabel, errs: errs)
+	let outer = enterTypeParams(r, p: p, owner: ud.name, params: ud.typeParams, constraints: ud.constraints, errs: errs)
+	resolveConforms(r, p: p, conforms: ud.conforms, errs: errs)
+	for i in 0 upto ud.cases.count() 'cs'
+		for j in 0 upto ud.cases[i].fields.count() 'ps'
+			resolveTypeRef(r, p: p, tr: ud.cases[i].fields[j].typeRef, errs: errs)
+		end 'ps'
+	end 'cs'
+	let emptyFields = BoolStrMap.new()
+	for i in 0 upto ud.methods.count() 'meths'
+		resolveFuncDecl(r, p: p, f: ud.methods[i].copy(), fieldNames: emptyFields, errs: errs)
+	end 'meths'
+	r.typeParams = outer
+end 'resolveUnionDecl'
+
+function resolveAliasDecl(mutates r Resolver, p ast.Project, ad ast.AliasDecl, mutates errs diag.ErrorList)
+	if ad.instanceRef != 0 'inst'
+		resolveTypeRef(r, p: p, tr: ad.instanceRef, errs: errs)
+	end 'inst'
+end 'resolveAliasDecl'
+
+function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
+	checkEnd(r, label: ifd.name, endNode: ifd.endLabel, errs: errs)
+	for i in 0 upto ifd.methods.count() 'sigs'
+		for j in 0 upto ifd.methods[i].params.count() 'ps'
+			resolveTypeRef(r, p: p, tr: ifd.methods[i].params[j].typeRef, errs: errs)
+		end 'ps'
+		resolveTypeRef(r, p: p, tr: ifd.methods[i].returnsRef, errs: errs)
+		resolveTypeRef(r, p: p, tr: ifd.methods[i].throwsRef, errs: errs)
+	end 'sigs'
+end 'resolveInterfaceDecl'
+
+export function resolveModule(mutates p ast.Project, modIdx Count, mutates errs diag.ErrorList)
+	let modID = p.modules[modIdx].id
+	let swappedTree = exchange(p.modules[modIdx].tree, value: ast.Tree.new(modID, text: ""))
+	let swappedRes = exchange(p.resolutions[modIdx], value: ast.Resolution.new(modID))
+	var r = Resolver.make(modID, tree: swappedTree, res: swappedRes)
+	let declCount = p.modules[modIdx].decls.count()
+	for i in 0 upto declCount 'eachD'
+		r.typeParams = TypeParamMap.new()
+		let d = p.modules[modIdx].decls[i].copy()
+		resolveTopDecl(r, p: p, d: d, errs: errs)
+	end 'eachD'
+	var dummyTree = ast.Tree.new(modID, text: "")
+	var dummyRes = ast.Resolution.new(modID)
+	let finalTree = exchange(r.tree, value: dummyTree)
+	let finalRes = exchange(r.res, value: dummyRes)
+	p.modules[modIdx].tree = finalTree
+	p.resolutions[modIdx] = finalRes
+end 'resolveModule'
+
+export function resolveProject(mutates p ast.Project, mutates errs diag.ErrorList)
+	for i in 0 upto p.modules.count() 'eachM'
+		resolveModule(p, modIdx: i, errs: errs)
+	end 'eachM'
+end 'resolveProject'

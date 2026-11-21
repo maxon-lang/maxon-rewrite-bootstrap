@@ -44,6 +44,8 @@ func (l *Lowerer) behaviour(s ast.WhenInfo) int {
 	inner := l.newLowerer(s.Fn, ast.BehaviourName(l.f.Symbol(), len(l.f.Behaviours)))
 	body := inner.lowerBody()
 	l.f.UsesArrays = l.f.UsesArrays || body.UsesArrays
+	l.f.UsesBytes = l.f.UsesBytes || body.UsesBytes
+	l.f.UsesOs = l.f.UsesOs || body.UsesOs
 	l.f.Refusals = append(l.f.Refusals, body.Refusals...)
 	return l.b.Behaviour(body)
 }

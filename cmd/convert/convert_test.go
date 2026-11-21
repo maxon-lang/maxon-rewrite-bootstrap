@@ -1,0 +1,397 @@
+package main
+
+import (
+	"bytes"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+)
+
+func TestConvertSyntaxAndLayout(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{
+			name: "mutable receiver and parameter conventions",
+			in: `type Counter
+    var value as Count
+
+    function bump(mutable self, delta Count, out mutable Count) returns Count
+        self.value = self.value + delta
+        out = self.value
+
+        return self.value
+    end 'bump'
+end 'Counter'
+`,
+			want: `type Counter
+	var value as Count
+
+	function bump(mutates self, delta Count, mutates out Count) returns Count
+		self.value = self.value + delta
+		out = self.value
+		return self.value
+	end 'bump'
+end 'Counter'
+`,
+		},
+		{
+			name: "consuming self without destruct becomes consumes self",
+			in: `type Box
+	var n as Count
+
+	function take(consuming self) returns Count
+		return self.n
+	end 'take'
+end 'Box'
+`,
+			want: `type Box
+	var n as Count
+
+	function take(consumes self) returns Count
+		return self.n
+	end 'take'
+end 'Box'
+`,
+		},
+		{
+			name: "consuming self with destruct self becomes destructs self",
+			in: `type Txn
+	var id as Count
+
+	function commit(consuming self)
+		print("{id}\n")
+		destruct self
+	end 'commit'
+end 'Txn'
+`,
+			want: `type Txn
+	var id as Count
+
+	function commit(destructs self)
+		print("{id}\n")
+	end 'commit'
+end 'Txn'
+`,
+		},
+		{
+			name: "is unique becomes is noncopyable",
+			in: `type Ticket is unique
+	var id as Count
+end 'Ticket'
+`,
+			want: `type Ticket is noncopyable
+	var id as Count
+end 'Ticket'
+`,
+		},
+		{
+			name: "implements comma list becomes and list",
+			in: `interface Shape
+	function area() returns Count
+end 'Shape'
+
+interface Named
+	function name() returns String
+end 'Named'
+
+type Square implements Shape, Named
+	var side as Count
+
+	function area() returns Count
+		return side * side
+	end 'area'
+
+	function name() returns String
+		return "sq"
+	end 'name'
+end 'Square'
+`,
+			want: `interface Shape
+	function area() returns Count
+end 'Shape'
+
+interface Named
+	function name() returns String
+end 'Named'
+
+type Square implements Shape and Named
+	var side as Count
+
+	function area() returns Count
+		return side * side
+	end 'area'
+
+	function name() returns String
+		return "sq"
+	end 'name'
+end 'Square'
+`,
+		},
+		{
+			name: "where T is Bound becomes where T implements Bound",
+			in: `function total(a T, b U) uses T, U returns Count where T is Shape and Named, U is Shape
+	return a.area() + b.area()
+end 'total'
+`,
+			want: `function total(a T, b U) uses T, U returns Count where T implements Shape and Named, U implements Shape
+	return a.area() + b.area()
+end 'total'
+`,
+		},
+		{
+			name: "typealias bare multi-arg with gets parentheses",
+			in: `typealias Counts = map with String, Count
+`,
+			want: `typealias Counts = map with (String, Count)
+`,
+		},
+		{
+			name: "try block end followed by otherwise on next line joins onto one line",
+			in: `function calc(a Count, b Count) returns Count
+	var total = 0 as Count
+	try 'calc'
+		total = a / b
+	end 'calc'
+	otherwise (e) 'failed'
+		print("{e}\n")
+	end 'failed'
+	return total
+end 'calc'
+`,
+			want: `function calc(a Count, b Count) returns Count
+	var total = 0 as Count
+	try 'calc'
+		total = a / b
+	end 'calc' otherwise (e) 'failed'
+		print("{e}\n")
+	end 'failed'
+	return total
+end 'calc'
+`,
+		},
+		{
+			name: "freeze prefix and swap with expressions",
+			in: `function demo(mutates slot Box, consumes next Box) returns frozen with Box
+	let old = swap slot with next
+	return freeze old
+end 'demo'
+`,
+			want: `function demo(mutates slot Box, consumes next Box) returns frozen with Box
+	let old = exchange(slot, value: next)
+	return freeze(old)
+end 'demo'
+`,
+		},
+		{
+			name: "block comments become line comments",
+			in: `/* header comment
+ * second line
+ */
+function f() returns Count
+	let x = 1 /* trailing */
+	return /* inline */ x
+end 'f'
+`,
+			want: `// header comment
+// second line
+//
+function f() returns Count
+	let x = 1 // trailing
+	// inline
+	return x
+end 'f'
+`,
+		},
+		{
+			name: "multiline parentheses and struct literals collapse to single line",
+			in: `type Point
+	var x as Count
+	var y as Count
+end 'Point'
+
+function make(
+	x Count,
+	y Count
+) returns Point
+	return Point{
+		x: x,
+		y: y
+	}
+end 'make'
+`,
+			want: `type Point
+	var x as Count
+	var y as Count
+end 'Point'
+
+function make(x Count, y Count) returns Point
+	return Point{x: x, y: y}
+end 'make'
+`,
+		},
+		{
+			name: "CRLF, BOM, trailing spaces, and extra blank lines",
+			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
+			want: "let a = 1\n\nlet b = 2\n",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := Convert("test.maxon", tc.in)
+			if len(res.Warnings) > 0 {
+				t.Fatalf("unexpected warnings: %v", res.Warnings)
+			}
+			if !res.Formatted {
+				t.Fatalf("expected strict minimaxon formatting to succeed, got:\n%s", res.Text)
+			}
+			if res.Text != tc.want {
+				t.Fatalf("mismatch:\ngot:\n%q\nwant:\n%q", res.Text, tc.want)
+			}
+		})
+	}
+}
+
+func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
+	cases := []struct {
+		name     string
+		in       string
+		wantTodo string
+	}{
+		{
+			name:     "alias subtyping",
+			in:       "typealias NodeIndex = int(0 to 100) implements ElementIndex\n",
+			wantTodo: "alias subtyping",
+		},
+		{
+			name:     "custom throws",
+			in:       "function f() returns Count throws ParseError\n\tthrow ParseError.bad\nend 'f'\n",
+			wantTodo: "custom error type",
+		},
+		{
+			name:     "float typealias",
+			in:       "typealias Ratio = float(0.0 to 1.0)\n",
+			wantTodo: "float typealiases",
+		},
+		{
+			name:     "iterator for loop",
+			in:       "function f(xs Counts)\n\tfor x in xs 'each'\n\t\tprint(\"{x}\")\n\tend 'each'\nend 'f'\n",
+			wantTodo: "iterator-based for loops",
+		},
+		{
+			name:     "if try",
+			in:       "function f()\n\tif try work() 'ok'\n\t\tprint(\"ok\")\n\tend 'ok'\nend 'f'\n",
+			wantTodo: "if try",
+		},
+		{
+			name:     "otherwise ignore",
+			in:       "function f()\n\ttry work() otherwise ignore\nend 'f'\n",
+			wantTodo: "otherwise ignore",
+		},
+		{
+			name:     "block otherwise on try expr",
+			in:       "function f() returns Count\n\tlet x = try work() otherwise 'fail'\n\t\treturn 0\n\tend 'fail'\n\treturn x\nend 'f'\n",
+			wantTodo: "block-form 'otherwise' on a try expression",
+		},
+		{
+			name:     "extension block",
+			in:       "extension Point\n\tfunction x() returns Count\n\t\treturn 0\n\tend 'x'\nend 'Point'\n",
+			wantTodo: "extension blocks",
+		},
+		{
+			name:     "hash if",
+			in:       "#if os(Windows)\nlet x = 1\n#endif\n",
+			wantTodo: "conditional compilation",
+		},
+		{
+			name:     "format specifier in string interpolation",
+			in:       "function f(n Count)\n\tprint(\"{n:04x}\")\nend 'f'\n",
+			wantTodo: "format specifiers",
+		},
+		{
+			name:     "reserved word collision",
+			in:       "function f(when Count)\n\tlet sets = when\nend 'f'\n",
+			wantTodo: "reserved keyword in minimaxon",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res := Convert("test.maxon", tc.in)
+			if len(res.Warnings) == 0 {
+				t.Fatalf("expected warning containing %q, got none\noutput:\n%s", tc.wantTodo, res.Text)
+			}
+			foundWarn := false
+			for _, w := range res.Warnings {
+				if strings.Contains(w.Message, tc.wantTodo) {
+					foundWarn = true
+					break
+				}
+			}
+			if !foundWarn {
+				t.Fatalf("expected warning containing %q, got %v", tc.wantTodo, res.Warnings)
+			}
+			if !strings.Contains(res.Text, "// TODO: ") || !strings.Contains(res.Text, tc.wantTodo) {
+				t.Fatalf("expected inline // TODO containing %q in output:\n%s", tc.wantTodo, res.Text)
+			}
+		})
+	}
+}
+
+func TestCLIModes(t *testing.T) {
+	dir := t.TempDir()
+	srcFile := filepath.Join(dir, "sample.maxon")
+	input := "type Box is unique\n    var n as Count\nend 'Box'\n"
+	want := "type Box is noncopyable\n\tvar n as Count\nend 'Box'\n"
+	if err := os.WriteFile(srcFile, []byte(input), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Single file to stdout.
+	var stdout, stderr bytes.Buffer
+	code := runMain([]string{srcFile}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 || stdout.String() != want || stderr.Len() != 0 {
+		t.Fatalf("stdout mode: code=%d stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+
+	// --check fails when changes needed.
+	stdout.Reset()
+	stderr.Reset()
+	code = runMain([]string{"--check", srcFile}, strings.NewReader(""), &stdout, &stderr)
+	if code != 1 {
+		t.Fatalf("expected --check exit 1, got %d", code)
+	}
+
+	// --out writes converted file to output directory.
+	outDir := filepath.Join(dir, "out")
+	stdout.Reset()
+	stderr.Reset()
+	code = runMain([]string{"--out=" + outDir, srcFile}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("--out failed: code=%d stderr=%q", code, stderr.String())
+	}
+	gotOut, err := os.ReadFile(filepath.Join(outDir, "sample.maxon"))
+	if err != nil || string(gotOut) != want {
+		t.Fatalf("--out file: err=%v got=%q want=%q", err, string(gotOut), want)
+	}
+
+	// --write updates in place, and subsequent --check passes.
+	stdout.Reset()
+	stderr.Reset()
+	code = runMain([]string{"--write", srcFile}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("--write failed: code=%d stderr=%q", code, stderr.String())
+	}
+	gotInPlace, err := os.ReadFile(srcFile)
+	if err != nil || string(gotInPlace) != want {
+		t.Fatalf("--write file: err=%v got=%q want=%q", err, string(gotInPlace), want)
+	}
+	code = runMain([]string{"--check", srcFile}, strings.NewReader(""), &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("expected --check exit 0 after --write, got %d", code)
+	}
+}

@@ -29,7 +29,11 @@ func (l *Lowerer) entryVoid(site ast.Pos, symbol Rt, args ...V) {
 }
 
 func (l *Lowerer) emitEntry(site ast.Pos, dst V, symbol Rt, args []V, routine *ast.FuncDecl) {
-	if IsNativeEntry(symbol) {
+	if IsOsEntry(symbol) {
+		l.f.UsesOs = true
+	} else if IsBytesEntry(symbol) {
+		l.f.UsesBytes = true
+	} else if IsNativeEntry(symbol) {
 		l.f.UsesArrays = true
 	} else {
 		l.refuse(site, diag.ErrInterpreterOnly, interpreterOnlyMessage)
@@ -302,6 +306,67 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 	case ast.IntrinsicOptionUnwrap:
 		return l.unwrap(c, recv)
 
+	case ast.IntrinsicStringByteCount:
+		return l.runtime(RtStrLen, KindScalar, recv)
+	case ast.IntrinsicStringByteAt:
+		return l.runtime(RtStrByteAt, KindScalar, recv, args[0])
+	case ast.IntrinsicStringSlice:
+		return l.runtime(RtStrSlice, KindManaged, recv, args[0], args[1])
+
+	case ast.IntrinsicBytesNew:
+		return l.entry(c.CallExpr.Position(), RtBytesNew, KindManaged)
+	case ast.IntrinsicBytesCount:
+		return l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv)
+	case ast.IntrinsicBytesIsEmpty:
+		return l.isZero(l.entry(c.CallExpr.Position(), RtBytesLen, KindScalar, recv))
+	case ast.IntrinsicBytesByteAt:
+		return l.entry(c.CallExpr.Position(), RtBytesGet, KindScalar, recv, args[0])
+	case ast.IntrinsicBytesSetByte:
+		l.entryVoid(c.CallExpr.Position(), RtBytesSet, recv, args[0], args[1])
+		return l.konst(0)
+	case ast.IntrinsicBytesPush:
+		l.entryVoid(c.CallExpr.Position(), RtBytesPush, recv, args[0])
+		return l.konst(0)
+	case ast.IntrinsicBytesAppend:
+		l.entryVoid(c.CallExpr.Position(), RtBytesAppend, recv, args[0])
+		return l.konst(0)
+	case ast.IntrinsicBytesAppendString:
+		l.entryVoid(c.CallExpr.Position(), RtBytesAppendStr, recv, args[0])
+		return l.konst(0)
+	case ast.IntrinsicBytesToString:
+		return l.entry(c.CallExpr.Position(), RtBytesToString, KindManaged, recv)
+
+	case ast.IntrinsicOsCliArgs:
+		return l.entry(c.CallExpr.Position(), RtOsCliArgs, KindManaged)
+	case ast.IntrinsicOsGetEnv:
+		raw := l.entry(c.CallExpr.Position(), RtOsGetEnv, KindManaged, args[0])
+		return l.optional(l.nonZero(raw), func() V { return raw })
+	case ast.IntrinsicOsReadFile:
+		raw := l.entry(c.CallExpr.Position(), RtOsReadFile, KindManaged, args[0])
+		return l.optional(l.nonZero(raw), func() V { return raw })
+	case ast.IntrinsicOsWriteFile:
+		return l.entry(c.CallExpr.Position(), RtOsWriteFile, KindScalar, args[0], args[1])
+	case ast.IntrinsicOsWriteBytes:
+		return l.entry(c.CallExpr.Position(), RtOsWriteBytes, KindScalar, args[0], args[1])
+	case ast.IntrinsicOsRenameFile:
+		return l.entry(c.CallExpr.Position(), RtOsRenameFile, KindScalar, args[0], args[1])
+	case ast.IntrinsicOsRemoveFile:
+		return l.entry(c.CallExpr.Position(), RtOsRemoveFile, KindScalar, args[0])
+	case ast.IntrinsicOsIsDir:
+		return l.entry(c.CallExpr.Position(), RtOsIsDir, KindScalar, args[0])
+	case ast.IntrinsicOsMkdir:
+		return l.entry(c.CallExpr.Position(), RtOsMkdir, KindScalar, args[0])
+	case ast.IntrinsicOsListDir:
+		raw := l.entry(c.CallExpr.Position(), RtOsListDir, KindManaged, args[0])
+		return l.optional(l.nonZero(raw), func() V { return raw })
+	case ast.IntrinsicOsRunProcess:
+		raw := l.entry(c.CallExpr.Position(), RtOsRunProcess, KindScalar, args[0])
+		return l.optional(l.nonZero(raw), func() V {
+			out := l.reg(KindScalar)
+			l.emit(Bin(out, BinShr, raw, l.konst(1), true, NoBlock))
+			return out
+		})
+
 	case ast.IntrinsicFreeze, ast.IntrinsicShare, ast.IntrinsicThaw, ast.IntrinsicCown:
 		return l.intrinsicSharing(c, args)
 	}
@@ -418,7 +483,7 @@ func holdsInterpreterOnly(t ast.Ty, visiting []ast.Ty) bool {
 		return false
 	case *ast.BuiltinTy:
 		switch t.Kind {
-		case ast.BuiltinHandle:
+		case ast.BuiltinHandle, ast.BuiltinBytes:
 			return false
 		case ast.BuiltinArray:
 			return holdsInterpreterOnly(t.Element(), visiting)

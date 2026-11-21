@@ -222,7 +222,7 @@ func (c *Checker) judge(k capability, t ast.Ty) *lack {
 func (c *Checker) builtinLack(k capability, t *ast.BuiltinTy) *lack {
 	var where string
 	switch t.Kind {
-	case ast.BuiltinHandle, ast.BuiltinFrozen, ast.BuiltinCown:
+	case ast.BuiltinHandle, ast.BuiltinFrozen, ast.BuiltinCown, ast.BuiltinBytes:
 		return nil
 	case ast.BuiltinArray, ast.BuiltinList, ast.BuiltinPool:
 		where = "as its elements"

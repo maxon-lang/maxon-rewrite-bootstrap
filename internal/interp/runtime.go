@@ -4,7 +4,10 @@ import (
 	"minimaxon/internal/ast"
 	"minimaxon/internal/diag"
 	"minimaxon/internal/ir"
+	"os"
+	"os/exec"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -58,6 +61,22 @@ func (vm *vm) runtimeEntry(fr *frame, in *ir.Instr) {
 		}
 	case ir.RtStreq:
 		flag(vm.text(arg(0), "a comparison") == vm.text(arg(1), "a comparison"))
+	case ir.RtStrLen:
+		num(int64(len(vm.text(arg(0), "a string byteCount"))))
+	case ir.RtStrByteAt:
+		s := vm.text(arg(0), "a string byteAt")
+		i := arg(1).n
+		if uint64(i) >= uint64(len(s)) {
+			vm.trap("string byte position out of bounds")
+		}
+		num(int64(s[i]))
+	case ir.RtStrSlice:
+		s := vm.text(arg(0), "a string slice")
+		from, upto := uint64(arg(1).n), uint64(arg(2).n)
+		if from > upto || upto > uint64(len(s)) {
+			vm.trap("string slice out of bounds")
+		}
+		set(value{ref: vm.newString(s[from:upto])})
 
 	case ir.RtFrozenFreeze:
 		vm.tracking = true
@@ -111,6 +130,123 @@ func (vm *vm) runtimeEntry(fr *frame, in *ir.Instr) {
 		e := a.elems[i]
 		a.elems = append(a.elems[:i], a.elems[i+1:]...)
 		set(vm.moveOutOfCollection(e, "the remove"))
+
+	case ir.RtBytesNew:
+		set(value{ref: vm.newObject(kindBytes)})
+	case ir.RtBytesLen:
+		num(int64(len(vm.collection(arg(0), kindBytes, "a length").buf)))
+	case ir.RtBytesGet:
+		b := vm.collection(arg(0), kindBytes, "a byte read")
+		i := arg(1).n
+		if uint64(i) >= uint64(len(b.buf)) {
+			vm.trap(indexOutOfRangeMessage)
+		}
+		num(int64(b.buf[i]))
+	case ir.RtBytesSet:
+		b := vm.collection(arg(0), kindBytes, "a byte write")
+		i := arg(1).n
+		if uint64(i) >= uint64(len(b.buf)) {
+			vm.trap(indexOutOfRangeMessage)
+		}
+		vm.restructure(b)
+		b.buf[i] = byte(arg(2).n)
+	case ir.RtBytesPush:
+		b := vm.collection(arg(0), kindBytes, "a push")
+		vm.restructure(b)
+		b.buf = append(b.buf, byte(arg(1).n))
+	case ir.RtBytesAppend:
+		b := vm.collection(arg(0), kindBytes, "an append")
+		other := vm.collection(arg(1), kindBytes, "an append source")
+		vm.restructure(b)
+		b.buf = append(b.buf, other.buf...)
+	case ir.RtBytesAppendStr:
+		b := vm.collection(arg(0), kindBytes, "an appendString")
+		text := vm.text(arg(1), "an appendString source")
+		vm.restructure(b)
+		b.buf = append(b.buf, text...)
+	case ir.RtBytesToString:
+		b := vm.collection(arg(0), kindBytes, "a toString")
+		set(value{ref: vm.newString(string(b.buf))})
+
+	case ir.RtOsCliArgs:
+		arr := vm.newObject(kindArray)
+		for _, a := range os.Args {
+			s := vm.newString(a)
+			c := &cell{holder: arr, v: value{ref: s}}
+			s.owner = c
+			arr.elems = append(arr.elems, c)
+		}
+		set(value{ref: arr})
+	case ir.RtOsGetEnv:
+		name := vm.text(arg(0), "a getEnv name")
+		if val, ok := os.LookupEnv(name); ok {
+			set(value{n: 1, ref: vm.newString(val)})
+		} else {
+			set(value{})
+		}
+	case ir.RtOsReadFile:
+		path := vm.text(arg(0), "a readFile path")
+		data, err := os.ReadFile(path)
+		if err != nil {
+			set(value{})
+		} else {
+			set(value{n: 1, ref: vm.newString(string(data))})
+		}
+	case ir.RtOsWriteFile:
+		path := vm.text(arg(0), "a writeFile path")
+		text := vm.text(arg(1), "a writeFile text")
+		flag(os.WriteFile(path, []byte(text), 0o644) == nil)
+	case ir.RtOsWriteBytes:
+		path := vm.text(arg(0), "a writeBytes path")
+		b := vm.collection(arg(1), kindBytes, "a writeBytes buffer")
+		flag(os.WriteFile(path, b.buf, 0o644) == nil)
+	case ir.RtOsRenameFile:
+		from := vm.text(arg(0), "a renameFile source")
+		dest := vm.text(arg(1), "a renameFile destination")
+		flag(os.Rename(from, dest) == nil)
+	case ir.RtOsRemoveFile:
+		path := vm.text(arg(0), "a removeFile path")
+		flag(os.Remove(path) == nil)
+	case ir.RtOsIsDir:
+		path := vm.text(arg(0), "an isDir path")
+		info, err := os.Stat(path)
+		flag(err == nil && info.IsDir())
+	case ir.RtOsMkdir:
+		path := vm.text(arg(0), "a mkdir path")
+		flag(os.Mkdir(path, 0o755) == nil)
+	case ir.RtOsListDir:
+		path := vm.text(arg(0), "a listDir path")
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			set(value{})
+		} else {
+			arr := vm.newObject(kindArray)
+			for _, e := range entries {
+				s := vm.newString(e.Name())
+				c := &cell{holder: arr, v: value{ref: s}}
+				s.owner = c
+				arr.elems = append(arr.elems, c)
+			}
+			set(value{n: 1, ref: arr})
+		}
+	case ir.RtOsRunProcess:
+		cmdLine := vm.text(arg(0), "a runProcess command line")
+		parts := splitCommandLine(cmdLine)
+		if len(parts) == 0 {
+			num(0)
+			break
+		}
+		cmd := exec.Command(parts[0], parts[1:]...)
+		err := cmd.Run()
+		if err != nil {
+			if ee, ok := err.(*exec.ExitError); ok {
+				num((int64(ee.ExitCode()) << 1) | 1)
+			} else {
+				num(0)
+			}
+		} else {
+			num(1)
+		}
 
 	case ir.RtMapNew:
 		m := vm.newObject(kindMap)
@@ -366,6 +502,10 @@ func (vm *vm) copyObject(o *object) *object {
 			return o
 		}
 		return vm.newString(o.text)
+	case kindBytes:
+		out := vm.newObject(kindBytes)
+		out.buf = append([]byte(nil), o.buf...)
+		return out
 	case kindBox:
 		out := vm.newBox(len(o.fields))
 		for i := range o.fields {
@@ -426,4 +566,35 @@ func (vm *vm) copyCell(dst *cell, v value) {
 		return
 	}
 	vm.adopt(dst, value{ref: vm.copyObject(v.ref)}, "the copy")
+}
+
+func splitCommandLine(s string) []string {
+	var out []string
+	i := 0
+	for i < len(s) {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		var b strings.Builder
+		if s[i] == '"' {
+			i++
+			for i < len(s) && s[i] != '"' {
+				b.WriteByte(s[i])
+				i++
+			}
+			if i < len(s) {
+				i++
+			}
+		} else {
+			for i < len(s) && s[i] != ' ' && s[i] != '\t' {
+				b.WriteByte(s[i])
+				i++
+			}
+		}
+		out = append(out, b.String())
+	}
+	return out
 }

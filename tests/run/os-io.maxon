@@ -1,0 +1,52 @@
+//> args=true
+//> missingEnv=false
+//> hasTemp=true
+//> isDir=true
+//> read1=hello world
+//> read2=ABC
+//> renamed=ABC
+//> listed=true
+//> removed=false
+//> badProc=false
+
+function main() returns ExitCode
+	let args = cliArgs()
+	print("args={args.count() >= 1}\n")
+	let missing = getEnv("MINIMAXON_NO_SUCH_ENV_98765")
+	print("missingEnv={missing.isSome()}\n")
+	let tempOpt = getEnv("TEMP")
+	print("hasTemp={tempOpt.isSome()}\n")
+	let temp = tempOpt.unwrap()
+	let dir = "{temp}\\minimaxon_os_io_test"
+	_ = mkdir(dir)
+	print("isDir={isDir(dir)}\n")
+	let f1 = "{dir}\\a.txt"
+	let f2 = "{dir}\\b.txt"
+	_ = writeFile(f1, text: "hello world")
+	let r1 = readFile(f1).unwrap()
+	print("read1={r1}\n")
+	var bs = Bytes.new()
+	bs.push(65 as Byte)
+	bs.push(66 as Byte)
+	bs.push(67 as Byte)
+	_ = writeBytes(f1, data: bs)
+	let r2 = readFile(f1).unwrap()
+	print("read2={r2}\n")
+	_ = renameFile(f1, dest: f2)
+	let r3 = readFile(f2).unwrap()
+	print("renamed={r3}\n")
+	let entries = listDir(dir).unwrap()
+	var found = false
+	for i in 0 upto entries.count() 'scan'
+		if entries[i] == "b.txt" 'hit'
+			found = true
+		end 'hit'
+	end 'scan'
+	print("listed={found}\n")
+	_ = removeFile(f2)
+	let gone = readFile(f2)
+	print("removed={gone.isSome()}\n")
+	let bad = runProcess("minimaxon_no_such_exe_98765")
+	print("badProc={bad.isSome()}\n")
+	return 0
+end 'main'

@@ -1,20 +1,37 @@
 ---
 name: language-change
-description: Checklist for changing minimaxon's language — a keyword, syntax, layout, a rule or a diagnostic. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
+description: Checklist for changing minimaxon's language — a keyword, syntax, layout, a rule or a diagnostic — across the grammar, the Go compiler, self/ and cmd/convert. Use for any edit to Maxon.g4 or to what programs may say, however small (for example renaming `is` to `implements`).
 ---
 
 # Changing the language
 
 A language change reaches the grammar, the checker's messages, every program that uses the construct (corpus, unit
-test `testdata`, the generator), and the docs. Work through the list; skip a step only when it clearly does not apply.
+test `testdata`, `self/`, the generator), `cmd/convert`, and the docs. Work through the list; skip a step only when it
+clearly does not apply.
+
+The Go compiler implements only what `self/` needs; once `self/` self-hosts, compiler work in Go ends. `cmd/convert`
+and `internal/grammargen` stay Go tools until then.
+
+## 0. Look at current maxon first
+
+minimaxon is compatible with current maxon (`C:\Users\Eric\Dev\maxon`) except for deliberate language changes. Before
+choosing a spelling, rule or message, see how maxon does it, and follow maxon unless the change is deliberate:
+
+- Syntax: `Grep` the construct in `docs/BNF_SYNTAX.md` and `docs/LANGUAGE_REFERENCE.md` (the reference is ~420 KB:
+  search it, never read it whole). Stdlib and `specs/` show real usage; the parser is `maxon-bin/Compiler/Parser*.maxon`
+  (~600 KB each: grep, then read line ranges).
+- Codes and messages: `maxon-bin/Compiler/ErrorCodeRegistry.maxon` (the code, with a comment saying what it means); grep
+  `ErrorCode.<name>` in `maxon-bin/Compiler/` for the message text where it is raised.
+- A deliberate difference goes in README "Where it differs from Maxon" in the same change. Where maxon code is not
+  converted, it is still the reference for behaviour, edge cases and names.
 
 ## 1. Programs first, while the old syntax still lexes
 
 - **A keyword rename:** run the token-aware rewrite before touching the grammar. It covers the corpus, the unit tests'
-  `testdata` files, and the code spans and untagged or `maxon` blocks of the docs:
+  `testdata` files, `self/`, and the code spans and untagged or `maxon` blocks of the docs:
 
   ```powershell
-  go build -o minimaxon.exe . ; .\minimaxon.exe rewrite --keyword=old=new tests internal docs README.md
+  go build -o minimaxon.exe . ; .\minimaxon.exe rewrite --keyword=old=new tests internal self docs README.md
   ```
 
   It changes only keyword tokens (not names, labels, comments, string text or Markdown prose) and names what it could
@@ -24,52 +41,76 @@ test `testdata`, the generator), and the docs. Work through the list; skip a ste
   rewrite every program in the new layout, and check:
 
   ```powershell
-  go build -o minimaxon.exe . ; .\minimaxon.exe fmt tests internal docs README.md ; .\minimaxon.exe fmt --check tests internal docs README.md
+  go build -o minimaxon.exe . ; .\minimaxon.exe fmt tests internal self docs README.md ; .\minimaxon.exe fmt --check tests internal self docs README.md
   ```
 
   `fmt` reads the old layout through the lenient lexer, so a rule the lexer enforces (`E2001`) may need its lenient case
   too; a rule only the parser enforces (`E2010`) is formatted by the same function that checks it. Over a directory it
   skips files that contain `// expect-error: E2001` or `E2010`, the tests of the layout rules: update those by hand to
   break the new rule. A file it cannot parse is listed and left alone.
-- **Other syntax changes:** no tool yet. Edit by hand, or write a throwaway script in the scratchpad. Match on
-  declaration shapes, never bare words, and read the diff for prose hits in `.md` files.
+- **Other syntax changes:** no tool yet. Edit by hand, or write a throwaway script in the scratchpad (a reusable one
+  goes in `cmd/<name>/` as plain Go). Match on declaration shapes, never bare words, and read the diff for prose hits in
+  `.md` files.
 
-## 2. The grammar
+## 2. The grammar and what it generates
 
-- Edit `internal/syntax/Maxon.g4`, then `go generate ./internal/syntax`. Never edit `*_gen.go`.
+- Edit `internal/syntax/Maxon.g4`, then `go generate ./internal/syntax`. Never edit `*_gen.go` or `*_gen.maxon`.
+- The same run also regenerates the Maxon files under `self/`: `internal/grammargen/emit_maxon.go` writes them
+  (today `self/ast/nodes_gen.maxon`; `self/syntax/tokens_gen.maxon` and `self/syntax/parser_gen.maxon` are planned,
+  plan stage 1.3). `go test ./internal/grammargen` fails when a checked-in generated file is stale.
 - `go build ./...` names every visitor that lacks a new node's method.
+- `self/`'s hand-written Maxon code that uses the construct is rewritten with step 1's tools (`rewrite`, `fmt`) or a
+  script, so it compiles under the new grammar. A `self/` file that `cmd/convert` produced is regenerated by
+  `convert`, never hand-edited.
 
 ## 3. Words the compiler says
 
 - Grep `internal/check` (and `internal/resolve`, `internal/ir`) for messages that spell the old syntax as a fix:
   `grep -rn "'[^']*old[^']*'" internal --include=*.go`. Diagnostics name the fix, so they quote syntax often.
-- Go identifiers named after a keyword (`ConvMutable`): rename them too, so the code reads like the language.
-- A new rule gets a new code in `internal/diag` and a `tests/errors` test with `at L:C`.
+- Go identifiers named after a keyword (`ConvMutates`): rename them too, so the code reads like the language.
+- A new diagnostic takes maxon's code and message text where maxon has one (`ErrorCodeRegistry.maxon`). A code with no
+  maxon equivalent takes a number the registry does not use: check with
+  `grep -n '"E3xxx"' C:\Users\Eric\Dev\maxon\maxon-bin\Compiler\ErrorCodeRegistry.maxon` before adding it to
+  `internal/diag/diag.go`. A deliberately different message or code goes in "Where it differs from Maxon".
 
 ## 4. Maxon built in Go
 
 - The program generator (`internal/interp/generator_*_test.go`) builds programs in Go; it spells each keyword through
-  one named constant, so a rename edits that constant.
+  one named constant (`internal/interp/keywords_test.go`), so a rename edits that constant.
 - Anything else that still builds Maxon in Go strings: grep for the old form; the Go tests catch what grep misses.
 
-## 5. Tests
+## 5. cmd/convert
 
-- Watch a test fail before the change makes it pass (AGENTS.md).
-- Test files named after the old syntax (`inout-argument-is-a-let.maxon`) are renamed with `git mv`.
+`cmd/convert` turns maxon code into minimaxon code (`go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]`).
+Its rules are in `cmd/convert/convert.go`, tested by `cmd/convert/convert_test.go`:
 
-## 6. Docs
+- Converting maxon code must produce the new form: add or change the rule for the construct (`transformStmtAndExpr`,
+  `transformFunctionHeader`, `transformTypealias`, the header transforms, `isNewReservedWord`, `renderFallbackLayout`).
+- A change that makes minimaxon match maxon removes the rule that rewrote it, and its test case. Convert must leave
+  what now matches maxon alone.
+- Update the affected case in `convert_test.go`, then `go test ./cmd/convert`.
+
+## 6. Tests
+
+- Minimal testing: add a test only when a bug would otherwise come back or nothing in the corpus covers a feature.
+  A new rule or diagnostic does not need its own test by default; when one is added, an error test carries
+  `// expect-error: CODE at L:C` and a behaviour test goes in `tests/run/`.
+- Test files named after the old syntax (`generic-mutates-argument-is-a-let.maxon`) are renamed with `git mv`.
+
+## 7. Docs
 
 - `README.md`: the subset, layout, "Where it differs from Maxon", examples, reserved words, commands.
 - `docs/regions.md` when the memory model's syntax changes.
 - Reread every edited prose line: articles ("a `mutable`", not "an `mutable`") and English uses of the word are the
   usual mistakes.
 
-## 7. Finish
+## 8. Finish
 
 ```powershell
 .\check.ps1 --update-positions
 ```
 
-It formats and applies `go fix`, then runs vet, the unit tests, the build and the corpus, stopping at the first
-failure. `--update-positions` moves `expect-error` positions that a change of line length shifted; read what moved.
-Commit only when asked, on `main`.
+It formats (`gofmt -w .`) and applies `go fix`, then runs vet, `go test ./...`, the build and the corpus
+(`minimaxon.exe test`, which receives the arguments), stopping at the first failure. `--update-positions` moves
+`expect-error` positions that a change of line length shifted; read what moved. Before a commit the gates are
+build, vet, gofmt and both suites passing with 0 leaks. Commit only when asked, on `main`.

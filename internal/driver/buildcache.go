@@ -43,6 +43,8 @@ type ModuleCache struct {
 type cachedModule struct {
 	unit       *backend.CodeUnit
 	usesArrays bool
+	usesBytes  bool
+	usesOs     bool
 	// hasIr is whether irText is the module's IR; it is only kept by a compile that asked for it.
 	hasIr  bool
 	irText string
@@ -51,6 +53,8 @@ type cachedModule struct {
 func (c cachedModule) encode() []byte {
 	var e cache.Encoder
 	e.Bool(c.usesArrays)
+	e.Bool(c.usesBytes)
+	e.Bool(c.usesOs)
 	e.Bool(c.hasIr)
 	e.Text(c.irText)
 	c.unit.Encode(&e)
@@ -60,7 +64,7 @@ func (c cachedModule) encode() []byte {
 // decodeCachedModule reads an entry, or says it is not one: a payload that does not hold a unit is a miss.
 func decodeCachedModule(payload []byte, proj *ast.Project) (*cachedModule, bool) {
 	d := cache.NewDecoder(payload)
-	c := &cachedModule{usesArrays: d.Bool(), hasIr: d.Bool(), irText: d.Text()}
+	c := &cachedModule{usesArrays: d.Bool(), usesBytes: d.Bool(), usesOs: d.Bool(), hasIr: d.Bool(), irText: d.Text()}
 	c.unit = backend.DecodeUnit(d, proj)
 	if d.Done() != nil {
 		return nil, false
@@ -127,7 +131,7 @@ func (p *modulePhase) consultCache() {
 		p.cached[i] = c
 		if c != nil {
 			p.units[i+1] = c.unit
-			p.outputs[i] = moduleOutput{usesArrays: c.usesArrays, irText: c.irText}
+			p.outputs[i] = moduleOutput{usesArrays: c.usesArrays, usesBytes: c.usesBytes, usesOs: c.usesOs, irText: c.irText}
 		}
 	})
 	p.needCheck = p.checksNeeded()
@@ -188,7 +192,7 @@ func (p *modulePhase) remember(id ast.ModuleID, unit *backend.CodeUnit, out *mod
 	if p.keys == nil {
 		return
 	}
-	entry := cachedModule{unit: unit, usesArrays: out.usesArrays, hasIr: p.options.EmitIr, irText: out.irText}
+	entry := cachedModule{unit: unit, usesArrays: out.usesArrays, usesBytes: out.usesBytes, usesOs: out.usesOs, hasIr: p.options.EmitIr, irText: out.irText}
 	if err := p.options.Cache.Put(p.keys[id], entry.encode()); err != nil {
 		p.writeFailures.Add(1)
 	}

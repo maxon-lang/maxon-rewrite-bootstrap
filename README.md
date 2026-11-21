@@ -5,12 +5,11 @@ written in Go, targets x64 Windows only, and is about 18,000 hand-written lines 
 that writes its parser and AST. It compiles modules in parallel and writes a
 PE executable directly, with no external assembler, linker or C runtime.
 
-It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it. It
-started from a core subset of Maxon's syntax and error codes, but it does not track the current compiler: an experiment is free to change the
-language, its rules and its diagnostics. Compatibility with current Maxon is not a criterion; anything changes
-when the change improves the compiler. It is the bootstrap for a compiler that will later be written in Maxon
-itself, so its code stays plain enough to port: structs, interfaces, slices, and no runtime-specific tricks the
-design depends on.
+It is not the current Maxon compiler (`maxon-bin/` in the maxon repository) and shares no code with it, but it
+replaces it. It implements the subset of Maxon needed to compile `self/`, its own port to Maxon; once `self/`
+compiles itself, `self/` grows into the full compiler. It is compatible with current Maxon except for the language
+changes developed here ("Where it differs from Maxon"). Its code stays plain enough to port: structs, interfaces,
+slices, and no runtime-specific tricks the design depends on.
 
 ## Use
 
@@ -38,6 +37,7 @@ go test ./...
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
+| `go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr |
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
 modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
@@ -146,7 +146,8 @@ Dependencies only point down the list, and Go refuses an import cycle, so the la
 | `driver` | `Compile`: runs the phases, the modules phase (check and generate of each module) as one scheduled phase, with the build cache's export summaries, keys and entries; `Prepare` and `Interpret`: run them as far as IR and hand it to the interpreter | all of the above |
 
 The `minimaxon` command itself (`main.go`) is the CLI and the corpus runner. `internal/grammargen` is the command
-that generates code from the grammar; nothing imports it.
+that generates code from the grammar, and `cmd/convert` is the standalone tool that converts existing Maxon source
+to minimaxon syntax and layout; nothing imports either.
 
 ### Generated code
 
@@ -980,8 +981,8 @@ test runner. It has no types; it works from the shape of the values and from the
   `throws ArithmeticError`, calls with Maxon's
   positional-then-labelled arguments, parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
-- Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, the enum `ArithmeticError`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
+- Built in: `print`, `printError`, `panic`, `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
+  `FullRangeInt`, `Byte`, the `String` methods `byteCount()`, `byteAt(index)` and `slice(from, until: to)`, the enum `ArithmeticError`, the byte buffer `Bytes`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
 ### Integers
