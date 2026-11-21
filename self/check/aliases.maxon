@@ -1,0 +1,158 @@
+typealias DeclRefList = Array with ast.DeclRef
+
+typealias OrdinalList = Array with ast.DeclOrdinal
+
+let aliasUnvisited = 0 as Byte
+
+let aliasVisiting = 1 as Byte
+
+let aliasDone = 2 as Byte
+
+// AliasWalk is where the aliases stage is in a module's typealiases of instances.
+type AliasWalk
+	// state is by the typealias's place among the module's declarations.
+	export var state as ByteArray
+	// path is the typealiases being visited, outermost first.
+	export var path as OrdinalList
+
+	static function make(declCount Count) returns AliasWalk
+		return AliasWalk{state: ByteArray.create(declCount), path: OrdinalList.create(0)}
+	end 'make'
+end 'AliasWalk'
+
+// positionIn is where the declaration at ord is among those of a path of declarations that is being visited, or the end
+// of the path where it is not.
+function positionIn(path OrdinalList, ord ast.DeclOrdinal) returns Count
+	for i in 0 upto path.count() 'find'
+		if path[i] == ord 'hit'
+			return i
+		end 'hit'
+	end 'find'
+	return path.count()
+end 'positionIn'
+
+// aliasCycle spells the loop that visiting the typealias at ord closes, from the first alias of path that is it: one
+// name for an alias that names itself, else each alias in turn and the first again.
+function aliasCycle(m ast.Module, path OrdinalList, ord ast.DeclOrdinal) returns String
+	let first = positionIn(path, ord: ord)
+	var names = ast.StringList.create(0)
+	for i in first upto path.count() 'each'
+		names.push(m.decls[path[i] as Count].name())
+	end 'each'
+	if names.count() > 1 'again'
+		names.push(names[0].clone())
+	end 'again'
+	var buf = ByteArray.create(0)
+	for i in 0 upto names.count() 'join'
+		if i > 0 'sep'
+			buf.append(" -> ".toByteArray())
+		end 'sep'
+		buf.append(names[i].toByteArray())
+	end 'join'
+	return String.from(buf)
+end 'aliasCycle'
+
+// isInstanceAlias is whether the declaration is a typealias of an instance.
+function isInstanceAlias(p ast.Project, ref ast.DeclRef) returns bool
+	return match ast.moduleDecl(p, ref: ref) 'd'
+		aliasDecl(a) gives not a.isRange
+		funcDecl(_) gives false
+		constDecl(_) gives false
+		typeDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		interfaceDecl(_) gives false
+	end 'd'
+end 'isInstanceAlias'
+
+function pushIfInstanceAlias(p ast.Project, consumes ref ast.DeclRef, mutates out DeclRefList)
+	if isInstanceAlias(p, ref: ref) 'alias'
+		out.push(ref)
+	end 'alias'
+end 'pushIfInstanceAlias'
+
+// namedAliases appends the typealiases of instances that a type reference of the module names, itself or in its type
+// arguments.
+function namedAliases(p ast.Project, modIdx Count, tr ast.NodeID, mutates out DeclRefList)
+	match consumes p.resolutions[modIdx].decls.get(tr as Count) 'bound'
+		some(ref) then pushIfInstanceAlias(p, ref: ref, out: out)
+		none then _ = 0
+	end 'bound'
+	let argsRef = ast.typeRefTypeArgsRef(p.modules[modIdx].tree, id: tr)
+	for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'args'
+		namedAliases(p, modIdx: modIdx, tr: p.modules[modIdx].tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
+	end 'args'
+end 'namedAliases'
+
+// declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
+function declareAlias(mutates c Checker, mutates p ast.Project, a ast.AliasDecl, ref ast.DeclRef, mutates errs diag.ErrorList)
+	let off = p.modules[c.modIdx].tree.startOf(a.instanceRef)
+	if p.modules[c.modIdx].tree.listLen(ast.typeRefTypeArgsRef(p.modules[c.modIdx].tree, id: a.instanceRef)) == 0 'plain'
+		let target = ast.typeRefName(p.modules[c.modIdx].tree, id: a.instanceRef)
+		checkFail(c.modID, off: off, code: diag.errAliasTarget, msg: "a typealias names an integer range, as 'int(0 to 9)', or an instance of a generic type, as 'Box with Count'; write '{target}' itself where '{a.name}' is used", errs: errs)
+		return
+	end 'plain'
+	let t = resolveTypeRef(c, p: p, tr: a.instanceRef, selfTy: ast.noType, errs: errs)
+	if t != ast.noType 'named'
+		p.declTypes.insert(ast.declKey(ref), value: t)
+	end 'named'
+end 'declareAlias'
+
+// visitAlias declares the typealias at ord after the typealiases it names, and refuses one that names itself through
+// others. Its own failure leaves it without a type, which the typealiases that name it find.
+function visitAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+	let st = w.state[ord as Count]
+	if st == aliasDone 'done'
+		return
+	end 'done'
+	if st == aliasVisiting 'cycle'
+		let off = p.modules[c.modIdx].decls[ord as Count].offset(p.modules[c.modIdx].tree)
+		checkFail(c.modID, off: off, code: diag.errDependsOnItself, msg: diag.circularTypealias(aliasCycle(p.modules[c.modIdx], path: w.path, ord: ord)), errs: errs)
+		return
+	end 'cycle'
+	w.state[ord as Count] = aliasVisiting
+	w.path.push(ord)
+	declareVisitedAlias(w, c: c, p: p, ord: ord, errs: errs)
+	w.state[ord as Count] = aliasDone
+	try w.path.pop() otherwise ignore
+end 'visitAlias'
+
+function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
+	var a as ast.AliasDecl
+	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
+		aliasDecl(ad) then a = ad.clone()
+		funcDecl(_) then panic("the aliases stage visited a function")
+		constDecl(_) then panic("the aliases stage visited a constant")
+		typeDecl(_) then panic("the aliases stage visited a type")
+		enumDecl(_) then panic("the aliases stage visited an enum")
+		unionDecl(_) then panic("the aliases stage visited a union")
+		interfaceDecl(_) then panic("the aliases stage visited an interface")
+	end 'k'
+	var named = DeclRefList.create(0)
+	namedAliases(p, modIdx: c.modIdx, tr: a.instanceRef, out: named)
+	for i in 0 upto named.count() 'deps'
+		let dep = named[i].clone()
+		if dep.module == c.modID 'own'
+			visitAlias(w, c: c, p: p, ord: dep.ordinal, errs: errs)
+		end 'own'
+		if not p.declTypes.has(ast.declKey(dep)) 'failed'
+			return
+		end 'failed'
+	end 'deps'
+	declareAlias(c, p: p, a: a, ref: ref, errs: errs)
+end 'declareVisitedAlias'
+
+// declareAliases gives each typealias of an instance that the module declares its type, after the typealiases it names.
+// A typealias of another module that it names is done already: the module graph has no cycle, and the module's aliases
+// stage waits for those of the modules it names. The module's own go in source order, each after the ones it names, and
+// a typealias that names itself through others is refused.
+export function declareAliases(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
+	var w = AliasWalk.make(p.modules[c.modIdx].decls.count())
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'each'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		if isInstanceAlias(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)) 'alias'
+			visitAlias(w, c: c, p: p, ord: ord, errs: errs)
+		end 'alias'
+	end 'each'
+end 'declareAliases'

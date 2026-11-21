@@ -1,0 +1,21 @@
+// patternForm is whether a pattern is a case, a range or a literal.
+export function patternForm(t Tree, id NodeID) returns PatternKind
+	if patternCaseName(t, id: id) != "" 'case'
+		return PatternKind.patCase
+	end 'case'
+	if patternHigh(t, id: id) != 0 'range'
+		return PatternKind.patRange
+	end 'range'
+	return PatternKind.patLiteral
+end 'patternForm'
+
+// matchArmForm is what a match arm does when it matches: it runs a statement, gives a value or panics.
+export function matchArmForm(t Tree, id NodeID) returns ArmKind
+	if matchArmAction(t, id: id) != 0 'then'
+		return ArmKind.armThen
+	end 'then'
+	if matchArmGives(t, id: id) 'gives'
+		return ArmKind.armGives
+	end 'gives'
+	return ArmKind.armPanic
+end 'matchArmForm'

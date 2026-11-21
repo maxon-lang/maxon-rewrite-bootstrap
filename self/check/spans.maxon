@@ -1,0 +1,224 @@
+// maxExactShift is the largest count whose power of two a word's magnitude holds, which mulWide can multiply by.
+let maxExactShift = 63 as Count
+
+// Span is the values an integer can have where the code reaches: lo to hi, which may lie past the 64 bits of a word
+// while an operation's exact result is being judged.
+export type Span
+	export var lo as ast.I128
+	export var hi as ast.I128
+	// nonZero says that 0 is not among the values although it lies between lo and hi: what 'b != 0' proves of a b that
+	// may be negative.
+	export var nonZero as bool
+
+	export static function make(consumes lo ast.I128, consumes hi ast.I128) returns Span
+		return Span{lo: lo, hi: hi, nonZero: false}
+	end 'make'
+
+	export static function exactly(v ast.I128) returns Span
+		return Span{lo: v.clone(), hi: v.clone(), nonZero: false}
+	end 'exactly'
+
+	export function has(v ast.I128) returns bool
+		return lo.le(v) and hi.ge(v) and not (v.isZero() and nonZero)
+	end 'has'
+
+	export function excludesZero() returns bool
+		return nonZero or lo.gt(ast.I128.zero()) or hi.lt(ast.I128.zero())
+	end 'excludesZero'
+
+	export function isEmpty() returns bool
+		return lo.gt(hi)
+	end 'isEmpty'
+
+	export function unionWith(other Span) returns Span
+		return Span{lo: ast.minI128(lo, b: other.lo), hi: ast.maxI128(hi, b: other.hi), nonZero: self.excludesZero() and other.excludesZero()}
+	end 'unionWith'
+
+	export function clamp(other Span) returns Span
+		return Span{lo: ast.maxI128(lo, b: other.lo), hi: ast.minI128(hi, b: other.hi), nonZero: nonZero}
+	end 'clamp'
+end 'Span'
+
+typealias SpanList = Array with Span
+
+// typeSpan is the values of an integer type.
+export function typeSpan(tt ast.TypeTable, t ast.TypeID) returns Span
+	if not ast.isIntType(tt, t: t) 'notInt'
+		panic("ranges: {ast.typeName(tt, t: t)} is not an integer")
+	end 'notInt'
+	return Span.make(tt.entries[t as Count].minVal.clone(), hi: tt.entries[t as Count].maxVal.clone())
+end 'typeSpan'
+
+// ArithSpan is the span of the exact result of an operator, and how it fails beyond the result's range.
+export type ArithSpan
+	export var span as Span
+	export var fails as Byte
+
+	export static function make(consumes span Span, fails Byte) returns ArithSpan
+		return ArithSpan{span: span, fails: fails}
+	end 'make'
+end 'ArithSpan'
+
+function absI128(v ast.I128) returns ast.I128
+	if v.isNeg() 'neg'
+		return v.neg()
+	end 'neg'
+	return v.clone()
+end 'absI128'
+
+// saturated stands for a value past every word, as mulWide saturates.
+function saturated() returns ast.I128
+	return ast.mulWide(ast.I128.u64Max(), b: ast.I128.u64Max())
+end 'saturated'
+
+function pow2(n Count) returns ast.I128
+	var out = ast.I128.one()
+	for _ in 0 upto n 'double'
+		out = out.add(out)
+	end 'double'
+	return out
+end 'pow2'
+
+// MonotonicOp is an operation on two values that is monotonic in each wherever neither changes sign, so its extremes
+// over two spans are at their corners.
+enum MonotonicOp
+	multiply
+	quotient
+end 'MonotonicOp'
+
+function applyOp(op MonotonicOp, a ast.I128, b ast.I128) returns ast.I128
+	return match op 'o'
+		multiply gives ast.mulWide(a, b: b)
+		quotient gives ast.quoTrunc(a, b: b)
+	end 'o'
+end 'applyOp'
+
+function corners(op MonotonicOp, l Span, r Span) returns Span
+	let a = applyOp(op, a: l.lo, b: r.lo)
+	let b = applyOp(op, a: l.lo, b: r.hi)
+	let c = applyOp(op, a: l.hi, b: r.lo)
+	let d = applyOp(op, a: l.hi, b: r.hi)
+	return Span.make(ast.minI128(ast.minI128(a, b: b), b: ast.minI128(c, b: d)), hi: ast.maxI128(ast.maxI128(a, b: b), b: ast.maxI128(c, b: d)))
+end 'corners'
+
+// nonZeroParts splits a divisor's span into its negative and its positive values.
+function nonZeroParts(s Span) returns SpanList
+	var parts = SpanList.create(0)
+	if s.lo.isNeg() 'neg'
+		parts.push(Span.make(s.lo.clone(), hi: ast.minI128(s.hi, b: ast.I128.fromInt(-1 as FullRangeInt))))
+	end 'neg'
+	if s.hi.gt(ast.I128.zero()) 'pos'
+		parts.push(Span.make(ast.maxI128(s.lo, b: ast.I128.one()), hi: s.hi.clone()))
+	end 'pos'
+	return parts
+end 'nonZeroParts'
+
+// remainders is the span of l mod d for a d of one sign: the remainder has the dividend's sign and is smaller than the
+// divisor.
+function remainders(l Span, d Span) returns Span
+	let m = ast.maxI128(absI128(d.lo), b: absI128(d.hi)).sub(ast.I128.one())
+	var out = Span.make(ast.I128.zero(), hi: ast.I128.zero())
+	if l.hi.gt(ast.I128.zero()) 'above'
+		out.hi = ast.minI128(l.hi, b: m)
+	end 'above'
+	if l.lo.isNeg() 'below'
+		out.lo = ast.maxI128(l.lo, b: m.neg())
+	end 'below'
+	return out
+end 'remainders'
+
+// allOnesCovering is the smallest 2^k - 1 at or above v, for a v that is not negative: the largest value an 'or' or an
+// 'xor' of values up to v gives.
+function allOnesCovering(v ast.I128) returns ast.I128
+	var out = ast.I128.zero()
+	while out.lt(v) 'grow'
+		out = out.add(out).add(ast.I128.one())
+	end 'grow'
+	return out
+end 'allOnesCovering'
+
+// shifted is the span of the exact result of a shift by the counts that are not negative: a left shift multiplies by a
+// power of two, which past the word saturates as a product does, and a right shift moves toward 0.
+function shifted(left bool, l Span, count Span) returns Span
+	if not left 'right'
+		return Span.make(ast.minI128(l.lo, b: ast.I128.zero()), hi: ast.maxI128(l.hi, b: ast.I128.zero()))
+	end 'right'
+	let maxShift = ast.I128.fromCount(maxExactShift)
+	var lo = ast.maxI128(count.lo, b: ast.I128.zero())
+	let hi = ast.minI128(count.hi, b: maxShift)
+	if hi.lt(lo) 'clamped'
+		lo = hi.clone()
+	end 'clamped'
+	var exact = corners(MonotonicOp.multiply, l: l, r: Span.make(pow2(lo.lo), hi: pow2(hi.lo)))
+	if count.hi.gt(maxShift) 'wide'
+		// A count past the word moves any bit that is not 0 out of it.
+		if l.hi.gt(ast.I128.zero()) 'up'
+			exact.hi = ast.maxI128(exact.hi, b: saturated())
+		end 'up'
+		if l.lo.isNeg() 'down'
+			exact.lo = ast.minI128(exact.lo, b: saturated().neg())
+		end 'down'
+	end 'wide'
+	return exact
+end 'shifted'
+
+function divisionSpan(op String, l Span, r Span) returns ArithSpan
+	var fails = ast.failNone
+	if r.has(ast.I128.zero()) 'zero'
+		fails = ast.failDivZero
+	end 'zero'
+	let parts = nonZeroParts(r)
+	if parts.count() == 0 'noDivisor'
+		return ArithSpan.make(Span.make(ast.I128.one(), hi: ast.I128.zero()), fails: fails)
+	end 'noDivisor'
+	var out = divisionPart(op, l: l, part: parts[0])
+	for i in 1 upto parts.count() 'rest'
+		out = out.unionWith(divisionPart(op, l: l, part: parts[i]))
+	end 'rest'
+	return ArithSpan.make(out, fails: fails)
+end 'divisionSpan'
+
+function divisionPart(op String, l Span, part Span) returns Span
+	if op == "/" 'quotient'
+		return corners(MonotonicOp.quotient, l: l, r: part)
+	end 'quotient'
+	return remainders(l, d: part)
+end 'divisionPart'
+
+function bitwiseSpan(op String, l Span, r Span, word Span) returns ArithSpan
+	if l.lo.isNeg() or r.lo.isNeg() 'signed'
+		return ArithSpan.make(word.clone(), fails: ast.failNone)
+	end 'signed'
+	if op == "and" 'and'
+		return ArithSpan.make(Span.make(ast.I128.zero(), hi: ast.minI128(l.hi, b: r.hi)), fails: ast.failNone)
+	end 'and'
+	return ArithSpan.make(Span.make(ast.I128.zero(), hi: allOnesCovering(ast.maxI128(l.hi, b: r.hi))), fails: ast.failNone)
+end 'bitwiseSpan'
+
+// arithmetic is the span of the exact result of an operator on operands of spans l and r, and how it fails beyond the
+// result's range: a divisor that may be 0, or a shift count that may be negative. word is the word it computes in.
+export function arithmetic(op String, l Span, r Span, word Span) returns ArithSpan
+	if op == "+" 'add'
+		return ArithSpan.make(Span.make(l.lo.add(r.lo), hi: l.hi.add(r.hi)), fails: ast.failNone)
+	end 'add'
+	if op == "-" 'sub'
+		return ArithSpan.make(Span.make(l.lo.sub(r.hi), hi: l.hi.sub(r.lo)), fails: ast.failNone)
+	end 'sub'
+	if op == "*" 'mul'
+		return ArithSpan.make(corners(MonotonicOp.multiply, l: l, r: r), fails: ast.failNone)
+	end 'mul'
+	if op == "/" or op == "mod" 'div'
+		return divisionSpan(op, l: l, r: r)
+	end 'div'
+	if op == "shl" or op == "shr" 'shift'
+		var fails = ast.failNone
+		if r.lo.isNeg() 'negative'
+			fails = ast.failShift
+		end 'negative'
+		return ArithSpan.make(shifted(op == "shl", l: l, count: r), fails: fails)
+	end 'shift'
+	if op == "and" or op == "or" or op == "xor" 'bits'
+		return bitwiseSpan(op, l: l, r: r, word: word)
+	end 'bits'
+	panic("ranges: unknown operator '{op}'")
+end 'arithmetic'

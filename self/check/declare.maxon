@@ -1,0 +1,427 @@
+// cloneMethod is the name of the deep copy that every type has.
+let cloneMethod = "clone"
+
+// entryFunction is the function a program starts in.
+let entryFunction = "main"
+
+// enumWord and unionWord are how a message names the kind of a type that has cases.
+let enumWord = "enum"
+
+let unionWord = "union"
+
+// A phase of the declare stage stops at its first error, as the Go checker's guard does by unwinding: each step
+// that can fail compares the error count with the mark it took at the start.
+function failedSince(errs diag.ErrorList, mark Count) returns bool
+	return errs.count() > mark
+end 'failedSince'
+
+function offsetOf(c Checker, p ast.Project, node ast.NodeID) returns diag.U32
+	return p.modules[c.modIdx].tree.startOf(node)
+end 'offsetOf'
+
+function declTypeOf(p ast.Project, ref ast.DeclRef) returns ast.TypeID
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return tid
+		none then _ = 0
+	end 'dt'
+	panic("the declaration at ordinal {ref.ordinal} of module {ref.module} has no type")
+end 'declTypeOf'
+
+// typeParamOfNode is the type of the type parameter that a node of the module declares.
+function typeParamOfNode(c Checker, p ast.Project, node ast.NodeID) returns ast.TypeID
+	match p.declTypes.get(ast.nodeKey(c.modID, node: node)) 'tp'
+		some(tid) then return tid
+		none then _ = 0
+	end 'tp'
+	panic("the type parameter at node {node} of module {c.modID} is not declared")
+end 'typeParamOfNode'
+
+// boundedParamOf is the type that a 'where' constraint bounds: the one its parameter name resolved to.
+function boundedParamOf(c Checker, p ast.Project, cs ast.Constraint) returns ast.TypeID
+	match p.resolutions[c.modIdx].typeParamSlots.get(cs.id as Count) 'slot'
+		some(slot) then return typeParamOfNode(c, p: p, node: p.resolutions[c.modIdx].typeParams[slot].id)
+		none then _ = 0
+	end 'slot'
+	panic("the constraint at node {cs.id} of module {c.modID} names no type parameter")
+end 'boundedParamOf'
+
+// paramNamed is the shell parameter of a generic declaration that a declared parameter has, found by its name because
+// the shells leave out a parameter that repeats one.
+function paramNamed(p ast.Project, owner ast.TypeID, name String) returns table.Option with ast.TypeID
+	for i in 0 upto p.types.entries[owner as Count].typeParams.count() 'each'
+		let tid = p.types.entries[owner as Count].typeParams[i]
+		if p.types.entries[tid as Count].name == name 'hit'
+			return table.Option.some(tid)
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'paramNamed'
+
+// repeatsEarlier is whether the name at index is one of the names before it.
+function repeatsEarlier(names ast.StringList, index Count) returns bool
+	for j in 0 upto index 'prev'
+		if names[j] == names[index] 'dup'
+			return true
+		end 'dup'
+	end 'prev'
+	return false
+end 'repeatsEarlier'
+
+// declareBounds gives each type parameter the bounds its declaration's constraints name. A bound is a handle to an
+// interface, so it needs nothing from the interface's own declaration.
+function declareBounds(mutates c Checker, mutates p ast.Project, constraints ast.ConstraintList, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	for i in 0 upto constraints.count() 'each'
+		let cs = constraints[i].clone()
+		let constrained = boundedParamOf(c, p: p, cs: cs)
+		for bi in 0 upto cs.bounds.count() 'bounds'
+			let iface = resolveBoundTypeRef(c, p: p, tr: cs.bounds[bi] as ast.NodeID, errs: errs)
+			if failedSince(errs, mark: mark) 'failed'
+				return
+			end 'failed'
+			p.types.entries[constrained as Count].bounds.push(ast.ParamBound.make(constrained, ifaceTy: iface))
+		end 'bounds'
+	end 'each'
+end 'declareBounds'
+
+// declareFunctionTypeParams gives a function its type parameters, and each parameter the bounds the function's
+// constraints name. The parameters of a type and of a union were made with its shell, and only get their bounds.
+function declareFunctionTypeParams(mutates c Checker, mutates p ast.Project, params ast.TypeParamList, constraints ast.ConstraintList, mutates generics ast.TypeIDList, mutates errs diag.ErrorList)
+	var names = ast.StringList.create(0)
+	for i in 0 upto params.count() 'names'
+		names.push(params[i].name.clone())
+	end 'names'
+	for i in 0 upto params.count() 'each'
+		if repeatsEarlier(names, index: i) 'dup'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: params[i].id), code: diag.errDuplicateDefinition, msg: "type parameter '{params[i].name}' is declared twice", errs: errs)
+			return
+		end 'dup'
+		let tid = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: params[i].name.clone()))
+		p.declTypes.insert(ast.nodeKey(c.modID, node: params[i].id), value: tid)
+		generics.push(tid)
+	end 'each'
+	declareBounds(c, p: p, constraints: constraints, errs: errs)
+end 'declareFunctionTypeParams'
+
+// declareNominalTypeParams registers the parameters of the shell of a type or a union as what their nodes declare, then
+// gives them their bounds. A parameter that repeats one is refused where the shell is made.
+function declareNominalTypeParams(mutates c Checker, mutates p ast.Project, owner ast.TypeID, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList)
+	for i in 0 upto params.count() 'each'
+		match paramNamed(p, owner: owner, name: params[i].name) 'shell'
+			some(tid) then p.declTypes.insert(ast.nodeKey(c.modID, node: params[i].id), value: tid)
+			none then panic("the shell of '{p.types.entries[owner as Count].name}' has no type parameter '{params[i].name}'")
+		end 'shell'
+	end 'each'
+	declareBounds(c, p: p, constraints: constraints, errs: errs)
+end 'declareNominalTypeParams'
+
+function optOutAdvice(p ast.Project, iface ast.TypeID) returns String
+	if iface == p.builtins.copyableTy 'copy'
+		return ", and write 'is noncopyable' after the name to opt out"
+	end 'copy'
+	return ""
+end 'optOutAdvice'
+
+// declareConforms records the interfaces that a declaration implements. Copyable and Droppable are no interface to
+// implement, since every type has them unless it opts out or holds a part that lacks them.
+function declareConforms(mutates c Checker, mutates p ast.Project, interfaces ast.U32List, nt ast.TypeID, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	for i in 0 upto interfaces.count() 'each'
+		let tr = interfaces[i] as ast.NodeID
+		let iface = resolveBoundTypeRef(c, p: p, tr: tr, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return
+		end 'failed'
+		if p.builtins.isCapability(iface) 'capability'
+			let name = p.types.entries[iface as Count].name.clone()
+			checkFail(c.modID, off: offsetOf(c, p: p, node: tr), code: diag.errCapabilityMisuse, msg: "'{name}' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'{optOutAdvice(p, iface: iface)}", errs: errs)
+			continue 'each'
+		end 'capability'
+		p.types.entries[nt as Count].conforms.push(iface)
+	end 'each'
+end 'declareConforms'
+
+// paramSpecs resolves a parameter list, which a function and an interface's method are both written with. It stops at
+// the first error.
+function paramSpecs(mutates c Checker, mutates p ast.Project, params ast.ParamList, selfTy ast.TypeID, mutates specs ast.ParamSpecList, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	var names = ast.StringList.create(0)
+	for i in 0 upto params.count() 'names'
+		names.push(params[i].name.clone())
+	end 'names'
+	for i in 0 upto params.count() 'each'
+		let prm = params[i].clone()
+		let conv = ast.parseConvention(prm.convention)
+		let off = offsetOf(c, p: p, node: prm.id)
+		if prm.name == "_" and conv == ast.Convention.convSets 'anonymousSets'
+			checkFail(c.modID, off: off, code: diag.errSetNotInitialized, msg: "a 'sets' parameter must be named, so the function can initialise it", errs: errs)
+			return
+		end 'anonymousSets'
+		if prm.name != "_" and repeatsEarlier(names, index: i) 'dup'
+			checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "parameter '{prm.name}' is declared twice", errs: errs)
+			return
+		end 'dup'
+		let t = resolveTypeRef(c, p: p, tr: prm.typeRef, selfTy: selfTy, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return
+		end 'failed'
+		specs.push(ast.ParamSpec.make(prm.name.clone(), ty: t, conv: conv))
+	end 'each'
+end 'paramSpecs'
+
+// returnOf is the type a function returns, which is void where it writes none.
+function returnOf(mutates c Checker, mutates p ast.Project, returnsRef ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if returnsRef == 0 'none'
+		return p.builtins.voidTy
+	end 'none'
+	return resolveTypeRef(c, p: p, tr: returnsRef, selfTy: selfTy, errs: errs)
+end 'returnOf'
+
+// errorOf is the error a function's 'throws' names, or none for a function that throws nothing. An error is an enum:
+// its value is a case, which comes back from a call in a register.
+function errorOf(mutates c Checker, mutates p ast.Project, throwsRef ast.NodeID, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.TypeID
+	if throwsRef == 0 'none'
+		return ast.noType
+	end 'none'
+	let mark = errs.count()
+	let t = resolveTypeRef(c, p: p, tr: throwsRef, selfTy: ast.noType, errs: errs)
+	if failedSince(errs, mark: mark) 'failed'
+		return ast.noType
+	end 'failed'
+	let off = offsetOf(c, p: p, node: throwsRef)
+	if p.types.entries[t as Count].kind != ast.TypeKind.enumTy 'notEnum'
+		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: "'throws {ast.typeName(p.types, t: t)}' names no enum, and an error is a case of one: name an 'enum ... implements Error' with a case for each failure", errs: errs)
+		return ast.noType
+	end 'notEnum'
+	for i in 0 upto specs.count() 'each'
+		if specs[i].conv == ast.Convention.convSets 'sets'
+			checkFail(c.modID, off: off, code: diag.errThrows, msg: "a failure would leave the 'sets' parameter '{specs[i].name}' set or not, which its caller cannot tell: return the value instead, or catch the failures in the function", errs: errs)
+			return ast.noType
+		end 'sets'
+	end 'each'
+	return t
+end 'errorOf'
+
+// declareSignature records a method of an interface as the function entry its signature describes.
+function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeID, m ast.FuncSig, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: m.id)
+	if m.name == cloneMethod 'clone'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
+		return
+	end 'clone'
+	for i in 0 upto p.types.entries[it as Count].sigs.count() 'each'
+		let sig = p.types.entries[it as Count].sigs[i]
+		if p.funcs.entries[sig as Count].name == m.name 'exists'
+			checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateRequirement(m.name, interfaceName: p.types.entries[it as Count].name), errs: errs)
+			return
+		end 'exists'
+	end 'each'
+	var fn = ast.FuncEntry.make(m.name.clone(), visibility: "", module: c.modID, nodeID: m.id)
+	fn.selfConv = ast.parseConvention(m.receiver)
+	fn.hasReceiver = true
+	fn.ownerTy = it
+	let selfTy = p.types.entries[it as Count].selfParam
+	let mark = errs.count()
+	paramSpecs(c, p: p, params: m.params, selfTy: selfTy, specs: fn.params, errs: errs)
+	if failedSince(errs, mark: mark) 'badParams'
+		return
+	end 'badParams'
+	for i in 0 upto fn.params.count() 'types'
+		fn.paramTypes.push(fn.params[i].ty)
+	end 'types'
+	fn.retTy = returnOf(c, p: p, returnsRef: m.returnsRef, selfTy: selfTy, errs: errs)
+	if failedSince(errs, mark: mark) 'badReturn'
+		return
+	end 'badReturn'
+	fn.errTy = errorOf(c, p: p, throwsRef: m.throwsRef, specs: fn.params, errs: errs)
+	if failedSince(errs, mark: mark) 'badThrows'
+		return
+	end 'badThrows'
+	p.types.entries[it as Count].sigs.push(ast.allocFunc(p.funcs, f: fn))
+end 'declareSignature'
+
+// typeNamed is the type that a name written as an expression names, or none if it names no type. A generic type names
+// its declaration, which only a call or a case that infers the arguments accepts; requireInstance refuses it anywhere
+// else. A typealias of an instance names the instance. It reports why a 'Self' outside a type names none.
+function typeNamed(c Checker, p ast.Project, name ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if ast.nameExprName(p.modules[c.modIdx].tree, id: name) == "Self" 'selfName'
+		if c.owner == ast.noType 'noOwner'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: name), code: diag.errUnknownType, msg: "'Self' names a type only inside one", errs: errs)
+		end 'noOwner'
+		return c.owner
+	end 'selfName'
+	match consumes p.resolutions[c.modIdx].decls.get(name as Count) 'bound'
+		some(ref) then return nominalTypeOf(p, ref: ref)
+		none then return ast.noType
+	end 'bound'
+end 'typeNamed'
+
+function nominalTypeOf(p ast.Project, consumes ref ast.DeclRef) returns ast.TypeID
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return nominalOrNone(p, t: tid)
+		none then return ast.noType
+	end 'dt'
+end 'nominalTypeOf'
+
+function nominalOrNone(p ast.Project, t ast.TypeID) returns ast.TypeID
+	if typeIsNominal(p.types, t: t) 'nominal'
+		return t
+	end 'nominal'
+	return ast.noType
+end 'nominalOrNone'
+
+// requireInstance refuses a generic declaration where a type is needed and no call can infer its arguments.
+function requireInstance(c Checker, p ast.Project, off diag.U32, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if p.types.entries[nt as Count].typeParams.count() > 0 'generic'
+		var names = ast.StringList.create(0)
+		for i in 0 upto p.types.entries[nt as Count].typeParams.count() 'params'
+			names.push(p.types.entries[p.types.entries[nt as Count].typeParams[i] as Count].name.clone())
+		end 'params'
+		let tName = p.types.entries[nt as Count].name.clone()
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{tName}' is generic: name an instance with a typealias, as 'typealias Name = {ast.instanceSpelling(tName, args: names)}'", errs: errs)
+	end 'generic'
+	return nt
+end 'requireInstance'
+
+// defaultHead is the name that heads a default value written as a member or a call of one, or none.
+function defaultHead(tree ast.Tree, e ast.NodeID) returns ast.NodeID
+	let k = tree.kindOf(e)
+	if k == ast.NodeKind.memberExpr 'member'
+		return ast.memberExprObj(tree, id: e)
+	end 'member'
+	if k == ast.NodeKind.callExpr 'call'
+		let callee = ast.callExprCallee(tree, id: e)
+		if tree.kindOf(callee) == ast.NodeKind.memberExpr 'viaMember'
+			return ast.memberExprObj(tree, id: callee)
+		end 'viaMember'
+	end 'call'
+	return 0 as ast.NodeID
+end 'defaultHead'
+
+// defaultType is the type a field's default value gives the field: its cast, a bool, a string, or the type the default
+// names to make a value of.
+function defaultType(mutates c Checker, mutates p ast.Project, e ast.NodeID, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let k = p.modules[c.modIdx].tree.kindOf(e)
+	if k == ast.NodeKind.castExpr 'cast'
+		return resolveTypeRef(c, p: p, tr: ast.castExprTarget(p.modules[c.modIdx].tree, id: e), selfTy: selfTy, errs: errs)
+	end 'cast'
+	if k == ast.NodeKind.boolLit 'bool'
+		return p.builtins.boolTy
+	end 'bool'
+	if k == ast.NodeKind.strLit and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: e)) 'string'
+		return p.builtins.stringTy
+	end 'string'
+	let head = defaultHead(p.modules[c.modIdx].tree, e: e)
+	if head != 0 and p.modules[c.modIdx].tree.kindOf(head) == ast.NodeKind.nameExpr 'named'
+		let mark = errs.count()
+		let nt = typeNamed(c, p: p, name: head, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return ast.noType
+		end 'failed'
+		if nt != ast.noType 'type'
+			return requireInstance(c, p: p, off: offsetOf(c, p: p, node: head), nt: nt, errs: errs)
+		end 'type'
+	end 'named'
+	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errExpressionError, msg: diag.uninferrableFieldDefault(), errs: errs)
+	return ast.noType
+end 'defaultType'
+
+// declareFieldDefaults gives each field that has a default the type its default has.
+function declareFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.TypeID, mutates errs diag.ErrorList)
+	let selfTy = ast.selfType(p.types, declTy: tid)
+	enterContext(c, p: p, f: ast.noFunc, owner: selfTy, calls: false)
+	for i in 0 upto p.types.entries[tid as Count].fields.count() 'each'
+		if p.types.entries[tid as Count].fields[i].hasDefault 'hasDefault'
+			let mark = errs.count()
+			let defaultExpr = p.types.entries[tid as Count].fields[i].defaultExpr
+			let t = defaultType(c, p: p, e: defaultExpr, selfTy: selfTy, errs: errs)
+			if not failedSince(errs, mark: mark) 'typed'
+				p.types.entries[tid as Count].fields[i].ty = t
+			end 'typed'
+		end 'hasDefault'
+	end 'each'
+end 'declareFieldDefaults'
+
+// declareDeclTypeParams declares the bounds of the type parameters of a type or a union, and tells whether it did so
+// without an error.
+function declareDeclTypeParams(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList) returns bool
+	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
+	let mark = errs.count()
+	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
+		typeDecl(td) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: td.typeParams, constraints: td.constraints, errs: errs)
+		unionDecl(ud) then declareNominalTypeParams(c, p: p, owner: declTypeOf(p, ref: ref), params: ud.typeParams, constraints: ud.constraints, errs: errs)
+		funcDecl(_) then _ = 0
+		constDecl(_) then _ = 0
+		enumDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+		interfaceDecl(_) then _ = 0
+	end 'k'
+	return not failedSince(errs, mark: mark)
+end 'declareDeclTypeParams'
+
+// declareDecl declares a declaration's members and signatures. The type parameters of a type and of a union were
+// declared already, and paramsOk is whether they were declared without an error.
+function declareDecl(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, paramsOk bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let ref = ast.DeclRef.make(c.modID, ordinal: ord)
+	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
+		funcDecl(f) then declareFunction(c, p: p, f: f, ref: ref, declared: declared, errs: errs)
+		typeDecl(td) then declareTypeDecl(c, p: p, td: td, tid: declTypeOf(p, ref: ref), paramsOk: paramsOk, declared: declared, errs: errs)
+		enumDecl(ed) then declareEnumDecl(c, p: p, ed: ed, tid: declTypeOf(p, ref: ref), declared: declared, errs: errs)
+		unionDecl(ud) then declareUnionDecl(c, p: p, ud: ud, tid: declTypeOf(p, ref: ref), paramsOk: paramsOk, declared: declared, errs: errs)
+		interfaceDecl(ifd) then declareInterfaceMembers(c, p: p, ifd: ifd, tid: declTypeOf(p, ref: ref), errs: errs)
+		constDecl(_) then _ = 0
+		aliasDecl(_) then _ = 0
+	end 'k'
+end 'declareDecl'
+
+function declareFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, ref ast.DeclRef, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let fid = newFuncEntry(c, p: p, f: f, ownerTy: ast.noType, ref: ref)
+	addFunction(c, p: p, f: f, fid: fid, nt: ast.noType, declared: declared, errs: errs)
+end 'declareFunction'
+
+function declareTypeDecl(mutates c Checker, mutates p ast.Project, td ast.TypeDecl, tid ast.TypeID, paramsOk bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	if paramsOk 'members'
+		declareRecordMembers(c, p: p, td: td, tid: tid, errs: errs)
+	end 'members'
+	addMethods(c, p: p, methods: td.methods, nt: tid, declared: declared, errs: errs)
+	declareFieldDefaults(c, p: p, tid: tid, errs: errs)
+end 'declareTypeDecl'
+
+function declareEnumDecl(mutates c Checker, mutates p ast.Project, ed ast.EnumDecl, tid ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	declareEnumMembers(c, p: p, ed: ed, tid: tid, errs: errs)
+	addMethods(c, p: p, methods: ed.methods, nt: tid, declared: declared, errs: errs)
+end 'declareEnumDecl'
+
+function declareUnionDecl(mutates c Checker, mutates p ast.Project, ud ast.UnionDecl, tid ast.TypeID, paramsOk bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	if paramsOk 'members'
+		declareUnionMembers(c, p: p, ud: ud, tid: tid, errs: errs)
+	end 'members'
+	addMethods(c, p: p, methods: ud.methods, nt: tid, declared: declared, errs: errs)
+end 'declareUnionDecl'
+
+// declareTypeParamBounds declares the bounds of the type parameters of every type and union of the module, and gives for each
+// declaration whether it was declared without an error. It runs before the module's typealiases and members: an instance of
+// a generic type that either names queues the check of its type arguments against the bounds, whichever of the two is
+// written first, and a module that names the type finds them declared.
+export function declareTypeParamBounds(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList) returns ByteArray
+	let count = p.modules[c.modIdx].decls.count()
+	var paramsOk = ByteArray.create(count)
+	for i in 0 upto count 'params'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		if declareDeclTypeParams(c, p: p, ord: ord, errs: errs) 'ok'
+			paramsOk[i] = 1 as Byte
+		end 'ok'
+	end 'params'
+	return paramsOk
+end 'declareTypeParamBounds'
+
+// declareModule declares the module's members and signatures, and gives the functions whose bodies are to be checked.
+// paramsOk is what declareTypeParamBounds gave.
+export function declareModule(mutates c Checker, mutates p ast.Project, paramsOk ByteArray, mutates errs diag.ErrorList) returns ast.FuncIDList
+	var declared = ast.FuncIDList.create(0)
+	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
+		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
+		declareDecl(c, p: p, ord: ord, paramsOk: paramsOk[i] == 1, declared: declared, errs: errs)
+	end 'decls'
+	return declared
+end 'declareModule'

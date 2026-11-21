@@ -1,0 +1,95 @@
+function declareModuleStages(mutates p ast.Project, modIdx Count, mutates errs diag.ErrorList) returns ast.FuncID
+	var c = check.checkerStartMod(p, modIdx: modIdx)
+	let paramsOk = check.declareTypeParamBounds(c, p: p, errs: errs)
+	check.declareAliases(c, p: p, errs: errs)
+	_ = check.declareModule(c, p: p, paramsOk: paramsOk, errs: errs)
+	var entry = ast.noFunc
+	if modIdx == ast.modIndex(p.rootModule) 'root'
+		entry = check.checkMain(c, p: p, errs: errs)
+	end 'root'
+	check.checkConstants(c, p: p, errs: errs)
+	check.checkerEndMod(p, c: c)
+	return entry
+end 'declareModuleStages'
+
+// declareProject runs the aliases, declare and constants stages over each module after the modules it names, and gives
+// the entry function.
+function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
+	var entry = ast.noFunc
+	let order = project.topoOrder(project.newGraph(p))
+	for i in 0 upto order.count() 'each'
+		let declaredMain = declareModuleStages(p, modIdx: ast.modIndex(order[i]), errs: errs)
+		if declaredMain != ast.noFunc 'main'
+			entry = declaredMain
+		end 'main'
+	end 'each'
+	return entry
+end 'declareProject'
+
+function loadResolved(path String, mutates errs diag.ErrorList) returns ast.Project
+	var p = match consumes project.loadProject(path, errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("{path}: cannot be loaded")
+	end 'pr'
+	if errs.count() > 0 'le'
+		panic("{path}: load error {errs[0].format()}")
+	end 'le'
+	resolve.resolveProject(p, errs: errs)
+	if errs.count() > 0 're'
+		ast.locateAllErrors(p.modules, errs: errs)
+		panic("{path}: resolve error {errs[0].format()}")
+	end 're'
+	return p
+end 'loadResolved'
+
+function expectDeclared(path String)
+	var errs = diag.ErrorList.create(0)
+	var p = loadResolved(path, errs: errs)
+	let entry = declareProject(p, errs: errs)
+	if errs.count() > 0 'de'
+		ast.locateAllErrors(p.modules, errs: errs)
+		panic("{path}: declare error {errs[0].format()}")
+	end 'de'
+	if entry == ast.noFunc or p.funcs.entries[entry as Count].retTy != p.builtins.exitCodeTy 'main'
+		panic("{path}: main is not declared with the return type ExitCode")
+	end 'main'
+end 'expectDeclared'
+
+function expectDeclareError(path String, code String, line Count, col Count)
+	var errs = diag.ErrorList.create(0)
+	var p = loadResolved(path, errs: errs)
+	_ = declareProject(p, errs: errs)
+	ast.locateAllErrors(p.modules, errs: errs)
+	if errs.count() != 1 'count'
+		panic("{path}: expected the one error {code}, got {errs.count()}")
+	end 'count'
+	if errs[0].code != code or errs[0].line != line or errs[0].col != col 'where'
+		panic("{path}: expected {code} at {line}:{col}, got {errs[0].format()}")
+	end 'where'
+end 'expectDeclareError'
+
+function testDeclare()
+	expectDeclared("self")
+	expectDeclared("tests/run/constant-depends-through-match.maxon")
+	expectDeclared("tests/modules/constants")
+	expectDeclared("tests/modules/generics")
+	expectDeclareError("tests/errors/typealias-names-itself.maxon", code: "E2012", line: 5, col: 1)
+	expectDeclareError("tests/errors/typealias-of-a-plain-type.maxon", code: "E3917", line: 3, col: 20)
+	expectDeclareError("tests/errors/map-key-is-a-record.maxon", code: "E3908", line: 2, col: 26)
+	expectDeclareError("tests/errors/constant-cycle.maxon", code: "E2012", line: 1, col: 1)
+	expectDeclareError("tests/errors/constant-of-a-noncopyable-type.maxon", code: "E3918", line: 6, col: 1)
+	expectDeclareError("tests/errors/generic-duplicate-type-parameter.maxon", code: "E3006", line: 51, col: 29)
+	expectDeclareError("tests/errors/generic-bound-is-not-an-interface.maxon", code: "E3907", line: 51, col: 59)
+	expectDeclareError("tests/errors/generic-method-with-type-parameters.maxon", code: "E3907", line: 54, col: 2)
+	expectDeclareError("tests/errors/generic-interface-as-a-type.maxon", code: "E3905", line: 51, col: 17)
+	expectDeclareError("tests/errors/generic-wrong-type-argument-count.maxon", code: "E2056", line: 51, col: 18)
+	expectDeclareError("tests/errors/union-payload-convention.maxon", code: "E2001", line: 4, col: 5)
+	expectDeclareError("tests/errors/throws-a-type-that-is-not-an-enum.maxon", code: "E3113", line: 5, col: 38)
+	expectDeclareError("tests/errors/throws-with-a-sets-parameter.maxon", code: "E3924", line: 1, col: 47)
+	expectDeclareError("tests/errors/static-function-outside-type.maxon", code: "E2015", line: 1, col: 1)
+	expectDeclareError("tests/errors/destructor-on-an-enum.maxon", code: "E3920", line: 5, col: 2)
+	expectDeclareError("tests/errors/clone-is-built-in.maxon", code: "E3006", line: 23, col: 2)
+	expectDeclareError("tests/errors/implements-copyable.maxon", code: "E3921", line: 1, col: 24)
+	expectDeclareError("tests/errors/main-returns-nothing.maxon", code: "E3002", line: 1, col: 1)
+	expectDeclareError("tests/errors/throws-from-main.maxon", code: "E3054", line: 1, col: 41)
+end 'testDeclare'

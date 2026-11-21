@@ -1,0 +1,8 @@
+// intLitValue is the value an integer literal writes, which its sign decides.
+export function intLitValue(t Tree, id NodeID) returns I128
+	let magnitude = intLitMagnitude(t, id: id)
+	if intLitNegative(t, id: id) 'neg'
+		return magnitude.neg()
+	end 'neg'
+	return magnitude
+end 'intLitValue'

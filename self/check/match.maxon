@@ -1,0 +1,419 @@
+// MatchState is what the arms of a match have shown so far.
+type MatchState
+	// seen are the cases of the subject that an arm matches.
+	export var seen as BoolIntMap
+	export var sawTrue as bool
+	export var sawFalse as bool
+	export var hasDefault as bool
+	// result is the type the arms give, or none while no arm gave one.
+	export var result as ast.TypeID
+
+	static function make() returns MatchState
+		return MatchState{seen: BoolIntMap.new(), sawTrue: false, sawFalse: false, hasDefault: false, result: ast.noType}
+	end 'make'
+end 'MatchState'
+
+function pushScope(mutates c Checker)
+	c.scopes.push(LocalScope.new())
+end 'pushScope'
+
+function popScope(mutates c Checker)
+	try c.scopes.pop() otherwise ignore
+end 'popScope'
+
+function pushBlock(mutates c Checker, consumes label String, node ast.NodeID)
+	c.blocks.push(BlockFrame.make(label, isLoop: false, node: node))
+end 'pushBlock'
+
+function popBlock(mutates c Checker)
+	try c.blocks.pop() otherwise ignore
+end 'popBlock'
+
+// lookupLocal is the local that a name stands for in the scopes of the code being checked, innermost first, or none.
+function lookupLocal(c Checker, name String) returns ast.LocalID
+	var i = c.scopes.count()
+	while i > 0 'scopes'
+		i = try i - 1 otherwise 0 as Count
+		match c.scopes[i].get(name) 'found'
+			some(id) then return id
+			none then _ = 0
+		end 'found'
+	end 'scopes'
+	return ast.noLocal
+end 'lookupLocal'
+
+// selfRecord is the record that the method being checked belongs to, or none outside a method.
+function selfRecord(c Checker, p ast.Project) returns ast.TypeID
+	if c.fn == ast.noFunc or not p.funcs.entries[c.fn as Count].hasReceiver 'none'
+		return ast.noType
+	end 'none'
+	return nominalRecordOrNone(p, t: c.owner)
+end 'selfRecord'
+
+function nominalRecordOrNone(p ast.Project, t ast.TypeID) returns ast.TypeID
+	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.record 'record'
+		return t
+	end 'record'
+	return ast.noType
+end 'nominalRecordOrNone'
+
+// declareLocal makes a local of the code being checked, visible in the innermost scope.
+function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
+	let rt = selfRecord(c, p: p)
+	if rt != ast.noType and p.types.entries[ast.originOf(p.types, t: rt) as Count].findField(name).isSome() 'shadows'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.localShadowsSelfField(name, typeName: p.types.entries[rt as Count].name), errs: errs)
+		return ast.noLocal
+	end 'shadows'
+	let top = try c.scopes.count() - 1 otherwise panic("a local is declared outside every scope")
+	if c.scopes[top].has(name) 'twice'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{name}' is declared twice in this scope", errs: errs)
+		return ast.noLocal
+	end 'twice'
+	let id = c.typing.allocLocal(ast.LocalEntry.make(name.clone(), ty: t, isVar: isVar, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID))
+	c.scopes[top].insert(name.clone(), value: id)
+	return id
+end 'declareLocal'
+
+// requireNotCown refuses the use of a cown's value outside a behaviour that holds it. use says what is done with it.
+function requireNotCown(c Checker, p ast.Project, off diag.U32, t ast.TypeID, use String, mutates errs diag.ErrorList) returns bool
+	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.builtinCown 'cown'
+		checkFail(c.modID, off: off, code: diag.errCownAccess, msg: "{use} needs the value of a {nameOfType(p, t: t)}, which is touched only inside a behaviour that holds the cown: write 'when <name> as x' and use x", errs: errs)
+		return false
+	end 'cown'
+	return true
+end 'requireNotCown'
+
+function isFrozenType(p ast.Project, t ast.TypeID) returns bool
+	return t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.builtinFrozen
+end 'isFrozenType'
+
+// checkMatch types a match and gives the type of its value, which is void for a statement and never where no arm gives
+// one.
+function checkMatch(mutates c Checker, mutates p ast.Project, core ast.NodeID, isExpr bool, mutates errs diag.ErrorList) returns ast.TypeID
+	let subject = ast.matchCoreSubject(p.modules[c.modIdx].tree, id: core)
+	let subjectTy = checkExpr(c, p: p, e: subject, errs: errs)
+	if subjectTy == ast.noType 'badSubject'
+		return ast.noType
+	end 'badSubject'
+	let st = ast.contentType(p.types, t: subjectTy)
+	if not checkSubject(c, p: p, core: core, subject: subject, subjectTy: subjectTy, st: st, errs: errs) 'unfit'
+		return ast.noType
+	end 'unfit'
+	let expect = c.expect
+	var state = MatchState.make()
+	pushBlock(c, label: ast.matchCoreLabel(p.modules[c.modIdx].tree, id: core), node: core)
+	let armsRef = ast.matchCoreArmsRef(p.modules[c.modIdx].tree, id: core)
+	let owned = ast.matchCoreConsumes(p.modules[c.modIdx].tree, id: core)
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(armsRef) 'arms'
+		let arm = p.modules[c.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
+		checkArmScoped(c, p: p, arm: arm, st: st, owned: owned, isExpr: isExpr, expect: expect, state: state, errs: errs)
+	end 'arms'
+	popBlock(c)
+	let mark = errs.count()
+	checkExhaustive(c, p: p, core: core, st: st, isExpr: isExpr, state: state, errs: errs)
+	if failedSince(errs, mark: mark) 'inexhaustive'
+		return ast.noType
+	end 'inexhaustive'
+	if not isExpr 'statement'
+		return p.builtins.voidTy
+	end 'statement'
+	if state.result == ast.noType 'noArm'
+		return p.builtins.neverTy
+	end 'noArm'
+	return state.result
+end 'checkMatch'
+
+// checkSubject refuses a subject that cannot be matched on.
+function checkSubject(mutates c Checker, mutates p ast.Project, core ast.NodeID, subject ast.NodeID, subjectTy ast.TypeID, st ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let off = offsetOf(c, p: p, node: subject)
+	if ast.matchCoreConsumes(p.modules[c.modIdx].tree, id: core) and isFrozenType(p, t: subjectTy) 'frozen'
+		checkFail(c.modID, off: off, code: diag.errMoveOutOfField, msg: "the contents of a frozen value are shared with its other owners, so 'match consumes' cannot take them apart; match without 'consumes', or use 'thaw(...)' for an owned copy", errs: errs)
+		return false
+	end 'frozen'
+	if not requireNotCown(c, p: p, off: off, t: st, use: "matching on it", errs: errs) 'cown'
+		return false
+	end 'cown'
+	if not requireSigned64(c, off: off, t: st, p: p, errs: errs) 'wide'
+		return false
+	end 'wide'
+	let k = kindOfType(p, t: st)
+	if ast.isIntType(p.types, t: st) or st == p.builtins.stringTy or st == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'matchable'
+		return true
+	end 'matchable'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot match on a value of {nameOfType(p, t: st)}", errs: errs)
+	return false
+end 'checkSubject'
+
+function hasCases(p ast.Project, t ast.TypeID) returns bool
+	return typeHasKind(p, t: t, kind: ast.TypeKind.enumTy) or typeHasKind(p, t: t, kind: ast.TypeKind.unionTy)
+end 'hasCases'
+
+// checkArmScoped checks an arm in a scope of its own, which holds what its patterns bind.
+function checkArmScoped(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
+	let form = ast.matchArmForm(p.modules[c.modIdx].tree, id: arm)
+	if ast.matchArmIsDefault(p.modules[c.modIdx].tree, id: arm) 'default'
+		if hasCases(p, t: st) and form != ast.ArmKind.armPanic 'mustThrow'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: arm), code: diag.errMatchDefaultEnumMustThrow, msg: "on an enum or union, 'default' is 'default panic(...)'", errs: errs)
+			return
+		end 'mustThrow'
+		state.hasDefault = true
+	end 'default'
+	pushScope(c)
+	checkArm(c, p: p, arm: arm, st: st, owned: owned, isExpr: isExpr, expect: expect, state: state, errs: errs)
+	popScope(c)
+end 'checkArmScoped'
+
+// checkArm checks one arm of a match. owned is whether the match consumes its subject, so each payload the arm binds is
+// owned by the arm instead of borrowed from the subject.
+function checkArm(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	let patternsRef = ast.matchArmPatternsRef(p.modules[c.modIdx].tree, id: arm)
+	let altCount = p.modules[c.modIdx].tree.listLen(patternsRef)
+	for i in 0 upto altCount 'patterns'
+		let pattern = p.modules[c.modIdx].tree.listAt(patternsRef, index: i) as ast.NodeID
+		checkPattern(c, p: p, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
+		if failedSince(errs, mark: mark) 'badPattern'
+			return
+		end 'badPattern'
+	end 'patterns'
+	let form = ast.matchArmForm(p.modules[c.modIdx].tree, id: arm)
+	let off = offsetOf(c, p: p, node: arm)
+	let value = ast.matchArmValue(p.modules[c.modIdx].tree, id: arm)
+	if form == ast.ArmKind.armThen 'then'
+		if isExpr 'inExpr'
+			checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "an arm of a match expression 'gives' a value", errs: errs)
+			return
+		end 'inExpr'
+		panic("the statement of a match arm is checked by the bodies check")
+	end 'then'
+	if form == ast.ArmKind.armGives 'gives'
+		if not isExpr 'inStatement'
+			checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "an arm of a match statement uses 'then'", errs: errs)
+			return
+		end 'inStatement'
+		joinArm(c, p: p, value: value, expect: expect, state: state, errs: errs)
+		return
+	end 'gives'
+	_ = checkExpr(c, p: p, e: value, errs: errs)
+end 'checkArm'
+
+// joinArm types the value an arm gives and joins its type with the types of the arms before it.
+function joinArm(mutates c Checker, mutates p ast.Project, value ast.NodeID, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
+	let t = checkExpecting(c, p: p, e: value, want: expect, errs: errs)
+	if t == ast.noType 'failed'
+		return
+	end 'failed'
+	if state.result == ast.noType 'first'
+		state.result = t
+		return
+	end 'first'
+	let before = state.result
+	let joined = joinTypes(c, p: p, off: offsetOf(c, p: p, node: value), a: before, b: t, errs: errs)
+	if joined != ast.noType 'joined'
+		state.result = joined
+	end 'joined'
+end 'joinArm'
+
+// checkExhaustive refuses a match that no default ends and that leaves a case of its subject out.
+function checkExhaustive(c Checker, p ast.Project, core ast.NodeID, st ast.TypeID, isExpr bool, state MatchState, mutates errs diag.ErrorList)
+	if state.hasDefault 'covered'
+		return
+	end 'covered'
+	let off = offsetOf(c, p: p, node: core)
+	if hasCases(p, t: st) 'cases'
+		let orig = ast.originOf(p.types, t: st)
+		if state.seen.count() < p.types.entries[orig as Count].cases.count() 'missing'
+			var word = unionWord
+			if kindOfType(p, t: st) == ast.TypeKind.enumTy 'enumWord'
+				word = enumWord
+			end 'enumWord'
+			checkFail(c.modID, off: off, code: diag.errMatchNotExhaustive, msg: diag.enumMatchNotExhaustive(word, typeName: p.types.entries[orig as Count].name, missing: missingCases(p, orig: orig, state: state)), errs: errs)
+		end 'missing'
+		return
+	end 'cases'
+	let leavesBoolOut = st == p.builtins.boolTy and not (state.sawTrue and state.sawFalse)
+	if leavesBoolOut or ast.isIntType(p.types, t: st) or st == p.builtins.stringTy 'values'
+		var subject = "match"
+		if isExpr 'expr'
+			subject = "match expression"
+		end 'expr'
+		checkFail(c.modID, off: off, code: diag.errMatchNotExhaustive, msg: diag.matchNotExhaustive(subject), errs: errs)
+	end 'values'
+end 'checkExhaustive'
+
+// missingCases lists the cases of a declaration that no arm matches.
+function missingCases(p ast.Project, orig ast.TypeID, state MatchState) returns String
+	var buf = ByteArray.create(0)
+	var first = true
+	for i in 0 upto p.types.entries[orig as Count].cases.count() 'each'
+		if not state.seen.has(i) 'unmatched'
+			if not first 'sep'
+				buf.append(", ".toByteArray())
+			end 'sep'
+			buf.append(p.types.entries[orig as Count].cases[i].name.toByteArray())
+			first = false
+		end 'unmatched'
+	end 'each'
+	return String.from(buf)
+end 'missingCases'
+
+function checkPattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
+	let form = ast.patternForm(p.modules[c.modIdx].tree, id: pattern)
+	if form == ast.PatternKind.patCase 'case'
+		checkCasePattern(c, p: p, pattern: pattern, st: st, owned: owned, altCount: altCount, state: state, errs: errs)
+		return
+	end 'case'
+	if form == ast.PatternKind.patLiteral 'literal'
+		checkLiteralPattern(c, p: p, pattern: pattern, st: st, state: state, errs: errs)
+		return
+	end 'literal'
+	checkRangePattern(c, p: p, pattern: pattern, st: st, errs: errs)
+end 'checkPattern'
+
+function checkCasePattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, owned bool, altCount Count, mutates state MatchState, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: pattern)
+	let caseName = ast.patternCaseName(p.modules[c.modIdx].tree, id: pattern)
+	if not hasCases(p, t: st) 'notCases'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a case pattern needs an enum or union subject, found {nameOfType(p, t: st)}", errs: errs)
+		return
+	end 'notCases'
+	let isEnum = kindOfType(p, t: st) == ast.TypeKind.enumTy
+	var word = unionWord
+	if isEnum 'enumWord'
+		word = enumWord
+	end 'enumWord'
+	let orig = ast.originOf(p.types, t: st)
+	var caseIdx = 0 as Count
+	let found = p.types.entries[orig as Count].findCase(caseName)
+	if not found.isSome() 'unknown'
+		reportUnknownCase(c, off: off, word: word, caseName: caseName, errs: errs)
+		return
+	end 'unknown'
+	match consumes found 'index'
+		some(i) then caseIdx = i
+		none then _ = 0
+	end 'index'
+	var locals = ast.LocalIDList.create(0)
+	if ast.patternHasBindings(p.modules[c.modIdx].tree, id: pattern) 'binds'
+		if not bindCase(c, p: p, pattern: pattern, st: st, caseIdx: caseIdx, owned: owned, altCount: altCount, locals: locals, errs: errs) 'bad'
+			return
+		end 'bad'
+	end 'binds'
+	if state.seen.has(caseIdx) 'twice'
+		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "case '{caseName}' is matched twice", errs: errs)
+		return
+	end 'twice'
+	state.seen.insert(caseIdx, value: true)
+	c.typing.patterns.insert(pattern as Count, value: ast.PatternInfo.makeCase(caseIdx, bindings: locals))
+end 'checkCasePattern'
+
+function reportUnknownCase(c Checker, off diag.U32, word String, caseName String, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: off, code: diag.errEnumUnknownCase, msg: diag.enumUnknownCase(word, caseName: caseName), errs: errs)
+end 'reportUnknownCase'
+
+// bindCase declares the locals that a pattern binds to the payload of a case of a union, and refuses bindings for an
+// enum's.
+function bindCase(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, caseIdx Count, owned bool, altCount Count, mutates locals ast.LocalIDList, mutates errs diag.ErrorList) returns bool
+	let off = offsetOf(c, p: p, node: pattern)
+	let caseName = ast.patternCaseName(p.modules[c.modIdx].tree, id: pattern)
+	let bindingsRef = ast.patternBindingsRef(p.modules[c.modIdx].tree, id: pattern)
+	let bindingCount = p.modules[c.modIdx].tree.listLen(bindingsRef)
+	let orig = ast.originOf(p.types, t: st)
+	var payloadCount = 0 as Count
+	if kindOfType(p, t: st) == ast.TypeKind.unionTy 'union'
+		payloadCount = p.types.entries[orig as Count].cases[caseIdx].payload.count()
+	end 'union'
+	if bindingCount != payloadCount 'count'
+		checkFail(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: diag.enumWrongBindingCount(caseName, expected: "{payloadCount}", got: "{bindingCount}"), errs: errs)
+		return false
+	end 'count'
+	if altCount > 1 'alternatives'
+		checkFail(c.modID, off: off, code: diag.errEnumWrongBindingCount, msg: "an arm that binds a payload covers exactly one case", errs: errs)
+		return false
+	end 'alternatives'
+	for i in 0 upto payloadCount 'payload'
+		let bindingName = p.modules[c.modIdx].tree.nameAt(p.modules[c.modIdx].tree.listAt(bindingsRef, index: i))
+		if bindingName == "_" 'ignored'
+			locals.push(ast.noLocal)
+			continue 'payload'
+		end 'ignored'
+		let payloadTy = typePayloadType(p, ownerTy: st, caseIdx: caseIdx, fieldIdx: i)
+		let id = declareLocal(c, p: p, name: bindingName, t: payloadTy, isVar: false, off: off, errs: errs)
+		if id == ast.noLocal 'failed'
+			return false
+		end 'failed'
+		c.typing.locals[id as Count].projected = ast.isManagedType(p.types, t: payloadTy) and not owned
+		locals.push(id)
+	end 'payload'
+	return true
+end 'bindCase'
+
+function checkLiteralPattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: pattern)
+	let value = ast.patternValue(p.modules[c.modIdx].tree, id: pattern)
+	let t = checkExpr(c, p: p, e: value, errs: errs)
+	if t == ast.noType 'failed'
+		return
+	end 'failed'
+	let valueKind = p.modules[c.modIdx].tree.kindOf(value)
+	if valueKind == ast.NodeKind.boolLit and st == p.builtins.boolTy 'bool'
+		recordBoolPattern(c, p: p, pattern: pattern, value: value, state: state, errs: errs)
+		return
+	end 'bool'
+	if valueKind == ast.NodeKind.strLit and st == p.builtins.stringTy and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: value)) 'string'
+		return
+	end 'string'
+	if isConstInt(p, t: t) and ast.isIntType(p.types, t: st) 'integer'
+		var expected = st
+		if isConstInt(p, t: st) 'constSubject'
+			expected = p.builtins.anon64Ty
+		end 'constSubject'
+		_ = coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
+		return
+	end 'integer'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a pattern of {nameOfType(p, t: t)} cannot match {nameOfType(p, t: st)}", errs: errs)
+end 'checkLiteralPattern'
+
+function recordBoolPattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, value ast.NodeID, mutates state MatchState, mutates errs diag.ErrorList)
+	let isTrue = ast.boolLitValue(p.modules[c.modIdx].tree, id: value)
+	var seenAlready = state.sawFalse
+	var word = "False"
+	if isTrue 'truth'
+		seenAlready = state.sawTrue
+		word = "True"
+	end 'truth'
+	if seenAlready 'twice'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: pattern), code: diag.errDuplicateDefinition, msg: "'{word}' is matched twice", errs: errs)
+		return
+	end 'twice'
+	if isTrue 'markTrue'
+		state.sawTrue = true
+	end 'markTrue' else 'markFalse'
+		state.sawFalse = true
+	end 'markFalse'
+end 'recordBoolPattern'
+
+function checkRangePattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, st ast.TypeID, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, node: pattern)
+	let lowNode = ast.patternValue(p.modules[c.modIdx].tree, id: pattern)
+	let highNode = ast.patternHigh(p.modules[c.modIdx].tree, id: pattern)
+	let lo = checkExpr(c, p: p, e: lowNode, errs: errs)
+	if lo == ast.noType 'badLow'
+		return
+	end 'badLow'
+	let hi = checkExpr(c, p: p, e: highNode, errs: errs)
+	if hi == ast.noType 'badHigh'
+		return
+	end 'badHigh'
+	if not ast.isIntType(p.types, t: st) or not isConstInt(p, t: lo) or not isConstInt(p, t: hi) 'notInts'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a range pattern needs integer bounds and an integer subject", errs: errs)
+		return
+	end 'notInts'
+	var top = p.types.entries[hi as Count].minVal.clone()
+	if not ast.patternInclusive(p.modules[c.modIdx].tree, id: pattern) 'exclusive'
+		top = top.sub(ast.I128.one())
+	end 'exclusive'
+	if p.types.entries[lo as Count].minVal.gt(top) 'empty'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the range pattern is empty", errs: errs)
+	end 'empty'
+end 'checkRangePattern'

@@ -1,0 +1,69 @@
+// modTrunc is a mod b, which has the sign of a, for two values a word holds and a b that is not 0.
+export function modTrunc(a I128, b I128) returns I128
+	return a.sub(mulWide(quoTrunc(a, b: b), b: b))
+end 'modTrunc'
+
+// notWord is the bitwise complement of the low 64 bits of a, as a signed word: the value 'not' gives a constant.
+export function notWord(a I128) returns I128
+	let complement = u64MaxCount - a.lo
+	return I128.fromInt(u64BitsToSigned(complement))
+end 'notWord'
+
+// bitsOp is how a bitwise operator combines two bits.
+export enum BitsOp
+	bitAnd
+	bitOr
+	bitXor
+end 'BitsOp'
+
+function combineBits(op BitsOp, a Count, b Count) returns Count
+	return match op 'o'
+		bitAnd gives a and b
+		bitOr gives a or b
+		bitXor gives a xor b
+	end 'o'
+end 'combineBits'
+
+function combineSigns(op BitsOp, a bool, b bool) returns bool
+	return match op 'o'
+		bitAnd gives a and b
+		bitOr gives a or b
+		bitXor gives a != b
+	end 'o'
+end 'combineSigns'
+
+// bitwise is a bitwise operator on two values that a word holds, as the two's complement words they are, which extend
+// their sign: i64.min up to u64.max.
+export function bitwise(op BitsOp, a I128, b I128) returns I128
+	let lo = combineBits(op, a: a.lo, b: b.lo)
+	if combineSigns(op, a: a.isNeg(), b: b.isNeg()) 'negative'
+		return I128.make(lo, hi: -1 as FullRangeInt)
+	end 'negative'
+	return I128.make(lo, hi: 0 as FullRangeInt)
+end 'bitwise'
+
+// shiftLeft is a shl n for a count of 0 to 63: the low 64 bits of a, shifted, as an unsigned word.
+export function shiftLeft(a I128, n Count) returns I128
+	if n == 0 'none'
+		return I128.fromCount(a.lo)
+	end 'none'
+	let keepBits = try 64 - n otherwise 0 as Count
+	let keep = try (1 as Count) shl keepBits otherwise 0 as Count
+	let mask = try keep - 1 otherwise 0 as Count
+	return I128.fromCount(try (a.lo and mask) shl n otherwise 0 as Count)
+end 'shiftLeft'
+
+// shiftRight is a shr n, which keeps the sign: a negative value shifts toward -1 and not toward 0.
+export function shiftRight(a I128, n Count) returns I128
+	if a.isNeg() 'negative'
+		if n >= 64 'wide'
+			return I128.fromInt(-1 as FullRangeInt)
+		end 'wide'
+		let magnitudeLess1 = a.neg().sub(I128.one())
+		return I128.fromCount(magnitudeLess1.lo shr n).neg().sub(I128.one())
+	end 'negative'
+	if n >= 64 'wideUp'
+		return I128.zero()
+	end 'wideUp'
+	return I128.fromCount(a.lo shr n)
+end 'shiftRight'

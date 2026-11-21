@@ -103,12 +103,17 @@ export type FieldInfo
 	export var ty as TypeID
 	export var isVar as bool
 	export var exported as bool
+	export var level as Visibility
 	export var hasDefault as bool
 	export var defaultExpr as NodeID
 	export var index as Count
 
 	export static function make(consumes name String, ty TypeID, isVar bool, exported bool, hasDefault bool, defaultExpr NodeID, index Count) returns FieldInfo
-		return FieldInfo{name: name, ty: ty, isVar: isVar, exported: exported, hasDefault: hasDefault, defaultExpr: defaultExpr, index: index}
+		var level = Visibility.unexported
+		if exported 'wide'
+			level = Visibility.exported
+		end 'wide'
+		return FieldInfo{name: name, ty: ty, isVar: isVar, exported: exported, level: level, hasDefault: hasDefault, defaultExpr: defaultExpr, index: index}
 	end 'make'
 end 'FieldInfo'
 
@@ -195,10 +200,11 @@ export type TypeEntry
 	export var sigs as FuncIDList
 	export var boundIface as TypeID
 	export var dropFunc as FuncID
+	export var selfParam as TypeID
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID

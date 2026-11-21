@@ -558,6 +558,7 @@ function selfTest()
 	testResolve()
 	testPe()
 	testX64Encoder()
+	testDeclare()
 	print("self: all checks passed\n")
 end 'selfTest'
 

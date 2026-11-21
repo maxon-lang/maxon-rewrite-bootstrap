@@ -1,0 +1,726 @@
+// The expressions that a constant can hold. A module-level constant is checked outside any function, so what the bodies
+// check adds (locals, calls, record literals, subscripts, match and the jumps of a try) is not here: an expression of
+// those kinds that a constant holds is refused by the same rules where it can be, and otherwise ends in a panic that
+// names the missing piece.
+
+// shiftLimit is the count from which a shift moves every bit out of a 64-bit word.
+let shiftLimit = 64 as Count
+
+function isArithmeticOp(op String) returns bool
+	return op == "+" or op == "-" or op == "*" or op == "/" or op == "mod" or op == "shl" or op == "shr"
+end 'isArithmeticOp'
+
+function isLogicalOp(op String) returns bool
+	return op == "and" or op == "or" or op == "xor"
+end 'isLogicalOp'
+
+function isComparisonOp(op String) returns bool
+	return op == "==" or op == "!=" or op == "<" or op == "<=" or op == ">" or op == ">="
+end 'isComparisonOp'
+
+function kindOfType(p ast.Project, t ast.TypeID) returns ast.TypeKind
+	return p.types.entries[t as Count].kind
+end 'kindOfType'
+
+function isConstInt(p ast.Project, t ast.TypeID) returns bool
+	return t != ast.noType and kindOfType(p, t: t) == ast.TypeKind.constInt
+end 'isConstInt'
+
+function typeHasKind(p ast.Project, t ast.TypeID, kind ast.TypeKind) returns bool
+	return t != ast.noType and kindOfType(p, t: t) == kind
+end 'typeHasKind'
+
+function nameOfType(p ast.Project, t ast.TypeID) returns String
+	return ast.typeName(p.types, t: t)
+end 'nameOfType'
+
+// checkExpr types an expression, which gives the type it has, or none after it reported why it has none.
+function checkExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	return checkExpecting(c, p: p, e: e, want: ast.noType, errs: errs)
+end 'checkExpr'
+
+// checkExpecting types an expression whose context needs a value of want; want is none where the context needs none in
+// particular. The expectation reaches only the expression itself, and the branches that give its value.
+function checkExpecting(mutates c Checker, mutates p ast.Project, e ast.NodeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let outer = c.expect
+	c.expect = want
+	let t = visitExpr(c, p: p, e: e, errs: errs)
+	c.expect = outer
+	if t != ast.noType 'typed'
+		ast.setNodeType(c.typing, node: e, ty: t)
+	end 'typed'
+	return t
+end 'checkExpecting'
+
+function visitExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let k = p.modules[c.modIdx].tree.kindOf(e)
+	if k == ast.NodeKind.intLit 'intLit'
+		return ast.internConstInt(p.types, val: ast.intLitValue(p.modules[c.modIdx].tree, id: e))
+	end 'intLit'
+	if k == ast.NodeKind.boolLit 'boolLit'
+		return p.builtins.boolTy
+	end 'boolLit'
+	if k == ast.NodeKind.strLit 'strLit'
+		return checkStrLit(c, p: p, e: e, errs: errs)
+	end 'strLit'
+	if k == ast.NodeKind.nameExpr 'nameExpr'
+		return checkNameExpr(c, p: p, e: e, errs: errs)
+	end 'nameExpr'
+	if k == ast.NodeKind.selfExpr 'selfExpr'
+		return checkSelfExpr(c, p: p, e: e, errs: errs)
+	end 'selfExpr'
+	if k == ast.NodeKind.binaryExpr 'binaryExpr'
+		return checkBinary(c, p: p, e: e, errs: errs)
+	end 'binaryExpr'
+	if k == ast.NodeKind.unaryExpr 'unaryExpr'
+		return checkUnary(c, p: p, e: e, errs: errs)
+	end 'unaryExpr'
+	if k == ast.NodeKind.condExpr 'condExpr'
+		return checkCond(c, p: p, e: e, errs: errs)
+	end 'condExpr'
+	if k == ast.NodeKind.castExpr 'castExpr'
+		return checkCast(c, p: p, e: e, errs: errs)
+	end 'castExpr'
+	if k == ast.NodeKind.memberExpr 'memberExpr'
+		return checkMember(c, p: p, e: e, errs: errs)
+	end 'memberExpr'
+	if k == ast.NodeKind.tryExpr 'tryExpr'
+		return checkTry(c, p: p, e: e, errs: errs)
+	end 'tryExpr'
+	if k == ast.NodeKind.panicExpr 'panicExpr'
+		return checkPanic(c, p: p, e: e, errs: errs)
+	end 'panicExpr'
+	if k == ast.NodeKind.callExpr 'callExpr'
+		return checkCall(c, p: p, e: e, errs: errs)
+	end 'callExpr'
+	if k == ast.NodeKind.structLitExpr 'structLitExpr'
+		return checkStructLit(c, p: p, e: e, errs: errs)
+	end 'structLitExpr'
+	if k == ast.NodeKind.indexExpr 'indexExpr'
+		return checkIndex(c, p: p, e: e, errs: errs)
+	end 'indexExpr'
+	if k == ast.NodeKind.matchExpr 'matchExpr'
+		let core = ast.matchExprMatch(p.modules[c.modIdx].tree, id: e)
+		return checkMatch(c, p: p, core: core, isExpr: true, errs: errs)
+	end 'matchExpr'
+	panic("the node {e} of kind {k.name} is no expression")
+end 'visitExpr'
+
+// checkStrLit types a string, whose interpolated values must be of a type that has a text.
+function checkStrLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let partsRef = ast.strLitPartsRef(p.modules[c.modIdx].tree, id: e)
+	let count = p.modules[c.modIdx].tree.strPartCount(partsRef)
+	for i in 0 upto count 'parts'
+		if p.modules[c.modIdx].tree.strPartIsExpr(partsRef, index: i) 'interpolated'
+			let part = p.modules[c.modIdx].tree.strPartExpr(partsRef, index: i)
+			if not checkInterpolation(c, p: p, part: part, errs: errs) 'bad'
+				return ast.noType
+			end 'bad'
+		end 'interpolated'
+	end 'parts'
+	return p.builtins.stringTy
+end 'checkStrLit'
+
+function checkInterpolation(mutates c Checker, mutates p ast.Project, part ast.NodeID, mutates errs diag.ErrorList) returns bool
+	let typed = checkExpr(c, p: p, e: part, errs: errs)
+	if typed == ast.noType 'failed'
+		return false
+	end 'failed'
+	let t = ast.contentType(p.types, t: typed)
+	let off = offsetOf(c, p: p, node: part)
+	if not requireSigned64(c, off: off, t: t, p: p, errs: errs) 'wide'
+		return false
+	end 'wide'
+	let k = kindOfType(p, t: t)
+	if ast.isIntType(p.types, t: t) or t == p.builtins.stringTy or t == p.builtins.boolTy or k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'printable'
+		return true
+	end 'printable'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a value of {nameOfType(p, t: t)} cannot be interpolated", errs: errs)
+	return false
+end 'checkInterpolation'
+
+// constantOf is the constant that a name written as an expression stands for, if it is one.
+function constantOf(p ast.Project, ref ast.DeclRef) returns table.Option with ast.ConstValue
+	return p.declConsts.get(ast.declKey(ref))
+end 'constantOf'
+
+function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
+	let off = offsetOf(c, p: p, node: e)
+	let local = lookupLocal(c, name: name)
+	if local != ast.noLocal 'local'
+		c.typing.names.insert(e as Count, value: ast.NameInfo.localName(local))
+		return c.typing.locals[local as Count].ty
+	end 'local'
+	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
+		some(ref) then return checkDeclaredName(c, p: p, e: e, ref: ref, name: name, errs: errs)
+		none then _ = 0
+	end 'bound'
+	if name == "Self" 'selfName'
+		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'Self' is a type, not a value", errs: errs)
+		return ast.noType
+	end 'selfName'
+	checkFail(c.modID, off: off, code: diag.errExpressionError, msg: diag.undefinedVariable(name), errs: errs)
+	return ast.noType
+end 'checkNameExpr'
+
+function checkDeclaredName(mutates c Checker, mutates p ast.Project, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	let d = ast.moduleDecl(p, ref: ref)
+	if d.isType() 'type'
+		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'{name}' is a type, not a value", errs: errs)
+		return ast.noType
+	end 'type'
+	match consumes constantOf(p, ref: ref) 'const'
+		some(value) then return typeOfConstant(c, e: e, ref: ref, value: value)
+		none then _ = 0
+	end 'const'
+	if declIsConstant(d) 'unvalued'
+		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "constant '{name}' has no value", errs: errs)
+		return ast.noType
+	end 'unvalued'
+	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a function value is not supported by minimaxon; call the function", errs: errs)
+	return ast.noType
+end 'checkDeclaredName'
+
+function declIsConstant(d ast.Decl) returns bool
+	return match d 'k'
+		constDecl(_) gives true
+		funcDecl(_) gives false
+		typeDecl(_) gives false
+		enumDecl(_) gives false
+		unionDecl(_) gives false
+		aliasDecl(_) gives false
+		interfaceDecl(_) gives false
+	end 'k'
+end 'declIsConstant'
+
+function typeOfConstant(mutates c Checker, e ast.NodeID, consumes ref ast.DeclRef, consumes value ast.ConstValue) returns ast.TypeID
+	c.typing.names.insert(e as Count, value: ast.NameInfo.constName(ref))
+	return value.ty
+end 'typeOfConstant'
+
+function checkSelfExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.fn == ast.noFunc 'outside'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
+		return ast.noType
+	end 'outside'
+	panic("'self' in a method is typed by the bodies check")
+end 'checkSelfExpr'
+
+// foldOp is the value of an operator on two constants, or none after it reported why the operator gives none.
+function foldOp(c Checker, off diag.U32, op String, a ast.I128, b ast.I128, mutates errs diag.ErrorList) returns table.Option with ast.I128
+	var r = ast.I128.zero()
+	if op == "+" 'add'
+		r = a.add(b)
+	end 'add' else if op == "-" 'sub'
+		r = a.sub(b)
+	end 'sub' else if op == "*" 'mul'
+		r = ast.mulWide(a, b: b)
+	end 'mul' else if op == "/" or op == "mod" 'div'
+		if b.isZero() 'zero'
+			checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
+			return table.Option.none
+		end 'zero'
+		if op == "/" 'quotient'
+			r = ast.quoTrunc(a, b: b)
+		end 'quotient' else 'remainder'
+			r = ast.modTrunc(a, b: b)
+		end 'remainder'
+	end 'div' else if op == "and" 'and'
+		r = ast.bitwise(ast.BitsOp.bitAnd, a: a, b: b)
+	end 'and' else if op == "or" 'or'
+		r = ast.bitwise(ast.BitsOp.bitOr, a: a, b: b)
+	end 'or' else if op == "xor" 'xor'
+		r = ast.bitwise(ast.BitsOp.bitXor, a: a, b: b)
+	end 'xor' else if op == "shl" or op == "shr" 'shift'
+		return foldShift(c, off: off, op: op, a: a, b: b, errs: errs)
+	end 'shift' else 'unknown'
+		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "cannot fold '{op}'", errs: errs)
+		return table.Option.none
+	end 'unknown'
+	return checkedFold(c, off: off, r: r, errs: errs)
+end 'foldOp'
+
+function foldShift(c Checker, off diag.U32, op String, a ast.I128, b ast.I128, mutates errs diag.ErrorList) returns table.Option with ast.I128
+	if b.isNeg() 'negative'
+		checkFail(c.modID, off: off, code: diag.errShiftCountNegative, msg: diag.shiftCountNegative(b.toString()), errs: errs)
+		return table.Option.none
+	end 'negative'
+	var count = shiftLimit
+	if b.lt(ast.I128.fromCount(shiftLimit)) 'narrow'
+		count = b.lo
+	end 'narrow'
+	if op == "shl" 'left'
+		if count >= shiftLimit 'wide'
+			return checkedFold(c, off: off, r: ast.I128.zero(), errs: errs)
+		end 'wide'
+		return checkedFold(c, off: off, r: ast.shiftLeft(a, n: count), errs: errs)
+	end 'left'
+	return checkedFold(c, off: off, r: ast.shiftRight(a, n: count), errs: errs)
+end 'foldShift'
+
+// checkedFold is a folded value, refused where it is past the 64 bits that a word holds.
+function checkedFold(c Checker, off diag.U32, consumes r ast.I128, mutates errs diag.ErrorList) returns table.Option with ast.I128
+	if r.lt(ast.I128.i64Min()) or r.gt(ast.I128.u64Max()) 'past'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "the constant expression overflows 64 bits", errs: errs)
+		return table.Option.none
+	end 'past'
+	return table.Option.some(r)
+end 'checkedFold'
+
+function setOperand(mutates c Checker, node ast.NodeID, operand ast.TypeID)
+	c.typing.arith.insert(node as Count, value: ast.ArithInfo.make(operand, word: operand, fails: ast.failNone, unreached: false, checkedFail: false))
+end 'setOperand'
+
+function checkBinary(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let want = c.expect
+	let op = ast.binaryExprOp(p.modules[c.modIdx].tree, id: e)
+	let lNode = ast.binaryExprL(p.modules[c.modIdx].tree, id: e)
+	let rNode = ast.binaryExprR(p.modules[c.modIdx].tree, id: e)
+	let l = checkExpr(c, p: p, e: lNode, errs: errs)
+	if l == ast.noType 'badLeft'
+		return ast.noType
+	end 'badLeft'
+	let r = checkExpr(c, p: p, e: rNode, errs: errs)
+	if r == ast.noType 'badRight'
+		return ast.noType
+	end 'badRight'
+	let off = offsetOf(c, p: p, node: e)
+	if isArithmeticOp(op) or (isLogicalOp(op) and ast.isIntType(p.types, t: l)) 'integers'
+		return checkIntegerOp(c, p: p, e: e, op: op, l: l, r: r, want: want, errs: errs)
+	end 'integers'
+	if isLogicalOp(op) 'logical'
+		if l != p.builtins.boolTy or r != p.builtins.boolTy 'notBool'
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.operandTypeMismatch(op), errs: errs)
+			return ast.noType
+		end 'notBool'
+		return p.builtins.boolTy
+	end 'logical'
+	if isComparisonOp(op) 'comparison'
+		return checkComparison(c, p: p, e: e, op: op, l: l, r: r, errs: errs)
+	end 'comparison'
+	checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "unknown operator '{op}'", errs: errs)
+	return ast.noType
+end 'checkBinary'
+
+// checkIntegerOp types an arithmetic, bitwise or shift operator on two integers.
+function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	if not ast.isIntType(p.types, t: l) or not ast.isIntType(p.types, t: r) 'notInts'
+		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs integers, found {nameOfType(p, t: l)} and {nameOfType(p, t: r)}", errs: errs)
+		return ast.noType
+	end 'notInts'
+	let lConst = isConstInt(p, t: l)
+	let rConst = isConstInt(p, t: r)
+	if lConst and rConst 'folded'
+		setOperand(c, node: e, operand: p.builtins.anon64Ty)
+		return foldedType(c, p: p, off: off, op: op, l: l, r: r, errs: errs)
+	end 'folded'
+	if (op == "/" or op == "mod") and rConst and p.types.entries[r as Count].minVal.isZero() 'byZero'
+		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
+		return ast.noType
+	end 'byZero'
+	if op == "shl" or op == "shr" 'shift'
+		var shifted = l
+		if lConst 'constLeft'
+			shifted = p.builtins.anon64Ty
+		end 'constLeft'
+		setOperand(c, node: e, operand: shifted)
+		return shifted
+	end 'shift'
+	if isLogicalOp(op) 'bitwise'
+		let t = unifyInts(c, p: p, off: off, l: l, r: r, errs: errs)
+		if t != ast.noType 'unified'
+			setOperand(c, node: e, operand: t)
+		end 'unified'
+		return t
+	end 'bitwise'
+	let word = operandWord(c, p: p, off: off, l: l, r: r, errs: errs)
+	if word == ast.noType 'noWord'
+		return ast.noType
+	end 'noWord'
+	setOperand(c, node: e, operand: word)
+	if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
+		return want
+	end 'expected'
+	let computed = arithmetic(op, l: typeSpan(p.types, t: l), r: typeSpan(p.types, t: r), word: typeSpan(p.types, t: word))
+	let exact = computed.span.clone()
+	return exactType(p, word: word, lo: exact.lo, hi: exact.hi)
+end 'checkIntegerOp'
+
+function foldedType(mutates c Checker, mutates p ast.Project, off diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let a = p.types.entries[l as Count].minVal.clone()
+	let b = p.types.entries[r as Count].minVal.clone()
+	match consumes foldOp(c, off: off, op: op, a: a, b: b, errs: errs) 'value'
+		some(v) then return ast.internConstInt(p.types, val: v)
+		none then return ast.noType
+	end 'value'
+end 'foldedType'
+
+function checkComparison(mutates c Checker, mutates p ast.Project, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	if ast.isIntType(p.types, t: l) and ast.isIntType(p.types, t: r) 'integers'
+		let word = operandWord(c, p: p, off: off, l: l, r: r, errs: errs)
+		if word == ast.noType 'noWord'
+			return ast.noType
+		end 'noWord'
+		setOperand(c, node: e, operand: word)
+		return p.builtins.boolTy
+	end 'integers'
+	if typeHasKind(p, t: l, kind: ast.TypeKind.unionTy) or typeHasKind(p, t: r, kind: ast.TypeKind.unionTy) 'union'
+		checkFail(c.modID, off: off, code: diag.errEnumNotComparable, msg: diag.unionNotComparable(op), errs: errs)
+		return ast.noType
+	end 'union'
+	let equality = op == "==" or op == "!="
+	if equality and l == r and (l == p.builtins.boolTy or l == p.builtins.stringTy or typeHasKind(p, t: l, kind: ast.TypeKind.enumTy) or typeHasKind(p, t: l, kind: ast.TypeKind.builtinHandle)) 'comparable'
+		setOperand(c, node: e, operand: l)
+		return p.builtins.boolTy
+	end 'comparable'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(nameOfType(p, t: l), right: nameOfType(p, t: r)), errs: errs)
+	return ast.noType
+end 'checkComparison'
+
+function checkUnary(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let want = c.expect
+	let op = ast.unaryExprOp(p.modules[c.modIdx].tree, id: e)
+	let operand = ast.unaryExprE(p.modules[c.modIdx].tree, id: e)
+	let t = checkExpr(c, p: p, e: operand, errs: errs)
+	if t == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let off = offsetOf(c, p: p, node: e)
+	if op == "not" 'not'
+		return checkNot(c, p: p, off: off, t: t, errs: errs)
+	end 'not'
+	if isConstInt(p, t: t) 'constant'
+		return ast.internConstInt(p.types, val: p.types.entries[t as Count].minVal.neg())
+	end 'constant'
+	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
+		return checkNegation(c, p: p, off: off, t: t, want: want, errs: errs)
+	end 'range'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'-' needs an integer, found {nameOfType(p, t: t)}", errs: errs)
+	return ast.noType
+end 'checkUnary'
+
+function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if t == p.builtins.boolTy 'bool'
+		return t
+	end 'bool'
+	if isConstInt(p, t: t) 'constant'
+		return ast.internConstInt(p.types, val: ast.notWord(p.types.entries[t as Count].minVal))
+	end 'constant'
+	if typeHasKind(p, t: t, kind: ast.TypeKind.intRange) 'range'
+		return t
+	end 'range'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'not' needs a bool or an integer, found {nameOfType(p, t: t)}", errs: errs)
+	return ast.noType
+end 'checkNot'
+
+function checkNegation(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if ast.isUnsignedInt(p.types, t: t) 'unsigned'
+		checkFail(c.modID, off: off, code: diag.errUnsignedNegation, msg: diag.unsignedNegation(nameOfType(p, t: t)), errs: errs)
+		return ast.noType
+	end 'unsigned'
+	if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
+		return want
+	end 'expected'
+	let lo = p.types.entries[t as Count].maxVal.neg()
+	let hi = p.types.entries[t as Count].minVal.neg()
+	let word = p.builtins.anon64Ty
+	return exactType(p, word: word, lo: lo, hi: hi)
+end 'checkNegation'
+
+function requireBool(mutates c Checker, mutates p ast.Project, e ast.NodeID, keyword String, mutates errs diag.ErrorList) returns bool
+	let t = checkExpr(c, p: p, e: e, errs: errs)
+	if t == ast.noType 'failed'
+		return false
+	end 'failed'
+	if t != p.builtins.boolTy 'notBool'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: diag.nonBoolCondition(keyword, got: nameOfType(p, t: t)), errs: errs)
+		return false
+	end 'notBool'
+	return true
+end 'requireBool'
+
+function checkCond(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let cond = ast.condExprCond(p.modules[c.modIdx].tree, id: e)
+	let thenNode = ast.condExprThen(p.modules[c.modIdx].tree, id: e)
+	let elseNode = ast.condExprElse(p.modules[c.modIdx].tree, id: e)
+	if not requireBool(c, p: p, e: cond, keyword: "if", errs: errs) 'badCond'
+		return ast.noType
+	end 'badCond'
+	let expected = c.expect
+	let thenTy = checkExpecting(c, p: p, e: thenNode, want: expected, errs: errs)
+	if thenTy == ast.noType 'badThen'
+		return ast.noType
+	end 'badThen'
+	let elseTy = checkExpecting(c, p: p, e: elseNode, want: expected, errs: errs)
+	if elseTy == ast.noType 'badElse'
+		return ast.noType
+	end 'badElse'
+	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: e), a: thenTy, b: elseTy, errs: errs)
+end 'checkCond'
+
+function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	let targetRef = ast.castExprTarget(p.modules[c.modIdx].tree, id: e)
+	let operand = ast.castExprE(p.modules[c.modIdx].tree, id: e)
+	let owner = c.owner
+	let target = resolveTypeRef(c, p: p, tr: targetRef, selfTy: owner, errs: errs)
+	if target == ast.noType 'badTarget'
+		return ast.noType
+	end 'badTarget'
+	if not typeHasKind(p, t: target, kind: ast.TypeKind.intRange) 'notInt'
+		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
+		return ast.noType
+	end 'notInt'
+	let src = checkExpr(c, p: p, e: operand, errs: errs)
+	if src == ast.noType 'badSource'
+		return ast.noType
+	end 'badSource'
+	if isConstInt(p, t: src) 'constant'
+		let value = p.types.entries[src as Count].minVal.clone()
+		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'
+			let lo = p.types.entries[target as Count].minVal.toString()
+			let hi = p.types.entries[target as Count].maxVal.toString()
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "{value.toString()} does not fit {nameOfType(p, t: target)} ({lo} to {hi})", errs: errs)
+			return ast.noType
+		end 'doesNotFit'
+		return target
+	end 'constant'
+	if typeHasKind(p, t: src, kind: ast.TypeKind.intRange) 'range'
+		return target
+	end 'range'
+	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)
+	return ast.noType
+end 'checkCast'
+
+function checkPanic(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let message = ast.panicExprMessage(p.modules[c.modIdx].tree, id: e)
+	if checkExpr(c, p: p, e: message, errs: errs) == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	return p.builtins.neverTy
+end 'checkPanic'
+
+// checkTry types a try: the value of its expression, or on a failure the value 'otherwise' gives. A constant has no
+// function to return from, and no loop to leave.
+function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let want = c.expect
+	let guarded = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
+	let fallback = ast.tryExprValue(p.modules[c.modIdx].tree, id: e)
+	let result = checkExpecting(c, p: p, e: guarded, want: want, errs: errs)
+	if result == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let off = offsetOf(c, p: p, node: e)
+	if ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e) 'ignore'
+		checkFail(c.modID, off: off, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
+		return ast.noType
+	end 'ignore'
+	if fallback != 0 'value'
+		return checkFallback(c, p: p, fallback: fallback, result: result, want: want, errs: errs)
+	end 'value'
+	let ret = ast.tryExprRet(p.modules[c.modIdx].tree, id: e)
+	if ret != 0 'return'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: ret), code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to return from: give 'otherwise' the value to use", errs: errs)
+		return ast.noType
+	end 'return'
+	if ast.tryExprBrk(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprCont(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprThr(p.modules[c.modIdx].tree, id: e) != 0 'jump'
+		panic("a try that leaves by a jump or a throw is typed by the bodies check, which a constant that holds one waits for")
+	end 'jump'
+	return result
+end 'checkTry'
+
+function checkFallback(mutates c Checker, mutates p ast.Project, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var expected = want
+	if expected == ast.noType 'noExpectation'
+		expected = result
+	end 'noExpectation'
+	let other = checkExpecting(c, p: p, e: fallback, want: expected, errs: errs)
+	if other == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	return joinTypes(c, p: p, off: offsetOf(c, p: p, node: fallback), a: result, b: other, errs: errs)
+end 'checkFallback'
+
+function checkCall(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if not c.allowCalls 'forbidden'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errModuleLetCallsFunction, msg: "a constant calls nothing", errs: errs)
+		return ast.noType
+	end 'forbidden'
+	panic("a call is typed by the bodies check")
+end 'checkCall'
+
+// checkStructLit types a record literal, which only a method of the record writes.
+function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let typeName = ast.structLitExprTypeName(p.modules[c.modIdx].tree, id: e)
+	let off = offsetOf(c, p: p, node: e)
+	var target = ast.noType
+	if typeName == "Self" 'selfType'
+		target = c.owner
+	end 'selfType' else 'named'
+		match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
+			some(ref) then target = declaredTypeOrNone(p, ref: ref)
+			none then _ = 0
+		end 'bound'
+	end 'named'
+	if not typeHasKind(p, t: target, kind: ast.TypeKind.record) 'notRecord'
+		checkFail(c.modID, off: off, code: diag.errUnknownType, msg: "'{typeName}' is not a type with fields", errs: errs)
+		return ast.noType
+	end 'notRecord'
+	let tName = nameOfType(p, t: target)
+	if p.types.entries[target as Count].typeParams.count() > 0 'generic'
+		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "a literal of the generic '{tName}' is written 'Self\{...\}', which gives it its own type parameters", errs: errs)
+		return ast.noType
+	end 'generic'
+	if c.owner != target or c.fn == ast.noFunc 'restricted'
+		checkFail(c.modID, off: off, code: diag.errConstructorRestriction, msg: diag.constructorRestricted(tName), errs: errs)
+		return ast.noType
+	end 'restricted'
+	panic("a record literal in a method is typed by the bodies check")
+end 'checkStructLit'
+
+function declaredTypeOrNone(p ast.Project, consumes ref ast.DeclRef) returns ast.TypeID
+	match p.declTypes.get(ast.declKey(ref)) 'dt'
+		some(tid) then return tid
+		none then return ast.noType
+	end 'dt'
+end 'declaredTypeOrNone'
+
+// checkIndex types a subscript, which only an array, a map, a list or a pool has.
+function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let obj = ast.indexExprObj(p.modules[c.modIdx].tree, id: e)
+	let typed = checkExpr(c, p: p, e: obj, errs: errs)
+	if typed == ast.noType 'failed'
+		return ast.noType
+	end 'failed'
+	let t = ast.contentType(p.types, t: typed)
+	let k = kindOfType(p, t: t)
+	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinMap and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinPool 'notSubscriptable'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: "{nameOfType(p, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
+		return ast.noType
+	end 'notSubscriptable'
+	panic("a subscript is typed by the bodies check")
+end 'checkIndex'
+
+// checkMember types 'Type.case' and the members that an enum or a union value has.
+function checkMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
+	var named = ast.noType
+	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
+		let mark = errs.count()
+		named = typeNamed(c, p: p, name: obj, errs: errs)
+		if failedSince(errs, mark: mark) 'failed'
+			return ast.noType
+		end 'failed'
+	end 'headIsName'
+	if named != ast.noType 'typeMember'
+		return checkTypeMember(c, p: p, e: e, obj: obj, nt: named, errs: errs)
+	end 'typeMember'
+	let typed = checkExpr(c, p: p, e: obj, errs: errs)
+	if typed == ast.noType 'badObj'
+		return ast.noType
+	end 'badObj'
+	return checkValueMember(c, p: p, e: e, t: typed, errs: errs)
+end 'checkMember'
+
+// checkTypeMember types a case of an enum or a union written after the type's name.
+function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let off = offsetOf(c, p: p, node: e)
+	let k = kindOfType(p, t: nt)
+	if k == ast.TypeKind.unionTy and p.types.entries[nt as Count].typeParams.count() > 0 and p.types.entries[nt as Count].findCase(member).isSome() 'inferred'
+		panic("a case of a generic union takes its type arguments from where it is used, which the bodies check infers")
+	end 'inferred'
+	let mark = errs.count()
+	_ = requireInstance(c, p: p, off: offsetOf(c, p: p, node: obj), nt: nt, errs: errs)
+	if failedSince(errs, mark: mark) 'generic'
+		return ast.noType
+	end 'generic'
+	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
+		return checkCaseMember(c, p: p, e: e, member: member, nt: nt, errs: errs)
+	end 'cases'
+	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, t: nt)}.{member}' is not a value", errs: errs)
+	return ast.noType
+end 'checkTypeMember'
+
+function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, node: e)
+	let isEnum = kindOfType(p, t: nt) == ast.TypeKind.enumTy
+	var word = unionWord
+	if isEnum 'enumKind'
+		word = enumWord
+	end 'enumKind'
+	var caseIndex = 0 as Count
+	match consumes p.types.entries[nt as Count].findCase(member) 'found'
+		some(i) then caseIndex = i
+		none then return unknownCase(c, off: off, word: word, member: member, errs: errs)
+	end 'found'
+	if not isEnum and p.types.entries[nt as Count].cases[caseIndex].payload.count() > 0 'payload'
+		checkFail(c.modID, off: off, code: diag.errCallArgCountMismatch, msg: "case '{member}' carries a payload: construct it with arguments", errs: errs)
+		return ast.noType
+	end 'payload'
+	var kind = ast.MemberKind.memberUnionCase
+	if isEnum 'enumCase'
+		kind = ast.MemberKind.memberEnumCase
+	end 'enumCase'
+	var info = ast.MemberInfo.make(kind, ownerTy: nt)
+	info.enumCase = caseIndex
+	c.typing.members.insert(e as Count, value: info)
+	return nt
+end 'checkCaseMember'
+
+function unknownCase(c Checker, off diag.U32, word String, member String, mutates errs diag.ErrorList) returns ast.TypeID
+	checkFail(c.modID, off: off, code: diag.errEnumUnknownCase, msg: diag.enumUnknownCase(word, caseName: member), errs: errs)
+	return ast.noType
+end 'unknownCase'
+
+// checkValueMember types '.name', '.ordinal' and '.rawValue' of an enum value and '.name' and '.ordinal' of a union
+// value.
+function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let k = kindOfType(p, t: t)
+	let off = offsetOf(c, p: p, node: e)
+	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal")) 'builtinMember'
+		return builtinMemberType(c, p: p, e: e, t: t, member: member, errs: errs)
+	end 'builtinMember'
+	if typeIsNominal(p.types, t: t) and p.types.entries[ast.originOf(p.types, t: t) as Count].findMethod(member).isSome() 'method'
+		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a method value is not supported by minimaxon; call the method", errs: errs)
+		return ast.noType
+	end 'method'
+	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, t: t), fieldName: member), errs: errs)
+	return ast.noType
+end 'checkValueMember'
+
+function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, member String, mutates errs diag.ErrorList) returns ast.TypeID
+	let isEnum = kindOfType(p, t: t) == ast.TypeKind.enumTy
+	var kind = ast.MemberKind.memberUnionName
+	var result = p.builtins.stringTy
+	if member == "ordinal" 'ordinal'
+		result = p.builtins.countTy
+		kind = ast.MemberKind.memberUnionOrdinal
+		if isEnum 'enumOrdinal'
+			kind = ast.MemberKind.memberEnumOrdinal
+		end 'enumOrdinal'
+	end 'ordinal' else if member == "rawValue" 'raw'
+		kind = ast.MemberKind.memberEnumRaw
+		result = rawValueType(p, t: t)
+	end 'raw' else if isEnum 'enumName'
+		kind = ast.MemberKind.memberEnumName
+	end 'enumName'
+	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(kind, ownerTy: t))
+	return result
+end 'builtinMemberType'
+
+// rawValueType is the type of the raw value of an enum: a Count, or a FullRangeInt where a case has a negative one.
+function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
+	let orig = ast.originOf(p.types, t: t)
+	for i in 0 upto p.types.entries[orig as Count].cases.count() 'each'
+		if p.types.entries[orig as Count].cases[i].rawValue.isNeg() 'negative'
+			return p.builtins.fullRangeIntTy
+		end 'negative'
+	end 'each'
+	return p.builtins.countTy
+end 'rawValueType'

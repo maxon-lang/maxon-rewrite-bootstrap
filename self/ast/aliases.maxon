@@ -1,0 +1,98 @@
+// sizedBounds are the ranges a bound can name as, for example i64.min: the sized integer's lowest and highest value.
+function sizedBounds(name String) returns table.Option with I128Pair
+	return match name 'sized'
+		"u8" gives table.Option.some(I128Pair.make(I128.zero(), hi: I128.fromCount(255 as Count)))
+		"u16" gives table.Option.some(I128Pair.make(I128.zero(), hi: I128.fromCount(65535 as Count)))
+		"u32" gives table.Option.some(I128Pair.make(I128.zero(), hi: I128.fromCount(4294967295 as Count)))
+		"u64" gives table.Option.some(I128Pair.make(I128.zero(), hi: I128.u64Max()))
+		"i8" gives table.Option.some(I128Pair.make(I128.fromInt(-128 as FullRangeInt), hi: I128.fromInt(127 as FullRangeInt)))
+		"i16" gives table.Option.some(I128Pair.make(I128.fromInt(-32768 as FullRangeInt), hi: I128.fromInt(32767 as FullRangeInt)))
+		"i32" gives table.Option.some(I128Pair.make(I128.fromInt(-2147483648 as FullRangeInt), hi: I128.fromInt(2147483647 as FullRangeInt)))
+		"i64" gives table.Option.some(I128Pair.make(I128.i64Min(), hi: I128.i64Max()))
+		default gives table.Option.none
+	end 'sized'
+end 'sizedBounds'
+
+type I128Pair
+	export var lo as I128
+	export var hi as I128
+
+	static function make(consumes lo I128, consumes hi I128) returns I128Pair
+		return I128Pair{lo: lo, hi: hi}
+	end 'make'
+end 'I128Pair'
+
+// sizedLimit is the value that a bound written as a sized integer's limit names, or none after it reported why it names
+// none.
+function sizedLimit(modID diag.ModuleID, off diag.U32, b Bound, mutates errs diag.ErrorList) returns table.Option with I128
+	match consumes sizedBounds(b.sizedName) 'range'
+		some(r) then return sizedLimitOf(modID, off: off, b: b, r: r, errs: errs)
+		none then _ = 0
+	end 'range'
+	diag.pushSiteError(errs, code: diag.errUnknownType, message: "'{b.sizedName}' is not a sized integer; a bound names one of u8, u16, u32, u64, i8, i16, i32 or i64", module: modID, offset: off)
+	return table.Option.none
+end 'sizedLimit'
+
+function sizedLimitOf(modID diag.ModuleID, off diag.U32, b Bound, r I128Pair, mutates errs diag.ErrorList) returns table.Option with I128
+	if b.limitName == "min" 'min'
+		return table.Option.some(r.lo.clone())
+	end 'min'
+	if b.limitName == "max" 'max'
+		return table.Option.some(r.hi.clone())
+	end 'max'
+	diag.pushSiteError(errs, code: diag.errUnknownField, message: "'{b.sizedName}.{b.limitName}' is not a bound; write '{b.sizedName}.min' or '{b.sizedName}.max'", module: modID, offset: off)
+	return table.Option.none
+end 'sizedLimitOf'
+
+// boundValue is the value a bound of a range alias writes, or none after it reported why the bound names none.
+function boundValue(modID diag.ModuleID, tree Tree, b Bound, mutates errs diag.ErrorList) returns table.Option with I128
+	var v = b.value.clone()
+	if b.isSized 'sized'
+		match consumes sizedLimit(modID, off: tree.startOf(b.id), b: b, errs: errs) 'limit'
+			some(limit) then v = limit
+			none then return table.Option.none
+		end 'limit'
+	end 'sized'
+	if b.negative 'neg'
+		return table.Option.some(v.neg())
+	end 'neg'
+	return table.Option.some(v)
+end 'boundValue'
+
+// declareRangeAlias gives a typealias of a range its integer type, which is its own even where another alias has the
+// same range. A typealias of an instance has none yet: its type is the instance, which the checker's aliases stage
+// finds once the types it names are known.
+export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
+	if not ad.isRange 'instance'
+		return
+	end 'instance'
+	let modIdx = modIndex(ref.module)
+	let off = p.modules[modIdx].tree.startOf(ad.id)
+	var lo as I128
+	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
+		some(v) then lo = v
+		none then return
+	end 'low'
+	var hi as I128
+	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.high, errs: errs) 'high'
+		some(v) then hi = v
+		none then return
+	end 'high'
+	if not ad.inclusive 'exclusive'
+		hi = hi.sub(I128.one())
+	end 'exclusive'
+	if lo.gt(hi) 'empty'
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.emptyIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: off)
+		return
+	end 'empty'
+	if lo.isNeg() and hi.gt(I128.i64Max()) 'unrepresentable'
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.unrepresentableIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: off)
+		return
+	end 'unrepresentable'
+	var e = TypeEntry.make(TypeKind.intRange, name: ad.name.clone())
+	e.minVal = lo
+	e.maxVal = hi
+	e.hasDecl = true
+	e.decl = ref.clone()
+	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+end 'declareRangeAlias'

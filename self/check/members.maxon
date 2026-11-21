@@ -1,0 +1,104 @@
+// declareRecordMembers declares what a type holds: the interfaces it implements and its fields. A field without a type
+// takes one from its default, which declareFieldDefaults finds.
+function declareRecordMembers(mutates c Checker, mutates p ast.Project, td ast.TypeDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	declareConforms(c, p: p, interfaces: td.conforms, nt: tid, errs: errs)
+	if failedSince(errs, mark: mark) 'conforms'
+		return
+	end 'conforms'
+	let selfTy = ast.selfType(p.types, declTy: tid)
+	for i in 0 upto td.fields.count() 'each'
+		let f = td.fields[i].clone()
+		if p.types.entries[tid as Count].findField(f.name).isSome() 'dup'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errDuplicateDefinition, msg: diag.duplicateField(f.name, typeName: td.name), errs: errs)
+			return
+		end 'dup'
+		var ft = p.builtins.voidTy
+		if f.typeRef != 0 'typed'
+			ft = resolveTypeRef(c, p: p, tr: f.typeRef, selfTy: selfTy, errs: errs)
+			if failedSince(errs, mark: mark) 'badType'
+				return
+			end 'badType'
+		end 'typed'
+		let level = ast.visibilityOf(f.visibility)
+		var info = ast.FieldInfo.make(f.name.clone(), ty: ft, isVar: f.isVar, exported: level != ast.Visibility.unexported, hasDefault: f.defaultExpr != 0, defaultExpr: f.defaultExpr, index: p.types.entries[tid as Count].fields.count())
+		info.level = level
+		p.types.entries[tid as Count].fields.push(info)
+	end 'each'
+end 'declareRecordMembers'
+
+// declareEnumMembers declares the cases of an enum, each with the raw value it writes or else the one after the case
+// before.
+function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.EnumDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	declareConforms(c, p: p, interfaces: ed.conforms, nt: tid, errs: errs)
+	if failedSince(errs, mark: mark) 'conforms'
+		return
+	end 'conforms'
+	var next = ast.I128.zero()
+	for i in 0 upto ed.cases.count() 'each'
+		let cs = ed.cases[i].clone()
+		let off = offsetOf(c, p: p, node: cs.id)
+		if p.types.entries[tid as Count].findCase(cs.name).isSome() 'dup'
+			checkFail(c.modID, off: off, code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
+			return
+		end 'dup'
+		var raw = next.clone()
+		let explicit = cs.rawExpr != 0
+		if explicit 'written'
+			raw = ast.intLitValue(p.modules[c.modIdx].tree, id: cs.rawExpr)
+		end 'written'
+		for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
+			if p.types.entries[tid as Count].cases[j].rawValue.eq(raw) 'same'
+				checkFail(c.modID, off: off, code: diag.errEnumDuplicateRawValue, msg: diag.duplicateRawValue(raw.toString()), errs: errs)
+				return
+			end 'same'
+		end 'rawDup'
+		if explicit 'explicitRaw'
+			p.types.entries[tid as Count].hasExplicitRaw = true
+		end 'explicitRaw'
+		p.types.entries[tid as Count].cases.push(ast.CaseInfo.make(cs.name.clone(), payload: ast.CaseFieldList.create(0), hasRaw: explicit, rawValue: raw.clone()))
+		next = raw.add(ast.I128.one())
+	end 'each'
+end 'declareEnumMembers'
+
+// declareUnionMembers declares the cases of a union and the payload of each.
+function declareUnionMembers(mutates c Checker, mutates p ast.Project, ud ast.UnionDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let mark = errs.count()
+	declareConforms(c, p: p, interfaces: ud.conforms, nt: tid, errs: errs)
+	if failedSince(errs, mark: mark) 'conforms'
+		return
+	end 'conforms'
+	let selfTy = ast.selfType(p.types, declTy: tid)
+	for i in 0 upto ud.cases.count() 'each'
+		let cs = ud.cases[i].clone()
+		if p.types.entries[tid as Count].findCase(cs.name).isSome() 'dup'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: cs.id), code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
+			return
+		end 'dup'
+		var payload = ast.CaseFieldList.create(0)
+		for j in 0 upto cs.fields.count() 'fields'
+			let f = cs.fields[j].clone()
+			if f.convention != "" 'convention'
+				checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errUnexpectedToken, msg: "a union payload is not a parameter and takes no '{f.convention}'", errs: errs)
+				return
+			end 'convention'
+			let t = resolveTypeRef(c, p: p, tr: f.typeRef, selfTy: selfTy, errs: errs)
+			if failedSince(errs, mark: mark) 'badType'
+				return
+			end 'badType'
+			payload.push(ast.CaseFieldInfo.make(f.name.clone(), ty: t))
+		end 'fields'
+		p.types.entries[tid as Count].cases.push(ast.CaseInfo.make(cs.name.clone(), payload: payload, hasRaw: false, rawValue: ast.I128.zero()))
+	end 'each'
+end 'declareUnionMembers'
+
+// declareInterfaceMembers declares the methods an interface requires, each a signature in which 'Self' is the type that
+// implements the interface.
+function declareInterfaceMembers(mutates c Checker, mutates p ast.Project, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
+	let selfParam = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: "Self"))
+	p.types.entries[tid as Count].selfParam = selfParam
+	for i in 0 upto ifd.methods.count() 'each'
+		declareSignature(c, p: p, it: tid, m: ifd.methods[i].clone(), errs: errs)
+	end 'each'
+end 'declareInterfaceMembers'

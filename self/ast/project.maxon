@@ -1,21 +1,28 @@
+// ConstValue is a constant's type, and its value once the range analysis (or the type, for an integer constant, which
+// holds its value) knows it.
 export type ConstValue
 	export var ty as TypeID
+	export var hasValue as bool
 	export var isBool as bool
 	export var boolVal as bool
 	export var isStr as bool
 	export var strVal as String
 	export var intVal as I128
 
+	export static function typed(ty TypeID) returns ConstValue
+		return ConstValue{ty: ty, hasValue: false, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: I128.zero()}
+	end 'typed'
+
 	export static function makeInt(ty TypeID, consumes v I128) returns ConstValue
-		return ConstValue{ty: ty, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: v}
+		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: false, strVal: "", intVal: v}
 	end 'makeInt'
 
 	export static function makeBool(ty TypeID, v bool) returns ConstValue
-		return ConstValue{ty: ty, isBool: true, boolVal: v, isStr: false, strVal: "", intVal: I128.zero()}
+		return ConstValue{ty: ty, hasValue: true, isBool: true, boolVal: v, isStr: false, strVal: "", intVal: I128.zero()}
 	end 'makeBool'
 
 	export static function makeString(ty TypeID, consumes v String) returns ConstValue
-		return ConstValue{ty: ty, isBool: false, boolVal: false, isStr: true, strVal: v, intVal: I128.zero()}
+		return ConstValue{ty: ty, hasValue: true, isBool: false, boolVal: false, isStr: true, strVal: v, intVal: I128.zero()}
 	end 'makeString'
 end 'ConstValue'
 
