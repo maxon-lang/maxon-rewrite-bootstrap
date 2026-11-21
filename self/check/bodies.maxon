@@ -67,7 +67,7 @@ function checkMethodBodies(mutates c Checker, mutates p ast.Project, methods ast
 end 'checkMethodBodies'
 
 function checkIfDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap, mutates errs diag.ErrorList)
-	match consumes p.nodeFuncs.get(ast.nodeKey(c.modID, node: f.id)) 'entry'
+	match consumes ast.nodeFunc(p, module: c.modID, node: f.id) 'entry'
 		some(fid) then checkWhenDeclared(c, p: p, f: f, fid: fid, isDeclared: isDeclared, errs: errs)
 		none then panic("the function '{f.name}' of module {c.modID} has no entry")
 	end 'entry'

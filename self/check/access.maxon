@@ -155,7 +155,7 @@ function tupleElementType(mutates p ast.Project, t ast.TypeID, wide bool) return
 end 'tupleElementType'
 
 function declaredTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(tid) then return tid
 		none then return ast.noType
 	end 'dt'

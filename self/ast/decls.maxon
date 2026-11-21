@@ -289,9 +289,10 @@ export type Module
 	export var nested as NestedAliasList
 	export var extAliases as ExtAliasList
 	export var extConforms as ExtConformList
+	export var tables as ModuleTables
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0)}
+		return Module{id: id, path: path, dir: "", isRuntime: false, filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new(), nested: NestedAliasList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0), tables: ModuleTables.new()}
 	end 'new'
 
 	export function display() returns String

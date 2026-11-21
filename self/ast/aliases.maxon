@@ -148,7 +148,8 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.maxVal = hi
 	e.hasDecl = true
 	e.decl = ref.clone()
-	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+	let t = allocType(p.types, e: e)
+	setDeclType(p, ref: ref, t: t)
 end 'declareRangeAlias'
 
 // bitsKeyword is the name of a typealias of a raw bit pattern: bits(64), whose width is its only argument.
@@ -197,7 +198,8 @@ function declareBitsAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates 
 	e.bitsWidth = width
 	e.hasDecl = true
 	e.decl = ref.clone()
-	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+	let t = allocType(p.types, e: e)
+	setDeclType(p, ref: ref, t: t)
 end 'declareBitsAlias'
 
 // declareFloatAlias gives a typealias of a float range its type, whose bounds are doubles: a float or an integer
@@ -228,7 +230,8 @@ function declareFloatAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates
 	e.maxVal = I128.fromCount(hi)
 	e.hasDecl = true
 	e.decl = ref.clone()
-	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+	let t = allocType(p.types, e: e)
+	setDeclType(p, ref: ref, t: t)
 end 'declareFloatAlias'
 
 // floatBound is the double a bound of a float range writes, or none after it reported why it names none. A bound that

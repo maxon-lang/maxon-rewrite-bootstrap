@@ -181,7 +181,7 @@ end 'checkInterpolation'
 
 // constantOf is the constant that a name written as an expression stands for, if it is one.
 function constantOf(p ast.Project, ref ast.DeclRef) returns table.Option with ast.ConstValue
-	return p.declConsts.get(ast.declKey(ref))
+	return ast.declConst(p, ref: ref)
 end 'constantOf'
 
 // isQualifiedName is whether the resolver made a name of a name written with its module or its type, `mod.name`: it stands

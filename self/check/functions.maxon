@@ -43,9 +43,9 @@ function newFuncEntry(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, 
 		fn.decl = ref.clone()
 	end 'free'
 	let fid = ast.allocFunc(p.funcs, f: fn)
-	p.nodeFuncs.insert(ast.nodeKey(c.modID, node: f.id), value: fid)
+	ast.setNodeFunc(p, module: c.modID, node: f.id, f: fid)
 	if ownerTy == ast.noType 'registered'
-		p.declFuncs.insert(ast.declKey(ref), value: fid)
+		ast.setDeclFunc(p, ref: ref, f: fid)
 	end 'registered'
 	return fid
 end 'newFuncEntry'
@@ -302,7 +302,7 @@ export function reportNoEntry(mutates errs diag.ErrorList)
 end 'reportNoEntry'
 
 function mainFuncOf(c Checker, p ast.Project, f ast.FuncDecl) returns ast.FuncID
-	match p.nodeFuncs.get(ast.nodeKey(c.modID, node: f.id)) 'fn'
+	match ast.nodeFunc(p, module: c.modID, node: f.id) 'fn'
 		some(fid) then return fid
 		none then _ = 0
 	end 'fn'

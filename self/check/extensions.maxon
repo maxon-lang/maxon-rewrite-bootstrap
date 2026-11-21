@@ -54,7 +54,7 @@ function bindParamsFrom(mutates c Checker, mutates p ast.Project, first Count, n
 		let node = p.resolutions[c.modIdx].typeParams[slot].id
 		let name = p.resolutions[c.modIdx].typeParams[slot].name.clone()
 		match paramNamed(p, owner: nt, name: name) 'shell'
-			some(tid) then p.declTypes.insert(ast.typeParamKey(c.modID, node: node), value: tid)
+			some(tid) then ast.setParamType(p, module: c.modID, node: node, t: tid)
 			none then panic("the type parameter '{name}' of an extension is not one of '{p.types.entries[nt as Count].name}'")
 		end 'shell'
 	end 'params'
@@ -340,7 +340,7 @@ function memberOwnerType(p ast.Project, owner ast.DeclRef) returns table.Option 
 end 'memberOwnerType'
 
 function typeOfDecl(p ast.Project, ref ast.DeclRef) returns table.Option with ast.TypeID
-	match consumes p.declTypes.get(ast.declKey(ref)) 'declared'
+	match consumes ast.declType(p, ref: ref) 'declared'
 		some(tid) then return table.Option.some(tid)
 		none then panic("the declaration at ordinal {ref.ordinal} has no type")
 	end 'declared'

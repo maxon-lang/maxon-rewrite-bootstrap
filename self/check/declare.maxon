@@ -47,7 +47,7 @@ function placeOffset(c Checker, p ast.Project, place ast.NodeID) returns diag.U3
 end 'placeOffset'
 
 function declTypeOf(p ast.Project, ref ast.DeclRef) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(tid) then return tid
 		none then _ = 0
 	end 'dt'
@@ -56,7 +56,7 @@ end 'declTypeOf'
 
 // typeParamOfNode is the type of the type parameter that a node of the module declares.
 function typeParamOfNode(c Checker, p ast.Project, node ast.NodeID) returns ast.TypeID
-	match p.declTypes.get(ast.typeParamKey(c.modID, node: node)) 'tp'
+	match ast.paramType(p, module: c.modID, node: node) 'tp'
 		some(tid) then return tid
 		none then _ = 0
 	end 'tp'
@@ -124,7 +124,7 @@ function declareFunctionTypeParams(mutates c Checker, mutates p ast.Project, par
 			return
 		end 'dup'
 		let tid = ast.allocType(p.types, e: ast.TypeEntry.make(ast.TypeKind.typeParam, name: params[i].name.clone()))
-		p.declTypes.insert(ast.typeParamKey(c.modID, node: params[i].id), value: tid)
+		ast.setParamType(p, module: c.modID, node: params[i].id, t: tid)
 		generics.push(tid)
 	end 'each'
 	declareBounds(c, p: p, constraints: constraints, errs: errs)
@@ -135,7 +135,7 @@ end 'declareFunctionTypeParams'
 function declareNominalTypeParams(mutates c Checker, mutates p ast.Project, owner ast.TypeID, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList)
 	for i in 0 upto params.count() 'each'
 		match paramNamed(p, owner: owner, name: params[i].name) 'shell'
-			some(tid) then p.declTypes.insert(ast.typeParamKey(c.modID, node: params[i].id), value: tid)
+			some(tid) then ast.setParamType(p, module: c.modID, node: params[i].id, t: tid)
 			none then panic("the shell of '{p.types.entries[owner as Count].name}' has no type parameter '{params[i].name}'")
 		end 'shell'
 	end 'each'
@@ -318,7 +318,7 @@ function typeNamed(c Checker, p ast.Project, name ast.NodeID, mutates errs diag.
 end 'typeNamed'
 
 function nominalTypeOf(p ast.Project, consumes ref ast.DeclRef) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(tid) then return nominalOrNone(p, t: tid)
 		none then return ast.noType
 	end 'dt'

@@ -580,7 +580,7 @@ function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDec
 	e.isNoncopyable = td.isNoncopyable
 	let tid = ast.allocType(p.types, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
-	p.declTypes.insert(ast.declKey(ref), value: tid)
+	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocRecordShell'
 
 function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
@@ -588,7 +588,7 @@ function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
 	e.hasDecl = true
 	e.decl = ref.clone()
 	let tid = ast.allocType(p.types, e: e)
-	p.declTypes.insert(ast.declKey(ref), value: tid)
+	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocEnumShell'
 
 function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, mutates errs diag.ErrorList)
@@ -598,7 +598,7 @@ function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDec
 	e.isNoncopyable = ud.isNoncopyable
 	let tid = ast.allocType(p.types, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
-	p.declTypes.insert(ast.declKey(ref), value: tid)
+	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocUnionShell'
 
 function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
@@ -607,7 +607,7 @@ function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.Interfa
 	e.decl = ref.clone()
 	let tid = ast.allocType(p.types, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
-	p.declTypes.insert(ast.declKey(ref), value: tid)
+	ast.setDeclType(p, ref: ref, t: tid)
 end 'allocIfaceShell'
 
 function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList)

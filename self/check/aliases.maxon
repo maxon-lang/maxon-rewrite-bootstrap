@@ -109,7 +109,7 @@ function selfOfOwner(c Checker, mutates p ast.Project, ownerName String) returns
 end 'selfOfOwner'
 
 function selfOfDecl(mutates p ast.Project, ref ast.DeclRef) returns ast.TypeID
-	match consumes p.declTypes.get(ast.declKey(ref)) 'type'
+	match consumes ast.declType(p, ref: ref) 'type'
 		some(tid) then return ast.selfType(p.types, declTy: tid)
 		none then panic("the declaration at ordinal {ref.ordinal} has no type")
 	end 'type'
@@ -158,7 +158,8 @@ function declareFuncAlias(mutates c Checker, mutates p ast.Project, a ast.AliasD
 	if selfTy == ast.noType or p.types.entries[ast.originOf(p.types, t: selfTy) as Count].typeParams.count() == 0 'brand'
 		shape.brand = ast.FuncBrand.make("{ast.declKey(ref)}", name: a.name.clone())
 	end 'brand'
-	p.declTypes.insert(ast.declKey(ref), value: ast.internFuncType(p.types, params: params, shape: shape, result: result))
+	let t = ast.internFuncType(p.types, params: params, shape: shape, result: result)
+	ast.setDeclType(p, ref: ref, t: t)
 end 'declareFuncAlias'
 
 // declareAlias gives a typealias of an instance its type, the instance, once every typealias it names has its own.
@@ -183,7 +184,7 @@ function declareAliasType(mutates c Checker, mutates p ast.Project, a ast.AliasD
 	let selfTy = aliasSelf(c, p: p, a: a, ref: ref)
 	let t = resolveTypeRef(c, p: p, tr: a.instance, selfTy: selfTy, errs: errs)
 	if t != ast.noType 'named'
-		p.declTypes.insert(ast.declKey(ref), value: t)
+		ast.setDeclType(p, ref: ref, t: t)
 	end 'named'
 end 'declareAliasType'
 
@@ -233,7 +234,7 @@ function declareVisitedAlias(mutates w AliasWalk, mutates c Checker, mutates p a
 		if dep.module == c.modID 'own'
 			visitAlias(w, c: c, p: p, ord: dep.ordinal, errs: errs)
 		end 'own'
-		if not p.declTypes.has(ast.declKey(dep)) 'failed'
+		if not ast.declType(p, ref: dep).isSome() 'failed'
 			return
 		end 'failed'
 	end 'deps'
@@ -276,7 +277,7 @@ function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasD
 		return
 	end 'none'
 	var own = ast.noType
-	match p.declTypes.get(ast.declKey(ref)) 'own'
+	match ast.declType(p, ref: ref) 'own'
 		some(t) then own = t
 		none then return
 	end 'own'
@@ -309,7 +310,7 @@ function declareSupertype(mutates c Checker, mutates p ast.Project, a ast.AliasD
 end 'declareSupertype'
 
 function declTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(t) then return t
 		none then return ast.noType
 	end 'dt'

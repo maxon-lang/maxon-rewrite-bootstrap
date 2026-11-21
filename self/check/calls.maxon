@@ -258,7 +258,7 @@ end 'callDeclared'
 
 // declaredFunction is the function that a declaration is, or none for a declaration of another kind.
 function declaredFunction(p ast.Project, ref ast.DeclRef) returns ast.FuncID
-	match p.declFuncs.get(ast.declKey(ref)) 'fn'
+	match ast.declFunc(p, ref: ref) 'fn'
 		some(fid) then return fid
 		none then return ast.noFunc
 	end 'fn'

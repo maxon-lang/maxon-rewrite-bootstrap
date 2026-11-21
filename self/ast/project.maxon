@@ -35,19 +35,6 @@ export function declKey(ref DeclRef) returns Count
 	return (try m shl 32 otherwise 0 as Count) or (ref.ordinal as Count)
 end 'declKey'
 
-export function nodeKey(module diag.ModuleID, node NodeID) returns Count
-	let m = (module + 1) as Count
-	return (try m shl 32 otherwise 0 as Count) or (node as Count)
-end 'nodeKey'
-
-// typeParamKey is the key of a type parameter in the table of declared types, which a declaration's key shares and which
-// the key of a node would otherwise collide with.
-export function typeParamKey(module diag.ModuleID, node NodeID) returns Count
-	return nodeKey(module, node: node) or typeParamKeyBit
-end 'typeParamKey'
-
-let typeParamKeyBit = 9223372036854775808 as Count
-
 // inModule is a name preceded by the path of the module that declares it, as maxon names a declaration of another module in a message.
 export function inModule(p Project, modID diag.ModuleID, name String) returns String
 	if modID == diag.stdlibID 'library'
@@ -67,13 +54,153 @@ export function modIndex(m diag.ModuleID) returns Count
 	return m as Count
 end 'modIndex'
 
-export typealias DeclTypeMap = table.IntMap with TypeID
-
-export typealias DeclFuncMap = table.IntMap with FuncID
+export typealias NodeTypeMap = table.IntMap with TypeID
 
 export typealias NodeFuncMap = table.IntMap with FuncID
 
-export typealias DeclConstMap = table.IntMap with ConstValue
+export typealias OrdinalConstMap = table.IntMap with ConstValue
+
+// ModuleTables are what the stages of one module decide about its declarations. Only that module's stages write them, and a
+// stage of another module reads them once it has waited for the stage that wrote them.
+export type ModuleTables
+	// declTypes is the type of each declaration, by its ordinal; noType is a declaration that has none.
+	var declTypes as TypeIDList
+	// paramTypes is the type of each type parameter the module declares, by its node.
+	var paramTypes as NodeTypeMap
+	// declFuncs is the function of each declaration, by its ordinal; noFunc is a declaration that is none.
+	var declFuncs as FuncIDList
+	// nodeFuncs is the function of each function declaration the declare stage declared, at the top level or as a method, by
+	// its node.
+	var nodeFuncs as NodeFuncMap
+	// declConsts is the value of each constant, by its ordinal.
+	var declConsts as OrdinalConstMap
+
+	export static function new() returns Self
+		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new()}
+	end 'new'
+
+	export function declType(ord DeclOrdinal) returns table.Option with TypeID
+		let i = ord as Count
+		if i >= declTypes.count() 'past'
+			return table.Option.none
+		end 'past'
+		if declTypes[i] == noType 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(declTypes[i])
+	end 'declType'
+
+	export function setDeclType(mutates self, ord DeclOrdinal, t TypeID)
+		if t == noType 'none'
+			panic("a declaration is given no type")
+		end 'none'
+		let i = ord as Count
+		while declTypes.count() <= i 'room'
+			declTypes.push(noType)
+		end 'room'
+		declTypes[i] = t
+	end 'setDeclType'
+
+	export function paramType(node NodeID) returns table.Option with TypeID
+		return paramTypes.get(node as Count)
+	end 'paramType'
+
+	export function setParamType(mutates self, node NodeID, t TypeID)
+		paramTypes.insert(node as Count, value: t)
+	end 'setParamType'
+
+	export function declFunc(ord DeclOrdinal) returns table.Option with FuncID
+		let i = ord as Count
+		if i >= declFuncs.count() 'past'
+			return table.Option.none
+		end 'past'
+		if declFuncs[i] == noFunc 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(declFuncs[i])
+	end 'declFunc'
+
+	export function setDeclFunc(mutates self, ord DeclOrdinal, f FuncID)
+		if f == noFunc 'none'
+			panic("a declaration is given no function")
+		end 'none'
+		let i = ord as Count
+		while declFuncs.count() <= i 'room'
+			declFuncs.push(noFunc)
+		end 'room'
+		declFuncs[i] = f
+	end 'setDeclFunc'
+
+	export function nodeFunc(node NodeID) returns table.Option with FuncID
+		return nodeFuncs.get(node as Count)
+	end 'nodeFunc'
+
+	export function setNodeFunc(mutates self, node NodeID, f FuncID)
+		nodeFuncs.insert(node as Count, value: f)
+	end 'setNodeFunc'
+
+	export function declConst(ord DeclOrdinal) returns table.Option with ConstValue
+		return declConsts.get(ord as Count)
+	end 'declConst'
+
+	export function setDeclConst(mutates self, ord DeclOrdinal, consumes value ConstValue)
+		declConsts.insert(ord as Count, value: value)
+	end 'setDeclConst'
+end 'ModuleTables'
+
+// declType is the type that the module which declares ref gave it.
+export function declType(p Project, ref DeclRef) returns table.Option with TypeID
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.tables.declType(ref.ordinal)
+	end 'std'
+	return p.modules[modIndex(ref.module)].tables.declType(ref.ordinal)
+end 'declType'
+
+export function setDeclType(mutates p Project, ref DeclRef, t TypeID)
+	p.modules[modIndex(ref.module)].tables.setDeclType(ref.ordinal, t: t)
+end 'setDeclType'
+
+// paramType is the type of the type parameter that module declares at node.
+export function paramType(p Project, module diag.ModuleID, node NodeID) returns table.Option with TypeID
+	return p.modules[modIndex(module)].tables.paramType(node)
+end 'paramType'
+
+export function setParamType(mutates p Project, module diag.ModuleID, node NodeID, t TypeID)
+	p.modules[modIndex(module)].tables.setParamType(node, t: t)
+end 'setParamType'
+
+// declFunc is the function that the declaration ref is.
+export function declFunc(p Project, ref DeclRef) returns table.Option with FuncID
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.tables.declFunc(ref.ordinal)
+	end 'std'
+	return p.modules[modIndex(ref.module)].tables.declFunc(ref.ordinal)
+end 'declFunc'
+
+export function setDeclFunc(mutates p Project, ref DeclRef, f FuncID)
+	p.modules[modIndex(ref.module)].tables.setDeclFunc(ref.ordinal, f: f)
+end 'setDeclFunc'
+
+// nodeFunc is the function that the function declaration module declares at node is.
+export function nodeFunc(p Project, module diag.ModuleID, node NodeID) returns table.Option with FuncID
+	return p.modules[modIndex(module)].tables.nodeFunc(node)
+end 'nodeFunc'
+
+export function setNodeFunc(mutates p Project, module diag.ModuleID, node NodeID, f FuncID)
+	p.modules[modIndex(module)].tables.setNodeFunc(node, f: f)
+end 'setNodeFunc'
+
+// declConst is the value of the constant ref, once the module that declares it has typed it.
+export function declConst(p Project, ref DeclRef) returns table.Option with ConstValue
+	if ref.module == diag.stdlibID 'std'
+		return p.stdlib.tables.declConst(ref.ordinal)
+	end 'std'
+	return p.modules[modIndex(ref.module)].tables.declConst(ref.ordinal)
+end 'declConst'
+
+export function setDeclConst(mutates p Project, ref DeclRef, consumes value ConstValue)
+	p.modules[modIndex(ref.module)].tables.setDeclConst(ref.ordinal, value: value)
+end 'setDeclConst'
 
 export typealias PathModMap = table.StringMap with diag.ModuleID
 
@@ -89,10 +216,6 @@ export type Project
 	export var builtins as Builtins
 	export var resolutions as Array with Resolution
 	export var typings as Array with Typing
-	export var declTypes as DeclTypeMap
-	export var declFuncs as DeclFuncMap
-	export var nodeFuncs as NodeFuncMap
-	export var declConsts as DeclConstMap
 
 	export static function new(consumes root String) returns Project
 		var tt = TypeTable.new()
@@ -100,21 +223,16 @@ export type Project
 		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.create(0))
 		let bs = initBuiltins(tt, ft: ft, std: std)
 		let bp = PathModMap.new()
-		let dtm = DeclTypeMap.new()
-		let dfm = DeclFuncMap.new()
-		let nfm = NodeFuncMap.new()
-		let dcm = DeclConstMap.new()
-		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: Array.create(0), typings: Array.create(0), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
+		var p = Project{root: root, target: Target.windowsX64(), rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: Array.create(0), typings: Array.create(0)}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
-			let ref = DeclRef.make(diag.stdlibID, ordinal: ord)
 			let name = p.stdlib.decls[i].name()
 			match p.builtins.stdlibTypeMap.get(name) 'tm'
-				some(tid) then p.declTypes.insert(declKey(ref), value: tid)
+				some(tid) then p.stdlib.tables.setDeclType(ord, t: tid)
 				none then _ = 0
 			end 'tm'
 			match p.builtins.stdlibFuncMap.get(name) 'fm'
-				some(fid) then p.declFuncs.insert(declKey(ref), value: fid)
+				some(fid) then p.stdlib.tables.setDeclFunc(ord, f: fid)
 				none then _ = 0
 			end 'fm'
 		end 'stdReg'
@@ -457,7 +575,7 @@ export function declaredFunction(p Project, module diag.ModuleID, ord DeclOrdina
 	if not isFunction 'other'
 		return noFunc
 	end 'other'
-	return match p.declFuncs.get(declKey(DeclRef.make(module, ordinal: ord))) 'fid'
+	return match declFunc(p, ref: DeclRef.make(module, ordinal: ord)) 'fid'
 		some(fid) gives fid
 		none gives noFunc
 	end 'fid'

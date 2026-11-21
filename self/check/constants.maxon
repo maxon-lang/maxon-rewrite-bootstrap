@@ -372,7 +372,7 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 			value.low = s.lo.clone()
 			value.high = s.hi.clone()
 		end 'int'
-		p.declConsts.insert(ast.declKey(ast.DeclRef.make(c.modID, ordinal: ord)), value: value)
+		ast.setDeclConst(p, ref: ast.DeclRef.make(c.modID, ordinal: ord), value: value)
 	end 'typed'
 end 'checkConst'
 

@@ -1093,7 +1093,7 @@ function failUnknownType(c Checker, p ast.Project, tr ast.NodeID, mutates errs d
 end 'failUnknownType'
 
 function checkInterfaceRef(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, isBound bool, mutates errs diag.ErrorList) returns ast.TypeID
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(tid) then return verifyInterfaceTarget(c, p: p, tr: tr, off: off, tName: tName, tid: tid, isBound: isBound, errs: errs)
 		none then _ = 0
 	end 'dt'
@@ -1241,7 +1241,7 @@ function resolveBoundTP(c Checker, p ast.Project, off diag.U32, name String, slo
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "'{name}' is not generic and takes no type arguments", errs: errs)
 	end 'badA'
 	let tpNode = p.resolutions[c.modIdx].typeParams[slot].id
-	match p.declTypes.get(ast.typeParamKey(c.modID, node: tpNode)) 'tid'
+	match ast.paramType(p, module: c.modID, node: tpNode) 'tid'
 		some(id) then return id
 		none then _ = 0
 	end 'tid'
@@ -1251,7 +1251,7 @@ end 'resolveBoundTP'
 
 function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, off diag.U32, tName String, ref ast.DeclRef, selfTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	var target = ast.noType
-	match p.declTypes.get(ast.declKey(ref)) 'dt'
+	match ast.declType(p, ref: ref) 'dt'
 		some(tid) then target = tid
 		none then target = ast.noType
 	end 'dt'

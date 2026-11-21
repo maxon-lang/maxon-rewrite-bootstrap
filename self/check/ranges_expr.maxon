@@ -188,7 +188,7 @@ end 'rangePeek'
 
 // constSpan is the span that the range analysis gave a constant's value.
 function constSpan(p ast.Project, ref ast.DeclRef) returns Span
-	return match consumes p.declConsts.get(ast.declKey(ref)) 'constant'
+	return match consumes ast.declConst(p, ref: ref) 'constant'
 		some(value) gives Span.make(value.low.clone(), hi: value.high.clone())
 		none panic("ranges: the constant {ref.ordinal} of module {ref.module} has no value")
 	end 'constant'

@@ -513,7 +513,7 @@ function checkMethodsOwn(mutates o Ownership, mutates p ast.Project, methods ast
 end 'checkMethodsOwn'
 
 function checkIfDeclaredOwn(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl, isDeclared BoolIntMap)
-	match consumes p.nodeFuncs.get(ast.nodeKey(o.c.modID, node: f.id)) 'entry'
+	match consumes ast.nodeFunc(p, module: o.c.modID, node: f.id) 'entry'
 		some(fid) then checkIfListed(o, p: p, f: f, fid: fid, isDeclared: isDeclared)
 		none then panic("the function '{f.name}' of module {o.c.modID} has no entry")
 	end 'entry'
