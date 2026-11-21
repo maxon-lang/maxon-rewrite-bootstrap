@@ -395,7 +395,6 @@ end 'main'
 ```
 
 <!-- test: void-function-ok -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 ```maxon
 
 function doNothing()

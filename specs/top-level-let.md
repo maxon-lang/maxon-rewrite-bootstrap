@@ -589,7 +589,6 @@ end 'main'
 <!-- test: a-static-struct-literal-tuple-field -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A struct literal's field declared at a tuple type takes a tuple literal in a static initializer.
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
@@ -599,7 +598,6 @@ typealias Step = (Word, Word)
 
 type Holder
 	export var step as Step
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Holder{step: (7, 9)}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1401,7 +1399,6 @@ error E3220: <fragment>:2:12: the initializer of 'head' calls 'Array.slice': a m
 ```
 
 <!-- test: error.a-module-let-copying-a-module-let-record-is-a-call -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The `clone` of a record that owns a `String` is the compiler's generated deep copy, and it is a call: the program is
 refused (E3220).
@@ -1411,7 +1408,6 @@ typealias Tally = int(0 to 1000)
 type Pair
 	export let left as Tally
 	export let label as String
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let seed = Self{left: 1, label: "a"}
 end 'Pair'
 
@@ -1466,15 +1462,12 @@ error E2045: <fragment>:9:11: Function calls are not allowed in global variable 
 ```
 
 <!-- test: error.a-static-initializer-calling-a-sibling-static-is-not-a-constant -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 A type's `static let` initializer calling a sibling static by its bare name is a call, not a constant, and
 it is refused as one rather than as an undefined function.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Registry
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let seed = makeSeed()
 
 	static function makeSeed() returns Integer
@@ -1540,8 +1533,6 @@ error E3220: <fragment>:8:11: the initializer of 'big' calls 'larger': a module-
 
 
 <!-- test: error.a-static-initializer-calling-a-sibling-static-past-a-hidden-free-function-is-not-a-constant -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 Another directory declares an unmarked free `makeSeed`; inside `Registry` the bare call means
 the sibling static, as a body call would, so it is refused as a call rather than as a hidden function.
 ```maxon
@@ -1558,7 +1549,6 @@ end 'hiddenSeed'
 
 // --- file: main.maxon
 type Registry
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let seed = makeSeed()
 
 	static function makeSeed() returns Integer
@@ -2196,7 +2186,6 @@ error E2010: <fragment>:10:2: Expected ')' but got 'return'
 ```
 
 <!-- test: error.a-file-with-many-independent-refusals-reports-every-one -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 Fourteen independent errors in one file, in all three kinds of region a parse refusal can be confined to (a function body, a declaration head, a top-level binding) and in a body that reads an undefined name, are each reported once and in source order. The valid declarations between them, which instantiate a generic type, build closures and take parameter defaults, are read in full, and the functions whose bodies were abandoned still accept the calls `main` makes to them.
 ```maxon
@@ -2224,7 +2213,6 @@ type Crate
 		return Crate{weight: weight}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function heavy(extra Tally = 1) returns Tally
 		return self.weight + extra
 	end 'heavy'
@@ -2236,7 +2224,6 @@ typealias CratePair = Pair with Crate
 
 let CrateBase = 3
 
-// TODO: default parameter values are not supported in minimaxon
 function totalCrates(scale Tally = 2) returns Tally
 	var crates = CrateArray.create(0)
 	crates.push(Crate.create(CrateBase))
@@ -2269,7 +2256,6 @@ type Sack
 		return Sack{weight: weight}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function heavy(extra Tally = 1) returns Tally
 		return self.weight + extra
 	end 'heavy'
@@ -2281,7 +2267,6 @@ typealias SackPair = Pair with Sack
 
 let SackBase = 4
 
-// TODO: default parameter values are not supported in minimaxon
 function totalSacks(scale Tally = 2) returns Tally
 	var sacks = SackArray.create(0)
 	sacks.push(Sack.create(SackBase))
@@ -2325,7 +2310,6 @@ type Bundle
 		return Bundle{weight: weight}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function heavy(extra Tally = 1) returns Tally
 		return self.weight + extra
 	end 'heavy'
@@ -2337,7 +2321,6 @@ typealias BundlePair = Pair with Bundle
 
 let BundleBase = 5
 
-// TODO: default parameter values are not supported in minimaxon
 function totalBundles(scale Tally = 2) returns Tally
 	var bundles = BundleArray.create(0)
 	bundles.push(Bundle.create(BundleBase))
@@ -2431,7 +2414,6 @@ error E3220: <fragment>:2:9: the initializer of 'G' calls 'nothere': a module-le
 ```
 
 <!-- test: error.a-static-initializer-calling-a-sibling-instance-method-bare-has-no-receiver -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 `fresh` is an instance method, so a `static let` initializer calling it bare has no receiver to call it on,
 and is refused as the same call in a static method's body is.
@@ -2440,7 +2422,6 @@ typealias Digit = int(0 to 9)
 
 type Holder
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = fresh()
 
 	function fresh() returns Holder
@@ -2605,7 +2586,6 @@ error E3220: <fragment>:17:9: the initializer of 'G' calls 'make': a module-leve
 ```
 
 <!-- test: error.a-field-assignment-through-a-refused-call-static-var-reports-the-call-once -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.shared`'s initializer is a refused call, so writing one of its fields is not reported again.
 ```maxon
@@ -2613,7 +2593,6 @@ typealias Digit = int(0 to 9)
 
 type Holder
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = nothere(7)
 
 	static function reset()
@@ -2632,7 +2611,6 @@ error E3220: <fragment>:7:22: the initializer of 'Holder.shared' calls 'nothere'
 
 
 <!-- test: error.a-static-initializer-folds-its-sibling-factory-past-a-same-named-constant -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2642,7 +2620,6 @@ let make = 3 as Digit
 
 type Box
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = make()
 
 	static function make() returns Box
@@ -2666,14 +2643,12 @@ error E3220: <fragment>:9:22: the initializer of 'Box.origin' calls 'Box.make': 
 ```
 
 <!-- test: error.a-static-initializer-calling-a-generic-sibling-is-not-a-constant -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` is a generic sibling static, so the initializer's bare call means it and is refused as a call under the sibling's own name.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Registry
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let seed = pick(1 as Integer, b: 2 as Integer)
 
 	static function pick(a T, b T) uses T returns T where T implements Comparable
@@ -2797,7 +2772,6 @@ error E3220: <fragment>:4:9: the initializer of 'G' calls 'nothere': a module-le
 
 
 <!-- test: error.a-static-initializer-calling-a-function-valued-binding-past-a-sibling-calls-the-binding -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -2817,7 +2791,6 @@ let make = makerOf()
 
 type Box
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = make()
 
 	static function make() returns Box
@@ -3039,7 +3012,6 @@ end 'apply'
 ```
 
 <!-- test: error.a-static-initializer-calling-a-function-valued-binding-past-a-sibling-with-a-parameter-calls-the-binding -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `makerOf`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3059,7 +3031,6 @@ let make = makerOf()
 
 type Box
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = make(42)
 
 	static function make(n Digit) returns Box
@@ -3121,7 +3092,6 @@ error E3220: <fragment>:13:12: the initializer of 'make' calls 'makerOf': a modu
 
 
 <!-- test: error.a-static-initializer-calling-a-sibling-past-a-same-named-constant-reports-the-siblings-defect -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3131,7 +3101,6 @@ let make = 0
 
 type Box
 	export var n as Digit
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = make(42)
 
 	static function make(n Digit) returns Box

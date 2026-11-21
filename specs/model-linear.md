@@ -2384,7 +2384,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-return-self -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-return-self` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2396,7 +2395,6 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -2417,7 +2415,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-return-self-dropped -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `m-return-self-dropped` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2430,7 +2428,6 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -2450,7 +2447,6 @@ error E3223: <fragment>:23:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-m-fin-in-peek -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `m-fin-in-peek` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -2462,7 +2458,6 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -2541,7 +2536,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-m-self-moved-then-destruct -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `m-self-moved-then-destruct` of redteamAB.hand_ab1, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -2554,7 +2548,6 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -5946,7 +5939,7 @@ error E3223: <fragment>:22:2: this drops 'r', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ab-r-return-self -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `r-return-self` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -5959,7 +5952,6 @@ type Me2
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -6636,7 +6628,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-fz-two-finalizers -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `fz-two-finalizers` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
@@ -6649,10 +6640,8 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function f1(destructs self)
 	end 'f1'
-
 	function f2(destructs self)
 	end 'f2'
 end 'Q'
@@ -6669,7 +6658,6 @@ error E3102: <fragment>:23:2: use of moved value 'q': its ownership moved to ano
 ```
 
 <!-- test: model-hand-ab-fz-two-finalizers-branches -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fz-two-finalizers-branches` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -6681,10 +6669,8 @@ type Q
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function f1(destructs self)
 	end 'f1'
-
 	function f2(destructs self)
 	end 'f2'
 end 'Q'
@@ -6709,7 +6695,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-fz-finalizer-recursive -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'e2' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fz-finalizer-recursive` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -6862,7 +6848,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-fz-consuming-in-record-other -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fz-consuming-in-record-other` of redteamAB.hand_ab8, in capmodel `reggio/REPORTRTAB.txt`.
 
 ```maxon
@@ -6874,7 +6859,6 @@ type B
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function f(destructs self)
 	end 'f'
 end 'B'
@@ -6886,7 +6870,7 @@ type A
 		return Self{n: n}
 	end 'create'
 
-	function f(destructs self, b B)
+	function f(destructs self, consumes b B)
 		b.f()
 	end 'f'
 end 'A'
@@ -7034,7 +7018,6 @@ error E3102: <fragment>:13:10: use of moved value 'self': its ownership moved to
 ```
 
 <!-- test: model-hand-ac-fin-self-into-union -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-self-into-union` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7059,7 +7042,6 @@ type Fz
 			h(q) then q.g()
 		end 'x1'
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7075,7 +7057,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-into-union-dropped -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `fin-self-into-union-dropped` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7097,7 +7079,6 @@ type Fz
 	function f(consumes self)
 		_ = Hs.h(self)
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7113,7 +7094,6 @@ error E3223: <fragment>:16:11: this drops '_', a linear value that was never con
 ```
 
 <!-- test: model-hand-ac-fin-self-to-fn -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-self-to-fn` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7129,12 +7109,11 @@ type Fz
 	function f(consumes self)
 		useFz(self)
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
 
-function useFz(t Fz)
+function useFz(consumes t Fz)
 	t.g()
 end 'useFz'
 
@@ -7149,7 +7128,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-self-to-fn-nonconsuming -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `fin-self-to-fn-nonconsuming` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7166,7 +7145,6 @@ type Fz
 	function f(consumes self)
 		useFz(self)
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7289,7 +7267,6 @@ error E3224: <fragment>:14:5: the case 'mailboxFull' carries the linear value 't
 ```
 
 <!-- test: model-hand-ac-fin-recv-other-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-recv-other-instance` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7302,10 +7279,9 @@ type Fz
 		return Self{n: n}
 	end 'create'
 
-	function f(destructs self, o Fz)
+	function f(destructs self, consumes o Fz)
 		o.g()
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7321,7 +7297,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-method-returns-self-moved -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-method-returns-self-moved` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7337,7 +7312,6 @@ type Fz
 	function f(consumes self) returns Fz
 		return self
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7354,7 +7328,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-method-returns-self-dropped -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `fin-method-returns-self-dropped` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -7371,7 +7345,6 @@ type Fz
 	function f(consumes self) returns Fz
 		return self
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7387,7 +7360,6 @@ error E3223: <fragment>:23:2: this drops '_', a linear value that was never cons
 ```
 
 <!-- test: model-hand-ac-fin-method-returns-self-chain -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-method-returns-self-chain` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7403,7 +7375,6 @@ type Fz
 	function f(consumes self) returns Fz
 		return self
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -7418,7 +7389,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-fin-nonconsuming-with-self-peek -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `fin-nonconsuming-with-self-peek` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
 
 ```maxon
@@ -7434,7 +7404,6 @@ type Fz
 	function pk() returns Num
 		return self.n
 	end 'pk'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'
@@ -16598,7 +16567,7 @@ error E3224: <fragment>:3:11: 'Sent' is a linear value and cannot be a type argu
 ```
 
 <!-- test: model-hand-ad-o-record-method-returns-self -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `o-record-method-returns-self` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16615,7 +16584,6 @@ type Rs
 	function me() returns Rs
 		return self
 	end 'me'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -16633,7 +16601,7 @@ error E3224: <fragment>:12:10: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: model-hand-ad-o-record-method-passes-self -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-SELF`; the compiler refuses it with E3224. Model program `o-record-method-passes-self` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16650,7 +16618,6 @@ type Rs
 	function go()
 		eatRs(self)
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -16671,7 +16638,7 @@ error E3224: <fragment>:12:3: this linear value is only lent to this code (a par
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-passes-self-twice -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-passes-self-twice` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16689,7 +16656,6 @@ type Rs
 		eatRs(self)
 		eatRs(self)
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -16709,7 +16675,6 @@ error E3102: <fragment>:13:9: use of moved value 'self': its ownership moved to 
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-keeps-self-out -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-consuming-method-keeps-self-out` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -16725,7 +16690,6 @@ type Rs
 	function go(consumes self) returns Rs
 		return self
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -16742,7 +16706,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-self-in-union -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `o-consuming-method-self-in-union` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
 ```maxon
@@ -16763,7 +16726,6 @@ type Rs
 	function go(consumes self) returns Us
 		return Us.u1(self)
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -16783,7 +16745,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-o-consuming-method-self-destruct-after-pass -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `o-consuming-method-self-destruct-after-pass` of redteamAD.hand_ad1, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -16800,7 +16762,6 @@ type Rs
 	function go(destructs self)
 		eatRs(self)
 	end 'go'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Rs'
@@ -31574,7 +31535,7 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa14-own-consuming-self-dropped -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `R-LIN-DROP`; the compiler refuses it with E3223. Model program `own-consuming-self-dropped` of redteamFA14.hand_fa14c, in capmodel `reggio/REPORTFA14.txt`.
 
@@ -31591,7 +31552,6 @@ type Fz
 	function f(consumes self)
 		_ = 1 as Num
 	end 'f'
-
 	function g(destructs self)
 	end 'g'
 end 'Fz'

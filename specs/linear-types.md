@@ -1051,7 +1051,7 @@ error E3102: <fragment>:28:2: use of moved value 'r': its ownership moved to ano
 ```
 
 <!-- test: destruct-self-outside-a-consuming-method-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected '=' or the end of the line but got 'self' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=', 'and' or the end of the line but got 'self' -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1136,7 +1136,7 @@ error E3224: <fragment>:28:11: `consuming self` belongs to a method of a `type` 
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-consume-its-receiver -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -1164,7 +1164,6 @@ type Cut
 	static function create(n Code) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function close(destructs self)
 	end 'close'
 
@@ -2312,7 +2311,6 @@ closed with bad
 ```
 
 <!-- test: a-generic-type-with-a-finalizer-is-linear -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 `Cell with Number` is linear because `Cell` declares a finalizer, and `drop` consumes it.
 ```maxon
 typealias Number = int(0 to 999)
@@ -2320,17 +2318,16 @@ typealias Number = int(0 to 999)
 type Cell uses Item
 	var item as Item
 
-	static function holding(item Item) returns Self
+	static function holding(consumes item Item) returns Self
 		return Self{item: item}
 	end 'holding'
-
 	function release(destructs self)
 	end 'release'
 end 'Cell'
 
 typealias NumberCell = Cell with Number
 
-function drop(cell NumberCell)
+function drop(consumes cell NumberCell)
 	cell.release()
 end 'drop'
 
@@ -2345,7 +2342,7 @@ end 'main'
 ```
 
 <!-- test: a-linear-instance-of-a-generic-type-dropped-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -2361,7 +2358,6 @@ type Cell uses Item
 	function peek() returns Item
 		return self.item
 	end 'peek'
-
 	function release(destructs self)
 	end 'release'
 end 'Cell'
@@ -3548,7 +3544,6 @@ error E3224: <fragment>:21:14: 'shared' holds a linear value, and a module-level
 ```
 
 <!-- test: a-static-let-of-a-linear-type-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3556,7 +3551,6 @@ typealias Code = int(0 to 999)
 
 type Resp
 	var code as Code
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{code: 7}
 
 	static function create(code Code) returns Self
@@ -4479,7 +4473,6 @@ fin 1
 ```
 
 <!-- test: a-default-that-throws-over-a-linear-union-does-not-drop-the-scrutinee -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 The throwing `default` leaves the function with `m` holding only a non-linear payload, so no linear value is dropped on that path.
 ```maxon
 typealias Code = int(0 to 999)
@@ -4513,7 +4506,6 @@ end 'Msg'
 function handle(m Msg) throws HandleError
 	match m 'k'
 		data(r) then r.fin()
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws HandleError.notData
 	end 'k'
 end 'handle'
@@ -6253,7 +6245,7 @@ end 'main'
 ```
 
 <!-- test: a-linear-parameter-discarded-with-let-underscore-is-refused -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A function that takes a linear value must consume it, and a discard does not.
 ```maxon
@@ -6265,7 +6257,6 @@ type Resp
 	static function create(code Num) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -6414,7 +6405,6 @@ end 'main'
 ```
 
 <!-- test: a-consuming-receiver-handed-on-in-a-loop-is-refused-on-the-next-lap -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 Every way of moving the receiver out reads it first, so a loop that moves it is judged by its next lap.
 ```maxon
@@ -6426,7 +6416,6 @@ type Fz
 	static function create(n Num) returns Self
 		return Self{n: n}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 
@@ -6563,7 +6552,7 @@ error E3102: <fragment>:13:3: use of moved value 'self': its ownership moved to 
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-return-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `self` of a method that does not take `consuming self` is only lent, so returning it would give the caller a second owner of a value one finalizer ends.
 ```maxon
@@ -6579,7 +6568,6 @@ type Resp
 	function me() returns Resp
 		return self
 	end 'me'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -6597,7 +6585,7 @@ error E3224: <fragment>:12:10: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: a-method-that-does-not-take-consuming-self-cannot-build-a-union-around-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A union literal holding the lent receiver moves it into the union, which only the code that owns it may do.
 ```maxon
@@ -6618,7 +6606,6 @@ type Resp
 	function wrap() returns Sent
 		return Sent.notSent(self)
 	end 'wrap'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -6639,7 +6626,6 @@ error E3224: <fragment>:17:27: this linear value is only lent to this code (a pa
 ```
 
 <!-- test: a-union-carrying-a-linear-value-cannot-be-cloned -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A union with a linear payload is linear and unique, so `clone()` is refused as it is for the record.
 ```maxon
@@ -6651,7 +6637,6 @@ type Resp
 	static function create(code Code) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -6681,7 +6666,7 @@ error E3214: <fragment>:30:10: 'Held' is unique (its field 'r' holds a unique 'R
 ```
 
 <!-- test: a-variable-refilled-in-only-one-branch-is-moved-after-the-branch -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `r` is moved before the `if` and refilled only in its `then` branch, so after the `if` it is moved on the path that skipped the refill.
 ```maxon
@@ -6693,7 +6678,6 @@ type Resp
 	static function create(code Code) returns Self
 		return Self{code: code}
 	end 'create'
-
 	function fin(destructs self)
 	end 'fin'
 end 'Resp'
@@ -8207,7 +8191,6 @@ sent
 ```
 
 <!-- test: a-consumed-linear-union-falls-through-into-a-payload-free-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The `match` consumes `m` once: the `some` arm releases it and falls through, and the `nothing` arm, entered either way, releases nothing more.
 ```maxon
 typealias Code = int(0 to 999)
@@ -8231,7 +8214,6 @@ end 'Maybe'
 
 function settle(m Maybe)
 	match m 'which'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		some(r) then r.fin() and fallthrough
 		nothing then print("settled\n")
 	end 'which'

@@ -1391,12 +1391,9 @@ error E3005: <fragment>:10:11: argument type mismatch for 2: expected 'Digit', g
 ```
 
 <!-- test: error.a-default-parameter-direct-call -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
-// TODO: default parameter values are not supported in minimaxon
 function g(a Digit, n Digit, k Digit = 1) returns Digit
 	return n
 end 'g'

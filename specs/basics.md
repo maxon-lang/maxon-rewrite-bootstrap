@@ -85,10 +85,7 @@ error E3225: Function 'main' must take no parameters
 ```
 
 <!-- test: main-takes-a-defaulted-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function main(code ExitCode = 0) returns ExitCode
 	return code
 end 'main'

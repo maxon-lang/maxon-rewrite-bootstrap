@@ -304,13 +304,11 @@ end 'main'
 
 
 <!-- test: match-statements.fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	var result = 0 as ExitCode
 	match x 'check'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then result = result + 10 and fallthrough
 		2 then result = result + 20
 		default then result = result + 100
@@ -323,15 +321,12 @@ end 'main'
 ```
 
 <!-- test: match-statements.fallthrough-chain -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	var result = 0 as ExitCode
 	match x 'cascade'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then result = result + 10 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		2 then result = result + 20 and fallthrough
 		3 then result = result + 30
 		default then result = 100
@@ -344,7 +339,6 @@ end 'main'
 ```
 
 <!-- test: match-statements.fallthrough-to-default -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 3
@@ -352,7 +346,6 @@ function main() returns ExitCode
 	match x 'check'
 		1 then result = 10
 		2 then result = 20
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		3 then result = result + 20 and fallthrough
 		default then result = result + 100
 	end 'check'
@@ -510,13 +503,11 @@ end 'main'
 ```
 
 <!-- test: error.match-expression-fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	let result = match x 'eval'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 gives 10 and fallthrough
 		default gives 0
 	end 'eval'
@@ -528,13 +519,10 @@ error E2001: specs/match-simple/error.match-expression-fallthrough.maxon:5:14: u
 ```
 
 <!-- test: error.match-fallthrough-with-return -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	match x 'check'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then return 10 and fallthrough
 		default then return 0
 	end 'check'

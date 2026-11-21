@@ -22,7 +22,7 @@ end 'check'
 ## Tests
 
 <!-- test: empty-if -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'check' -->
 ```maxon
 function main() returns ExitCode
 	if true 'check'
@@ -35,7 +35,7 @@ error E3082: specs/empty-block/empty-if.maxon:4:2: empty block: 'check'
 ```
 
 <!-- test: empty-else -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'otherwise' -->
 ```maxon
 function main() returns ExitCode
 	if true 'then'
@@ -50,7 +50,7 @@ error E3082: specs/empty-block/empty-else.maxon:6:2: empty block: 'otherwise'
 ```
 
 <!-- test: empty-while -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'loop' -->
 ```maxon
 function main() returns ExitCode
 	var x = 5 as Count
@@ -64,7 +64,7 @@ error E3082: specs/empty-block/empty-while.maxon:5:2: empty block: 'loop'
 ```
 
 <!-- test: empty-for-in -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'loop' -->
 ```maxon
 function main() returns ExitCode
 	let arr = [1, 2, 3]
@@ -78,7 +78,7 @@ error E3082: specs/empty-block/empty-for-in.maxon:5:2: empty block: 'loop'
 ```
 
 <!-- test: empty-for-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'loop' -->
 ```maxon
 function main() returns ExitCode
 	for i in 0 to 10 'loop'
@@ -91,7 +91,7 @@ error E3082: specs/empty-block/empty-for-range.maxon:4:2: empty block: 'loop'
 ```
 
 <!-- test: empty-otherwise -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'oops' -->
 <!-- positions: moved -->
 The block-form `try … otherwise` handler is parsed by the same `parseBlockBody` as the four above, so
 it is refused by the same check. Pinned because it is the one construct the check reaches that no
@@ -128,7 +128,6 @@ end 'main'
 ```
 
 <!-- test: valid-empty-function -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 ```maxon
 function doNothing()
 end 'doNothing'

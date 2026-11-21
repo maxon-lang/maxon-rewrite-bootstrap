@@ -43,7 +43,6 @@ end 'test'
 ## Tests
 
 <!-- test: no-return -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 ```maxon
 function main() returns ExitCode
 end 'main'

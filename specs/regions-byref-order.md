@@ -23,7 +23,6 @@ that local, and the hold a read of it takes keeps the value it read alive across
 ## Tests
 
 <!-- test: constructor-argument-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A constructor takes the local and the by-reference call's result. The read runs before the write.
 
@@ -35,7 +34,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -60,7 +59,6 @@ error E3186: <fragment>:24:38: argument 'label' is read by another operand of th
 ```
 
 <!-- test: constructor-argument-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A constructor takes the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -71,7 +69,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -99,7 +97,6 @@ ok
 ```
 
 <!-- test: union-literal-argument-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A union literal takes the local and the by-reference call's result. The read runs before the write.
 
@@ -136,7 +133,6 @@ error E3186: <fragment>:24:36: argument 'label' is read by another operand of th
 ```
 
 <!-- test: union-literal-argument-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A union literal takes the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -156,7 +152,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -175,7 +171,6 @@ ok
 ```
 
 <!-- test: tuple-literal-element-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A tuple literal holds the local and the by-reference call's result. The read runs before the write.
 
@@ -203,7 +198,6 @@ error E3186: <fragment>:15:22: argument 'label' is read by another operand of th
 ```
 
 <!-- test: tuple-literal-element-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A tuple literal holds the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -233,7 +227,6 @@ ok
 ```
 
 <!-- test: call-argument-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A call takes the local and the by-reference call's result. The read runs before the write.
 
@@ -249,7 +242,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -265,7 +258,6 @@ error E3186: <fragment>:19:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: call-argument-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A call takes the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -280,7 +272,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -299,7 +291,6 @@ ok
 ```
 
 <!-- test: call-field-read-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A call takes a field read of the local and the by-reference call's result. The read runs before the write.
 
@@ -331,7 +322,6 @@ error E3186: <fragment>:19:50: argument 'label' is read by another operand of th
 ```
 
 <!-- test: call-field-read-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A call takes a field read of the local and the by-reference call's result. The read runs after the write.
 
 ```maxon
@@ -346,7 +336,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -365,7 +355,6 @@ ok
 ```
 
 <!-- test: method-argument-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A method call takes the local and the by-reference call's result as arguments. The read runs before the write.
 
@@ -381,11 +370,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -411,7 +400,6 @@ error E3186: <fragment>:33:30: argument 'label' is read by another operand of th
 ```
 
 <!-- test: method-argument-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A method call takes the local and the by-reference call's result as arguments. The read runs after the write.
 
 ```maxon
@@ -426,11 +414,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -537,7 +525,6 @@ ok
 ```
 
 <!-- test: field-cell-two-levels-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A two-level field cell is handed by reference and the same path read by another operand. The read runs before the write.
 
@@ -553,11 +540,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -574,7 +561,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -599,7 +586,6 @@ error E3186: <fragment>:49:38: argument 'w.h.f' is read by another operand of th
 ```
 
 <!-- test: field-cell-two-levels-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A two-level field cell is handed by reference and the same path read by another operand. The read runs after the write.
 
 ```maxon
@@ -614,11 +600,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -635,7 +621,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -648,7 +634,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function main() returns ExitCode
-	let w = Wrapper.create()
+	var w = Wrapper.create()
 	let p = PB.build(put(w.h.f), second: w.h.f)
 	keep(p)
 	print("ok\n")
@@ -663,7 +649,6 @@ ok
 ```
 
 <!-- test: ternary-condition-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A ternary wrapping the call has a condition reading the local. The read runs before the write.
 
@@ -691,7 +676,6 @@ error E3186: <fragment>:15:14: argument 'label' is read by another operand of th
 ```
 
 <!-- test: ternary-condition-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A ternary wrapping the call has a condition reading the local. The read runs after the write.
 
 ```maxon
@@ -721,7 +705,6 @@ ok
 ```
 
 <!-- test: ternary-two-levels-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A ternary wraps a ternary that wraps the call. The read runs before the write.
 
@@ -749,7 +732,6 @@ error E3186: <fragment>:15:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: ternary-two-levels-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A ternary wraps a ternary that wraps the call. The read runs after the write.
 
 ```maxon
@@ -779,7 +761,6 @@ ok
 ```
 
 <!-- test: ternary-three-levels-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 Three nested ternaries, the read in the outermost condition. The read runs before the write.
 
@@ -807,7 +788,6 @@ error E3186: <fragment>:15:16: argument 'label' is read by another operand of th
 ```
 
 <!-- test: ternary-three-levels-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Three nested ternaries, the read in the outermost condition. The read runs after the write.
 
 ```maxon
@@ -837,7 +817,6 @@ ok
 ```
 
 <!-- test: ternary-in-an-enclosing-call-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A ternary condition is an argument of the call beside the argument that reads the local. The read runs before the write.
 
@@ -853,7 +832,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -869,7 +848,6 @@ error E3186: <fragment>:19:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: ternary-in-an-enclosing-call-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A ternary condition is an argument of the call beside the argument that reads the local. The read runs after the write.
 
 ```maxon
@@ -884,7 +862,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -903,7 +881,6 @@ ok
 ```
 
 <!-- test: ternary-chained-else-arm-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The inner ternary sits in the outer one's else arm, and the outer then arm reads the local beside the call: the arms are numbered in order, so the read runs before the write.
 
@@ -932,14 +909,13 @@ error E3186: <fragment>:16:35: argument 'n' is read by another operand of this s
 ```
 
 <!-- test: ternary-chained-else-arm-then-arm-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The call is in the outer condition and the chained ternary is in the else arm, so every read in the arms runs after the write.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
 function bump(mutates n Tally) returns bool
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return true
 end 'bump'
 
@@ -963,7 +939,6 @@ ok
 ```
 
 <!-- test: ternary-arms-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The arms of a ternary count in order: the arm that reads the local runs beside the arm that writes it. The read runs before the write.
 
@@ -996,7 +971,6 @@ error E3186: <fragment>:20:61: argument 'label' is read by another operand of th
 ```
 
 <!-- test: ternary-arms-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The arms of a ternary count in order: the arm that reads the local runs beside the arm that writes it. The read runs after the write.
 
 ```maxon
@@ -1031,7 +1005,6 @@ ok
 ```
 
 <!-- test: nested-inner-call-writes-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The inner call writes and the outer call reads. The read runs before the write.
 
@@ -1051,7 +1024,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -1067,7 +1040,6 @@ error E3186: <fragment>:23:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: nested-inner-call-writes-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The inner call writes and the outer call reads. The read runs after the write.
 
 ```maxon
@@ -1086,7 +1058,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -1105,7 +1077,6 @@ ok
 ```
 
 <!-- test: nested-three-deep-writes-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The innermost of three calls writes. The read runs before the write.
 
@@ -1125,7 +1096,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -1141,7 +1112,6 @@ error E3186: <fragment>:23:43: argument 'label' is read by another operand of th
 ```
 
 <!-- test: nested-three-deep-writes-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The innermost of three calls writes. The read runs after the write.
 
 ```maxon
@@ -1160,7 +1130,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -1179,7 +1149,6 @@ ok
 ```
 
 <!-- test: nested-outer-call-writes -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The writing call reads the local in its own later operand, which runs before the write.
 
@@ -1211,7 +1180,6 @@ error E3186: <fragment>:19:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: nested-writing-call-then-read -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The writing call is an operand of a call that reads the local afterwards.
 
 ```maxon
@@ -1230,7 +1198,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -1249,7 +1217,6 @@ ok
 ```
 
 <!-- test: sibling-by-reference-calls-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 Two sibling calls rewrite the local, with another read around them. The read runs before the write.
 
@@ -1265,11 +1232,11 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -1285,7 +1252,6 @@ error E3186: <fragment>:23:32: argument 'label' is read by another operand of th
 ```
 
 <!-- test: sibling-by-reference-calls-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Two sibling calls rewrite the local, with another read around them. The read runs after the write.
 
 ```maxon
@@ -1300,11 +1266,11 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -1323,7 +1289,6 @@ ok
 ```
 
 <!-- test: sibling-by-reference-calls-alone -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Two sibling calls rewrite the local and nothing else reads it: each lends the cell for its own call.
 
 ```maxon
@@ -1338,7 +1303,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -1357,7 +1322,6 @@ ok
 ```
 
 <!-- test: inner-call-writes-while-the-outer-lends -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The inner call rewrites the local while the outer call holds its cell.
 
@@ -1390,7 +1354,6 @@ error E3186: <fragment>:21:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: read-between-sibling-writes -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A read between two sibling writes of the local.
 
@@ -1498,7 +1461,6 @@ ok
 ```
 
 <!-- test: alias-let-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 An alias of the local through a `let` is read before the write: it is another binding, not the cell.
 
 ```maxon
@@ -1513,7 +1475,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -1533,7 +1495,6 @@ ok
 ```
 
 <!-- test: record-alias-sibling-field-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A second name for the record of a field cell is not the cell's local, and the hold on `h2.f` keeps the old string alive across the write of `h.f`.
 
 ```maxon
@@ -1553,7 +1514,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -1565,13 +1526,13 @@ end 'put'
 function keep(_ T) uses T
 end 'keep'
 
-function mix(h Holder) returns PA
-	let h2 = h
+function mix(mutates h Holder) returns PA
+	let h2 = h.clone()
 	return PA.build(h2.f, second: put(h.f))
 end 'mix'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let p = mix(h)
 	keep(p)
 	print("{p.first}\n")
@@ -1586,7 +1547,6 @@ original
 ```
 
 <!-- test: alias-let-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 An alias of the local through a `let` is read after the write.
 
 ```maxon
@@ -1601,7 +1561,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -1621,7 +1581,6 @@ ok
 ```
 
 <!-- test: two-locals-one-rewritten -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Two locals: one is read first, the other rewritten.
 
 ```maxon
@@ -1632,7 +1591,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -1661,7 +1620,6 @@ ok
 ```
 
 <!-- test: two-locals-read-before-each-write -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 Each local is read before the other's rewrite, one of them rewritten twice.
 
@@ -1698,7 +1656,6 @@ error E3186: <fragment>:24:48: argument 'label' is read by another operand of th
 ```
 
 <!-- test: field-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field of a local is handed by reference and the same field read by another operand. The read runs before the write.
 
@@ -1714,11 +1671,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1727,7 +1684,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -1752,7 +1709,6 @@ error E3186: <fragment>:41:36: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: field-cell-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A field of a local is handed by reference and the same field read by another operand. The read runs after the write.
 
 ```maxon
@@ -1767,11 +1723,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1780,7 +1736,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -1793,7 +1749,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let p = PB.build(put(h.f), second: h.f)
 	keep(p)
 	print("ok\n")
@@ -1808,7 +1764,6 @@ ok
 ```
 
 <!-- test: field-cell-two-levels-sibling-read-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A two-level field cell is handed by reference and a sibling of its parent is read before the write.
 
@@ -1870,7 +1825,6 @@ error E3186: <fragment>:49:38: argument 'w.h.f' is read by another operand of th
 ```
 
 <!-- test: field-cell-two-levels-whole-root-read-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A two-level field cell is handed by reference and the whole root is read before the write.
 
@@ -1886,11 +1840,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1911,7 +1865,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function useW(w Wrapper, k Tally) returns Tally
-	return k + (w.h.f.byteLength() as Tally)
+	return try k + (w.h.f.byteLength() as Tally) otherwise panic("out of range")
 end 'useW'
 
 function main() returns ExitCode
@@ -1927,7 +1881,6 @@ error E3186: <fragment>:44:25: argument 'w.h.f' is read by another operand of th
 ```
 
 <!-- test: field-cell-sibling-read-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A field is handed by reference and a sibling field read after the write.
 
 ```maxon
@@ -1942,11 +1895,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -1955,7 +1908,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -1968,7 +1921,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let p = PB.build(put(h.f), second: h.g)
 	keep(p)
 	print("ok\n")
@@ -1983,7 +1936,6 @@ ok
 ```
 
 <!-- test: field-cell-sibling-read-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field is handed by reference and a sibling field read before the write.
 
@@ -2037,7 +1989,6 @@ error E3186: <fragment>:41:36: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: field-cell-whole-record-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field is handed by reference and the whole record read before the write.
 
@@ -2053,11 +2004,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -2070,7 +2021,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function useH(h Holder, k Tally) returns Tally
-	return k + (h.f.byteLength() as Tally)
+	return try k + (h.f.byteLength() as Tally) otherwise panic("out of range")
 end 'useH'
 
 function main() returns ExitCode
@@ -2086,7 +2037,6 @@ error E3186: <fragment>:36:25: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: field-cell-whole-record-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A field is handed by reference and the whole record read after the write.
 
 ```maxon
@@ -2101,11 +2051,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -2118,11 +2068,11 @@ function keep(_ T) uses T
 end 'keep'
 
 function useH2(k Tally, h Holder) returns Tally
-	return k + (h.f.byteLength() as Tally)
+	return try k + (h.f.byteLength() as Tally) otherwise panic("out of range")
 end 'useH2'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let k = useH2(put(h.f), h: h)
 	keep(k)
 	print("ok\n")
@@ -2137,7 +2087,6 @@ ok
 ```
 
 <!-- test: field-cell-ternary-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A ternary condition reads the field its arm hands by reference. The read runs before the write.
 
@@ -2182,7 +2131,6 @@ error E3186: <fragment>:32:14: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: field-cell-ternary-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A ternary condition reads the field its arm hands by reference. The read runs after the write.
 
 ```maxon
@@ -2197,11 +2145,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -2214,7 +2162,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let k = h.f.byteLength() as Tally if put(h.f) > 0 else 0
 	keep(k)
 	print("ok\n")
@@ -2229,7 +2177,6 @@ ok
 ```
 
 <!-- test: field-cell-twice-between -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A read of the field between two writes of it.
 
@@ -2282,7 +2229,6 @@ error E3186: <fragment>:40:44: argument 'h.f' is read by another operand of this
 ```
 
 <!-- test: write-between-reads -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A read before and a read after the write: the one before decides.
 
@@ -2318,7 +2264,6 @@ error E3186: <fragment>:23:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: write-then-two-reads -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Two reads after the write.
 
 ```maxon
@@ -2337,7 +2282,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum3(a Tally, b Tally, c Tally) returns Tally
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum3'
 
 function main() returns ExitCode
@@ -2356,7 +2301,6 @@ ok
 ```
 
 <!-- test: write-then-read-inside-a-later-call -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A read after the write, inside the nested call of a later operand.
 
 ```maxon
@@ -2379,7 +2323,7 @@ function wrap(k Tally) returns Tally
 end 'wrap'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -2398,7 +2342,6 @@ ok
 ```
 
 <!-- test: two-writes-two-reads-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 Two writes of the same local, then reads.
 
 ```maxon
@@ -2417,7 +2360,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function mix4(a Tally, b Tally, c Tally, d Tally) returns Tally
-	return a + b + c + d
+	return try a + b + c + d otherwise panic("out of range")
 end 'mix4'
 
 function main() returns ExitCode
@@ -2436,7 +2379,6 @@ ok
 ```
 
 <!-- test: returned-alias-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 An operand returns the local's own value. The read runs before the write.
 
@@ -2477,7 +2419,6 @@ error E3186: <fragment>:28:42: argument 'label' is read by another operand of th
 ```
 
 <!-- test: returned-alias-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 An operand returns the local's own value. The read runs after the write.
 
 ```maxon
@@ -2488,7 +2429,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -2501,7 +2442,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text
+	return text.clone()
 end 'id'
 
 function main() returns ExitCode
@@ -2520,7 +2461,6 @@ ok
 ```
 
 <!-- test: returned-alias-kept-and-rewritten -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The alias of the new value is kept and the local rewritten later.
 
 ```maxon
@@ -2531,7 +2471,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -2544,7 +2484,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function id(text String) returns String
-	return text
+	return text.clone()
 end 'id'
 
 function main() returns ExitCode
@@ -2565,7 +2505,6 @@ ok
 ```
 
 <!-- test: return-statement-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A return whose operands write and then read the local.
 
 ```maxon
@@ -2580,7 +2519,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function early() returns Tally
@@ -2603,7 +2542,6 @@ ok
 ```
 
 <!-- test: return-statement-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A return whose operands read and then write the local.
 
@@ -2619,7 +2557,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function early() returns Tally
@@ -2871,7 +2809,6 @@ error E3186: <fragment>:16:63: argument 'label' is read by another operand of th
 ```
 
 <!-- test: nested-outer-call-with-an-alias-argument -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The writing call's own later operand returns the local's value.
 
@@ -2944,7 +2881,6 @@ error E3186: <fragment>:20:32: argument 'label' is read by another operand of th
 ```
 
 <!-- test: closure-capture-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A closure literal capturing the local runs before the write.
 
@@ -2962,7 +2898,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function call2(f TallyFn, k Tally) returns Tally
-	return f() + k
+	return try f() + k otherwise panic("out of range")
 end 'call2'
 
 function main() returns ExitCode
@@ -2978,7 +2914,6 @@ error E3102: <fragment>:20:69: use of moved value 'label': its ownership moved t
 ```
 
 <!-- test: closure-capture-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A closure literal capturing the local runs after the write.
 
 ```maxon
@@ -2995,7 +2930,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function call3(k Tally, f TallyFn) returns Tally
-	return f() + k
+	return try f() + k otherwise panic("out of range")
 end 'call3'
 
 function main() returns ExitCode
@@ -3014,7 +2949,6 @@ ok
 ```
 
 <!-- test: two-parameters-two-locals -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 One call rewrites two locals and one of them is read after it.
 
 ```maxon
@@ -3025,7 +2959,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -3055,7 +2989,6 @@ ok
 ```
 
 <!-- test: two-parameters-one-local -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 One call rewrites the same local through both parameters.
 
@@ -3067,7 +3000,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -3093,7 +3026,6 @@ error E3186: <fragment>:25:34: argument 'label' is read by another operand of th
 ```
 
 <!-- test: by-reference-call-returns-the-old-value -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The writing call returns the old value; the local read after it holds the new one.
 
 ```maxon
@@ -3104,7 +3036,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3212,7 +3144,6 @@ ok
 ```
 
 <!-- test: function-value-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A function value of `put` writes through its by-reference parameter, and an earlier operand reads the local.
 
@@ -3228,7 +3159,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -3245,7 +3176,6 @@ error E3186: <fragment>:20:29: argument 'label' is read by another operand of th
 ```
 
 <!-- test: function-value-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The same indirect call, the local read after it.
 
 ```maxon
@@ -3260,7 +3190,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -3280,7 +3210,6 @@ ok
 ```
 
 <!-- test: function-value-ternary-condition -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A ternary condition reads the local before the indirect call writes it.
 
@@ -3309,7 +3238,6 @@ error E3186: <fragment>:16:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: function-value-ternary-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The indirect call is the condition and the arm reads after it.
 
 ```maxon
@@ -3340,7 +3268,6 @@ ok
 ```
 
 <!-- test: function-value-later-operand -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A later operand reads the local after the indirect call.
 
 ```maxon
@@ -3355,7 +3282,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -3375,7 +3302,6 @@ ok
 ```
 
 <!-- test: function-typed-parameter-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A function-typed parameter called with a by-reference variable beside an earlier read.
 
@@ -3397,7 +3323,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -3413,7 +3339,6 @@ error E3186: <fragment>:12:27: argument 'text' is read by another operand of thi
 ```
 
 <!-- test: function-typed-parameter-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 The same call with the read after it.
 
 ```maxon
@@ -3434,7 +3359,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -3453,7 +3378,6 @@ ok
 ```
 
 <!-- test: for-binding-field-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field cell of a `for` binding is read beside the by-reference call.
 
@@ -3471,11 +3395,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -3484,7 +3408,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3528,11 +3452,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -3541,7 +3465,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -4616,7 +4540,6 @@ b replaced
 ```
 
 <!-- test: closure-parameter-is-the-root-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The by-reference cell is a closure's own parameter, read by an earlier operand of the same call inside the closure body.
 
@@ -4631,7 +4554,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function apply(step StepFn, mutates text String) returns Tally
@@ -4726,7 +4649,6 @@ error E3186: <fragment>:15:26: argument 'type' is read by another operand of thi
 ```
 
 <!-- test: map-literal-key-reads-the-root -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A map literal's key is an operand that reads the local before the call rewrites it.
 
@@ -4861,7 +4783,6 @@ end 'main'
 ```
 
 <!-- test: self-field-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A bare writable field of `self` is handed by reference and read by an earlier operand. The root is `self`, so the read runs before the write.
 
@@ -4877,7 +4798,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Holder
@@ -4887,7 +4808,7 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(label, k: put(label))
 	end 'run'
 end 'Holder'
@@ -4904,7 +4825,6 @@ error E3186: <fragment>:25:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: self-field-cell-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A bare writable field of `self` is handed by reference and read by a later operand. The read runs after the write.
 
 ```maxon
@@ -4919,7 +4839,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 type Holder
@@ -4929,13 +4849,13 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two2(put(label), text: label)
 	end 'run'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	keep(h.run())
 	print("ok\n")
 	return 0
@@ -4949,7 +4869,6 @@ ok
 ```
 
 <!-- test: self-field-explicit-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The field of `self` spelled `self.label` is the same root as the bare name.
 
@@ -4965,7 +4884,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Holder
@@ -4975,7 +4894,7 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(self.label, k: put(self.label))
 	end 'run'
 end 'Holder'
@@ -4992,7 +4911,6 @@ error E3186: <fragment>:25:33: argument 'self.label' is read by another operand 
 ```
 
 <!-- test: self-field-bare-then-explicit-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The bare name and `self.label` name one root, so a read spelled one way refuses a cell spelled the other.
 
@@ -5008,7 +4926,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Holder
@@ -5018,7 +4936,7 @@ type Holder
 		return Self{label: "original"}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(self.label, k: put(label))
 	end 'run'
 end 'Holder'
@@ -5035,7 +4953,6 @@ error E3186: <fragment>:25:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: self-field-path-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field of a record held in a field of `self` is handed by reference and read by an earlier operand.
 
@@ -5051,7 +4968,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Inner
@@ -5069,7 +4986,7 @@ type Holder
 		return Self{inner: Inner.create()}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(inner.f, k: put(inner.f))
 	end 'run'
 end 'Holder'
@@ -5086,7 +5003,6 @@ error E3186: <fragment>:33:30: argument 'inner.f' is read by another operand of 
 ```
 
 <!-- test: self-field-explicit-path-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The same field path spelled through `self`.
 
@@ -5102,7 +5018,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Inner
@@ -5120,7 +5036,7 @@ type Holder
 		return Self{inner: Inner.create()}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		return two(self.inner.f, k: put(self.inner.f))
 	end 'run'
 end 'Holder'
@@ -5137,7 +5053,6 @@ error E3186: <fragment>:33:35: argument 'self.inner.f' is read by another operan
 ```
 
 <!-- test: self-field-sibling-field-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 Another field of `self` read by an earlier operand is a read of the same root, as a sibling field of a local record is.
 
@@ -5181,7 +5096,6 @@ error E3186: <fragment>:26:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: self-field-method-receiver-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A method called on a field of `self` reads the root before a later operand's write.
 
@@ -5224,7 +5138,6 @@ error E3186: <fragment>:25:50: argument 'label' is read by another operand of th
 ```
 
 <!-- test: local-var-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A local `var` is handed by reference and read by an earlier operand.
 
@@ -5240,7 +5153,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -5256,7 +5169,6 @@ error E3186: <fragment>:19:28: argument 'label' is read by another operand of th
 ```
 
 <!-- test: local-var-cell-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A local `var` is handed by reference and read by a later operand.
 
 ```maxon
@@ -5271,7 +5183,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -5290,7 +5202,6 @@ ok
 ```
 
 <!-- test: local-var-field-path-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field of a record held in a local `var` is handed by reference and read by an earlier operand.
 
@@ -5306,7 +5217,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 type Holder
@@ -5330,7 +5241,6 @@ error E3186: <fragment>:27:31: argument 'holder.f' is read by another operand of
 ```
 
 <!-- test: local-var-method-receiver-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A method called on a local `var` reads it before a later operand's write.
 
@@ -5423,7 +5333,6 @@ error E3186: <fragment>:21:15: argument 's' is read by another operand of this s
 ```
 
 <!-- test: leading-sibling-method-call-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A later argument that leads with the local but is not the whole local is read before the call's write; only a whole local beside a cell is the argument-overlap check's.
 
@@ -5451,7 +5360,6 @@ error E3186: <fragment>:15:15: argument 'label' is read by another operand of th
 ```
 
 <!-- test: call-receiver-write-then-argument-read -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The compiler runs a receiver call before the arguments of the method call, and the program is refused anyway: the order the rule is stated in evaluates a method call's arguments before its receiver, so the receiver call's write follows the argument's read, which no hold can protect.
 
@@ -5791,7 +5699,6 @@ error E3186: <fragment>:23:18: argument 'h.n' is read by another operand of this
 ```
 
 <!-- test: captured-record-field-cell-before -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A field of a captured record is handed by reference inside a closure body and read by an earlier operand of the same statement.
 
@@ -5831,7 +5738,6 @@ error E3186: <fragment>:27:43: argument 'c.s' is read by another operand of this
 ```
 
 <!-- test: captured-record-field-cell-after -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 A field of a captured record is handed by reference inside a closure body and read by a later operand.
 
 ```maxon
@@ -5854,7 +5760,7 @@ function keep(_ T) uses T
 end 'keep'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode

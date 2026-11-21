@@ -273,14 +273,12 @@ error E3005: specs/literals/error.unsigned-literal-into-a-signed-parameter.maxon
 ```
 
 <!-- test: error.unsigned-literal-into-a-signed-field-of-a-static -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Offset = int(i64.min to i64.max)
 
 type Spot
 	export var at as Offset
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Spot{at: 9223372036854775808}
 end 'Spot'
 

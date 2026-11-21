@@ -1691,12 +1691,10 @@ a line in an UNRELATED function cannot take it away.
 
 <!-- test: a-written-negative-in-one-function-does-not-reach-another-functions-default -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 // TODO: bits(...) typealiases are not supported in minimaxon
 typealias Wide = bits(64)
 
-// TODO: default parameter values are not supported in minimaxon
 function withDefault(p Wide = 0x8000000000000000) returns Wide
 	return p
 end 'withDefault'

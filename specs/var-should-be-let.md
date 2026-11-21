@@ -834,7 +834,6 @@ end 'main'
 ```
 
 <!-- test: let-record-of-a-let-global-through-a-call -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static let` never moves, and its record is image data, so a write through a value derived from it is refused.
 
@@ -844,7 +843,6 @@ typealias Integer = int(i64.min to i64.max)
 
 type Point
 	export var x as Integer
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Point{x: 1}
 end 'Point'
 

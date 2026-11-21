@@ -153,7 +153,7 @@ end 'main'
 ```
 
 <!-- test: try-block-shadowed-binding.unshadowed-binding-is-still-the-error-union -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 The control the two cases above need: the SAME handler with no shadow at all still reaches the synthesized
 error union, so the identity test rejects a shadow without rejecting the binding itself. `callB(true)`
 throws, so the `ErrB.splat` arm must win.
@@ -322,7 +322,7 @@ error E3084: specs/try-block-shadowed-binding/error.closure-inside-a-handler-doe
 ```
 
 <!-- test: try-block-shadowed-binding.closure-inside-a-handler-matches-its-own-binding -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 The same shape with the handler's own obligation discharged: the closure's `e` is its PARAMETER, so its
 `match e` dispatches on `Inner` and answers 8, while the handler's `match e` reaches the synthesized error
 union and takes the `ErrA.bad` arm — which is the error really in flight.

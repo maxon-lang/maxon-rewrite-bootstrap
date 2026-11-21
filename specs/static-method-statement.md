@@ -263,7 +263,7 @@ error E3004: <fragment>:14:11: call to undefined function 'Pair.nope'
 ```
 
 <!-- test: static-method-statement.error.a-method-writing-a-field-of-a-static-let-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same statement over a `static let`: the receiver chain `Registry.current.items` is immutable (a module-level or `static` `let` holds immutable data), so a method that writes the field is refused as writing through immutable storage (E3207).
 ```maxon
@@ -271,7 +271,6 @@ typealias StringArray = Array with String
 
 type Registry
 	export var items as StringArray
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let current = Registry{items: StringArray from ["a"]}
 end 'Registry'
 

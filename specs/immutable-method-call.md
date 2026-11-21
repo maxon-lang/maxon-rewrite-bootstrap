@@ -391,7 +391,6 @@ end 'main'
 ```
 
 <!-- test: error.push-through-a-field-chain-off-a-static-let -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A chain through a `static let` reaches immutable image data: `Facts.shared.counts` is a chain, so
 the receiver of the push is the field's own record rather than the binding. The push would write a page mapped
@@ -404,7 +403,6 @@ typealias CountArray = Array with Count
 
 type Facts
 	export var counts as CountArray
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Facts{counts: CountArray from [0]}
 end 'Facts'
 
@@ -524,12 +522,11 @@ abXY
 ```
 
 <!-- test: error.append-to-a-string-field-off-a-static-let -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 type Holder
 	export var name as String
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Holder{name: "ab"}
 end 'Holder'
 

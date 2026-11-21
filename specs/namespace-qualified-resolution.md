@@ -1036,7 +1036,6 @@ error E3061: api/<fragment>:6:18: Duplicate typealias 'Score'
 
 
 <!-- test: contested-free-function-defaults-follow-the-declaration -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **A CONTESTED FUNCTION'S SYNTHESIZED DEFAULT HELPERS ARE RENAMED WITH IT.** A default value is
 compiled as a nullary helper function whose name `Project.paramDefaultHelperName` mints from the
@@ -1055,13 +1054,11 @@ accepts. The helper's name has to follow the DECLARATION's identity, which the f
 // --- file: alpha/a.maxon
 export typealias Integer = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(n Integer = 3) returns Integer
 	return n
 end 'pick'
 
 // --- file: beta/b.maxon
-// TODO: default parameter values are not supported in minimaxon
 export function pick(n Integer = 5) returns Integer
 	return n
 end 'pick'
@@ -2417,9 +2414,7 @@ error E3095: app/specs/namespace-qualified-resolution/error.three-way-ambiguous-
 
 
 <!-- test: error.contested-free-function-default-is-not-inherited -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 ⛔⛔ **A CONTESTANT'S PARAMETER DEFAULT BELONGS TO ITS OWN DECLARATION, NEVER TO WHICHEVER FILE FOLDED
 FIRST.** The end-of-fold SELF refile moves this file's declaration
 off the bare key — but the bare key ACCUMULATES, so a positive fact sitting there may be an earlier
@@ -2433,7 +2428,6 @@ byte-identical program with alpha's `= 5` removed, which reports exactly the ref
 // --- file: alpha/a.maxon
 export typealias Ms = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(ms Ms = 5) returns Ms
 	return ms
 end 'pick'
@@ -2456,9 +2450,7 @@ error E3036: app/specs/namespace-qualified-resolution/error.contested-free-funct
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-default -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 ⛔⛔ **THE CASE ABOVE WITH THE SECOND CONTESTANT AT THE *ROOT*, AND THAT IS A DIFFERENT KEY.**
 Above, `beta/` has a qualified key of its own and never looks at
 the bare name, so leaving a stale fact there is harmless. A ROOT declaration has no qualified spelling:
@@ -2474,7 +2466,6 @@ incumbent is the root's own declaration and there is nothing stale to inherit.
 // --- file: alpha/a.maxon
 export typealias Num = int(-1000 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(a Num, b Num = 5) returns Num
 	return a + b
 end 'pick'
@@ -2530,7 +2521,6 @@ error E3055: app/<fragment>:18:10: try requires a throwing function: 'pick' does
 
 
 <!-- test: contested-free-function-own-default-still-applies -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The positive half of the case above, and the reason the cure is a SOURCE test rather than a clear of
 the bare key: alpha's own default must still reach alpha's own qualified key. Only one of the two
@@ -2540,7 +2530,6 @@ so a cure that stopped copying defaults altogether would turn this green case re
 // --- file: alpha/a.maxon
 export typealias Ms = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(ms Ms = 5) returns Ms
 	return ms
 end 'pick'
@@ -2602,8 +2591,9 @@ error E3055: app/specs/namespace-qualified-resolution/error.contested-free-funct
 
 
 <!-- test: contested-free-function-caller-location-slots-are-not-renamed -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 **A CONTESTED FUNCTION'S CALLER-LOCATION SLOTS ARE SKIPPED BY THE RENAME, AND ITS HELPER SLOT IS NOT.**
 The sibling case above pins that a contested declaration's synthesized default helpers follow it onto
 its directory-qualified registration name. There is a SECOND kind of default —
@@ -2626,7 +2616,8 @@ declaration, while `__file__`/`__line__` prove the two skipped slots still answe
 // --- file: alpha/a.maxon
 export typealias AlphaSeverity = int(0 to 9)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__file__' is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 export function note(tag String, level AlphaSeverity = 3, file String = __file__, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag} lvl={level} {file}:{at}\n")
 	return at
@@ -2639,7 +2630,8 @@ end 'fromAlpha'
 // --- file: beta/b.maxon
 export typealias BetaSeverity = int(0 to 9)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__file__' is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 export function note(tag String, level BetaSeverity = 5, file String = __file__, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag} lvl={level} {file}:{at}\n")
 	return at
@@ -3270,14 +3262,12 @@ end 'main'
 ```
 
 <!-- test: a-global-named-like-a-qualified-type-segment-leaves-a-static-field -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A managed top-level binding named like the chain's second segment binds nothing the chain reads:
 `sub.Calc.n` is the directory type's static field, and the global is read only as a whole value
 (7 + 1 - 1).
 ```maxon
 // --- file: sub/calc.maxon
 export type Calc
-	// TODO: static fields (static let) are not supported in minimaxon
 	export static let n = 7 as ExitCode
 end 'Calc'
 
@@ -3297,13 +3287,11 @@ end 'main'
 ```
 
 <!-- test: a-local-array-named-like-a-qualified-type-segment-leaves-a-managed-static -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A method call through a managed static reads the directory type's array past a local array named `Calc`, and
 the bare `Calc.count()` counts the local (3 + 2).
 ```maxon
 // --- file: sub/calc.maxon
 export type Calc
-	// TODO: static fields (static let) are not supported in minimaxon
 	export static let managed = FullRangeIntArray from [4, 5, 6]
 end 'Calc'
 

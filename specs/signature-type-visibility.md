@@ -1447,8 +1447,6 @@ error E3167: api/<fragment>:8:12: exported constant 'api.SHARED' names unexporte
 
 <!-- test: error.an-export-static-let-of-a-file-private-enum-type-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 A `static let` is a binding with a tier of its own, and the member's own modifier is the bar, not its type's:
 `Holder` is `export` and `Status` is not.
 ```maxon
@@ -1459,7 +1457,6 @@ enum Status
 end 'Status'
 
 export type Holder
-	// TODO: static fields (static let) are not supported in minimaxon
 	export static let DEFAULT = Status.big
 end 'Holder'
 

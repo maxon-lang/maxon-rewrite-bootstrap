@@ -422,20 +422,15 @@ end 'main'
 ```
 
 <!-- test: dispatch.fallthrough-tree-carried -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 typealias N = int(0 to 1000000)
 
 function perms(role N) returns N
 	var p = 0 as N
 	match role 'auth'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then p = p + 1 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		2 then p = p + 2 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		3 then p = p + 4 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		4 then p = p + 8 and fallthrough
 		5 then p = p + 16
 		default then p = 0
@@ -528,20 +523,15 @@ end 'main'
 ```
 
 <!-- test: dispatch.fallthrough-to-default-tree -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 typealias N = int(0 to 1000)
 
 function ftd(x N) returns N
 	var r = 0 as N
 	match x 'c'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then r = r + 1 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		2 then r = r + 2 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		3 then r = r + 4 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		4 then r = r + 8 and fallthrough
 		default then r = r + 100
 	end 'c'

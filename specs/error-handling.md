@@ -2803,8 +2803,6 @@ end 'main'
 ```
 
 <!-- test: error.default-throws-arm-a-different-error-than-declared -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
-<!-- positions: moved -->
 ⭐⭐ **THE SPELLING THAT FOUND A MISSED DOOR.** A match's `default throws <E.case>` publishes the enclosing
 function's error flag exactly as a `throw` statement does, so it owes the declared clause the same debt.
 Before this rule reached it, the arm quietly accepted `default throws ErrB.bZero` inside `throws ErrA`.
@@ -2828,7 +2826,6 @@ end 'ErrB'
 function f(k Kind) returns Code throws ErrA
 	match k 'm'
 		alpha then return 1
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws ErrB.bZero
 	end 'm'
 end 'f'
@@ -2842,7 +2839,6 @@ error E3059: <fragment>:20:11: type mismatch: 'throw of 'ErrB' but the enclosing
 ```
 
 <!-- test: error.default-throws-arm-with-no-enclosing-throws -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 ⭐⭐ **THE `default` ARM IS THE "UNREACHABLE" MARKER THE ENUM-`match` GRAMMAR DEMANDS, and in a function that
@@ -2865,7 +2861,6 @@ end 'BoxedError'
 function f(k Kind) returns Code
 	match k 'm'
 		alpha then return 1
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws BoxedError.withMessage("reached")
 	end 'm'
 end 'f'

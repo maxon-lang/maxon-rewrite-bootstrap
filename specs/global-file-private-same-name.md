@@ -348,7 +348,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-and-an-argument-label-named-like-a-contested-binding-keep-their-spelling -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A parameter named `counter` in `alpha/`, beside two directories' `let counter`: the parameter is not the binding,
 so the call's `counter:` label in `app/main.maxon` still names it.
@@ -356,7 +355,6 @@ so the call's `counter:` label in `app/main.maxon` still names it.
 // --- file: alpha/seed.maxon
 export let counter = 1
 
-// TODO: default parameter values are not supported in minimaxon
 export function seed(counter ExitCode = 3, step ExitCode = 1) returns ExitCode
 	return counter * 10 + step
 end 'seed'

@@ -304,7 +304,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-static-let-is-image-data -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 CONTROL: a `static let` of an inline record is a constant word laid down with the program, so
 nothing is live when `main` starts. A `static let` record is image data whether or not it is a word, and
 the case holds that property for a value that is not a record at all.
@@ -314,7 +313,6 @@ typealias Half = int(0 to u32.max)
 type Pair
 	export let lo as Half
 	export let hi as Half
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{lo: 1, hi: 2}
 end 'Pair'
 

@@ -463,8 +463,6 @@ r=8
 
 
 <!-- test: error.root-declaration-owns-the-bare-key-parameter-defaults -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 Parameter defaults are recorded ONLY by a declaration that has one, so a root declaration with no
 default must not borrow the SUBDIRECTORY's: `pick()` would then run the ROOT's body on the
 subdirectory's default and print a number the program does not contain. The root declares one required
@@ -486,7 +484,6 @@ end 'main'
 // --- file: sub/helper.maxon
 export typealias Slot = int(0 to 100)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(slot Slot = 90) returns Slot
 	return slot
 end 'pick'
@@ -497,16 +494,14 @@ error E3036: specs/namespaces/error.root-declaration-owns-the-bare-key-parameter
 
 
 <!-- test: root-declaration-owns-the-bare-key-default-helper -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 Both declarations default their first parameter, so the scan names both synthesized default helpers
 alike. The root's call is filled with the root's `String` default and the subdirectory's with its own.
 ```maxon
 // --- file: main.maxon
 typealias Level = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 function pick(word String = "abc") returns Level
-	return word.count() as Level
+	return try word.count() as Level otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -517,7 +512,6 @@ end 'main'
 // --- file: sub/helper.maxon
 export typealias SubLevel = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(n SubLevel = 5) returns SubLevel
 	return n
 end 'pick'
@@ -531,13 +525,11 @@ end 'pick'
 
 
 <!-- test: root-declaration-owns-the-bare-key-default-helper-whatever-the-fold-order -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 The same program with the SUBDIRECTORY declared first.
 ```maxon
 // --- file: sub/helper.maxon
 export typealias SubLevel = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(n SubLevel = 5) returns SubLevel
 	return n
 end 'pick'
@@ -545,9 +537,8 @@ end 'pick'
 // --- file: main.maxon
 typealias Level = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 function pick(word String = "abc") returns Level
-	return word.count() as Level
+	return try word.count() as Level otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -564,22 +555,19 @@ end 'main'
 
 
 <!-- test: contested-subdirectory-default-helpers-keep-their-own-types -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 Two subdirectories default the same position at different types. The first directory's helper is moved
 onto its qualified name when the second directory makes the name contested.
 ```maxon
 // --- file: alpha/a.maxon
 export typealias AlphaLevel = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(word String = "abc") returns AlphaLevel
-	return word.count() as AlphaLevel
+	return try word.count() as AlphaLevel otherwise panic("out of range")
 end 'pick'
 
 // --- file: beta/b.maxon
 export typealias BetaLevel = int(0 to 125)
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(n BetaLevel = 5) returns BetaLevel
 	return n
 end 'pick'

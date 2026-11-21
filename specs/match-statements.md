@@ -469,13 +469,11 @@ end 'main'
 
 
 <!-- test: match-statements.fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	var result = 0 as ExitCode
 	match x 'check'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then result = result + 10 and fallthrough
 		2 then result = result + 20
 		default then result = result + 100
@@ -488,15 +486,12 @@ end 'main'
 ```
 
 <!-- test: match-statements.fallthrough-chain -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	var result = 0 as ExitCode
 	match x 'cascade'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then result = result + 10 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		2 then result = result + 20 and fallthrough
 		3 then result = result + 30
 		default then result = 100
@@ -509,7 +504,6 @@ end 'main'
 ```
 
 <!-- test: match-statements.fallthrough-to-default -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 3
@@ -517,7 +511,6 @@ function main() returns ExitCode
 	match x 'check'
 		1 then result = 10
 		2 then result = 20
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		3 then result = result + 30 and fallthrough
 		default then result = result + 90
 	end 'check'
@@ -696,13 +689,11 @@ end 'main'
 ```
 
 <!-- test: error.match-expression-fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	let result = match x 'eval'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 gives 10 and fallthrough
 		default gives 0
 	end 'eval'
@@ -714,13 +705,10 @@ error E2001: specs/match-statements/error.match-expression-fallthrough.maxon:5:1
 ```
 
 <!-- test: error.match-fallthrough-with-return -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	match x 'check'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then return 10 and fallthrough
 		default then return 0
 	end 'check'
@@ -889,7 +877,6 @@ error E2026: specs/match-statements/error.match-not-exhaustive.maxon:7:2: match 
 A `match` arm body must be a single statement; the multi-line block-opening keywords `if`, `while`, `for`, `match` are rejected with E2049 (see above). All single-statement forms of `try` are permitted: bare propagation (`try call()`), and the four single-statement `otherwise` shapes (`panic`, `ignore`, `return/break/continue/throw`, default-value expression). The two multi-line block forms — `try 'label' ... end 'label'` and `try call() otherwise 'label' ... end 'label'` (with or without binding) — are rejected because they would allocate persistent error-flag slots in the enclosing scope and leak them on every error path through the match.
 
 <!-- test: match-statements.try-propagate -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 typealias Tally = int(0 to 100)
 
@@ -904,7 +891,6 @@ end 'leaf'
 function dispatch(kind Tally) throws Err
 	match kind 'k'
 		1 then try leaf()
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws Err.bad
 	end 'k'
 end 'dispatch'
@@ -1924,13 +1910,11 @@ every assignment the fell-through arm made, and no existing case reaches a break
 through a fallthrough edge.
 
 <!-- test: match-break.fallthrough-into-break-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	var r = 0 as ExitCode
 	let n = 1 as Count
 	match n 'check'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then r = 5 and fallthrough
 		2 then break
 		default then r = 9
@@ -2019,7 +2003,6 @@ end 'main'
 ### Default Throws on Non-Enum Match
 
 <!-- test: match-statements.default-throws-non-enum -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 typealias Integer = int(0 to 100)
 
@@ -2031,7 +2014,6 @@ function classify(s String) returns Integer throws StringError
 	return match s 'check'
 		"a" gives 1
 		"b" gives 2
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws StringError.notFound
 	end 'check'
 end 'classify'

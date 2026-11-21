@@ -256,7 +256,6 @@ end 'main'
 ```
 
 <!-- test: control-flow-shapes.match-in-loop-with-continue-and-fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -264,21 +263,20 @@ function drive(limit Integer) returns Integer
 	var acc = 0 as Integer
 	var n = 0 as Integer
 	while true 'loop'
-		n = n + 1
+		n = try n + 1 otherwise panic("out of range")
 		if n > limit 'done'
 			break
 		end 'done'
 		match n mod 7 'sel'
-			0 then acc = acc + 1
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-			1 then acc = acc + 10 and fallthrough
-			2 then acc = acc + 100
-			3 then acc = acc + 1000
+			0 then acc = try acc + 1 otherwise panic("out of range")
+			1 then acc = (try acc + 10 otherwise panic("out of range")) and fallthrough
+			2 then acc = try acc + 100 otherwise panic("out of range")
+			3 then acc = try acc + 1000 otherwise panic("out of range")
 			4 then continue
-			5 then acc = acc + 100000
-			default then acc = acc + 7
+			5 then acc = try acc + 100000 otherwise panic("out of range")
+			default then acc = try acc + 7 otherwise panic("out of range")
 		end 'sel'
-		acc = acc * 2 mod 1000003
+		acc = try acc * 2 mod 1000003 otherwise panic("out of range")
 	end 'loop'
 	return acc
 end 'drive'

@@ -107,7 +107,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-first-error -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Two distinct error types; the first call throws, the handler matches.
 ```maxon
 typealias Score = int(0 to 100)
@@ -154,7 +154,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-second-error -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Two distinct error types; the second call throws, the handler matches.
 ```maxon
 typealias Score = int(0 to 100)
@@ -201,7 +201,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-success-path -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Two distinct error types; no calls throw — otherwise body is skipped.
 ```maxon
 typealias Score = int(0 to 100)
@@ -1156,7 +1156,6 @@ end 'main'
 ```
 
 <!-- test: try-block.bare-throw-routed -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 A bare `throw Enum.case` statement inside the try body must route to the enclosing
 `otherwise` handler — not escape to the function exit. Covers both paths: a direct
 `throw` statement, and a `default throws` arm in a `match` inside the body.
@@ -1180,7 +1179,6 @@ function dispatch(k Kind) returns Count throws MyError
 		match k 'm'
 			alpha then result = 1
 			beta then throw MyError.barErr
-			// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 			default throws MyError.fooErr
 		end 'm'
 	end 'd' otherwise (e) 'h'
@@ -1409,7 +1407,7 @@ end 'main'
 
 
 <!-- test: try-block.union-member-names-join-injectively -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 Each handler's `match` resolves its patterns against its OWN block's synthesized error union,
 whatever its member enums are called. A union identified by joining its member names with `_` would
 not be injective — `_` is inside the identifier alphabet, so `{A_B, C}` and `{A, B_C}` spell
@@ -1761,8 +1759,6 @@ error E3129: <fragment>:30:16: the payload binding 'code' cannot be honoured: th
 ```
 
 <!-- test: try-block.fallthrough-between-arms-of-a-boxed-error-member -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 `and fallthrough` between arms of a combined error's `match` releases a boxed member's error exactly once on
 every path: out of the arm that named it into an arm naming several types or into a `default throws`, and
@@ -1810,7 +1806,6 @@ function intoSeveral(which Score) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			ErrA.bad then sum = 1 and fallthrough
 			ErrA.worse or
 				splat then sum = sum + 10
@@ -1828,7 +1823,6 @@ function intoBoxedArm(which Score) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			splat then sum = 3 and fallthrough
 			ErrA.bad then sum = sum + 30
 			ErrA.worse or
@@ -1850,9 +1844,7 @@ function intoDefault(which Score) returns Score throws Gave
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			ErrA.bad then sum = 4 and fallthrough
-			// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 			default throws Gave.up
 		end 'k'
 	end 'h'
@@ -2013,7 +2005,6 @@ error E3161: <fragment>:35:25: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: try-block.fallthrough-chain-through-a-boxed-members-payload-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A chain of `and fallthrough` arms over a combined error, starting at an arm that moves a boxed member's `String`
 payload out, releases that box once on every path, and each later arm's own dispatch edge releases its own.
@@ -2059,9 +2050,7 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		match e 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			ErrA.bad(msg) then said = msg and fallthrough
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			splat then said = "{said}+splat" and fallthrough
 			ErrA.worse then said = "{said}+worse"
 			crash then said = "crash"
@@ -2639,7 +2628,6 @@ error E3161: <fragment>:45:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-in-an-arm-another-arm-falls-from -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
 An `and fallthrough` arm reached both from an arm that matched `e` and straight from the dispatch arrives with
@@ -2678,7 +2666,6 @@ function classify(which Score) returns String
 			1 then said = match e 'k'
 				ErrA.bad(msg) gives msg
 				splat gives "splat"
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			end 'k' and fallthrough
 			default then said = "{said}!"
 		end 'w'

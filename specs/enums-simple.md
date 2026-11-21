@@ -713,7 +713,6 @@ error E3005: <fragment>:7:10: operator 'not' requires integer operands, but this
 ```
 
 <!-- test: float-backed-enum-as-a-parameter-default -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: non-integer enum raw values are not supported in minimaxon -->
 A float-backed enum reaching a parameter DEFAULT is the seam between two rules: a default expression
 consumes the whole token region the capture skipped, and every read of a float-backed enum DECODEs its
@@ -731,7 +730,6 @@ enum Weight
 	heavy = 4.0
 end 'Weight'
 
-// TODO: default parameter values are not supported in minimaxon
 function show(w Weight = Weight.light) returns Real
 	print("{w} ")
 	return w + 0.0

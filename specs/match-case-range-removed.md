@@ -154,7 +154,7 @@ error E2026: specs/match-case-range-removed/error.case-added-mid-span-is-named.m
 ```
 
 <!-- test: error.enum-case-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got 'to' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got 'to' -->
 A case range over a union is refused, quoting the range as the source spells it.
 ```maxon
 typealias Code = int(0 to 125)
@@ -180,7 +180,7 @@ error E3146: specs/match-case-range-removed/error.enum-case-range.maxon:12:3: 'a
 ```
 
 <!-- test: error.enum-case-range-upto -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got 'upto' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got 'upto' -->
 `upto` is refused for the same reason and by the same code.
 ```maxon
 typealias Code = int(0 to 125)
@@ -207,7 +207,7 @@ error E3146: specs/match-case-range-removed/error.enum-case-range-upto.maxon:12:
 ```
 
 <!-- test: error.enum-case-range-unknown-upper -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got 'to' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got 'to' -->
 The range is refused BEFORE its upper bound is resolved, so an upper naming no case is still
 E3146 and not E3034. Pinning the order fixes which mistake a reader is told about first.
 ```maxon

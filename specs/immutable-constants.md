@@ -162,7 +162,6 @@ error E3197: <fragment>:13:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: a-constant-static-let-passed-to-a-parameter-a-plain-field-keeps-is-read-only-for-the-caller -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A `static let` bound to a literal is image data too, and the `Tok` built from it is read-only for the caller.
 
 ```maxon
@@ -170,12 +169,11 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 type Names
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let Alpha = b"abc"
 
 	static function token() returns Tok
@@ -197,8 +195,6 @@ end 'main'
 ```
 
 <!-- test: error.a-record-built-from-a-constant-static-let-is-refused-by-a-mutable-array -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 The `Tok` holds the constant `Alpha`, so it is read-only and the mutable array refuses it.
 
 ```maxon
@@ -213,7 +209,6 @@ type Tok
 end 'Tok'
 
 type Names
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let Alpha = b"abc"
 
 	static function keep(into TokArray)
@@ -1413,7 +1408,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-default-may-be-immutable-data-marked-or-not -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 A default value is checked against its parameter: an unmarked parameter only reads, so it accepts a constant and a
@@ -1427,17 +1421,14 @@ function standard() returns immutable ByteArray
 	return Preset
 end 'standard'
 
-// TODO: default parameter values are not supported in minimaxon
 function lengthOf(name ByteArray = Preset) returns Count
 	return name.count()
 end 'lengthOf'
 
-// TODO: default parameter values are not supported in minimaxon
 function lengthOfCall(name ByteArray = standard()) returns Count
 	return name.count()
 end 'lengthOfCall'
 
-// TODO: default parameter values are not supported in minimaxon
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 function lengthOfFrozen(name immutable ByteArray = Preset) returns Count
 	return name.count()

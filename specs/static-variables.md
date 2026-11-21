@@ -83,10 +83,8 @@ end 'main'
 ## Tests
 
 <!-- test: static-let-basic -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ```maxon
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let MAX_SIZE = 42
 end 'Config'
 
@@ -99,15 +97,12 @@ end 'main'
 ```
 
 <!-- test: static-let-multiple-types -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ```maxon
 type TypeA
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let value = 32
 end 'TypeA'
 
 type TypeB
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let value = 10
 end 'TypeB'
 
@@ -120,13 +115,11 @@ end 'main'
 ```
 
 <!-- test: static-and-instance-fields -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 type Thing
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let base = 2
 	export var id as Integer
 
@@ -138,7 +131,7 @@ end 'Thing'
 function main() returns ExitCode
 	let a = Thing.make(10)
 	let b = Thing.make(20)
-	return Thing.base + a.id + b.id
+	return try Thing.base + a.id + b.id otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -154,13 +147,10 @@ initializer grammar exactly, a `static let` refuses a write through the same E20
 does, and a static member takes no slot in the instance layout because it never joins one.
 
 <!-- test: error.static-let-reassign -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 Assigning to a `static let` is E2013, in the same words a top-level `let` gets
 (`top-level-let-scalar-reassign-error`) and naming the qualified binding the author actually wrote.
 ```maxon
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let MAX_SIZE = 42
 end 'Config'
 
@@ -174,8 +164,6 @@ error E2013: <fragment>:7:2: 'Config.MAX_SIZE' is a let and cannot be reassigned
 ```
 
 <!-- test: error.static-member-undeclared -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **THE NEGATIVE CONTROL FOR THE STATIC-MEMBER ARM**: a member the type never declared must NOT be
 claimed by it. The declaring type is right there, so a probe keyed on the BASE alone would have taken this
 and then had no binding to read; keying on the QUALIFIED name is what makes the arm decline.
@@ -187,7 +175,6 @@ name that is missing.
 
 ```maxon
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let MAX_SIZE = 42
 end 'Config'
 
@@ -201,7 +188,6 @@ error E2073: <fragment>:7:16: type 'Config' has no static member named 'MIN_SIZE
 
 <!-- test: static-let-cross-file -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 Cross-file: the storage key is the qualified name and nothing else, so an `export static let` read from
 another file resolves through the very probe an `export let` at file scope does. This is where a
 name-keying mistake would show — a key that carried the declaring FILE would make the reader's lookup
@@ -209,9 +195,7 @@ miss, and one that dropped the type would make two types' `MAX_SIZE` one slot.
 ```maxon
 // --- file: api/limits.maxon
 export type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	export static let MAX_SIZE = 40
-	// TODO: static fields (static let) are not supported in minimaxon
 	export static let used = 2
 end 'Config'
 
@@ -226,7 +210,7 @@ end 'main'
 
 <!-- test: error.static-binding-in-an-extension -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: static fields are supported in minimaxon only as 'static let' in a type body -->
 <!-- positions: moved -->
 An `extension` body declares no storage. Its members are re-parsed once per conforming type, so a binding
 written there has no declaration to belong to — and the declaration sweep, which is what builds the
@@ -244,7 +228,7 @@ end 'Widget'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Tagged
-	// TODO: static fields (static let) are not supported in minimaxon
+	// TODO: static fields are supported in minimaxon only as 'static let' in a type body
 	static let LIMIT = 4
 	function tag() returns Integer
 		return 1
@@ -290,7 +274,6 @@ the compiler's OWN WORDING OF THESE TWO DIAGNOSTICS** — which is the arrangeme
 above already makes for E2013, and for the same reason.
 
 <!-- test: error.static-struct-literal-unknown-field -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -298,7 +281,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 1, b: 2, c: 3}
 
 	static function get() returns Pair
@@ -317,7 +299,6 @@ error E3018: <fragment>:8:39: type 'Pair' has no field named 'c'
 ```
 
 <!-- test: error.static-struct-literal-missing-field -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -325,7 +306,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 1}
 
 	static function get() returns Pair
@@ -375,7 +355,6 @@ number, and a number written into a managed one is a wild pointer. The range hal
 field value outside the field's range is refused at compile time, as the same literal in a function body is.
 
 <!-- test: error.static-struct-literal-field-type-mismatch -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -383,7 +362,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: "hi", b: 2}
 
 	static function get() returns Pair
@@ -403,14 +381,12 @@ error E3005: <fragment>:8:27: cannot assign a value of type 'String' to field 'a
 
 <!-- test: error.static-struct-literal-field-out-of-range -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Percent = int(0 to 100)
 
 type Pair
 	export var a as Percent
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 500}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -440,7 +416,6 @@ method BODY are refused.
 The two cases below are pinned against the compiler's own wording, for the reason the pair above is.
 
 <!-- test: error.static-struct-literal-enum-field -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -454,7 +429,6 @@ end 'Color'
 type Paint
 	export let c as Color
 	export let n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let one = Paint{c: 7, n: 1}
 
 	static function get() returns Paint
@@ -479,7 +453,6 @@ address only the lowering can name.
 
 <!-- test: error.static-struct-literal-interface-field -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Square.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -504,7 +477,6 @@ end 'Square'
 type Holder
 	export let s as Sized
 	export let tag as Integer
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let one = Holder{s: Square.create(4), tag: 77}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -526,7 +498,6 @@ error E3209: <fragment>:27:3: a return does not fit the declared result: the ret
 
 <!-- test: static-struct-literal-interface-field-holding-a-string-literal -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A `String` literal widened into a `Hashable` field at module scope: the record is the literal's clone, and
 its witness table names the standard library's own `String.hash`, which a program reaching no other
 `Hashable` position must still build. The answer is compared with `hashString`, the function that body
@@ -534,7 +505,6 @@ calls, so no second door to `String.hash` enters the program.
 ```maxon
 type Holder
 	export let key as Hashable
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let one = Holder{key: "ab1cd"}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -555,7 +525,6 @@ true
 
 <!-- test: error.static-struct-literal-interface-field-non-conformer -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A value that does not conform is refused as it is in a body, by the whole-program widening check.
 ```maxon
@@ -568,7 +537,6 @@ end 'Sized'
 type Holder
 	export let s as Sized
 	export let tag as Integer
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let one = Holder{s: 5, tag: 77}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -588,8 +556,6 @@ error E3005: <fragment>:12:19: field type mismatch for 'Holder.s': type 'int' do
 ```
 
 <!-- test: error.static-factory-initializer -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Row.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -603,7 +569,6 @@ type Row
 end 'Row'
 
 type Cache
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let head = Row.create(42)
 end 'Cache'
 
@@ -616,14 +581,11 @@ error E3220: <fragment>:13:20: the initializer of 'Cache.head' calls 'Row.create
 ```
 
 <!-- test: static-managed-members -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A `String` static and an array static in one type: both materialize once before `main`, both are read
 through their qualified names, and both are freed at exit.
 ```maxon
 type Names
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let GREETING = "hi"
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let items = FullRangeIntArray from [1, 2, 3]
 end 'Names'
 
@@ -640,8 +602,6 @@ hi3
 ```
 
 <!-- test: error.static-let-array-mutate -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐⭐ **THE WRITE-THROUGH-AN-IMMUTABLE-STATIC GUARD.** A receiver-writing method
 on a `static let` array is E3207 — the SAME rule
 `error.top-level-let-array-mutate` pins for a file-scope `let`, naming the qualified binding.
@@ -652,7 +612,6 @@ which are bound to no name), this exact program would compile clean and return *
 binding declared `let`, with no diagnostic anywhere.
 ```maxon
 type Cache
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let xs = [1, 2, 3]
 end 'Cache'
 
@@ -1076,7 +1035,6 @@ end 'main'
 
 <!-- test: error.top-level-let-struct-accessor-read-only -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1084,7 +1042,6 @@ typealias Count = int(0 to u64.max)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Box.make()
 
 	static function make() returns Box
@@ -1109,7 +1066,6 @@ error E3209: <fragment>:14:3: a return does not fit the declared result: the ret
 
 <!-- test: error.let-global-accessor-result-field-write -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1117,7 +1073,6 @@ typealias Count = int(0 to u64.max)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Box.make()
 
 	static function make() returns Box
@@ -1144,7 +1099,6 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'a', which is immutable
 
 <!-- test: error.let-global-accessor-result-two-hops-of-return -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1152,7 +1106,6 @@ typealias Count = int(0 to u64.max)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Box.make()
 
 	static function make() returns Box
@@ -1410,7 +1363,6 @@ error E3207: <fragment>:31:15: 'mint' takes `immutable` 'guards' (line 25: `var 
 
 <!-- test: error.let-global-accessor-result-to-field-writing-callee -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Box.make`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -1418,7 +1370,6 @@ typealias Count = int(0 to u64.max)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Box.make()
 
 	static function make() returns Box
@@ -2208,7 +2159,6 @@ the written-out argument is and refused where the written-out argument is: a cal
 parameter is E3207 at the call that omits the argument.
 
 <!-- test: a-parameter-default-may-name-a-let-global -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 All three spellings of the same argument are exercised side by
 side — omitted, written out, and a value of the caller's own — because "the default agrees with the
 written-out argument" is the property, not "the default compiles".
@@ -2219,7 +2169,6 @@ typealias Names = Array with Integer
 
 let sharedEmptyNames = Names.create(0)
 
-// TODO: default parameter values are not supported in minimaxon
 function describe(names Names = sharedEmptyNames) returns Integer
 	return names.count()
 end 'describe'
@@ -2240,7 +2189,6 @@ omitted=0 written=0 given=2
 ```
 
 <!-- test: a-parameter-default-may-call-an-accessor-that-returns-a-global -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The transitive half: the default is a CALL to an accessor that hands back the global's record.
 ```maxon
@@ -2255,7 +2203,6 @@ function shared() returns immutable Names
 	return sharedEmptyNames
 end 'shared'
 
-// TODO: default parameter values are not supported in minimaxon
 function describe(names Names = shared()) returns Integer
 	return names.count()
 end 'describe'
@@ -2273,7 +2220,6 @@ omitted=0
 ```
 
 <!-- test: a-defaulted-global-may-not-reach-a-mutating-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE CONTROL FOR THE NAME, AND IT IS THE HALF THAT MUST NOT BREAK.** Admitting the default is only
 half of the rule; the other half is that the refusal is at the write rather than dropped. The
@@ -2287,7 +2233,6 @@ typealias Names = Array with Integer
 
 let sharedEmptyNames = Names.create(0)
 
-// TODO: default parameter values are not supported in minimaxon
 function grow(names Names = sharedEmptyNames) returns Integer
 	names.push(1)
 	return names.count()
@@ -2303,7 +2248,6 @@ error E3207: <fragment>:13:12: 'grow' writes 'names' (line 8: `names.push(1)`); 
 ```
 
 <!-- test: a-defaulted-accessor-call-may-not-reach-a-mutating-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE CONTROL FOR THE ACCESSOR — AND ITS FAILURE WOULD BE A WRONG ANSWER, NOT A REFUSAL.** Identical to
@@ -2325,7 +2269,6 @@ function shared() returns immutable Names
 	return sharedEmptyNames
 end 'shared'
 
-// TODO: default parameter values are not supported in minimaxon
 function grow(names Names = shared()) returns Integer
 	names.push(1)
 	return names.count()
@@ -2858,8 +2801,6 @@ error E3005: specs/static-variables/error.an-array-literal-may-not-mix-two-enums
 
 <!-- test: error.an-unmarked-static-read-from-another-directory -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 An unmarked static member is visible in the declaring directory's subtree only, while the type
 around it stays exported and nameable everywhere. A reader outside the subtree may therefore write
 `Config` and must still be refused `used`, at the member token — the base is not the problem here and a
@@ -2868,7 +2809,6 @@ sentence about it sends the author to a name that is perfectly visible.
 ```maxon
 // --- file: dir_a/config.maxon
 export type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let used = 42 as FullRangeInt
 end 'Config'
 
@@ -3618,8 +3558,7 @@ xé
 ### A static member's initializer ends at the line holding the closing bracket of a kept `match` block
 
 <!-- test: error.a-match-expression-in-a-call-argument-of-a-static-let -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 The initializer of a module-level or `static` `let` calls `tag`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 enum Mode
@@ -3632,12 +3571,10 @@ function tag(text String, tail String) returns String
 end 'tag'
 
 type Holder
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let LABEL = tag(match Mode.loud 'm'
 		quiet gives "quiet"
 		loud gives "loud"
 	end 'm', tail: "!")
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let NEXT = "next"
 end 'Holder'
 
@@ -3651,8 +3588,6 @@ error E3220: <fragment>:12:21: the initializer of 'Holder.LABEL' calls 'tag': a 
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-static-let-names-the-initializer -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum ParseError implements Error
 	bad
@@ -3666,7 +3601,6 @@ function parse(n Count) returns Count throws ParseError
 end 'parse'
 
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let LEVEL = try parse(3) otherwise (e) 'h'
 		return 3
 	end 'h'
@@ -3682,8 +3616,6 @@ error E2080: <fragment>:15:3: `return` has no function to leave in the initializ
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-static-record-let-names-the-initializer -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 enum ParseError implements Error
 	bad
@@ -3705,7 +3637,6 @@ function makeConfig(n Count) returns Config throws ParseError
 end 'makeConfig'
 
 type Settings
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let CONFIG = try makeConfig(3) otherwise (e) 'h'
 		return Config.create(4)
 	end 'h'

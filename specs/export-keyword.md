@@ -1673,14 +1673,11 @@ file is the same refusal with a different noun — `function 'x' is not exported
 `static 'T.x' is not exported` are one rule.
 
 <!-- test: error.non-exported-static-read-cross-file -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: lib/holder.maxon
 export typealias Count = int(0 to u64.max)
 
 export type Holder
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let cached = Holder{value: 7}
 	export var value as Count
 end 'Holder'
@@ -1696,8 +1693,6 @@ error E3008: specs/export-keyword/error.non-exported-static-read-cross-file.maxo
 ```
 
 <!-- test: error.non-exported-static-constant-assign-cross-file -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 The write is refused at the same token for the same reason. Assignment reaches the member through the
 same qualified-name lookup a read does, so a refusal that fired only on the read would be a rule
 written once and applied in one of the two places it belongs.
@@ -1710,7 +1705,6 @@ static rather than the in-band pointer sentinel a record slot allows.
 ```maxon
 // --- file: lib/counter.maxon
 export type Counter
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let hits = 7 as FullRangeInt
 end 'Counter'
 

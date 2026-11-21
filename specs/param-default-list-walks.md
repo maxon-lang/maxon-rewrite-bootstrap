@@ -26,7 +26,7 @@ agree; the second is the control, and it passed throughout.
 ## Tests
 
 <!-- test: generic-feed-after-defaulted-param -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 A defaulted parameter ahead of a type-parameter-typed one. `item` feeds `T`, so a concrete
 instantiation over `String` must CONSUME the argument — the box takes ownership of the heap record.
 Unrecorded, the caller keeps ownership too, drops the String at scope exit, and the next iteration
@@ -37,7 +37,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	static function create(_ Integer = 1, item T) returns Self
 		return Self{item: item}
 	end 'create'
@@ -104,7 +104,7 @@ hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!he
 ```
 
 <!-- test: generic-feed-after-two-defaulted-params -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 Two defaults ahead of the fed parameter, one of them a String — so the walk has to step over a
 default whose expression is not a bare literal token, and the fed parameter sits at index 2.
 ```maxon
@@ -113,7 +113,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	static function create(_ Integer = 1, _ String = "n", item T) returns Self
 		return Self{item: item}
 	end 'create'
@@ -143,7 +143,7 @@ hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!hello!he
 ```
 
 <!-- test: error.a-discarded-parameter-names-nothing-to-read -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- positions: moved -->
 Two `_` parameters ahead of a named one, both defaulted and both labelled `_` at the call. `_` is the discard and binds nothing, so no body can read one, and a position that cannot be read carries no fact the call could attribute to the wrong one of the two.
 ```maxon
@@ -161,7 +161,7 @@ type Keeper
 	export var bag as Bag
 	export var tag as Num
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	static function make(_ Num = 1, _ Bag = Bag.create(), tag Num) returns Self
 		return Self{bag: _, tag: tag}
 	end 'make'
@@ -177,13 +177,13 @@ error E2004: <fragment>:17:20: Undefined variable '_'
 ```
 
 <!-- test: error.a-discarded-parameter-is-not-the-last-underscore -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- positions: moved -->
 Two `_` parameters, and a body that adds `_` to a named one. There is no `_` to read, so the sum is refused rather than answering with whichever `_` a name-keyed lookup lands on.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 function add(_ Num = 1, _ Num = 2, tag Num) returns Num
 	return _ + tag
 end 'add'
@@ -197,7 +197,7 @@ error E2004: <fragment>:5:9: Undefined variable '_'
 ```
 
 <!-- test: two-discarded-defaulted-parameters-leak-nothing -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 The program above without the read: two defaulted `_` parameters, the second a record, ahead of a named one, called with both defaults filled. Neither `_` is bound, enrolled or recorded under a shared name, so the record the default builds is dropped once and the run ends clean.
 ```maxon
 typealias Num = int(0 to 1000)
@@ -214,7 +214,7 @@ type Keeper
 	export var bag as Bag
 	export var tag as Num
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	static function make(_ Num = 1, _ Bag = Bag.create(), tag Num) returns Self
 		return Self{bag: Bag.create(), tag: tag}
 	end 'make'
@@ -288,14 +288,16 @@ bump
 ```
 
 <!-- test: each-defaulted-discard-fills-its-own-slot -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 Two `_` parameters, the second defaulted to the caller's line. Both defaults are supplied under the one name `_`, so a reader that finds a slot by that name would put the line number into the first `_` and refuse it against `Small`. The line lands in the `SourceLineNumber` slot.
 ```maxon
 typealias Small = int(0 to 5)
 
 typealias Num = int(0 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
 	return tag
 end 'f'
@@ -309,7 +311,7 @@ end 'main'
 ```
 
 <!-- test: a-discard-defaulted-by-a-call-fills-its-own-slot -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 The same two slots with the wider default produced by a call rather than a caller-location constant.
 ```maxon
 typealias Small = int(0 to 5)
@@ -322,7 +324,7 @@ function wide() returns Big
 	return 500
 end 'wide'
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 function f(_ Small = 3, _ Big = wide(), tag Num) returns Num
 	return tag
 end 'f'
@@ -337,8 +339,9 @@ end 'main'
 
 <!-- test: a-message-with-two-defaulted-discards-fills-each-slot -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 A service message declaring two `_` parameters: the request's payload slots are filled by position, not by the shared name `_`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -352,7 +355,8 @@ type Meter
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	export function bump(_ Small = 3, _ SourceLineNumber = __line__, by Integer)
 		self.n = self.n + by
 	end 'bump'
@@ -383,14 +387,16 @@ total=4
 <!-- test: a-spawned-call-fills-each-defaulted-discard-into-its-own-slot -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 `async f(tag: 5)` supplies both defaulted `_` arguments to the spawn.
 ```maxon
 typealias Small = int(0 to 5)
 
 typealias Num = int(0 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
 	sleep(1)
 	return tag
@@ -409,19 +415,22 @@ end 'main'
 ```
 
 <!-- test: functions-with-defaulted-discards-each-fill-their-own-slots -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 Two functions declaring the same two defaulted `_` parameters and differing in the type of the named one.
 ```maxon
 typealias Small = int(0 to 5)
 
 typealias Num = int(0 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function f(_ Small = 3, _ SourceLineNumber = __line__, tag Num) returns Num
 	return tag
 end 'f'
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function fText(_ Small = 3, _ SourceLineNumber = __line__, tag String) returns Num
 	return tag.count() as Num
 end 'fText'
@@ -435,7 +444,8 @@ end 'main'
 ```
 
 <!-- test: a-generic-instance-method-fills-each-defaulted-discard-into-its-own-slot -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 An instance method of a generic type with two defaulted `_` parameters before the one that carries the type parameter.
 ```maxon
 typealias Small = int(0 to 5)
@@ -449,7 +459,8 @@ type Box uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	function put(_ Small = 3, _ SourceLineNumber = __line__, value T) returns T
 		return value
 	end 'put'
@@ -499,7 +510,7 @@ kept
 
 <!-- test: error.a-message-whose-handler-writes-its-parameter-after-a-discard-refuses-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -514,7 +525,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
 	export function bump(_ Integer = 1, p isolated Cells) returns Integer
 		p.push(1)
@@ -540,7 +551,7 @@ error E3200: <fragment>:22:30: 'Shared' is not isolated: only a clean call, a `s
 
 <!-- test: a-message-whose-handler-only-reads-its-parameter-after-a-discard-accepts-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same message with a handler that only reads `p`.
@@ -554,7 +565,7 @@ type Store
 		return Self{seen: 0}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	// TODO: parameter capability 'immutable' is not supported in minimaxon
 	export function keep(_ Integer = 1, p immutable Cells) returns Integer
 		self.seen = self.seen + 1
@@ -584,7 +595,7 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: error.a-message-with-an-interface-parameter-before-a-discard-refuses-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -616,7 +627,7 @@ type Store
 	end 'create'
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	export function bump(d isolated Describable, _ Integer = 1, p isolated Cells) returns Integer
 		p.push(d.describe())
 		self.seen = self.seen + 1
@@ -642,7 +653,7 @@ error E3200: <fragment>:38:44: 'Shared' is not isolated: only a clean call, a `s
 <!-- test: a-promise-forwarded-by-a-method-with-discards-through-a-later-function-parameter-is-handed-on -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 An instance method with a receiver and two `_` parameters hands its promise to a function-typed parameter that comes after them. The function-typed parameter's position is read in the method's own numbering, receiver included, and the promise is taken by the function it reaches.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -669,7 +680,7 @@ type Hub
 		return Self{relayed: 0}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	function relay(_ Integer = 1, _ Integer = 2, sink Sink, pending IntPromiseArray, p IntPromise)
 		self.relayed = self.relayed + 1
 		sink(pending, p)
@@ -761,13 +772,13 @@ end 'main'
 ```
 
 <!-- test: error.two-labelled-discards-name-the-discard-and-never-a-synthesized-label -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 <!-- positions: moved -->
 Labelling `_` twice, the second time out of declaration order, fills the first `_` twice. The diagnostic spells the parameter `_`; the second `_`, which the call left to its default, never appears in it under a name of its own.
 ```maxon
 typealias Num = int(0 to 1000)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 function f(_ Num = 1, _ Num = 2, tag Num) returns Num
 	return tag
 end 'f'
@@ -781,7 +792,7 @@ error E3038: <fragment>:9:25: duplicate argument for parameter '_' of 'f'
 ```
 
 <!-- test: instance-methods-run-their-own-defaults -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: a defaulted discard parameter ('_') is not supported in minimaxon -->
 Two instance methods with a defaulted `_` each. The receiver sits at position 0 of both signatures, and the default each call runs is its own method's.
 ```maxon
 typealias Small = int(0 to 5)
@@ -800,12 +811,12 @@ type Gadget
 		return Self{n: 0}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	function m(_ Small = note(1), tag Num) returns Num
 		return self.n + tag
 	end 'm'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: a defaulted discard parameter ('_') is not supported in minimaxon
 	function mText(_ Small = note(2), tag String) returns Num
 		return self.n + tag.count() as Num
 	end 'mText'
@@ -916,7 +927,6 @@ error E2004: <fragment>:10:19: Undefined variable '_'
 ```
 
 <!-- test: default-holding-commas-does-not-split-the-list -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 A default whose expression carries commas of its own — a constructor call — must not be read as
 further parameters. `flag` is the third parameter and is reached only if the walk steps over the
 whole `Point.create(1, y: 2)` rather than stopping at its first comma.
@@ -932,16 +942,15 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: default parameter values are not supported in minimaxon
 function pick(base Integer, origin Point = Point.create(1, y: 2), flag bool = true) returns Integer
 	if flag 'yes'
-		return base + origin.x + origin.y
+		return try base + origin.x + origin.y otherwise panic("out of range")
 	end 'yes'
 	return base
 end 'pick'
 
 function main() returns ExitCode
-	return pick(39)
+	return try pick(39) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -949,7 +958,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-in-a-method-default-means-the-free-function-beside-a-later-types-method-of-that-name -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 A default expression is parsed after every body of its file, in the scope of the type that declares it. A later type's method named like a free function must not become a sibling of this type.
 ```maxon
 typealias Count = int(0 to 100)
@@ -965,9 +973,8 @@ type First
 		return Self{seed: 1}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(extra Count = helper()) returns Count
-		return self.seed + extra
+		return try self.seed + extra otherwise panic("out of range")
 	end 'run'
 end 'First'
 

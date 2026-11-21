@@ -50,15 +50,12 @@ end 'CharacterSet'
 ## Tests
 
 <!-- test: error.a-static-initialized-by-a-function-call-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A static initialized by a function call is refused
 
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let value = Config.makeValue()
 	export var n as Count
 
@@ -80,26 +77,23 @@ error E3220: <fragment>:5:21: the initializer of 'Config.value' calls 'Config.ma
 ```
 
 <!-- test: lazy-static.multiple-fields -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### Several struct-literal statics in one type
 
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Cache
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let a = Cache{n: 10}
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let b = Cache{n: 20}
 	export var n as Count
 
 	static function sum() returns Count
-		return Cache.a.n + Cache.b.n
+		return try Cache.a.n + Cache.b.n otherwise panic("out of range")
 	end 'sum'
 end 'Cache'
 
 function main() returns ExitCode
-	return Cache.sum()
+	return try Cache.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -107,7 +101,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.array-literal -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A static initialized by an array literal
 
 ```maxon
@@ -116,7 +109,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Lookup
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let values = IntArray from [10, 20, 30]
 
 	static function get(index Integer) returns Integer
@@ -138,12 +130,10 @@ end 'main'
 
 <!-- test: lazy-static.charset-cache -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### CharacterSet caching pattern
 
 ```maxon
 type WSCache
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let ws = CharacterSet.whitespacesAndNewlines
 
 	static function isWhitespace(c Character) returns bool
@@ -176,14 +166,12 @@ space tab
 
 <!-- test: lazy-static.collection-initializer -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A static initialized by a collection conversion
 
 ```maxon
 typealias CharSet = Set with Character
 
 type Vowels
-	// TODO: static fields (static let) are not supported in minimaxon
 	// TODO: character literals are not supported in minimaxon
 	static let vowelSet = CharSet from ['a', 'e', 'i', 'o', 'u']
 
@@ -205,8 +193,6 @@ true false true
 ```
 
 <!-- test: error.a-static-initialized-by-a-free-function-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ### A static initialized by a free function is refused
 
 A bare call inside a type body names the free function, and a free function is a call like any other.
@@ -224,7 +210,6 @@ type Pair
 end 'Pair'
 
 type Registry
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let cachedPair = buildPair()
 
 	static function getX() returns Count
@@ -246,7 +231,6 @@ error E3220: <fragment>:14:26: the initializer of 'Registry.cachedPair' calls 'b
 ```
 
 <!-- test: lazy-static.two-loads-in-one-function -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### Two loads of one static in the same function
 
 Every other case in this file reads its static through a one-load accessor. Here one function loads the same
@@ -254,7 +238,6 @@ static twice, and both loads answer with the same value.
 
 ```maxon
 type Vocab
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let indent = "  "
 
 	static function describe(a String, b String) returns String
@@ -279,7 +262,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.repeated-loads-across-a-branch -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### Several statics loaded repeatedly, including inside a branch
 
 Three loads of two different statics in one function, one of them on a conditional path: a load that runs on
@@ -287,9 +269,7 @@ only some paths answers with the same value as the loads that run on every path.
 
 ```maxon
 type Vocab
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let first = "A"
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let second = "B"
 
 	static function mix(flag bool) returns String
@@ -330,7 +310,6 @@ method, and the same literal at file scope is refused.
 
 <!-- test: lazy-static.struct-literal-initializer -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A static field initialized with a struct literal
 
 ```maxon
@@ -339,7 +318,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 1, b: 2}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -363,7 +341,6 @@ end 'main'
 
 <!-- test: lazy-static.struct-literal-managed-field -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct literal whose field is a String
 
 The box becomes the field's sole owner, so the literal's immortal record is CLONED in and released with
@@ -372,7 +349,6 @@ the box after `main` — this case is leak-gated (a missed drop, or a doubled on
 ```maxon
 type Holder
 	export var name as String
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let greeting = Holder{name: "hi"}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -396,7 +372,6 @@ hi
 
 <!-- test: lazy-static.struct-literal-field-from-constant -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct literal whose field is a top-level constant
 
 ```maxon
@@ -407,7 +382,6 @@ let SEED = 5
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: SEED, b: 2}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -431,7 +405,6 @@ end 'main'
 
 <!-- test: lazy-static.struct-literal-array-field -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct literal whose field is an array literal
 
 ```maxon
@@ -441,7 +414,6 @@ typealias CountArray = Array with Count
 
 type Holder
 	export var xs as CountArray
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let seeded = Holder{xs: [1, 2, 3]}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -464,7 +436,6 @@ end 'main'
 ```
 
 <!-- test: error.struct-literal-field-is-a-call -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A struct literal whose field is a static factory call is refused
 
@@ -483,7 +454,6 @@ end 'Inner'
 
 type Outer
 	export var inner as Inner
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let base = Outer{inner: Inner.create(7)}
 
 	static function get() returns Count
@@ -502,7 +472,6 @@ error E3220: <fragment>:15:20: the initializer of 'Outer.base' calls 'Inner.crea
 
 <!-- test: lazy-static.struct-literal-field-default -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct literal that omits a field with a declared default
 
 ```maxon
@@ -511,7 +480,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b = 7 as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 1}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -535,7 +503,6 @@ end 'main'
 
 <!-- test: lazy-static.struct-literal-in-two-types -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### Two types, each with its own struct-literal static
 
 ```maxon
@@ -543,7 +510,6 @@ typealias Count = int(0 to u64.max)
 
 type A
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let one = A{n: 1}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -554,7 +520,6 @@ end 'A'
 
 type B
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let two = B{n: 2}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -576,7 +541,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.struct-literal-never-read -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct-literal static nothing ever reads
 
 Nothing ever loads `Pair.origin`, and the program still runs to a clean exit.
@@ -587,7 +551,6 @@ public typealias Count = int(0 to u64.max)
 public type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{a: 1, b: 2}
 end 'Pair'
 
@@ -609,7 +572,6 @@ E3076 is the ordinary constructor restriction, reached from a static field's ini
 from a method body — the type name is what decides, not the position.
 
 <!-- test: error.struct-literal-initializer-nested-other-type -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -620,7 +582,6 @@ end 'Inner'
 
 type Outer
 	export var inner as Inner
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let base = Outer{inner: Inner{n: 7}}
 
 	static function get() returns Outer
@@ -670,7 +631,6 @@ the opposite of a call's rule. The refusal is the grammar's own, in the same wor
 method body gets.
 
 <!-- test: error.struct-literal-initializer-positional-fields -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -678,7 +638,6 @@ typealias Count = int(0 to u64.max)
 type Pair
 	export var a as Count
 	export var b as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let origin = Pair{1, 2}
 
 	static function get() returns Pair
@@ -702,8 +661,7 @@ An initializer is its whole token range, so a token left over after the expressi
 rather than ignored, in the words a body's binding gets (`specs/top-level-let.md`).
 
 <!-- test: error.static-field-init-trailing-tokens -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -716,7 +674,6 @@ type Box
 end 'Box'
 
 type Holder
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let b = Box.create() zzz
 
 	static function get() returns Integer

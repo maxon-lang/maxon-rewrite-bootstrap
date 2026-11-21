@@ -422,7 +422,6 @@ error E2046: specs/enum-match-only/error.default-without-throws.maxon:12:3: 'def
 ```
 
 <!-- test: default-throws-statement -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 enum Color
 	red
@@ -437,7 +436,6 @@ end 'MatchError'
 function checkColor(c Color) returns ExitCode throws MatchError
 	match c 'check'
 		green then return 1
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws MatchError.unmatched
 	end 'check'
 end 'checkColor'
@@ -453,7 +451,6 @@ end 'main'
 ```
 
 <!-- test: default-throws-no-match -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 enum Color
 	red
@@ -469,7 +466,6 @@ function checkColor(c Color) returns ExitCode throws MatchError
 	match c 'check'
 		red then return 1
 		green then return 2
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws MatchError.unmatched
 	end 'check'
 end 'checkColor'
@@ -485,7 +481,6 @@ end 'main'
 ```
 
 <!-- test: default-throws-expression -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 enum Color
 	red
@@ -501,7 +496,6 @@ function colorValue(c Color) returns ExitCode throws MatchError
 	let result = match c 'check'
 		red gives 10
 		green gives 20
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws MatchError.unmatched
 	end 'check'
 	return result
@@ -518,7 +512,6 @@ end 'main'
 ```
 
 <!-- test: default-throws-associated-value -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -535,9 +528,8 @@ end 'MatchError'
 
 function getValue(r Result) returns ExitCode throws MatchError
 	match r 'check'
-		success(v) then return v
-		failure(c) then return c
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
+		success(v) then return try v as ExitCode otherwise panic("out of range")
+		failure(c) then return try c as ExitCode otherwise panic("out of range")
 		default throws MatchError.unmatched
 	end 'check'
 end 'getValue'

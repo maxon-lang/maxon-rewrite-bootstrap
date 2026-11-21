@@ -218,10 +218,8 @@ error E3219: specs/unused-file-private-declaration/error.an-unused-function-spel
 ```
 
 <!-- test: used.a-static-binding-in-a-type-body-is-not-audited -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ```maxon
 type Counter
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let unread = 5
 
 	static function one() returns ExitCode

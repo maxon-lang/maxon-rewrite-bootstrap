@@ -381,7 +381,7 @@ error E2001: specs/if-statements/if-statements.shared-line-names-nothing-past-it
 ```
 
 <!-- test: if-statements.self-assignment-sharing-a-line-is-the-self-assignment -->
-<!-- skip: minimaxon does not parse the converted source: Expected '=' or the end of the line but got 'x' -->
+<!-- skip: minimaxon does not parse the converted source: Expected '=', 'and' or the end of the line but got 'x' -->
 <!-- positions: moved -->
 A self-assignment written after a statement on its line is refused as the self-assignment, the more specific error.
 ```maxon

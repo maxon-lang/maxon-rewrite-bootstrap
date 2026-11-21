@@ -3319,7 +3319,6 @@ end 'main'
 ```
 
 <!-- test: the-parameter-default-of-a-second-generic-method-reads-sizeof -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 `widthText` declares its own defaulted parameter. Its default is a helper function named after the method, and that helper reads the enclosing instance's layout descriptor like the method it belongs to.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3331,12 +3330,10 @@ type Gauge uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, extra Level = sizeof(T) as Level) returns Level
 		return n + extra
 	end 'width'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
 		return (n.count() as Level) + extra
 	end 'widthText'
@@ -3362,7 +3359,6 @@ end 'main'
 ```
 
 <!-- test: the-parameter-default-of-a-second-generic-method-builds-a-container -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -3370,18 +3366,16 @@ type Gauge uses T
 	typealias Held = Array with T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, held Held = Held.create(0)) returns Level
-		return n + (held.count() as Level)
+		return try n + (held.count() as Level) otherwise panic("out of range")
 	end 'width'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function widthText(n String, held Held = Held.create(0)) returns Level
-		return (n.count() as Level) + (held.count() as Level)
+		return try (n.count() as Level) + (held.count() as Level) otherwise panic("out of range")
 	end 'widthText'
 
 	function probe() returns Level
@@ -3405,7 +3399,6 @@ end 'main'
 ```
 
 <!-- test: a-function-typed-parameter-default-names-its-own-types-alias-beside-another-types -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 Two generic types each declare a `Transform` of their own. A default value and a closure written at a call each take the alias of the type that declares the method.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3414,7 +3407,7 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3424,18 +3417,17 @@ type Other uses U
 end 'Other'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3448,7 +3440,7 @@ typealias LevelOther = Other with Level
 function main() returns ExitCode
 	let b = LevelBox.create(3)
 	let o = LevelOther.create(3)
-	print("{b.run(5)} {b.run(5, f: function(x) gives x + 2)} {o.twice(function(x) gives x * 3, n: 2)}\n")
+	print("{b.run(5)} {b.run(5, f: function(x) gives try x + 2 otherwise panic("out of range"))} {o.twice(function(x) gives try x * 3 otherwise panic("out of range"), n: 2)}\n")
 	return 0
 end 'main'
 ```
@@ -3460,42 +3452,39 @@ end 'main'
 ```
 
 <!-- test: a-default-names-the-alias-of-the-type-declared-before-another-types-alias -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 The same two types with the default on the one declared first. `Other.twice` fills `triple`, a `function(Count)`, and `Box.run` still takes the `function(Level)` of the type declared last.
 ```maxon
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
 end 'Other'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3508,7 +3497,7 @@ typealias LevelOther = Other with Level
 function main() returns ExitCode
 	let b = LevelBox.create(3)
 	let o = LevelOther.create(3)
-	print("{o.twice(2)} {o.twice(2, f: function(x) gives x + 1)} {b.run(5)}\n")
+	print("{o.twice(2)} {o.twice(2, f: function(x) gives try x + 1 otherwise panic("out of range"))} {b.run(5)}\n")
 	return 0
 end 'main'
 ```
@@ -3520,23 +3509,21 @@ end 'main'
 ```
 
 <!-- test: a-default-names-an-alias-declared-below-the-method-that-spells-it -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 The member `typealias` written after the method whose parameter spells it, in the type declared first.
 ```maxon
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 type Late uses U
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3544,18 +3531,17 @@ type Late uses U
 end 'Late'
 
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Early uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3580,7 +3566,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-before-another -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 Two types each extended with a `Transform` of their own, the one that spells `Count` first and the one that spells `Level` last. Each default fills its own extension's alias.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3603,7 +3589,6 @@ end 'Plain'
 
 extension Plain
 	typealias Transform = function(Count) returns Count
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3619,7 +3604,6 @@ end 'Leveled'
 
 extension Leveled
 	typealias Transform = function(Level) returns Level
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3644,7 +3628,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-after-another -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 The same two extensions with the order swapped, so the one that spells `Count` is declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3675,7 +3659,6 @@ end 'Leveled'
 
 extension Leveled
 	typealias Transform = function(Level) returns Level
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3683,7 +3666,6 @@ end 'Leveled'
 
 extension Plain
 	typealias Transform = function(Count) returns Count
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3764,25 +3746,23 @@ end 'main'
 ```
 
 <!-- test: a-default-names-its-own-types-alias-when-the-other-type-is-in-another-file -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 The two types in two files, so the file order the loader walks decides which `Transform` is last.
 ```maxon
 // --- file: a.maxon
 typealias Level = int(0 to 125)
 
 function triple(x Count) returns Count
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(item U) returns Self
+	static function create(consumes item U) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3790,18 +3770,17 @@ end 'Other'
 
 // --- file: b.maxon
 function bump(x Level) returns Level
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3815,7 +3794,7 @@ typealias LevelOther = Other with Level
 function main() returns ExitCode
 	let b = LevelBox.create(3)
 	let o = LevelOther.create(3)
-	print("{o.twice(2)} {o.twice(2, f: function(x) gives x + 1)} {b.run(5)}\n")
+	print("{o.twice(2)} {o.twice(2, f: function(x) gives try x + 1 otherwise panic("out of range"))} {b.run(5)}\n")
 	return 0
 end 'main'
 ```
@@ -3827,7 +3806,7 @@ end 'main'
 ```
 
 <!-- test: three-directories-each-declare-a-transform-and-the-last-declares-it-in-an-extension -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
@@ -3858,7 +3837,6 @@ type Box uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3889,7 +3867,6 @@ type Late uses U
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3908,7 +3885,6 @@ type Early uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3946,7 +3922,6 @@ end 'Plain'
 
 extension Plain
 	typealias Transform = function(Count) returns Count
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -3962,7 +3937,6 @@ end 'Leveled'
 
 extension Leveled
 	typealias Transform = function(Level) returns Level
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -3997,7 +3971,7 @@ end 'main'
 ```
 
 <!-- test: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
@@ -4015,7 +3989,6 @@ type Box uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
 	end 'run'
@@ -4044,7 +4017,6 @@ end 'Plain'
 
 extension Plain
 	typealias Transform = function(Count) returns Count
-	// TODO: default parameter values are not supported in minimaxon
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
@@ -4073,7 +4045,6 @@ end 'main'
 ```
 
 <!-- test: the-default-of-a-second-method-is-filled-at-a-call-from-main -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -4084,12 +4055,10 @@ type Gauge uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, extra Level = sizeof(T) as Level) returns Level
 		return n + extra
 	end 'width'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
 		return (n.count() as Level) + extra
 	end 'widthText'
@@ -4114,7 +4083,6 @@ end 'main'
 ```
 
 <!-- test: the-default-of-a-second-method-is-filled-at-a-call-from-a-closure -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -4125,12 +4093,10 @@ type Gauge uses T
 		return Self{item: item}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, extra Level = sizeof(T) as Level) returns Level
 		return n + extra
 	end 'width'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
 		return (n.count() as Level) + extra
 	end 'widthText'
@@ -4162,7 +4128,6 @@ end 'main'
 ```
 
 <!-- test: the-default-of-a-second-method-declared-in-an-extension-reads-sizeof -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -4175,14 +4140,14 @@ type Gauge uses T
 end 'Gauge'
 
 extension Gauge
-	// TODO: default parameter values are not supported in minimaxon
 	function width(n Level, extra Level = sizeof(T) as Level) returns Level
 		return n + extra
 	end 'width'
-	// TODO: default parameter values are not supported in minimaxon
+
 	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
 		return (n.count() as Level) + extra
 	end 'widthText'
+
 	function probe() returns Level
 		return self.widthText("abcd")
 	end 'probe'
@@ -4207,7 +4172,6 @@ end 'main'
 ```
 
 <!-- test: the-default-of-a-second-static-reads-sizeof -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
@@ -4222,12 +4186,10 @@ type Gauge uses T
 		return 7
 	end 'fixed'
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function width(n Level, extra Level = sizeof(T) as Level) returns Level
 		return n + extra
 	end 'width'
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function widthText(n String, extra Level = sizeof(T) as Level) returns Level
 		return (n.count() as Level) + extra
 	end 'widthText'
@@ -4251,7 +4213,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-the-default-of-a-generic-function-instance-named-over-a-range-finds-its-host -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The instance's name holds the `$` of its range-qualified type argument, and so does the name of the closure lifted out of its default helper.
 ```maxon
@@ -4259,7 +4220,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias Pred = function(Count) returns bool
 
-// TODO: default parameter values are not supported in minimaxon
 function accept(x T, f Pred = function(v Count) gives v > 1) uses T returns bool
 	// TODO: sizeof(...) is not supported in minimaxon
 	return f(sizeof(T) + (0 if x == x else 1))
@@ -4281,7 +4241,6 @@ true false
 
 <!-- test: a-service-message-default-takes-its-subject-from-the-service-not-the-first-argument -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The message's first written argument is itself a generic instance, over a type that is not the service's. The default reads the service's own `T`.
@@ -4306,7 +4265,6 @@ type Sink uses T
 	end 'create'
 
 	// TODO: parameter capability 'isolated' is not supported in minimaxon
-	// TODO: default parameter values are not supported in minimaxon
 	export function put(c isolated IntCell, extra Count = sizeof(T)) returns Count
 		return extra + (c.item as Count) * 0
 	end 'put'
@@ -4330,7 +4288,6 @@ end 'main'
 
 <!-- test: a-service-message-without-arguments-fills-a-default-that-reads-sizeof -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Sink uses T
@@ -4340,7 +4297,6 @@ type Sink uses T
 		return Self{tag: tag}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	export function width(extra Count = sizeof(T)) returns Count
 		return extra
 	end 'width'
@@ -4369,7 +4325,6 @@ end 'main'
 ```
 
 <!-- test: a-factory-with-an-inferred-instance-fills-a-default-that-reads-sizeof -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -4377,7 +4332,6 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function make(x T, n Count = sizeof(T)) returns Self
 		return Self{item: x, n: n}
 	end 'make'
@@ -4396,7 +4350,6 @@ end 'main'
 ```
 
 <!-- test: a-factory-with-an-inferred-instance-fills-a-default-inside-another-generic-type -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -4404,7 +4357,6 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function make(x T, n Count = sizeof(T)) returns Self
 		return Self{item: x, n: n}
 	end 'make'

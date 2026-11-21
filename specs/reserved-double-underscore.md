@@ -790,7 +790,6 @@ end 'main'
 ```
 
 <!-- test: error.stdlib-overlay-mm-leak-check-takes-a-rooted-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 
 ⭐ **THE ROOTED-NAME DOOR — the same rule where there is NO PAIR TO COUNT.** `__mm_leak_check` is one of the four
 names `DeadFunctionElimination.seedRoots` roots into EVERY program's reachability set, so a heap-free

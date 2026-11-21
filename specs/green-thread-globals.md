@@ -465,14 +465,12 @@ typealias NameArray = Array with String
 
 <!-- test: a-handler-reads-a-static-let-during-the-exit-drain -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 The same for a type's `static let`: it is a global too, and the drain's handlers read it after `main` has
 returned.
 ```maxon
 type Label
 	export let text as String
 	export let weight as Integer
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let standard = Label{text: "a label held as image data", weight: 40}
 end 'Label'
 
@@ -512,12 +510,10 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: a-static-let-in-a-program-that-spawns-a-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 The `let` twin of the case above: a `static let` is written once before any green thread exists, so a
 message may read it.
 ```maxon
 type Counter
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let step = 6
 	var n as Integer
 

@@ -126,7 +126,7 @@ error E3005: specs/type-checking/stdlib-function-call-wrong-type.maxon:3:2: argu
 ```
 
 <!-- test: implicit-method-call-wrong-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'items' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'items' -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)

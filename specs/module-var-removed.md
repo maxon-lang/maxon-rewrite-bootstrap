@@ -47,12 +47,12 @@ error E2001: <fragment>:2:8: Expected function declaration, got 'var'
 ```
 
 <!-- test: error.a-static-var-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: static fields are supported in minimaxon only as 'static let' in a type body -->
 <!-- positions: moved -->
 After `static` a type body takes a function or a `let`, so a `static var` is refused at the `var` token.
 ```maxon
 type Counter
-	// TODO: static fields (static let) are not supported in minimaxon
+	// TODO: static fields are supported in minimaxon only as 'static let' in a type body
 	static var count = 0 as FullRangeInt
 end 'Counter'
 
@@ -65,13 +65,11 @@ error E2010: <fragment>:3:9: Expected 'function' but got 'var'
 ```
 
 <!-- test: a-module-let-and-a-static-let-stay-legal -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 The control: a module-level `let` and a `static let` are the file-scope and type-scope bindings.
 ```maxon
 let limit = 40
 
 type Config
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let extra = 2
 end 'Config'
 

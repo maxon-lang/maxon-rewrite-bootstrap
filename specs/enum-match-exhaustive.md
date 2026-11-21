@@ -295,7 +295,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.trailing-fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 enum Color
 	red
@@ -309,7 +308,6 @@ function main() returns ExitCode
 	match c 'check'
 		red then x = 1
 		green then x = 2
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		blue then x = 3 and fallthrough
 	end 'check'
 	return x
@@ -320,7 +318,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.default-throws -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 ```maxon
 enum Color
 	red
@@ -337,7 +334,6 @@ typealias ColorCode = int(0 to 10)
 function checkColor(c Color) returns ColorCode throws AppError
 	match c 'check'
 		red then return 1
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws AppError.unmatched
 	end 'check'
 end 'checkColor'
@@ -603,7 +599,7 @@ end 'main'
 ```
 
 <!-- test: error.enum-qualified-case-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 ```maxon
 enum Color

@@ -775,7 +775,7 @@ on one fused value and the drops shared by every throw edge carry that value alo
 in turn, with the owners bound before it released and the ones after it never built.
 
 <!-- test: routed-throw-of-two-error-types-through-shared-drops -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 typealias Index = int(0 to 255)
 

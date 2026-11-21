@@ -690,10 +690,11 @@ ok
 ```
 
 <!-- test: an-extension-adds-a-custom-level-helper -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extensions of 'Log' are not supported in minimaxon -->
 <!-- skip: extensions of 'Logger' are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 A program adds its own level helper to `Log` and `Logger` by extension, forwarding its caller's location, so
 the record names the line that called the helper; the level filters it by rank.
 ```maxon
@@ -704,7 +705,8 @@ end 'auditLevel'
 
 // TODO: extensions of 'Log' are not supported in minimaxon
 extension Log
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: the caller-location default '__file__' is not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	public static function audit(message String, attrs LogAttrArray = LogAttrArray.create(0), file String = __file__, line SourceLineNumber = __line__)
 		Log.log(auditLevel(), message: message, attrs: attrs, file: file, line: line)
 	end 'audit'
@@ -712,7 +714,8 @@ end 'Log'
 
 // TODO: extensions of 'Logger' are not supported in minimaxon
 extension Logger
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: the caller-location default '__file__' is not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	public function audit(message String, attrs LogAttrArray = LogAttrArray.create(0), file String = __file__, line SourceLineNumber = __line__)
 		self.log(auditLevel(), message: message, attrs: attrs, file: file, line: line)
 	end 'audit'

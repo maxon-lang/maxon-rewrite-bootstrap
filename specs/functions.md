@@ -1588,7 +1588,7 @@ error E3004: <fragment>:14:17: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-called-alone-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1611,7 +1611,7 @@ error E3004: <fragment>:8:11: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-thrown-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1633,7 +1633,7 @@ error E3004: <fragment>:8:9: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-called-alone-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic' or 'then' but got '.' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1800,18 +1800,16 @@ end 'main'
 ```
 
 <!-- test: multi-line-parameter-list-with-defaults -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function span(low Integer = 1, high Integer = 10) returns Integer
-	return high - low
+	return try high - low otherwise panic("out of range")
 end 'span'
 
 function main() returns ExitCode
 	let r = span(high: 4)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

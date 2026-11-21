@@ -513,7 +513,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-global-container-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static let` is `immutable` image data, and an element of a plain `Array with Box` is a place something may write, so pushing the `let`'s record into one is refused; declare the element `immutable Box`, or push a `clone()`.
 
@@ -524,7 +523,6 @@ typealias Boxes = Array with Box
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -554,7 +552,7 @@ error E3196: <fragment>:16:16: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-handed-to-a-callee-that-keeps-it-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `stash` keeps its parameter in a container and in a field, so handing it a `static let` is refused; pass a `clone()`.
 
@@ -565,7 +563,6 @@ typealias Boxes = Array with Box
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -606,7 +603,7 @@ error E3207: <fragment>:37:8: 'stash' writes 'b' (line 24: `registry.push(b)`); 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-handed-to-a-factory-that-keeps-it-in-a-field-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Holder.create` keeps its parameter in a `var` field, so handing it a `static let` is refused; pass a `clone()`.
 
@@ -615,7 +612,6 @@ typealias Count = int(0 to 1000)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -643,7 +639,6 @@ error E3197: <fragment>:25:2: cannot write 'n' through 'h.box', which is read-on
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-pushed-into-a-local-array-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A local array's element is a mutable place, so pushing a `static let`'s record into it is refused.
 
@@ -654,7 +649,6 @@ typealias Boxes = Array with Box
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -676,7 +670,6 @@ error E3196: <fragment>:18:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-a-map-and-a-global-field-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal's element and a field of a `var` holder are each a mutable place, so storing a `static let`'s record into either is refused.
 
@@ -687,7 +680,6 @@ typealias BoxMap = Map with (Count, Box)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -732,7 +724,6 @@ error E3196: <fragment>:33:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-and-a-map-value-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal's element is a mutable place, so storing a `static let`'s record into it is refused.
 
@@ -743,7 +734,6 @@ typealias BoxMap = Map with (Count, Box)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -768,7 +758,6 @@ error E3196: <fragment>:17:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-map-value-is-refused -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A value handed to `upsert` is stored in a mutable place, so storing a `static let`'s record into a map value is refused.
 
@@ -779,7 +768,6 @@ typealias BoxMap = Map with (Count, Box)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -949,7 +937,6 @@ end 'main'
 
 <!-- test: let-escape.a-static-lets-record-a-call-hands-back-is-stored-as-a-clone -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`. Storing `pick().clone()` stores an independent record, so the write through the field leaves the `let` as it was.
 
 ```maxon
@@ -957,7 +944,6 @@ typealias Count = int(0 to 1000)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self
@@ -3050,7 +3036,6 @@ a7
 
 <!-- test: let-escape.error.a-static-lets-record-a-call-hands-back-cannot-be-stored-where-it-is-written -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 `pick` returns a `static let`, which is `immutable`, so its result is declared `immutable`; storing the call's result into a `var` field is refused and asks for a `clone()`.
 
@@ -3059,7 +3044,6 @@ typealias Count = int(0 to 1000)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self

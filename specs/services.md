@@ -3379,18 +3379,15 @@ sent the second ping
 
 <!-- test: a-message-with-a-defaulted-first-parameter-may-name-it -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Meter
 	var n as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(start Integer = 0) returns Self
 		return Self{n: start}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	export function bump(by Integer = 1)
 		self.n = self.n + by
 	end 'bump'
@@ -3424,18 +3421,15 @@ total=11
 
 <!-- test: a-message-with-a-defaulted-first-parameter-takes-it-positionally -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 type Meter
 	var n as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(start Integer = 0) returns Self
 		return Self{n: start}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	export function bump(by Integer = 1)
 		self.n = self.n + by
 	end 'bump'
@@ -20215,7 +20209,6 @@ end 'main'
 
 <!-- test: services.a-factory-with-defaults-and-labels-runs-on-the-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Labels reorder the factory's arguments and defaults fill the omitted ones before the call crosses to the service's
 thread, so the service starts from exactly the values an ordinary call would have bound.
@@ -20225,7 +20218,6 @@ typealias Whole = int(i64.min to i64.max)
 type Calc
 	var value as Whole
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(first Whole, scale Whole = 10, offset Whole = 1) returns Self
 		return Self{value: first * scale + offset}
 	end 'create'

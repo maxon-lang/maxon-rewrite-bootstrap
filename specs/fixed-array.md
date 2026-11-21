@@ -2908,7 +2908,6 @@ name2 2
 
 <!-- test: a-constant-fixed-array-of-string-literals-is-read-cloned-and-dropped -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A `let` fixed array of string literals is image data, in a module-level `let` and in a `static let` alike. Reading it allocates nothing, and its `clone()` is a real heap copy that owns its elements: writing and refilling the clone changes none of the image, and dropping the clone frees the heap strings it was given and releases nothing the image owns. Leak-gated and poisoned against a double free: `ab cde changed2 k2 f zzz 2` then `r2 r2 r2 3`.
 ```maxon
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
@@ -2917,7 +2916,6 @@ typealias Trio = FixedArray with 3 String
 let Names = Trio from ["ab", "cde", "f"]
 
 type Registry
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let words = Trio from ["x", "yy", "zzz"]
 
 	static function lengthOfSecond() returns Count

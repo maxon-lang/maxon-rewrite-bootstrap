@@ -550,19 +550,17 @@ end 'main'
 ```
 
 <!-- test: pass-by-reference.default-param-value -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function addOffset(x Integer, offset Integer = 10) returns Integer
-	return x + offset
+	return try x + offset otherwise panic("out of range")
 end 'addOffset'
 
 function main() returns ExitCode
 	let result = addOffset(32)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

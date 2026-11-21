@@ -1058,7 +1058,7 @@ error E3197: <fragment>:18:7: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-static-let-array-beside-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -1066,7 +1066,6 @@ typealias Digit = int(0 to 9)
 typealias Digits = Array with Digit
 
 type Table
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let Primes = Digits from [2, 3, 5, 7]
 
 	static function get(fresh bool) returns Digits
@@ -1357,14 +1356,13 @@ end 'main'
 ```
 
 <!-- test: a-static-let-record-beside-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias Tally = int(0 to u64.max)
 
 type Box
 	export var n as Tally
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let Shared = Self{n: 7}
 
 	static function create(n Tally) returns Self

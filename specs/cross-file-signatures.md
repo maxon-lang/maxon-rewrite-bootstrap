@@ -605,7 +605,6 @@ error E3004: <fragment>:12:12: call to undefined function 'brokeHidden'
 ```
 
 <!-- test: cross-file-signatures.a-defaulted-parameter-of-a-factory-in-another-file-fills-in-a-local-initializer -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 `main.maxon`'s initializer omits `create`'s defaulted `n`, so the compiler calls the default's helper, which `types.maxon` declares. The helper is the compiler's call and no name `main.maxon` wrote, so the initializer is not refused for a file that cannot name it. It prints `6`.
 ```maxon
 // --- file: types.maxon
@@ -614,9 +613,8 @@ typealias Integer = int(0 to 100000)
 type Rec
 	var v as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(n Integer = 5) returns Self
-		return Self{v: n + 1}
+		return Self{v: try n + 1 otherwise panic("out of range")}
 	end 'create'
 end 'Rec'
 

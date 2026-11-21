@@ -90,9 +90,7 @@ A first argument whose parameter is required stays positional; labelling it is `
 ## Tests
 
 <!-- test: default-values.string-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function greet(name String = "World") returns ExitCode
 	print("Hello, {name}!")
 	return 0
@@ -110,9 +108,7 @@ Hello, World!
 ```
 
 <!-- test: default-values.string-default-provided -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function greet(name String = "World") returns ExitCode
 	print("Hello, {name}!")
 	return 0
@@ -130,9 +126,7 @@ Hello, Maxon!
 ```
 
 <!-- test: default-values.string-default-empty -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function show(label String = "") returns ExitCode
 	print("[{label}]")
 	return 0
@@ -150,23 +144,21 @@ end 'main'
 ```
 
 <!-- test: default-values.array-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: default parameter values are not supported in minimaxon
 function sum(items IntArray = [10, 20, 12]) returns Integer
 	var total = 0 as Integer
 	for item in items 'loop'
-		total = total + item
+		total = try total + item otherwise panic("out of range")
 	end 'loop'
 	return total
 end 'sum'
 
 function main() returns ExitCode
-	return sum()
+	return try sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -174,23 +166,21 @@ end 'main'
 ```
 
 <!-- test: default-values.array-default-provided -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: default parameter values are not supported in minimaxon
 function sum(items IntArray = [10, 20, 12]) returns Integer
 	var total = 0 as Integer
 	for item in items 'loop'
-		total = total + item
+		total = try total + item otherwise panic("out of range")
 	end 'loop'
 	return total
 end 'sum'
 
 function main() returns ExitCode
-	return sum([1, 2, 3])
+	return try sum([1, 2, 3]) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -198,21 +188,19 @@ end 'main'
 ```
 
 <!-- test: default-values.bool-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function choose(flag bool = true, a Integer = 40, b Integer = 10) returns Integer
 	if flag 'check'
-		return a + 2
+		return try a + 2 otherwise panic("out of range")
 	end 'check' else 'other'
 		return b
 	end 'other'
 end 'choose'
 
 function main() returns ExitCode
-	return choose()
+	return try choose() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -220,7 +208,6 @@ end 'main'
 ```
 
 <!-- test: default-values.enum-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 enum Color
 	red
@@ -228,9 +215,8 @@ enum Color
 	blue
 end 'Color'
 
-// TODO: default parameter values are not supported in minimaxon
 function paint(color Color = Color.blue) returns ExitCode
-	return color.rawValue
+	return try color.rawValue as ExitCode otherwise panic("out of range")
 end 'paint'
 
 function main() returns ExitCode
@@ -242,11 +228,9 @@ end 'main'
 ```
 
 <!-- test: default-values.mixed-defaults -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function process(label String = "result", value Integer = 42) returns ExitCode
 	print("{label}: {value}")
 	return 0
@@ -264,9 +248,7 @@ result: 42
 ```
 
 <!-- test: default-values.string-default-with-escape -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function show(msg String = "line1\nline2") returns ExitCode
 	print(msg)
 	return 0
@@ -285,12 +267,10 @@ line2
 ```
 
 <!-- test: default-values.float-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 A float default on a ranged float alias, interpolated.
 ```maxon
 typealias Number = float(f64.min to f64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function scale(factor Number = 2.5) returns ExitCode
 	print("{factor}")
 	return 0
@@ -308,7 +288,6 @@ end 'main'
 ```
 
 <!-- test: default-values.struct-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -321,13 +300,12 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: default parameter values are not supported in minimaxon
 function sum(p Point = Point.create(10, y: 32)) returns Integer
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
-	return sum()
+	return try sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -335,7 +313,6 @@ end 'main'
 ```
 
 <!-- test: default-values.struct-default-provided -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -348,13 +325,12 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: default parameter values are not supported in minimaxon
 function sum(p Point = Point.create(10, y: 32)) returns Integer
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
-	return sum(Point.create(1, y: 2))
+	return try sum(Point.create(1, y: 2)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -362,9 +338,8 @@ end 'main'
 ```
 
 <!-- test: default-values.char-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'A' -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
 function initial(c Character = 'A') returns ExitCode
 	print("{c}")
 	return 0
@@ -382,17 +357,15 @@ A
 ```
 
 <!-- test: default-values.bytestring-default-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function checkLen(data ByteArray = b"hello") returns Integer
-	return data.count()
+	return try data.count() as Integer otherwise panic("out of range")
 end 'checkLen'
 
 function main() returns ExitCode
-	return checkLen()
+	return try checkLen() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -412,7 +385,6 @@ it FOLDS into a construction and never runs; `Box.make` multiplies, so it stays 
 footing.
 
 <!-- test: default-values.factory-fills-defaults -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to 255)
 
@@ -420,9 +392,8 @@ type Box
 	export let n as Count
 	export let tag as String
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function make(n Count, scale Count = 3, tag String = "d") returns Box
-		return Self{n: n * scale, tag: tag}
+		return Self{n: try n * scale otherwise panic("out of range"), tag: tag.clone()}
 	end 'make'
 end 'Box'
 
@@ -430,7 +401,6 @@ type Pair
 	export let a as Count
 	export let b as Count
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(a Count, b Count = 9) returns Pair
 		return Self{a: a, b: b}
 	end 'create'
@@ -458,22 +428,20 @@ sole owner of the array that helper returns — so the exit-101 leak gate is wha
 asserting, over and above the count it prints.
 
 <!-- test: default-values.factory-fills-a-managed-default -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Names = Array with String
 
 type Roster
 	export let names as Names
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function of(names Names = Names.create(0)) returns Roster
-		return Self{names: names}
+		return Self{names: names.clone()}
 	end 'of'
 end 'Roster'
 
 function main() returns ExitCode
 	let empty = Roster.of()
-	return empty.names.count() as ExitCode
+	return try empty.names.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,12 +455,9 @@ has to reach it. Anything left over is text the author wrote and the compiler wa
 `b Integer = 7 zzz` silently defaulted to 7, exactly as `"{7 zzz}"` silently printed 7.
 
 <!-- test: default-values.error.param-default-trailing-tokens -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function f(a Integer, b Integer = 7 zzz) returns Integer
 	return a + b
 end 'f'
@@ -512,12 +477,10 @@ point. Dropped, it made `b Real = 1e100` default to `1`: a hundred orders of mag
 Write `1.0e100`.
 
 <!-- test: default-values.error.param-default-exponent-without-point -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function f(a Real, b Real = 1 e100) returns Real
 	return a + b
 end 'f'
@@ -534,11 +497,9 @@ error E2010: specs/default-values/default-values.error.param-default-exponent-wi
 ### A defaulted first parameter may be named
 
 <!-- test: default-values.a-defaulted-first-parameter-may-be-named -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function connect(port Integer = 80, retries Integer = 3)
 	print("port={port} retries={retries}\n")
 end 'connect'
@@ -564,7 +525,6 @@ port=1 retries=5
 ```
 
 <!-- test: default-values.a-method-with-a-defaulted-first-parameter-may-name-it -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -575,7 +535,6 @@ type Probe
 		return Self{base: base}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
 	function configure(retries Integer = 3, delay Integer = 10) returns String
 		return "base={self.base} retries={retries} delay={delay}"
 	end 'configure'
@@ -599,7 +558,6 @@ base=1 retries=1 delay=10
 ```
 
 <!-- test: default-values.a-static-create-with-a-defaulted-first-parameter-may-name-it -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -607,7 +565,6 @@ type Grid
 	export let size as Integer
 	export let fill as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function create(size Integer = 4, fill Integer = 0) returns Self
 		return Self{size: size, fill: fill}
 	end 'create'
@@ -627,13 +584,11 @@ size=4 fill=1
 ```
 
 <!-- test: default-values.an-omitted-defaulted-first-parameter-lets-a-required-one-be-named-first -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function place(a Integer = 1, b Integer) returns Integer
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'place'
 
 function main() returns ExitCode
@@ -653,11 +608,9 @@ end 'main'
 <!-- test: default-values.an-async-call-may-name-a-defaulted-first-parameter -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function fetch(retries Integer = 3, delay Integer = 10) returns Integer
 	_ = File.exists(FilePath from "noyield.txt")
 	return retries * 100 + delay
@@ -680,7 +633,6 @@ end 'main'
 ```
 
 <!-- test: default-values.a-local-may-name-a-defaulted-first-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -688,9 +640,8 @@ type Scaler
 	export let factor as Integer
 	export let offset as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function make(scale Integer = 1, offset Integer = 0) returns Scaler
-		return Self{factor: scale * 2, offset: offset}
+		return Self{factor: try scale * 2 otherwise panic("out of range"), offset: offset}
 	end 'make'
 end 'Scaler'
 
@@ -708,12 +659,10 @@ end 'main'
 ```
 
 <!-- test: default-values.a-generic-function-with-a-defaulted-first-parameter-may-name-it -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
-function pick(times Integer = 1, item T) uses T returns T
+function pick(times Integer = 1, consumes item T) uses T returns T
 	print("times={times}\n")
 	return item
 end 'pick'
@@ -735,7 +684,6 @@ x 7
 ```
 
 <!-- test: default-values.a-generic-types-create-with-a-defaulted-first-parameter-may-name-it -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -743,8 +691,7 @@ type Crate uses T
 	export let size as Integer
 	export var item as T
 
-	// TODO: default parameter values are not supported in minimaxon
-	static function create(size Integer = 1, item T) returns Self
+	static function create(size Integer = 1, consumes item T) returns Self
 		return Self{size: size, item: item}
 	end 'create'
 end 'Crate'
@@ -769,12 +716,9 @@ end 'main'
 ### Error: A required first parameter stays positional
 
 <!-- test: default-values.error.a-required-first-parameter-is-still-positional -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function shift(a Integer, b Integer = 2) returns Integer
 	return a + b
 end 'shift'
@@ -788,8 +732,6 @@ error E2052: <fragment>:9:15: the first argument cannot be named because its par
 ```
 
 <!-- test: default-values.error.a-module-scope-constant-may-not-name-a-required-first-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -797,7 +739,6 @@ type Window
 	export let width as Integer
 	export let height as Integer
 
-	// TODO: default parameter values are not supported in minimaxon
 	static function make(width Integer, height Integer = 1) returns Window
 		return Self{width: width, height: height}
 	end 'make'

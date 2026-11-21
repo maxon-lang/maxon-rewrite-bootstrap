@@ -92,7 +92,8 @@ Both names are reserved words, so no program can declare or shadow them.
 ## Tests
 
 <!-- test: error.caller-location-at-module-scope -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Site.here`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -101,7 +102,8 @@ type Site
 	export let line as SourceLineNumber
 	export let file as String
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
+	// TODO: the caller-location default '__file__' is not supported in minimaxon
 	static function here(at SourceLineNumber = __line__, from String = __file__) returns Site
 		return Self{line: at, file: from}
 	end 'here'
@@ -119,10 +121,10 @@ error E3220: <fragment>:12:12: the initializer of 'site' calls 'Site.here': a mo
 ```
 
 <!-- test: caller-line -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: main.maxon
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function reportLine(tag String, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag}@{at}\n")
 	return at
@@ -146,9 +148,9 @@ this test is also what keeps the spec harness from batching caller-location test
 batched, every line here would shift by whatever precedes it in the batch.
 
 <!-- test: caller-line-single-file -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function markHere(tag String, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag}@{at}\n")
 	return at
@@ -167,10 +169,10 @@ single@8
 ```
 
 <!-- test: caller-line-differs-per-call-site -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: main.maxon
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function lineOf(tag String, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag}@{at}\n")
 	return at
@@ -191,10 +193,12 @@ second@8
 ```
 
 <!-- test: caller-file-and-line-across-files -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: helper.maxon
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__file__' is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function whereAmI(tag String, file String = __file__, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag}: {file}:{at}\n")
 	return at
@@ -220,10 +224,12 @@ insideMain: main.maxon:3
 ```
 
 <!-- test: explicit-argument-overrides -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: main.maxon
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__file__' is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function tell(tag String, file String = __file__, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag}: {file}:{at}\n")
 	return at
@@ -244,12 +250,14 @@ explicit: hand-written.maxon:99
 ```
 
 <!-- test: ordinary-default-alongside -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: main.maxon
 typealias Severity = int(0 to 9)
 
-// TODO: default parameter values are not supported in minimaxon
+// TODO: the caller-location default '__file__' is not supported in minimaxon
+// TODO: the caller-location default '__line__' is not supported in minimaxon
 function note(tag String, level Severity = 3, file String = __file__, at SourceLineNumber = __line__) returns SourceLineNumber
 	print("{tag} level={level} {file}:{at}\n")
 	return at
@@ -270,7 +278,7 @@ levelGiven level=5 main.maxon:10
 ```
 
 <!-- test: method-call-sites -->
-<!-- skip: default parameter values are not supported in minimaxon -->
+<!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 ```maxon
 // --- file: main.maxon
 type Probe
@@ -280,13 +288,13 @@ type Probe
 		return Self{tag: tag}
 	end 'create'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	static function mark(tag String, at SourceLineNumber = __line__) returns SourceLineNumber
 		print("{tag}@{at}\n")
 		return at
 	end 'mark'
 
-	// TODO: default parameter values are not supported in minimaxon
+	// TODO: the caller-location default '__line__' is not supported in minimaxon
 	function hit(at SourceLineNumber = __line__) returns SourceLineNumber
 		print("{self.tag}#{at}\n")
 		return at

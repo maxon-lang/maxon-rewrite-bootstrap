@@ -116,18 +116,16 @@ end 'main'
 ```
 
 <!-- test: default-param-named -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function repeat(value Integer, times Integer = 1) returns Integer
-	return value * times
+	return try value * times otherwise panic("out of range")
 end 'repeat'
 
 function main() returns ExitCode
-	return repeat(7, times: 6)
+	return try repeat(7, times: 6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -135,18 +133,16 @@ end 'main'
 ```
 
 <!-- test: default-param-omitted -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function repeat(value Integer, times Integer = 2) returns Integer
-	return value * times
+	return try value * times otherwise panic("out of range")
 end 'repeat'
 
 function main() returns ExitCode
-	return repeat(21)
+	return try repeat(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -330,7 +326,7 @@ ping
 ```
 
 <!-- test: multi-line-call-empty-list-comment-line -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'let' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'let' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -353,7 +349,7 @@ ping
 ```
 
 <!-- test: multi-line-call-empty-list-doc-comment-line -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'let' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'let' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

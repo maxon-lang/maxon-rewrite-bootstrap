@@ -3609,8 +3609,6 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-slot-mark-does-not-leak-into-a-parameter-default-helper -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **THE SIXTH VALUE SPACE — a PARAMETER DEFAULT's synthesized helper — must reset all three surface
@@ -3636,7 +3634,6 @@ function arrayPair() returns (ByteArray, Int)
 	return ("hi".toByteArray(), 3)
 end 'arrayPair'
 
-// TODO: default parameter values are not supported in minimaxon
 function withDefault(k Int = arrayPair().0.length()) returns Int
 	return k
 end 'withDefault'
@@ -3645,7 +3642,7 @@ function main() returns ExitCode
 	return withDefault() as ExitCode
 end 'main'
 
-function useBufferPair(p(__ManagedMemory, Int)) returns Int
+function useBufferPair(p (__ManagedMemory, Int)) returns Int
 	return p.0.length()
 end 'useBufferPair'
 ```

@@ -3195,14 +3195,11 @@ error E2073: <fragment>:6:18: 'IntIter' is an interface instance, so 'IntIter.ne
 ```
 
 <!-- test: error.a-static-of-a-generic-type-read-through-its-alias-names-the-type -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	var item as T
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let LIMIT = 42
 end 'Box'
 
@@ -3218,11 +3215,9 @@ error E2073: <fragment>:12:17: 'IntBox.LIMIT' is a static of 'Box', which is rea
 ```
 
 <!-- test: a-static-of-a-generic-type-is-read-through-the-type -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 ```maxon
 type Box uses T
 	var item as T
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let LIMIT = 42
 end 'Box'
 

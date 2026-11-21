@@ -859,15 +859,12 @@ end 'main'
 20
 ```
 <!-- test: match-statement-fallthrough -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	var result = 0 as FullRangeInt
 	match x 'cascade'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then result = result + 10 and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		2 then result = result + 20 and fallthrough
 		3 then result = result + 30
 		default then result = 100

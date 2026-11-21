@@ -104,7 +104,7 @@ error E2015: specs/doc-comments/doc-comments.not-an-array-element.maxon:3:11: Un
 ```
 
 <!-- test: doc-comments.not-a-block-body -->
-<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
+<!-- skip: minimaxon does not parse the converted source: empty block: 'ok' -->
 <!-- positions: moved -->
 A block holding nothing but a doc comment is still an EMPTY block, exactly as one holding only a `//`
 comment is.

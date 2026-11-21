@@ -26,13 +26,10 @@ These cases exist because a refusal nothing runs is a claim, not a door.
 ## Tests
 
 <!-- test: error-default-on-closure-parameter -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: default parameter values are not supported in minimaxon
 	let f = function(n Integer = 3) returns Integer
 		gives n
 	end 'f'
@@ -44,13 +41,10 @@ error E2015: <fragment>:5:29: Unsupported: a default value on closure parameter 
 ```
 
 <!-- test: error-default-on-interface-requirement -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 interface Greeter
-	// TODO: default parameter values are not supported in minimaxon
 	function greet(times Integer = 2) returns Integer
 end 'Greeter'
 
@@ -69,8 +63,6 @@ error E2015: <fragment>:5:31: Unsupported: a default value on interface requirem
 ```
 
 <!-- test: error-default-on-a-name-declared-twice -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 Both declarations default a parameter and the two shapes DIFFER — one parameter against two. The second is
 refused as the duplicate it is. Left to the whole-program duplicate check, which waits for every file to parse,
 the second declaration's own helper would be read back from the first's shape, find nothing at its
@@ -78,12 +70,10 @@ parameter's position, and the compiler would PANIC with no source position.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function f(a Integer = 1) returns Integer
 	return a
 end 'f'
 
-// TODO: default parameter values are not supported in minimaxon
 function f(x Integer, y Integer = 2) returns Integer
 	return x + y
 end 'f'
@@ -97,8 +87,6 @@ error E3006: <fragment>:8:10: duplicate definition of 'f' — already declared a
 ```
 
 <!-- test: two-files-agreeing-on-their-defaults-report-ONE-duplicate -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 Two files declaring one `f` with the SAME default shape are one duplicate, and they must earn exactly ONE
 E3006. A default is compiled as a synthesized function named after the declaration that owns it, so the
 duplicate `f` drags a duplicate `__paramDefault#f#0` behind it; reported, that second E3006 would explain a
@@ -107,13 +95,11 @@ symbol absent from the source.
 // --- file: a.maxon
 export typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 export function f(a Integer = 1) returns Integer
 	return a
 end 'f'
 
 // --- file: b.maxon
-// TODO: default parameter values are not supported in minimaxon
 export function f(a Integer = 1) returns Integer
 	return a + 1
 end 'f'
@@ -128,9 +114,7 @@ error E3006: <fragment>:10:17: duplicate definition of 'f' — already declared 
 ```
 
 <!-- test: error-default-on-a-duplicate-in-a-directory-a-second-directory-contests -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
 The same refusal in a directory whose bare name a second directory also declares. `beta/` declares a `pick`
 of its own, so `alpha/`'s declarations are registered under `alpha.pick`, and the first declaration's place
 in the registry has to travel with them: the second `alpha` declaration is still the duplicate.
@@ -142,7 +126,6 @@ export function pick(a Num) returns Num
 	return a
 end 'pick'
 
-// TODO: default parameter values are not supported in minimaxon
 export function pick(a Num, b Num = 5) returns Num
 	return a * 100 + b + 5
 end 'pick'
@@ -164,15 +147,12 @@ error E3006: alpha/<fragment>:9:17: duplicate definition of 'pick' — already d
 ```
 
 <!-- test: error-param-default-trailing-tokens -->
-<!-- skip: default parameter values are not supported in minimaxon -->
-<!-- positions: moved -->
 The capture walks to the `,` or `)` that ends the default, and the expression the drain parses out of
 that region has to reach it. Anything left over is text the author wrote and the compiler was about to
 ignore — dropped, `b Integer = 7 zzz` would silently default to 7.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function f(a Integer, b Integer = 7 zzz) returns Integer
 	return a + b
 end 'f'
@@ -186,7 +166,6 @@ error E2010: <fragment>:4:37: Expected 'end of default value' but got 'zzz'
 ```
 
 <!-- test: error-param-default-exponent-without-point -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- positions: moved -->
 `1e100` is the integer `1` followed by the identifier `e100` — a float literal must contain a decimal
 point. Dropped, it made `b Real = 1e100` default to `1`: a hundred orders of magnitude, silently.
@@ -194,7 +173,6 @@ Write `1.0e100`.
 ```maxon
 typealias Real = float(f64.min to f64.max)
 
-// TODO: default parameter values are not supported in minimaxon
 function f(a Real, b Real = 1 e100) returns Real
 	return a + b
 end 'f'

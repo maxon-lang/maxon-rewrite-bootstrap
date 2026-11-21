@@ -103,7 +103,6 @@ error E2015: specs/match-expr-all-arms-diverge/error.default-panic-is-the-only-a
 ```
 
 <!-- test: error.every-arm-throws -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 <!-- positions: moved -->
 The other divergent keyword, and a mix of the two doors: a `throws` pattern arm and a `throws` default,
 inside a function that declares `throws`. The condition is "no arm reaches the merge", so which keyword
@@ -119,7 +118,6 @@ end 'E'
 function pick(x Integer) returns ExitCode throws E
 	let r = match x 'e'
 		1 then throw E.bad
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws E.worse
 	end 'e'
 	return r

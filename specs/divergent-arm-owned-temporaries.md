@@ -47,7 +47,6 @@ stdout never checks the exit code — so the leak this whole spec is about would
 ## Tests
 
 <!-- test: default-throws-settles-a-borrowed-temporary -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `default` position, both ways through the match: `pick(1)` takes the `gives` arm and `pick(2)` takes the diverging
 `default`, whose thrown value borrows a field out of a temporary box. Without the `default`'s floor this
@@ -71,7 +70,6 @@ end 'E'
 function pick(n Small) returns Small throws E
 	let r = match n 'k'
 		1 gives 5
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws E.p(Box.make().name)
 	end 'k'
 	return r

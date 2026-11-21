@@ -564,7 +564,6 @@ error E2015: <fragment>:9:10: Unsupported: countof of a runtime-sized fixed arra
 ```
 
 <!-- test: error.a-default-argument-reading-countof-Self-is-refused -->
-<!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -581,7 +580,6 @@ typealias Vec3 = FixedArray with 3 Int
 
 // TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
-	// TODO: default parameter values are not supported in minimaxon
 	function padded(extra Count = countof(Self)) returns Int
 		return extra as Int
 	end 'padded'

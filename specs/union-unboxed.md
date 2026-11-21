@@ -917,7 +917,6 @@ end 'main'
 ```
 
 <!-- test: a-default-throws-over-a-word-union-still-tests-its-last-listed-case -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 A `default throws` leaves the miss reachable, so the match keeps the test of its last listed case: `third`, which no arm names, reaches the default and throws instead of running `second`'s arm on its payload.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -943,9 +942,8 @@ end 'Unmatched'
 
 function weigh(t Trio) returns Integer throws Unmatched
 	return match t 'trio'
-		first(value) gives value.byteLength() as Integer
-		second(at) gives at.x * 10 + at.y
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
+		first(value) gives try value.byteLength() as Integer otherwise panic("out of range")
+		second(at) gives try at.x * 10 + at.y otherwise panic("out of range")
 		default throws Unmatched.unhandled
 	end 'trio'
 end 'weigh'
@@ -1413,7 +1411,6 @@ mm_free ArrayRecord #7
 ```
 
 <!-- test: or-arms-and-default-over-the-payload-free-cases-of-a-wide-union -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
 <!-- MmTrace -->
 An `or` arm that names payload-free cases of both storages folds into compares of their keys, and a `default throws` keeps the test of the last case it lists: `skipped` and `text` reach the default, `done` and `failed` their arms.
 ```maxon
@@ -1457,7 +1454,6 @@ function partial(w Wide) returns Weight throws Unmatched
 	return match w 'innerPartial'
 		done gives 20
 		failed gives 30
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws Unmatched.unhandled
 	end 'innerPartial'
 end 'partial'

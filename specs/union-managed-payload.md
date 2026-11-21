@@ -409,7 +409,6 @@ a returned-arm payload string, long enough to be a real heap allocation
 ```
 
 <!-- test: borrowed-bind-in-an-arm-that-breaks -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The third arm exit: a `break` out of an enclosing loop drops the retained binding
 through the LOOP's floor. An arm is ONE statement, so a `break` cannot also read its
 binding — the arm reads it and falls through to the arm that breaks, which is the same
@@ -429,8 +428,7 @@ function show(m M) returns Integer
 	var seen = 0 as Integer
 	while i < 10 'spin'
 		match m 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			text(s) then seen = (try s.byteLength() as Integer otherwise panic("out of range")) and fallthrough
 			silent then break 'spin'
 		end 'k'
 		i = i + 1
@@ -440,7 +438,7 @@ end 'show'
 
 function main() returns ExitCode
 	let m = M.text("a broken-arm payload string, long enough to be a real heap allocation")
-	return show(m) as ExitCode
+	return try show(m) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1324,7 +1322,6 @@ bound first string long enough to heap
 ```
 
 <!-- test: fallthrough-out-of-a-binding-arm-into-a-payload-free-one -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The POSITIVE control for the three refusals below, and the reason they are narrow: falling
 OUT of a payload-binding arm is fine — the arm's own bindings were established by the case it
 actually matched, and they are dropped on the fallthrough edge like any other live exit. Only
@@ -1341,7 +1338,6 @@ function main() returns ExitCode
 	let u = U.a("the falling-through payload, long enough to be a heap string")
 	var t = 0 as Code
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(s) then print(s) and fallthrough
 		b then t = 7
 	end 'k'
@@ -1356,7 +1352,6 @@ the falling-through payload, long enough to be a heap string
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 A value moved in an arm that ends `and fallthrough` is released on the fallen-into arm's own
 dispatch edge, where the move never ran. Here `a`'s body is skipped, so `s` is still live when `b`
 is entered and nothing downstream would ever drop it.
@@ -1373,7 +1368,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.b 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
 		b then n = n + 7
 	end 'k'
@@ -1385,7 +1379,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-not-dropped-twice -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The control for the case above, entered at `a`: the move does run, `t` owns the string, and the
 taken fallthrough edge reaches the body without passing the dispatch edge's drop.
 ```maxon
@@ -1401,7 +1394,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.a 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
 		b then n = n + 7
 	end 'k'
@@ -1413,7 +1405,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-beside-a-fresh-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 A third arm that is entered FRESH sits beside the fallen-into one, so the match's merge also sees
 `s` moved on one reaching path and live on the other — the drop on the dispatch edge and the drop
 the merge places on the fresh arm's edge have to be right together.
@@ -1431,7 +1422,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.b 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
 		b then n = n + 7
 		c then n = n + 1
@@ -1444,7 +1434,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-chain-default -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 A `String` scrutinee keeps the per-arm compare chain, where the default's body is the last arm's
 fail target. The drop still goes on the edge alone: the default gets a body block of its own and
 that fail target becomes the edge into it.
@@ -1456,7 +1445,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match "b" 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		"a" then t = s and fallthrough
 		default then n = n + 7
 	end 'k'
@@ -1468,7 +1456,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-into-a-chain-default-is-not-dropped-twice -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 Its control, entered at `"a"`: the move runs and the fallthrough edge enters the default body
 directly, past the fail edge the drop sits on.
 ```maxon
@@ -1479,7 +1466,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match "a" 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		"a" then t = s and fallthrough
 		default then n = n + 7
 	end 'k'
@@ -1491,7 +1477,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-planned-default -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The other default shape: an integer scrutinee dispatches through the interval plan, so it is the
 plan's miss edges into the default that are wrapped.
 ```maxon
@@ -1502,7 +1487,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match 2 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then t = s and fallthrough
 		default then n = n + 7
 	end 'k'
@@ -1514,7 +1498,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-into-a-planned-default-is-not-dropped-twice -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 Its control, entered at `1`, so the move runs and the fallthrough edge carries it into the default.
 ```maxon
 typealias Code = int(0 to 255)
@@ -1524,7 +1507,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match 1 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		1 then t = s and fallthrough
 		default then n = n + 7
 	end 'k'
@@ -1536,7 +1518,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-is-dropped-on-the-dispatch-edge-of-a-chain-pattern-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The fallen-into arm of a compare chain is a PATTERN arm here rather than the default, so the drop
 goes on that arm's own match edge — the then-edge of the test that selected it.
 ```maxon
@@ -1547,7 +1528,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match "b" 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		"a" then t = s and fallthrough
 		"b" then n = n + 7
 		default then n = n + 1
@@ -1560,7 +1540,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-into-a-chain-pattern-arm-is-not-dropped-twice -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 Its control, entered at `"a"`: the fallthrough is taken and the match edge carrying the drop is
 never reached.
 ```maxon
@@ -1571,7 +1550,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match "a" 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		"a" then t = s and fallthrough
 		"b" then n = n + 7
 		default then n = n + 1
@@ -1584,7 +1562,6 @@ end 'main'
 ```
 
 <!-- test: a-var-moved-in-a-fallthrough-arm-beside-a-fresh-arm-taken-fresh-drops-once -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The third path of the three-arm match: the fresh arm runs alone, `s` was never moved on it, and
 the merge is the one that releases it.
 ```maxon
@@ -1601,7 +1578,6 @@ function main() returns ExitCode
 	var t = "a second heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.c 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
 		b then n = n + 7
 		c then n = n + 7
@@ -1614,7 +1590,6 @@ end 'main'
 ```
 
 <!-- test: two-vars-moved-along-a-fallthrough-chain-are-both-dropped-on-the-last-dispatch-edge -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 Two arms in a row end `and fallthrough`, and the match enters the last of them. A binding stays
 moved once it has been moved, so the state arriving at that arm holds BOTH moves and its one
 dispatch edge owes both drops.
@@ -1634,9 +1609,7 @@ function main() returns ExitCode
 	var w = "a fourth heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.c 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		b then w = u and fallthrough
 		c then n = n + 7
 	end 'k'
@@ -1648,7 +1621,6 @@ end 'main'
 ```
 
 <!-- test: two-vars-moved-along-a-fallthrough-chain-entered-at-the-middle-drop-once-each -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The same chain entered in the middle: that arm's dispatch edge drops what the first arm moved, and
 its own move then travels the taken fallthrough edge into the last arm.
 ```maxon
@@ -1667,9 +1639,7 @@ function main() returns ExitCode
 	var w = "a fourth heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.b 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		b then w = u and fallthrough
 		c then n = n + 7
 	end 'k'
@@ -1681,7 +1651,6 @@ end 'main'
 ```
 
 <!-- test: two-vars-moved-along-a-fallthrough-chain-taken-whole-are-not-dropped-twice -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The chain's control: entered at the first arm, every move runs and no dispatch edge is on the path.
 ```maxon
 typealias Code = int(0 to 255)
@@ -1699,9 +1668,7 @@ function main() returns ExitCode
 	var w = "a fourth heap string long enough to be a real allocation".clone()
 	var n = 0 as Code
 	match U.a 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a then t = s and fallthrough
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		b then w = u and fallthrough
 		c then n = n + 7
 	end 'k'
@@ -1713,8 +1680,6 @@ end 'main'
 ```
 
 <!-- test: error.fallthrough-into-a-managed-binding-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **A FALLTHROUGH TARGET MAY NOT BIND A PAYLOAD**, and this is the case that makes it a
 refusal rather than a rule on paper: `a(s) … and fallthrough` reaches `b(t)`'s body while the
 union holds an `a`, so `t` destructures a case the value does not have. **Unrefused it is a
@@ -1733,7 +1698,6 @@ end 'U'
 function main() returns ExitCode
 	let u = U.a("the fallthrough source payload, long enough to be a heap string")
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(s) then print(s) and fallthrough
 		b(t) then print(t)
 	end 'k'
@@ -1745,8 +1709,6 @@ error E2015: <fragment>:11:3: Unsupported: `and fallthrough` into the payload-bi
 ```
 
 <!-- test: error.fallthrough-into-a-borrowed-binding-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
 The same refusal on a BORROWED scrutinee, where the payload is retained rather
 than moved so the slot is intact — which makes the failure a silent TYPE CONFUSION instead of
 a crash: `b(n)`'s `Code` binding would read the `String` POINTER arm `a` matched. Unrefused it
@@ -1761,7 +1723,6 @@ end 'U'
 
 function show(u U) returns Code
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(s) then print(s) and fallthrough
 		b(n) then return n
 	end 'k'
@@ -1778,8 +1739,6 @@ error E2015: <fragment>:12:3: Unsupported: `and fallthrough` into the payload-bi
 ```
 
 <!-- test: error.fallthrough-into-a-scalar-binding-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
-<!-- positions: moved -->
 The refusal is about the BINDING, not about ownership: a SCALAR payload has no drop, no
 pointer and no crash, and is therefore the worst of the three — a silently wrong number.
 **Unrefused, the program answers 18** (`m` reads `a`'s `9`, so `t = 9 + 9`) where `b`'s payload
@@ -1796,7 +1755,6 @@ function main() returns ExitCode
 	let u = U.a(9)
 	var t = 0 as Code
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(n) then t = n and fallthrough
 		b(m) then t = t + m
 	end 'k'
@@ -1808,7 +1766,6 @@ error E2015: <fragment>:14:3: Unsupported: `and fallthrough` into the payload-bi
 ```
 
 <!-- test: a-fallthrough-out-of-a-binding-arm-reads-the-scrutinee -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The binding arm falls through into one that reads `m`; the bind retained the payload, so `grab` finds it whole.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1821,7 +1778,7 @@ end 'M'
 function grab(m M) returns Integer
 	return match m 'g'
 		silent gives 0 as Integer
-		text(s) gives s.byteLength() as Integer
+		text(s) gives try s.byteLength() as Integer otherwise panic("out of range")
 	end 'g'
 end 'grab'
 
@@ -1829,9 +1786,8 @@ function main() returns ExitCode
 	let m = M.text("an owned payload string, long enough to be a real heap allocation")
 	var n = 0 as Integer
 	match m 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-		text(s) then n = (s.byteLength() as Integer) and fallthrough
-		silent then n = n + grab(m)
+		text(s) then n = (try s.byteLength() as Integer otherwise panic("out of range")) and fallthrough
+		silent then n = try n + grab(m) otherwise panic("out of range")
 	end 'k'
 	print("n={n}")
 	return 0
@@ -1845,7 +1801,6 @@ n=130
 ```
 
 <!-- test: fallthrough-into-a-bare-payload-carrying-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The blast-radius guard for `error.fallthrough-into-a-*-binding-arm`: the refusal is about the
 BINDINGS, not about the case. A payload-carrying case named BARE binds nothing, destructures nothing,
 and is a legal fallthrough target — `b` reads no slot at all, so the edge from `a` carries no
@@ -1862,9 +1817,8 @@ function main() returns ExitCode
 	let u = U.a(9)
 	var t = 0 as Code
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(n) then t = n and fallthrough
-		b then t = t + 1
+		b then t = try t + 1 otherwise panic("out of range")
 	end 'k'
 	return t as ExitCode
 end 'main'
@@ -1874,7 +1828,7 @@ end 'main'
 ```
 
 <!-- test: fallthrough-into-an-or-pattern-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 The other half of that guard: an `or`-pattern arm can never bind (a payload binding on an `or`-pattern
 is `rejectOrPatternBinding`), so it reaches the fallthrough check with an empty binding list and passes
 it. A check that keyed on "does this arm's case carry a payload?" rather than on the bindings in hand
@@ -1892,7 +1846,6 @@ function main() returns ExitCode
 	let u = U.a(9)
 	var t = 0 as Code
 	match u 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		a(n) then t = n and fallthrough
 		b or
 			c then t = t + 1
@@ -2207,7 +2160,6 @@ r=65 after=65
 ```
 
 <!-- test: borrowed-bind-in-an-arm-that-continues -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The fourth arm exit, beside the fall-through, the `return` and the `break` already pinned: a
 `continue` drops the retained binding through the LOOP's floor. 200 rounds, so an unbalanced retain is
 exit 101 rather than a coin flip.
@@ -2228,8 +2180,7 @@ function show(m M) returns Integer
 	while i < 200 'spin'
 		i = i + 1
 		match m 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			text(s) then seen = (try s.byteLength() as Integer otherwise panic("out of range")) and fallthrough
 			silent then continue
 		end 'k'
 		n = n + 2
@@ -2251,7 +2202,6 @@ n=0
 ```
 
 <!-- test: borrowed-bind-in-an-arm-that-throws -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 The ERROR channel exit: the arm binds a payload out of the borrowed parameter and then THROWS, so the
 retained reference is released on the propagate path rather than through any of the four normal exits.
 200 rounds through a `try … otherwise`, so a reference leaked on the throw edge is exit 101.
@@ -2272,8 +2222,7 @@ end 'M'
 function show(m M) returns Integer throws Boom
 	var seen = 0 as Integer
 	match m 'k'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-		text(s) then seen = (s.byteLength() as Integer) and fallthrough
+		text(s) then seen = (try s.byteLength() as Integer otherwise panic("out of range")) and fallthrough
 		silent then throw Boom.bad
 	end 'k'
 	return 3 if seen > 0 else 0
@@ -2287,7 +2236,7 @@ function main() returns ExitCode
 		n = try show(m) otherwise 4
 		i = i + 1
 	end 'spin'
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2295,7 +2244,6 @@ end 'main'
 ```
 
 <!-- test: borrowed-bind-in-an-arm-that-breaks-the-match -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 A `break` out of the MATCH (not out of a loop) leaves the arm through `MatchContext.breakExits`, whose
 marks are trimmed to the match's owned floor (`moveMarkPrefix`) — the one capture site that is not
 already at its join's height. The retained binding must be dropped on that edge too. 200 rounds.
@@ -2315,11 +2263,10 @@ function show(m M) returns Integer
 	var seen = 0 as Integer
 	while i < 200 'spin'
 		match m 'k'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
-			text(s) then seen = (s.byteLength() as Integer) and fallthrough
+			text(s) then seen = (try s.byteLength() as Integer otherwise panic("out of range")) and fallthrough
 			silent then break
 		end 'k'
-		n = n + 7
+		n = try n + 7 otherwise panic("out of range")
 		i = i + 1
 	end 'spin'
 	return n if seen > 0 else 0

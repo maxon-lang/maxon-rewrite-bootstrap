@@ -171,7 +171,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-let-of-a-static-let-is-accepted -->
-<!-- skip: static fields (static let) are not supported in minimaxon -->
 A `static let`'s record is read-only everywhere, so a local `let` may name it.
 
 ```maxon
@@ -179,7 +178,6 @@ typealias Count = int(0 to 1000)
 
 type Box
 	export var n as Count
-	// TODO: static fields (static let) are not supported in minimaxon
 	static let shared = Self{n: 7}
 
 	static function create(n Count) returns Self

@@ -1906,7 +1906,6 @@ end 'main'
 ```
 
 <!-- test: a-consumed-isolated-union-falls-through-into-a-payload-free-arm -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 The bare `match` consumes `p` once: the `full` arm releases it and falls through, and the `empty` arm, entered either way, releases nothing more.
 ```maxon
@@ -1930,7 +1929,6 @@ function fromFull(n Count) returns Count
 	let p = Pack.full(Box.create(n), label: "full") as isolated Pack
 	var total = 0 as Count
 	match p 'which'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		full(b, _) then total = b.n and fallthrough
 		empty then total = total + 1
 	end 'which'
@@ -1942,7 +1940,6 @@ function fromEmpty() returns Count
 	let p = Pack.empty as isolated Pack
 	var total = 0 as Count
 	match p 'which'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		full(b, _) then total = b.n and fallthrough
 		empty then total = total + 1
 	end 'which'
@@ -3321,7 +3318,6 @@ error E3200: <fragment>:33:28: 'idSlot(u)' crosses to an `isolated` position onl
 ```
 
 <!-- test: error.a-renamed-held-result-is-not-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3369,7 +3365,6 @@ function main() returns ExitCode
 	var r = Slot.empty
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then r = try a.pop() otherwise panic("one") and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.take(r) otherwise 0
@@ -3383,7 +3378,6 @@ error E3200: <fragment>:46:36: 'r' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-holder-that-stored-a-held-value-is-not-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3439,7 +3433,6 @@ function main() returns ExitCode
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then box.item = try a.pop() otherwise panic("one") and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.takeBag(box) otherwise 0
@@ -3453,7 +3446,6 @@ error E3200: <fragment>:54:39: 'box' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-root-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3521,7 +3513,6 @@ function main() returns ExitCode
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then inner.item = try a.pop() otherwise panic("one") and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.takeCrate(crate) otherwise 0
@@ -3612,7 +3603,6 @@ error E3214: <fragment>:63:41: cannot hand 'crate' to the service it is sent to:
 ```
 
 <!-- test: error.a-root-two-holders-up-whose-field-alias-stored-a-held-value-is-not-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3688,7 +3678,6 @@ function main() returns ExitCode
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then inner.item = try a.pop() otherwise panic("one") and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.takeShelf(shelf) otherwise 0
@@ -3702,7 +3691,6 @@ error E3200: <fragment>:74:41: 'shelf' crosses to the service it is sent to only
 ```
 
 <!-- test: a-root-whose-field-alias-stored-an-unheld-value-is-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `inner` is a destructured alias of the tuple field `crate.pr`, but what is stored into it is a fresh `Slot.empty`, which no `match` holds, so `crate` stays free and is sent (ruling H-10, accepted control).
@@ -3769,7 +3757,6 @@ function main() returns ExitCode
 	let s = spawn Taker.create()
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then inner.item = Slot.empty and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.takeCrate(crate) otherwise 0
@@ -3787,7 +3774,6 @@ end 'main'
 
 
 <!-- test: error.a-root-whose-plain-field-alias-stored-a-held-value-is-not-an-isolated-argument -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 `inner` is a plain alias of the field `crate.bag`, whose `Bag` holds no unique value, and what `a.pop()` took out of `a` was stored through it, so `crate`, the root the alias names, is held and is not an `isolated` parameter's argument (ruling H-11). The case pins the order of two refusals: without the holder chain the same program is refused as "'crate' is not isolated".
@@ -3838,7 +3824,6 @@ function main() returns ExitCode
 	let inner = crate.bag
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then inner.item = try a.pop() otherwise panic("one") and fallthrough
 		held then got = take(crate)
 	end 'm'
@@ -4927,7 +4912,6 @@ end 'main'
 ```
 
 <!-- test: error.a-copy-of-a-matched-root-is-not-sent-after-the-statement -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -4971,7 +4955,6 @@ function main() returns ExitCode
 	var w = Slots.create(0)
 	var got = 0 as Count
 	match try a.get(0) otherwise panic("one") 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		held then w = a and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		empty then got = try await s.takeAll(w) otherwise 0
@@ -4985,7 +4968,6 @@ error E3200: <fragment>:41:40: 'w' crosses to the service it is sent to only as 
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-sent -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -5034,7 +5016,6 @@ function main() returns ExitCode
 	var f = function() gives Slot.empty
 	var got = 0 as Count
 	match u 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then f = function() gives idSlot(u) and fallthrough
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		held then got = try await s.take(f()) otherwise 0
@@ -5048,7 +5029,6 @@ error E3200: <fragment>:47:36: 'f()' crosses to the service it is sent to only a
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-spawn-argument -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `f` captures `u`, which the `match` holds, so what `f()` returns may still name `u` and is not a `spawn` factory's argument (ruling 50 points 3 and 1).
@@ -5091,7 +5071,6 @@ function main() returns ExitCode
 	var f = function() gives Slot.empty
 	let got = 0 as Count
 	match u 'm'
-		// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 		empty then f = function() gives idSlot(u) and fallthrough
 		// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 		held then k = spawn Keeper.create(f())
@@ -5105,7 +5084,6 @@ error E3200: <fragment>:41:37: 'f()' crosses to the service the `spawn` starts o
 ```
 
 <!-- test: error.a-held-closures-call-result-is-not-a-reply -->
-<!-- skip: 'and fallthrough' in match arms is not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -5137,7 +5115,6 @@ type Vault
 		let u = Slot.held(Token.create(1))
 		var f = function() gives Slot.empty
 		match u 'm'
-			// TODO: 'and fallthrough' in match arms is not supported in minimaxon
 			empty then f = function() gives idSlot(u) and fallthrough
 			held then return f()
 		end 'm'

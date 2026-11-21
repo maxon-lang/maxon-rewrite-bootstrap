@@ -495,7 +495,7 @@ Stack trace:
 ```
 
 <!-- test: throws-match-arm-return-is-guarded -->
-<!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -511,7 +511,6 @@ end 'MatchError'
 function getValue(r Result) returns ExitCode throws MatchError
 	match r 'check'
 		success(v) then return v
-		// TODO: 'default throws' in a match is not supported in minimaxon; name the remaining cases
 		default throws MatchError.unmatched
 	end 'check'
 end 'getValue'
