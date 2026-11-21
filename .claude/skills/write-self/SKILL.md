@@ -89,7 +89,7 @@ rename` rewrites built-in names by what the checker resolved. New code follows t
 
 ## Speed: what the first profile found
 
-`c1.exe check self` took 134 s until three things were fixed (now 1.3 s). Profile before guessing:
+`minimaxon.exe check self` took 134 s until three things were fixed (now 1.3 s). Profile before guessing:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
 
 - Never write `try ... otherwise <fallback>` inside a hash or mixing function: the fallback becomes the hash of nearly

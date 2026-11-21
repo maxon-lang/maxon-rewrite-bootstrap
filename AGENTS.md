@@ -49,16 +49,18 @@ generators (`internal/`) and the tools (`cmd/`) only; it may not be on `PATH` in
 .\build.ps1
 ```
 
-builds the day-to-day compiler, `minimaxon.exe` in the root: the seed builds C1 into `bin\`, and C1 builds `self/`.
+builds the day-to-day compiler, `minimaxon.exe` in the root: the seed builds C1 into `bin\`, and C1 builds `self/`, so
+it carries today's code generator.
 
 ```powershell
 .\check.ps1
 ```
 
-is the gate: it formats and vets the Go, runs the generators and fails if a generated file changed, builds C1 from the
-seed and C2 from C1, runs the Go tests, and then has C2 run `selftest`, `check runtime`, `fmt --check`, the corpus,
-the spec tests not yet passing (`specs/passed.txt` lists the rest, which are not run again), `fuzz`, and build `self/`
-into a C3 identical to it.
+is the gate: it formats and vets the Go, runs the generators and fails if a generated file changed, builds one compiler
+from the seed (`bin\minimaxon.exe`), runs the Go tests, and then has it run `selftest`, `check runtime`, `fmt --check`,
+the corpus, the spec tests not yet passing (`specs/passed.txt` lists the rest, which are not run again) and `fuzz`.
+`.\seed.ps1` renews the seed, and is where the compiler is held to reproducing itself (seed builds C1, C1 builds C2, C2
+builds a C3 identical to it).
 
 - **Before a commit, `.\check.ps1` passes.** Nothing else is required: no test written first, no test per change, no
   timing.

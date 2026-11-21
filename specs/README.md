@@ -1,13 +1,13 @@
 # specs
 
 maxon's spec tests, converted and then fixed. Never edit a file here, and the runner alone writes `passed.txt`: regenerate the directory from
-the maxon repository, from the root of this one, once `.\check.ps1` has built `bin\c2.exe`.
+the maxon repository, from the root of this one, once `.\check.ps1` has built `bin\minimaxon.exe`.
 
 ```powershell
 .\specs.ps1 C:\Users\Eric\Dev\maxon\specs
 ```
 
-`specs.ps1` runs `go run ./cmd/convert --specs --out=specs`, then `bin\c2.exe fix specs`, and then `bin\c2.exe test specs
+`specs.ps1` runs `go run ./cmd/convert --specs --out=specs`, then `bin\minimaxon.exe fix specs`, and then `bin\minimaxon.exe test specs
 --skip-passed --record-passed`, which runs the tests that `passed.txt` does not list and adds those that pass to it.
 
 The files keep maxon's format (`docs/SPECS.md` in the maxon repository): front matter, prose, and under `## Tests` each

@@ -1,5 +1,7 @@
 # Renews seed\minimaxon.exe from self/: the seed builds C1, C1 builds C2 and C2 builds C3. C2 replaces the seed only
-# when it compiles itself to the same bytes and passes the corpus. seed\README.md says when a renewal is needed.
+# when it compiles itself to the same bytes and passes the suites the gate runs (suites.ps1). The gate builds one
+# compiler from the seed and never checks that a compiler reproduces itself, so this is the only place that does:
+# a compiler that does not must never be committed as the seed. seed\README.md says when a renewal is needed.
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
@@ -20,7 +22,6 @@ if ((Get-FileHash bin\c2.exe).Hash -ne (Get-FileHash bin\c3.exe).Hash) {
 	Write-Output 'seed not renewed: C2 and C3 differ, so the compiler does not reproduce itself'
 	exit 1
 }
-# Test programs inherit stdin, so one that reads it would wait until the runner's deadline ends it: give it none.
-Invoke-Stage 'the corpus' { $null | bin\c2.exe test }
+Invoke-Stage 'the suites' { & "$PSScriptRoot\suites.ps1" bin\c2.exe }
 Copy-Item bin\c2.exe seed\minimaxon.exe
 Write-Output 'seed renewed from bin\c2.exe'

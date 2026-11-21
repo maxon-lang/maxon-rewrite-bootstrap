@@ -20,7 +20,7 @@ day-to-day compiler is built from the seed:
 ```
 
 which has the seed build `bin\c1.exe` and C1 build `minimaxon.exe` in the root of the repository: `self/` compiled by
-itself. It finds `runtime/` by walking up from its own executable, so it stays in the tree.
+itself, with today's code generator even where the seed's is older. It finds `runtime/` by walking up from its own executable, so it stays in the tree.
 
 ```powershell
 .\minimaxon.exe run tests/run/arithmetic.maxon
@@ -83,12 +83,13 @@ development, and `minimaxon test` always uses it. `--update-positions` makes `te
 ### Tests
 
 `.\check.ps1` is the gate. In order, it formats, `go fix`es and vets the Go of the generators and tools; runs the
-generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\c1.exe` and C1 build
-`bin\c2.exe`; runs the Go tests of the generators and tools (`go test ./...`, with C2 as `cmd/convert`'s formatter);
-and then, with C2: `selftest`, `check runtime`, `fmt --check self runtime tests`, the corpus (`test`, with no standard
+generators and fails if a generated file (`*_gen.*`) changed; has the seed build `bin\minimaxon.exe`; and then runs
+`suites.ps1` on it, which runs the Go tests of the generators and tools (`go test ./...`, with that compiler as
+`cmd/convert`'s formatter) and, with the compiler: `selftest`, `check runtime`, `fmt --check self runtime tests`, the corpus (`test`, with no standard
 input), the spec tests that `specs/passed.txt` does not list (`test specs --skip-passed`: until Phase 3 a test that has passed is not
-run again), `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter), and
-a build of `self/` into `bin\c3.exe`, which must be byte-identical to C2. It stops at the first step that fails.
+run again), and `fuzz` (300 generated programs, each one the checker accepts run clean under the interpreter). It stops at the
+first step that fails. That the compiler reproduces itself (the seed builds C1, C1 builds C2, C2 builds C3, and C3 is
+byte-identical to C2) is checked where the seed is renewed, `.\seed.ps1`, which then runs the same `suites.ps1` on C2.
 
 There are three kinds of test. **Corpus tests** run whole programs through `minimaxon test`. **The compiler's own
 tests** (`self/*_test.maxon`, run by `minimaxon selftest`) test its parts on programs and IR built by hand. **Go tests**
@@ -1937,8 +1938,8 @@ differs from Maxon" in the same change. A change to the syntax touches many prog
   `self/` and `runtime/` still use the old one, and `.\seed.ps1` renews the seed (`seed/README.md`); then `self/` and
   `runtime/` move to the new form and the old one goes. A change that they do not use needs no new seed.
 - **`.\check.ps1`** runs every check this repository requires (see "Tests"), formatting and applying `go fix` first,
-  and stops at the first failure. The seed builds `self/` as `bin\c1.exe` and `c1.exe` compiles `self/` again as
-  `bin\c2.exe`, which runs every later step, so a change that only the compiled `self/` shows (a symbol that two modules
+  and stops at the first failure. The seed builds `self/` as `bin\minimaxon.exe`, which runs every later step, so a change that only the compiled
+  `self/` shows (a symbol that two modules
   share, a runtime behaviour) fails here. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
 
 A refactoring is a list of `syntax.Edit`s (a byte range and its new text), applied by `syntax.applyEdits`, so a language
