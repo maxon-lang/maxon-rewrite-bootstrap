@@ -132,3 +132,18 @@ Context: implement directly; do not spawn agents and do not use the run-stage sk
 Worktree: <path, changes left uncommitted; or "main tree" and the disjoint paths you own>.
 Return: at most 8 lines: what changed (paths), check results, anything unverified or left undone. No file contents.
 ```
+
+## Worktrees on this machine
+
+The Agent tool's `isolation: "worktree"` is refused here (it creates `.claude/worktrees/agent-<id>` and then rejects
+it over the drive letter's case). Make the worktree yourself and brief the agent with its path instead:
+
+```powershell
+git worktree add --detach .claude/worktrees/<task> HEAD
+```
+
+- The brief names the worktree's absolute path as the agent's tree, says every command starts with `cd` into it and
+  every Read/Edit/Write path lies under it, and that the main tree must not be touched.
+- `.claude/worktrees/` is in `.git/info/exclude`, so the main tree's `git status` and Grep do not see it.
+- After merging: `git worktree remove --force .claude/worktrees/<task>` (`git worktree unlock` first for one the
+  harness created).
