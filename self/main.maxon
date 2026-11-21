@@ -272,6 +272,109 @@ function testAstModel()
 	assertEqStr(ln, expected: "Array[Count]::push[Count]", label: "funcLinkName")
 end 'testAstModel'
 
+function hexDigit(c Byte) returns Count
+	let value = c as Count
+	if value >= 65 'upper'
+		return try value - 55 otherwise panic("not a hex digit")
+	end 'upper'
+	return try value - 48 otherwise panic("not a hex digit")
+end 'hexDigit'
+
+// emitHex appends the bytes that a string of hex digit pairs spells, so that machine code reads as its encoding.
+function emitHex(mutates code ByteArray, hex String)
+	var i = 0 as Count
+	while i < hex.byteLength() 'pairs'
+		let c = hex.byteAt(i)
+		if c != 32 'digit'
+			let hi = hexDigit(c)
+			let lo = hexDigit(hex.byteAt(try i + 1 otherwise panic("odd hex digits")))
+			code.push(try hi * 16 + lo as Byte otherwise panic("not a byte"))
+			i = try i + 2 otherwise panic("hex too long")
+		end 'digit' else 'space'
+			i = try i + 1 otherwise panic("hex too long")
+		end 'space'
+	end 'pairs'
+end 'emitHex'
+
+// emitU32 appends a 32-bit little-endian value, the immediate of an instruction.
+function emitU32(mutates code ByteArray, v Count)
+	var rest = v
+	for _ in 0 upto 4 'bytes'
+		code.push(try (rest and 255) as Byte otherwise panic("not a byte"))
+		rest = rest shr 8
+	end 'bytes'
+end 'emitU32'
+
+// emitRel32 appends the displacement from the end of the instruction being written to an address.
+function emitRel32(mutates code ByteArray, target Count, textRva Count)
+	let next = try textRva + code.count() + 4 otherwise panic("code past the address space")
+	emitU32(code, v: try target - next otherwise panic("a target before the instruction"))
+end 'emitRel32'
+
+// peExitProgram is ExitProcess(42):
+//   sub rsp, 40; mov ecx, 42; call [ExitProcess]
+function peExitProgram(image backend.PeImage) returns ByteArray
+	var code = ByteArray.create(0)
+	emitHex(code, hex: "48 83 EC 28 B9 2A 00 00 00 FF 15")
+	emitRel32(code, target: backend.importSlotRva(image, index: 0), textRva: image.textRva)
+	return code
+end 'peExitProgram'
+
+// peHelloProgram writes the string at the start of the data section to standard output, then ExitProcess(7):
+//   sub rsp, 56; mov ecx, -11; call [GetStdHandle]; mov rcx, rax; lea rdx, [rip+msg]; mov r8d, len
+//   lea r9, [rsp+48]; mov qword [rsp+32], 0; call [WriteFile]; mov ecx, 7; call [ExitProcess]
+function peHelloProgram(image backend.PeImage, messageLength Count) returns ByteArray
+	var code = ByteArray.create(0)
+	emitHex(code, hex: "48 83 EC 38 B9 F5 FF FF FF FF 15")
+	emitRel32(code, target: backend.importSlotRva(image, index: 1), textRva: image.textRva)
+	emitHex(code, hex: "48 89 C1 48 8D 15")
+	emitRel32(code, target: image.dataRva, textRva: image.textRva)
+	emitHex(code, hex: "41 B8")
+	emitU32(code, v: messageLength)
+	emitHex(code, hex: "4C 8D 4C 24 30 48 C7 44 24 20 00 00 00 00 FF 15")
+	emitRel32(code, target: backend.importSlotRva(image, index: 2), textRva: image.textRva)
+	emitHex(code, hex: "B9 07 00 00 00 FF 15")
+	emitRel32(code, target: backend.importSlotRva(image, index: 0), textRva: image.textRva)
+	return code
+end 'peHelloProgram'
+
+function peTempPath(name String) returns FilePath
+	let dir = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+	return try FilePath.from("{dir}\\{name}") otherwise panic("not a path")
+end 'peTempPath'
+
+// runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
+function runPeImage(image backend.PeImage, name String, expectedCode ExitCode, expectedOutput String)
+	let path = peTempPath(name)
+	try backend.writePeImage(image, path: path) otherwise panic("cannot write {name}")
+	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
+	try File.delete(path) otherwise panic("cannot delete {name}")
+	if out.exitCode() != expectedCode 'code'
+		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
+	end 'code'
+	assertEqStr(out.stdout, expected: expectedOutput, label: name)
+end 'runPeImage'
+
+function testPe()
+	let message = "hello from a PE written by self\n"
+	var kernel = backend.NameList.create(0)
+	kernel.push("ExitProcess")
+	kernel.push("GetStdHandle")
+	kernel.push("WriteFile")
+	// The sections' addresses depend on their sizes only by whole pages, and the programs are far smaller than one, so
+	// a layout made for one byte of code is the layout the programs are made for.
+	let probe = backend.buildPeImage(1, dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0)
+	let exitCode = peExitProgram(probe)
+	var exitImage = backend.buildPeImage(exitCode.count(), dataSize: 0, dll: "kernel32.dll", imports: kernel, entryOffset: 0)
+	backend.placeCode(exitImage, at: 0, bytes: exitCode)
+	runPeImage(exitImage, name: "minimaxon_pe_exit.exe", expectedCode: 42, expectedOutput: "")
+	let helloCode = peHelloProgram(probe, messageLength: message.byteLength())
+	var helloImage = backend.buildPeImage(helloCode.count(), dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0)
+	backend.placeCode(helloImage, at: 0, bytes: helloCode)
+	backend.placeData(helloImage, at: 0, bytes: message.toByteArray())
+	runPeImage(helloImage, name: "minimaxon_pe_hello.exe", expectedCode: 7, expectedOutput: message)
+end 'testPe'
+
 function testProject()
 	var errs = diag.ErrorList.create(0)
 	let optProj = project.loadProject("self", errs: errs)
@@ -333,6 +436,7 @@ function selfTest()
 	testAstModel()
 	testProject()
 	testResolve()
+	testPe()
 	print("self: all checks passed\n")
 end 'selfTest'
 

@@ -1,0 +1,326 @@
+// The Windows PE32+ writer: the layout and the headers of a console executable whose code and data the linker fills in
+// afterwards, and the table of imports from one DLL.
+
+export typealias NameList = Array with String
+
+typealias CountList = Array with Count
+
+typealias SectionList = Array with Section
+
+let peFileAlignment = 512 as Count
+
+let peSectionAlignment = 4096 as Count
+
+let peImageBase = 5368709120 as Count
+
+export let peTextRva = 4096 as Count
+
+let peDosMagic = 23117 as Count
+
+let peSignature = 17744 as Count
+
+let peMachineX64 = 34404 as Count
+
+let peDosHeaderSize = 64 as Count
+
+let peDosHeaderPad = 58 as Count
+
+let peSignatureSize = 4 as Count
+
+let peCoffHeaderSize = 20 as Count
+
+let peOptionalSize = 240 as Count
+
+let peCharacteristics = 34 as Count
+
+let peOptionalMagic = 523 as Count
+
+let peLinkerMajor = 14 as Count
+
+let peOsVersionMajor = 6 as Count
+
+let peSubsystemConsole = 3 as Count
+
+let peDllCharacteristics = 33120 as Count
+
+let peStackReserve = 16777216 as Count
+
+let peStackCommit = 65536 as Count
+
+let peHeapReserve = 1048576 as Count
+
+let peHeapCommit = 4096 as Count
+
+let peDirectoryCount = 16 as Count
+
+let peImportDirectory = 1 as Count
+
+let peIatDirectory = 12 as Count
+
+let peSectionHeaderSize = 40 as Count
+
+let peSectionNameSize = 8 as Count
+
+let peTextFlags = 1610612768 as Count
+
+let peDataFlags = 3221225536 as Count
+
+let peImportDescriptorSize = 40 as Count
+
+let peImportDescriptorPad = 20 as Count
+
+let peThunkSize = 8 as Count
+
+let peHintSize = 2 as Count
+
+let peEmptyDataSize = 8 as Count
+
+let byteMask = 255 as Count
+
+let bitsPerByte = 8 as Count
+
+type Section
+	var name as String
+	var size as Count
+	var rva as Count
+	var flags as Count
+
+	static function make(consumes name String, size Count, rva Count, flags Count) returns Section
+		return Section{name: name, size: size, rva: rva, flags: flags}
+	end 'make'
+end 'Section'
+
+type ImportTable
+	var bytes as ByteArray
+	var iatOffset as Count
+	var iatSize as Count
+
+	static function make(consumes bytes ByteArray, iatOffset Count, iatSize Count) returns ImportTable
+		return ImportTable{bytes: bytes, iatOffset: iatOffset, iatSize: iatSize}
+	end 'make'
+end 'ImportTable'
+
+// PeImage is the executable's file in memory, with the code and the data zeroed at the places they have in the file.
+// The linker writes them there with placeCode and placeData and reads the addresses it patches calls and references
+// with from the Rva fields, which are counted from the image base.
+export type PeImage
+	export var file as ByteArray
+	export var textRva as Count
+	export var dataRva as Count
+	export var iatRva as Count
+	export var codeOffset as Count
+	export var dataOffset as Count
+
+	static function make(consumes file ByteArray, textRva Count, dataRva Count, iatRva Count, codeOffset Count, dataOffset Count) returns PeImage
+		return PeImage{file: file, textRva: textRva, dataRva: dataRva, iatRva: iatRva, codeOffset: codeOffset, dataOffset: dataOffset}
+	end 'make'
+end 'PeImage'
+
+function byteOf(v Count) returns Byte
+	return try v as Byte otherwise panic("a value that is not a byte")
+end 'byteOf'
+
+function pushU8(mutates w ByteArray, v Count)
+	w.push(byteOf(v and byteMask))
+end 'pushU8'
+
+function pushU16(mutates w ByteArray, v Count)
+	pushU8(w, v: v)
+	pushU8(w, v: v shr bitsPerByte)
+end 'pushU16'
+
+function pushU32(mutates w ByteArray, v Count)
+	pushU16(w, v: v)
+	pushU16(w, v: v shr 16)
+end 'pushU32'
+
+function pushU64(mutates w ByteArray, v Count)
+	pushU32(w, v: v)
+	pushU32(w, v: v shr 32)
+end 'pushU64'
+
+function pushZeros(mutates w ByteArray, n Count)
+	for _ in 0 upto n 'zeros'
+		w.push(0)
+	end 'zeros'
+end 'pushZeros'
+
+function sum(a Count, b Count) returns Count
+	return try a + b otherwise panic("an address past the range of the image")
+end 'sum'
+
+function product(a Count, b Count) returns Count
+	return try a * b otherwise panic("a size past the range of the image")
+end 'product'
+
+function alignUp(v Count, alignment Count) returns Count
+	let padded = try sum(v, b: alignment) - 1 otherwise panic("an alignment of 0")
+	return try padded - padded mod alignment otherwise panic("an alignment of 0")
+end 'alignUp'
+
+function copyInto(mutates dest ByteArray, at Count, src ByteArray)
+	for i in 0 upto src.count() 'each'
+		dest[sum(at, b: i)] = src[i]
+	end 'each'
+end 'copyInto'
+
+// buildImports lays out the import table of one DLL for a section at rva: the one import descriptor and its null
+// terminator, then the lookup table and the address table (the same names twice, so the loader's fill of the second
+// leaves the first as it was), then the hint and name entries and the DLL's name.
+function buildImports(rva Count, dll String, imports NameList) returns ImportTable
+	let thunks = product(sum(imports.count(), b: 1), b: peThunkSize)
+	let iltOffset = peImportDescriptorSize
+	let iatOffset = sum(iltOffset, b: thunks)
+	let namesOffset = sum(iatOffset, b: thunks)
+	var names = ByteArray.create(0)
+	var nameRvas = CountList.create(0)
+	for i in 0 upto imports.count() 'entries'
+		nameRvas.push(sum(sum(rva, b: namesOffset), b: names.count()))
+		pushZeros(names, n: peHintSize)
+		names.append(imports[i].toByteArray())
+		names.push(0)
+		if (names.count() and 1) != 0 'even'
+			names.push(0)
+		end 'even'
+	end 'entries'
+	let dllRva = sum(sum(rva, b: namesOffset), b: names.count())
+	names.append(dll.toByteArray())
+	names.push(0)
+	var w = ByteArray.create(0)
+	pushU32(w, v: sum(rva, b: iltOffset))
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: dllRva)
+	pushU32(w, v: sum(rva, b: iatOffset))
+	pushZeros(w, n: peImportDescriptorPad)
+	for _ in 0 upto 2 'tables'
+		for i in 0 upto nameRvas.count() 'thunk'
+			pushU64(w, v: nameRvas[i])
+		end 'thunk'
+		pushU64(w, v: 0)
+	end 'tables'
+	w.append(names)
+	return ImportTable.make(w, iatOffset: iatOffset, iatSize: thunks)
+end 'buildImports'
+
+function pushSectionHeader(mutates w ByteArray, s Section, fileOffset Count)
+	var nameBytes = s.name.toByteArray()
+	while nameBytes.count() < peSectionNameSize 'pad'
+		nameBytes.push(0)
+	end 'pad'
+	w.append(nameBytes)
+	pushU32(w, v: s.size)
+	pushU32(w, v: s.rva)
+	pushU32(w, v: alignUp(s.size, alignment: peFileAlignment))
+	pushU32(w, v: fileOffset)
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU16(w, v: 0)
+	pushU16(w, v: 0)
+	pushU32(w, v: s.flags)
+end 'pushSectionHeader'
+
+// buildPeImage lays out the file for sections of the given sizes, with its headers and imports written and the entry
+// point at an offset in the code. The import slot of the i-th name is at importSlotRva(image, index: i).
+export function buildPeImage(codeSize Count, dataSize Count, dll String, imports NameList, entryOffset Count) returns PeImage
+	let codeSpan = codeSize if codeSize > 0 else 1
+	let dataSpan = dataSize if dataSize > 0 else 1
+	let dataRva = sum(peTextRva, b: alignUp(codeSpan, alignment: peSectionAlignment))
+	let idataRva = sum(dataRva, b: alignUp(dataSpan, alignment: peSectionAlignment))
+	let table = buildImports(idataRva, dll: dll, imports: imports)
+	let idataSize = table.bytes.count()
+	// A section with no data still has bytes in the file.
+	let dataLength = dataSize if dataSize > 0 else peEmptyDataSize
+	var sections = SectionList.create(0)
+	sections.push(Section.make(".text", size: codeSize, rva: peTextRva, flags: peTextFlags))
+	sections.push(Section.make(".data", size: dataLength, rva: dataRva, flags: peDataFlags))
+	sections.push(Section.make(".idata", size: idataSize, rva: idataRva, flags: peDataFlags))
+	let headerBytes = sum(sum(peDosHeaderSize, b: peSignatureSize), b: sum(peCoffHeaderSize, b: peOptionalSize))
+	let headersSize = alignUp(sum(headerBytes, b: product(peSectionHeaderSize, b: sections.count())), alignment: peFileAlignment)
+	let imageSize = sum(idataRva, b: alignUp(idataSize, alignment: peSectionAlignment))
+	var fileSize = headersSize
+	var fileOffsets = CountList.create(0)
+	for i in 0 upto sections.count() 'offsets'
+		fileOffsets.push(fileSize)
+		fileSize = sum(fileSize, b: alignUp(sections[i].size, alignment: peFileAlignment))
+	end 'offsets'
+	var w = ByteArray.create(0)
+	pushU16(w, v: peDosMagic)
+	pushZeros(w, n: peDosHeaderPad)
+	pushU32(w, v: peDosHeaderSize)
+	pushU32(w, v: peSignature)
+	pushU16(w, v: peMachineX64)
+	pushU16(w, v: sections.count())
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: 0)
+	pushU16(w, v: peOptionalSize)
+	pushU16(w, v: peCharacteristics)
+	pushU16(w, v: peOptionalMagic)
+	pushU8(w, v: peLinkerMajor)
+	pushU8(w, v: 0)
+	pushU32(w, v: alignUp(codeSize, alignment: peFileAlignment))
+	pushU32(w, v: sum(alignUp(dataSize, alignment: peFileAlignment), b: alignUp(idataSize, alignment: peFileAlignment)))
+	pushU32(w, v: 0)
+	pushU32(w, v: sum(peTextRva, b: entryOffset))
+	pushU32(w, v: peTextRva)
+	pushU64(w, v: peImageBase)
+	pushU32(w, v: peSectionAlignment)
+	pushU32(w, v: peFileAlignment)
+	pushU16(w, v: peOsVersionMajor)
+	pushU16(w, v: 0)
+	pushU16(w, v: 0)
+	pushU16(w, v: 0)
+	pushU16(w, v: peOsVersionMajor)
+	pushU16(w, v: 0)
+	pushU32(w, v: 0)
+	pushU32(w, v: imageSize)
+	pushU32(w, v: headersSize)
+	pushU32(w, v: 0)
+	pushU16(w, v: peSubsystemConsole)
+	pushU16(w, v: peDllCharacteristics)
+	pushU64(w, v: peStackReserve)
+	pushU64(w, v: peStackCommit)
+	pushU64(w, v: peHeapReserve)
+	pushU64(w, v: peHeapCommit)
+	pushU32(w, v: 0)
+	pushU32(w, v: peDirectoryCount)
+	for i in 0 upto peDirectoryCount 'directories'
+		if i == peImportDirectory 'imports'
+			pushU32(w, v: idataRva)
+			pushU32(w, v: peImportDescriptorSize)
+		end 'imports' else if i == peIatDirectory 'iat'
+			pushU32(w, v: sum(idataRva, b: table.iatOffset))
+			pushU32(w, v: table.iatSize)
+		end 'iat' else 'none'
+			pushU32(w, v: 0)
+			pushU32(w, v: 0)
+		end 'none'
+	end 'directories'
+	for i in 0 upto sections.count() 'headers'
+		pushSectionHeader(w, s: sections[i], fileOffset: fileOffsets[i])
+	end 'headers'
+	var file = ByteArray.create(fileSize)
+	copyInto(file, at: 0, src: w)
+	copyInto(file, at: fileOffsets[2], src: table.bytes)
+	return PeImage.make(file, textRva: peTextRva, dataRva: dataRva, iatRva: sum(idataRva, b: table.iatOffset), codeOffset: fileOffsets[0], dataOffset: fileOffsets[1])
+end 'buildPeImage'
+
+// importSlotRva is the address of the slot the loader fills with the index-th imported function, which code calls
+// through.
+export function importSlotRva(image PeImage, index Count) returns Count
+	return sum(image.iatRva, b: product(index, b: peThunkSize))
+end 'importSlotRva'
+
+export function placeCode(mutates image PeImage, at Count, bytes ByteArray)
+	copyInto(image.file, at: sum(image.codeOffset, b: at), src: bytes)
+end 'placeCode'
+
+export function placeData(mutates image PeImage, at Count, bytes ByteArray)
+	copyInto(image.file, at: sum(image.dataOffset, b: at), src: bytes)
+end 'placeData'
+
+// writePeImage replaces the file at path with the image.
+export function writePeImage(image PeImage, path FilePath) throws FileWriteError
+	try File.writeBinary(path, content: image.file)
+end 'writePeImage'
