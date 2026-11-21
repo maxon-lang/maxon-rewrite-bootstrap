@@ -22,3 +22,4 @@ One uncached `minimaxon build self --timings` with the Go compiler, one row per 
 | 2026-11-21 | 6287bbd | 1.4 IR generator, declare passes | 15876 | 20.7 | 16.9 | 21.4 |
 | 2026-11-21 | d818d1e | 1.3 generated parser | 16874 | 21.0 | 18.6 | 23.0 |
 | 2026-11-21 | 1ff3eb5 | 1.4 codegen and linker | 19488 | 20.7 | 20.5 | 25.7 |
+| 2026-11-21 | c15cbee | 1.4 IR lowering | 24558 | 25.3 | 29.0 | 29.0 |
