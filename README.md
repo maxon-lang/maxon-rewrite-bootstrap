@@ -996,6 +996,10 @@ function forms(text String) throws AppError
 	let c = try parseDigit(text) otherwise throw AppError.badInput // or a throw of another error
 	let d = try parseDigit(text) otherwise panic("not a digit")
 	try parseDigit(text) otherwise ignore // a statement drops the error and the value
+	let f = try parseDigit(text) otherwise (failure) 'refused' // a block handler, which leaves here
+		print("not parsed: {failure == ParseError.empty}\n")
+		return
+	end 'refused'
 	try 'both'
 		let n = parseDigit(text) // no try in the block
 		print("{n}\n")
@@ -1017,6 +1021,13 @@ end 'forms'
   that names the error (`(e)`) takes the one error its block's calls and throws fail with, must `match` on it (`E3084`),
   and refuses anything else that fails in the block (`E3059`), which a `try ... otherwise` of its own handles instead. A
   handler without a name catches every error.
+- A block handler, `otherwise (e) 'label'` or `otherwise 'label'` with the block on the lines after it, ends with `end
+  'label'` and stands as a statement, as the value of a `let` or a `var`, on the right of an assignment, and after a
+  `return`. The `e` it binds has the one error the `try` covers (as in a `try` block's handler, so a second error is
+  `E3059`), and need not be matched. A handler that leaves (a `return`, `throw`, `break`, `continue` or `panic`
+  on every path) gives the `try` its expression's value; one that runs off its end gives none, so the `try` is a
+  statement of its own (`E3059`, as for `otherwise ignore`). A block handler inside brackets, as in an argument, and
+  in a constant, is not supported.
 - `throws` names an enum (`E3113`); a value that is not one cannot be thrown (`E3005`). `otherwise ignore` gives no
   value, so its `try` is a statement of its own (`E3059`).
 - An error comes back from the call as a value: the function returns it beside its result, its case plus 1 in a
@@ -1653,9 +1664,9 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): an error is an enum, not a union with payloads; a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
-  `otherwise throws ...` form; there is no `if try`, no block handler `otherwise (e) 'label'` on a `try` expression and
-  no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and `E3083` (a `try` block with
-  nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
+  `otherwise throws ...` form; there is no `if try`, no block handler `otherwise (e) 'label'` on a `try` expression
+  inside brackets and no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and
+  `E3083` (a `try` block with nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
   operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
   (see "Checked arithmetic").
 - A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that

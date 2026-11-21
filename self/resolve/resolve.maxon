@@ -749,10 +749,14 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 		resolveExpr(r, p: p, id: ast.condExprElse(r.tree, id: id), errs: errs)
 	end 'cnd' else if k == ast.NodeKind.tryExpr 'tryE'
 		resolveExpr(r, p: p, id: ast.tryExprE(r.tree, id: id), errs: errs)
-		let val = ast.tryExprValue(r.tree, id: id)
+		let val = ast.tryFallback(r.tree, e: id)
 		if val != 0 'v'
 			resolveExpr(r, p: p, id: val, errs: errs)
 		end 'v'
+		let handler = ast.tryExprHandler(r.tree, id: id)
+		if handler != 0 'handler'
+			resolveTryHandler(r, p: p, id: id, errs: errs)
+		end 'handler'
 		let ret = ast.tryExprRet(r.tree, id: id)
 		if ret != 0 'rt'
 			let rv = ast.returnStmtValue(r.tree, id: ret)
@@ -788,6 +792,21 @@ function resolveExprList(mutates r Resolver, p ast.Project, list diag.U32, mutat
 		resolveExpr(r, p: p, id: r.tree.listAt(list, index: i) as ast.NodeID, errs: errs)
 	end 'each'
 end 'resolveExprList'
+
+// resolveTryHandler resolves a try expression's block handler, which sees the error it binds. The binding is the name in
+// parentheses before the label, which the parser takes for an expression.
+function resolveTryHandler(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+	let handler = ast.tryExprHandler(r.tree, id: id)
+	checkEnd(r, label: ast.handlerBlockLabel(r.tree, id: handler), endNode: ast.handlerBlockEnd(r.tree, id: handler), errs: errs)
+	var bs = ast.StringList.create(0)
+	let bound = ast.tryExprValue(r.tree, id: id)
+	if bound != 0 'binds'
+		bs.push(ast.nameExprName(r.tree, id: bound))
+	end 'binds'
+	pushScopeList(r, names: bs)
+	resolveBlock(r, p: p, listRef: ast.handlerBlockBodyRef(r.tree, id: handler), errs: errs)
+	popScope(r)
+end 'resolveTryHandler'
 
 function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	let callee = ast.callExprCallee(r.tree, id: id)

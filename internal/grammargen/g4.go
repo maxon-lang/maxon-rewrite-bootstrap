@@ -207,6 +207,9 @@ const (
 	ekToken
 	ekRule
 	ekGroup
+	// ekPredicate is {name}?: a condition that the hand-written parser method name decides, which starts the only alternative
+	// of an optional group, where the tokens alone do not tell whether to enter it.
+	ekPredicate
 )
 
 type elem struct {
@@ -498,6 +501,12 @@ func (p *grammarParser) elem() *elem {
 		e.kind = ekGroup
 		e.group = p.alts()
 		p.expectPunct(")")
+	case t.kind == tkBrace:
+		e.kind, e.text = ekPredicate, strings.TrimSpace(t.text)
+		p.expectPunct("?")
+		if e.label != "" || e.joinBefore || p.cur().kind == tkPunct && strings.Contains("*+?", p.cur().text) {
+			p.fail(t.line, "a predicate {%s}? takes no label, join or suffix", e.text)
+		}
 	default:
 		p.fail(t.line, "unexpected '%s'", t.text)
 	}

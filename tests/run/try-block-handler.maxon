@@ -1,0 +1,117 @@
+typealias Amount = int(i64.min to i64.max)
+
+typealias StringArray = Array with String
+
+enum ParseError implements Error
+	empty
+	invalidSyntax
+end 'ParseError'
+
+function parseDigit(s String) returns Amount throws ParseError
+	if s == "" 'empty'
+		throw ParseError.empty
+	end 'empty'
+	if s == "0" 'zero'
+		return 0
+	end 'zero'
+	if s == "1" 'one'
+		return 1
+	end 'one'
+	throw ParseError.invalidSyntax
+end 'parseDigit'
+
+function kind(e ParseError) returns String
+	return match e 'kind'
+		empty gives "empty"
+		invalidSyntax gives "invalid"
+	end 'kind'
+end 'kind'
+
+function asValue(text String) returns Amount
+	let digit = try parseDigit(text) otherwise (e) 'failed'
+		print("could not parse {text}: {kind(e)}\n")
+		return -1
+	end 'failed'
+	return digit
+end 'asValue'
+
+function asStatement(text String)
+	try parseDigit(text) otherwise (e) 'failed'
+		match e 'why'
+			empty then print("no input\n")
+			invalidSyntax then print("not a digit\n")
+		end 'why'
+	end 'failed'
+	print("after [{text}]\n")
+end 'asStatement'
+
+function anonymous(text String) returns Amount
+	var result = 0 as Amount
+	result = try parseDigit(text) otherwise 'failed'
+		return 9
+	end 'failed'
+	return try result + 100 otherwise 0
+end 'anonymous'
+
+function sumDigits(parts StringArray) returns Amount
+	var total = 0 as Amount
+	for i in 0 upto parts.count() 'each'
+		let d = try parseDigit(parts[i]) otherwise (e) 'bad'
+			if e == ParseError.empty 'skip'
+				continue
+			end 'skip'
+			break
+		end 'bad'
+		total = try total + d otherwise break
+	end 'each'
+	return total
+end 'sumDigits'
+
+function propagate(text String) returns Amount throws ParseError
+	return try parseDigit(text) otherwise (e) 'failed'
+		throw e
+	end 'failed'
+end 'propagate'
+
+function divide(a Amount, b Amount) returns String
+	var label = "no failure"
+	try (a / b) otherwise (e) 'failed'
+		match e 'why'
+			divisionByZero then label = "division by zero"
+			overflow then label = "overflow"
+			negativeShift then label = "negative shift"
+		end 'why'
+	end 'failed'
+	return label
+end 'divide'
+
+function main() returns ExitCode
+	print("{asValue("1")} {asValue("x")} {asValue("")}\n")
+	asStatement("1")
+	asStatement("")
+	asStatement("z")
+	print("{anonymous("1")} {anonymous("q")}\n")
+	var parts = StringArray.create(0)
+	parts.push("1")
+	parts.push("")
+	parts.push("1")
+	parts.push("x")
+	parts.push("1")
+	print("sum {sumDigits(parts)}\n")
+	print("propagate {try propagate("0") otherwise 5} {try propagate("?") otherwise 5}\n")
+	print("{divide(6, b: 3)} / {divide(6, b: 0)}\n")
+	return 0
+end 'main'
+
+//> could not parse x: invalid
+//> could not parse : empty
+//> 1 -1 -1
+//> after [1]
+//> no input
+//> after []
+//> not a digit
+//> after [z]
+//> 101 9
+//> sum 2
+//> propagate 0 5
+//> no failure / division by zero

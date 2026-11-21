@@ -1,0 +1,19 @@
+enum ParseError implements Error
+	invalid
+end 'ParseError'
+
+function parse(s String) returns Count throws ParseError
+	if s == "" 'empty'
+		throw ParseError.invalid
+	end 'empty'
+	return 1
+end 'parse'
+
+function main() returns ExitCode
+	let n = try parse("") otherwise (e) 'failed'
+		print("could not parse\n")
+	end 'failed'
+	return 0
+end 'main'
+
+// expect-error: E3059 at 13:10

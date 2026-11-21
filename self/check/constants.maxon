@@ -74,7 +74,7 @@ function constRefsOfOperands(p ast.Project, modIdx Count, e ast.NodeID, k ast.No
 		constRefs(p, modIdx: modIdx, e: ast.unaryExprE(p.modules[modIdx].tree, id: e), out: out)
 	end 'unary' else if k == ast.NodeKind.tryExpr 'try'
 		constRefs(p, modIdx: modIdx, e: ast.tryExprE(p.modules[modIdx].tree, id: e), out: out)
-		constRefs(p, modIdx: modIdx, e: ast.tryExprValue(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, modIdx: modIdx, e: ast.tryFallback(p.modules[modIdx].tree, e: e), out: out)
 	end 'try' else if k == ast.NodeKind.condExpr 'cond'
 		constRefs(p, modIdx: modIdx, e: ast.condExprCond(p.modules[modIdx].tree, id: e), out: out)
 		constRefs(p, modIdx: modIdx, e: ast.condExprThen(p.modules[modIdx].tree, id: e), out: out)

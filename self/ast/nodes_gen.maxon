@@ -26,6 +26,7 @@ export enum NodeKind
 	whileStmt
 	forStmt
 	tryStmt
+	handlerBlock
 	throwStmt
 	returnStmt
 	breakStmt
@@ -140,7 +141,7 @@ export function numberSlots(tree Tree, mutates slots U32List) returns Slots
 	var count = Slots.zero()
 	for id in 1 upto tree.records.count() 'each'
 		let k = tree.records[id].kind
-		if k == NodeKind.letStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt 'c_localSlots'
+		if k == NodeKind.letStmt or k == NodeKind.forStmt or k == NodeKind.tryStmt or k == NodeKind.handlerBlock 'c_localSlots'
 			count.localSlots = try count.localSlots + 1 otherwise panic("slot overflow")
 			slots[id] = count.localSlots
 		end 'c_localSlots'
@@ -880,6 +881,41 @@ export function setTryStmtHandlerEnd(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 5 as Count, value: value as diag.U32)
 end 'setTryStmtHandlerEnd'
 
+export function newHandlerBlock(mutates t Tree, start diag.U32) returns NodeID
+	let id = t.alloc(NodeKind.handlerBlock, start: start)
+	let blk = t.reserve(2 as Count)
+	t.records[id as Count].b = blk
+	return id
+end 'newHandlerBlock'
+
+export function handlerBlockLabel(t Tree, id NodeID) returns String
+	return t.labelAt(t.records[id as Count].a)
+end 'handlerBlockLabel'
+
+export function handlerBlockLabelRef(t Tree, id NodeID) returns diag.U32
+	return t.records[id as Count].a
+end 'handlerBlockLabelRef'
+
+export function setHandlerBlockLabelRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.records[id as Count].a = ref
+end 'setHandlerBlockLabelRef'
+
+export function handlerBlockBodyRef(t Tree, id NodeID) returns diag.U32
+	return t.blockWordAt(id, offset: 0 as Count)
+end 'handlerBlockBodyRef'
+
+export function setHandlerBlockBodyRef(mutates t Tree, id NodeID, ref diag.U32)
+	t.setBlockWordAt(id, offset: 0 as Count, value: ref)
+end 'setHandlerBlockBodyRef'
+
+export function handlerBlockEnd(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+end 'handlerBlockEnd'
+
+export function setHandlerBlockEnd(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+end 'setHandlerBlockEnd'
+
 export function newThrowStmt(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.throwStmt, start: start)
 	return id
@@ -1380,7 +1416,7 @@ end 'setCondExprElse'
 
 export function newTryExpr(mutates t Tree, start diag.U32) returns NodeID
 	let id = t.alloc(NodeKind.tryExpr, start: start)
-	let blk = t.reserve(5 as Count)
+	let blk = t.reserve(6 as Count)
 	t.records[id as Count].b = blk
 	return id
 end 'newTryExpr'
@@ -1409,36 +1445,44 @@ export function setTryExprValue(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setTryExprValue'
 
-export function tryExprRet(t Tree, id NodeID) returns NodeID
+export function tryExprHandler(t Tree, id NodeID) returns NodeID
 	return t.blockWordAt(id, offset: 1 as Count) as NodeID
+end 'tryExprHandler'
+
+export function setTryExprHandler(mutates t Tree, id NodeID, value NodeID)
+	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+end 'setTryExprHandler'
+
+export function tryExprRet(t Tree, id NodeID) returns NodeID
+	return t.blockWordAt(id, offset: 2 as Count) as NodeID
 end 'tryExprRet'
 
 export function setTryExprRet(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 1 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
 end 'setTryExprRet'
 
 export function tryExprBrk(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 2 as Count) as NodeID
+	return t.blockWordAt(id, offset: 3 as Count) as NodeID
 end 'tryExprBrk'
 
 export function setTryExprBrk(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 2 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
 end 'setTryExprBrk'
 
 export function tryExprCont(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 3 as Count) as NodeID
+	return t.blockWordAt(id, offset: 4 as Count) as NodeID
 end 'tryExprCont'
 
 export function setTryExprCont(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 3 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 4 as Count, value: value as diag.U32)
 end 'setTryExprCont'
 
 export function tryExprThr(t Tree, id NodeID) returns NodeID
-	return t.blockWordAt(id, offset: 4 as Count) as NodeID
+	return t.blockWordAt(id, offset: 5 as Count) as NodeID
 end 'tryExprThr'
 
 export function setTryExprThr(mutates t Tree, id NodeID, value NodeID)
-	t.setBlockWordAt(id, offset: 4 as Count, value: value as diag.U32)
+	t.setBlockWordAt(id, offset: 5 as Count, value: value as diag.U32)
 end 'setTryExprThr'
 
 export function newIntLit(mutates t Tree, start diag.U32) returns NodeID

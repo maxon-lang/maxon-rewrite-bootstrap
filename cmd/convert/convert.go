@@ -1137,8 +1137,8 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 					warn(line, "'default throws' in a match is not supported in minimaxon; name the remaining cases")
 				}
 			case "otherwise":
-				if toks[0].text != "end" && hasHandlerLabel(toks, i) {
-					warn(line, "a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block")
+				if label := handlerLabelIndex(toks, i); toks[0].text != "end" && label >= 0 && label != len(toks)-1 {
+					warn(line, "a block handler ('otherwise (e) 'label'') inside brackets is not supported in minimaxon; bind the value on a line of its own")
 				}
 			case "function":
 				if i+1 < len(toks) && toks[i+1].text == "(" {
@@ -1337,14 +1337,18 @@ func parseExprEnd(toks []token, from int) int {
 	return len(toks)
 }
 
-// hasHandlerLabel reports whether the `otherwise` at idx is followed, as its handler, by a block label, with or
-// without the binding of the error. A label further along the line belongs to the statement that holds the expression.
-func hasHandlerLabel(toks []token, idx int) bool {
+// handlerLabelIndex gives the index of the block label that follows the `otherwise` at idx as its handler, with or
+// without the binding of the error, or -1. A label further along the line belongs to the statement that holds the
+// expression. The handler block starts on the next line, so the label ends the line unless the expression is in brackets.
+func handlerLabelIndex(toks []token, idx int) int {
 	next := idx + 1
 	if next+2 < len(toks) && toks[next].text == "(" && toks[next+2].text == ")" {
 		next += 3
 	}
-	return next < len(toks) && toks[next].kind == tokLabel
+	if next < len(toks) && toks[next].kind == tokLabel {
+		return next
+	}
+	return -1
 }
 
 // isTypeFromConversion reports whether the `from` at idx follows a type name and so reads as `Type from value`, not as a

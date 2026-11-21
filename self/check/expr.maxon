@@ -549,17 +549,23 @@ end 'checkPanic'
 function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
 	let guarded = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
-	let propagates = tryPropagates(p.modules[c.modIdx].tree, e: e)
+	let propagates = ast.propagates(p.modules[c.modIdx].tree, e: e)
+	let alone = c.statement == e
+	var errors = ast.TypeIDList.create(0)
 	if not propagates 'catching'
 		beginCatching(c)
 	end 'catching'
 	let result = checkExpecting(c, p: p, e: guarded, want: want, errs: errs)
 	if not propagates 'caught'
-		_ = endCatching(c)
+		errors = endCatching(c)
 	end 'caught'
 	if result == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
+	let handler = ast.tryExprHandler(p.modules[c.modIdx].tree, id: e)
+	if handler != 0 'handler'
+		return checkTryHandler(c, p: p, e: e, result: result, errors: errors, alone: alone, errs: errs)
+	end 'handler'
 	if ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e) 'ignore'
 		if c.statement != e 'notAlone'
 			failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
@@ -567,7 +573,7 @@ function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutate
 		end 'notAlone'
 		return p.builtins.voidTy
 	end 'ignore'
-	let fallback = ast.tryExprValue(p.modules[c.modIdx].tree, id: e)
+	let fallback = ast.tryFallback(p.modules[c.modIdx].tree, e: e)
 	if fallback != 0 'value'
 		return checkFallback(c, p: p, fallback: fallback, result: result, want: want, errs: errs)
 	end 'value'
@@ -575,10 +581,36 @@ function checkTry(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutate
 	return result
 end 'checkTry'
 
-// tryPropagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
-function tryPropagates(tree ast.Tree, e ast.NodeID) returns bool
-	return ast.tryExprValue(tree, id: e) == 0 and not ast.tryExprIgnore(tree, id: e) and ast.tryExprRet(tree, id: e) == 0 and ast.tryExprBrk(tree, id: e) == 0 and ast.tryExprCont(tree, id: e) == 0 and ast.tryExprThr(tree, id: e) == 0
-end 'tryPropagates'
+// checkTryHandler types the block handler of a try: it runs on a failure, binding the error when it names it. A handler that
+// leaves gives the try its expression's value; one that runs off its end gives none, so the try stands alone as a statement.
+function checkTryHandler(mutates c Checker, mutates p ast.Project, e ast.NodeID, result ast.TypeID, errors ast.TypeIDList, alone bool, mutates errs diag.ErrorList) returns ast.TypeID
+	if c.fn == ast.noFunc 'noFunction'
+		failAt(c, p: p, node: e, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to run a handler block in: give 'otherwise' the value to use", errs: errs)
+		return ast.noType
+	end 'noFunction'
+	let falls = ast.tryHandlerFallsThrough(p.modules[c.modIdx].tree, e: e)
+	let want = c.expect
+	let statement = c.statement
+	let body = ast.handlerBlockBodyRef(p.modules[c.modIdx].tree, id: ast.tryExprHandler(p.modules[c.modIdx].tree, id: e))
+	let binding = ast.tryBinding(p.modules[c.modIdx].tree, e: e)
+	pushScope(c)
+	if binding == "" 'anonymous'
+		checkStmts(c, p: p, body: body, errs: errs)
+	end 'anonymous' else 'named'
+		checkHandlerBinding(c, p: p, s: e, binding: binding, errors: errors, body: body, requireMatch: false, errs: errs)
+	end 'named'
+	popScope(c)
+	c.statement = statement
+	c.expect = want
+	if not falls 'leaves'
+		return result
+	end 'leaves'
+	if not alone 'notAlone'
+		failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
+		return ast.noType
+	end 'notAlone'
+	return p.builtins.voidTy
+end 'checkTryHandler'
 
 // checkTryJump types the statement that a try with no value makes on a failure.
 function checkTryJump(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList)

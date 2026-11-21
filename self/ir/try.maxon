@@ -94,6 +94,15 @@ function visitThrowStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	end 'leave'
 end 'visitThrowStmt'
 
+// tryBindingSlot is the slot of the error that the handler of the try at node names, noSlot for one that names none.
+function tryBindingSlot(l Lowerer, p ast.Project, node ast.NodeID) returns Index
+	let local = localOfNode(p, module: l.module, node: node)
+	if local == ast.noLocal 'none'
+		return noSlot
+	end 'none'
+	return indexOf(slotOf(localEntry(p, module: l.fnModule, id: local)))
+end 'tryBindingSlot'
+
 // visitTryStmt lowers a try block: the body with its failures going to the handler, or, with no handler, onwards.
 function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	if not ast.tryStmtHasOtherwise(p.modules[l.mi].tree, id: s) 'plain'
@@ -106,12 +115,7 @@ function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	end 'plain'
 	let handler = l.b.newBlock()
 	let join = l.b.newBlock()
-	var binding = noSlot
-	let local = localOfNode(p, module: l.module, node: s)
-	if local != ast.noLocal 'bound'
-		binding = indexOf(slotOf(localEntry(p, module: l.fnModule, id: local)))
-	end 'bound'
-	_ = enterTry(l, target: handler, binding: binding)
+	_ = enterTry(l, target: handler, binding: tryBindingSlot(l, p: p, node: s))
 	lowerBlock(l, p: p, ref: ast.tryStmtBodyRef(p.modules[l.mi].tree, id: s))
 	leaveTry(l)
 	goTo(l, target: join)
@@ -134,6 +138,21 @@ function visitTryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) re
 		goTo(l, target: join)
 		return konst(l, value: 0 as Word)
 	end 'ignore'
+	let handler = ast.tryExprHandler(p.modules[l.mi].tree, id: e)
+	if handler != 0 'handler'
+		let onFailure = l.b.newBlock()
+		let join = l.b.newBlock()
+		_ = enterTry(l, target: onFailure, binding: tryBindingSlot(l, p: p, node: e))
+		pushScope(l, block: false)
+		_ = lowerExpr(l, p: p, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
+		popScope(l, p: p)
+		leaveTry(l)
+		goTo(l, target: join)
+		l.cur = onFailure
+		lowerBlock(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler))
+		goTo(l, target: join)
+		return konst(l, value: 0 as Word)
+	end 'handler'
 	let typ = exprType(p, module: l.module, node: e)
 	let result = l.b.f.newSlot(kindOf(l, p: p, t: typ))
 	let other = l.b.newBlock()
@@ -153,7 +172,7 @@ function visitTryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) re
 end 'visitTryExpr'
 
 // lowerThrough lowers a try whose value is its expression's, which passes a failure on or leaves the statement with a
-// return, a break, a continue or a throw.
+// return, a break, a continue or a throw, or with a handler block that leaves.
 function lowerThrough(mutates l Lowerer, mutates p ast.Project, t ast.NodeID) returns Reg
 	if ast.propagates(p.modules[l.mi].tree, e: t) 'propagates'
 		let added = enterPropagating(l)
@@ -164,7 +183,7 @@ function lowerThrough(mutates l Lowerer, mutates p ast.Project, t ast.NodeID) re
 		return v
 	end 'propagates'
 	let exit = l.b.newBlock()
-	let h = enterTry(l, target: exit, binding: noSlot)
+	let h = enterTry(l, target: exit, binding: tryBindingSlot(l, p: p, node: t))
 	let v = lowerExpr(l, p: p, e: ast.tryExprE(p.modules[l.mi].tree, id: t))
 	leaveTry(l)
 	let resume = l.cur
@@ -174,7 +193,10 @@ function lowerThrough(mutates l Lowerer, mutates p ast.Project, t ast.NodeID) re
 	let brk = ast.tryExprBrk(p.modules[l.mi].tree, id: t)
 	let cont = ast.tryExprCont(p.modules[l.mi].tree, id: t)
 	let thr = ast.tryExprThr(p.modules[l.mi].tree, id: t)
-	if ret != 0 'ret'
+	let handler = ast.tryExprHandler(p.modules[l.mi].tree, id: t)
+	if handler != 0 'handler'
+		lowerBlock(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler))
+	end 'handler' else if ret != 0 'ret'
 		visitReturnStmt(l, p: p, s: ret)
 	end 'ret' else if brk != 0 'brk'
 		visitBreakStmt(l, p: p, s: brk)

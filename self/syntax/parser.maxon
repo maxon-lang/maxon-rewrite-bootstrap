@@ -203,6 +203,19 @@ type Parser
 		return inTokenSet(set, kind: self.peekTok().kind)
 	end 'peekIn'
 
+	// atHandlerBinding is whether the label here names the block that follows `otherwise (e)`: only that binding makes a
+	// label after the value of an `otherwise` the label of a handler, and not the label of the `if` or the loop that the try
+	// ends the condition of.
+	function atHandlerBinding() returns bool
+		if pos < 4 'short'
+			return false
+		end 'short'
+		let closing = before(pos)
+		let name = before(closing)
+		let opening = before(name)
+		return toks[before(opening)].kind == TokenKind.kw_otherwise and toks[opening].kind == TokenKind.lParen and toks[name].kind == TokenKind.name and toks[closing].kind == TokenKind.rParen
+	end 'atHandlerBinding'
+
 	function atEndOfInput() returns bool
 		return self.at(TokenKind.fileEnd) or self.at(TokenKind.eof)
 	end 'atEndOfInput'

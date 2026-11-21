@@ -151,12 +151,14 @@ end 'checkStmt'
 function checkExprStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
 	let whole = ast.exprStmtE(p.modules[c.modIdx].tree, id: s)
 	var e = whole
+	var catches = false
 	if p.modules[c.modIdx].tree.kindOf(e) == ast.NodeKind.tryExpr 'try'
 		c.statement = e
+		catches = ast.tryExprHandler(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e)
 		e = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
 	end 'try'
 	let k = p.modules[c.modIdx].tree.kindOf(e)
-	if k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr 'notCall'
+	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr 'notCall'
 		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
 		return
 	end 'notCall'
@@ -457,11 +459,13 @@ function checkTryStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, mu
 		popScope(c)
 		return
 	end 'anonymous'
-	checkHandlerBinding(c, p: p, s: s, binding: binding, errors: errors, errs: errs)
+	checkHandlerBinding(c, p: p, s: s, binding: binding, errors: errors, body: handler, requireMatch: true, errs: errs)
 	popScope(c)
 end 'checkTryStmt'
 
-function checkHandlerBinding(mutates c Checker, mutates p ast.Project, s ast.NodeID, binding String, errors ast.TypeIDList, mutates errs diag.ErrorList)
+// checkHandlerBinding types the body of a handler that names the error, which a try block's handler must match on and a
+// try expression's need not.
+function checkHandlerBinding(mutates c Checker, mutates p ast.Project, s ast.NodeID, binding String, errors ast.TypeIDList, body diag.U32, requireMatch bool, mutates errs diag.ErrorList)
 	let handled = handlerError(c, p: p, s: s, binding: binding, errors: errors, errs: errs)
 	if handled == ast.noType 'ambiguous'
 		return
@@ -472,9 +476,9 @@ function checkHandlerBinding(mutates c Checker, mutates p ast.Project, s ast.Nod
 	end 'failed'
 	c.typing.nodeLocals.insert(s as Count, value: local)
 	c.bindings.push(TryBinding.make(local))
-	checkStmts(c, p: p, body: ast.tryStmtHandlerRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	checkStmts(c, p: p, body: body, errs: errs)
 	let frame = try c.bindings.pop() otherwise panic("a handler ended that was never begun")
-	if not frame.matched 'unmatched'
+	if requireMatch and not frame.matched 'unmatched'
 		failAt(c, p: p, node: s, code: diag.errTryBlockBindingNotMatched, msg: diag.tryBlockBindingNotMatched(binding), errs: errs)
 	end 'unmatched'
 end 'checkHandlerBinding'

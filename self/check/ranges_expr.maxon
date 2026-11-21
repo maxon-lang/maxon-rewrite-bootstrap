@@ -403,7 +403,11 @@ end 'rangeCondExpr'
 // rangeTryExpr covers the failures of its expression: a try with 'otherwise' catches them, and one without passes them to
 // the caller.
 function rangeTryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Span
-	let added = rangeEnterTry(r, p: p, site: e, handles: not ast.propagates(p.modules[r.modIdx].tree, e: e), takes: ast.noType)
+	let takes = match consumes nodeLocalOf(r, node: e) 'local'
+		some(id) gives r.typing.locals[id as Count].ty
+		none gives ast.noType
+	end 'local'
+	let added = rangeEnterTry(r, p: p, site: e, handles: not ast.propagates(p.modules[r.modIdx].tree, e: e), takes: takes)
 	let v = rangeEval(r, p: p, e: ast.tryExprE(p.modules[r.modIdx].tree, id: e))
 	if not added 'passed'
 		return v
@@ -415,13 +419,16 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Spa
 	let ended = rangeKeep(r)
 	r.st = h.entry
 	var other = noSpan()
-	let value = ast.tryExprValue(p.modules[r.modIdx].tree, id: e)
+	let value = ast.tryFallback(p.modules[r.modIdx].tree, e: e)
+	let handler = ast.tryExprHandler(p.modules[r.modIdx].tree, id: e)
 	let ret = ast.tryExprRet(p.modules[r.modIdx].tree, id: e)
 	let brk = ast.tryExprBrk(p.modules[r.modIdx].tree, id: e)
 	let thr = ast.tryExprThr(p.modules[r.modIdx].tree, id: e)
 	if value != 0 'value'
 		other = rangeEval(r, p: p, e: value)
-	end 'value' else if ret != 0 'return'
+	end 'value' else if handler != 0 'handler'
+		rangeBlock(r, p: p, body: ast.handlerBlockBodyRef(p.modules[r.modIdx].tree, id: handler))
+	end 'handler' else if ret != 0 'return'
 		rangeReturnStmt(r, p: p, s: ret)
 	end 'return' else if brk != 0 'break'
 		rangeBreakStmt(r, s: brk)

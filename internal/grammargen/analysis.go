@@ -168,6 +168,8 @@ func (a *analysis) elemFirst(e *elem) laSet {
 		f = laSet{a.m.terminal(e): true}
 	case ekRule:
 		f = a.first[a.m.ruleByName[e.text]]
+	case ekPredicate:
+		f = laSet{"": true}
 	case ekGroup:
 		f = laSet{}
 		for _, x := range e.group {

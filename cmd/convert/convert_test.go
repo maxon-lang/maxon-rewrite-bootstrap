@@ -288,9 +288,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "if try",
 		},
 		{
-			name:     "block otherwise on try expr",
-			in:       "function f() returns Count\n\tlet x = try work() otherwise 'fail'\n\t\treturn 0\n\tend 'fail'\n\treturn x\nend 'f'\n",
-			wantTodo: "a block handler ('otherwise (e) 'label'') on a try expression",
+			name:     "block otherwise on try expr inside brackets",
+			in:       "function f() returns Count\n\treturn g(try work() otherwise (e) 'fail')\nend 'f'\n",
+			wantTodo: "a block handler ('otherwise (e) 'label'') inside brackets",
 		},
 		{
 			name:     "union error",

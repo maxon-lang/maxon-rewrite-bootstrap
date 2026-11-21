@@ -218,6 +218,17 @@ Assign : '=' ;
 	}
 }
 
+func TestAPredicateGuardsAnOptionalGroupWithAParserMethod(t *testing.T) {
+	parser := generateTiny(t, `grammar T;
+call : callee=Name ({atBinding}? 'with' bound=Name)? ;
+Name : [a-z]+ ;
+`)[maxonParserFile]
+	want := "p.atBinding()"
+	if !strings.Contains(parser, want) {
+		t.Errorf("parser lacks %q:\n%s", want, parser)
+	}
+}
+
 func TestGrammarErrorsNameTheLine(t *testing.T) {
 	cases := map[string]string{
 		"grammar G;\na : b ;\n":                             "g.g4:2: rule 'b' is not declared",
@@ -234,6 +245,7 @@ func TestGrammarErrorsNameTheLine(t *testing.T) {
 		"grammar G;\nA : 'x' .*? 'y' ;\n":                   "g.g4:2: the DFA lexer takes the longest match; a non-greedy loop cannot be compiled",
 		"grammar G;\na : W ;\nW : ' ' -> skip ;\n":          "g.g4:2: token 'W' is skipped, so no rule can use it",
 		"grammar G;\na : b^ ;\nb : 'x' ;\n":                 "g.g4:2: ^ joins a token to its neighbour; put it on a literal or a token",
+		"grammar G;\na : {ok}? 'p' ;\n":                     "g.g4:2: a predicate {ok}? belongs at the start of the only alternative of an optional group",
 		"grammar G;\nA : 'x' -> more ;\n":                   "g.g4:2: token 'A' has the command 'more'; a token takes skip, scan, noSpaceBefore, noSpaceAfter or noSpace",
 	}
 	for src, want := range cases {

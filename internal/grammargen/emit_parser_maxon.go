@@ -102,13 +102,14 @@ func maxonKind(goName string) string {
 
 func (l *maxonLang) term(goName string) string { return "TokenKind." + maxonKind(goName) }
 
-func (l *maxonLang) at(term string) string     { return "p.at(" + l.term(term) + ")" }
-func (l *maxonLang) in(set string) string      { return "p.inSet(" + set + ")" }
-func (l *maxonLang) peekIs(term string) string { return "p.peekIs(" + l.term(term) + ")" }
-func (l *maxonLang) peekIn(set string) string  { return "p.peekIn(" + set + ")" }
-func (l *maxonLang) and(a, b string) string    { return a + " and " + b }
-func (l *maxonLang) or(parts []cond) string    { return joinConds(parts, " or ") }
-func (l *maxonLang) not(c string) string       { return "not " + c }
+func (l *maxonLang) at(term string) string        { return "p.at(" + l.term(term) + ")" }
+func (l *maxonLang) in(set string) string         { return "p.inSet(" + set + ")" }
+func (l *maxonLang) peekIs(term string) string    { return "p.peekIs(" + l.term(term) + ")" }
+func (l *maxonLang) peekIn(set string) string     { return "p.peekIn(" + set + ")" }
+func (l *maxonLang) and(a, b string) string       { return a + " and " + b }
+func (l *maxonLang) predicate(name string) string { return "p." + name + "()" }
+func (l *maxonLang) or(parts []cond) string       { return joinConds(parts, " or ") }
+func (l *maxonLang) not(c string) string          { return "not " + c }
 
 func (l *maxonLang) less(prec int, v string) string { return fmt.Sprintf("%d < %s", prec, v) }
 

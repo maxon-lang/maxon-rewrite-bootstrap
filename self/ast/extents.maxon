@@ -253,10 +253,10 @@ export function exprEnd(t Tree, e NodeID) returns table.Option with Count
 		return table.Option.some(closingEnd(t.text, at: openingAfter(t.text, at: start)))
 	end 'opened'
 	if k == NodeKind.tryExpr 'try'
-		if tryExprValue(t, id: e) != 0 'fallback'
-			return exprEnd(t, e: tryExprValue(t, id: e))
+		if tryFallback(t, e: e) != 0 'fallback'
+			return exprEnd(t, e: tryFallback(t, e: e))
 		end 'fallback'
-		if tryExprIgnore(t, id: e) or tryExprRet(t, id: e) != 0 or tryExprBrk(t, id: e) != 0 or tryExprCont(t, id: e) != 0 or tryExprThr(t, id: e) != 0 'leaves'
+		if tryExprIgnore(t, id: e) or tryExprHandler(t, id: e) != 0 or tryExprRet(t, id: e) != 0 or tryExprBrk(t, id: e) != 0 or tryExprCont(t, id: e) != 0 or tryExprThr(t, id: e) != 0 'leaves'
 			return table.Option.none
 		end 'leaves'
 		return exprEnd(t, e: tryExprE(t, id: e))

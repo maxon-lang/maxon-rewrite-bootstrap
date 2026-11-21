@@ -285,15 +285,18 @@ function land(mutates o Ownership, mark Count)
 	truncate(o.inFlight, mark: mark)
 end 'land'
 
-// handled checks what a transparent try does on a failure: return, break, continue or throw, or nothing for a try that
-// passes it to the caller.
+// handled checks what a transparent try does on a failure: return, break, continue or throw, or a handler block that leaves, or
+// nothing for a try that passes it to the caller.
 function handled(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes entry OwnState)
 	let mark = o.inFlight.count()
 	let ret = ast.tryExprRet(p.modules[o.c.modIdx].tree, id: e)
 	let brk = ast.tryExprBrk(p.modules[o.c.modIdx].tree, id: e)
 	let cont = ast.tryExprCont(p.modules[o.c.modIdx].tree, id: e)
 	let thr = ast.tryExprThr(p.modules[o.c.modIdx].tree, id: e)
-	if ret != 0 'return'
+	let handler = ast.tryExprHandler(p.modules[o.c.modIdx].tree, id: e)
+	if handler != 0 'handler'
+		_ = walk(o, p: p, body: ast.handlerBlockBodyRef(p.modules[o.c.modIdx].tree, id: handler), s: entry)
+	end 'handler' else if ret != 0 'return'
 		_ = returnStmtOwn(o, p: p, st: ret, s: entry)
 	end 'return' else if brk != 0 'break'
 		_ = jumpOwn(o, p: p, st: brk, s: entry, isBreak: true)
@@ -323,12 +326,22 @@ function tryExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, co
 		let entry = leaveTryEntry(o, added: added)
 		return join(o, p: p, a: after, b: entry)
 	end 'ignore'
+	let handler = ast.tryExprHandler(p.modules[o.c.modIdx].tree, id: e)
+	if handler != 0 'falls'
+		let mark = o.inFlight.count()
+		let added = enterTry(o, handles: true)
+		let after = eval(o, p: p, e: inner, s: s)
+		let entry = leaveTryEntry(o, added: added)
+		let ended = walk(o, p: p, body: ast.handlerBlockBodyRef(p.modules[o.c.modIdx].tree, id: handler), s: entry)
+		land(o, mark: mark)
+		return join(o, p: p, a: after, b: ended)
+	end 'falls'
 	let mark = o.inFlight.count()
 	let added = enterTry(o, handles: not passes)
 	let after = consume(o, p: p, e: inner, dest: OwnDest.of(OwnDestKind.destResult), s: s)
 	let entry = leaveTryEntry(o, added: added)
 	land(o, mark: mark)
-	let fallback = consume(o, p: p, e: ast.tryExprValue(p.modules[o.c.modIdx].tree, id: e), dest: OwnDest.of(OwnDestKind.destResult), s: entry)
+	let fallback = consume(o, p: p, e: ast.tryFallback(p.modules[o.c.modIdx].tree, e: e), dest: OwnDest.of(OwnDestKind.destResult), s: entry)
 	return join(o, p: p, a: after, b: fallback)
 end 'tryExprOwn'
 

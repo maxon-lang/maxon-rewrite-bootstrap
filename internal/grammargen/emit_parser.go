@@ -237,7 +237,11 @@ func onceOf(e *elem) *elem {
 func (g *pgen) enterTest(e *elem, c cont) string {
 	enter := g.a.lookahead([]*elem{onceOf(e)}, c.then([]*elem{starOf(e)}))
 	exit := g.a.lookahead(nil, c)
-	return g.test(enter, []laSet{exit})
+	test := g.test(enter, []laSet{exit})
+	if e.kind == ekGroup && len(e.group) == 1 && e.group[0].elems[0].kind == ekPredicate {
+		return g.l.and(test, g.l.predicate(e.group[0].elems[0].text))
+	}
+	return test
 }
 
 func (g *pgen) elem(e *elem, c cont, tg target) {
@@ -287,6 +291,8 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 		default:
 			g.l.stmt(call)
 		}
+	case ekPredicate:
+		// enterTest has tested it.
 	case ekGroup:
 		if e.label != "" && g.m.groupType(e) == "string" {
 			var terms []string
@@ -919,6 +925,8 @@ type lang interface {
 	peekIs(term string) string
 	peekIn(set string) string
 	and(a, b string) string
+	// predicate is a call of the hand-written parser method name, which gives whether the parser is where a {name}? stands.
+	predicate(name string) string
 	or(parts []cond) string
 	not(c string) string
 	less(prec int, v string) string

@@ -42,6 +42,8 @@
 //                      token that is not regular. `-> noSpaceBefore`, `-> noSpaceAfter` and `-> noSpace` join the
 //                      token to its neighbours wherever it appears.
 //   ^x, x^             Join a literal or token to the one before or after it, here only: a call's `^'('`.
+//   {name}?           A predicate: at the start of the only alternative of an optional group, the group is entered only where the
+//                      hand-written parser method name is also true, as `atHandlerBinding` decides what the tokens cannot.
 //
 // Lookahead is one token, or two where one does not decide; where two alternatives share a leading rule, it is
 // parsed once and the token after it decides. Otherwise the earlier alternative wins, as in ANTLR.
@@ -347,6 +349,17 @@ tryStmt
 	Local Slot[Local]
 }
 
+// A try expression's block handler: its error is named by the parenthesized name before the label, which parses as the expression of `value`.
+handlerBlock
+    : label=Label
+      body=block
+      'end' end=endLabel?
+    ;
+
+@ast::HandlerBlock {
+	Local Slot[Local]
+}
+
 throwStmt
     : 'throw' value=expr
     ;
@@ -452,7 +465,7 @@ expr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr
-    | 'try' e=expr ('otherwise' (ignore='ignore' | value=expr | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
+    | 'try' e=expr ('otherwise' (ignore='ignore' | value=expr ({atHandlerBinding}? handler=handlerBlock)? | handler=handlerBlock | ret=returnStmt | brk=breakStmt | cont=continueStmt | thr=throwStmt))? # TryExpr
     ;
 
 @ast::MemberExpr {

@@ -73,10 +73,51 @@ end 'through'
 // leaves with a return, a break, a continue or a throw. A try that gives a value, or ignores the failure and has none,
 // is not.
 export function isTransparent(t Tree, e NodeID) returns bool
-	return tryExprValue(t, id: e) == 0 and not tryExprIgnore(t, id: e)
+	return tryFallback(t, e: e) == 0 and not tryExprIgnore(t, id: e) and not tryHandlerFallsThrough(t, e: e)
 end 'isTransparent'
 
 // propagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
 export function propagates(t Tree, e NodeID) returns bool
-	return isTransparent(t, e: e) and tryExprRet(t, id: e) == 0 and tryExprBrk(t, id: e) == 0 and tryExprCont(t, id: e) == 0 and tryExprThr(t, id: e) == 0
+	return isTransparent(t, e: e) and tryExprHandler(t, id: e) == 0 and tryExprRet(t, id: e) == 0 and tryExprBrk(t, id: e) == 0 and tryExprCont(t, id: e) == 0 and tryExprThr(t, id: e) == 0
 end 'propagates'
+
+// leaves is whether control never reaches the statement after this one: it terminates, jumps out with a break or a
+// continue, or is an if whose every branch does.
+function leaves(t Tree, s NodeID) returns bool
+	let k = t.kindOf(s)
+	if k == NodeKind.breakStmt or k == NodeKind.continueStmt 'jump'
+		return true
+	end 'jump'
+	if k == NodeKind.ifStmt 'if'
+		return ifStmtHasElse(t, id: s) and leavesBody(t, ref: ifStmtThenRef(t, id: s)) and leavesBody(t, ref: ifStmtElseRef(t, id: s))
+	end 'if'
+	return terminates(t, s: s)
+end 'leaves'
+
+function leavesBody(t Tree, ref diag.U32) returns bool
+	let n = t.listLen(ref)
+	return n > 0 and leaves(t, s: t.listAt(ref, index: n - 1) as NodeID)
+end 'leavesBody'
+
+// tryFallback is the value a try gives on a failure, 0 for none. The expression before a block handler's label names
+// the error it binds, and is no value.
+export function tryFallback(t Tree, e NodeID) returns NodeID
+	if tryExprHandler(t, id: e) != 0 'binds'
+		return 0 as NodeID
+	end 'binds'
+	return tryExprValue(t, id: e)
+end 'tryFallback'
+
+// tryBinding is the name a block handler gives the error, "" for none.
+export function tryBinding(t Tree, e NodeID) returns String
+	if tryExprHandler(t, id: e) == 0 or tryExprValue(t, id: e) == 0 'none'
+		return ""
+	end 'none'
+	return nameExprName(t, id: tryExprValue(t, id: e))
+end 'tryBinding'
+
+// tryHandlerFallsThrough is whether a try's block handler can run off its end, so that the try gives no value.
+export function tryHandlerFallsThrough(t Tree, e NodeID) returns bool
+	let handler = tryExprHandler(t, id: e)
+	return handler != 0 and not leavesBody(t, ref: handlerBlockBodyRef(t, id: handler))
+end 'tryHandlerFallsThrough'
