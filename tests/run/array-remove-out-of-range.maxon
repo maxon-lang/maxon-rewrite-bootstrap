@@ -1,10 +1,10 @@
 // expect-exit: 1
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
 	var a = CountArray.filled(2, value: 1)
-	print("{a.remove(1)}\n")
-	print("{a.remove(1)}\n")
+	print("{try a.remove(1) otherwise panic("index out of range")}\n")
+	print("{try a.remove(1) otherwise panic("index out of range")}\n")
 	return 0
 end 'main'
 

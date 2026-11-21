@@ -35,7 +35,7 @@ function join(consumes p Pair) returns String
 	return "{p.left}{p.right}"
 end 'join'
 
-function pick(items array with Count, bonus Count) returns Count
+function pick(items Array with Count, bonus Count) returns Count
 	var chosen = 0 as Count
 	for i in 0 upto items.count() 'each'
 		if items[i] > bonus and items[i] != 4 'big'
@@ -47,13 +47,13 @@ function pick(items array with Count, bonus Count) returns Count
 	return chosen
 end 'pick'
 
-function grow(mutates items array with Count, by Count)
-	items.append(by)
+function grow(mutates items Array with Count, by Count)
+	items.push(by)
 	items[0] = by
 end 'grow'
 
 function main() returns ExitCode
-	var items = Counts.new()
+	var items = Counts.create(0)
 	grow(items, by: 3)
 	let pair = Pair.make(label(pick(items, bonus: 1), shade: Shade.dark), right: "!")
 	print(join(pair))
@@ -61,4 +61,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-typealias Counts = array with Count
+typealias Counts = Array with Count

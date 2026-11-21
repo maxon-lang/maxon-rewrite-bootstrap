@@ -29,13 +29,13 @@ union Slot uses T
 end 'Slot'
 
 function swap(mutates a T, mutates b T) uses T where T implements Copyable
-	var tmp = a.copy()
-	a = b.copy()
+	var tmp = a.clone()
+	a = b.clone()
 	b = tmp
 end 'swap'
 
 function fill(sets out T, from T) uses T where T implements Copyable
-	out = from.copy()
+	out = from.clone()
 end 'fill'
 
 function count(a T) uses T returns Score
@@ -47,21 +47,21 @@ function eat(consumes a T) uses T returns Score where T implements Droppable
 end 'eat'
 
 function hold(consumes a T) uses T returns Pair with (T, T) where T implements Copyable
-	let keep = a.copy()
+	let keep = a.clone()
 	return Pair.make(a, second: keep)
 end 'hold'
 
 function reuse(consumes a T, b T) uses T returns Count where T implements Copyable
 	var held = a
 	let first = eat(held)
-	held = b.copy()
+	held = b.clone()
 	return first + eat(held)
 end 'reuse'
 
 function later(a T, b T, flag bool) uses T returns T where T implements Copyable
-	var chosen = a.copy()
+	var chosen = a.clone()
 	if flag 'f'
-		chosen = b.copy()
+		chosen = b.clone()
 	end 'f'
 	return chosen
 end 'later'
@@ -79,7 +79,7 @@ end 'inspect'
 
 function reopen(slot Slot with T) uses T returns Slot with T where T implements Copyable
 	return match slot 'm'
-		full(v) gives Slot.full(v.copy())
+		full(v) gives Slot.full(v.clone())
 		empty gives Slot.empty
 	end 'm'
 end 'reopen'

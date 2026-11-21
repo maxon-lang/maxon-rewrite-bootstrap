@@ -63,7 +63,7 @@ typealias StringBox = Box with String
 
 function main() returns ExitCode
 	let a = StringBox.make("x", tag: 1)
-	let b = a.copy()
+	let b = a.clone()
 	print(b.peek())
 	return 0
 end 'main'

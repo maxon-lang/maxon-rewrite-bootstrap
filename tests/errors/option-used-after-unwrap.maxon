@@ -1,5 +1,5 @@
-// expect-error: E3102 at 16:10
-typealias CellArray = array with Cell
+// expect-error: E3102 at 15:10
+typealias CellArray = Array with Cell
 
 type Cell
 	export var n as Count
@@ -10,8 +10,7 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var a = CellArray.new()
-	let o = a.pop()
+	let o = Option.some(Cell.make(1))
 	let c = o.unwrap()
 	print("{o.isSome()} {c.n}")
 	return 0

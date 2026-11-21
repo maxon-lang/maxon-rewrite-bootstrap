@@ -1,8 +1,8 @@
 // case: string comparison of an element while the array changes
 // expect-error: E3186
 function main() returns ExitCode
-	var a = Names.new()
-	a.append(label(1))
+	var a = Names.create(0)
+	a.push(label(1))
 	if a[0] == wipe(a) 'eq'
 		print("eq\n")
 	end 'eq'
@@ -12,8 +12,8 @@ end 'main'
 // case: string inequality of an element while the array changes
 // expect-error: E3186
 function main() returns ExitCode
-	var a = Names.new()
-	a.append(label(1))
+	var a = Names.create(0)
+	a.push(label(1))
 	if a[0] != wipe(a) 'ne'
 		print("ne\n")
 	end 'ne'
@@ -65,8 +65,8 @@ end 'main'
 // case: subscript of a nested element while the index removes the row
 // expect-error: E3186
 function main() returns ExitCode
-	var rows = Rows.new()
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
 	print(rows[0].cells[shrink(rows)])
 	return 0
 end 'main'
@@ -74,7 +74,7 @@ end 'main'
 // case: subscript of a variable while the index replaces it
 // expect-error: E3186
 function main() returns ExitCode
-	var a = Names.new()
+	var a = Names.create(0)
 	print(a[reset(a)])
 	return 0
 end 'main'
@@ -82,8 +82,8 @@ end 'main'
 // case: assigned subscript while the index removes the row
 // expect-error: E3186
 function main() returns ExitCode
-	var rows = Rows.new()
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
 	rows[0].cells[shrink(rows)] = "x"
 	return 0
 end 'main'
@@ -91,8 +91,8 @@ end 'main'
 // case: mutates argument whose subscript removes the row
 // expect-error: E3186
 function main() returns ExitCode
-	var rows = Rows.new()
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
 	bump(rows[0].cells[shrink(rows)])
 	return 0
 end 'main'
@@ -100,8 +100,8 @@ end 'main'
 // case: match subject whose subscript removes the row
 // expect-error: E3186
 function main() returns ExitCode
-	var rows = Rows.new()
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
 	match rows[0].items[shrink(rows)] 'm'
 		named(n) then print(n)
 		anonymous then print("none")
@@ -112,7 +112,7 @@ end 'main'
 // case: subscript of a map while the index replaces it
 // expect-error: E3186
 function main() returns ExitCode
-	var m = CountPersonMap.new()
+	var m = CountPersonMap.create()
 	print(m[drain(m)].name)
 	return 0
 end 'main'
@@ -120,7 +120,7 @@ end 'main'
 // case: subscript of a pool while the index changes it
 // expect-error: E3186
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	print("{p[reap(p)].n}")
 	return 0
 end 'main'

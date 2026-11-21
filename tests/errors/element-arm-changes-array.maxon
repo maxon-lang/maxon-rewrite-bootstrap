@@ -1,7 +1,7 @@
 // expect-error: E3186 at 17:16
 typealias CellOption = Option with Cell
 
-typealias CellOptionArray = array with (Option with Cell)
+typealias CellOptionArray = Array with (Option with Cell)
 
 type Cell
 	export var n as Count
@@ -12,9 +12,9 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var a = CellOptionArray.new()
+	var a = CellOptionArray.create(0)
 	match a[0] 'm'
-		some(c) then a.append(CellOption.none)
+		some(c) then a.push(CellOption.none)
 		none then print("none")
 	end 'm'
 	return 0

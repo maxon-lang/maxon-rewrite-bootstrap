@@ -314,7 +314,7 @@ func (g *generator) ownedFromStorage(t *ty) (string, bool) {
 		return v.name, true
 	}
 	if p, ok := g.place(t, false); ok {
-		return p.src + ".copy()", true
+		return p.src + ".clone()", true
 	}
 	return "", false
 }
@@ -363,21 +363,21 @@ func (g *generator) owned(t *ty, depth int) string {
 	case kArray:
 		switch n := g.pick(6); {
 		case n < 2:
-			return fmt.Sprintf("%s.new()", g.typeExpr(t))
+			return fmt.Sprintf("%s.create(0)", g.typeExpr(t))
 		case n < 4:
 			return fmt.Sprintf("%s.filled(%d, value: %s)", g.typeExpr(t), g.pick(4), g.owned(t.args[0], depth-1))
 		}
 		if s, ok := g.ownedFromStorage(t); ok {
 			return s
 		}
-		return fmt.Sprintf("%s.new()", g.typeExpr(t))
+		return fmt.Sprintf("%s.create(0)", g.typeExpr(t))
 	case kPool, kList, kMap:
 		if g.chance(30) {
 			if s, ok := g.ownedFromStorage(t); ok {
 				return s
 			}
 		}
-		return fmt.Sprintf("%s.new()", g.typeExpr(t))
+		return fmt.Sprintf("%s.create()", g.typeExpr(t))
 	case kOption:
 		return g.optionExpr(t, depth)
 	case kHandle:
@@ -431,7 +431,7 @@ func (g *generator) optionExpr(t *ty, depth int) string {
 		return fmt.Sprintf("%s.some(%s)", g.typeExpr(t), g.owned(elem, depth-1))
 	case n < 6:
 		if a, ok := g.place(g.array(elem), true); ok {
-			return a.src + ".pop()"
+			return fmt.Sprintf("%s.some(try %s.pop() otherwise %s)", g.typeExpr(t), a.src, g.owned(elem, depth-1))
 		}
 	case n < 7:
 		if a, ok := g.place(g.array(elem), false); ok {
@@ -456,7 +456,7 @@ func (g *generator) handleExpr(t *ty, depth int) string {
 		return fmt.Sprintf("%s.insert(%s)", p.src, g.owned(elem, depth-1))
 	}
 	if l, ok := g.place(g.list(elem), true); ok {
-		return fmt.Sprintf("%s.%s(%s)", l.src, []string{"pushBack", "pushFront"}[g.pick(2)], g.owned(elem, depth-1))
+		return fmt.Sprintf("%s.%s(%s)", l.src, []string{"append", "prepend"}[g.pick(2)], g.owned(elem, depth-1))
 	}
 	if p, ok := g.place(t, false); ok {
 		return p.src

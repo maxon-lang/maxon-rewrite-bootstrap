@@ -22,9 +22,9 @@ end 'parseTypeRef'
 // that holds the type.
 function parseTypeRefWith(mutates p Parser, bareArgs bool) returns ast.NodeID
 	let start = p.curStart()
-	var quals = ast.U32List.new()
+	var quals = ast.U32List.create(0)
 	while (p.curKind() == TokenKind.name or p.curKind() == TokenKind.kwExport) and p.peekKind(1 as Count) == TokenKind.dot 'q'
-		quals.append(p.curTextRef())
+		quals.push(p.curTextRef())
 		_ = p.advance()
 		_ = p.advance()
 	end 'q'
@@ -32,11 +32,11 @@ function parseTypeRefWith(mutates p Parser, bareArgs bool) returns ast.NodeID
 	if not p.accept(TokenKind.kwSelfType) 'nm'
 		_ = p.expect(TokenKind.name, what: "a type name")
 	end 'nm'
-	var args = ast.U32List.new()
+	var args = ast.U32List.create(0)
 	if p.accept(TokenKind.kwWith) 'withArgs'
 		if p.accept(TokenKind.lParen) 'paren'
 			while not p.hasError 'a'
-				args.append(parseTypeRef(p) as diag.U32)
+				args.push(parseTypeRef(p) as diag.U32)
 				if not p.accept(TokenKind.comma) 'adone'
 					break 'a'
 				end 'adone'
@@ -44,7 +44,7 @@ function parseTypeRefWith(mutates p Parser, bareArgs bool) returns ast.NodeID
 			_ = p.expect(TokenKind.rParen, what: "')'")
 		end 'paren' else 'single'
 			while not p.hasError 'list'
-				args.append(parseTypeRef(p) as diag.U32)
+				args.push(parseTypeRef(p) as diag.U32)
 				if not bareArgs or not p.accept(TokenKind.comma) 'sdone'
 					break 'list'
 				end 'sdone'
@@ -63,7 +63,7 @@ end 'parseTypeRefWith'
 function decodeIntText(text String) returns ast.I128
 	var base = 10 as Count
 	var start = 0 as Count
-	let n = text.byteCount()
+	let n = text.byteLength()
 	if n >= 2 and text.byteAt(0 as Count) == byteZero 'pref'
 		let b1 = text.byteAt(1 as Count)
 		if b1 == byteLowerX 'hex'
@@ -166,16 +166,16 @@ end 'panicFailExpr'
 function flushStrText(mutates p Parser, mutates parts ast.U32List, mutates buf Bytes, hasBuf bool, runStart Count, pos Count)
 	if hasBuf 'dec'
 		let idx = p.tree.addString(buf.toString())
-		parts.append(1 as diag.U32)
-		parts.append(idx)
+		parts.push(1 as diag.U32)
+		parts.push(idx)
 		buf = Bytes.new()
 		return
 	end 'dec'
 	let n = try pos - runStart otherwise 0 as Count
 	let tag = try (n + 2) as diag.U32 otherwise panic("string part overflow")
 	let off = try runStart as diag.U32 otherwise panic("string part offset overflow")
-	parts.append(tag)
-	parts.append(off)
+	parts.push(tag)
+	parts.push(off)
 end 'flushStrText'
 
 function findInterpEnd(src String, openBrace Count, endPos Count) returns Count
@@ -221,13 +221,13 @@ function parseStrLit(mutates p Parser) returns ast.NodeID
 	var buf = Bytes.new()
 	var hasBuf = false
 	var added = false
-	var parts = ast.U32List.new()
+	var parts = ast.U32List.create(0)
 	while i < endPos and not p.hasError 'scan'
 		let c = p.src.byteAt(i)
 		if c == byteBackslash 'esc'
 			if not hasBuf 'startBuf'
 				if i > runStart 'copyPrefix'
-					buf.appendString(p.src.slice(runStart, until: i))
+					buf.appendString(p.src.sliceBytes(runStart, endPos: i))
 				end 'copyPrefix'
 				hasBuf = true
 			end 'startBuf'
@@ -274,8 +274,8 @@ function parseStrLit(mutates p Parser) returns ast.NodeID
 			let exprEnd = findInterpEnd(p.src, openBrace: i, endPos: endPos)
 			let exprStart = try i + 1 otherwise i
 			let subExpr = parseInterpExpr(p, exprStart: exprStart, exprEnd: exprEnd)
-			parts.append(0 as diag.U32)
-			parts.append(subExpr as diag.U32)
+			parts.push(0 as diag.U32)
+			parts.push(subExpr as diag.U32)
 			added = true
 			i = try exprEnd + 1 otherwise exprEnd
 			runStart = i
@@ -325,14 +325,14 @@ function parsePattern(mutates p Parser) returns ast.NodeID
 		ast.setPatternCaseNameRef(p.tree, id: id, ref: nameRef)
 		if p.accept(TokenKind.lParen) 'binds'
 			ast.setPatternHasBindings(p.tree, id: id)
-			var bs = ast.U32List.new()
+			var bs = ast.U32List.create(0)
 			if p.curKind() != TokenKind.rParen 'nonEmpty'
 				while not p.hasError 'b'
 					let bRef = p.curTextRef()
 					if not p.accept(TokenKind.kwUnderscore) 'nm'
 						_ = p.expect(TokenKind.name, what: "a pattern binding")
 					end 'nm'
-					bs.append(bRef)
+					bs.push(bRef)
 					if not p.accept(TokenKind.comma) 'bdone'
 						break 'b'
 					end 'bdone'
@@ -363,9 +363,9 @@ function parseMatchArm(mutates p Parser) returns ast.NodeID
 	if p.accept(TokenKind.kwDefault) 'def'
 		ast.setMatchArmIsDefault(p.tree, id: id)
 	end 'def' else 'pats'
-		var pats = ast.U32List.new()
+		var pats = ast.U32List.create(0)
 		while not p.hasError 'more'
-			pats.append(parsePattern(p) as diag.U32)
+			pats.push(parsePattern(p) as diag.U32)
 			if p.accept(TokenKind.kwOr) 'orMore'
 				_ = p.expect(TokenKind.newline, what: "a newline")
 			end 'orMore' else 'done'
@@ -397,10 +397,10 @@ function parseMatchCore(mutates p Parser) returns ast.NodeID
 	let lblRef = p.curTextRef()
 	_ = p.expect(TokenKind.label, what: "a match label")
 	_ = p.expect(TokenKind.newline, what: "a newline")
-	var arms = ast.U32List.new()
+	var arms = ast.U32List.create(0)
 	if p.accept(TokenKind.indent) 'body'
 		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'a'
-			arms.append(parseMatchArm(p) as diag.U32)
+			arms.push(parseMatchArm(p) as diag.U32)
 			_ = p.expect(TokenKind.newline, what: "a newline")
 		end 'a'
 		_ = p.expect(TokenKind.dedent, what: "the end of the match")
@@ -474,7 +474,7 @@ function parsePrimary(mutates p Parser) returns ast.NodeID
 		let nameRef = p.curTextRef()
 		_ = p.advance()
 		if p.accept(TokenKind.lBrace) 'slit'
-			var flds = ast.U32List.new()
+			var flds = ast.U32List.create(0)
 			if p.curKind() != TokenKind.rBrace 'nonEmpty'
 				while not p.hasError 'f'
 					let fStart = p.curStart()
@@ -485,7 +485,7 @@ function parsePrimary(mutates p Parser) returns ast.NodeID
 					let sf = ast.newStructField(p.tree, start: fStart)
 					ast.setStructFieldNameRef(p.tree, id: sf, ref: fRef)
 					ast.setStructFieldValue(p.tree, id: sf, value: fVal)
-					flds.append(sf as diag.U32)
+					flds.push(sf as diag.U32)
 					if not p.accept(TokenKind.comma) 'fdone'
 						break 'f'
 					end 'fdone'
@@ -522,9 +522,9 @@ function parsePostfix(mutates p Parser) returns ast.NodeID
 		end 'mem' else if k == TokenKind.lBracket 'idx'
 			let start = p.tree.startOf(left)
 			_ = p.advance()
-			var args = ast.U32List.new()
+			var args = ast.U32List.create(0)
 			while not p.hasError 'a'
-				args.append(parseExpr(p) as diag.U32)
+				args.push(parseExpr(p) as diag.U32)
 				if not p.accept(TokenKind.comma) 'adone'
 					break 'a'
 				end 'adone'
@@ -538,7 +538,7 @@ function parsePostfix(mutates p Parser) returns ast.NodeID
 		end 'idx' else if k == TokenKind.lParen 'call'
 			let start = p.tree.startOf(left)
 			_ = p.advance()
-			var args = ast.U32List.new()
+			var args = ast.U32List.create(0)
 			if p.curKind() != TokenKind.rParen 'nonEmpty'
 				while not p.hasError 'a'
 					let aStart = p.curStart()
@@ -552,7 +552,7 @@ function parsePostfix(mutates p Parser) returns ast.NodeID
 					let ag = ast.newArg(p.tree, start: aStart)
 					ast.setArgLabelRef(p.tree, id: ag, ref: lblRef)
 					ast.setArgValue(p.tree, id: ag, value: val)
-					args.append(ag as diag.U32)
+					args.push(ag as diag.U32)
 					if not p.accept(TokenKind.comma) 'adone'
 						break 'a'
 					end 'adone'

@@ -94,13 +94,13 @@ end 'Ticket'
 	var side as Count
 end 'Square'
 
-typealias Counts = map with String, Count
+typealias Counts = Map with String, Count
 `,
 			want: `type Square implements Shape, Named
 	var side as Count
 end 'Square'
 
-typealias Counts = map with String, Count
+typealias Counts = Map with String, Count
 `,
 		},
 		{

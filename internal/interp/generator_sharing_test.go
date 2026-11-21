@@ -232,7 +232,7 @@ func (g *generator) actCownPeek(depth int) bool {
 	case g.recordOf(inner) != nil && len(g.recordOf(inner).fields) > 0:
 		g.line("_ = %s.%s", v.name, g.recordOf(inner).fields[0].name)
 	default:
-		g.line("_ = %s.copy()", v.name)
+		g.line("_ = %s.clone()", v.name)
 		g.line("_ = %s.count()", v.name)
 	}
 	return true
@@ -383,7 +383,7 @@ func (g *generator) actBorrowedCapture(depth int) bool {
 		return false
 	}
 	v := borrowed[g.pick(len(borrowed))]
-	g.holding(c, fmt.Sprintf("_ = %s.copy()", v.name))
+	g.holding(c, fmt.Sprintf("_ = %s.clone()", v.name))
 	return true
 }
 
@@ -406,8 +406,8 @@ func (g *generator) actUseAfterCapture(depth int) bool {
 		return false
 	}
 	v := owners[g.pick(len(owners))]
-	g.holding(c, fmt.Sprintf("_ = %s.copy()", v.name))
-	g.line("_ = %s.copy()", v.name)
+	g.holding(c, fmt.Sprintf("_ = %s.clone()", v.name))
+	g.line("_ = %s.clone()", v.name)
 	v.moved = true
 	return true
 }
@@ -434,7 +434,7 @@ func (g *generator) actFrozenAbuse(depth int) bool {
 			if f.t.kind != kArray {
 				continue
 			}
-			g.line("%s.append(%s)", target, g.owned(f.t.args[0], 1))
+			g.line("%s.push(%s)", target, g.owned(f.t.args[0], 1))
 		case 2:
 			if f.t != tCount {
 				continue

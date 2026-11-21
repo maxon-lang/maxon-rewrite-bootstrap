@@ -30,7 +30,7 @@ type Box uses T where T implements Droppable
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 
 	function replace(mutates self, consumes next T)
@@ -38,27 +38,27 @@ type Box uses T where T implements Droppable
 	end 'replace'
 
 	function take(consumes self) returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'take'
 end 'Box'
 
 function dup(x T) uses T returns T where T implements Copyable
-	return x.copy()
+	return x.clone()
 end 'dup'
 
-function put(mutates items array with T, consumes x T) uses T
-	items.append(x)
+function put(mutates items Array with T, consumes x T) uses T
+	items.push(x)
 end 'put'
 
-function firstOf(items array with T) uses T returns Option with T where T implements Copyable
+function firstOf(items Array with T) uses T returns Option with T where T implements Copyable
 	if items.isEmpty() 'e'
 		return Option.none
 	end 'e'
-	return Option.some(items[0].copy())
+	return Option.some(items[0].clone())
 end 'firstOf'
 
 function overwrite(mutates target T, value T) uses T where T implements Copyable and Droppable
-	target = value.copy()
+	target = value.clone()
 end 'overwrite'
 
 function total(x T) uses T returns Count where T implements Scorable
@@ -86,8 +86,8 @@ function pass2(consumes a T, consumes b T, first bool) uses T returns T where T 
 end 'pass2'
 
 function both(a A, mutates b B) uses A, B where B implements Copyable and Droppable, A implements Copyable and Droppable
-	b = b.copy()
-	let c = a.copy()
+	b = b.clone()
+	let c = a.clone()
 end 'both'
 
 function consume(consumes x T) uses T where T implements Droppable
@@ -96,35 +96,35 @@ end 'consume'
 
 function both2(a A, consumes b B) uses A, B where A implements Copyable and Droppable, B implements Droppable
 	consume(b)
-	let c = a.copy()
+	let c = a.clone()
 end 'both2'
 
 function fill(sets out T, from T) uses T where T implements Copyable
-	out = from.copy()
+	out = from.clone()
 end 'fill'
 
-function churn(mutates items array with T) uses T returns Count where T implements Droppable
-	let last = items.pop()
+function churn(mutates items Array with T) uses T returns Count where T implements Droppable
+	try items.pop() otherwise ignore
 	return items.count()
 end 'churn'
 
-function churnList(mutates items list with T) uses T returns Count where T implements Droppable
-	let first = items.popFront()
+function churnList(mutates items List with T) uses T returns Count where T implements Droppable
+	try items.removeFirst() otherwise ignore
 	return items.count()
 end 'churnList'
 
-function churnMap(mutates m map with (String, V)) uses V returns Count where V implements Droppable
+function churnMap(mutates m Map with (String, V)) uses V returns Count where V implements Droppable
 	let gone = m.remove("k0")
 	return m.count()
 end 'churnMap'
 
-function churnPool(mutates p pool with T, consumes x T) uses T returns Count
+function churnPool(mutates p Pool with T, consumes x T) uses T returns Count
 	let h = p.insert(x)
 	return p.count()
 end 'churnPool'
 
-function shrink(mutates items array with Count) returns Count
-	let last = items.pop()
+function shrink(mutates items Array with Count) returns Count
+	try items.pop() otherwise ignore
 	return items.count()
 end 'shrink'
 
@@ -133,8 +133,8 @@ function bump(mutates x Count)
 end 'bump'
 
 function mint(consumes x T) uses T returns Handle with T where T implements Droppable
-	var p as pool with T
-	p = pool.new()
+	var p as Pool with T
+	p = Pool.create()
 	return p.insert(x)
 end 'mint'
 
@@ -143,7 +143,7 @@ function lookReturning(x T, consumes result R) uses T, R returns R
 end 'lookReturning'
 
 function rebuildReturning(mutates x T, consumes result R) uses T, R returns R where T implements Copyable and Droppable
-	let again = x.copy()
+	let again = x.clone()
 	x = again
 	return result
 end 'rebuildReturning'
@@ -153,9 +153,9 @@ function swallowReturning(consumes x T, consumes result R) uses T, R returns R w
 	return result
 end 'swallowReturning'
 
-function eraseReturning(mutates items array with T, consumes result R) uses T, R returns R where T implements Droppable
+function eraseReturning(mutates items Array with T, consumes result R) uses T, R returns R where T implements Droppable
 	if items.count() > 0 'e'
-		_ = items.remove(0)
+		_ = try items.remove(0) otherwise panic("index out of range")
 	end 'e'
 	return result
 end 'eraseReturning'

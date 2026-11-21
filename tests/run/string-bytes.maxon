@@ -5,13 +5,13 @@
 //> hello
 function main() returns ExitCode
 	let s = "hello"
-	print("{s.byteCount()}\n")
+	print("{s.byteLength()}\n")
 	print("{s.byteAt(0)} {s.byteAt(1)} {s.byteAt(2)} {s.byteAt(3)} {s.byteAt(4)}\n")
-	let sub = s.slice(1, until: 4)
+	let sub = s.sliceBytes(1, endPos: 4)
 	print("{sub}\n")
-	let empty = s.slice(3, until: 3)
+	let empty = s.sliceBytes(3, endPos: 3)
 	print("{empty}\n")
-	let full = s.slice(0, until: s.byteCount())
+	let full = s.sliceBytes(0, endPos: s.byteLength())
 	print("{full}\n")
 	return 0
 end 'main'

@@ -1,66 +1,66 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias CountArrayArray = array with (array with Count)
+typealias CountArrayArray = Array with (Array with Count)
 
-typealias CountList = list with Count
+typealias CountList = List with Count
 
-typealias CountPool = pool with Count
+typealias CountPool = Pool with Count
 
-typealias StringCountMap = map with String, Count
+typealias StringCountMap = Map with String, Count
 
-function moveFirst(mutates source array with T, mutates target array with T) uses T
+function moveFirst(mutates source Array with T, mutates target Array with T) uses T
 	if not source.isEmpty() 'some'
-		target.append(source.remove(0))
+		target.push(try source.remove(0) otherwise panic("index out of range"))
 	end 'some'
 end 'moveFirst'
 
-function store(mutates m map with (String, V), consumes value V) uses V where V implements Droppable
-	m.insert("key", value: value)
+function store(mutates m Map with (String, V), consumes value V) uses V where V implements Droppable
+	m.upsert("key", value: value)
 end 'store'
 
-function put(mutates p pool with T, consumes item T) uses T returns Handle with T
+function put(mutates p Pool with T, consumes item T) uses T returns Handle with T
 	return p.insert(item)
 end 'put'
 
-function back(mutates l list with T, consumes item T) uses T returns Handle with T
-	let node = l.pushBack(item)
+function back(mutates l List with T, consumes item T) uses T returns Handle with T
+	let node = l.append(item)
 	l.moveToFront(node)
 	return node
 end 'back'
 
-function swapFirst(mutates a array with T, mutates b array with T) uses T where T implements Copyable
-	let t = a[0].copy()
-	a[0] = b[0].copy()
+function swapFirst(mutates a Array with T, mutates b Array with T) uses T where T implements Copyable
+	let t = a[0].clone()
+	a[0] = b[0].clone()
 	b[0] = t
 end 'swapFirst'
 
-function find(p pool with T, handle Handle with T) uses T returns Option with T where T implements Copyable
+function find(p Pool with T, handle Handle with T) uses T returns Option with T where T implements Copyable
 	if p.contains(handle) 'live'
-		return Option.some(p[handle].copy())
+		return Option.some(p[handle].clone())
 	end 'live'
 	return Option.none
 end 'find'
 
-function nested(mutates grid array with (array with T), consumes item T) uses T
-	grid[0].append(item)
+function nested(mutates grid Array with (Array with T), consumes item T) uses T
+	grid[0].push(item)
 end 'nested'
 
 function main() returns ExitCode
-	var a = CountArray.new()
-	var b = CountArray.new()
-	a.append(1)
-	b.append(2)
+	var a = CountArray.create(0)
+	var b = CountArray.create(0)
+	a.push(1)
+	b.push(2)
 	moveFirst(a, target: b)
-	a.append(3)
+	a.push(3)
 	swapFirst(a, b: b)
-	var m = StringCountMap.new()
+	var m = StringCountMap.create()
 	store(m, value: 1)
-	var p = CountPool.new()
+	var p = CountPool.create()
 	let h = put(p, item: 4)
-	var l = CountList.new()
+	var l = CountList.create()
 	let n = back(l, item: 5)
-	var grid = CountArrayArray.new()
-	grid.append(CountArray.new())
+	var grid = CountArrayArray.create(0)
+	grid.push(CountArray.create(0))
 	nested(grid, item: 6)
 	print("{find(p, handle: h).isSome()} {l.contains(n)}")
 	return 0

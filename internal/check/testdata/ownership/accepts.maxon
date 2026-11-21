@@ -1,7 +1,7 @@
 // case: copy is independent
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
-	var b = a.copy()
+	var b = a.clone()
 	b.first = 9
 	print("{a.first}")
 	return 0
@@ -18,7 +18,7 @@ end 'main'
 // case: mutates receiver of a var
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
-	a.assign(a.second.copy())
+	a.assign(a.second.clone())
 	return 0
 end 'main'
 
@@ -43,7 +43,7 @@ end 'main'
 function main() returns ExitCode
 	var a = Pair.create(1, second: 2)
 	let b = a
-	a = b.copy()
+	a = b.clone()
 	print("{a.first}")
 	return 0
 end 'main'
@@ -61,7 +61,7 @@ end 'main'
 // case: copy of a field out
 function main() returns ExitCode
 	let a = Pair.create(1, second: 2)
-	let l = a.label.copy()
+	let l = a.label.clone()
 	print("{l}")
 	return 0
 end 'main'

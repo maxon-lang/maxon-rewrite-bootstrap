@@ -1,15 +1,15 @@
 // case: a plain type and a box of one are copyable
 function main() returns ExitCode
-	let a = Plain.make().copy()
-	let b = Box.make(Plain.make()).copy()
+	let a = Plain.make().clone()
+	let b = Box.make(Plain.make()).clone()
 	return 0
 end 'main'
 
 // case: frozen, cown and Handle stop what their content lacks
 function hold(a frozen with Socket, b cown with Socket, h Handle with Socket)
-	let x = a.copy()
-	let y = b.copy()
-	let z = h.copy()
+	let x = a.clone()
+	let y = b.clone()
+	let z = h.clone()
 end 'hold'
 
 function main() returns ExitCode
@@ -18,7 +18,7 @@ end 'main'
 
 // case: a parameter with the bound is copyable
 function dup(a T) uses T returns T where T implements Copyable
-	return a.copy()
+	return a.clone()
 end 'dup'
 
 function main() returns ExitCode
@@ -61,7 +61,7 @@ function main() returns ExitCode
 	var current = Txn.begin()
 	exchange(current, value: Txn.begin()).commit()
 	current.commit()
-	var pending = TxnArray.new()
+	var pending = TxnArray.create(0)
 	pending.dropEmpty()
 	return 0
 end 'main'

@@ -74,6 +74,19 @@ var (
 	NeverTy  = &PrimTy{name: "never"}
 )
 
+// HasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes
+// 0, or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type
+// parameter have none.
+func HasZero(t Ty) bool {
+	switch t := t.(type) {
+	case *IntTy:
+		return t.Min.Le(Zero) && Zero.Le(t.Max)
+	case *PrimTy:
+		return t == BoolTy
+	}
+	return false
+}
+
 func (t *PrimTy) Name() string     { return t.name }
 func (t *PrimTy) LinkName() string { return t.name }
 func (t *PrimTy) IsManaged() bool  { return t.managed }

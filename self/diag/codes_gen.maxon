@@ -138,6 +138,9 @@ export let errUseAfterMove = "E3102"
 // A division or 'mod' has a constant zero divisor.
 export let errDivisionByZero = "E3103"
 
+// An array is created with zeroed elements of a type that has no zero value.
+export let errZeroOutsideElement = "E3106"
+
 // A 'throws' clause names something other than an enum.
 export let errThrowsNotAnErrorEnum = "E3113"
 

@@ -31,7 +31,7 @@ type Parser
 	var errMessage as String
 
 	static function new(module diag.ModuleID, consumes src String, consumes tokens Tokens) returns Parser
-		let srcCopy = src.copy()
+		let srcCopy = src.clone()
 		return Parser{src: src, tokens: tokens, pos: 0 as Count, tree: ast.Tree.new(module, text: srcCopy), hasError: false, errOffset: 0 as Count, errCode: "", errMessage: ""}
 	end 'new'
 
@@ -62,7 +62,7 @@ type Parser
 
 	function curStart() returns diag.U32
 		if pos >= tokens.count() 'eof'
-			return try src.byteCount() as diag.U32 otherwise 0 as diag.U32
+			return try src.byteLength() as diag.U32 otherwise 0 as diag.U32
 		end 'eof'
 		return try tokens[pos].start as diag.U32 otherwise 0 as diag.U32
 	end 'curStart'
@@ -92,9 +92,9 @@ type Parser
 
 	function advance(mutates self) returns Token
 		if pos >= tokens.count() 'eof'
-			return Token.make(TokenKind.eof, start: src.byteCount(), length: 0 as Count)
+			return Token.make(TokenKind.eof, start: src.byteLength(), length: 0 as Count)
 		end 'eof'
-		let tok = tokens[pos].copy()
+		let tok = tokens[pos].clone()
 		pos = try pos + 1 otherwise pos
 		return tok
 	end 'advance'
@@ -144,7 +144,7 @@ type Parser
 	end 'parseVisibility'
 
 	function parseUsesClause(mutates self) returns ast.TypeParamList
-		var out = ast.TypeParamList.new()
+		var out = ast.TypeParamList.create(0)
 		if not self.accept(TokenKind.kwUses) 'none'
 			return out
 		end 'none'
@@ -152,7 +152,7 @@ type Parser
 			let start = self.curStart()
 			let tok = self.expect(TokenKind.name, what: "a type parameter")
 			let id = self.tree.alloc(ast.NodeKind.typeParam, start: start)
-			out.append(ast.TypeParam.make(id, name: tok.text(src)))
+			out.push(ast.TypeParam.make(id, name: tok.text(src)))
 			if not self.accept(TokenKind.comma) 'done'
 				break 'more'
 			end 'done'
@@ -162,13 +162,13 @@ type Parser
 end 'Parser'
 
 function parseConformsClause(mutates p Parser) returns ast.U32List
-	var out = ast.U32List.new()
+	var out = ast.U32List.create(0)
 	if not p.accept(TokenKind.kwImplements) 'none'
 		return out
 	end 'none'
 	while not p.hasError 'more'
 		let tr = parseTypeRef(p)
-		out.append(tr as diag.U32)
+		out.push(tr as diag.U32)
 		if not p.accept(TokenKind.comma) 'done'
 			break 'more'
 		end 'done'
@@ -177,7 +177,7 @@ function parseConformsClause(mutates p Parser) returns ast.U32List
 end 'parseConformsClause'
 
 function parseWhereClause(mutates p Parser) returns ast.ConstraintList
-	var out = ast.ConstraintList.new()
+	var out = ast.ConstraintList.create(0)
 	if not p.accept(TokenKind.kwWhere) 'none'
 		return out
 	end 'none'
@@ -185,16 +185,16 @@ function parseWhereClause(mutates p Parser) returns ast.ConstraintList
 		let start = p.curStart()
 		let nameTok = p.expect(TokenKind.name, what: "a type parameter")
 		_ = p.expect(TokenKind.kwImplements, what: "'implements'")
-		var bounds = ast.U32List.new()
+		var bounds = ast.U32List.create(0)
 		while not p.hasError 'b'
 			let b = parseTypeRef(p)
-			bounds.append(b as diag.U32)
+			bounds.push(b as diag.U32)
 			if not p.accept(TokenKind.kwAnd) 'bdone'
 				break 'b'
 			end 'bdone'
 		end 'b'
 		let id = p.tree.alloc(ast.NodeKind.constraint, start: start)
-		out.append(ast.Constraint.make(id, paramName: nameTok.text(p.src), bounds: bounds))
+		out.push(ast.Constraint.make(id, paramName: nameTok.text(p.src), bounds: bounds))
 		if not p.accept(TokenKind.comma) 'done'
 			break 'more'
 		end 'done'
@@ -230,14 +230,14 @@ function parseFuncDecl(mutates p Parser, consumes vis String, isStatic bool, sta
 	let nameTok = p.expect(TokenKind.name, what: "a function name")
 	_ = p.expect(TokenKind.lParen, what: "'('")
 	var receiver = ""
-	var params = ast.ParamList.new()
+	var params = ast.ParamList.create(0)
 	if p.curKind() != TokenKind.rParen 'hasParams'
 		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
 			receiver = p.advance().text(p.src)
 			_ = p.advance()
 			if p.accept(TokenKind.comma) 'moreAfterRecv'
 				while not p.hasError 'pm'
-					params.append(parseParam(p))
+					params.push(parseParam(p))
 					if not p.accept(TokenKind.comma) 'pdone'
 						break 'pm'
 					end 'pdone'
@@ -245,7 +245,7 @@ function parseFuncDecl(mutates p Parser, consumes vis String, isStatic bool, sta
 			end 'moreAfterRecv'
 		end 'recv' else 'regular'
 			while not p.hasError 'pm'
-				params.append(parseParam(p))
+				params.push(parseParam(p))
 				if not p.accept(TokenKind.comma) 'pdone'
 					break 'pm'
 				end 'pdone'
@@ -276,14 +276,14 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig
 	let nameTok = p.expect(TokenKind.name, what: "a function name")
 	_ = p.expect(TokenKind.lParen, what: "'('")
 	var receiver = ""
-	var params = ast.ParamList.new()
+	var params = ast.ParamList.create(0)
 	if p.curKind() != TokenKind.rParen 'hasParams'
 		if (p.curKind() == TokenKind.kwMutates or p.curKind() == TokenKind.kwConsumes or p.curKind() == TokenKind.kwDestructs) and p.peekKind(1 as Count) == TokenKind.kwSelf 'recv'
 			receiver = p.advance().text(p.src)
 			_ = p.advance()
 			if p.accept(TokenKind.comma) 'more'
 				while not p.hasError 'pm'
-					params.append(parseParam(p))
+					params.push(parseParam(p))
 					if not p.accept(TokenKind.comma) 'pdone'
 						break 'pm'
 					end 'pdone'
@@ -291,7 +291,7 @@ function parseFuncSig(mutates p Parser) returns ast.FuncSig
 			end 'more'
 		end 'recv' else 'regular'
 			while not p.hasError 'pm'
-				params.append(parseParam(p))
+				params.push(parseParam(p))
 				if not p.accept(TokenKind.comma) 'pdone'
 					break 'pm'
 				end 'pdone'
@@ -314,10 +314,10 @@ end 'parseFuncSig'
 function parseBlock(mutates p Parser) returns diag.U32
 	_ = p.expect(TokenKind.newline, what: "a newline")
 	_ = p.expect(TokenKind.indent, what: "an indented block")
-	var stmts = ast.U32List.new()
+	var stmts = ast.U32List.create(0)
 	while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof and p.curKind() != TokenKind.fileEnd 'each'
 		let st = parseStmt(p)
-		stmts.append(st as diag.U32)
+		stmts.push(st as diag.U32)
 		_ = p.expect(TokenKind.newline, what: "a newline")
 	end 'each'
 	_ = p.expect(TokenKind.dedent, what: "the end of the block")
@@ -445,8 +445,8 @@ function parseIfStmt(mutates p Parser) returns ast.NodeID
 	if p.accept(TokenKind.kwElse) 'hasElse'
 		ast.setIfStmtHasElse(p.tree, id: id)
 		if p.curKind() == TokenKind.kwIf 'elseIf'
-			var elseStmts = ast.U32List.new()
-			elseStmts.append(parseIfStmt(p) as diag.U32)
+			var elseStmts = ast.U32List.create(0)
+			elseStmts.push(parseIfStmt(p) as diag.U32)
 			let elseRef = p.tree.pushList(elseStmts)
 			ast.setIfStmtElseRef(p.tree, id: id, ref: elseRef)
 		end 'elseIf' else 'elseBlk'
@@ -549,24 +549,24 @@ end 'parseTryStmt'
 function parseWhenStmt(mutates p Parser) returns ast.NodeID
 	let start = p.curStart()
 	_ = p.expect(TokenKind.kwWhen, what: "'when'")
-	var cowns = ast.U32List.new()
+	var cowns = ast.U32List.create(0)
 	while not p.hasError 'c'
 		let cStart = p.curStart()
 		let cRef = p.curTextRef()
 		_ = p.expect(TokenKind.name, what: "a cown name")
 		let cNode = ast.newNameExpr(p.tree, start: cStart)
 		ast.setNameExprNameRef(p.tree, id: cNode, ref: cRef)
-		cowns.append(cNode as diag.U32)
+		cowns.push(cNode as diag.U32)
 		if not p.accept(TokenKind.comma) 'cdone'
 			break 'c'
 		end 'cdone'
 	end 'c'
 	_ = p.expect(TokenKind.kwAs, what: "'as'")
-	var names = ast.U32List.new()
+	var names = ast.U32List.create(0)
 	while not p.hasError 'n'
 		let nRef = p.curTextRef()
 		_ = p.expect(TokenKind.name, what: "a binding name")
-		names.append(nRef)
+		names.push(nRef)
 		if not p.accept(TokenKind.comma) 'ndone'
 			break 'n'
 		end 'ndone'
@@ -634,15 +634,15 @@ function parseTypeDecl(mutates p Parser, consumes vis String, start diag.U32) re
 	let conforms = parseConformsClause(p)
 	let constraints = parseWhereClause(p)
 	_ = p.expect(TokenKind.newline, what: "a newline")
-	var fields = ast.FieldDeclList.new()
-	var methods = ast.FuncDeclList.new()
+	var fields = ast.FieldDeclList.create(0)
+	var methods = ast.FuncDeclList.create(0)
 	if p.accept(TokenKind.indent) 'body'
 		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
 			let mStart = p.curStart()
 			let mVis = p.parseVisibility()
 			if p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
 				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
 			end 'meth' else 'fld'
 				let isVar = p.curKind() == TokenKind.kwVar
 				if not isVar 'chkLet'
@@ -660,7 +660,7 @@ function parseTypeDecl(mutates p Parser, consumes vis String, start diag.U32) re
 					fDef = parseExpr(p)
 				end 'defVal'
 				let fId = p.tree.alloc(ast.NodeKind.fieldDecl, start: mStart)
-				fields.append(ast.FieldDecl.make(fId, visibility: mVis, isVar: isVar, name: fTok.text(p.src), typeRef: fType, defaultExpr: fDef))
+				fields.push(ast.FieldDecl.make(fId, visibility: mVis, isVar: isVar, name: fTok.text(p.src), typeRef: fType, defaultExpr: fDef))
 			end 'fld'
 			_ = p.expect(TokenKind.newline, what: "a newline")
 		end 'item'
@@ -677,15 +677,15 @@ function parseEnumDecl(mutates p Parser, consumes vis String, start diag.U32) re
 	let nameTok = p.expect(TokenKind.name, what: "an enum name")
 	let conforms = parseConformsClause(p)
 	_ = p.expect(TokenKind.newline, what: "a newline")
-	var cases = ast.EnumCaseList.new()
-	var methods = ast.FuncDeclList.new()
+	var cases = ast.EnumCaseList.create(0)
+	var methods = ast.FuncDeclList.create(0)
 	if p.accept(TokenKind.indent) 'body'
 		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
 			let mStart = p.curStart()
 			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
 				let mVis = p.parseVisibility()
 				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
 			end 'meth' else 'cs'
 				let cTok = p.expect(TokenKind.name, what: "a case name")
 				var raw = 0 as ast.NodeID
@@ -693,7 +693,7 @@ function parseEnumDecl(mutates p Parser, consumes vis String, start diag.U32) re
 					raw = parseIntLit(p)
 				end 'hasRaw'
 				let cId = p.tree.alloc(ast.NodeKind.enumCaseDecl, start: mStart)
-				cases.append(ast.EnumCaseDecl.make(cId, name: cTok.text(p.src), rawExpr: raw))
+				cases.push(ast.EnumCaseDecl.make(cId, name: cTok.text(p.src), rawExpr: raw))
 			end 'cs'
 			_ = p.expect(TokenKind.newline, what: "a newline")
 		end 'item'
@@ -717,22 +717,22 @@ function parseUnionDecl(mutates p Parser, consumes vis String, start diag.U32) r
 	let conforms = parseConformsClause(p)
 	let constraints = parseWhereClause(p)
 	_ = p.expect(TokenKind.newline, what: "a newline")
-	var cases = ast.UnionCaseList.new()
-	var methods = ast.FuncDeclList.new()
+	var cases = ast.UnionCaseList.create(0)
+	var methods = ast.FuncDeclList.create(0)
 	if p.accept(TokenKind.indent) 'body'
 		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
 			let mStart = p.curStart()
 			if p.curKind() == TokenKind.kwExport or p.curKind() == TokenKind.kwPublic or p.curKind() == TokenKind.kwStatic or p.curKind() == TokenKind.kwFunction 'meth'
 				let mVis = p.parseVisibility()
 				let isStatic = p.accept(TokenKind.kwStatic)
-				methods.append(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
+				methods.push(parseFuncDecl(p, vis: mVis, isStatic: isStatic, start: mStart))
 			end 'meth' else 'cs'
 				let cTok = p.expect(TokenKind.name, what: "a case name")
-				var fields = ast.ParamList.new()
+				var fields = ast.ParamList.create(0)
 				if p.accept(TokenKind.lParen) 'pay'
 					if p.curKind() != TokenKind.rParen 'nonEmpty'
 						while not p.hasError 'pm'
-							fields.append(parseParam(p))
+							fields.push(parseParam(p))
 							if not p.accept(TokenKind.comma) 'pdone'
 								break 'pm'
 							end 'pdone'
@@ -741,7 +741,7 @@ function parseUnionDecl(mutates p Parser, consumes vis String, start diag.U32) r
 					_ = p.expect(TokenKind.rParen, what: "')'")
 				end 'pay'
 				let cId = p.tree.alloc(ast.NodeKind.unionCaseDecl, start: mStart)
-				cases.append(ast.UnionCaseDecl.make(cId, name: cTok.text(p.src), fields: fields))
+				cases.push(ast.UnionCaseDecl.make(cId, name: cTok.text(p.src), fields: fields))
 			end 'cs'
 			_ = p.expect(TokenKind.newline, what: "a newline")
 		end 'item'
@@ -780,10 +780,10 @@ function parseInterfaceDecl(mutates p Parser, consumes vis String, start diag.U3
 	_ = p.expect(TokenKind.kwInterface, what: "'interface'")
 	let nameTok = p.expect(TokenKind.name, what: "an interface name")
 	_ = p.expect(TokenKind.newline, what: "a newline")
-	var sigs = ast.FuncSigList.new()
+	var sigs = ast.FuncSigList.create(0)
 	if p.accept(TokenKind.indent) 'body'
 		while not p.hasError and p.curKind() != TokenKind.dedent and p.curKind() != TokenKind.eof 'item'
-			sigs.append(parseFuncSig(p))
+			sigs.push(parseFuncSig(p))
 			_ = p.expect(TokenKind.newline, what: "a newline")
 		end 'item'
 		_ = p.expect(TokenKind.dedent, what: "the end of the interface")
@@ -796,38 +796,38 @@ end 'parseInterfaceDecl'
 
 function parseTokensIntoModule(module diag.ModuleID, consumes path String, consumes text String, consumes files ast.FileSpanList, consumes toks Tokens) returns ParseResult
 	var p = Parser.new(module, src: text, tokens: toks)
-	var decls = ast.DeclList.new()
+	var decls = ast.DeclList.create(0)
 	p.skipNewlines()
 	while not p.hasError and p.curKind() != TokenKind.eof 'top'
 		let d = parseDecl(p)
 		if not p.hasError 'keep'
-			decls.append(d)
+			decls.push(d)
 		end 'keep'
 		p.skipNewlines()
 	end 'top'
 	if p.hasError 'failed'
 		let off32 = try p.errOffset as diag.U32 otherwise 0 as diag.U32
 		let loc = ast.locateTextOffset(p.tree.text, files: files, offset: off32)
-		return ParseResult.err(ParseError.makeLocated(p.errOffset, code: p.errCode.copy(), message: p.errMessage.copy(), file: loc.file, line: loc.line, col: loc.col))
+		return ParseResult.err(ParseError.makeLocated(p.errOffset, code: p.errCode.clone(), message: p.errMessage.clone(), file: loc.file, line: loc.line, col: loc.col))
 	end 'failed'
 	var m = ast.Module.new(module, path: path, text: "", files: files)
 	m.tree = p.tree
 	for _ in 0 upto decls.count() 'addDecls'
-		m.appendRawDecl(decls.remove(0 as Count))
+		m.appendRawDecl(try decls.remove(0 as Count) otherwise panic("index out of range"))
 	end 'addDecls'
 	return ParseResult.ok(m)
 end 'parseTokensIntoModule'
 
 export function parseSource(module diag.ModuleID, path String, consumes src String) returns ParseResult
 	let lexRes = lex(src)
-	var files = ast.FileSpanList.new()
-	files.append(ast.FileSpan.make(path.copy(), start: 0 as diag.U32, endOff: try src.byteCount() as diag.U32 otherwise 0 as diag.U32))
+	var files = ast.FileSpanList.create(0)
+	files.push(ast.FileSpan.make(path.clone(), start: 0 as diag.U32, endOff: try src.byteLength() as diag.U32 otherwise 0 as diag.U32))
 	var toks as Tokens
 	match consumes lexRes 'lr'
 		ok(t) then toks = t
-		err(e) then return makeLexErr(src, files: files, offset: e.offset, message: e.message.copy())
+		err(e) then return makeLexErr(src, files: files, offset: e.offset, message: e.message.clone())
 	end 'lr'
-	return parseTokensIntoModule(module, path: path.copy(), text: src, files: files, toks: toks)
+	return parseTokensIntoModule(module, path: path.clone(), text: src, files: files, toks: toks)
 end 'parseSource'
 
 function makeLexErr(src String, files ast.FileSpanList, offset Count, consumes message String) returns ParseResult
@@ -838,25 +838,25 @@ end 'makeLexErr'
 
 export function parseModuleFiles(module diag.ModuleID, consumes path String, consumes filePaths ast.StringList, consumes fileTexts ast.StringList) returns ParseResult
 	var buf = Bytes.new()
-	var files = ast.FileSpanList.new()
-	var starts = Offsets.new()
-	var ends = Offsets.new()
+	var files = ast.FileSpanList.create(0)
+	var starts = Offsets.create(0)
+	var ends = Offsets.create(0)
 	for i in 0 upto filePaths.count() 'concat'
 		let startOff = buf.count()
 		buf.appendString(fileTexts[i])
 		let endOff = buf.count()
-		starts.append(startOff)
-		ends.append(endOff)
+		starts.push(startOff)
+		ends.push(endOff)
 		let s32 = try startOff as diag.U32 otherwise panic("module text > 4GB")
 		let e32 = try endOff as diag.U32 otherwise panic("module text > 4GB")
-		files.append(ast.FileSpan.make(filePaths[i].copy(), start: s32, endOff: e32))
+		files.push(ast.FileSpan.make(filePaths[i].clone(), start: s32, endOff: e32))
 	end 'concat'
 	let fullText = buf.toString()
 	let lexRes = lexSpans(fullText, starts: starts, ends: ends)
 	var toks as Tokens
 	match consumes lexRes 'lr'
 		ok(t) then toks = t
-		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, message: e.message.copy())
+		err(e) then return makeLexErr(fullText, files: files, offset: e.offset, message: e.message.clone())
 	end 'lr'
 	return parseTokensIntoModule(module, path: path, text: fullText, files: files, toks: toks)
 end 'parseModuleFiles'

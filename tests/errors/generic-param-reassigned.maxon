@@ -9,7 +9,7 @@ type Box uses T
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 
 	function replace(mutates self, consumes next T)
@@ -23,8 +23,8 @@ union Slot uses T
 end 'Slot'
 
 function swap(mutates a T, mutates b T) uses T where T implements Copyable
-	var tmp = a.copy()
-	a = b.copy()
+	var tmp = a.clone()
+	a = b.clone()
 	b = tmp
 end 'swap'
 
@@ -33,7 +33,7 @@ function join(mutates a T, consumes b T) uses T
 end 'join'
 
 function fill(sets out T, from T) uses T where T implements Copyable
-	out = from.copy()
+	out = from.clone()
 end 'fill'
 
 function consume(consumes a T) uses T returns Score
@@ -41,7 +41,7 @@ function consume(consumes a T) uses T returns Score
 end 'consume'
 
 function again(a T, b T) uses T where T implements Copyable
-	a = b.copy()
+	a = b.clone()
 end 'again'
 
 function main() returns ExitCode

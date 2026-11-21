@@ -1,12 +1,12 @@
 // expect-error: E3186 at 10:14
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-function grow(mutates xs array with Count, n Count)
-	xs.append(n)
+function grow(mutates xs Array with Count, n Count)
+	xs.push(n)
 end 'grow'
 
 function main() returns ExitCode
-	var a = CountArray.new()
+	var a = CountArray.create(0)
 	grow(a, n: a[0])
 	return 0
 end 'main'

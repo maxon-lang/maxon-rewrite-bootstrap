@@ -119,7 +119,7 @@ func TestAnUnknownLinkNameIsAnError(t *testing.T) {
 	for _, name := range []string{
 		"", "export::", "export::Missing", "nowhere::Counter", "geometry::Box", "export::Box with",
 		"export::Box with (export::Counter", "export::Box with (export::Counter, export::Counter)", "export::Counter with String",
-		"export::Counter trailing", "int(1 to", "int(x to 2)", "Score=int(1 to 2", "stdlib::array with ()", "mystery",
+		"export::Counter trailing", "int(1 to", "int(x to 2)", "Score=int(1 to 2", "stdlib::Array with ()", "mystery",
 		"export::Box with (String,String)",
 	} {
 		if got, err := ParseLinkType(p, name); err == nil {

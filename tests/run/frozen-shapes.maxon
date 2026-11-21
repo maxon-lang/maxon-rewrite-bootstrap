@@ -1,6 +1,6 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 union Shape
 	circle(radius Count)
@@ -30,9 +30,9 @@ function main() returns ExitCode
 	print("{describe(shape)}\n")
 	let word = freeze("frozen text")
 	print("{word}\n")
-	var numbers = CountArray.new()
-	numbers.append(7)
-	numbers.append(9)
+	var numbers = CountArray.create(0)
+	numbers.push(7)
+	numbers.push(9)
 	let counts = freeze(numbers)
 	print("{counts.count()} {counts[0]} {counts[1]}\n")
 	let again = weigh(counts)

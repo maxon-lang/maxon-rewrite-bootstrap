@@ -1,5 +1,5 @@
 // expect-exit: 1
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
 	var a = CountArray.filled(3, value: 1)

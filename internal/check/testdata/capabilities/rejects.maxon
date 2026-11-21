@@ -1,28 +1,28 @@
 // case: a noncopyable type
 // expect-error: E3918
 function main() returns ExitCode
-	let a = Socket.open().copy()
+	let a = Socket.open().clone()
 	return 0
 end 'main'
 
 // case: through a field
 // expect-error: E3918
 function main() returns ExitCode
-	let a = Conn.open().copy()
+	let a = Conn.open().clone()
 	return 0
 end 'main'
 
 // case: through an instance
 // expect-error: E3918
 function main() returns ExitCode
-	let a = Box.make(Socket.open()).copy()
+	let a = Box.make(Socket.open()).clone()
 	return 0
 end 'main'
 
 // case: a parameter without the bound
 // expect-error: E3918
 function dup(a T) uses T returns T
-	return a.copy()
+	return a.clone()
 end 'dup'
 
 function main() returns ExitCode
@@ -52,7 +52,7 @@ end 'main'
 // case: a parameter bounded by Droppable alone is not copyable
 // expect-error: E3918
 function dup(a T) uses T returns T where T implements Droppable
-	return a.copy()
+	return a.clone()
 end 'dup'
 
 function main() returns ExitCode
@@ -82,11 +82,11 @@ type Pair uses T
 	var item as T
 
 	function copied() returns Box with T where T implements Copyable
-		return Box.make(item.copy()).copy()
+		return Box.make(item.clone()).clone()
 	end 'copied'
 
 	function unboxed(consumes x T) returns Box with T
-		return Box.make(x).copy()
+		return Box.make(x).clone()
 	end 'unboxed'
 end 'Pair'
 
@@ -118,14 +118,14 @@ end 'main'
 // case: a destructor removes Copyable
 // expect-error: E3918
 function main() returns ExitCode
-	let t = Txn.begin().copy()
+	let t = Txn.begin().clone()
 	return 0
 end 'main'
 
 // case: a destructor removes Copyable from a type that holds it
 // expect-error: E3918
 function main() returns ExitCode
-	let b = Box.make(Txn.begin()).copy()
+	let b = Box.make(Txn.begin()).clone()
 	return 0
 end 'main'
 
@@ -165,8 +165,8 @@ end 'main'
 
 // case: map.insert needs a Droppable value
 // expect-error: E3017
-function store(mutates m map with (String, V), consumes value V) uses V
-	m.insert("key", value: value)
+function store(mutates m Map with (String, V), consumes value V) uses V
+	m.upsert("key", value: value)
 end 'store'
 
 function main() returns ExitCode

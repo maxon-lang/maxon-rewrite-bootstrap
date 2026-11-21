@@ -52,6 +52,7 @@ ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a tr
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
+ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
 ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.

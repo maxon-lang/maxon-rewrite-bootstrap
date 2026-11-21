@@ -1,5 +1,5 @@
 // expect-error: E3005 at 14:12
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 type Cell
 	export var n as Count
@@ -10,7 +10,7 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	print("{p[0].n}")
 	return 0
 end 'main'

@@ -1,5 +1,5 @@
 // expect-error: E3901 at 18:16
-typealias CellArray = array with Cell
+typealias CellArray = Array with Cell
 
 type Cell
 	export var n as Count
@@ -14,7 +14,7 @@ function take(consumes c Cell) returns Count
 end 'take'
 
 function main() returns ExitCode
-	var a = CellArray.new()
+	var a = CellArray.create(0)
 	print("{take(a[0])}")
 	return 0
 end 'main'

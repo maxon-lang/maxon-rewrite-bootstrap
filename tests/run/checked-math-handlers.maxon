@@ -6,7 +6,7 @@ function quotient(a Score, b Score) returns Score
 	return try a / b otherwise -1
 end 'quotient'
 
-function firstFailure(values array with Score) returns Count
+function firstFailure(values Array with Score) returns Count
 	var i = 0 as Count
 	while i < values.count() 'scan'
 		let v = try values[i] * values[i] otherwise return i
@@ -16,7 +16,7 @@ function firstFailure(values array with Score) returns Count
 	return values.count()
 end 'firstFailure'
 
-function skipFailures(values array with Score) returns Score
+function skipFailures(values Array with Score) returns Score
 	var total = 0 as Score
 	for i in 0 upto values.count() 'each'
 		let v = try 100 / values[i] otherwise continue
@@ -46,7 +46,7 @@ end 'describe'
 
 function main() returns ExitCode
 	print("{quotient(7, b: 2)} {quotient(7, b: 0)}\n")
-	var values = array.filled(3 as Count, value: 5 as Score)
+	var values = Array.filled(3 as Count, value: 5 as Score)
 	values[1] = 9223372036854775807
 	print("first failure {firstFailure(values)}\n")
 	values[1] = 0

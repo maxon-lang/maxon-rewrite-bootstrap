@@ -1,13 +1,13 @@
 typealias TxnBox = ledger.Box with ledger.Txn
 
-typealias TxnArray = array with ledger.Txn
+typealias TxnArray = Array with ledger.Txn
 
 function main() returns ExitCode
 	ledger.Txn.begin(1).commit()
 	TxnBox.of(ledger.Txn.begin(2)).take().rollback()
-	var pending = TxnArray.new()
-	pending.append(ledger.Txn.begin(3))
-	pending.remove(0).commit()
+	var pending = TxnArray.create(0)
+	pending.push(ledger.Txn.begin(3))
+	(try pending.remove(0) otherwise panic("index out of range")).commit()
 	pending.dropEmpty()
 	let held = cown(ledger.Txn.begin(4), dropWith: rollback)
 	return 0

@@ -1,4 +1,4 @@
-function sumOf(items array with Count) returns Count throws ArithmeticError
+function sumOf(items Array with Count) returns Count throws ArithmeticError
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'each'
 		sum = try sum + items[i]
@@ -6,20 +6,20 @@ function sumOf(items array with Count) returns Count throws ArithmeticError
 	return sum
 end 'sumOf'
 
-function drop(mutates items array with Count)
-	let last = items.pop()
+function drop(mutates items Array with Count)
+	let last = try items.pop() otherwise 0
 	items[0] = 1
 end 'drop'
 
-function lookup(m map with (Count, Count), k Count) returns Count
+function lookup(m Map with (Count, Count), k Count) returns Count
 	return m[k]
 end 'lookup'
 
 function build() returns Count
-	var p = CountPool.new()
+	var p = CountPool.create()
 	let h = p.insert(1)
 	p[h] = 2
-	let copied = p.copy()
+	let copied = p.clone()
 	return 0
 end 'build'
 
@@ -27,4 +27,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-typealias CountPool = pool with Count
+typealias CountPool = Pool with Count

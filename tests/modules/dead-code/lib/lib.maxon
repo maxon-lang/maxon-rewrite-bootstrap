@@ -9,7 +9,7 @@ type Tag
 end 'Tag'
 
 function keep(a T) uses T returns T where T implements Copyable
-	return a.copy()
+	return a.clone()
 end 'keep'
 
 export function used() returns Count

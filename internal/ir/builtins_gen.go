@@ -30,7 +30,7 @@ const (
 	RtLive                          // the number of heap boxes allocated and not yet freed, kept only by an executable built to count them
 	RtImageDataStart                // the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap
 	RtImageDataEnd                  // the end of the data section
-	RtArrayNew                      // () -> array
+	RtArrayNew                      // () -> Array
 	RtArrayLen                      // (array) -> count
 	RtArrayElem                     // (array, index) -> address of the element
 	RtArrayInsert                   // (array, index, element): moves it in at index, which may be the length
@@ -76,7 +76,7 @@ const (
 	RtBytesAppend                   // (Bytes, other Bytes)
 	RtBytesAppendStr                // (Bytes, text String)
 	RtBytesToString                 // (Bytes) -> String
-	RtOsCliArgs                     // () -> array with String
+	RtOsCliArgs                     // () -> Array with String
 	RtOsGetEnv                      // (name String) -> String or 0
 	RtOsReadFile                    // (path String) -> String or 0
 	RtOsWriteFile                   // (path String, text String) -> bool
@@ -85,7 +85,7 @@ const (
 	RtOsRemoveFile                  // (path String) -> bool
 	RtOsIsDir                       // (path String) -> bool
 	RtOsMkdir                       // (path String) -> bool
-	RtOsListDir                     // (path String) -> array with String or 0
+	RtOsListDir                     // (path String) -> Array with String or 0
 	RtOsRunProcess                  // (commandLine String) -> (exitCode<<1)|1 or 0
 )
 
@@ -264,14 +264,16 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerOptionIsSome(c, recv, args)
 	case ast.IntrinsicOptionUnwrap:
 		return l.lowerOptionUnwrap(c, recv, args)
-	case ast.IntrinsicArrayNew:
-		return l.lowerArrayNew(c, recv, args)
+	case ast.IntrinsicArrayCreate:
+		return l.lowerArrayCreate(c, recv, args)
 	case ast.IntrinsicArrayFilled:
 		return l.lowerArrayFilled(c, recv, args)
 	case ast.IntrinsicArrayCount:
 		return l.lowerArrayCount(c, recv, args)
 	case ast.IntrinsicArrayIsEmpty:
 		return l.lowerArrayIsEmpty(c, recv, args)
+	case ast.IntrinsicArrayPush:
+		return l.lowerArrayPush(c, recv, args)
 	case ast.IntrinsicArrayAppend:
 		return l.lowerArrayAppend(c, recv, args)
 	case ast.IntrinsicArrayInsert:
@@ -282,38 +284,40 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerArrayPop(c, recv, args)
 	case ast.IntrinsicArrayDropEmpty:
 		return l.lowerArrayDropEmpty(c, recv, args)
-	case ast.IntrinsicMapNew:
-		return l.lowerMapNew(c, recv, args)
+	case ast.IntrinsicMapCreate:
+		return l.lowerMapCreate(c, recv, args)
 	case ast.IntrinsicMapCount:
 		return l.lowerMapCount(c, recv, args)
 	case ast.IntrinsicMapIsEmpty:
 		return l.lowerMapIsEmpty(c, recv, args)
-	case ast.IntrinsicMapHas:
-		return l.lowerMapHas(c, recv, args)
+	case ast.IntrinsicMapContains:
+		return l.lowerMapContains(c, recv, args)
 	case ast.IntrinsicMapInsert:
 		return l.lowerMapInsert(c, recv, args)
+	case ast.IntrinsicMapUpsert:
+		return l.lowerMapUpsert(c, recv, args)
 	case ast.IntrinsicMapReplace:
 		return l.lowerMapReplace(c, recv, args)
 	case ast.IntrinsicMapRemove:
 		return l.lowerMapRemove(c, recv, args)
 	case ast.IntrinsicMapDropEmpty:
 		return l.lowerMapDropEmpty(c, recv, args)
-	case ast.IntrinsicListNew:
-		return l.lowerListNew(c, recv, args)
+	case ast.IntrinsicListCreate:
+		return l.lowerListCreate(c, recv, args)
 	case ast.IntrinsicListCount:
 		return l.lowerListCount(c, recv, args)
 	case ast.IntrinsicListIsEmpty:
 		return l.lowerListIsEmpty(c, recv, args)
 	case ast.IntrinsicListContains:
 		return l.lowerListContains(c, recv, args)
-	case ast.IntrinsicListPushFront:
-		return l.lowerListPushFront(c, recv, args)
-	case ast.IntrinsicListPushBack:
-		return l.lowerListPushBack(c, recv, args)
-	case ast.IntrinsicListPopFront:
-		return l.lowerListPopFront(c, recv, args)
-	case ast.IntrinsicListPopBack:
-		return l.lowerListPopBack(c, recv, args)
+	case ast.IntrinsicListPrepend:
+		return l.lowerListPrepend(c, recv, args)
+	case ast.IntrinsicListAppend:
+		return l.lowerListAppend(c, recv, args)
+	case ast.IntrinsicListRemoveFirst:
+		return l.lowerListRemoveFirst(c, recv, args)
+	case ast.IntrinsicListRemoveLast:
+		return l.lowerListRemoveLast(c, recv, args)
 	case ast.IntrinsicListFirst:
 		return l.lowerListFirst(c, recv, args)
 	case ast.IntrinsicListLast:
@@ -328,8 +332,8 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerListMoveToFront(c, recv, args)
 	case ast.IntrinsicListDropEmpty:
 		return l.lowerListDropEmpty(c, recv, args)
-	case ast.IntrinsicPoolNew:
-		return l.lowerPoolNew(c, recv, args)
+	case ast.IntrinsicPoolCreate:
+		return l.lowerPoolCreate(c, recv, args)
 	case ast.IntrinsicPoolCount:
 		return l.lowerPoolCount(c, recv, args)
 	case ast.IntrinsicPoolIsEmpty:
@@ -360,12 +364,12 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerBytesAppendString(c, recv, args)
 	case ast.IntrinsicBytesToString:
 		return l.lowerBytesToString(c, recv, args)
-	case ast.IntrinsicStringByteCount:
-		return l.lowerStringByteCount(c, recv, args)
+	case ast.IntrinsicStringByteLength:
+		return l.lowerStringByteLength(c, recv, args)
 	case ast.IntrinsicStringByteAt:
 		return l.lowerStringByteAt(c, recv, args)
-	case ast.IntrinsicStringSlice:
-		return l.lowerStringSlice(c, recv, args)
+	case ast.IntrinsicStringSliceBytes:
+		return l.lowerStringSliceBytes(c, recv, args)
 	case ast.IntrinsicFreeze:
 		return l.lowerFreeze(c, recv, args)
 	case ast.IntrinsicShare:
@@ -409,31 +413,33 @@ func ownsOperands(op ast.Intrinsic) bool {
 		return true
 	case ast.IntrinsicOptionIsSome,
 		ast.IntrinsicOptionUnwrap,
-		ast.IntrinsicArrayNew,
+		ast.IntrinsicArrayCreate,
 		ast.IntrinsicArrayFilled,
 		ast.IntrinsicArrayCount,
 		ast.IntrinsicArrayIsEmpty,
+		ast.IntrinsicArrayPush,
 		ast.IntrinsicArrayAppend,
 		ast.IntrinsicArrayInsert,
 		ast.IntrinsicArrayRemove,
 		ast.IntrinsicArrayPop,
 		ast.IntrinsicArrayDropEmpty,
-		ast.IntrinsicMapNew,
+		ast.IntrinsicMapCreate,
 		ast.IntrinsicMapCount,
 		ast.IntrinsicMapIsEmpty,
-		ast.IntrinsicMapHas,
+		ast.IntrinsicMapContains,
 		ast.IntrinsicMapInsert,
+		ast.IntrinsicMapUpsert,
 		ast.IntrinsicMapReplace,
 		ast.IntrinsicMapRemove,
 		ast.IntrinsicMapDropEmpty,
-		ast.IntrinsicListNew,
+		ast.IntrinsicListCreate,
 		ast.IntrinsicListCount,
 		ast.IntrinsicListIsEmpty,
 		ast.IntrinsicListContains,
-		ast.IntrinsicListPushFront,
-		ast.IntrinsicListPushBack,
-		ast.IntrinsicListPopFront,
-		ast.IntrinsicListPopBack,
+		ast.IntrinsicListPrepend,
+		ast.IntrinsicListAppend,
+		ast.IntrinsicListRemoveFirst,
+		ast.IntrinsicListRemoveLast,
 		ast.IntrinsicListFirst,
 		ast.IntrinsicListLast,
 		ast.IntrinsicListNext,
@@ -441,7 +447,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicListRemove,
 		ast.IntrinsicListMoveToFront,
 		ast.IntrinsicListDropEmpty,
-		ast.IntrinsicPoolNew,
+		ast.IntrinsicPoolCreate,
 		ast.IntrinsicPoolCount,
 		ast.IntrinsicPoolIsEmpty,
 		ast.IntrinsicPoolContains,
@@ -457,9 +463,9 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicBytesAppend,
 		ast.IntrinsicBytesAppendString,
 		ast.IntrinsicBytesToString,
-		ast.IntrinsicStringByteCount,
+		ast.IntrinsicStringByteLength,
 		ast.IntrinsicStringByteAt,
-		ast.IntrinsicStringSlice,
+		ast.IntrinsicStringSliceBytes,
 		ast.IntrinsicFreeze,
 		ast.IntrinsicShare,
 		ast.IntrinsicThaw,

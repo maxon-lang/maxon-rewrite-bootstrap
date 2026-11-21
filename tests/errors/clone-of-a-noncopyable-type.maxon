@@ -8,8 +8,8 @@ end 'Socket'
 
 function main() returns ExitCode
 	let a = Socket.open()
-	let b = a.copy()
+	let b = a.clone()
 	return 0
 end 'main'
 
-// expect-error: E3918 at 11:16
+// expect-error: E3918 at 11:17

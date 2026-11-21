@@ -1,5 +1,5 @@
 // expect-error: E3186 at 22:29
-typealias CellArray = array with Cell
+typealias CellArray = Array with Cell
 
 type Cell
 	export var n as Count
@@ -9,7 +9,7 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function drop(mutates xs array with Cell) returns Count
+function drop(mutates xs Array with Cell) returns Count
 	return xs.count()
 end 'drop'
 
@@ -18,7 +18,7 @@ function look(c Cell, n Count) returns Count
 end 'look'
 
 function main() returns ExitCode
-	var a = CellArray.new()
+	var a = CellArray.create(0)
 	print("{look(a[0], n: drop(a))}")
 	return 0
 end 'main'

@@ -1,8 +1,8 @@
-typealias TreeArray = array with Tree
+typealias TreeArray = Array with Tree
 
 type Tree
 	var value as Count
-	var kids = TreeArray.new()
+	var kids = TreeArray.create(0)
 
 	static function make(value Count) returns Tree
 		return Tree{value: value}
@@ -17,7 +17,7 @@ type Tree
 	end 'sum'
 
 	function add(mutates self, consumes kid Tree)
-		kids.append(kid)
+		kids.push(kid)
 	end 'add'
 
 	function depth() returns Count throws ArithmeticError

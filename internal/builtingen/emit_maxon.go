@@ -45,12 +45,12 @@ func (m *maxonBody) fresh(prefix string) string {
 // strings binds a list of strings to a new variable, or is an empty list.
 func (m *maxonBody) strings(xs []string) string {
 	if len(xs) == 0 {
-		return "StringList.new()"
+		return "StringList.create(0)"
 	}
 	v := m.fresh("names")
-	m.line("var %s = StringList.new()", v)
+	m.line("var %s = StringList.create(0)", v)
 	for _, x := range xs {
-		m.line("%s.append(%q)", v, x)
+		m.line("%s.push(%q)", v, x)
 	}
 	return v
 }
@@ -87,16 +87,16 @@ func (m *maxonBody) ty(f fn, generic string, t *tyExpr) string {
 
 func (m *maxonBody) params(f fn, generic string) string {
 	if len(f.params) == 0 {
-		return "ParamSpecList.new()"
+		return "ParamSpecList.create(0)"
 	}
 	types := make([]string, len(f.params))
 	for i, p := range f.params {
 		types[i] = m.ty(f, generic, p.ty)
 	}
 	v := m.fresh("ps")
-	m.line("var %s = ParamSpecList.new()", v)
+	m.line("var %s = ParamSpecList.create(0)", v)
 	for i, p := range f.params {
-		m.line("%s.append(ParamSpec.make(%q, ty: %s, conv: %s))", v, p.name, types[i], maxonConv(p.conv))
+		m.line("%s.push(ParamSpec.make(%q, ty: %s, conv: %s))", v, p.name, types[i], maxonConv(p.conv))
 	}
 	return v
 }
@@ -147,7 +147,7 @@ func emitMaxon(t table) string {
 		types.line("%s = registerUnionType(tt, std: std, typeMap: typeMap, name: %q, paramNames: %s)", maxonOwner(u.Key), u.Name, names)
 		owner := fn{Owner: u.Key}
 		for _, c := range u.Cases {
-			payload := "CaseFieldList.new()"
+			payload := "CaseFieldList.create(0)"
 			if len(c.Payload) > 0 {
 				fields := make([]string, len(c.Payload))
 				tys := make([]string, len(c.Payload))
@@ -157,9 +157,9 @@ func emitMaxon(t table) string {
 					tys[i] = types.ty(owner, "", parseType(ty))
 				}
 				payload = types.fresh("payload")
-				types.line("var %s = CaseFieldList.new()", payload)
+				types.line("var %s = CaseFieldList.create(0)", payload)
 				for i := range fields {
-					types.line("%s.append(CaseFieldInfo.make(%q, ty: %s))", payload, fields[i], tys[i])
+					types.line("%s.push(CaseFieldInfo.make(%q, ty: %s))", payload, fields[i], tys[i])
 				}
 			}
 			types.line("addUnionCase(tt, owner: %s, name: %q, payload: %s)", maxonOwner(u.Key), c.Name, payload)
@@ -207,7 +207,7 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		ps := m.params(f, "")
 		call := fmt.Sprintf("registerMethodOn(tt, ft: ft, std: std, owner: %s, op: %s, name: %q, isStatic: %v, selfConv: %s, ret: %s, params: %s)",
 			maxonOwner(f.Owner), op, f.Name, f.Static, maxonConv(f.Self), ret, ps)
-		if len(f.bounds) == 0 {
+		if len(f.bounds) == 0 && f.Throws == "" {
 			m.line("_ = %s", call)
 			return
 		}
@@ -215,11 +215,12 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 		m.line("let %s = %s", id, call)
 		for _, bd := range f.bounds {
 			p := m.ownerParam(f.Owner, paramIndex(ownerParams(f.Owner), bd.param))
-			m.line("ft.entries[%s as Count].bounds.append(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
+			m.line("ft.entries[%s as Count].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, p, maxonField(bd.iface, false))
 		}
+		m.errorType(f, id)
 		return
 	}
-	generics, generic := "TypeIDList.new()", ""
+	generics, generic := "TypeIDList.create(0)", ""
 	if f.generic != "" {
 		tp := m.fresh("tp")
 		m.line("var %s = TypeEntry.make(TypeKind.typeParam, name: %q)", tp, f.generic)
@@ -235,14 +236,15 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	declared := f.Owner == "" && f.Field == ""
 	call := fmt.Sprintf("registerStdFunc(ft, std: std, funcMap: funcMap, op: %s, name: %q, generics: %s, ret: %s, params: %s, declareInStd: %v)",
 		op, f.Name, generics, ret, ps, declared)
-	if declared && f.gbound == "" {
+	if declared && f.gbound == "" && f.Throws == "" {
 		m.line("_ = %s", call)
 		return
 	}
 	id := m.fresh("f")
 	m.line("let %s = %s", id, call)
+	m.errorType(f, id)
 	if f.gbound != "" {
-		m.line("ft.entries[%s as Count].bounds.append(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
+		m.line("ft.entries[%s as Count].bounds.push(ParamBound.make(%s, ifaceTy: b.%s))", id, generic, maxonField(f.gbound, false))
 	}
 	if f.Owner == stringOwner {
 		m.line("ft.entries[%s as Count].ownerTy = b.stringTy", id)
@@ -251,5 +253,12 @@ func emitMaxonFunction(m *maxonBody, f fn) {
 	}
 	if f.Field != "" {
 		m.line("b.%sFunc = %s", lowerFirst(f.Field), id)
+	}
+}
+
+// errorType sets the error that the function id throws, when it throws one.
+func (m *maxonBody) errorType(f fn, id string) {
+	if f.Throws != "" {
+		m.line("ft.entries[%s as Count].errTy = b.%s", id, maxonField(f.Throws, false))
 	}
 }

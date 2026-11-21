@@ -1,4 +1,4 @@
-typealias DocCownArray = array with (cown with Doc)
+typealias DocCownArray = Array with (cown with Doc)
 
 type Doc
 	export var title as String
@@ -28,8 +28,8 @@ function sharedAndThawed(f frozen with Doc) returns Doc
 end 'sharedAndThawed'
 
 function copied(f frozen with Doc, c cown with Doc) returns frozen with Doc
-	let d = c.copy()
-	return f.copy()
+	let d = c.clone()
+	return f.clone()
 end 'copied'
 
 function schedule(c cown with Doc, consumes note Doc, n Count)
@@ -47,7 +47,7 @@ function nested(c cown with Doc, d cown with Doc)
 	end 'outer'
 end 'nested'
 
-function filled(c cown with Doc) returns array with (cown with Doc)
+function filled(c cown with Doc) returns Array with (cown with Doc)
 	return DocCownArray.filled(2, value: share(c))
 end 'filled'
 

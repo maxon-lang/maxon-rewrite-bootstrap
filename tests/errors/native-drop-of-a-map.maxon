@@ -1,5 +1,5 @@
 // expect-error: E9900 at 2:1
-function consume(consumes m map with (Count, Count)) returns Count
+function consume(consumes m Map with (Count, Count)) returns Count
 	return 0
 end 'consume'
 

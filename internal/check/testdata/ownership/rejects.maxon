@@ -105,10 +105,10 @@ end 'main'
 
 // case: move a field out of an element
 // expect-error: E3901
-typealias PairArray = array with Pair
+typealias PairArray = Array with Pair
 
 function main() returns ExitCode
-	var a = PairArray.new()
+	var a = PairArray.create(0)
 	let l = a[0].label
 	print("{l}")
 	return 0

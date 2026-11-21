@@ -1,0 +1,13 @@
+// An index past the end inserts at the end, as maxon's Array.insert clamps it.
+typealias CountArray = Array with Count
+
+function main() returns ExitCode
+	var a = CountArray.filled(2, value: 1)
+	a.insert(2, value: 5)
+	a.insert(9, value: 6)
+	a.insert(0, value: 7)
+	print("{a.count()} {a[0]} {a[1]} {a[2]} {a[3]} {a[4]}\n")
+	return 0
+end 'main'
+
+//> 5 7 1 1 5 6

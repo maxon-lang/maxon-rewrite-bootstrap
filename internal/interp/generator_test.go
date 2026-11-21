@@ -50,7 +50,7 @@ func (t *ty) src() string {
 	case kRecord, kUnion:
 		return t.name
 	}
-	names := map[kind]string{kArray: "array", kPool: "pool", kList: "list", kMap: "map", kHandle: "Handle", kOption: "Option", kFrozen: "frozen", kCown: "cown"}
+	names := map[kind]string{kArray: "Array", kPool: "Pool", kList: "List", kMap: "Map", kHandle: "Handle", kOption: "Option", kFrozen: "frozen", kCown: "cown"}
 	return instanceSrc(names[t.kind], t.args)
 }
 

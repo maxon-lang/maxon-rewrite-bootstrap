@@ -1,0 +1,56 @@
+// The operations of maxon's Array: create(n) is n zero elements, push adds one, append adds a copy of each element of
+// another array, insert clamps its index, and remove and pop throw ArrayError where they find no element.
+typealias CountArray = Array with Count
+
+typealias FlagArray = Array with bool
+
+typealias NameArray = Array with String
+
+function show(a CountArray) returns String
+	var text = ""
+	for i in 0 upto a.count() 'each'
+		text = "{text}{a[i]};"
+	end 'each'
+	return text
+end 'show'
+
+function takeAt(mutates a CountArray, at Count) returns Count throws ArrayError
+	return try a.remove(at)
+end 'takeAt'
+
+function main() returns ExitCode
+	var zeros = CountArray.create(3)
+	let flags = FlagArray.create(2)
+	var names = NameArray.create(0)
+	names.push("ada")
+	names.push("bob")
+	var more = NameArray.create(0)
+	more.push("cy")
+	names.append(more)
+	more[0] = "changed"
+	print("{show(zeros)} {flags[1]} {names.count()} {names[2]} {more[0]}\n")
+	zeros.push(7)
+	zeros.append(zeros.clone())
+	zeros.insert(1, value: 5)
+	print("{show(zeros)}\n")
+	print("{try zeros.pop() otherwise 99} {try takeAt(zeros, at: 0) otherwise 99} {try takeAt(zeros, at: 40) otherwise 99}\n")
+	var empty = CountArray.create(0)
+	try 'drain'
+		let v = empty.pop()
+		print("popped {v}\n")
+	end 'drain' otherwise (e) 'failed'
+		match e 'why'
+			indexOutOfBounds then print("empty: indexOutOfBounds\n")
+			emptySlot then print("empty: emptySlot\n")
+		end 'why'
+	end 'failed'
+	let gone = try names.remove(5) otherwise "none"
+	print("{gone} {names.count()}\n")
+	return 0
+end 'main'
+
+//> 0;0;0; false 3 cy changed
+//> 0;5;0;0;7;0;0;0;7;
+//> 7 0 99
+//> empty: indexOutOfBounds
+//> none 3

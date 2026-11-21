@@ -1,4 +1,4 @@
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 type Note
 	export var name as String
@@ -9,10 +9,10 @@ type Note
 end 'Note'
 
 type Log
-	export var lines as array with String
+	export var lines as Array with String
 
 	static function make() returns Log
-		return Log{lines: StringArray.new()}
+		return Log{lines: StringArray.create(0)}
 	end 'make'
 end 'Log'
 
@@ -24,7 +24,7 @@ function main() returns ExitCode
 		let note = Note.make("note{i}")
 		let label = "step{i}"
 		when log as l 'record'
-			l.lines.append("{mine.name} {note.name} {label} {i}")
+			l.lines.push("{mine.name} {note.name} {label} {i}")
 		end 'record'
 	end 'each'
 	let last = share(log)

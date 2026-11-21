@@ -11,7 +11,7 @@ function touch(mutates c Cell)
 	c.n = 1
 end 'touch'
 
-function f(a array with Cell)
+function f(a Array with Cell)
 	touch(a[0])
 end 'f'
 

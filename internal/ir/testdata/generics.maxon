@@ -26,13 +26,13 @@ type Box uses T
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 end 'Box'
 
 function swap(mutates a T, mutates b T) uses T where T implements Copyable
-	var tmp = a.copy()
-	a = b.copy()
+	var tmp = a.clone()
+	a = b.clone()
 	b = tmp
 end 'swap'
 
@@ -41,8 +41,8 @@ function total(a T, b T) uses T returns Score where T implements Shape
 end 'total'
 
 function both(a T) uses T returns Score where T implements Shape and Copyable
-	var b = a.copy()
-	var c = a.copy()
+	var b = a.clone()
+	var c = a.clone()
 	swap(b, b: c)
 	return total(a, b: b)
 end 'both'

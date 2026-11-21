@@ -1,7 +1,7 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 type Stack
-	var items = CountArray.new()
+	var items = CountArray.create(0)
 
 	static function make() returns Stack
 		return Stack{}

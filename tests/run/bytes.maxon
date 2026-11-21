@@ -15,7 +15,7 @@ type Packet
 	end 'make'
 end 'Packet'
 
-typealias Packets = array with Packet
+typealias Packets = Array with Packet
 
 function main() returns ExitCode
 	var b = Bytes.new()
@@ -32,11 +32,11 @@ function main() returns ExitCode
 	suffix.appendString(", world!")
 	b.append(suffix)
 	print("combined={b.toString()}\n")
-	let snap = b.copy()
+	let snap = b.clone()
 	b.push(120 as Byte)
 	print("copy={snap.toString()} orig={b.toString()}\n")
 	let empty = Bytes.new()
-	let emptySnap = empty.copy()
+	let emptySnap = empty.clone()
 	print("emptyCopy={emptySnap.count()}\n")
 	var big = Bytes.new()
 	for i in 0 upto 40 'fill'
@@ -45,11 +45,11 @@ function main() returns ExitCode
 	print("grown={big.count()} b0={big.byteAt(0)} b39={big.byteAt(39)}\n")
 	var p = Packet.make()
 	p.payload.appendString("A")
-	let p2 = p.copy()
+	let p2 = p.clone()
 	p.payload.appendString("B")
-	var list = Packets.new()
-	list.append(p)
-	list.append(p2)
+	var list = Packets.create(0)
+	list.push(p)
+	list.push(p2)
 	print("nested={list[0].payload.toString()}\n")
 	return 0
 end 'main'

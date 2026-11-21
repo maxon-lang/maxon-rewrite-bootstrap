@@ -1,14 +1,14 @@
-typealias Names = array with String
+typealias Names = Array with String
 
-typealias Cells = array with Cell
+typealias Cells = Array with Cell
 
-typealias Rows = array with Row
+typealias Rows = Array with Row
 
-typealias Items = array with Item
+typealias Items = Array with Item
 
-typealias CountPersonMap = map with Count, Person
+typealias CountPersonMap = Map with Count, Person
 
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 union Item
 	named(name String)
@@ -32,11 +32,11 @@ type Person
 end 'Person'
 
 type Row
-	export var cells as array with String
-	export var items as array with Item
+	export var cells as Array with String
+	export var items as Array with Item
 
 	static function make() returns Row
-		return Row{cells: Names.new(), items: Items.new()}
+		return Row{cells: Names.create(0), items: Items.create(0)}
 	end 'make'
 end 'Row'
 
@@ -45,12 +45,12 @@ function label(n Count) returns String
 end 'label'
 
 function wipe(mutates a Names) returns String
-	_ = a.remove(0)
+	_ = try a.remove(0) otherwise panic("index out of range")
 	return "x"
 end 'wipe'
 
 function reset(mutates a Names) returns Count
-	a = Names.new()
+	a = Names.create(0)
 	return 0
 end 'reset'
 
@@ -77,17 +77,17 @@ function rewrite(mutates s String) returns String
 end 'rewrite'
 
 function shrink(mutates rows Rows) returns Count
-	_ = rows.remove(0)
+	_ = try rows.remove(0) otherwise panic("index out of range")
 	return 0
 end 'shrink'
 
 function trim(mutates cs Cells) returns Count
-	_ = cs.remove(0)
+	_ = try cs.remove(0) otherwise panic("index out of range")
 	return 0
 end 'trim'
 
 function drain(mutates m CountPersonMap) returns Count
-	m = CountPersonMap.new()
+	m = CountPersonMap.create()
 	return 0
 end 'drain'
 

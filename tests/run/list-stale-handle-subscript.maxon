@@ -1,12 +1,12 @@
 // expect-exit: 1
-typealias StringList = list with String
+typealias StringList = List with String
 
 function main() returns ExitCode
-	var l = StringList.new()
-	let old = l.pushBack("first")
+	var l = StringList.create()
+	let old = l.append("first")
 	let gone = l.remove(old)
 	print("removed {gone.isSome()}\n")
-	let fresh = l.pushBack("second")
+	let fresh = l.append("second")
 	print("reused {l[fresh]} {l.contains(old)}\n")
 	print("{l[old]}\n")
 	return 0

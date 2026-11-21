@@ -1,9 +1,9 @@
-typealias TreeArray = array with Tree
+typealias TreeArray = Array with Tree
 
 type Tree
 	var value as Count
 	var name as String
-	var kids = TreeArray.new()
+	var kids = TreeArray.create(0)
 
 	static function make() returns Tree
 		return Tree{value: 1, name: "n"}
@@ -26,9 +26,9 @@ union Shape
 end 'Shape'
 
 function main() returns ExitCode
-	let t = Tree.make().copy()
+	let t = Tree.make().clone()
 	let p = Plain.make()
-	let s = Shape.named("x", tree: Tree.make()).copy()
-	let q = Plain.make().copy()
+	let s = Shape.named("x", tree: Tree.make()).clone()
+	let q = Plain.make().clone()
 	return 0
 end 'main'

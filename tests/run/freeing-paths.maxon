@@ -1,14 +1,14 @@
-typealias NoteArray = array with Note
+typealias NoteArray = Array with Note
 
-typealias SlotArray = array with Slot
+typealias SlotArray = Array with Slot
 
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
-typealias StringArrayArray = array with (array with String)
+typealias StringArrayArray = Array with (Array with String)
 
 type Note
 	export var text as String
-	export var tags = StringArray.new()
+	export var tags = StringArray.create(0)
 
 	static function make(consumes text String) returns Note
 		return Note{text: text}
@@ -29,7 +29,7 @@ function early(flag bool, n Count) returns Count
 	let first = Note.make(label(n))
 	if flag 'quick'
 		let second = Note.make("{n} quick")
-		print("{second.text.copy()} ")
+		print("{second.text.clone()} ")
 		return first.tags.count()
 	end 'quick'
 	let third = Note.make("slow")
@@ -53,36 +53,37 @@ function loops(limit Count) returns Count
 end 'loops'
 
 function grow(n Count) returns Count throws ArithmeticError
-	var notes = NoteArray.new()
+	var notes = NoteArray.create(0)
 	for i in 0 upto n 'fill'
-		notes.append(Note.make(label(i)))
+		notes.push(Note.make(label(i)))
 	end 'fill'
-	notes.insert(Note.make("front"), at: 0)
-	let removed = notes.remove(3)
-	var kept = NoteArray.new()
-	kept.append(removed)
+	notes.insert(0, value: Note.make("front"))
+	let removed = try notes.remove(3) otherwise panic("index out of range")
+	var kept = NoteArray.create(0)
+	kept.push(removed)
 	notes[1] = Note.make("replaced")
-	notes[2].tags.append("one")
-	notes[2].tags.append("two")
-	notes[2].tags.append(label(9))
-	let last = notes.pop()
-	match last 'm'
-		some(note) then print("{note.text} ")
-		none then print("none ")
-	end 'm'
-	let again = notes.pop().unwrap()
+	notes[2].tags.push("one")
+	notes[2].tags.push("two")
+	notes[2].tags.push(label(9))
+	try 'm'
+		let note = notes.pop()
+		print("{note.text} ")
+	end 'm' otherwise 'none'
+		print("none ")
+	end 'none'
+	let again = try notes.pop() otherwise panic("the array is empty")
 	print("{again.text} {kept[0].text} {notes.count()}\n")
 	return try notes.count() + kept.count()
 end 'grow'
 
 function slots() returns Count throws ArithmeticError
-	var held = SlotArray.new()
-	held.append(Slot.filled(Note.make("a"), rank: 1))
-	held.append(Slot.named(label(2)))
-	held.append(Slot.vacant)
+	var held = SlotArray.create(0)
+	held.push(Slot.filled(Note.make("a"), rank: 1))
+	held.push(Slot.named(label(2)))
+	held.push(Slot.vacant)
 	held[0] = Slot.named("b")
 	held[2] = Slot.filled(Note.make("c"), rank: 3)
-	let copy = held.copy()
+	let copy = held.clone()
 	var total = 0 as Count
 	for i in 0 upto copy.count() 'each'
 		match copy[i] 'm'
@@ -95,15 +96,15 @@ function slots() returns Count throws ArithmeticError
 end 'slots'
 
 function nested() returns Count
-	var grid = StringArrayArray.new()
+	var grid = StringArrayArray.create(0)
 	for i in 0 upto 3 'rows'
-		var row = StringArray.new()
+		var row = StringArray.create(0)
 		for j in 0 upto 6 'cols'
-			row.append("{i}{j}")
+			row.push("{i}{j}")
 		end 'cols'
-		grid.append(row)
+		grid.push(row)
 	end 'rows'
-	let copy = grid.copy()
+	let copy = grid.clone()
 	print("{copy[2][5]} ")
 	return grid.count()
 end 'nested'

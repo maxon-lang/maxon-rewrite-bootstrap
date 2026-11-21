@@ -1,0 +1,8 @@
+// expect-error: E3106 at 5:31
+typealias NameArray = Array with String
+
+function main() returns ExitCode
+	let names = NameArray.create(2)
+	print("{names.count()}\n")
+	return 0
+end 'main'

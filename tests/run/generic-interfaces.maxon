@@ -77,7 +77,7 @@ end 'describe'
 
 function pick(flag bool, a T, b T) uses T returns Option with T where T implements Copyable
 	if flag 'f'
-		return Option.some(a.copy())
+		return Option.some(a.clone())
 	end 'f'
 	return Option.none
 end 'pick'

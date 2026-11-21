@@ -2,7 +2,7 @@ typealias CountOption = Option with Count
 
 typealias NodeHandleOption = Option with (Handle with Node)
 
-typealias NodePool = pool with Node
+typealias NodePool = Pool with Node
 
 type Node
 	var value as Count
@@ -14,15 +14,15 @@ type Node
 end 'Node'
 
 type Stack
-	var nodes as pool with Node
+	var nodes as Pool with Node
 	var top as Option with (Handle with Node)
 
 	static function make() returns Stack
-		return Stack{nodes: NodePool.new(), top: NodeHandleOption.none}
+		return Stack{nodes: NodePool.create(), top: NodeHandleOption.none}
 	end 'make'
 
 	function push(mutates self, value Count)
-		let node = Node.make(value, next: top.copy())
+		let node = Node.make(value, next: top.clone())
 		top = Option.some(nodes.insert(node))
 	end 'push'
 
@@ -30,9 +30,9 @@ type Stack
 		if not top.isSome() 'empty'
 			return CountOption.none
 		end 'empty'
-		let handle = top.copy().unwrap()
+		let handle = top.clone().unwrap()
 		let node = nodes.remove(handle).unwrap()
-		top = node.next.copy()
+		top = node.next.clone()
 		return Option.some(node.value)
 	end 'pop'
 
@@ -40,7 +40,7 @@ type Stack
 		if not top.isSome() 'empty'
 			return CountOption.none
 		end 'empty'
-		return Option.some(nodes[top.copy().unwrap()].value)
+		return Option.some(nodes[top.clone().unwrap()].value)
 	end 'peek'
 end 'Stack'
 

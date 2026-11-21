@@ -82,7 +82,7 @@ let byteLBrace = 123 as Byte
 
 let byteRBrace = 125 as Byte
 
-export typealias Offsets = array with Count
+export typealias Offsets = Array with Count
 
 function isDigit(b Byte) returns bool
 	return b >= byteZero and b <= byteNine
@@ -124,7 +124,7 @@ type Lexer
 	var error as Option with LexError
 
 	static function make(consumes text String, begin Count, limit Count, inline bool) returns Lexer
-		return Lexer{text: text, begin: begin, limit: limit, inline: inline, pos: begin, depth: 0, indent: 0, tokens: Tokens.new(), error: Option.none}
+		return Lexer{text: text, begin: begin, limit: limit, inline: inline, pos: begin, depth: 0, indent: 0, tokens: Tokens.create(0), error: Option.none}
 	end 'make'
 
 	function hasError() returns bool
@@ -139,7 +139,7 @@ type Lexer
 
 	function emit(mutates self, kind TokenKind, start Count, stop Count)
 		let length = try stop - start otherwise panic("lexer emit negative length")
-		self.tokens.append(Token.make(kind, start: start, length: length))
+		self.tokens.push(Token.make(kind, start: start, length: length))
 	end 'emit'
 
 	function lexFileBody(mutates self)
@@ -186,7 +186,7 @@ type Lexer
 	end 'lexInline'
 
 	function lineStart(mutates self)
-		var comments = Offsets.new()
+		var comments = Offsets.create(0)
 		while self.pos < self.limit and not self.hasError() 'skipLeading'
 			let lineBegin = self.pos
 			while self.pos < self.limit and self.text.byteAt(self.pos) == byteTab 'tabs'
@@ -216,7 +216,7 @@ type Lexer
 			end 'crLine'
 			let nextPos = at + 1
 			if c == byteSlash and nextPos < self.limit and self.text.byteAt(nextPos) == byteSlash 'commentLine'
-				comments.append(lineBegin)
+				comments.push(lineBegin)
 				let endLine = self.checkComment(at)
 				if self.hasError() 'badComment'
 					return
@@ -385,7 +385,7 @@ type Lexer
 			i = i + 1
 		end 'scanIdent'
 		self.pos = i
-		let word = self.text.slice(start, until: i)
+		let word = self.text.sliceBytes(start, endPos: i)
 		self.emit(keywordKind(word), start: start, stop: i)
 	end 'lexIdent'
 
@@ -682,7 +682,7 @@ type Lexer
 end 'Lexer'
 
 export function lex(text String) returns LexResult
-	var lx = Lexer.make(text.copy(), begin: 0, limit: text.byteCount(), inline: false)
+	var lx = Lexer.make(text.clone(), begin: 0, limit: text.byteLength(), inline: false)
 	lx.lexFile()
 	if lx.error.isSome() 'failed'
 		return LexResult.err(lx.error.unwrap())
@@ -691,7 +691,7 @@ export function lex(text String) returns LexResult
 end 'lex'
 
 export function lexInterpolation(text String, begin Count, until Count) returns LexResult
-	var lx = Lexer.make(text.copy(), begin: begin, limit: until, inline: true)
+	var lx = Lexer.make(text.clone(), begin: begin, limit: until, inline: true)
 	lx.lexInline()
 	if lx.error.isSome() 'failed'
 		return LexResult.err(lx.error.unwrap())
@@ -700,21 +700,21 @@ export function lexInterpolation(text String, begin Count, until Count) returns 
 end 'lexInterpolation'
 
 export function lexSpans(text String, starts Offsets, ends Offsets) returns LexResult
-	var all = Tokens.new()
+	var all = Tokens.create(0)
 	var totalEnd = 0 as Count
 	for fi in 0 upto starts.count() 'eachFile'
 		let b = starts[fi]
 		let e = ends[fi]
 		totalEnd = e
-		var lx = Lexer.make(text.copy(), begin: b, limit: e, inline: false)
+		var lx = Lexer.make(text.clone(), begin: b, limit: e, inline: false)
 		lx.lexFileBody()
 		if lx.error.isSome() 'failed'
 			return LexResult.err(lx.error.unwrap())
 		end 'failed'
 		for ti in 0 upto lx.tokens.count() 'appendToks'
-			all.append(lx.tokens[ti].copy())
+			all.push(lx.tokens[ti].clone())
 		end 'appendToks'
 	end 'eachFile'
-	all.append(Token.make(TokenKind.eof, start: totalEnd, length: 0 as Count))
+	all.push(Token.make(TokenKind.eof, start: totalEnd, length: 0 as Count))
 	return LexResult.ok(all)
 end 'lexSpans'

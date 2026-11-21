@@ -100,11 +100,11 @@ export type Token
 	end 'endOffset'
 
 	export function text(src String) returns String
-		return src.slice(self.start, until: self.endOffset())
+		return src.sliceBytes(self.start, endPos: self.endOffset())
 	end 'text'
 end 'Token'
 
-export typealias Tokens = array with Token
+export typealias Tokens = Array with Token
 
 export type LexError
 	export let offset as Count

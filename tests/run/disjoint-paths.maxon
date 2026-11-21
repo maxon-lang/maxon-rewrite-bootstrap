@@ -38,11 +38,11 @@ function main() returns ExitCode
 	print("{p.x} {p.y}\n")
 	var s = Segment.create(Point.create(1, y: 1), finish: Point.create(5, y: 5))
 	swap(s.start.x, b: s.finish.x)
-	try bump(s.start.y, by: s.finish.y.copy()) otherwise return 1
+	try bump(s.start.y, by: s.finish.y.clone()) otherwise return 1
 	print("{s.start.x} {s.start.y} {s.finish.x} {s.finish.y}\n")
 	try s.start.add(s.finish.y) otherwise return 1
 	print("{s.start.x}\n")
-	try p.add(p.y.copy()) otherwise return 1
+	try p.add(p.y.clone()) otherwise return 1
 	print("{p.x}\n")
 	return 0
 end 'main'

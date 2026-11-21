@@ -1,0 +1,9 @@
+// expect-error: E9900 at 3:17
+function f(m Map with (Count, Count)) returns Count
+	let c = m.clone()
+	return 0
+end 'f'
+
+function main() returns ExitCode
+	return 0
+end 'main'

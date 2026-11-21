@@ -1,8 +1,8 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias CountArrayArray = array with (array with Count)
+typealias CountArrayArray = Array with (Array with Count)
 
-typealias PointArray = array with Point
+typealias PointArray = Array with Point
 
 type Point
 	export var x as Count
@@ -21,7 +21,7 @@ function shift(mutates p Point)
 	p.x = try p.x + 10 otherwise p.x
 end 'shift'
 
-function total(items array with Count) returns Count throws ArithmeticError
+function total(items Array with Count) returns Count throws ArithmeticError
 	var sum = 0 as Count
 	for i in 0 upto items.count() 'sum'
 		sum = try sum + items[i]
@@ -29,62 +29,60 @@ function total(items array with Count) returns Count throws ArithmeticError
 	return sum
 end 'total'
 
-function length(items array with T) uses T returns Count
+function length(items Array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-function duplicate(mutates items array with T, at Count) uses T where T implements Copyable
-	items.insert(items[at].copy(), at: at)
+function duplicate(mutates items Array with T, at Count) uses T where T implements Copyable
+	items.insert(at, value: items[at].clone())
 end 'duplicate'
 
-function popOr(mutates items array with Count, fallback Count) returns Count
-	let last = items.pop()
-	if last.isSome() 'some'
-		return last.unwrap()
-	end 'some'
-	return fallback
+function popOr(mutates items Array with Count, fallback Count) returns Count
+	return try items.pop() otherwise fallback
 end 'popOr'
 
 function main() returns ExitCode
-	var a = CountArray.new()
+	var a = CountArray.create(0)
 	for i in 0 upto 1000 'grow'
-		a.append(i as Count)
+		a.push(i as Count)
 	end 'grow'
 	let sum = try total(a) otherwise return 1
 	print("{a.count()} {sum} {a[999]}\n")
 	var b = CountArray.filled(3, value: 7)
-	b.insert(1, at: 0)
-	b.insert(2, at: 2)
-	b.insert(3, at: b.count())
+	b.insert(0, value: 1)
+	b.insert(2, value: 2)
+	b.insert(b.count(), value: 3)
 	print("{b[0]} {b[1]} {b[2]} {b[3]} {b[4]} {b[5]}\n")
-	print("{b.remove(1)} {b.count()} {b.remove(try b.count() - 1 otherwise 0)} {b.count()}\n")
+	print("{try b.remove(1) otherwise panic("index out of range")} {b.count()} {try b.remove(try b.count() - 1 otherwise 0) otherwise panic("index out of range")} {b.count()}\n")
 	bump(b[0])
 	b[1] = try b[0] + b[1] otherwise b[1]
 	print("{b[0]} {b[1]} {b[2]} {b[3]}\n")
-	var empty = CountArray.new()
+	var empty = CountArray.create(0)
 	print("{empty.isEmpty()} {b.isEmpty()} {popOr(empty, fallback: 42)} {popOr(b, fallback: 42)} {b.count()}\n")
-	match b.pop() 'popped'
-		some(v) then print("popped {v}\n")
-		none then print("nothing\n")
-	end 'popped'
-	var points = PointArray.new()
-	points.append(Point.make(1, y: 2))
-	points.append(Point.make(3, y: 4))
+	try 'popped'
+		let v = b.pop()
+		print("popped {v}\n")
+	end 'popped' otherwise 'nothing'
+		print("nothing\n")
+	end 'nothing'
+	var points = PointArray.create(0)
+	points.push(Point.make(1, y: 2))
+	points.push(Point.make(3, y: 4))
 	shift(points[1])
 	points[0].y = 9
-	var copied = points.copy()
+	var copied = points.clone()
 	copied[0].x = 100
 	print("{points[0].x} {points[0].y} {points[1].x} {points[1].y} {copied[0].x} {copied.count()}\n")
-	let taken = points.remove(0)
+	let taken = try points.remove(0) otherwise panic("index out of range")
 	print("{taken.y} {points.count()} {length(points)} {length(a)}\n")
 	duplicate(points, at: 0)
 	points[0].x = 5
 	print("{points[0].x} {points[1].x} {points.count()}\n")
-	var grid = CountArrayArray.new()
-	grid.append(CountArray.filled(3, value: 0))
-	grid.append(CountArray.filled(2, value: 1))
+	var grid = CountArrayArray.create(0)
+	grid.push(CountArray.filled(3, value: 0))
+	grid.push(CountArray.filled(2, value: 1))
 	grid[0][1] = 5
-	grid[1].append(8)
+	grid[1].push(8)
 	print("{grid[0][0]} {grid[0][1]} {grid[1].count()} {grid[1][2]} {grid.count()}\n")
 	return 0
 end 'main'

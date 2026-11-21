@@ -96,7 +96,7 @@ export type MemberInfo
 	export var typeArgs as TypeIDList
 
 	export static function make(kind MemberKind, ownerTy TypeID) returns MemberInfo
-		return MemberInfo{kind: kind, hasMethod: false, method: noFunc, ownerTy: ownerTy, fieldIndex: 0 as Count, enumCase: 0 as Count, typeArgs: TypeIDList.new()}
+		return MemberInfo{kind: kind, hasMethod: false, method: noFunc, ownerTy: ownerTy, fieldIndex: 0 as Count, enumCase: 0 as Count, typeArgs: TypeIDList.create(0)}
 	end 'make'
 end 'MemberInfo'
 
@@ -107,24 +107,24 @@ export type CallInfo
 	export var paramSpecs as ParamSpecList
 	export var selfConv as Convention
 	export var receiverTy as TypeID
-	export var argOrder as array with Count
+	export var argOrder as Array with Count
 	export var unionTy as TypeID
 	export var unionCase as Count
 	export var hasDrop as bool
 	export var dropFn as FuncID
-	export var dropArgOrder as array with Count
+	export var dropArgOrder as Array with Count
 	export var intrinsic as Intrinsic
 
 	export static function make(kind CallKind, fn FuncID, receiverTy TypeID) returns CallInfo
-		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.new(), paramSpecs: ParamSpecList.new(), selfConv: Convention.convLet, receiverTy: receiverTy, argOrder: array.new(), unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropArgOrder: array.new(), intrinsic: Intrinsic.intrNone}
+		return CallInfo{kind: kind, fn: fn, typeArgs: TypeIDList.create(0), paramSpecs: ParamSpecList.create(0), selfConv: Convention.convLet, receiverTy: receiverTy, argOrder: Array.create(0), unionTy: noType, unionCase: 0 as Count, hasDrop: false, dropFn: noFunc, dropArgOrder: Array.create(0), intrinsic: Intrinsic.intrNone}
 	end 'make'
 end 'CallInfo'
 
 export type StructLitInfo
 	export var ty as TypeID
-	export var fieldOrder as array with Count
+	export var fieldOrder as Array with Count
 
-	export static function make(ty TypeID, consumes fieldOrder array with Count) returns StructLitInfo
+	export static function make(ty TypeID, consumes fieldOrder Array with Count) returns StructLitInfo
 		return StructLitInfo{ty: ty, fieldOrder: fieldOrder}
 	end 'make'
 end 'StructLitInfo'
@@ -141,7 +141,7 @@ export type PatternInfo
 	end 'makeCase'
 
 	export static function makeLiteral() returns PatternInfo
-		return PatternInfo{kind: PatternKind.patLiteral, caseIdx: 0 as Count, bindings: LocalIDList.new(), hasConstInt: false, constVal: I128.zero()}
+		return PatternInfo{kind: PatternKind.patLiteral, caseIdx: 0 as Count, bindings: LocalIDList.create(0), hasConstInt: false, constVal: I128.zero()}
 	end 'makeLiteral'
 end 'PatternInfo'
 
@@ -157,7 +157,7 @@ export type Capture
 	end 'make'
 end 'Capture'
 
-export typealias CaptureList = array with Capture
+export typealias CaptureList = Array with Capture
 
 export type WhenInfo
 	export var fn as FuncID
@@ -166,7 +166,7 @@ export type WhenInfo
 	export var dropFuncs as FuncIDList
 
 	export static function new() returns WhenInfo
-		return WhenInfo{fn: noFunc, cowns: TypeIDList.new(), captures: CaptureList.new(), dropFuncs: FuncIDList.new()}
+		return WhenInfo{fn: noFunc, cowns: TypeIDList.create(0), captures: CaptureList.create(0), dropFuncs: FuncIDList.create(0)}
 	end 'new'
 end 'WhenInfo'
 
@@ -211,7 +211,7 @@ export type ModuleDep
 	end 'make'
 end 'ModuleDep'
 
-export typealias ModuleDepList = array with ModuleDep
+export typealias ModuleDepList = Array with ModuleDep
 
 export typealias NodeSlotMap = table.IntMap with Count
 
@@ -230,16 +230,16 @@ export type Resolution
 		let dm = NodeDeclMap.new()
 		let mm = NodeModMap.new()
 		let bm = NodeBoolMap.new()
-		let tps = TypeParamList.new()
+		let tps = TypeParamList.create(0)
 		let tpsm = NodeSlotMap.new()
 		let ds = NodeBoolMap.new()
 		let cm = NodeStrListMap.new()
-		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, deps: ModuleDepList.new(), depSeen: ds, captures: cm}
+		return Resolution{module: module, decls: dm, modules: mm, becomeNames: bm, typeParams: tps, typeParamSlots: tpsm, deps: ModuleDepList.create(0), depSeen: ds, captures: cm}
 	end 'new'
 
 	export function addTypeParam(mutates self, consumes tp TypeParam) returns Count
 		let slot = typeParams.count()
-		typeParams.append(tp)
+		typeParams.push(tp)
 		return slot
 	end 'addTypeParam'
 
@@ -261,15 +261,15 @@ export type Resolution
 		end 'dup'
 		depSeen.insert(key, value: true)
 		let entry = ModuleDep.make(dep, offset: offset)
-		deps.append(entry)
+		deps.push(entry)
 		// Keep deps ascending by module ID for deterministic Graph order
 		var i = deps.count()
 		while i > 1 'ins'
 			let cur = try i - 1 otherwise 0 as Count
 			let prev = try i - 2 otherwise 0 as Count
 			if deps[cur].module < deps[prev].module 'swap'
-				let tmp = deps[cur].copy()
-				deps[cur] = deps[prev].copy()
+				let tmp = deps[cur].clone()
+				deps[cur] = deps[prev].clone()
 				deps[prev] = tmp
 				i = cur
 			end 'swap' else 'done'
@@ -281,7 +281,7 @@ end 'Resolution'
 
 export typealias NodeJumpMap = table.IntMap with NodeID
 
-export typealias NodeIDList = array with NodeID
+export typealias NodeIDList = Array with NodeID
 
 export typealias NodeUsesMap = table.IntMap with NodeIDList
 
@@ -305,8 +305,8 @@ export type Typing
 	export var consumed as NodeBoolMap
 
 	export static function new(module diag.ModuleID) returns Typing
-		var ls = LocalEntryList.new()
-		ls.append(LocalEntry.make("<invalid>", ty: noType, isVar: false, isParam: false, conv: Convention.convLet, definedAt: 0 as NodeID))
+		var ls = LocalEntryList.create(0)
+		ls.push(LocalEntry.make("<invalid>", ty: noType, isVar: false, isParam: false, conv: Convention.convLet, definedAt: 0 as NodeID))
 		let tm = NodeTypeMap.new()
 		let am = NodeArithMap.new()
 		let nm = NodeNameMap.new()
@@ -329,7 +329,7 @@ export type Typing
 		let id = try locals.count() as LocalID otherwise panic("too many locals")
 		var e = entry
 		e.id = id
-		locals.append(e)
+		locals.push(e)
 		return id
 	end 'allocLocal'
 end 'Typing'

@@ -1,7 +1,7 @@
 typealias Score = int(i64.min to i64.max)
 
 function keep(a T) uses T returns T where T implements Copyable
-	return a.copy()
+	return a.clone()
 end 'keep'
 
 function afterReturn() returns Score

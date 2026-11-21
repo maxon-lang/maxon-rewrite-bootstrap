@@ -9,7 +9,7 @@ func newProject() *Project { return NewProject(NewModule("", ".", false)) }
 
 func TestEveryProjectDeclaresTheBuiltins(t *testing.T) {
 	p := newProject()
-	for _, name := range []string{"array", "map", "list", "pool", "Handle", "Option"} {
+	for _, name := range []string{"Array", "Map", "List", "Pool", "Handle", "Option"} {
 		d, ok := p.Stdlib.Names[name].(TypeDeclNode)
 		if !ok || d.TypeBase().Ty == nil || d.Base().Module != p.Stdlib || !d.Base().IsExported() {
 			t.Errorf("stdlib does not declare %s as a type: %v", name, p.Stdlib.Names[name])
@@ -27,7 +27,7 @@ func TestPrimitiveInstancesAreInterned(t *testing.T) {
 	if a != Instantiate(b.Array, []Ty{StringTy}) || a == Instantiate(b.Array, []Ty{BoolTy}) {
 		t.Fatal("instances are not interned by their arguments")
 	}
-	if a.Name() != "array with String" || b.HandleOf(BoolTy).Name() != "Handle with bool" || b.OptionOf(StringTy).Name() != "Option with String" {
+	if a.Name() != "Array with String" || b.HandleOf(BoolTy).Name() != "Handle with bool" || b.OptionOf(StringTy).Name() != "Option with String" {
 		t.Fatalf("names %s %s %s", a.Name(), b.HandleOf(BoolTy).Name(), b.OptionOf(StringTy).Name())
 	}
 	const workers = 16
@@ -51,7 +51,7 @@ func TestWhatAPrimitiveHoldsAndWhatIndexesIt(t *testing.T) {
 	pool := Instantiate(b.Pool, []Ty{BoolTy}).(*BuiltinTy)
 	list := Instantiate(b.List, []Ty{BoolTy}).(*BuiltinTy)
 	if array.Element() != StringTy || array.Index() != Ty(b.Count) {
-		t.Errorf("array with String holds %s by %s", array.Element().Name(), array.Index().Name())
+		t.Errorf("Array with String holds %s by %s", array.Element().Name(), array.Index().Name())
 	}
 	if m.Element() != StringTy || m.Index() != BoolTy {
 		t.Errorf("map[bool, String] holds %s by %s", m.Element().Name(), m.Index().Name())

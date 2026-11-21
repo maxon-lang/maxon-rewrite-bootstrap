@@ -2,7 +2,7 @@
 // expect-error: E3902
 function main() returns ExitCode
 	var s as String
-	fill(s, from: s.copy())
+	fill(s, from: s.clone())
 	return 0
 end 'main'
 

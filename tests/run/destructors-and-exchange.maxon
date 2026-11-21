@@ -1,6 +1,6 @@
-typealias TxnArray = array with Txn
+typealias TxnArray = Array with Txn
 
-typealias CountStringMap = map with Count, String
+typealias CountStringMap = Map with Count, String
 
 type Txn
 	var id as Count
@@ -33,11 +33,11 @@ end 'finish'
 function main() returns ExitCode
 	finish(Step.done(Txn.begin(1)))
 	finish(Step.failed(Txn.begin(2), reason: "disk full"))
-	var pending = TxnArray.new()
-	pending.append(Txn.begin(3))
-	pending.append(Txn.begin(4))
-	pending.remove(0).commit()
-	pending.pop().unwrap().commit()
+	var pending = TxnArray.create(0)
+	pending.push(Txn.begin(3))
+	pending.push(Txn.begin(4))
+	(try pending.remove(0) otherwise panic("index out of range")).commit()
+	(try pending.pop() otherwise panic("the array is empty")).commit()
 	pending.dropEmpty()
 	var current = Txn.begin(5)
 	let old = exchange(current, value: Txn.begin(6))
@@ -46,8 +46,8 @@ function main() returns ExitCode
 	var label = "a"
 	let before = exchange(label, value: "b")
 	print("{before} {label}\n")
-	var names = CountStringMap.new()
-	names.insert(1, value: "one")
+	var names = CountStringMap.create()
+	names.upsert(1, value: "one")
 	let previous = names.replace(1, value: "uno")
 	let fresh = names.replace(2, value: "dos")
 	print("{previous.unwrap()} {fresh.isSome()} {names[1]} {names.count()}\n")

@@ -1,7 +1,7 @@
 // expect-error: E3004 at 21:17
-typealias CellArray = array with Cell
+typealias CellArray = Array with Cell
 
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 type Cell
 	export var n as Count
@@ -11,12 +11,12 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function make() returns array with Cell
-	return CellArray.new()
+function make() returns Array with Cell
+	return CellArray.create(0)
 end 'make'
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
 	print("{h.count()}")
 	return 0

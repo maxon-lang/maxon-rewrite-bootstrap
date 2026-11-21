@@ -55,8 +55,8 @@ export type Project
 	export var types as TypeTable
 	export var funcs as FuncTable
 	export var builtins as Builtins
-	export var resolutions as array with Resolution
-	export var typings as array with Typing
+	export var resolutions as Array with Resolution
+	export var typings as Array with Typing
 	export var declTypes as DeclTypeMap
 	export var declFuncs as DeclFuncMap
 	export var nodeFuncs as NodeFuncMap
@@ -65,14 +65,14 @@ export type Project
 	export static function new(consumes root String) returns Project
 		var tt = TypeTable.new()
 		var ft = FuncTable.new()
-		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.new())
+		var std = Module.new(diag.stdlibID, path: "", text: "", files: FileSpanList.create(0))
 		let bs = initBuiltins(tt, ft: ft, std: std)
 		let bp = PathModMap.new()
 		let dtm = DeclTypeMap.new()
 		let dfm = DeclFuncMap.new()
 		let nfm = NodeFuncMap.new()
 		let dcm = DeclConstMap.new()
-		var p = Project{root: root, rootModule: 0 as diag.ModuleID, modules: ModuleList.new(), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: array.new(), typings: array.new(), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
+		var p = Project{root: root, rootModule: 0 as diag.ModuleID, modules: ModuleList.create(0), stdlib: std, byPath: bp, types: tt, funcs: ft, builtins: bs, resolutions: Array.create(0), typings: Array.create(0), declTypes: dtm, declFuncs: dfm, nodeFuncs: nfm, declConsts: dcm}
 		for i in 0 upto p.stdlib.decls.count() 'stdReg'
 			let ord = try i as DeclOrdinal otherwise 0 as DeclOrdinal
 			let ref = DeclRef.make(diag.stdlibID, ordinal: ord)
@@ -96,9 +96,9 @@ export function addModule(mutates p Project, consumes m Module) returns diag.Mod
 	copyM.id = id
 	copyM.tree.module = id
 	p.byPath.insert(copyM.path, value: id)
-	p.modules.append(copyM)
-	p.resolutions.append(Resolution.new(id))
-	p.typings.append(Typing.new(id))
+	p.modules.push(copyM)
+	p.resolutions.push(Resolution.new(id))
+	p.typings.push(Typing.new(id))
 	return id
 end 'addModule'
 
@@ -110,9 +110,9 @@ export let stdlibQualifier = "stdlib"
 
 export function moduleDecl(p Project, ref DeclRef) returns Decl
 	if ref.module == diag.stdlibID 'std'
-		return p.stdlib.decls[ref.ordinal as Count].copy()
+		return p.stdlib.decls[ref.ordinal as Count].clone()
 	end 'std'
-	return p.modules[ref.module as Count].decls[ref.ordinal as Count].copy()
+	return p.modules[ref.module as Count].decls[ref.ordinal as Count].clone()
 end 'moduleDecl'
 
 function joinWithComma(items StringList) returns String
@@ -127,9 +127,9 @@ function joinWithComma(items StringList) returns String
 end 'joinWithComma'
 
 export function typeArgsLinkPart(tt TypeTable, args TypeIDList) returns String
-	var parts = StringList.new()
+	var parts = StringList.create(0)
 	for i in 0 upto args.count() 'each'
-		parts.append(typeLinkName(tt, t: args[i]))
+		parts.push(typeLinkName(tt, t: args[i]))
 	end 'each'
 	return joinWithComma(parts)
 end 'typeArgsLinkPart'
@@ -139,7 +139,7 @@ export function typeLinkName(tt TypeTable, t TypeID) returns String
 		return "<invalid>"
 	end 'none'
 	let orig = tt.entries[t as Count].effectiveOrigin()
-	let baseName = tt.entries[orig as Count].name.copy()
+	let baseName = tt.entries[orig as Count].name.clone()
 	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
 		let argStr = typeArgsLinkPart(tt, args: tt.entries[t as Count].typeArgs)
 		return "{baseName}[{argStr}]"
@@ -148,7 +148,7 @@ export function typeLinkName(tt TypeTable, t TypeID) returns String
 end 'typeLinkName'
 
 export function funcLinkName(p Project, fid FuncID) returns String
-	let fnName = p.funcs.entries[fid as Count].name.copy()
+	let fnName = p.funcs.entries[fid as Count].name.clone()
 	let modID = p.funcs.entries[fid as Count].module
 	var base = ""
 	if p.funcs.entries[fid as Count].ownerTy != noType 'meth'
@@ -164,7 +164,7 @@ export function funcLinkName(p Project, fid FuncID) returns String
 		end 'std' else if p.funcs.entries[fid as Count].isExtern 'ext'
 			return fnName
 		end 'ext' else 'user'
-			let mp = p.modules[modID as Count].path.copy()
+			let mp = p.modules[modID as Count].path.clone()
 			if mp == "" 'rt'
 				base = fnName
 			end 'rt' else 'sub'

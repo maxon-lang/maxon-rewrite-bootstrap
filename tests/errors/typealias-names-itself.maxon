@@ -2,7 +2,7 @@ type Box uses T
 	var item as T
 end 'Box'
 
-typealias Boxes = array with Crates
+typealias Boxes = Array with Crates
 
 typealias Crates = Box with Boxes
 

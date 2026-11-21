@@ -1,10 +1,10 @@
-typealias ColorCountMap = map with Color, Count
+typealias ColorCountMap = Map with Color, Count
 
-typealias StringCellMap = map with String, Cell
+typealias StringCellMap = Map with String, Cell
 
-typealias StringHandleCountMap = map with Handle with String, Count
+typealias StringHandleCountMap = Map with Handle with String, Count
 
-typealias StringPool = pool with String
+typealias StringPool = Pool with String
 
 type Cell
 	export var n as Count
@@ -25,39 +25,39 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	var m = StringCellMap.new()
-	m.insert("one", value: Cell.make(1, label: "first"))
-	m.insert("two", value: Cell.make(2, label: "second"))
-	print("{m.count()} {m.has("one")} {m.has("three")} {m.isEmpty()}\n")
+	var m = StringCellMap.create()
+	m.upsert("one", value: Cell.make(1, label: "first"))
+	m.upsert("two", value: Cell.make(2, label: "second"))
+	print("{m.count()} {m.contains("one")} {m.contains("three")} {m.isEmpty()}\n")
 	m["one"].n = 10
 	bump(m["two"])
 	print("{m["one"].n} {m["one"].label} {m["two"].n}\n")
-	m.insert("one", value: Cell.make(100, label: "replaced"))
+	m.upsert("one", value: Cell.make(100, label: "replaced"))
 	print("{m.count()} {m["one"].n} {m["one"].label}\n")
 	let key = "t{m.count()}o"
-	m.insert(key, value: Cell.make(3, label: "interpolated key"))
-	print("{m.count()} {m.has("t2o")}\n")
-	m.insert("t2o", value: Cell.make(4, label: "same key again"))
+	m.upsert(key, value: Cell.make(3, label: "interpolated key"))
+	print("{m.count()} {m.contains("t2o")}\n")
+	m.upsert("t2o", value: Cell.make(4, label: "same key again"))
 	print("{m.count()} {m["t2o"].n}\n")
-	let copied = m.copy()
+	let copied = m.clone()
 	m["one"].n = 0
 	print("{m["one"].n} {copied["one"].n} {copied.count()}\n")
+	let cell = m["two"].clone()
 	let taken = m.remove("two")
-	print("{taken.isSome()} {m.has("two")} {m.count()}\n")
+	print("{taken} {m.contains("two")} {m.count()}\n")
 	let missing = m.remove("two")
-	print("{missing.isSome()}\n")
-	let cell = taken.unwrap()
+	print("{missing}\n")
 	print("{cell.n} {cell.label}\n")
-	var counts = ColorCountMap.new()
-	counts.insert(Color.red, value: 1)
-	counts.insert(Color.green, value: 2)
+	var counts = ColorCountMap.create()
+	counts.upsert(Color.red, value: 1)
+	counts.upsert(Color.green, value: 2)
 	counts[Color.red] = try counts[Color.red] + counts[Color.green] otherwise return 1
 	print("{counts[Color.red]} {counts[Color.green]}\n")
-	var handles = StringPool.new()
+	var handles = StringPool.create()
 	let h = handles.insert("pooled")
-	var byHandle = StringHandleCountMap.new()
-	byHandle.insert(h, value: 7)
-	print("{byHandle[h]} {byHandle.has(h)}\n")
+	var byHandle = StringHandleCountMap.create()
+	byHandle.upsert(h, value: 7)
+	print("{byHandle[h]} {byHandle.contains(h)}\n")
 	return 0
 end 'main'
 

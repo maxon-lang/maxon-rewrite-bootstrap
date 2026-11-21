@@ -27,7 +27,7 @@ function main() returns ExitCode
 	try p.move(10) otherwise return 1
 	let sum = try p.sum() otherwise return 1
 	print("{p.x} {p.y} {sum}\n")
-	var q = p.copy()
+	var q = p.clone()
 	q.x = 5
 	print("{p.describe()}\n")
 	var r = Point.create(0, y: 0)

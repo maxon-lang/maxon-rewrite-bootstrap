@@ -20,5 +20,5 @@ function replaceText(mutates t String)
 end 'replaceText'
 
 function fill(sets out String, from String)
-	out = from.copy()
+	out = from.clone()
 end 'fill'

@@ -1,6 +1,6 @@
 typealias Small = int(0 to 100)
 
-typealias SmallArray = array with Small
+typealias SmallArray = Array with Small
 
 function sum(items SmallArray) returns Count
 	let n = items.count()

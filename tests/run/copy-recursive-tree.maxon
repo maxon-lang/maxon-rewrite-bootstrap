@@ -1,9 +1,9 @@
-typealias TreeArray = array with Tree
+typealias TreeArray = Array with Tree
 
 type Tree
 	var value as Count
 	var name as String
-	var kids = TreeArray.new()
+	var kids = TreeArray.create(0)
 
 	static function make(value Count, consumes name String) returns Tree
 		return Tree{value: value, name: name}
@@ -18,7 +18,7 @@ type Tree
 	end 'sum'
 
 	function add(mutates self, consumes kid Tree)
-		kids.append(kid)
+		kids.push(kid)
 	end 'add'
 
 	function describe() returns String
@@ -42,12 +42,12 @@ end 'build'
 
 function main() returns ExitCode
 	let original = build()
-	var copied = original.copy()
+	var copied = original.clone()
 	copied.kids[0].kids[1].value = 50
 	copied.kids[0].name = "changed"
 	copied.add(Tree.make(9, name: "extra"))
 	print("{original.describe()}\n{copied.describe()}\n")
-	let again = copied.copy()
+	let again = copied.clone()
 	let againSum = try again.sum() otherwise return 1
 	let originalSum = try original.sum() otherwise return 1
 	print("{againSum} {originalSum}\n")

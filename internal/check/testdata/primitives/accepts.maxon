@@ -1,9 +1,9 @@
 // case: a scalar element is a value
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
-	var a = CountArray.new()
-	a.append(1)
+	var a = CountArray.create(0)
+	a.push(1)
 	let n = a[0]
 	a[0] = n
 	bump(a[0])
@@ -13,91 +13,94 @@ end 'main'
 
 // case: change through an element
 function main() returns ExitCode
-	var a = CellArray.new()
-	a.append(Cell.make(1))
+	var a = CellArray.create(0)
+	a.push(Cell.make(1))
 	a[0].n = 3
 	touch(a[0])
 	return 0
 end 'main'
 
 // case: an index that reads the array
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
-	var a = CountArray.new()
-	a.append(1)
-	a.append(a[a.count() / 2] / 2)
+	var a = CountArray.create(0)
+	a.push(1)
+	a.push(a[a.count() / 2] / 2)
 	a[a.count() / 2] = 2
 	return 0
 end 'main'
 
 // case: elements of two arrays
 function main() returns ExitCode
-	var a = CellArray.new()
-	var b = CellArray.new()
-	a.append(Cell.make(1))
-	b.append(Cell.make(2))
+	var a = CellArray.create(0)
+	var b = CellArray.create(0)
+	a.push(Cell.make(1))
+	b.push(Cell.make(2))
 	pair(a[0], b: b[0])
 	return 0
 end 'main'
 
 // case: elements of two fields
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	var r = Rack.make(p.insert(Cell.make(1)))
-	r.left.append(Cell.make(1))
-	r.right.append(Cell.make(2))
+	r.left.push(Cell.make(1))
+	r.right.push(Cell.make(2))
 	pair(r.left[0], b: r.right[0])
 	return 0
 end 'main'
 
 // case: copy an element out
 function main() returns ExitCode
-	var a = CellArray.new()
-	a.append(Cell.make(1))
-	let c = a[0].copy()
+	var a = CellArray.create(0)
+	a.push(Cell.make(1))
+	let c = a[0].clone()
 	print("{c.n}")
 	return 0
 end 'main'
 
 // case: take elements out
 function main() returns ExitCode
-	var a = CellArray.new()
-	a.append(Cell.make(1))
-	a.append(Cell.make(2))
-	let c = a.remove(0)
-	let last = a.pop()
-	print("{c.n} {last.isSome()}")
-	let d = last.unwrap()
-	print("{d.n}")
+	var a = CellArray.create(0)
+	a.push(Cell.make(1))
+	a.push(Cell.make(2))
+	let c = try a.remove(0) otherwise panic("index out of range")
+	let d = try a.pop() otherwise panic("the array is empty")
+	print("{c.n} {d.n}")
 	return 0
 end 'main'
 
 // case: match what pop returns
 function main() returns ExitCode
-	var a = CellArray.new()
-	match a.pop() 'm'
-		some(c) then print("{c.n}")
-		none then print("empty")
-	end 'm'
+	var a = CellArray.create(0)
+	try 'm'
+		let c = a.pop()
+		print("{c.n}")
+	end 'm' otherwise (e) 'empty'
+		match e 'why'
+			indexOutOfBounds then print("empty")
+			emptySlot then print("never filled")
+		end 'why'
+	end 'empty'
 	return 0
 end 'main'
 
 // case: swap two elements by copying
 function main() returns ExitCode
-	var a = CellArray.new()
-	a.append(Cell.make(1))
-	a.append(Cell.make(2))
-	let t = a[0].copy()
-	a[0] = a[1].copy()
+	var a = CellArray.create(0)
+	a.push(Cell.make(1))
+	a.push(Cell.make(2))
+	let t = a[0].clone()
+	a[0] = a[1].clone()
 	a[1] = t
 	return 0
 end 'main'
 
 // case: index in a loop
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
 	var a = CountArray.filled(3, value: 0)
@@ -108,38 +111,38 @@ function main() returns ExitCode
 end 'main'
 
 // case: an array of arrays
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias CountArrayArray = array with (array with Count)
+typealias CountArrayArray = Array with (Array with Count)
 
 function main() returns ExitCode
-	var g = CountArrayArray.new()
-	g.append(CountArray.new())
-	g[0].append(1)
+	var g = CountArrayArray.create(0)
+	g.push(CountArray.create(0))
+	g[0].push(1)
 	g[0][0] = 2
 	return 0
 end 'main'
 
 // case: a map of cells
-typealias StringCellMap = map with String, Cell
+typealias StringCellMap = Map with String, Cell
 
 function main() returns ExitCode
-	var m = StringCellMap.new()
-	m.insert("a", value: Cell.make(1))
-	if m.has("a") 'h'
+	var m = StringCellMap.create()
+	m.upsert("a", value: Cell.make(1))
+	if m.contains("a") 'h'
 		m["a"].n = 4
 		touch(m["a"])
 	end 'h'
 	let gone = m.remove("a")
-	print("{gone.isSome()} {m.count()} {m.isEmpty()}")
+	print("{gone} {m.count()} {m.isEmpty()}")
 	return 0
 end 'main'
 
 // case: a pool and its handles
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
 	p[h].n = 2
 	touch(p[h])
@@ -151,77 +154,79 @@ function main() returns ExitCode
 end 'main'
 
 // case: a handle is a plain value
-typealias CellHandleArray = array with (Handle with Cell)
+typealias CellHandleArray = Array with (Handle with Cell)
 
-typealias CellHandleCountMap = map with Handle with Cell, Count
+typealias CellHandleCountMap = Map with Handle with Cell, Count
 
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	let h = p.insert(Cell.make(1))
 	let h2 = h
 	let h3 = h2
-	var hs = CellHandleArray.new()
-	hs.append(h)
-	hs.append(h2)
-	var by = CellHandleCountMap.new()
-	by.insert(h3, value: 1)
+	var hs = CellHandleArray.create(0)
+	hs.push(h)
+	hs.push(h2)
+	var by = CellHandleCountMap.create()
+	by.upsert(h3, value: 1)
 	print("{h == h2} {by[h]}")
 	return 0
 end 'main'
 
 // case: a list
-typealias CellList = list with Cell
+typealias CellList = List with Cell
 
 function main() returns ExitCode
-	var l = CellList.new()
-	let a = l.pushBack(Cell.make(1))
-	let b = l.pushFront(Cell.make(2))
+	var l = CellList.create()
+	let a = l.append(Cell.make(1))
+	let b = l.prepend(Cell.make(2))
 	l.moveToFront(a)
 	l[b].n = 5
 	touch(l[a])
-	print("{l.first().isSome()} {l.next(a).isSome()} {l.prev(b).isSome()} {l.last().isSome()} {l.contains(a)}")
-	let popped = l.popBack()
+	let first = try l.first() otherwise panic("the list is empty")
+	let last = try l.last() otherwise panic("the list is empty")
+	print("{first == b} {l.next(a).isSome()} {l.prev(b).isSome()} {last == a} {l.contains(a)}")
+	let popped = try l.removeLast() otherwise panic("the list is empty")
 	let gone = l.remove(a)
-	print("{popped.isSome()} {gone.isSome()} {l.count()}")
+	print("{popped.n} {gone.isSome()} {l.count()}")
 	return 0
 end 'main'
 
 // case: a handle in a record
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	let r = Rack.make(p.insert(Cell.make(1)))
 	touch(p[r.node])
 	return 0
 end 'main'
 
 // case: copy a primitive
-typealias CellList = list with Cell
+typealias CellList = List with Cell
 
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
-typealias CountCellMap = map with Count, Cell
+typealias CountCellMap = Map with Count, Cell
 
 function main() returns ExitCode
-	var a = CellArray.new()
-	var p = CellPool.new()
-	var m = CountCellMap.new()
-	var l = CellList.new()
-	let a2 = a.copy()
-	let p2 = p.copy()
-	let m2 = m.copy()
-	let l2 = l.copy()
+	var a = CellArray.create(0)
+	var p = CellPool.create()
+	var m = CountCellMap.create()
+	var l = CellList.create()
+	let a2 = a.clone()
+	let p2 = p.clone()
+	let m2 = m.clone()
+	let l2 = l.clone()
 	print("{a2.count()} {p2.count()} {m2.count()} {l2.count()}")
 	return 0
 end 'main'
 
 // case: read an element as an argument
 function main() returns ExitCode
-	var a = CellArray.new()
-	a.append(Cell.make(1))
+	var a = CellArray.create(0)
+	a.push(Cell.make(1))
 	print("{look(a[0], n: a[0].n)}")
 	return 0
 end 'main'

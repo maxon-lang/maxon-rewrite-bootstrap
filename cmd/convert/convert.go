@@ -1044,7 +1044,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case tokPunct:
 			if t.text == "[" && isCollectionLiteralBracket(toks, i) {
-				warn(line, "array/map literals are not supported in minimaxon; use array.new()/map.new()")
+				warn(line, "array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert")
 			}
 		case tokIdent:
 			switch t.text {

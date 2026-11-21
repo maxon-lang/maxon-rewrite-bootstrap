@@ -87,7 +87,7 @@ end 'main'
 // case: returning a different type parameter
 // expect-error: E3005
 function f(a T, b U) uses T, U returns T where U implements Copyable
-	return b.copy()
+	return b.clone()
 end 'f'
 
 function main() returns ExitCode

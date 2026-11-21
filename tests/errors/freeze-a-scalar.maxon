@@ -1,13 +1,13 @@
 // expect-error: E3910 at 31:19
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 type Doc
 	export var title as String
 	export var n as Count
-	export var words as array with Count
+	export var words as Array with Count
 
 	static function make(consumes title String) returns Doc
-		return Doc{title: title, n: 1, words: CountArray.new()}
+		return Doc{title: title, n: 1, words: CountArray.create(0)}
 	end 'make'
 
 	function reset(mutates self)

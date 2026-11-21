@@ -120,7 +120,7 @@ func (c *Checker) requireCapturable(site ast.Pos, outer *ast.Local) {
 	if bt, ok := outer.Type.(*ast.BuiltinTy); ok && bt.Shared() {
 		fix = fmt.Sprintf("take an owner of it first: 'let own = share(%s)', and use 'own' in the behaviour", outer.Name)
 	} else {
-		fix = c.copyAdvice(outer.Type, fmt.Sprintf("give the behaviour a copy: 'let own = %s.copy()' before the 'when', and use 'own'", outer.Name), "pass what the behaviour needs through a cown")
+		fix = c.copyAdvice(outer.Type, fmt.Sprintf("give the behaviour a copy: 'let own = %s.clone()' before the 'when', and use 'own'", outer.Name), "pass what the behaviour needs through a cown")
 	}
 	panic(site.Position().Error(diag.ErrBehaviourBorrow,
 		fmt.Sprintf("'%s' is %s, so it only borrows its value, and a behaviour runs later in another thread and cannot keep a borrow; %s", outer.Name, what, fix)))
@@ -144,7 +144,7 @@ func (c *Checker) isAccess(l *ast.Local) bool {
 func (c *Checker) refuseBehaviourSelf(site ast.Pos, what string, t ast.Ty) {
 	panic(site.Position().Error(diag.ErrBehaviourBorrow,
 		fmt.Sprintf("%s belongs to the receiver, which a method only borrows, and a behaviour runs later in another thread; %s", what,
-			c.copyAdvice(t, "copy what it needs into a variable before the 'when': 'let own = ....copy()'", "pass what the behaviour needs through a cown"))))
+			c.copyAdvice(t, "copy what it needs into a variable before the 'when': 'let own = ....clone()'", "pass what the behaviour needs through a cown"))))
 }
 
 // selfFieldInBehaviour is the type of the field of the enclosing method's record that a bare name stands for, if there
@@ -294,7 +294,7 @@ func (c *Checker) checkShareArgs(_ ast.CallExpr, ordered []ast.Expr) {
 	arg, t := c.soleArg(ordered)
 	if bt, ok := t.(*ast.BuiltinTy); !ok || !bt.Shared() {
 		panic(arg.Position().Error(diag.ErrShareTarget,
-			fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.copy()'", "move it"))))
+			fmt.Sprintf("share takes a frozen value or a cown reference, found %s; a value that is not shared has one owner, so %s", t.Name(), c.copyAdvice(t, "move it, or copy it with '.clone()'", "move it"))))
 	}
 }
 
@@ -303,7 +303,7 @@ func (c *Checker) checkThawArgs(_ ast.CallExpr, ordered []ast.Expr) {
 	arg, t := c.soleArg(ordered)
 	if !ast.IsFrozen(t) {
 		panic(arg.Position().Error(diag.ErrShareTarget,
-			fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.copy()' for another one", "move it"))))
+			fmt.Sprintf("thaw takes a frozen value, found %s; a value that is not frozen is already owned: %s", t.Name(), c.copyAdvice(t, "use '.clone()' for another one", "move it"))))
 	}
 }
 

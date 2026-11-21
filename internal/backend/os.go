@@ -169,7 +169,7 @@ func (g *osUnit) startWinFrame(locals int) {
 	a.SubImm(Rsp, winOsCallHomeBytes)
 }
 
-// rt.os.cliArgs() -> array with String
+// rt.os.cliArgs() -> Array with String
 func (g *osUnit) emitOsCliArgs() {
 	a := g.asm
 	g.startWinFrame(16) // [Rbp-8] = array, [Rbp-16] = cursor
@@ -482,7 +482,7 @@ func (g *osUnit) emitOsMkdir() {
 	g.epilogue()
 }
 
-// rt.os.listDir(path String) -> array with String or 0
+// rt.os.listDir(path String) -> Array with String or 0
 func (g *osUnit) emitOsListDir() {
 	a := g.asm
 	const (

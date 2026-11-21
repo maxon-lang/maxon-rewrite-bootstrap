@@ -5,7 +5,7 @@ type Box
 	export var name as String
 
 	function describe() returns String
-		return name.copy()
+		return name.clone()
 	end 'describe'
 
 	function rename(mutates self, consumes value String)
@@ -23,7 +23,7 @@ union Item
 end 'Item'
 
 function replace(mutates item Item, name String)
-	item = Item.named(name.copy())
+	item = Item.named(name.clone())
 end 'replace'
 
 function main() returns ExitCode

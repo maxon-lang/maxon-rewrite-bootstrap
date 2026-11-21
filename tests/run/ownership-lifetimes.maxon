@@ -1,6 +1,6 @@
-typealias PartArray = array with Part
+typealias PartArray = Array with Part
 
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 type Part
 	export var name as String
@@ -13,10 +13,10 @@ end 'Part'
 
 type Crate
 	export var label as String
-	export var parts as array with Part
+	export var parts as Array with Part
 
 	static function make(consumes label String) returns Crate
-		return Crate{label: label, parts: PartArray.new()}
+		return Crate{label: label, parts: PartArray.create(0)}
 	end 'make'
 
 	function total() returns Count throws ArithmeticError
@@ -28,7 +28,7 @@ type Crate
 	end 'total'
 
 	function add(mutates self, consumes name String, weight Count)
-		parts.append(Part.make(name, weight: weight))
+		parts.push(Part.make(name, weight: weight))
 	end 'add'
 
 	function take(consumes self) returns Count throws ArithmeticError
@@ -76,7 +76,7 @@ function reassign() returns String
 	var text = "one{1}"
 	var other = "two{2}"
 	text = "three{3}"
-	other = text.copy()
+	other = text.clone()
 	text = "{other}!"
 	return text
 end 'reassign'
@@ -87,7 +87,7 @@ function main() returns ExitCode
 		crate.add("bolt", weight: 3)
 		crate.add("nut{2}", weight: 4)
 		print("{crate.label} {crate.total()}\n")
-		let copied = crate.copy()
+		let copied = crate.clone()
 		crate.add("washer", weight: 1)
 		print("{copied.total()} {crate.total()}\n")
 		let shape = Shape.whole(copied)
@@ -96,12 +96,11 @@ function main() returns ExitCode
 		print("{early(0)} {early(1)} {early(3)} {early(9)}\n")
 		print("{choose("p{1}", second: "q{2}", pickFirst: true)} {choose("p{1}", second: "q{2}", pickFirst: false)}\n")
 		print("{reassign()}\n")
-		var popped = crate.parts.pop()
-		print("{popped.isSome()}\n")
-		let part = popped.unwrap()
+		let part = try crate.parts.pop() otherwise panic("the array is empty")
+		print("true\n")
 		print("{part.name} {part.weight}\n")
-		let removed = crate.parts.remove(0)
-		_ = crate.parts.remove(0)
+		let removed = try crate.parts.remove(0) otherwise panic("index out of range")
+		_ = try crate.parts.remove(0) otherwise panic("index out of range")
 		print("{removed.name} {crate.parts.count()}\n")
 		var filled = StringArray.filled(3, value: "f{7}")
 		filled[1] = "g{8}"

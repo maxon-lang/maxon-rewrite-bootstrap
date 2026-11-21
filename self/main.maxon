@@ -83,7 +83,7 @@ function testStringsAndInterpolation()
 	let toks = expectOk(src, label: "strings")
 	assertKind(toks, index: 3, expected: syntax.TokenKind.string, label: "strings")
 	let interpSrc = "a + 1"
-	let interpToks = match consumes syntax.lexInterpolation(interpSrc, begin: 0, until: interpSrc.byteCount()) 'res'
+	let interpToks = match consumes syntax.lexInterpolation(interpSrc, begin: 0, until: interpSrc.byteLength()) 'res'
 		ok(t) gives t
 		err(e) panic("interp: unexpected error {e.message}")
 	end 'res'
@@ -143,27 +143,27 @@ end 'testTables'
 
 function endsWithMaxon(name String) returns bool
 	let suffix = ".maxon"
-	let sn = suffix.byteCount()
-	let n = name.byteCount()
+	let sn = suffix.byteLength()
+	let n = name.byteLength()
 	if n <= sn 'short'
 		return false
 	end 'short'
 	let start = n - sn
-	return name.slice(start, until: n) == suffix
+	return name.sliceBytes(start, endPos: n) == suffix
 end 'endsWithMaxon'
 
 function parseDirTests(dir String) returns Count
 	var count = 0 as Count
 	let entries = listDir(dir).unwrap()
 	for i in 0 upto entries.count() 'each'
-		let name = entries[i].copy()
+		let name = entries[i].clone()
 		let full = "{dir}\\{name}"
 		if isDir(full) 'sub'
 			let sub = parseDirTests(full)
 			count = try count + sub otherwise count
 		end 'sub' else if endsWithMaxon(name) 'src'
 			let text = readFile(full).unwrap()
-			match syntax.parseSource(0 as diag.ModuleID, path: full.copy(), src: text) 'pr'
+			match syntax.parseSource(0 as diag.ModuleID, path: full.clone(), src: text) 'pr'
 				ok(m) then count = try count + m.decls.count() otherwise count
 				err(e) then panic("parse failed on {full}: {e.offset}: {e.message}")
 			end 'pr'
@@ -216,12 +216,12 @@ function testI128()
 end 'testI128'
 
 function testPositionsAndDiag()
-	var paths = ast.StringList.new()
-	paths.append("a.maxon")
-	paths.append("b.maxon")
-	var texts = ast.StringList.new()
-	texts.append("function one()\n\treturn\nend 'one'\n")
-	texts.append("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
+	var paths = ast.StringList.create(0)
+	paths.push("a.maxon")
+	paths.push("b.maxon")
+	var texts = ast.StringList.create(0)
+	texts.push("function one()\n\treturn\nend 'one'\n")
+	texts.push("function two()\n\tlet x = 1\n\treturn\nend 'two'\n")
 	let pr = syntax.parseModuleFiles(0 as diag.ModuleID, path: "m", filePaths: paths, fileTexts: texts)
 	var m as ast.Module
 	match consumes pr 'r'
@@ -240,9 +240,9 @@ function testPositionsAndDiag()
 	if loc0.line != 1 or loc0.col != 1 or loc1.line != 1 or loc1.col != 1 'lc'
 		panic("unexpected decl locs")
 	end 'lc'
-	var mods = ast.ModuleList.new()
-	mods.append(m)
-	var errs = diag.ErrorList.new()
+	var mods = ast.ModuleList.create(0)
+	mods.push(m)
+	var errs = diag.ErrorList.create(0)
 	diag.pushSiteError(errs, code: "E3001", message: "second", module: 0 as diag.ModuleID, offset: d1Off)
 	diag.pushSiteError(errs, code: "E2001", message: "first", module: 0 as diag.ModuleID, offset: d0Off)
 	ast.locateAllErrors(mods, errs: errs)
@@ -255,26 +255,26 @@ function testAstModel()
 	if proj.stdlib.decls.count() < 20 'std'
 		panic("expected >= 20 stdlib decls")
 	end 'std'
-	var args = ast.TypeIDList.new()
-	args.append(proj.builtins.countTy)
+	var args = ast.TypeIDList.create(0)
+	args.push(proj.builtins.countTy)
 	let arrCount = ast.instantiateType(proj.types, origin: proj.builtins.arrayOrigin, args: args)
-	assertEqStr(ast.typeName(proj.types, t: arrCount), expected: "array with Count", label: "arrCount")
-	var nested = ast.TypeIDList.new()
-	nested.append(arrCount)
+	assertEqStr(ast.typeName(proj.types, t: arrCount), expected: "Array with Count", label: "arrCount")
+	var nested = ast.TypeIDList.create(0)
+	nested.push(arrCount)
 	let optArrCount = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
-	assertEqStr(ast.typeName(proj.types, t: optArrCount), expected: "Option with (array with Count)", label: "optArrCount")
+	assertEqStr(ast.typeName(proj.types, t: optArrCount), expected: "Option with (Array with Count)", label: "optArrCount")
 	let optArrCount2 = ast.instantiateType(proj.types, origin: proj.builtins.optionOrigin, args: nested)
 	if optArrCount != optArrCount2 'intern'
 		panic("type interning failed")
 	end 'intern'
-	let fid = proj.types.entries[proj.builtins.arrayOrigin as Count].findMethod("append").unwrap()
+	let fid = proj.types.entries[proj.builtins.arrayOrigin as Count].findMethod("push").unwrap()
 	let instFid = ast.instantiateFunc(proj.funcs, tt: proj.types, origin: fid, args: args)
 	let ln = ast.funcLinkName(proj, fid: instFid)
-	assertEqStr(ln, expected: "array[Count]::append[Count]", label: "funcLinkName")
+	assertEqStr(ln, expected: "Array[Count]::push[Count]", label: "funcLinkName")
 end 'testAstModel'
 
 function testProject()
-	var errs = diag.ErrorList.new()
+	var errs = diag.ErrorList.create(0)
 	let optProj = project.loadProject("self", errs: errs)
 	var p as ast.Project
 	match consumes optProj 'pr'
@@ -298,7 +298,7 @@ function testProject()
 end 'testProject'
 
 function testResolve()
-	var errs = diag.ErrorList.new()
+	var errs = diag.ErrorList.create(0)
 	var p = match consumes project.loadProject("self", errs: errs) 'pr'
 		some(pv) gives pv
 		none panic("loadProject(\"self\") returned none")

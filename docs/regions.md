@@ -8,7 +8,7 @@ minimaxon; native code for `map`, `list`, `pool`, frozen values and behaviours, 
   "Implementation Strategies for Mutable Value Semantics" (JOT 2022), the Hylo language tour
   (docs.hylo-lang.org) and specification (github.com/hylo-lang/specification).
 - **Structures with internal pointers: runtime primitives**, as maxon already has (array, map, a linked list),
-  plus a pool with generational handles, after Rust's `slotmap`.
+  plus a Pool with generational handles, after Rust's `slotmap`.
 - **Between threads: Verona's behaviours.** Cheeseman et al., "When Concurrency Matters: Behaviour-Oriented
   Concurrency" (OOPSLA 2023).
 
@@ -64,7 +64,7 @@ element exactly when it is removed.
 
 - **Every value has exactly one owner**: a scope (a local), an object (a field), or a collection (a slot).
 - Binding or passing a value **moves** it, so the old name cannot be used (the existing move check, `E3102`).
-  A copy is explicit: `x.copy()`.
+  A copy is explicit: `x.clone()`.
 - **A value is freed when its owner dies**: a local at the end of its scope, a field with its object, an element
   with its collection. Each point is known when compiling.
 - **Collections own their elements.** Adding moves the element in; `remove` moves it out to the current scope,
@@ -123,10 +123,10 @@ Where this document was open, minimaxon does the following. Hylo's rules decide 
   value from a conditional or a match arm are the moving positions. A fresh value needs no move. Reading, passing
   to a `let` or `mutates` parameter, matching and interpolating only borrow. A conditional or match arm always gives
   a fresh value, so a place in a branch is moved even where the whole expression is only borrowed; write
-  `.copy()` there when a borrow is meant.
+  `.clone()` there when a borrow is meant.
 - **Partial moves.** A field may be moved out of an owned value (a local, a `consumes` parameter, `consumes self`),
   at any depth through fields, as Hylo allows when the whole is consumed or reinitialised; a field of a borrowed value,
-  an element and a part of a frozen value or of a temporary are never moved out, and `copy()` is the way to take
+  an element and a part of a frozen value or of a temporary are never moved out, and `clone()` is the way to take
   them. A fact about a local says which of its fields are gone, so a use of the whole is refused until they are
   assigned again, and what is left is dropped where the local ends.
 - **Capabilities and destructors.** A type may be unable to be copied (`is noncopyable`) or dropped (it declares a
@@ -151,13 +151,13 @@ Where this document was open, minimaxon does the following. Hylo's rules decide 
   `mutates` while the arm runs (the "active projection" rule). A scalar payload is copied into the binding.
 - **Exclusivity at a call.** Every argument that names a place counts, whatever its convention or type: an
   `mutates`, `consumes` or `sets` argument may not overlap another argument or the receiver, and that includes a `let`
-  scalar (`f(n, mutates n)` is refused). A computed argument (`a.f.copy()`, a call) names no place and never
+  scalar (`f(n, mutates n)` is refused). A computed argument (`a.f.clone()`, a call) names no place and never
   overlaps. Paths are a root followed by field steps (`paths.go`); `a[i]` is a second step kind that overlaps
   every other element of its collection (step 3).
 - **Mutation needs a mutable path.** Assignment and a `mutates` argument need a `var`, a `mutates` or `sets`
   parameter, or `mutates self` as the root, and a `var` field at every step. A `let` field blocks the whole path
   below it. A `mutates` argument must name a place; a temporary cannot be mutated.
-- **`copy()`.** A built-in method on every type, taking nothing. It is deep: a record or union is allocated again,
+- **`clone()`.** A built-in method on every type, taking nothing. It is deep: a record or union is allocated again,
   and its fields copied in turn. A string that is not a literal is allocated again; a literal lives in the executable, is never freed, and
   is its own copy.
 
@@ -213,8 +213,8 @@ Where this document was open, minimaxon does the following. The operations and t
 - **Results that can miss are an `Option with T`.** `Option` is a built-in union (`some`, `none`) with two methods:
   `isSome()` and `unwrap(consumes self)`. Matching it only borrows the payload (a match binding is a projection), so
   `unwrap` is how a program takes the element out of a `remove`: it consumes the whole option, so no value is left
-  partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`, `a.remove(i)`) traps
-  instead.
+  partly moved. A miss that is a bug and not an expected answer (`a[i]`, `m[k]`, `p[h]`) traps instead, and
+  `a.remove(i)` throws maxon's `ArrayError`.
 - **A subscript is a projection, an element step in the path.** `a[i]` is typed as the element and is never an owned
   value, so binding, returning or sinking it is the existing `E3901` (`E3900` under a borrowed root); no new code.
   Assigning through it needs a mutable root like a field does. Every element step overlaps every other element step
@@ -238,10 +238,10 @@ Where this document was open, minimaxon does the following. The operations and t
   a handle from one pool used on another pool of the same type is a lookup that fails or finds that pool's element;
   that is not a soundness issue and is not prevented. Equality of handles is allowed.
 - **A list hands out handles like a pool.** A list is a doubly linked list whose nodes are named by `Handle with T`:
-  `pushFront` and `pushBack` return the handle, `first`, `last`, `next` and `prev` walk, `remove` and `moveToFront`
+  `prepend` and `append` return the handle, `first`, `last`, `next` and `prev` walk, `remove` and `moveToFront`
   take one. That is the smallest API with which a cache is a list and a map from keys to handles.
 - **Keys of a map** are words or text: an integer alias, a `bool`, an enum, a `String` or a `Handle`. A record has no
-  equality, and a type parameter is not known to have one, so generic code over `map with (K, V)` waits for a bound on keys
+  equality, and a type parameter is not known to have one, so generic code over `Map with (K, V)` waits for a bound on keys
   (`E3908`).
 - **No iteration beyond the index.** `for i in 0 upto a.count()` works. A `for x in a` loop would borrow the array for
   its whole body, which the exclusivity rule already covers, but it is not built, and a map has no key walk.
@@ -250,7 +250,7 @@ Where this document was open, minimaxon does the following. The operations and t
   each call. Only the array is native, in a unit that is linked only when used. A map, a list and a pool lower too,
   and the driver refuses a program that needs one when it builds an executable, with a code of its own. Nothing is
   freed yet, so an element that is removed or dropped is leaked, as every other box is.
-- **Not built.** Copying a record that contains itself through an array (`copy()` writes a copy out in place and
+- **Not built.** Copying a record that contains itself through an array (`clone()` writes a copy out in place and
   would not end), a `for x in a` loop, iteration over a map, a bound on map keys, and freeing elements in native code.
 
 ### Choices made in step 4
@@ -269,7 +269,7 @@ Where this document was open, minimaxon does the following.
   refuses a use after a move and the code that empties the slot cannot disagree. A place that is marked but is not a
   whole local is an internal error in lowering, which is how a hole in "No partial moves" shows up (see below).
 - **Strings are owned.** A literal lives in the executable and is immortal. An interpolation makes a new string, and
-  `copy()` of a string makes a new one too, where step 1 said its copy is itself: with freeing, two owners of one string
+  `clone()` of a string makes a new one too, where step 1 said its copy is itself: with freeing, two owners of one string
   would free it twice.
 -  **What the interpreter tracks.** The owner of each value is the place that holds it, and a place that only borrows
   holds the same pointer without owning it (a `let` or `mutates` parameter, a projection, and a `match` binding, which
@@ -300,7 +300,7 @@ Where this document was open, minimaxon does the following.
      replaced. Found by the generator, as an internal error in lowering ("no address for this expression"). It is
      `E2013` now; a field of `self` and a method call on it are fine.
   3.  A variable passed to a `sets` parameter counted as initialised as soon as its argument was checked, so a later
-     argument of the same call could read it (`fill(s, from: s.copy())`), though the callee has not run yet. Found by
+     argument of the same call could read it (`fill(s, from: s.clone())`), though the callee has not run yet. Found by
      the generator, as a read of an empty slot, a hundred thousand programs in. The variable has its value when the call
      has run, and not before: `E3902` for the read.
 - **Bugs in lowering that the interpreter found**, fixed at the cause: the target of an assignment had no type, so an
@@ -354,10 +354,10 @@ values, cowns and behaviours"); these are the decisions behind them.
   answers for it: a path that crosses a frozen step is immutable, and nothing moves out of it. Reading through a frozen
   value is implicit where it only borrows: a field, a subscript, a method that takes `let self`, a match subject, an
   interpolation, and an argument for a `let` parameter of the type it holds.
-- **`copy()` is `share`, and `thaw` is the copy of the contents.** `copy()` keeps the type, as it does everywhere, and a
+- **`clone()` is `share`, and `thaw` is the copy of the contents.** `clone()` keeps the type, as it does everywhere, and a
   frozen value is immutable, so its copy is another owner of the same value at the cost of a count. That is also what
-  keeps generic code uniform: `x.copy()` of a `T` means one thing whatever `T` is instantiated with. `thaw(f)` is the
-  deep copy of the contents, owned and mutable, which the spec called "`copy()` out"; it is the one construct added to
+  keeps generic code uniform: `x.clone()` of a `T` means one thing whatever `T` is instantiated with. `thaw(f)` is the
+  deep copy of the contents, owned and mutable, which the spec called "`clone()` out"; it is the one construct added to
   the list in the step.
 - **One count per frozen value, and no cycle.** A frozen value is made by giving up an owned tree, which is isolated
   (layer 1), so the objects inside it are the tree's, and the only counted values inside are ones that already existed.
@@ -366,7 +366,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   plain value is refused (`frozen with Count` has nothing to freeze); a generic instance may still hold a scalar, so the
   box and the entries take one.
 - **A cown is a counted reference, and a type may not reach itself through one.** A cown reference is another kind of
-  owner that `share` and `copy()` make, freed with the last one and with no behaviour holding the cown. The value of a
+  owner that `share` and `clone()` make, freed with the last one and with no behaviour holding the cown. The value of a
   cown is mutable and a behaviour can store a cown reference in it, so unlike a frozen value it can make a cycle that
   counting would never free. The step does not build a cycle collector, so a type that can reach itself through a cown
   is refused (`E3914`), which makes every cycle of references impossible: a cycle of values has to be a cycle of types,
@@ -384,7 +384,7 @@ values, cowns and behaviours"); these are the decisions behind them.
   the check that a behaviour makes at the capture and, behind it, by the rule that nothing moves out of a borrow. `self`
   and its fields are refused too, because the receiver is borrowed.
 -  **The access names are `mutates` parameters.** `x` and `y` are borrows, so every rule about borrows keeps them inside
-  the body: they cannot be moved, returned, stored, passed as `consumes`, or captured by a behaviour inside (`copy()` is
+  the body: they cannot be moved, returned, stored, passed as `consumes`, or captured by a behaviour inside (`clone()` is
   the way out). They name different cowns, so exclusivity between them needs no rule of its own, except that one cown
   named twice would make two names for one value.
 -  **The same cown twice.** Naming one variable twice is `E3913`. Two variables that name one cown (`let b = share(a)`)
@@ -423,7 +423,7 @@ values, cowns and behaviours"); these are the decisions behind them.
      the frozen type as the receiver, which has no such method, and failed as an internal error. Found by hand while
      writing the corpus; `Resolved` looks through a frozen receiver now, as the checker does
      (`tests/run/frozen-bound-call.maxon`, and `totalFrozen` in the generator's library).
-  2. A `copy()` that no source wrote (an array filled with a value that has no native code, here a cown or a frozen
+  2. A `clone()` that no source wrote (an array filled with a value that has no native code, here a cown or a frozen
      value, and since step 4 a pool or a map) was lowered with no site to blame, so refusing it for the executable
      crashed the driver. Found by the generator's comparison with executables; lowering names the call now
      (`TestEveryRefusalNamesItsSite`).
@@ -474,9 +474,9 @@ Where this document was open, minimaxon does the following.
   instantiated with. Every rule of step 1 then applies to it as it applies to a record: binding, passing to `consumes`,
   returning and storing move it; a `let`, `mutates` or `sets` parameter of type `T` and a payload of one are borrowed,
   and a field of a generic value is part of its owner, so moving one out of a borrowed owner is `E3900`; exclusivity counts a
-  `T` argument like any other; `copy()` is allowed. This is the strictest reading, and it is sound for every instance
+  `T` argument like any other; `clone()` is allowed. This is the strictest reading, and it is sound for every instance
   because an instance only makes a move cheaper (a scalar is copied) and never makes an access broader. The cost
-  is that a generic body cannot unwrap: giving a field or a payload out is `x.copy()`, or, since step 3, taking it
+  is that a generic body cannot unwrap: giving a field or a payload out is `x.clone()`, or, since step 3, taking it
   out of a primitive with `remove`, `pop` or `unwrap`.
 - **What a bound is.** An interface: method signatures with their receiver conventions, naming `Self`. A type
   implements one only by declaring it (`type Square implements Shape`), and the declaration is checked once, at the type,
@@ -497,7 +497,7 @@ Where this document was open, minimaxon does the following.
   instances of generic types, and for what the arguments leave open, from the type the result must have where it
   goes (a return value, an argument, an assignment, a field). An integer constant or the range of an expression names
   no alias, so it infers nothing. Source writes no type arguments in an expression: where nothing fixes one, a static
-  function or a case is called through a typealias of the instance (`typealias Counts = array with Count`).
+  function or a case is called through a typealias of the instance (`typealias Counts = Array with Count`).
 - **Lowering.** Monomorphization, because the IR keeps `scalar` and `managed` apart and copy is type-directed: each
   instance's body is the checked body lowered with the parameters bound. A phase between verify and lower finds the
   instances serially, from the calls each function records, so each is lowered once and in an order that does not
@@ -517,7 +517,7 @@ Where this document was open, minimaxon does the following.
   frame zeroes its managed slots when it starts (a loop's back edge needs nothing, because the `dropslot` at the end of
   the body leaves its slot empty). A register is not zeroed: lowering writes one before it drops it on every path, and the
   interpreter now reports a drop of a register that holds nothing, so a hole in that is a violation and not a crash.
-- **A copy is an instruction, not code written out.** Step 3 lowered `copy()` into the IR as a loop, which cannot end for a
+- **A copy is an instruction, not code written out.** Step 3 lowered `clone()` into the IR as a loop, which cannot end for a
   type that contains itself, so it refused one (`E9000`). It is now `%r = copy %s T`: the interpreter copies by the shape of
   the value (it already could, for a map, a list and a pool), and the backend makes one copy routine for each type, as it
   does a drop routine. `E9000` for a recursive copy is gone, and a tree copies natively.
@@ -563,7 +563,7 @@ Where this document was open, minimaxon does the following.
 minimaxon settles whether the rules are sound, which is a question for the checker, not the runtime. It
 implements the rules completely and the runtime only as far as testing them needs.
 
-1. Layer 1 checks: ownership and moves, `copy()`, the four conventions (`mutates` being Hylo's `inout`),
+1. Layer 1 checks: ownership and moves, `clone()`, the four conventions (`mutates` being Hylo's `inout`),
    second-class borrows, and the law of exclusivity over paths. **Done**, in `internal/check` (see "Choices made
    in step 1").
 2. Generics, checked once against their bounds. Second, because how they meet ownership is the unknown that

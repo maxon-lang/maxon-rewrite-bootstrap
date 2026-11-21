@@ -16,7 +16,7 @@ type Box uses T where T implements Droppable
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 
 	function replace(mutates self, consumes next T)
@@ -33,7 +33,7 @@ type Pair uses A, B where B implements Copyable, A implements Copyable
 	end 'make'
 
 	function swapped() returns Pair with (B, A)
-		return Pair.make(second.copy(), second: first.copy())
+		return Pair.make(second.clone(), second: first.clone())
 	end 'swapped'
 end 'Pair'
 
@@ -50,25 +50,25 @@ union Option uses T where T implements Copyable
 
 	function orElse(fallback T) returns T
 		return match self 'm'
-			some(v) gives v.copy()
-			none gives fallback.copy()
+			some(v) gives v.clone()
+			none gives fallback.clone()
 		end 'm'
 	end 'orElse'
 end 'Option'
 
 function swap(mutates a T, mutates b T) uses T where T implements Copyable
-	var tmp = a.copy()
-	a = b.copy()
+	var tmp = a.clone()
+	a = b.clone()
 	b = tmp
 end 'swap'
 
 function twice(x T) uses T returns Pair with (T, T) where T implements Copyable
-	return Pair.make(x.copy(), second: x.copy())
+	return Pair.make(x.clone(), second: x.clone())
 end 'twice'
 
 function find(flag bool, x T) uses T returns Option with T where T implements Copyable
 	if flag 'f'
-		return Option.some(x.copy())
+		return Option.some(x.clone())
 	end 'f'
 	return Option.none
 end 'find'
@@ -90,7 +90,7 @@ function main() returns ExitCode
 	let both = twice(ScoreBox.make(4))
 	print("{both.first.peek()} {both.second.peek()}\n")
 	let nested = ScoreBoxBox.make(ScoreBox.make(9))
-	var other = nested.copy()
+	var other = nested.clone()
 	other.item.replace(1)
 	print("{nested.peek().peek()} {other.peek().peek()}\n")
 	let found = find(true, x: "yes")

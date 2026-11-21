@@ -5,7 +5,7 @@ type Box
 	export var name as String
 
 	function describe() returns String
-		return name.copy()
+		return name.clone()
 	end 'describe'
 
 	function rename(mutates self, consumes value String)

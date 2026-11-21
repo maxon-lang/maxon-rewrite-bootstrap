@@ -138,7 +138,7 @@ func TestRoutinesAreMadeForEveryTypeTheCodeReaches(t *testing.T) {
 	module := EmitModule(lowered(t, routinesFile))
 	routines := EmitTypeRoutines([]*CodeUnit{module}, 1)
 	for _, want := range []string{
-		"drop export::Tree", "copy export::Tree", "drop stdlib::array with export::Tree", "copy stdlib::array with export::Tree",
+		"drop export::Tree", "copy export::Tree", "drop stdlib::Array with export::Tree", "copy stdlib::Array with export::Tree",
 		"drop String", "copy String", "drop export::Shape", "copy export::Shape", "copy export::Plain",
 	} {
 		if !hasRoutine(routines, want) {

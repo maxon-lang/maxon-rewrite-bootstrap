@@ -30,7 +30,7 @@ export type Param
 	end 'make'
 end 'Param'
 
-export typealias ParamList = array with Param
+export typealias ParamList = Array with Param
 
 export type TypeParam
 	export var id as NodeID
@@ -41,7 +41,7 @@ export type TypeParam
 	end 'make'
 end 'TypeParam'
 
-export typealias TypeParamList = array with TypeParam
+export typealias TypeParamList = Array with TypeParam
 
 export type Constraint
 	export var id as NodeID
@@ -53,7 +53,7 @@ export type Constraint
 	end 'make'
 end 'Constraint'
 
-export typealias ConstraintList = array with Constraint
+export typealias ConstraintList = Array with Constraint
 
 export type FieldDecl
 	export var id as NodeID
@@ -68,7 +68,7 @@ export type FieldDecl
 	end 'make'
 end 'FieldDecl'
 
-export typealias FieldDeclList = array with FieldDecl
+export typealias FieldDeclList = Array with FieldDecl
 
 export type EnumCaseDecl
 	export var id as NodeID
@@ -80,7 +80,7 @@ export type EnumCaseDecl
 	end 'make'
 end 'EnumCaseDecl'
 
-export typealias EnumCaseList = array with EnumCaseDecl
+export typealias EnumCaseList = Array with EnumCaseDecl
 
 export type UnionCaseDecl
 	export var id as NodeID
@@ -92,7 +92,7 @@ export type UnionCaseDecl
 	end 'make'
 end 'UnionCaseDecl'
 
-export typealias UnionCaseList = array with UnionCaseDecl
+export typealias UnionCaseList = Array with UnionCaseDecl
 
 export type FuncSig
 	export var id as NodeID
@@ -107,7 +107,7 @@ export type FuncSig
 	end 'make'
 end 'FuncSig'
 
-export typealias FuncSigList = array with FuncSig
+export typealias FuncSigList = Array with FuncSig
 
 export type FuncDecl
 	export var id as NodeID
@@ -129,7 +129,7 @@ export type FuncDecl
 	end 'make'
 end 'FuncDecl'
 
-export typealias FuncDeclList = array with FuncDecl
+export typealias FuncDeclList = Array with FuncDecl
 
 export type ConstDecl
 	export var id as NodeID
@@ -228,7 +228,7 @@ export type AliasDecl
 
 	export static function makeInstance(id NodeID, consumes visibility String, consumes name String, instanceRef NodeID) returns AliasDecl
 		let zero = Bound.makeInt(0 as NodeID, negative: false, value: I128.fromCount(0 as Count))
-		return AliasDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isRange: false, inclusive: false, low: zero.copy(), high: zero, instanceRef: instanceRef}
+		return AliasDecl{id: id, ordinal: 0 as DeclOrdinal, visibility: visibility, name: name, isRange: false, inclusive: false, low: zero.clone(), high: zero, instanceRef: instanceRef}
 	end 'makeInstance'
 end 'AliasDecl'
 
@@ -256,25 +256,25 @@ export union Decl
 
 	export function name() returns String
 		return match self 'd'
-			funcDecl(v) gives v.name.copy()
-			constDecl(v) gives v.name.copy()
-			typeDecl(v) gives v.name.copy()
-			enumDecl(v) gives v.name.copy()
-			unionDecl(v) gives v.name.copy()
-			aliasDecl(v) gives v.name.copy()
-			interfaceDecl(v) gives v.name.copy()
+			funcDecl(v) gives v.name.clone()
+			constDecl(v) gives v.name.clone()
+			typeDecl(v) gives v.name.clone()
+			enumDecl(v) gives v.name.clone()
+			unionDecl(v) gives v.name.clone()
+			aliasDecl(v) gives v.name.clone()
+			interfaceDecl(v) gives v.name.clone()
 		end 'd'
 	end 'name'
 
 	export function visibility() returns String
 		return match self 'd'
-			funcDecl(v) gives v.visibility.copy()
-			constDecl(v) gives v.visibility.copy()
-			typeDecl(v) gives v.visibility.copy()
-			enumDecl(v) gives v.visibility.copy()
-			unionDecl(v) gives v.visibility.copy()
-			aliasDecl(v) gives v.visibility.copy()
-			interfaceDecl(v) gives v.visibility.copy()
+			funcDecl(v) gives v.visibility.clone()
+			constDecl(v) gives v.visibility.clone()
+			typeDecl(v) gives v.visibility.clone()
+			enumDecl(v) gives v.visibility.clone()
+			unionDecl(v) gives v.visibility.clone()
+			aliasDecl(v) gives v.visibility.clone()
+			interfaceDecl(v) gives v.visibility.clone()
 		end 'd'
 	end 'visibility'
 
@@ -316,7 +316,7 @@ export union Decl
 	end 'offset'
 end 'Decl'
 
-export typealias DeclList = array with Decl
+export typealias DeclList = Array with Decl
 
 // Visibility is how far a declaration, field or method can be named from, narrowest first: the declaring module only;
 // the tree rooted at the declaring module's parent, as Go's internal/, which is the whole project for a top-level module
@@ -360,11 +360,11 @@ end 'visibilityModifier'
 
 // parentPath is the path of the module a module's path is under; the root's and a top-level module's is the root's.
 export function parentPath(path String) returns String
-	var i = path.byteCount()
+	var i = path.byteLength()
 	while i > 0 'back'
 		i = try i - 1 otherwise 0 as Count
 		if path.byteAt(i) == 46 'dot'
-			return path.slice(0 as Count, until: i)
+			return path.sliceBytes(0 as Count, endPos: i)
 		end 'dot'
 	end 'back'
 	return ""
@@ -375,8 +375,8 @@ export function isWithin(path String, under String) returns bool
 	if under == "" or path == under 'same'
 		return true
 	end 'same'
-	let n = under.byteCount()
-	return path.byteCount() > n and path.byteAt(n) == 46 and path.slice(0 as Count, until: n) == under
+	let n = under.byteLength()
+	return path.byteLength() > n and path.byteAt(n) == 46 and path.sliceBytes(0 as Count, endPos: n) == under
 end 'isWithin'
 
 // isVisible is whether something that the module owner declares with the visibility v can be named from the module
@@ -401,7 +401,7 @@ export type FileSpan
 	end 'make'
 end 'FileSpan'
 
-export typealias FileSpanList = array with FileSpan
+export typealias FileSpanList = Array with FileSpan
 
 export type Module
 	export var id as diag.ModuleID
@@ -409,14 +409,14 @@ export type Module
 	export var dir as String
 	export var filePaths as StringList
 	export var childNames as StringList
-	export var childIDs as array with diag.ModuleID
+	export var childIDs as Array with diag.ModuleID
 	export var files as FileSpanList
 	export var tree as Tree
 	export var decls as DeclList
 	export var names as DeclIndex
 
 	export static function new(id diag.ModuleID, consumes path String, consumes text String, consumes files FileSpanList) returns Module
-		return Module{id: id, path: path, dir: "", filePaths: StringList.new(), childNames: StringList.new(), childIDs: array.new(), files: files, tree: Tree.new(id, text: text), decls: DeclList.new(), names: DeclIndex.new()}
+		return Module{id: id, path: path, dir: "", filePaths: StringList.create(0), childNames: StringList.create(0), childIDs: Array.create(0), files: files, tree: Tree.new(id, text: text), decls: DeclList.create(0), names: DeclIndex.new()}
 	end 'new'
 
 	export function display() returns String
@@ -426,7 +426,7 @@ export type Module
 		if path == "" 'rt'
 			return "root module"
 		end 'rt'
-		return path.copy()
+		return path.clone()
 	end 'display'
 
 	export function findChild(name String) returns Option with diag.ModuleID
@@ -439,7 +439,7 @@ export type Module
 	end 'findChild'
 
 	export function appendRawDecl(mutates self, consumes d Decl)
-		decls.append(d)
+		decls.push(d)
 	end 'appendRawDecl'
 
 	export function indexDecl(mutates self, ord DeclOrdinal) returns Option with DeclOrdinal
@@ -459,9 +459,9 @@ export type Module
 		end 'dup'
 		let ord = try decls.count() as DeclOrdinal otherwise panic("too many declarations")
 		names.insert(n, value: ord)
-		decls.append(d)
+		decls.push(d)
 		return true
 	end 'declare'
 end 'Module'
 
-export typealias ModuleList = array with Module
+export typealias ModuleList = Array with Module

@@ -10,7 +10,7 @@ type builtinKindInfo struct {
 	managed, subscriptable, shared bool
 }
 
-// BuiltinTy is a runtime primitive: array with T, map with (K, V), list with T, pool with T, the Handle with T that
+// BuiltinTy is a runtime primitive: Array with T, Map with (K, V), List with T, Pool with T, the Handle with T that
 // names an element of a pool or a list, or one of the two types that cross between threads: frozen with T, an
 // immutable value, and cown with T, a reference to a cown that owns a value. It is generic like a record: the declaration has Params, each instance has
 // Args, and an instance is interned by them. An array, a map, a list and a pool own their elements and are managed; a

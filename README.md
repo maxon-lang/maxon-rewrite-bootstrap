@@ -35,6 +35,7 @@ go test ./...
 | `minimaxon test [dir]` | run the corpus (default: `tests` beside the executable) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
+| `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")` (the rules are in `rename.go`) |
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
@@ -575,7 +576,7 @@ root (a directory cannot be called that) and `stdlib` for the standard library. 
 | a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
 | an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
 | a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))` |
-| a drop or copy routine | `drop export::Counter`, `copy stdlib::array with export::Tree` |
+| a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
 | a runtime entry or global | `rt.alloc`, `rt.heap` (the text of `ir.Rt`) |
 
 An integer type is named by its alias and its range, since the code for it depends on nothing else. The kinds of symbol cannot meet:
@@ -804,7 +805,7 @@ never freed, any other string is a box on the heap. An enum value is its case in
 
 ### The primitives in the IR
 
-An `array`, a `map`, a `list` and a `pool` (see "Primitives") are heap boxes that only runtime entries touch, so the
+An `Array`, a `Map`, a `List` and a `Pool` (see "Primitives") are heap boxes that only runtime entries touch, so the
 IR holds no layout of them: an operation is a `runtime` call of a named entry (`internal/builtingen/table.go`), and the
 interpreter and the backend each implement the entries. The element is always visible in the call:
 
@@ -820,7 +821,7 @@ interpreter and the backend each implement the entries. The element is always vi
 - A handle is a word, never 0. An entry that returns one returns 0 for none, and lowering turns that into `none`.
 - An `Option` is a union box of case index and payload (`some` is 0, `none` is 1), built by lowering, so no entry
   knows the layout of a union.
-- `copy()` is one instruction, `%r = copy %s T` (see "Drops"), whatever `T` is: a record, a union, a string or a
+- `clone()` is one instruction, `%r = copy %s T` (see "Drops"), whatever `T` is: a record, a union, a string or a
   primitive. What it does to each part is code that depends on the type, so it is a routine of its own for each type that
   the backend makes (below) and the interpreter does by the shape of the value; a copy of an array copies every element by
   its own type, and a copy of a pool or a list keeps its handles valid.
@@ -833,7 +834,7 @@ it removes to the caller, who owns it. The entries are written in x64 in `intern
 own that the driver links only into a program that calls one. A map, a list and a pool are lowered all the same, which
 is what the interpreter runs, but the driver refuses a function that needs one before it generates code: `E9900`, at the
 first use in each function. A function that only drops, copies or holds a value that contains one (a `consumes`
-parameter of type `map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine
+parameter of type `Map with (K, V)`, or a record with a pool in it) is refused too, at the function, since there is no routine
 to free it.
 
 ### Frozen values, cowns and behaviours in the IR
@@ -845,7 +846,7 @@ owns (`internal/builtingen/table.go`):
 |---|---|
 | `rt.frozen.freeze(v)` | moves `v` into a new box with a count of 1 |
 | `rt.frozen.get(f)` | lends what `f` holds, valid while `f` is held: how every read through a frozen value begins |
-| `rt.share(f)` | the same box, with the count raised by 1: another owner, which is `share` and the `copy()` of a frozen value or a cown |
+| `rt.share(f)` | the same box, with the count raised by 1: another owner, which is `share` and the `clone()` of a frozen value or a cown |
 | `rt.cown.new(v)` | moves `v` into a new cown with a count of 1; with `routine d` the cown also stores the destructor `d`, which ends `v` when the count reaches 0 instead of a drop |
 
 Dropping an owner (`drop`, `dropslot`, `dropat` of a `frozen with T` or `cown with T`) lowers the count by 1, and the box is
@@ -901,7 +902,7 @@ drops a value that holds a map, a list, a pool, a frozen value or a cown is refu
 - **Sink parameters** are copied into a slot at entry, which owns them from there, so the callee can move on or drop
   them like a local. A `consumes _` parameter is dropped too.
 - **A string is owned like any value.** A literal and the name of a case are immortal and never freed (a drop of one is a
-  no-op, found by its address natively), but an interpolation makes a new string, and so does `copy()` of a string that is
+  no-op, found by its address natively), but an interpolation makes a new string, and so does `clone()` of a string that is
   not a literal; the copy of a literal is the literal.
 
 ### Native freeing
@@ -1028,10 +1029,10 @@ test runner. It has no types; it works from the shape of the values and from the
 - Integer, bool and string literals, interpolation, arithmetic and bitwise operators, `shl`/`shr`,
   comparisons, `and`/`or`/`xor`/`not`, `x if c else y`, `as` casts, error enums, `throw`, `throws E`, `try e`,
   `try e otherwise ...` and `try` blocks (see "Errors of the program"), calls with Maxon's
-  positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.copy()`,
+  positional-then-labelled arguments (a label, and a parameter name, may be a keyword: `File.rename(from, to: dest)`), parameter conventions (`mutates`, `consumes`, `sets`), `x.clone()`,
   `.name`/`.ordinal`/`.rawValue`, subscripts `a[i]`, `match consumes x`.
 - Built in: `print`, `printError`, `panic` (which takes a string literal or an interpolated string), `freeze`, `share`, `thaw`, `cown` (also `cown(x, dropWith: d)`), `exchange`, the OS/CLI functions `cliArgs`, `getEnv`, `readFile`, `writeFile`, `writeBytes`, `renameFile`, `removeFile`, `isDir`, `mkdir`, `listDir`, `runProcess`, the aliases `ExitCode`, `Count`,
-  `FullRangeInt`, `Byte`, the `String` methods `byteCount()`, `byteAt(index)` and `slice(from, until: to)`, the enum `ArithmeticError`, the interface `Error`, the byte buffer `Bytes`, and the generic types `array`, `map`, `list`, `pool`, `Handle`, `Option` (see "Primitives"),
+  `FullRangeInt`, `Byte`, the `String` methods `byteLength()`, `byteAt(index)` and `sliceBytes(start, endPos: end)`, the enums `ArithmeticError`, `ArrayError` and `MapError`, the interface `Error`, the byte buffer `Bytes`, and the generic types `Array`, `Map`, `List`, `Pool`, `Handle`, `Option` (see "Primitives"),
   `frozen` and `cown` (see "Immutable values, cowns and behaviours"). There is no other stdlib.
 
 ### Integers
@@ -1084,7 +1085,7 @@ enum AppError implements Error
 end 'AppError'
 
 function parseDigit(s String) returns Amount throws ParseError
-	if s.byteCount() == 0 'empty'
+	if s.byteLength() == 0 'empty'
 		throw ParseError.empty
 	end 'empty'
 	return match s 'digit'
@@ -1236,9 +1237,9 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
 - **Destructors.** A type that declares one (`function commit(destructs self)`) cannot be dropped, so a value of it is ended
   by calling a destructor, which moves the receiver in, or moved on; ending a scope, overwriting it or discarding it
   without either is `E3919` (see "Capabilities and destructors").
-- **`x.copy()`** is a deep copy that every type has, so no type may declare a method `copy`. It allocates a new
+- **`x.clone()`** is a deep copy that every type has, so no type may declare a method `clone`. It allocates a new
   box for each record or union inside `x`, and a new string for each string, so that every value has an owner of its
-  own to free it. A value whose type is not `Copyable` has no `copy()` (`E3918`).
+  own to free it. A value whose type is not `Copyable` has no `clone()` (`E3918`).
 -  **Conventions.** A parameter takes its argument as `let` (no marker: an immutable borrow), `mutates` (a mutable
   borrow; the caller sees the change and passes no marker), `consumes` (the callee owns it) or `sets` (the callee
   initialises it). The marker comes before the name (`consumes item T`). A method's receiver is `self` (let), `mutates
@@ -1249,7 +1250,7 @@ type-parameter type has one owner; every other access is a borrow that cannot ou
 -  **Borrows are second-class.** A `let`, `mutates` or `sets` parameter, a `match` binding of a payload that is not a
   scalar, and anything reached through one is borrowed: moving it anywhere (a binding, a field, a `consumes` argument,
   the return value) is `E3900`. An element of a collection, which the collection owns, and a part of a frozen value or
-  of a temporary, which is dropped when its statement ends, are not moved out either (`E3901`); `copy()` is the fix for
+  of a temporary, which is dropped when its statement ends, are not moved out either (`E3901`); `clone()` is the fix for
   all of them. A match binding also cannot
   be assigned, and the subject cannot be assigned, moved or passed `mutates` while the arm runs (`E3186`). There are no
   local projection bindings (`mutates r = a.f`): borrows exist only as parameters, match bindings and call arguments.
@@ -1318,33 +1319,33 @@ end 'wrap'
   no parent interface, and an alias, `String` or `bool` cannot implement one. A method uses its type's parameters and
   takes none of its own (`E3907`). `Self` inside a generic type is the type at its own parameters, and a literal of it
   is `Self{...}`.
-- **Instances.** A type names an instance with `with`: `Box with Count`, `map with (String, Count)`, `lib.Option
+- **Instances.** A type names an instance with `with`: `Box with Count`, `Map with (String, Count)`, `lib.Option
   with Count`. One argument is written bare, several in parentheses, and an argument that is an instance itself is
   parenthesized by convention: `Option with (Box with T)`. Their number is checked (`E2056`). A `typealias` names an
-  instance, `typealias Counts = array with Count`, or, with several arguments, `typealias Counts = map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
+  instance, `typealias Counts = Array with Count`, or, with several arguments, `typealias Counts = Map with String, Count` (a bare list, which only a typealias takes), and is that instance, not a type of its own: `Counts` and `array
   with Count` are one type. Its right-hand side is an instance (`E3917`), it may name other typealiases in any module,
   and one that names itself is `E2012`.
 - **Calls infer.** An expression writes no type arguments, so brackets are always a subscript. A call takes them from
   its arguments' types (`swap(a, b: c)`, `Option.some(x)`, `Box.make(x)`), and the ones the arguments leave open from
   the type the call's result must have where it is used: a return value, an argument of a function that is not
   generic, the value of an assignment or a field of a literal, and the branches of a conditional or a match that is
-  one of these (`return Option.none`, `Shelf{items: array.new()}`). Otherwise a static function or a case is called
-  through a typealias of the instance: `Counts.new()`. An integer constant or the range of an expression names no
+  one of these (`return Option.none`, `Shelf{items: Array.create(0)}`). Otherwise a static function or a case is called
+  through a typealias of the instance: `Counts.create(0)`. An integer constant or the range of an expression names no
   alias, so it infers nothing; with nothing else to go by the call is `E3179`.
 - **Checked once.** A generic body is typed and checked for ownership once, where it is declared, whether or not
   anything instantiates it, and its errors are reported there and only there. Inside it a value of a type parameter
   has the methods of its bounds (`a.area()`, with `Self` read as the parameter; two bounds that declare one name
   are `E3114`) and what every type has: move and a borrow under any convention (a drop needs `Droppable`, see "Capabilities and
-  destructors"). `copy()` only if the parameter is
+  destructors"). `clone()` only if the parameter is
   bounded by `Copyable` (`where T implements Copyable`, `E3918` otherwise). Nothing else: no field, no operator, no
   `match`, no interpolation. A `T` has only its bounds, so copying it and letting it die each need one, and a `T` that
   is not `Droppable` cannot go into a `cown` there, because it has no destructor to name.
 -  **Ownership over `T`.** A value of a type parameter is owned, movable and not a scalar, whatever `T` is instantiated
   with, so every rule of "Ownership" applies to it unchanged and an instance cannot break what was checked once. Binding
   it, passing it to a `consumes` parameter, returning it or storing it moves it (`E3102` after); a `let` or `mutates`
-  parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3900`); `copy()` of a
+  parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3900`); `clone()` of a
   `Copyable` one keeps it. A `T` that is only bounded by interfaces cannot be dropped either: where one dies, the
-  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.copy()` where `T` is `Copyable`, or takes it out of a primitive with `remove`, `pop`
+  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.clone()` where `T` is `Copyable`, or takes it out of a primitive with `remove`, `pop`
   or `unwrap` (see "Primitives"), or moves the field out of an owned value.
 - **Copyable and Droppable.** Two built-in interfaces in the stdlib, with no methods, name capabilities of a type; a
   bound is written like any other (`where T implements Copyable and Droppable`). See "Capabilities and destructors".
@@ -1363,7 +1364,7 @@ end 'wrap'
   declarations that another module may still be declaring, so they are checked in the verify stage. A bound's
   method is called through the interface, so the implementing method needs no `export`.
 - **Lowering.** An instance is lowered by monomorphization: the checked body is lowered again for each list of
-  type arguments with the parameters bound, so a slot is `scalar` or `managed` for the instance's type, `copy()`
+  type arguments with the parameters bound, so a slot is `scalar` or `managed` for the instance's type, `clone()`
   copies that type, and a call through a bound calls the method of the type that stands in. The IR names an
   instance `swap[Count]` (source has no spelling for an instance of a function) or `(Box with String).make`, and emits it in the unit of each module that needs it, not in the module that declares the generic, so a module's output
   depends only on the module and the declarations of what it imports; calls to the types of other modules are symbolic.
@@ -1428,7 +1429,7 @@ A `Txn` has no copy and no drop, so every path that makes one ends it with `comm
 
 `Copyable` and `Droppable` are structural: a type never says it has one (`implements Copyable` on a declaration is
 `E3921`), it says what removes it. `Copyable` is lost by `is noncopyable` or by a part that lacks it; a part is a field,
-a union payload, an element of an `array`, `list`, `pool` or `Option`, or a value of a `map`. A `frozen`, a `cown` and a
+a union payload, an element of an `Array`, `List`, `Pool` or `Option`, or a value of a `Map`. A `frozen`, a `cown` and a
 `Handle` have both whatever they hold, so the loss stops there. A generic type is judged per instance (`Box with Socket`
 is not `Copyable`, `Box with Count` is), and a type parameter has a capability only by bound; `Copyable` includes
 `Droppable`. A type that declares a destructor, a method whose receiver is `destructs self`, loses both, and so does
@@ -1441,11 +1442,11 @@ may be passed whole only to another destructor of its type, which ends it there 
 one answer per type and capability, remembered per checker, naming the part that removes the capability so the message
 can say where it comes from and how to get it back. Every copy decision goes through it:
 
-- `x.copy()` of a type that is not `Copyable` is `E3918`, and so is a top-level `let` of such a type (a constant is read
+- `x.clone()` of a type that is not `Copyable` is `E3918`, and so is a top-level `let` of such a type (a constant is read
   any number of times).
 - Built-ins state what they need as a bound on their signature, checked like any other (`E3017`): `thaw` needs a
   `Copyable` content because it copies it, and `array.filled` needs a `Copyable` element, a bound on the method that
-  `array with T` adds to its own parameter. `freeze` and `cown(x)` need a `Droppable` content, because the last owner
+  `Array with T` adds to its own parameter. `freeze` and `cown(x)` need a `Droppable` content, because the last owner
   drops it, and `map.insert` needs a `Droppable` value, because it drops the one it replaces.
 - **An implicit drop needs `Droppable`.** These drop a value, and each is `E3919` when its type lacks `Droppable`: the end
   of a scope that still holds an owned local, a `consumes` parameter, a `consumes self` or a payload bound by `match
@@ -1471,13 +1472,13 @@ can say where it comes from and how to get it back. Every copy decision goes thr
   anything but such a destructor is `E3921` too. This is the only place a destructor runs without being called.
 - **Behaviours.** The captures move into the body, so a captured value that is not `Droppable` is ended there like any
   owned local.
-- A message that would have the reader write `.copy()` suggests it only for a type that has `Copyable`; for another it
+- A message that would have the reader write `.clone()` suggests it only for a type that has `Copyable`; for another it
   names what removes it and says to move the value instead.
 
 ### Primitives
 
 Layer 2 of [docs/regions.md](docs/regions.md), as far as step 3 goes: their signatures and ownership rules. An
-`array with T`, a `map with (K, V)`, a `list with T` (doubly linked, one node per element) and a `pool with T` own their elements.
+`Array with T`, a `Map with (K, V)`, a `List with T` (doubly linked, one node per element) and a `Pool with T` own their elements.
 Their operations are generic methods that no source declares (`internal/builtingen/table.go`), typed, borrowed and moved
 like any other method from the signature below, so none of the ownership rules has a special case for them. They are
 declared in the stdlib module, so a name resolves to them last, after the module's own, the root's and an exported
@@ -1485,38 +1486,43 @@ one anywhere.
 
 | Type | Operations |
 |---|---|
-| `array with T` | `new()`, `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `append(item)`, `insert(item, at: i)`, `remove(i)` returns `T`, `pop()` returns `Option with T`; `dropEmpty()` |
-| `map with (K, V)` | `new()`; `count()`, `isEmpty()`, `has(k)`; `insert(k, value: v)` where `V` is `Droppable`, `replace(k, value: v)` returns the old `Option with V`, `remove(k)` returns `Option with V`; `dropEmpty()` |
-| `list with T` | `new()`; `count()`, `isEmpty()`, `contains(h)`, `first()`, `last()`, `next(h)`, `prev(h)`; `pushFront(item)` and `pushBack(item)` return `Handle with T`; `popFront()` and `popBack()` return `Option with T`; `remove(h)` returns `Option with T`; `moveToFront(h)`; `dropEmpty()` |
-| `pool with T` | `new()`; `count()`, `isEmpty()`, `contains(h)`; `insert(item)` returns `Handle with T`; `remove(h)` returns `Option with T`; `dropEmpty()` |
+| `Array with T` | `create(n)`, `n` zero elements, where `T` has a zero value or `n` is the literal `0` (`E3106`); `filled(n, value: x)` where `T` is `Copyable`; `count()`, `isEmpty()`; `push(value)`; `append(other)`, a copy of each element of `other`, where `T` is `Copyable`; `insert(at, value: v)`, which clamps `at` to the count; `remove(at)` and `pop()` return `T` and throw `ArrayError`; `dropEmpty()` |
+| `Map with (K, V)` | `create()`; `count()`, `isEmpty()`, `contains(k)`; `insert(k, value: v)`, which throws `MapError.keyAlreadyExists` for a key that is there, and `upsert(k, value: v)`, which replaces its value, both where `V` is `Droppable`; `replace(k, value: v)` returns the old `Option with V`; `remove(k)` drops the value and returns whether the key was there, where `V` is `Droppable`; `dropEmpty()` |
+| `List with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`, `next(h)`, `prev(h)`; `first()` and `last()` return `Handle with T` and throw `ArrayError`; `prepend(value)` and `append(value)` return `Handle with T`; `removeFirst()` and `removeLast()` return `T` and throw `ArrayError`; `remove(h)` returns `Option with T`; `moveToFront(h)`; `dropEmpty()` |
+| `Pool with T` | `create()`; `count()`, `isEmpty()`, `contains(h)`; `insert(value)` returns `Handle with T`; `remove(h)` returns `Option with T`; `dropEmpty()` |
 | `Handle with T` | no operations; `==` and `!=` |
 | `Option with T` | cases `some(value)` and `none`; `isSome()`; `unwrap()`, which consumes the option (`consumes self`) and panics on `none` |
+| `ArrayError`, `MapError` | maxon's error enums: `indexOutOfBounds` and `emptySlot`; `keyNotFound` and `keyAlreadyExists` |
 
-`new` and `filled` are static functions, called through a typealias of the instance (`Counts.new()`) or where the
-type is known (`Shelf{items: array.new()}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `first`,
-`last`, `next` and `prev` return `Option with (Handle with T)`. `dropEmpty()` takes `consumes self`, ends the collection and
+`create` and `filled` are static functions, called through a typealias of the instance (`Counts.create(0)`) or where
+the type is known (`Shelf{items: Array.create(0)}`). An operation that changes the primitive takes `mutates self`, and one that adds an element takes it `consumes`. `next` and
+`prev` return `Option with (Handle with T)`. `dropEmpty()` takes `consumes self`, ends the collection and
 traps if an element is left, as `unwrap` does on `none`: it is how a collection of values with destructors, which cannot be
-dropped, ends after every element was taken out. `map.replace` lowers to `has`, `elem`, `moveat` and `insert`, so the key
+dropped, ends after every element was taken out. `Map.replace` lowers to `has`, `elem`, `moveat` and `insert`, so the key
 keeps its place and no value is dropped.
+- **Operations that fail throw.** `remove`, `pop`, `removeFirst`, `removeLast`, `first`, `last` and `Map.insert` throw
+  maxon's error, so a call of one is covered by a `try` like any other that throws (`E3057`): `try a.pop() otherwise
+  fallback`, or `try a.remove(i) otherwise panic("index out of range")` where a miss is a bug. The lowering tests first
+  and fails as a compiled throwing function does, with the case plus 1 in the error register, so a failure allocates
+  nothing; `Map.insert` drops the key and the value it was given on a failure.
 
 - **Collections own their elements.** Adding takes the element `consumes`, so it moves in. Taking one out is `remove`,
-  `pop`, `popFront`, `popBack` or `unwrap`, which move it out to the caller, owned; the only other way to hold an
-  element is `.copy()`. `copy()` of a collection is deep.
+  `pop`, `removeFirst`, `removeLast` or `unwrap`, which move it out to the caller, owned; the only other way to hold an
+  element is `.clone()`. `clone()` of a collection is deep.
 -  **A subscript is a projection.** `a[i]`, `m[k]`, `l[h]` and `p[h]` borrow the element: the array is indexed by a
   `Count`, a map by its key, a list and a pool by the `Handle` of the element. Read, it is a `let` borrow; assigned
   through (`a[i] = v`, `a[i].count = 3`) or passed to a `mutates` parameter, it is `mutates`. It is never an owned
   value: binding it, returning it or passing it to a `consumes` parameter is `E3901`, or `E3900` where the collection
-  itself is borrowed, and `copy()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
+  itself is borrowed, and `clone()` is the fix. A scalar element is copied like any scalar, so `let n = a[i]` is fine.
   The element of a temporary (`make()[0]`) cannot be moved or assigned either.
 - **A miss traps**, as an out-of-range index, a missing key or a stale handle: a range-check guard, safe, and it
-  never touches freed memory. The operations that cannot miss let a program test first: `count`, `isEmpty`, `has`,
-  `contains`, and `first`, `next` and the others that return an `Option`.
+  never touches freed memory. The operations that cannot miss let a program test first: `count`, `isEmpty`, `contains`, and `next` and `prev`, which return an `Option`.
 - **Exclusivity.** A path gains a second kind of step, an element, and every element of a collection overlaps every
   other one, whatever the indexes say: `a[i]` and `a[j]` overlap, so `pair(a[i], b: a[j])` and `f(a, n: a[0])` are
   refused (`E3186`), while `pair(a[i], b: b[j])` and `pair(r.left[0], b: r.right[0])` are fine. A method with an
-  `mutates self` receiver, such as `append`, `insert` and `remove`, overlaps every projection of its collection in the
-  same call: `a.append(a[0])` is refused, and `let x = a[0]; a.append(x)` is the fix for a scalar. An index, a key
-  or a handle is an ordinary value, read before the call, so `a[a.count() - 1]` and `a.insert(x, at: a.count())`
+  `mutates self` receiver, such as `push`, `insert` and `remove`, overlaps every projection of its collection in the
+  same call: `a.push(a[0])` is refused, and `let x = a[0]; a.push(x)` is the fix for a scalar. An index, a key
+  or a handle is an ordinary value, read before the call, so `a[a.count() - 1]` and `a.insert(a.count(), value: x)`
   are fine.
 - **A borrow is held while the rest is evaluated.** Wherever lowering evaluates an operand to a borrow of a managed
   place, then evaluates the next, then uses the borrow, the place stays borrowed through the next. That is an argument
@@ -1526,7 +1532,7 @@ keeps its place and no value is dropped.
   A call in there that changes an overlapping place is refused (`E3186`): `look(a[0], n: drop(a))`, where `drop`
   takes `a` as `mutates`, `a[0].n = drop(a)`, `a[0] == wipe(a)`, `rows[0].cells[shrink(rows)]` (read, assigned,
   passed `mutates` or matched) and `"{p.name}{take(p)}"`. A scalar that is only read is a value by then and holds
-  nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].copy() == wipe(a)`, or the other operand
+  nothing, so `a[0].n + shrink(a)` is fine; so is a copy on the left, `a[0].clone() == wipe(a)`, or the other operand
   computed into a variable first. One helper, `hold`, takes every one of these, and a hold is only a push that is looked
   at when something in the rest changes or moves a place.
 - **Handles are keys.** A `Handle with T` is a plain word: copy it freely, store it in a field, in a map, in an array or
@@ -1534,15 +1540,15 @@ keeps its place and no value is dropped.
   removed finds nothing, and a slot that was reused does not answer to the old handle, because a handle also
   carries a generation. A handle of one pool used on another pool of the same element type is not a soundness issue:
   the lookup fails or finds that pool's element at the same slot. A handle of another element type is refused
-  (`E3005`). A `list` hands out the same kind of handle for its nodes, so a cache is a `list` of entries in order of
-  use and a `map` from each key to the handle of its entry, and a linked structure is a `pool` of nodes that name
+  (`E3005`). A `List` hands out the same kind of handle for its nodes, so a cache is a `List` of entries in order of
+  use and a `Map` from each key to the handle of its entry, and a linked structure is a `Pool` of nodes that name
   each other by handle (see `tests/` and `internal/check/primitives_test.go`).
 - **Map keys** are compared and copied as a word or as text: an integer alias, a `bool`, an enum, a `String` or a
   `Handle`. Any other key, a record or a union or a type parameter, is `E3908`. A generic function can therefore take
-  a `map with (String, V)` with a generic `V`, but not a `map with (K, V)` with a generic `K`; a bound for keys would lift that.
-  `insert` replaces the value of a key that is there, which is dropped.
-- **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `array with T` is
-  owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.copy()`.
+  a `Map with (String, V)` with a generic `V`, but not a `Map with (K, V)` with a generic `K`; a bound for keys would lift that.
+  `upsert` replaces the value of a key that is there, which is dropped.
+- **Generic code** over a primitive is checked once, as in "Generics": a value of type `T` held by an `Array with T` is
+  owned and movable, so a generic container gives an element out with `remove` or `pop`, or `.clone()`.
 - **Iteration** is `for i in 0 upto a.count()` and a subscript. There is no `for x in a`, and a map has no way to
   walk its keys yet.
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
@@ -1551,7 +1557,7 @@ keeps its place and no value is dropped.
   runner runs such a program under the interpreter alone.
 - **Limits.** `Option with T` here is the stdlib's; a module that declares its own `Option` wins the bare name in
   that module, and `stdlib.Option with T` names this one there. A primitive implements no interface (`E3017`). A record
-  that contains itself through an array (`var kids as array with Tree` in `Tree`) is fine, natively too: its drop and
+  that contains itself through an array (`var kids as Array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
 ### Immutable values, cowns and behaviours
@@ -1590,13 +1596,13 @@ end 'transfer'
   argument, a method that takes `mutates self` or `consumes self`, or a `consumes` parameter is `E3197`, and taking a
   part out of it is `E3901`. The type system tells a frozen value from its contents by the type `frozen with T`, so a
   place's path gains a step into the contents (`paths.go`), and every rule about places, borrows and exclusivity applies
-  to it as it does to a field. `copy()` of a frozen value, of a cown reference, and of anything that holds one, is a
+  to it as it does to a field. `clone()` of a frozen value, of a cown reference, and of anything that holds one, is a
   `share`: the copy is another owner of the same value, never a new value; `thaw` is how to get a mutable copy of the
   contents. There is **one count per frozen value**, however many objects it holds. A frozen value is built from a value
   that was owned (a tree) and given up by `freeze`, so what it holds is either part of that tree or a counted value that
   existed before it, and nothing can be added to it afterwards: counts form a DAG and no cycle of frozen values can
   exist. A string literal and a constant are immortal and uncounted.
-- **Cowns.** A `cown with T` is a counted reference: `share` and `copy()` make another, dropping one lowers the count, and
+- **Cowns.** A `cown with T` is a counted reference: `share` and `clone()` make another, dropping one lowers the count, and
   the cown and its value are freed when the last reference is gone and no behaviour holds it; a value with destructors is
   ended by the one that `dropWith:` names instead (see "Capabilities and destructors"). The value is touched only in
   a behaviour (`E3915` for a field, an element, a method, a match or an interpolation of a cown outside one). A type that
@@ -1610,10 +1616,10 @@ end 'transfer'
   variable declared outside it fails the same way); a frozen value and a cown reference are owned values too, so one
   that the enclosing code keeps is shared first (`let own = share(f)`). A borrow cannot be captured, because the
   behaviour outlives it: a `let`, `mutates` or `sets` parameter, the receiver and its fields, a `match` binding, and `x`
-  or `y` of an enclosing behaviour are `E3909`, with the fix named (`share` for a shared value, `copy()` for the rest).
+  or `y` of an enclosing behaviour are `E3909`, with the fix named (`share` for a shared value, `clone()` for the rest).
   A captured value is not mutable in the body (it is moved into a `var` to change it), like a `consumes` parameter. `x`
   and `y` are `mutates` parameters of the body, so they cannot escape: moving, returning, storing or passing them to
-  `consumes` is `E3900`, and `copy()` is the way out. A behaviour returns nothing and is not waited for (`return value`
+  `consumes` is `E3900`, and `clone()` is the way out. A behaviour returns nothing and is not waited for (`return value`
   is `E3005`); it may schedule more behaviours, and passing a result on is how a chain works. Naming one cown twice is
   `E3913`, and a count of names that differs from the count of cowns is `E3912`, as is naming something that is not a
   cown reference.
@@ -1690,8 +1696,14 @@ compares its tokens with the input's, so a formatter bug is an internal error an
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
-- The primitives are not Maxon's `Array`, `Map` and `List` wrappers: an array, a map, a list and a pool are the
-  built-in types themselves, they have no iteration yet, and indexing is a subscript that traps on a miss.
+- `Array`, `Map` and `List` have the names, the signatures and the errors of maxon's stdlib, but they are built-in
+  types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
+  traps on a miss, where maxon's `get` returns a copy and throws; `Pool`, `Handle` and the list's handle API (`prepend`
+  and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
+  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; there is no iteration
+  protocol and no `get`, `set`, `slice`, `clear`, `reserve` or `sort` yet; `create(n)` refuses an enum element, whose
+  zero here is its first case rather than its case of raw value 0; and `String` has only `byteLength`, `byteAt` and
+  `sliceBytes`, whose names leave `slice` and `count` for maxon's graphemes.
 - Generics are checked once against their bounds, never per instantiation; maxon checks a generic function per inferred
   type. Interfaces are bounds only: no generic interface, no static requirement, no default method, no existential
   value; a type implements one by saying so, and `int` aliases, `String` and `bool` implement none.
@@ -1746,6 +1758,12 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   to mean what Maxon's bare lookup finds, the root's declaration, else the one exported declaration of that name; a
   name that two modules export is listed and left alone. It is the step after converting a Maxon project, whose names
   may be bare.
+- **`minimaxon rename <rule>... <program>...`** changes the programs that use a built-in when the table renames it or
+  changes its signature, while the old one still compiles: it checks each program and rewrites each type name and each
+  call by the declaration the checker resolved, so `append` on an `Array` becomes `push` and `append` on a `List` stays.
+  A rule can write a call again from a template, reordering its arguments or wrapping it in a `try`; a file of cases is
+  checked case by case after its `--prelude`. What the checker does not reach, in a program that stops at an error
+  first, is listed for a hand edit.
 - **`minimaxon test --update-positions`** moves each `expect-error` whose code is now reported at another line or column,
   as after a rename that changes a line's length. It never changes the code a test expects, so a test that now fails
   with another error still fails.

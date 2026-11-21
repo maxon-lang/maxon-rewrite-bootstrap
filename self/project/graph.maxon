@@ -1,23 +1,23 @@
-export typealias ModIDList = array with diag.ModuleID
+export typealias ModIDList = Array with diag.ModuleID
 
-export typealias ModDepArray = array with ast.ModuleDepList
+export typealias ModDepArray = Array with ast.ModuleDepList
 
-export typealias ModIDListArray = array with ModIDList
+export typealias ModIDListArray = Array with ModIDList
 
-typealias CountList = array with Count
+typealias CountList = Array with Count
 
-typealias BoolList = array with bool
+typealias BoolList = Array with bool
 
 export type Graph
 	export var deps as ModDepArray
 	export var dependents as ModIDListArray
 
 	export static function new(n Count) returns Graph
-		var d = ModDepArray.new()
-		var dt = ModIDListArray.new()
+		var d = ModDepArray.create(0)
+		var dt = ModIDListArray.create(0)
 		for _ in 0 upto n 'init'
-			d.append(ast.ModuleDepList.new())
-			dt.append(ModIDList.new())
+			d.push(ast.ModuleDepList.create(0))
+			dt.push(ModIDList.create(0))
 		end 'init'
 		return Graph{deps: d, dependents: dt}
 	end 'new'
@@ -31,9 +31,9 @@ export function newGraph(p ast.Project) returns Graph
 		for j in 0 upto mDepsCount 'each'
 			let depMod = p.resolutions[i].deps[j].module
 			let depOff = p.resolutions[i].deps[j].offset
-			g.deps[i].append(ast.ModuleDep.make(depMod, offset: depOff))
+			g.deps[i].push(ast.ModuleDep.make(depMod, offset: depOff))
 			let iMod = try i as diag.ModuleID otherwise panic("too many modules")
-			g.dependents[ast.modIndex(depMod)].append(iMod)
+			g.dependents[ast.modIndex(depMod)].push(iMod)
 		end 'each'
 	end 'copyDeps'
 	return g
@@ -41,13 +41,13 @@ end 'newGraph'
 
 export function topoOrder(g Graph) returns ModIDList
 	let n = g.deps.count()
-	var waiting = CountList.new()
-	var order = ModIDList.new()
+	var waiting = CountList.create(0)
+	var order = ModIDList.create(0)
 	for i in 0 upto n 'init'
 		let cnt = g.deps[i].count()
-		waiting.append(cnt)
+		waiting.push(cnt)
 		if cnt == 0 'ready'
-			order.append(try i as diag.ModuleID otherwise panic("too many modules"))
+			order.push(try i as diag.ModuleID otherwise panic("too many modules"))
 		end 'ready'
 	end 'init'
 	var next = 0 as Count
@@ -62,7 +62,7 @@ export function topoOrder(g Graph) returns ModIDList
 				let nw = w - 1
 				waiting[depIdx] = nw
 				if nw == 0 'enqueue'
-					order.append(dependent)
+					order.push(dependent)
 				end 'enqueue'
 			end 'dec'
 		end 'notify'
@@ -88,9 +88,9 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 	if order.count() == n 'acyclic'
 		return Option.none
 	end 'acyclic'
-	var done = BoolList.new()
+	var done = BoolList.create(0)
 	for _ in 0 upto n 'initDone'
-		done.append(false)
+		done.push(false)
 	end 'initDone'
 	for i in 0 upto order.count() 'mark'
 		done[ast.modIndex(order[i])] = true
@@ -100,8 +100,8 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 		startIdx = try startIdx + 1 otherwise n
 	end 'findStart'
 	let start = try startIdx as diag.ModuleID otherwise panic("too many modules")
-	var path = ModIDList.new()
-	path.append(start)
+	var path = ModIDList.create(0)
+	path.push(start)
 	while true 'walk'
 		let last = ast.modIndex(path[try path.count() - 1 otherwise 0 as Count])
 		var found = false
@@ -138,7 +138,7 @@ export function checkAcyclic(g Graph, p ast.Project) returns Option with diag.Co
 				return Option.some(diag.CompileError.atSite(diag.errDependsOnItself, message: msgBuf.toString(), site: diag.Site.make(firstMod, offset: off)))
 			end 'cycleFound'
 		end 'checkLoop'
-		path.append(nextMod)
+		path.push(nextMod)
 	end 'walk'
 	return Option.none
 end 'checkAcyclic'

@@ -60,18 +60,18 @@ function depth(x T, n Score) uses T returns Score throws ArithmeticError where T
 	if n == 0 'done'
 		return 0
 	end 'done'
-	return try 1 + depth(x.copy(), n: n - 1)
+	return try 1 + depth(x.clone(), n: n - 1)
 end 'depth'
 
 function ping(x T, n Score) uses T returns Score throws ArithmeticError where T implements Copyable
 	if n == 0 'done'
 		return 0
 	end 'done'
-	return try pong(x.copy(), n: n - 1)
+	return try pong(x.clone(), n: n - 1)
 end 'ping'
 
 function pong(x T, n Score) uses T returns Score throws ArithmeticError where T implements Copyable
-	return try 1 + ping(x.copy(), n: n)
+	return try 1 + ping(x.clone(), n: n)
 end 'pong'
 
 function main() returns ExitCode
@@ -80,7 +80,7 @@ function main() returns ExitCode
 	let w = ColorWrapper.make(Color.red)
 	print("{show(w)}\n")
 	print("{showTwin(w)}\n")
-	let w2 = ColorWrapperWrapper.make(w.copy())
+	let w2 = ColorWrapperWrapper.make(w.clone())
 	print("{show(w2)}\n")
 	let t = Tally.create()
 	print("{t.total.describe()} {t.count}\n")

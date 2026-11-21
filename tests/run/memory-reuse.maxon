@@ -3,7 +3,7 @@
 // far slower than the executable at this.
 // memory-limit: 48
 // native-only
-typealias PointArray = array with Point
+typealias PointArray = Array with Point
 
 typealias Coord = int(0 to 1000000)
 
@@ -18,12 +18,12 @@ end 'Point'
 
 type Entry
 	export var label as String
-	export var points = PointArray.new()
+	export var points = PointArray.create(0)
 
 	static function make(n Coord) returns Entry
 		var e = Entry{label: "entry {n}"}
-		e.points.append(Point.make(n, y: n))
-		e.points.append(Point.make(n, y: 1))
+		e.points.push(Point.make(n, y: n))
+		e.points.push(Point.make(n, y: 1))
 		return e
 	end 'make'
 end 'Entry'
@@ -32,7 +32,7 @@ function main() returns ExitCode
 	var total = 0 as Count
 	for i in 0 upto 500000 'loop'
 		let e = Entry.make(i)
-		let copied = e.copy()
+		let copied = e.clone()
 		total = total + (copied.points[1].y + e.points[0].x)
 	end 'loop'
 	print("{total}\n")

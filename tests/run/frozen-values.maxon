@@ -1,13 +1,13 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 type Doc
 	export var title as String
-	export var words as array with Count
+	export var words as Array with Count
 
 	static function make(consumes title String) returns Doc
-		var words = CountArray.new()
-		words.append(3)
-		words.append(5)
+		var words = CountArray.create(0)
+		words.push(3)
+		words.push(5)
 		return Doc{title: title, words: words}
 	end 'make'
 
@@ -20,7 +20,7 @@ type Doc
 	end 'total'
 
 	function grow(mutates self)
-		words.append(1)
+		words.push(1)
 	end 'grow'
 end 'Doc'
 
@@ -48,14 +48,14 @@ function main() returns ExitCode
 		mine.grow()
 		mine.title = "mine"
 		print("{mine.title} {mine.total()} {doc.total()}\n")
-		var parts = doc.words.copy()
-		parts.append(2)
-		var name = doc.title.copy()
+		var parts = doc.words.clone()
+		parts.push(2)
+		var name = doc.title.clone()
 		name = "{name}!"
 		print("{parts.count()} {doc.words.count()} {name} {doc.title}\n")
 		let lib = freeze(Library.make(share(doc), name: "lib"))
 		print("{lib.name} {lib.first.title} {lib.first.total()}\n")
-		let copied = lib.copy()
+		let copied = lib.clone()
 		print("{copied.first.title}\n")
 		match doc.title 'check'
 			"notes" then print("matched\n")

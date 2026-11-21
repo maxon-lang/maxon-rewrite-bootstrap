@@ -47,6 +47,9 @@ type Options struct {
 	Cache *cache.Cache
 	// CacheStats, when not nil, is filled in with what the compile did with Cache.
 	CacheStats *CacheStats
+	// Inspect, when not nil, is given the project and what each module's passes found once the compile ends, however far
+	// it got: a tool that rewrites programs reads the resolution and the typing of what was checked.
+	Inspect func(proj *ast.Project, results []ast.ModuleResult)
 }
 
 func Compile(path, output string, o Options) []*diag.CompileError {
@@ -130,6 +133,9 @@ func compileProject(path, output string, o Options, capture **interp.Program) (e
 		return sortedErrors(proj, errors)
 	}
 	results := make([]ast.ModuleResult, len(proj.Modules))
+	if o.Inspect != nil {
+		defer o.Inspect(proj, results)
+	}
 	phase := newModulePhase(proj, results, output, o, capture)
 	phase.run()
 	phase.reportTimings()

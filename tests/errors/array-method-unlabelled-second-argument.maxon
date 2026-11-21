@@ -1,8 +1,8 @@
 // expect-error: E2053 at 6:14
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
 function main() returns ExitCode
-	var a = CountArray.new()
+	var a = CountArray.create(0)
 	a.insert(1, 0)
 	return 0
 end 'main'

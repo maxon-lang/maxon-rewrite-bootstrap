@@ -2,9 +2,9 @@ export typealias NodeID = int(0 to 4294967295)
 
 export typealias U16 = int(0 to 65535)
 
-export typealias U32List = array with diag.U32
+export typealias U32List = Array with diag.U32
 
-export typealias StringList = array with String
+export typealias StringList = Array with String
 
 export type Record
 	export var kind as NodeKind
@@ -19,7 +19,7 @@ export type Record
 	end 'make'
 end 'Record'
 
-export typealias RecordList = array with Record
+export typealias RecordList = Array with Record
 
 function isIdentByte(b Byte) returns bool
 	if b >= 65 and b <= 90 'upper'
@@ -43,23 +43,23 @@ export type Tree
 	export var strings as StringList
 
 	export static function new(module diag.ModuleID, consumes text String) returns Tree
-		var recs = RecordList.new()
-		recs.append(Record.make(NodeKind.none, start: 0 as diag.U32))
-		var ls = U32List.new()
-		ls.append(0 as diag.U32)
-		return Tree{module: module, text: text, records: recs, lists: ls, strings: StringList.new()}
+		var recs = RecordList.create(0)
+		recs.push(Record.make(NodeKind.none, start: 0 as diag.U32))
+		var ls = U32List.create(0)
+		ls.push(0 as diag.U32)
+		return Tree{module: module, text: text, records: recs, lists: ls, strings: StringList.create(0)}
 	end 'new'
 
 	export function alloc(mutates self, kind NodeKind, start diag.U32) returns NodeID
 		let id = try records.count() as NodeID otherwise panic("AST node count exceeded U32")
-		records.append(Record.make(kind, start: start))
+		records.push(Record.make(kind, start: start))
 		return id
 	end 'alloc'
 
 	export function reserve(mutates self, words Count) returns diag.U32
 		let base = try lists.count() as diag.U32 otherwise panic("AST list count exceeded U32")
 		for _ in 0 upto words 'zero'
-			lists.append(0 as diag.U32)
+			lists.push(0 as diag.U32)
 		end 'zero'
 		return base
 	end 'reserve'
@@ -71,9 +71,9 @@ export type Tree
 		end 'empty'
 		let ref = try lists.count() as diag.U32 otherwise panic("AST list count exceeded U32")
 		let n32 = try n as diag.U32 otherwise panic("AST list length exceeded U32")
-		lists.append(n32)
+		lists.push(n32)
 		for i in 0 upto n 'each'
-			lists.append(items[i])
+			lists.push(items[i])
 		end 'each'
 		return ref
 	end 'pushList'
@@ -96,11 +96,11 @@ export type Tree
 		end 'empty'
 		let start = (ref - 1) as Count
 		var endPos = start
-		let n = text.byteCount()
+		let n = text.byteLength()
 		while endPos < n and isIdentByte(text.byteAt(endPos)) 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.slice(start, until: endPos)
+		return text.sliceBytes(start, endPos: endPos)
 	end 'nameAt'
 
 	export function labelAt(ref diag.U32) returns String
@@ -109,11 +109,11 @@ export type Tree
 		end 'empty'
 		let start = (ref - 1) as Count
 		var endPos = start
-		let n = text.byteCount()
+		let n = text.byteLength()
 		while endPos < n and text.byteAt(endPos) != 39 'scan'
 			endPos = endPos + 1
 		end 'scan'
-		return text.slice(start, until: endPos)
+		return text.sliceBytes(start, endPos: endPos)
 	end 'labelAt'
 
 	export function kindOf(id NodeID) returns NodeKind
@@ -161,7 +161,7 @@ export type Tree
 
 	export function addString(mutates self, consumes s String) returns diag.U32
 		let idx = try strings.count() as diag.U32 otherwise panic("AST string count overflow")
-		strings.append(s)
+		strings.push(s)
 		return idx
 	end 'addString'
 
@@ -185,11 +185,11 @@ export type Tree
 		let tag = self.listAt(partsRef, index: base)
 		let arg = self.listAt(partsRef, index: try base + 1 otherwise panic("strPart index"))
 		if tag == 1 'decoded'
-			return strings[arg as Count].copy()
+			return strings[arg as Count].clone()
 		end 'decoded'
 		let n = try (tag - 2) as Count otherwise panic("strPart raw tag")
 		let off = arg as Count
-		return text.slice(off, until: try off + n otherwise panic("strPart slice overflow"))
+		return text.sliceBytes(off, endPos: try off + n otherwise panic("strPart slice overflow"))
 	end 'strPartText'
 
 	export function strIsPlain(partsRef diag.U32) returns bool

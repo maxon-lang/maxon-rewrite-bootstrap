@@ -1,6 +1,6 @@
 typealias Score = int(0 to 100)
 
-typealias ScoreArray = array with Score
+typealias ScoreArray = Array with Score
 
 union Slot uses T
 	full(value T)
@@ -8,10 +8,10 @@ union Slot uses T
 end 'Slot'
 
 type Shelf
-	var items as array with Score
+	var items as Array with Score
 
 	static function make() returns Shelf
-		return Shelf{items: array.new()}
+		return Shelf{items: Array.create(0)}
 	end 'make'
 end 'Shelf'
 
@@ -20,7 +20,7 @@ function emptyLike(x T) uses T returns Slot with T
 end 'emptyLike'
 
 function pick(flag bool, x T) uses T returns Slot with T where T implements Copyable
-	return Slot.full(x.copy()) if flag else Slot.empty
+	return Slot.full(x.clone()) if flag else Slot.empty
 end 'pick'
 
 function describe(s Slot with Score) returns String
@@ -33,16 +33,16 @@ end 'describe'
 function reset(flag bool, s Slot with T) uses T returns Slot with T where T implements Copyable
 	return match flag 'm'
 		true gives Slot.empty
-		false gives s.copy()
+		false gives s.clone()
 	end 'm'
 end 'reset'
 
 function main() returns ExitCode
 	var shelf = Shelf.make()
-	shelf.items.append(4)
-	var more = ScoreArray.new()
-	more = array.new()
-	more.append(5)
+	shelf.items.push(4)
+	var more = ScoreArray.create(0)
+	more = Array.create(0)
+	more.push(5)
 	print("{shelf.items.count()} {more.count()}\n")
 	let three = 3 as Score
 	print("{describe(Slot.empty)} {describe(emptyLike(three))} {describe(pick(true, x: three))}\n")

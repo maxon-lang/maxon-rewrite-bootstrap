@@ -25,6 +25,8 @@ export type Builtins
 	export var bytesTy as TypeID
 	export var optionOrigin as TypeID
 	export var arithmeticErrorTy as TypeID
+	export var arrayErrorTy as TypeID
+	export var mapErrorTy as TypeID
 	export var copyableTy as TypeID
 	export var droppableTy as TypeID
 	export var errorTy as TypeID
@@ -38,7 +40,7 @@ export type Builtins
 		let sm = FuncIDMap.new()
 		let stm = TypeIDMap.new()
 		let sfm = FuncIDMap.new()
-		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithmeticErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
+		return Builtins{boolTy: noType, stringTy: noType, voidTy: noType, neverTy: noType, anon64Ty: noType, anonU64Ty: noType, exitCodeTy: noType, countTy: noType, fullRangeIntTy: noType, byteTy: noType, arrayOrigin: noType, mapOrigin: noType, listOrigin: noType, poolOrigin: noType, handleOrigin: noType, frozenOrigin: noType, cownOrigin: noType, bytesTy: noType, optionOrigin: noType, arithmeticErrorTy: noType, arrayErrorTy: noType, mapErrorTy: noType, copyableTy: noType, droppableTy: noType, errorTy: noType, cownNewFunc: noFunc, cownNewDropWithFunc: noFunc, stringMethods: sm, stdlibTypeMap: stm, stdlibFuncMap: sfm}
 	end 'empty'
 
 	export function isCapability(iface TypeID) returns bool
@@ -47,44 +49,44 @@ export type Builtins
 end 'Builtins'
 
 function registerStdAlias(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, consumes lo I128, consumes hi I128) returns TypeID
-	let tid = internIntRange(tt, aliasName: name.copy(), minVal: lo.copy(), maxVal: hi.copy(), inferred: false)
+	let tid = internIntRange(tt, aliasName: name.clone(), minVal: lo.clone(), maxVal: hi.clone(), inferred: false)
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	tt.entries[tid as Count].hasDecl = true
 	tt.entries[tid as Count].decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let z = Bound.makeInt(0 as NodeID, negative: false, value: I128.zero())
-	let ad = AliasDecl.makeRange(0 as NodeID, visibility: "export", name: name.copy(), inclusive: true, low: z.copy(), high: z)
+	let ad = AliasDecl.makeRange(0 as NodeID, visibility: "export", name: name.clone(), inclusive: true, low: z.clone(), high: z)
 	_ = std.declare(Decl.aliasDecl(ad))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerStdAlias'
 
 function addStdTypeParam(mutates tt TypeTable, mutates std Module, owner TypeID, consumes name String) returns TypeID
-	var tp = TypeEntry.make(TypeKind.typeParam, name: name.copy())
+	var tp = TypeEntry.make(TypeKind.typeParam, name: name.clone())
 	let tid = allocType(tt, e: tp)
-	tt.entries[owner as Count].typeParams.append(tid)
+	tt.entries[owner as Count].typeParams.push(tid)
 	return tid
 end 'addStdTypeParam'
 
 function registerPrimType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, kind TypeKind, consumes name String, paramNames StringList) returns TypeID
-	var e = TypeEntry.make(kind, name: name.copy())
+	var e = TypeEntry.make(kind, name: name.clone())
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, e: e)
-	var tps = TypeParamList.new()
+	var tps = TypeParamList.create(0)
 	for i in 0 upto paramNames.count() 'eachP'
-		let pn = paramNames[i].copy()
-		tps.append(TypeParam.make(0 as NodeID, name: pn.copy()))
+		let pn = paramNames[i].clone()
+		tps.push(TypeParam.make(0 as NodeID, name: pn.clone()))
 		_ = addStdTypeParam(tt, std: std, owner: tid, name: pn)
 	end 'eachP'
-	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.copy(), isNoncopyable: false, typeParams: tps, conforms: U32List.new(), constraints: ConstraintList.new(), fields: FieldDeclList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	let td = TypeDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: tps, conforms: U32List.create(0), constraints: ConstraintList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
 	_ = std.declare(Decl.typeDecl(td))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerPrimType'
 
 function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, owner TypeID, op Intrinsic, consumes name String, isStatic bool, selfConv Convention, ret TypeID, consumes params ParamSpecList) returns FuncID
-	var fn = FuncEntry.make(name.copy(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	var fn = FuncEntry.make(name.clone(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
 	fn.isStatic = isStatic
 	fn.ownerTy = selfType(tt, declTy: owner)
 	fn.hasReceiver = not isStatic
@@ -93,34 +95,34 @@ function registerMethodOn(mutates tt TypeTable, mutates ft FuncTable, mutates st
 	fn.retTy = ret
 	fn.intrinsic = op
 	for i in 0 upto params.count() 'eachP'
-		let pName = params[i].name.copy()
+		let pName = params[i].name.clone()
 		let pTy = params[i].ty
 		let pConv = params[i].conv
-		fn.params.append(ParamSpec.make(pName, ty: pTy, conv: pConv))
-		fn.paramTypes.append(pTy)
+		fn.params.push(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		fn.paramTypes.push(pTy)
 	end 'eachP'
 	let fid = allocFunc(ft, f: fn)
-	tt.entries[owner as Count].methods.append(MethodRef.make(name, func: fid))
+	tt.entries[owner as Count].methods.push(MethodRef.make(name, func: fid))
 	return fid
 end 'registerMethodOn'
 
 function registerStdFunc(mutates ft FuncTable, mutates std Module, mutates funcMap FuncIDMap, op Intrinsic, consumes name String, generics TypeIDList, ret TypeID, consumes params ParamSpecList, declareInStd bool) returns FuncID
-	var fn = FuncEntry.make(name.copy(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
+	var fn = FuncEntry.make(name.clone(), visibility: "export", module: diag.stdlibID, nodeID: 0 as NodeID)
 	fn.generics = cloneTypeArgs(generics)
 	fn.retTy = ret
 	fn.intrinsic = op
 	for i in 0 upto params.count() 'eachP'
-		let pName = params[i].name.copy()
+		let pName = params[i].name.clone()
 		let pTy = params[i].ty
 		let pConv = params[i].conv
-		fn.params.append(ParamSpec.make(pName, ty: pTy, conv: pConv))
-		fn.paramTypes.append(pTy)
+		fn.params.push(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		fn.paramTypes.push(pTy)
 	end 'eachP'
 	if declareInStd 'addStd'
 		let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 		fn.hasDecl = true
 		fn.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
-		let fd = FuncDecl.make(0 as NodeID, visibility: "export", isStatic: false, name: name.copy(), receiver: "", params: ParamList.new(), typeParams: TypeParamList.new(), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, constraints: ConstraintList.new(), bodyRef: 0 as diag.U32, endLabel: 0 as NodeID)
+		let fd = FuncDecl.make(0 as NodeID, visibility: "export", isStatic: false, name: name.clone(), receiver: "", params: ParamList.create(0), typeParams: TypeParamList.create(0), returnsRef: 0 as NodeID, throwsRef: 0 as NodeID, constraints: ConstraintList.create(0), bodyRef: 0 as diag.U32, endLabel: 0 as NodeID)
 		_ = std.declare(Decl.funcDecl(fd))
 	end 'addStd'
 	let fid = allocFunc(ft, f: fn)
@@ -131,52 +133,52 @@ function registerStdFunc(mutates ft FuncTable, mutates std Module, mutates funcM
 end 'registerStdFunc'
 
 function oneArgList(a TypeID) returns TypeIDList
-	var xs = TypeIDList.new()
-	xs.append(a)
+	var xs = TypeIDList.create(0)
+	xs.push(a)
 	return xs
 end 'oneArgList'
 
 function registerUnionType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, paramNames StringList) returns TypeID
-	var e = TypeEntry.make(TypeKind.unionTy, name: name.copy())
+	var e = TypeEntry.make(TypeKind.unionTy, name: name.clone())
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, e: e)
 	for i in 0 upto paramNames.count() 'eachP'
-		_ = addStdTypeParam(tt, std: std, owner: tid, name: paramNames[i].copy())
+		_ = addStdTypeParam(tt, std: std, owner: tid, name: paramNames[i].clone())
 	end 'eachP'
-	let ud = UnionDecl.make(0 as NodeID, visibility: "export", name: name.copy(), isNoncopyable: false, typeParams: TypeParamList.new(), conforms: U32List.new(), constraints: ConstraintList.new(), cases: UnionCaseList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	let ud = UnionDecl.make(0 as NodeID, visibility: "export", name: name.clone(), isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: U32List.create(0), constraints: ConstraintList.create(0), cases: UnionCaseList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
 	_ = std.declare(Decl.unionDecl(ud))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerUnionType'
 
 function addUnionCase(mutates tt TypeTable, owner TypeID, consumes name String, consumes payload CaseFieldList)
-	tt.entries[owner as Count].cases.append(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
+	tt.entries[owner as Count].cases.push(CaseInfo.make(name, payload: payload, hasRaw: false, rawValue: I128.zero()))
 end 'addUnionCase'
 
 function registerEnumType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String, cases StringList) returns TypeID
-	var e = TypeEntry.make(TypeKind.enumTy, name: name.copy())
+	var e = TypeEntry.make(TypeKind.enumTy, name: name.clone())
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	for i in 0 upto cases.count() 'eachCase'
-		e.cases.append(CaseInfo.make(cases[i].copy(), payload: CaseFieldList.new(), hasRaw: false, rawValue: I128.zero()))
+		e.cases.push(CaseInfo.make(cases[i].clone(), payload: CaseFieldList.create(0), hasRaw: false, rawValue: I128.zero()))
 	end 'eachCase'
 	let tid = allocType(tt, e: e)
-	let ed = EnumDecl.make(0 as NodeID, visibility: "export", name: name.copy(), conforms: U32List.new(), cases: EnumCaseList.new(), methods: FuncDeclList.new(), endLabel: 0 as NodeID)
+	let ed = EnumDecl.make(0 as NodeID, visibility: "export", name: name.clone(), conforms: U32List.create(0), cases: EnumCaseList.create(0), methods: FuncDeclList.create(0), endLabel: 0 as NodeID)
 	_ = std.declare(Decl.enumDecl(ed))
 	typeMap.insert(name, value: tid)
 	return tid
 end 'registerEnumType'
 
 function registerInterfaceType(mutates tt TypeTable, mutates std Module, mutates typeMap TypeIDMap, consumes name String) returns TypeID
-	var e = TypeEntry.make(TypeKind.interfaceTy, name: name.copy())
+	var e = TypeEntry.make(TypeKind.interfaceTy, name: name.clone())
 	let ord = try std.decls.count() as DeclOrdinal otherwise panic("too many stdlib decls")
 	e.hasDecl = true
 	e.decl = DeclRef.make(diag.stdlibID, ordinal: ord)
 	let tid = allocType(tt, e: e)
-	let id = InterfaceDecl.make(0 as NodeID, visibility: "export", name: name.copy(), methods: FuncSigList.new(), endLabel: 0 as NodeID)
+	let id = InterfaceDecl.make(0 as NodeID, visibility: "export", name: name.clone(), methods: FuncSigList.create(0), endLabel: 0 as NodeID)
 	_ = std.declare(Decl.interfaceDecl(id))
 	typeMap.insert(name, value: tid)
 	return tid

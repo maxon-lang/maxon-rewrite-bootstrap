@@ -2,7 +2,7 @@ typealias Score = int(i64.min to i64.max)
 
 typealias SquareBox = containers.Box with shapes.Square
 
-typealias ScoreBoxes = array with containers.ScoreBox
+typealias ScoreBoxes = Array with containers.ScoreBox
 
 function main() returns ExitCode
 	var a = shapes.Square.make(3)
@@ -20,8 +20,8 @@ function main() returns ExitCode
 	var y = 2 as containers.Score
 	containers.swap(x, b: y)
 	print("{x} {y}\n")
-	var boxes = ScoreBoxes.new()
-	boxes.append(containers.ScoreBox.make(7))
+	var boxes = ScoreBoxes.create(0)
+	boxes.push(containers.ScoreBox.make(7))
 	print("{boxes[0].peek()}\n")
 	return 0
 end 'main'

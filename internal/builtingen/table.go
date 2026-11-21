@@ -35,10 +35,10 @@ type builtinType struct {
 }
 
 var builtinTypes = []builtinType{
-	{Key: "Array", Name: "array", Params: []string{"T"}, Managed: true, Subscriptable: true},
-	{Key: "Map", Name: "map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
-	{Key: "List", Name: "list", Params: []string{"T"}, Managed: true, Subscriptable: true},
-	{Key: "Pool", Name: "pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
+	{Key: "Array", Name: "Array", Params: []string{"T"}, Managed: true, Subscriptable: true},
+	{Key: "Map", Name: "Map", Params: []string{"K", "V"}, Managed: true, Subscriptable: true},
+	{Key: "List", Name: "List", Params: []string{"T"}, Managed: true, Subscriptable: true},
+	{Key: "Pool", Name: "Pool", Params: []string{"T"}, Managed: true, Subscriptable: true},
 	{Key: "Handle", Name: "Handle", Params: []string{"T"}},
 	{Key: "Frozen", Name: "frozen", Params: []string{"T"}, Managed: true, Shared: true},
 	{Key: "Cown", Name: "cown", Params: []string{"T"}, Managed: true, Shared: true},
@@ -83,6 +83,16 @@ var enumTypes = []enumType{
 		{"divisionByZero", "ErrorDivisionByZero"},
 		{"negativeShift", "ErrorNegativeShift"},
 	}},
+	// ArrayError and MapError are maxon's stdlib errors of its collections, cases and all; emptySlot is a case no
+	// operation here fails with, kept so a match on the error is the one maxon's needs.
+	{Key: "ArrayError", Name: "ArrayError", Cases: []enumCase{
+		{"indexOutOfBounds", "ErrorIndexOutOfBounds"},
+		{"emptySlot", "ErrorEmptySlot"},
+	}},
+	{Key: "MapError", Name: "MapError", Cases: []enumCase{
+		{"keyNotFound", "ErrorKeyNotFound"},
+		{"keyAlreadyExists", "ErrorKeyAlreadyExists"},
+	}},
 }
 
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.
@@ -107,7 +117,7 @@ type function struct {
 	Generic string
 	// Bounds are bounds on the owner's parameters, "T Bound".
 	Bounds []string
-	// Throws is the error type it throws; built-ins throw nothing yet, so the generator refuses one.
+	// Throws is the Key of the enum row it throws, which its lowering fails with as a compiled function's code does.
 	Throws string
 	// Intrinsic is what it lowers to: ast.Intrinsic+Intrinsic, ir's lower+Intrinsic.
 	Intrinsic string
@@ -123,46 +133,48 @@ var functions = []function{
 	{Owner: "Option", Name: "isSome", Result: "Bool", Intrinsic: "OptionIsSome"},
 	{Owner: "Option", Name: "unwrap", Self: "consumes", Result: "T", Intrinsic: "OptionUnwrap"},
 
-	{Owner: "Array", Name: "new", Static: true, Result: "Self", Intrinsic: "ArrayNew"},
+	{Owner: "Array", Name: "create", Static: true, Params: []string{"count Count"}, Result: "Self", Intrinsic: "ArrayCreate", Checked: true},
 	{Owner: "Array", Name: "filled", Static: true, Params: []string{"count Count", "consumes value T"}, Result: "Self", Bounds: []string{"T Copyable"}, Intrinsic: "ArrayFilled"},
 	{Owner: "Array", Name: "count", Result: "Count", Intrinsic: "ArrayCount"},
 	{Owner: "Array", Name: "isEmpty", Result: "Bool", Intrinsic: "ArrayIsEmpty"},
-	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"consumes item T"}, Intrinsic: "ArrayAppend"},
-	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"consumes item T", "at Count"}, Intrinsic: "ArrayInsert"},
-	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at Count"}, Result: "T", Intrinsic: "ArrayRemove"},
-	{Owner: "Array", Name: "pop", Self: "mutates", Result: "Option with T", Intrinsic: "ArrayPop"},
+	{Owner: "Array", Name: "push", Self: "mutates", Params: []string{"consumes value T"}, Intrinsic: "ArrayPush"},
+	{Owner: "Array", Name: "append", Self: "mutates", Params: []string{"other Self"}, Bounds: []string{"T Copyable"}, Intrinsic: "ArrayAppend"},
+	{Owner: "Array", Name: "insert", Self: "mutates", Params: []string{"at Count", "consumes value T"}, Intrinsic: "ArrayInsert"},
+	{Owner: "Array", Name: "remove", Self: "mutates", Params: []string{"at Count"}, Result: "T", Throws: "ArrayError", Intrinsic: "ArrayRemove"},
+	{Owner: "Array", Name: "pop", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ArrayPop"},
 	{Owner: "Array", Name: "dropEmpty", Self: "consumes", Intrinsic: "ArrayDropEmpty"},
 
-	{Owner: "Map", Name: "new", Static: true, Result: "Self", Intrinsic: "MapNew"},
+	{Owner: "Map", Name: "create", Static: true, Result: "Self", Intrinsic: "MapCreate"},
 	{Owner: "Map", Name: "count", Result: "Count", Intrinsic: "MapCount"},
 	{Owner: "Map", Name: "isEmpty", Result: "Bool", Intrinsic: "MapIsEmpty"},
-	{Owner: "Map", Name: "has", Params: []string{"key K"}, Result: "Bool", Intrinsic: "MapHas"},
-	{Owner: "Map", Name: "insert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Intrinsic: "MapInsert"},
+	{Owner: "Map", Name: "contains", Params: []string{"key K"}, Result: "Bool", Intrinsic: "MapContains"},
+	{Owner: "Map", Name: "insert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Throws: "MapError", Intrinsic: "MapInsert"},
+	{Owner: "Map", Name: "upsert", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Bounds: []string{"V Droppable"}, Intrinsic: "MapUpsert"},
 	{Owner: "Map", Name: "replace", Self: "mutates", Params: []string{"consumes key K", "consumes value V"}, Result: "Option with V", Intrinsic: "MapReplace"},
-	{Owner: "Map", Name: "remove", Self: "mutates", Params: []string{"key K"}, Result: "Option with V", Intrinsic: "MapRemove"},
+	{Owner: "Map", Name: "remove", Self: "mutates", Params: []string{"key K"}, Result: "Bool", Bounds: []string{"V Droppable"}, Intrinsic: "MapRemove"},
 	{Owner: "Map", Name: "dropEmpty", Self: "consumes", Intrinsic: "MapDropEmpty"},
 
-	{Owner: "List", Name: "new", Static: true, Result: "Self", Intrinsic: "ListNew"},
+	{Owner: "List", Name: "create", Static: true, Result: "Self", Intrinsic: "ListCreate"},
 	{Owner: "List", Name: "count", Result: "Count", Intrinsic: "ListCount"},
 	{Owner: "List", Name: "isEmpty", Result: "Bool", Intrinsic: "ListIsEmpty"},
 	{Owner: "List", Name: "contains", Params: []string{"handle Handle with T"}, Result: "Bool", Intrinsic: "ListContains"},
-	{Owner: "List", Name: "pushFront", Self: "mutates", Params: []string{"consumes item T"}, Result: "Handle with T", Intrinsic: "ListPushFront"},
-	{Owner: "List", Name: "pushBack", Self: "mutates", Params: []string{"consumes item T"}, Result: "Handle with T", Intrinsic: "ListPushBack"},
-	{Owner: "List", Name: "popFront", Self: "mutates", Result: "Option with T", Intrinsic: "ListPopFront"},
-	{Owner: "List", Name: "popBack", Self: "mutates", Result: "Option with T", Intrinsic: "ListPopBack"},
-	{Owner: "List", Name: "first", Result: "Option with Handle with T", Intrinsic: "ListFirst"},
-	{Owner: "List", Name: "last", Result: "Option with Handle with T", Intrinsic: "ListLast"},
+	{Owner: "List", Name: "prepend", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "ListPrepend"},
+	{Owner: "List", Name: "append", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "ListAppend"},
+	{Owner: "List", Name: "removeFirst", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveFirst"},
+	{Owner: "List", Name: "removeLast", Self: "mutates", Result: "T", Throws: "ArrayError", Intrinsic: "ListRemoveLast"},
+	{Owner: "List", Name: "first", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListFirst"},
+	{Owner: "List", Name: "last", Result: "Handle with T", Throws: "ArrayError", Intrinsic: "ListLast"},
 	{Owner: "List", Name: "next", Params: []string{"handle Handle with T"}, Result: "Option with Handle with T", Intrinsic: "ListNext"},
 	{Owner: "List", Name: "prev", Params: []string{"handle Handle with T"}, Result: "Option with Handle with T", Intrinsic: "ListPrev"},
 	{Owner: "List", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "Option with T", Intrinsic: "ListRemove"},
 	{Owner: "List", Name: "moveToFront", Self: "mutates", Params: []string{"handle Handle with T"}, Intrinsic: "ListMoveToFront"},
 	{Owner: "List", Name: "dropEmpty", Self: "consumes", Intrinsic: "ListDropEmpty"},
 
-	{Owner: "Pool", Name: "new", Static: true, Result: "Self", Intrinsic: "PoolNew"},
+	{Owner: "Pool", Name: "create", Static: true, Result: "Self", Intrinsic: "PoolCreate"},
 	{Owner: "Pool", Name: "count", Result: "Count", Intrinsic: "PoolCount"},
 	{Owner: "Pool", Name: "isEmpty", Result: "Bool", Intrinsic: "PoolIsEmpty"},
 	{Owner: "Pool", Name: "contains", Params: []string{"handle Handle with T"}, Result: "Bool", Intrinsic: "PoolContains"},
-	{Owner: "Pool", Name: "insert", Self: "mutates", Params: []string{"consumes item T"}, Result: "Handle with T", Intrinsic: "PoolInsert"},
+	{Owner: "Pool", Name: "insert", Self: "mutates", Params: []string{"consumes value T"}, Result: "Handle with T", Intrinsic: "PoolInsert"},
 	{Owner: "Pool", Name: "remove", Self: "mutates", Params: []string{"handle Handle with T"}, Result: "Option with T", Intrinsic: "PoolRemove"},
 	{Owner: "Pool", Name: "dropEmpty", Self: "consumes", Intrinsic: "PoolDropEmpty"},
 
@@ -176,9 +188,10 @@ var functions = []function{
 	{Owner: "Bytes", Name: "appendString", Self: "mutates", Params: []string{"text String"}, Intrinsic: "BytesAppendString"},
 	{Owner: "Bytes", Name: "toString", Result: "String", Intrinsic: "BytesToString"},
 
-	{Owner: "String", Name: "byteCount", Result: "Count", Intrinsic: "StringByteCount"},
+	{Owner: "String", Name: "byteLength", Result: "Count", Intrinsic: "StringByteLength"},
 	{Owner: "String", Name: "byteAt", Params: []string{"index Count"}, Result: "Byte", Intrinsic: "StringByteAt"},
-	{Owner: "String", Name: "slice", Params: []string{"from Count", "until Count"}, Result: "String", Intrinsic: "StringSlice"},
+	// sliceBytes is maxon's name for the byte range, which keeps slice for a range of graphemes.
+	{Owner: "String", Name: "sliceBytes", Params: []string{"start Count", "endPos Count"}, Result: "String", Intrinsic: "StringSliceBytes"},
 
 	// freeze takes a value and gives an immutable frozen value, which the last owner drops; share gives another owner
 	// of the same frozen value or cown, and is declared over any type because it takes either; thaw gives an owned
@@ -267,7 +280,7 @@ var entries = []entry{
 	{"ImageDataStart", "g.imageDataStart", "Linker", roleGlobal, "the start of the data section, where every string literal lives, so the runtime can tell an immortal string from one on the heap"},
 	{"ImageDataEnd", "g.imageDataEnd", "Linker", roleGlobal, "the end of the data section"},
 
-	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> array"},
+	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
 	{"ArrayElem", "rt.array.elem", "Arrays", roleCall, "(array, index) -> address of the element"},
 	{"ArrayInsert", "rt.array.insert", "Arrays", roleCall, "(array, index, element): moves it in at index, which may be the length"},
@@ -319,7 +332,7 @@ var entries = []entry{
 	{"BytesAppendStr", "rt.bytes.appendStr", "Bytes", roleCall, "(Bytes, text String)"},
 	{"BytesToString", "rt.bytes.toString", "Bytes", roleCall, "(Bytes) -> String"},
 
-	{"OsCliArgs", "rt.os.cliArgs", "Os", roleCall, "() -> array with String"},
+	{"OsCliArgs", "rt.os.cliArgs", "Os", roleCall, "() -> Array with String"},
 	{"OsGetEnv", "rt.os.getEnv", "Os", roleCall, "(name String) -> String or 0"},
 	{"OsReadFile", "rt.os.readFile", "Os", roleCall, "(path String) -> String or 0"},
 	{"OsWriteFile", "rt.os.writeFile", "Os", roleCall, "(path String, text String) -> bool"},
@@ -328,6 +341,6 @@ var entries = []entry{
 	{"OsRemoveFile", "rt.os.removeFile", "Os", roleCall, "(path String) -> bool"},
 	{"OsIsDir", "rt.os.isDir", "Os", roleCall, "(path String) -> bool"},
 	{"OsMkdir", "rt.os.mkdir", "Os", roleCall, "(path String) -> bool"},
-	{"OsListDir", "rt.os.listDir", "Os", roleCall, "(path String) -> array with String or 0"},
+	{"OsListDir", "rt.os.listDir", "Os", roleCall, "(path String) -> Array with String or 0"},
 	{"OsRunProcess", "rt.os.runProcess", "Os", roleCall, "(commandLine String) -> (exitCode<<1)|1 or 0"},
 }

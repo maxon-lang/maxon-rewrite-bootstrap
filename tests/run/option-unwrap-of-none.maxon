@@ -1,9 +1,8 @@
 // expect-exit: 1
-typealias CountArray = array with Count
+typealias CountOption = Option with Count
 
 function main() returns ExitCode
-	var a = CountArray.new()
-	let first = a.pop()
+	let first = CountOption.none
 	print("{first.isSome()}\n")
 	print("{first.unwrap()}\n")
 	return 0

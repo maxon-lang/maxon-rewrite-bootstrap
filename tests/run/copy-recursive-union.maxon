@@ -1,8 +1,8 @@
-typealias NodeArray = array with Node
+typealias NodeArray = Array with Node
 
 union Node
 	leaf(value Count, note String)
-	branch(label String, kids array with Node)
+	branch(label String, kids Array with Node)
 
 	function size() returns Count throws ArithmeticError
 		return match self 'm'
@@ -19,7 +19,7 @@ union Node
 	end 'text'
 end 'Node'
 
-function sizeOf(kids array with Node) returns Count throws ArithmeticError
+function sizeOf(kids Array with Node) returns Count throws ArithmeticError
 	var total = 0 as Count
 	for i in 0 upto kids.count() 'each'
 		total = try total + kids[i].size()
@@ -27,7 +27,7 @@ function sizeOf(kids array with Node) returns Count throws ArithmeticError
 	return total
 end 'sizeOf'
 
-function join(kids array with Node) returns String
+function join(kids Array with Node) returns String
 	var out = ""
 	for i in 0 upto kids.count() 'each'
 		out = "{out} {kids[i].text()}"
@@ -39,22 +39,22 @@ function tree(depth Count) returns Node
 	if depth == 0 'base'
 		return Node.leaf(7, note: "!")
 	end 'base'
-	var kids = NodeArray.new()
-	kids.append(tree(depth - 1))
-	kids.append(Node.leaf(depth, note: "{depth}?"))
-	kids.append(tree(depth - 1))
+	var kids = NodeArray.create(0)
+	kids.push(tree(depth - 1))
+	kids.push(Node.leaf(depth, note: "{depth}?"))
+	kids.push(tree(depth - 1))
 	return Node.branch("d{depth}", kids: kids)
 end 'tree'
 
 function main() returns ExitCode
 	let a = tree(2)
-	let b = a.copy()
+	let b = a.clone()
 	try 'report'
 		print("{a.size()} {b.size()}\n{a.text()}\n{b.text()}\n")
-		var kept = NodeArray.new()
-		kept.append(b.copy())
-		kept.append(a)
-		let c = kept.copy()
+		var kept = NodeArray.create(0)
+		kept.push(b.clone())
+		kept.push(a)
+		let c = kept.clone()
 		print("{sizeOf(c)} {sizeOf(kept)}\n")
 	end 'report' otherwise 'failed'
 		return 1

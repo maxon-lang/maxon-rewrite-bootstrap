@@ -1,0 +1,8 @@
+// expect-error: E3057 at 6:10
+typealias StringCountMap = Map with String, Count
+
+function main() returns ExitCode
+	var m = StringCountMap.create()
+	m.insert("a", value: 1)
+	return 0
+end 'main'

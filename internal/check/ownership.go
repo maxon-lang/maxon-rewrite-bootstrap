@@ -973,7 +973,7 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 		case o.typing.IsStorage(e):
 			o.fail(e.Position(), diag.ErrMoveOutOfField,
 				"a part of a temporary value cannot be moved out of it into %s, because the temporary is dropped when the statement ends; %s",
-				dest, o.checker.copyAdvice(o.ty(e), "copy it with '.copy()'", ""))
+				dest, o.checker.copyAdvice(o.ty(e), "copy it with '.clone()'", ""))
 		}
 		return s
 	}
@@ -982,17 +982,17 @@ func (o *Ownership) consume(e ast.Expr, dest ownDest, s *ownState) *ownState {
 	case p.crossesFrozen():
 		o.fail(e.Position(), diag.ErrMoveOutOfField,
 			"'%s' is part of a frozen value, which keeps its contents and shares them with its other owners, so it cannot be moved out of it into %s; %s",
-			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()'", p.text()), ""))
+			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.clone()'", p.text()), ""))
 		return s
 	case p.root.Borrowed():
 		o.fail(e.Position(), diag.ErrMoveOutOfBorrow,
 			"'%s' is borrowed, not owned, so it cannot be moved into %s; %s",
-			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()' to give it its own copy", p.text()), ""))
+			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.clone()' to give it its own copy", p.text()), ""))
 		return s
 	case p.crossesElement():
 		o.fail(e.Position(), diag.ErrMoveOutOfField,
 			"'%s' is, or lies inside, an element of a collection, which owns it, so it cannot be moved out of it into %s; %s",
-			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.copy()'", p.text()), "take it out of the collection with its remove method"))
+			p.text(), dest, o.checker.copyAdvice(o.ty(e), fmt.Sprintf("use '%s.clone()'", p.text()), "take it out of the collection with its remove method"))
 		return s
 	case len(p.steps) > 0:
 		return o.movePart(e, p, dest, s)
@@ -1017,7 +1017,7 @@ func (o *Ownership) requireWritable(site ast.Pos, p accessPath) {
 		return
 	case root.Projected:
 		o.fail(site, diag.ErrAssignToImmutable,
-			"'%s' borrows part of the match subject and cannot be changed; %s", root.Name, o.checker.copyAdvice(root.Type, fmt.Sprintf("copy it into a var first: 'var x = %s.copy()'", root.Name), "change the subject itself instead of a binding of it"))
+			"'%s' borrows part of the match subject and cannot be changed; %s", root.Name, o.checker.copyAdvice(root.Type, fmt.Sprintf("copy it into a var first: 'var x = %s.clone()'", root.Name), "change the subject itself instead of a binding of it"))
 		return
 	case root.IsSelf && !root.Mutable():
 		o.fail(site, diag.ErrAssignToImmutable,
@@ -1063,11 +1063,11 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 		case projectMatch:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is borrowed by a binding of an enclosing match on '%s'; %s",
-				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, "copy the payload out with '.copy()' before changing it", "change it after the match"))
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, "copy the payload out with '.clone()' before changing it", "change it after the match"))
 		case projectArgument:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is borrowed by the argument '%s', which the enclosing call holds while this runs; %s",
-				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("pass a copy: '%s.copy()'", pr.subject.text()), "compute this first into a variable"))
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("pass a copy: '%s.clone()'", pr.subject.text()), "compute this first into a variable"))
 		case projectTarget:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is the target of an assignment whose value is still being computed, and this changes it; compute the value into a variable first",
@@ -1075,7 +1075,7 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 		case projectOperand:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is borrowed by the operand '%s', which the enclosing comparison holds while its other operand is evaluated; %s",
-				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("compare a copy: '%s.copy()'", pr.subject.text()), "compute this first into a variable"))
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("compare a copy: '%s.clone()'", pr.subject.text()), "compute this first into a variable"))
 		case projectCollection:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is borrowed by '%s', the collection of an enclosing subscript, which holds it while the index is evaluated; compute the index first into a variable",
@@ -1083,7 +1083,7 @@ func (o *Ownership) requireNotProjected(p accessPath, site ast.Pos) {
 		case projectPart:
 			o.fail(site, diag.ErrExclusivity,
 				"'%s' is borrowed by the part '%s' of an enclosing string, which holds it while the next part is evaluated; %s",
-				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("interpolate a copy: '%s.copy()'", pr.subject.text()), "compute this first into a variable"))
+				p.text(), pr.subject.text(), o.checker.copyAdvice(pr.ty, fmt.Sprintf("interpolate a copy: '%s.clone()'", pr.subject.text()), "compute this first into a variable"))
 		default:
 			panic(diag.Internal("ownership: unknown projection kind %d", int(pr.kind)))
 		}
@@ -1404,7 +1404,7 @@ func (o *Ownership) overlapMessage(a, b callAccess) string {
 	message := fmt.Sprintf("'%s' and '%s' overlap, and '%s' is passed %s, so the callee would reach one place through two names",
 		a.path.text(), b.path.text(), changing.path.text(), changing.conv)
 	if other.conv == ast.ConvLet {
-		return fmt.Sprintf("%s; %s", message, o.checker.copyAdvice(o.ty(other.expr), fmt.Sprintf("pass a copy of the borrowed one: '%s.copy()'", other.path.text()), "pass separate values"))
+		return fmt.Sprintf("%s; %s", message, o.checker.copyAdvice(o.ty(other.expr), fmt.Sprintf("pass a copy of the borrowed one: '%s.clone()'", other.path.text()), "pass separate values"))
 	}
 	return message + "; pass separate values"
 }

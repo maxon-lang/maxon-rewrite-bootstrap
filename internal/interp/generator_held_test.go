@@ -393,10 +393,10 @@ func (g *generator) heldSubscript(use int, base place, broken bool) bool {
 			g.line("print(\"{%s}\\n\")", element)
 		case g.chance(50):
 			name := g.fresh("v")
-			g.line(kwLet+" %s = %s.copy()", name, element)
+			g.line(kwLet+" %s = %s.clone()", name, element)
 			g.declare(name, t, true, false)
 		default:
-			g.line("_ = %s.copy()", element)
+			g.line("_ = %s.clone()", element)
 		}
 	case useAssign:
 		if f, found := g.countField(t); found && g.chance(40) {
@@ -438,7 +438,7 @@ func (g *generator) ensureElement(b place) (index, result string, ok bool) {
 	switch b.t.kind {
 	case kArray:
 		if b.mutable {
-			g.line("%s.append(%s)", b.src, typed(elem, g.owned(elem, 0)))
+			g.line("%s.push(%s)", b.src, typed(elem, g.owned(elem, 0)))
 		} else {
 			g.guards = append(g.guards, b.src+".count() > 0")
 		}
@@ -448,7 +448,7 @@ func (g *generator) ensureElement(b place) (index, result string, ok bool) {
 		if b.mutable {
 			g.line("_ = %s.replace(%s, value: %s)", b.src, key, typed(elem, g.owned(elem, 0)))
 		} else {
-			g.guards = append(g.guards, fmt.Sprintf("%s.has(%s)", b.src, key))
+			g.guards = append(g.guards, fmt.Sprintf("%s.contains(%s)", b.src, key))
 		}
 		return key, typed(b.t.args[0], key), true
 	case kPool, kList:
@@ -470,7 +470,7 @@ func (g *generator) ensureElement(b place) (index, result string, ok bool) {
 		name := g.fresh("h")
 		add := "insert"
 		if b.t.kind == kList {
-			add = []string{"pushBack", "pushFront"}[g.pick(2)]
+			add = []string{"append", "prepend"}[g.pick(2)]
 		}
 		g.line(kwLet+" %s = %s.%s(%s)", name, b.src, add, typed(elem, g.owned(elem, 0)))
 		g.declare(name, g.handle(elem), false, false)

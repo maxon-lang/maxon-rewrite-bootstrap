@@ -1,8 +1,8 @@
 typealias Small = int(0 to 100)
 
-typealias SmallArray = array with Small
+typealias SmallArray = Array with Small
 
-typealias Grid = array with SmallArray
+typealias Grid = Array with SmallArray
 
 typealias Score = int(i64.min to i64.max)
 
@@ -74,13 +74,13 @@ function percent(items SmallArray) returns Percent
 end 'percent'
 
 function main() returns ExitCode
-	var items = SmallArray.new()
+	var items = SmallArray.create(0)
 	for i in 0 upto 12 'fill'
-		items.append((i * 9) as Small)
+		items.push((i * 9) as Small)
 	end 'fill'
-	var grid = Grid.new()
-	grid.append(items.copy())
-	grid.append(items.copy())
+	var grid = Grid.create(0)
+	grid.push(items.clone())
+	grid.push(items.clone())
 	print("{sum(items)} {gridSum(grid)} {countdown(10)} {net(items)} {percent(items)}\n")
 	return 0
 end 'main'

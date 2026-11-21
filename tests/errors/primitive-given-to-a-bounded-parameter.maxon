@@ -8,8 +8,8 @@ function total(x T) uses T returns Count where T implements Shape
 end 'total'
 
 function main() returns ExitCode
-	print("{total(CountArray.new())}")
+	print("{total(CountArray.create(0))}")
 	return 0
 end 'main'
 
-typealias CountArray = array with Count
+typealias CountArray = Array with Count

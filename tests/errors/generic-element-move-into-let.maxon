@@ -1,5 +1,5 @@
 // expect-error: E3901 at 3:11
-function f(consumes a array with T) uses T
+function f(consumes a Array with T) uses T
 	let x = a[0]
 end 'f'
 

@@ -1,6 +1,6 @@
 export typealias LocalScope = table.StringMap with ast.LocalID
 
-export typealias ScopeList = array with LocalScope
+export typealias ScopeList = Array with LocalScope
 
 export typealias LackMap = table.StringMap with LackInfo
 
@@ -8,7 +8,7 @@ export typealias VisitMap = table.StringMap with bool
 
 export typealias BoolIntMap = table.IntMap with bool
 
-export typealias ModConstList = array with ast.ConstValue
+export typealias ModConstList = Array with ast.ConstValue
 
 export type PendingCall
 	export var modID as diag.ModuleID
@@ -24,7 +24,7 @@ export type PendingCall
 	end 'make'
 end 'PendingCall'
 
-export typealias PendingCallList = array with PendingCall
+export typealias PendingCallList = Array with PendingCall
 
 export type PendingBound
 	export var modID as diag.ModuleID
@@ -41,7 +41,7 @@ export type PendingBound
 	end 'make'
 end 'PendingBound'
 
-export typealias PendingBoundList = array with PendingBound
+export typealias PendingBoundList = Array with PendingBound
 
 export type BlockFrame
 	export var label as String
@@ -53,7 +53,7 @@ export type BlockFrame
 	end 'make'
 end 'BlockFrame'
 
-export typealias BlockFrameList = array with BlockFrame
+export typealias BlockFrameList = Array with BlockFrame
 
 export type OuterLevel
 	export var fn as ast.FuncID
@@ -77,7 +77,7 @@ export type BehaviourFrame
 	export var captures as ast.CaptureList
 
 	export static function make(fn ast.FuncID) returns BehaviourFrame
-		return BehaviourFrame{fn: fn, accesses: ast.LocalIDList.new(), capturedOuter: ast.LocalIDList.new(), capturedInner: ast.LocalIDList.new(), captures: ast.CaptureList.new()}
+		return BehaviourFrame{fn: fn, accesses: ast.LocalIDList.create(0), capturedOuter: ast.LocalIDList.create(0), capturedInner: ast.LocalIDList.create(0), captures: ast.CaptureList.create(0)}
 	end 'make'
 end 'BehaviourFrame'
 
@@ -105,25 +105,25 @@ end 'LackStep'
 
 export type LackInfo
 	export var missing as bool
-	export var steps as array with LackStep
+	export var steps as Array with LackStep
 
 	export static function ok() returns LackInfo
-		return LackInfo{missing: false, steps: array.new()}
+		return LackInfo{missing: false, steps: Array.create(0)}
 	end 'ok'
 
 	export static function fail(consumes rootStep LackStep) returns LackInfo
-		var xs as array with LackStep
-		xs = array.new()
-		xs.append(rootStep)
+		var xs as Array with LackStep
+		xs = Array.create(0)
+		xs.push(rootStep)
 		return LackInfo{missing: true, steps: xs}
 	end 'fail'
 
 	export static function wrap(consumes step LackStep, consumes inner LackInfo) returns LackInfo
-		var xs as array with LackStep
-		xs = array.new()
-		xs.append(step)
+		var xs as Array with LackStep
+		xs = Array.create(0)
+		xs.push(step)
 		for i in 0 upto inner.steps.count() 'cp'
-			xs.append(inner.steps[i].copy())
+			xs.push(inner.steps[i].clone())
 		end 'cp'
 		return LackInfo{missing: true, steps: xs}
 	end 'wrap'
@@ -148,8 +148,8 @@ export type Checker
 	export var blocks as BlockFrameList
 	export var nextSlot as Count
 	export var whens as Count
-	export var outers as array with OuterLevel
-	export var bFrames as array with BehaviourFrame
+	export var outers as Array with OuterLevel
+	export var bFrames as Array with BehaviourFrame
 	export var inBehaviour as bool
 	export var activeBehIdx as Count
 	export var isFieldDefault as bool
@@ -163,7 +163,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.new(), pendingBounds: PendingBoundList.new(), callers: ast.FuncIDList.new(), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.new(), blocks: BlockFrameList.new(), nextSlot: 0 as Count, whens: 0 as Count, outers: array.new(), bFrames: array.new(), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new()}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, dead: false, expect: ast.noType, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new()}
 	end 'make'
 end 'Checker'
 
@@ -207,11 +207,11 @@ export function intRangeCovers(tt ast.TypeTable, dst ast.TypeID, src ast.TypeID)
 end 'intRangeCovers'
 
 export function rangeLo(tt ast.TypeTable, t ast.TypeID) returns ast.I128
-	return tt.entries[t as Count].minVal.copy()
+	return tt.entries[t as Count].minVal.clone()
 end 'rangeLo'
 
 export function rangeHi(tt ast.TypeTable, t ast.TypeID) returns ast.I128
-	return tt.entries[t as Count].maxVal.copy()
+	return tt.entries[t as Count].maxVal.clone()
 end 'rangeHi'
 
 export function sameType(tt ast.TypeTable, a ast.TypeID, b ast.TypeID) returns bool
@@ -424,18 +424,18 @@ export function joinTypes(c Checker, mutates p ast.Project, off diag.U32, a ast.
 end 'joinTypes'
 
 export function boundsOfParam(p ast.Project, boundedFn ast.FuncID, paramTy ast.TypeID) returns ast.TypeIDList
-	var out = ast.TypeIDList.new()
+	var out = ast.TypeIDList.create(0)
 	let bi = p.types.entries[paramTy as Count].boundIface
 	if bi != ast.noType 'std'
-		out.append(bi)
+		out.push(bi)
 	end 'std'
 	for i in 0 upto p.types.entries[paramTy as Count].bounds.count() 'pb'
-		out.append(p.types.entries[paramTy as Count].bounds[i].ifaceTy)
+		out.push(p.types.entries[paramTy as Count].bounds[i].ifaceTy)
 	end 'pb'
 	if boundedFn != ast.noFunc 'fnBnd'
 		for i in 0 upto p.funcs.entries[boundedFn as Count].bounds.count() 'fb'
 			if p.funcs.entries[boundedFn as Count].bounds[i].paramTy == paramTy 'hit'
-				out.append(p.funcs.entries[boundedFn as Count].bounds[i].ifaceTy)
+				out.push(p.funcs.entries[boundedFn as Count].bounds[i].ifaceTy)
 			end 'hit'
 		end 'fb'
 	end 'fnBnd'
@@ -540,8 +540,8 @@ export function typeIndexType(mutates p ast.Project, ownerTy ast.TypeID) returns
 		return args[0]
 	end 'map'
 	if (k == ast.TypeKind.builtinList or k == ast.TypeKind.builtinPool) and args.count() >= 1 'hl'
-		var hArgs = ast.TypeIDList.new()
-		hArgs.append(args[0])
+		var hArgs = ast.TypeIDList.create(0)
+		hArgs.push(args[0])
 		return ast.instantiateType(p.types, origin: p.builtins.handleOrigin, args: hArgs)
 	end 'hl'
 	return ast.noType
@@ -573,7 +573,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 	if c.capVisiting.has(key) 'cyc'
 		return LackInfo.ok()
 	end 'cyc'
-	c.capVisiting.insert(key.copy(), value: true)
+	c.capVisiting.insert(key.clone(), value: true)
 	var res = LackInfo.ok()
 	if k == ast.TypeKind.record 'rec'
 		let orig = ast.originOf(p.types, t: t)
@@ -587,7 +587,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 				let fTy = typeFieldType(p, ownerTy: t, fieldIdx: fi)
 				let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: fTy)
 				if sub.missing 'fMiss'
-					let fName = p.types.entries[orig as Count].fields[fi].name.copy()
+					let fName = p.types.entries[orig as Count].fields[fi].name.clone()
 					res = LackInfo.wrap(LackStep.part(t, partTy: fTy, place: "in its field '{fName}'"), inner: sub)
 					break 'eachF'
 				end 'fMiss'
@@ -602,13 +602,13 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		end 'nc' else 'cases'
 			let cCount = p.types.entries[orig as Count].cases.count()
 			for ci in 0 upto cCount 'eachC'
-				let cName = p.types.entries[orig as Count].cases[ci].name.copy()
+				let cName = p.types.entries[orig as Count].cases[ci].name.clone()
 				let pCount = p.types.entries[orig as Count].cases[ci].payload.count()
 				for pi in 0 upto pCount 'eachP'
 					let pTy = typePayloadType(p, ownerTy: t, caseIdx: ci, fieldIdx: pi)
 					let sub = lacksCap(c, p: p, wantCopy: wantCopy, t: pTy)
 					if sub.missing 'pMiss'
-						let pName = p.types.entries[orig as Count].cases[ci].payload[pi].name.copy()
+						let pName = p.types.entries[orig as Count].cases[ci].payload[pi].name.clone()
 						res = LackInfo.wrap(LackStep.part(t, partTy: pTy, place: "in the payload '{pName}' of its case '{cName}'"), inner: sub)
 						break 'eachC'
 					end 'pMiss'
@@ -628,7 +628,7 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 	end 'col'
 	_ = c.capVisiting.remove(key)
 	if res.missing or c.capVisiting.isEmpty() 'cache'
-		c.capKnown.insert(key, value: res.copy())
+		c.capKnown.insert(key, value: res.clone())
 	end 'cache'
 	return res
 end 'lacksCap'
@@ -676,11 +676,11 @@ export function copyAdviceText(mutates c Checker, mutates p ast.Project, t ast.T
 	let l = lacksCap(c, p: p, wantCopy: true, t: t)
 	if not l.missing 'cp'
 		if otherwiseText == "" 'only'
-			return ifCopyable.copy()
+			return ifCopyable.clone()
 		end 'only'
 		return "{ifCopyable}, or {otherwiseText}"
 	end 'cp'
-	var ow = otherwiseText.copy()
+	var ow = otherwiseText.clone()
 	if ow == "" 'def'
 		ow = "move the whole value instead of copying it"
 	end 'def'
@@ -694,11 +694,11 @@ export function queueBounds(mutates c Checker, p ast.Project, off diag.U32, para
 		let bCount = p.types.entries[pid as Count].bounds.count()
 		let stdB = p.types.entries[pid as Count].boundIface
 		if stdB != ast.noType 'hasStd'
-			c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'hasStd'
 		for bi in 0 upto bCount 'eachB'
 			let iface = p.types.entries[pid as Count].bounds[bi].ifaceTy
-			c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'eachB'
 	end 'each'
 end 'queueBounds'
@@ -714,7 +714,7 @@ export function queueMethodBounds(mutates c Checker, p ast.Project, off diag.U32
 		let iface = p.funcs.entries[method as Count].bounds[bi].ifaceTy
 		for gi in 0 upto generics.count() 'findG'
 			if generics[gi] == pTy and gi < args.count() 'hit'
-				c.pendingBounds.append(PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method))
+				c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method))
 				break 'findG'
 			end 'hit'
 		end 'findG'
@@ -725,7 +725,7 @@ export function instantiateGeneric(mutates c Checker, mutates p ast.Project, off
 	let base = ast.originOf(p.types, t: orig)
 	let params = ast.cloneTypeArgs(p.types.entries[base as Count].typeParams)
 	if args.count() != params.count() 'badCount'
-		let bName = p.types.entries[base as Count].name.copy()
+		let bName = p.types.entries[base as Count].name.clone()
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: diag.genericArityMismatch(bName, expected: "{params.count()}", supplied: "{args.count()}"), errs: errs)
 		return ast.noType
 	end 'badCount'
@@ -870,14 +870,14 @@ function applyTypeArgs(mutates c Checker, mutates p ast.Project, tr ast.NodeID, 
 		end 'badA'
 		return target
 	end 'nonGen'
-	var resolvedArgs = ast.TypeIDList.new()
+	var resolvedArgs = ast.TypeIDList.create(0)
 	for i in 0 upto argCount 'eachA'
 		let aNode = p.modules[c.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
 		let at = resolveTypeRef(c, p: p, tr: aNode, selfTy: selfTy, errs: errs)
 		if at == ast.noType 'fail'
 			return ast.noType
 		end 'fail'
-		resolvedArgs.append(at)
+		resolvedArgs.push(at)
 	end 'eachA'
 	return instantiateGeneric(c, p: p, off: off, orig: target, args: resolvedArgs, errs: errs)
 end 'applyTypeArgs'

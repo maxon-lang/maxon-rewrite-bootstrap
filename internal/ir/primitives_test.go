@@ -47,7 +47,7 @@ func TestArrayOperationsLowerToNativeEntries(t *testing.T) {
 		t.Errorf("sumOf: UsesArrays=%v refusals=%v", sum.UsesArrays, sum.Refusals)
 	}
 	drop := irText(lowerNamed(t, results, "drop"))
-	for _, entry := range []string{"rt.array.remove(", "rt.array.elem(", "storeat", "alloc 16"} {
+	for _, entry := range []string{"rt.array.remove(", "rt.array.elem(", "storeat"} {
 		if !strings.Contains(drop, entry) {
 			t.Errorf("drop does not contain %s:\n%s", entry, drop)
 		}

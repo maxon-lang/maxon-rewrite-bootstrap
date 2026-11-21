@@ -31,8 +31,8 @@ var (
 
 const checkerShiftLimit = 64
 
-// copyMethod is the name of the deep copy that every type has.
-const copyMethod = "copy"
+// cloneMethod is the name of the deep copy that every type has.
+const cloneMethod = "clone"
 
 type Checker struct {
 	project *ast.Project
@@ -493,8 +493,8 @@ func (c *Checker) declareMembers(d ast.Decl) {
 }
 
 func (c *Checker) declareSignature(it *ast.InterfaceTy, m *ast.FuncSig) {
-	if m.Name == copyMethod {
-		panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", copyMethod)))
+	if m.Name == cloneMethod {
+		panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", cloneMethod)))
 	}
 	if _, exists := it.Methods[m.Name]; exists {
 		panic(m.Error(diag.ErrDuplicateDefinition, diag.DuplicateRequirement(m.Name, it.Name())))
@@ -512,8 +512,8 @@ func (c *Checker) addMethods(methods []*ast.FuncDecl, nt ast.NominalTy, declared
 			if _, isRecord := nt.(*ast.RecordTy); m.IsStatic && !isRecord {
 				panic(m.Error(diag.ErrUnsupportedFeature, "a static function belongs in a 'type'"))
 			}
-			if m.Name == copyMethod {
-				panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", copyMethod)))
+			if m.Name == cloneMethod {
+				panic(m.Error(diag.ErrDuplicateDefinition, fmt.Sprintf("'%s' is built in for every type; name the method something else", cloneMethod)))
 			}
 			table := nt.MethodTable()
 			if _, exists := table[m.Name]; exists {
@@ -1577,7 +1577,10 @@ func (c *Checker) callGeneric(call ast.CallExpr, target *ast.FuncDecl, given []a
 	} else {
 		ordered = c.checkedArgs(call, callee, target.Pass.Specs)
 	}
-	if target.Intrinsic != ast.NotIntrinsic {
+	// A built-in free function's checks are of its arguments, which inference would otherwise refuse first with a vaguer
+	// error; a built-in method's are of the instance it is called on, which inference may fix.
+	checkFirst := target.Intrinsic != ast.NotIntrinsic && target.Owner == nil
+	if checkFirst {
 		c.checkIntrinsicArgs(call, target, ordered)
 	}
 	if given == nil {
@@ -1592,6 +1595,8 @@ func (c *Checker) callGeneric(call ast.CallExpr, target *ast.FuncDecl, given []a
 	info.Ordered = ordered
 	if target.Intrinsic == ast.NotIntrinsic {
 		c.recordUses(c.use(call))
+	} else if !checkFirst {
+		c.checkIntrinsicArgs(call, target, ordered)
 	}
 	if !c.declares(target) {
 		c.Pending = append(c.Pending, ast.PendingCall{Call: call, Callee: callee, Params: info.Pass.Specs})
@@ -1744,7 +1749,7 @@ func (c *Checker) call(call ast.CallExpr) ast.Ty {
 		}
 
 		rt := c.checkExpr(m.Obj())
-		if m.Name() == copyMethod {
+		if m.Name() == cloneMethod {
 			return c.copyCall(call, rt)
 		}
 		content := ast.Content(rt)
@@ -1976,7 +1981,7 @@ func (c *Checker) copyCall(call ast.CallExpr, t ast.Ty) ast.Ty {
 	}
 	info := c.typing.Call(call)
 	info.Kind = ast.CallCopy
-	info.Ordered = c.bindArgs(call, copyMethod, nil, false)
+	info.Ordered = c.bindArgs(call, cloneMethod, nil, false)
 	return t
 }
 
@@ -2649,4 +2654,20 @@ func (c *Checker) reaches(from, target ast.Ty, path *[]string, visited map[ast.T
 		*path = (*path)[:len(*path)-1]
 	}
 	return false
+}
+
+// checkArrayCreateArgs refuses Array.create(n) of an element that has no zero value, whose n slots would hold no element,
+// unless n is the literal 0. A generic body is checked once, so an element of a type parameter has no zero there.
+func (c *Checker) checkArrayCreateArgs(call ast.CallExpr, ordered []ast.Expr) {
+	if lit, ok := ordered[0].AsIntLit(); ok && lit.Magnitude() == ast.Zero {
+		return
+	}
+	elem := c.typing.Call(call).Generic.TypeArgs[0]
+	if ast.HasZero(elem) {
+		return
+	}
+	if _, isParam := elem.(*ast.TypeParamTy); isParam {
+		panic(ordered[0].Error(diag.ErrZeroOutsideElement, fmt.Sprintf("'create(n)' cannot publish zeroed slots of a type parameter: '%s' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", elem.Name())))
+	}
+	panic(ordered[0].Error(diag.ErrZeroOutsideElement, fmt.Sprintf("'create(n)' cannot publish zeroed slots of '%s': zero is not a value of '%s'. Create it empty with 'create(0)' and append with 'push(value)'", elem.Name(), elem.Name())))
 }

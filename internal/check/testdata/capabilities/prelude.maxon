@@ -48,7 +48,7 @@ type Stack uses T
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 
 	function size() returns Score
@@ -56,13 +56,13 @@ type Stack uses T
 	end 'size'
 
 	function boxed() returns Box with T where T implements Copyable
-		return Box.make(item.copy()).copy()
+		return Box.make(item.clone()).clone()
 	end 'boxed'
 end 'Stack'
 
-typealias PlainArray = array with Plain
+typealias PlainArray = Array with Plain
 
-typealias SocketArray = array with Socket
+typealias SocketArray = Array with Socket
 
 interface Peekable
 	function size() returns Score
@@ -101,4 +101,4 @@ union Step
 	failed(txn Txn, reason String)
 end 'Step'
 
-typealias TxnArray = array with Txn
+typealias TxnArray = Array with Txn

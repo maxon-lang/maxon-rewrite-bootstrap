@@ -8,7 +8,7 @@ end 'main'
 
 // case: copying a field out of a temporary
 function main() returns ExitCode
-	let s = Label.make("a").text.copy()
+	let s = Label.make("a").text.clone()
 	print(s)
 	return 0
 end 'main'

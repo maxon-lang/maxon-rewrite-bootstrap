@@ -4,7 +4,7 @@ type Left
 end 'Left'
 
 type Right
-	export var other as array with (cown with Left)
+	export var other as Array with (cown with Left)
 end 'Right'
 
 function main() returns ExitCode

@@ -1,5 +1,5 @@
 // expect-error: E3901 at 17:16
-typealias CellArray = array with Cell
+typealias CellArray = Array with Cell
 
 type Cell
 	export var n as Count
@@ -9,8 +9,8 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function make() returns array with Cell
-	return CellArray.new()
+function make() returns Array with Cell
+	return CellArray.create(0)
 end 'make'
 
 function main() returns ExitCode

@@ -1,4 +1,4 @@
-typealias ItemArray = array with Item
+typealias ItemArray = Array with Item
 
 export type Item
 	export var id as Count
@@ -10,14 +10,14 @@ export type Item
 end 'Item'
 
 export type Shelf
-	var items as array with Item
+	var items as Array with Item
 
 	export static function make() returns Shelf
-		return Shelf{items: ItemArray.new()}
+		return Shelf{items: ItemArray.create(0)}
 	end 'make'
 
 	export function add(mutates self, consumes item Item)
-		items.append(item)
+		items.push(item)
 	end 'add'
 
 	export function total() returns Count throws ArithmeticError
@@ -33,7 +33,7 @@ export type Shelf
 	end 'size'
 end 'Shelf'
 
-export function heaviest(items array with Item) returns Count
+export function heaviest(items Array with Item) returns Count
 	var best = 0 as Count
 	for i in 0 upto items.count() 'scan'
 		if items[i].weight > best 'bigger'
@@ -43,21 +43,21 @@ export function heaviest(items array with Item) returns Count
 	return best
 end 'heaviest'
 
-export function length(items array with T) uses T returns Count
+export function length(items Array with T) uses T returns Count
 	return items.count()
 end 'length'
 
-export function firstOr(items array with T, consumes fallback T) uses T returns T where T implements Copyable
+export function firstOr(items Array with T, consumes fallback T) uses T returns T where T implements Copyable
 	if items.isEmpty() 'none'
 		return fallback
 	end 'none'
-	return items[0].copy()
+	return items[0].clone()
 end 'firstOr'
 
-export function drain(mutates shelf Shelf) returns array with Item
-	var out = ItemArray.new()
+export function drain(mutates shelf Shelf) returns Array with Item
+	var out = ItemArray.create(0)
 	while not shelf.items.isEmpty() 'each'
-		out.append(shelf.items.remove(0))
+		out.push(try shelf.items.remove(0) otherwise panic("index out of range"))
 	end 'each'
 	return out
 end 'drain'

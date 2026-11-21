@@ -5,7 +5,7 @@ type Box
 	export var name as String
 
 	function describe() returns String
-		return name.copy()
+		return name.clone()
 	end 'describe'
 
 	function rename(mutates self, consumes value String)
@@ -17,10 +17,16 @@ type Box
 	end 'create'
 end 'Box'
 
+type Mine
+	export var n as Score
+
+	function clone() returns Score
+		return n
+	end 'clone'
+end 'Mine'
+
 function main() returns ExitCode
-	let b = Box.create(1, name: "a")
-	let c = b.copy(1)
 	return 0
 end 'main'
 
-// expect-error: E3036 at 22:16
+// expect-error: E3006 at 23:2

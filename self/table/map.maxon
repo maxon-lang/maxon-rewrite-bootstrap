@@ -4,11 +4,11 @@ enum SlotState
 	deleted = 2
 end 'SlotState'
 
-typealias States = array with SlotState
+typealias States = Array with SlotState
 
-typealias Strings = array with String
+typealias Strings = Array with String
 
-typealias Counts = array with Count
+typealias Counts = Array with Count
 
 let fnvOffset = 14695981039346656037 as Count
 
@@ -16,7 +16,7 @@ let fnvPrime = 1099511628211 as Count
 
 function hashString(s String) returns Count
 	var h = fnvOffset
-	for i in 0 upto s.byteCount() 'each'
+	for i in 0 upto s.byteLength() 'each'
 		let b = s.byteAt(i) as Count
 		h = h xor b
 		h = try h * fnvPrime otherwise 0 as Count
@@ -36,12 +36,12 @@ end 'hashCount'
 export type StringMap uses V
 	var states as States
 	var keys as Strings
-	var vals as array with (Option with V)
+	var vals as Array with (Option with V)
 	var len as Count
 	var used as Count
 
 	export static function new() returns Self
-		return Self{states: States.new(), keys: Strings.new(), vals: array.new(), len: 0 as Count, used: 0 as Count}
+		return Self{states: States.create(0), keys: Strings.create(0), vals: Array.create(0), len: 0 as Count, used: 0 as Count}
 	end 'new'
 
 	export function count() returns Count
@@ -78,7 +78,7 @@ export type StringMap uses V
 
 	export function get(key String) returns Option with V where V implements Copyable
 		match self.findSlot(key) 'slot'
-			some(i) then return vals[i].copy()
+			some(i) then return vals[i].clone()
 			none then return Option.none
 		end 'slot'
 	end 'get'
@@ -89,16 +89,16 @@ export type StringMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Strings.filled(newCap, value: "")
-		var nextVals as array with (Option with V)
-		nextVals = array.new()
+		var nextVals as Array with (Option with V)
+		nextVals = Array.create(0)
 		for _ in 0 upto newCap 'init'
-			nextVals.append(Option.none)
+			nextVals.push(Option.none)
 		end 'init'
 		let oldCap = states.count()
 		let mask = newCap - 1
 		for i in 0 upto oldCap 'rehash'
 			if states[i] == SlotState.occupied 'move'
-				let k = keys[i].copy()
+				let k = keys[i].clone()
 				var emptyVal as Option with V
 				emptyVal = Option.none
 				let v = exchange(vals[i], value: emptyVal)
@@ -150,7 +150,7 @@ export type StringMap uses V
 			used = try used + 1 otherwise used
 		end 'bumpUsed'
 		states[target] = SlotState.occupied
-		keys[target] = key.copy()
+		keys[target] = key.clone()
 		vals[target] = Option.some(value)
 		len = try len + 1 otherwise len
 	end 'insert'
@@ -176,12 +176,12 @@ end 'StringMap'
 export type IntMap uses V
 	var states as States
 	var keys as Counts
-	var vals as array with (Option with V)
+	var vals as Array with (Option with V)
 	var len as Count
 	var used as Count
 
 	export static function new() returns Self
-		return Self{states: States.new(), keys: Counts.new(), vals: array.new(), len: 0 as Count, used: 0 as Count}
+		return Self{states: States.create(0), keys: Counts.create(0), vals: Array.create(0), len: 0 as Count, used: 0 as Count}
 	end 'new'
 
 	export function count() returns Count
@@ -218,7 +218,7 @@ export type IntMap uses V
 
 	export function get(key Count) returns Option with V where V implements Copyable
 		match self.findSlot(key) 'slot'
-			some(i) then return vals[i].copy()
+			some(i) then return vals[i].clone()
 			none then return Option.none
 		end 'slot'
 	end 'get'
@@ -229,10 +229,10 @@ export type IntMap uses V
 		end 'zero'
 		var nextStates = States.filled(newCap, value: SlotState.empty)
 		var nextKeys = Counts.filled(newCap, value: 0 as Count)
-		var nextVals as array with (Option with V)
-		nextVals = array.new()
+		var nextVals as Array with (Option with V)
+		nextVals = Array.create(0)
 		for _ in 0 upto newCap 'init'
-			nextVals.append(Option.none)
+			nextVals.push(Option.none)
 		end 'init'
 		let oldCap = states.count()
 		let mask = newCap - 1

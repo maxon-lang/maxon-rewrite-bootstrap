@@ -77,7 +77,7 @@ func (g *generator) elementPlace(v *variable, mutable bool) (place, bool) {
 		return whole.inside(fmt.Sprintf("%s[%s]", v.name, h.src), v.t.args[0], mutable).element(fmt.Sprintf("%s.contains(%s)", v.name, h.src)), true
 	case kMap:
 		key := keyOf(v.t.args[0], firstElementKey)
-		return whole.inside(fmt.Sprintf("%s[%s]", v.name, key), v.t.args[1], mutable).element(fmt.Sprintf("%s.has(%s)", v.name, key)), true
+		return whole.inside(fmt.Sprintf("%s[%s]", v.name, key), v.t.args[1], mutable).element(fmt.Sprintf("%s.contains(%s)", v.name, key)), true
 	case kFrozen:
 		if v.t.args[0].kind == kArray {
 			return whole.inside(v.name+"[0]", v.t.args[0].args[0], false).element(v.name + ".count() > 0"), true
@@ -321,7 +321,7 @@ func (g *generator) actMove(depth int) bool {
 	v := movable[g.pick(len(movable))]
 	name := g.fresh("v")
 	if g.chance(30) {
-		g.line(kwLet+" %s = %s.copy()", name, v.name)
+		g.line(kwLet+" %s = %s.clone()", name, v.name)
 	} else {
 		g.line(kwLet+" %s = %s", name, v.name)
 		v.moved = true
@@ -630,9 +630,9 @@ func (g *generator) armAction(bound []param) string {
 			return fmt.Sprintf("print(\"{%s}\\n\")", b.name)
 		case b.t.managed() && g.chance(50):
 			if target, ok := g.place(b.t, true); ok && target.src != kwSelf {
-				return fmt.Sprintf("%s = %s.copy()", target.src, b.name)
+				return fmt.Sprintf("%s = %s.clone()", target.src, b.name)
 			}
-			return fmt.Sprintf("_ = %s.copy()", b.name)
+			return fmt.Sprintf("_ = %s.clone()", b.name)
 		}
 	}
 	return "print(\"arm\\n\")"
@@ -673,24 +673,24 @@ func (g *generator) actArray(depth int) bool {
 	mutable := v.mutable
 	switch n := g.pick(9); {
 	case n < 2 && mutable:
-		g.line("%s.append(%s)", v.name, g.owned(elem, 2))
+		g.line("%s.push(%s)", v.name, g.owned(elem, 2))
 	case n < 3 && mutable:
-		g.line("%s.insert(%s, at: %s)", v.name, g.owned(elem, 2), []string{"0", v.name + ".count()"}[g.pick(2)])
+		g.line("%s.insert(%s, value: %s)", v.name, []string{"0", v.name + ".count()"}[g.pick(2)], g.owned(elem, 2))
 	case n < 4 && mutable:
 		g.guarded(func() {
 			g.guards = append(g.guards, v.name+".count() > 0")
 			if g.chance(50) {
-				g.line("_ = %s.remove(0)", v.name)
+				g.line("try %s.remove(0) otherwise ignore", v.name)
 			} else {
 				name := g.fresh("v")
-				g.line(kwLet+" %s = %s.remove(0)", name, v.name)
+				g.line(kwLet+" %s = try %s.remove(0) otherwise panic(\"index out of range\")", name, v.name)
 				g.declare(name, elem, true, false)
 			}
 		})
 	case n < 5 && mutable:
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.pop()", name, v.name)
-		g.declare(name, g.option(elem), true, false)
+		g.line(kwLet+" %s = try %s.pop() otherwise %s", name, v.name, g.owned(elem, 2))
+		g.declare(name, elem, true, false)
 	case n < 6:
 		g.guarded(func() { g.elementStatement(v) })
 	case n < 7:
@@ -699,7 +699,7 @@ func (g *generator) actArray(depth int) bool {
 		g.line("put(%s, x: %s)", v.name, g.owned(elem, 2))
 	default:
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.copy()", name, v.name)
+		g.line(kwLet+" %s = %s.clone()", name, v.name)
 		g.declare(name, v.t, true, false)
 	}
 	return true
@@ -716,7 +716,7 @@ func (g *generator) elementStatement(v *variable) {
 		g.line("%s = %s", p.src, g.owned(elem, 1))
 	case n < 3 && elem.managed():
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.copy()", name, p.src)
+		g.line(kwLet+" %s = %s.clone()", name, p.src)
 		g.declare(name, elem, true, false)
 	case n < 4 && v.mutable && elem.managed():
 		g.line("overwrite(%s, value: %s)", p.src, g.owned(elem, 1))
@@ -731,7 +731,7 @@ func (g *generator) elementStatement(v *variable) {
 				}
 			}
 		}
-		g.line("_ = %s.copy()", p.src)
+		g.line("_ = %s.clone()", p.src)
 	}
 }
 
@@ -767,7 +767,7 @@ func (g *generator) actElement(depth int) bool {
 				}
 			}
 		}
-		g.line("_ = %s.copy()", p.src)
+		g.line("_ = %s.clone()", p.src)
 	})
 	return true
 }
@@ -818,12 +818,12 @@ func (g *generator) elementStatement2(v *variable) {
 		g.line("%s = %s", p.src, g.owned(elem, 1))
 	case n < 2 && elem.managed():
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.copy()", name, p.src)
+		g.line(kwLet+" %s = %s.clone()", name, p.src)
 		g.declare(name, elem, true, false)
 	case n < 3 && elem == tCount:
 		g.line("print(\"{%s}\\n\")", p.src)
 	default:
-		g.line("_ = %s.copy()", p.src)
+		g.line("_ = %s.clone()", p.src)
 	}
 }
 
@@ -836,12 +836,12 @@ func (g *generator) actList(depth int) bool {
 	switch n := g.pick(8); {
 	case n < 2:
 		name := g.fresh("h")
-		g.line(kwLet+" %s = %s.%s(%s)", name, v.name, []string{"pushBack", "pushFront"}[g.pick(2)], g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.%s(%s)", name, v.name, []string{"append", "prepend"}[g.pick(2)], g.owned(elem, 2))
 		g.declare(name, g.handle(elem), false, false)
 	case n < 3:
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.%s()", name, v.name, []string{"popFront", "popBack"}[g.pick(2)])
-		g.declare(name, g.option(elem), true, false)
+		g.line(kwLet+" %s = try %s.%s() otherwise %s", name, v.name, []string{"removeFirst", "removeLast"}[g.pick(2)], g.owned(elem, 2))
+		g.declare(name, elem, true, false)
 	case n < 4:
 		if h, ok := g.place(g.handle(elem), false); ok {
 			name := g.fresh("v")
@@ -860,8 +860,11 @@ func (g *generator) actList(depth int) bool {
 		g.guarded(func() { g.elementStatement2(v) })
 	case n < 7:
 		name := g.fresh("v")
-		g.line(kwLet+" %s = %s.first()", name, v.name)
-		g.declare(name, g.option(g.handle(elem)), true, false)
+		g.guarded(func() {
+			g.guards = append(g.guards, "not "+v.name+".isEmpty()")
+			g.line(kwLet+" %s = try %s.first() otherwise panic(\"the list is empty\")", name, v.name)
+			g.declare(name, g.handle(elem), false, false)
+		})
 	default:
 		g.line("print(\"{%s.count()}\\n\")", v.name)
 	}
@@ -876,15 +879,15 @@ func (g *generator) actMap(depth int) bool {
 	key, value := v.t.args[0], v.t.args[1]
 	switch n := g.pick(6); {
 	case n < 2:
-		g.line("%s.insert(%s, value: %s)", v.name, g.keyLiteral(key), g.owned(value, 2))
+		g.line("%s.upsert(%s, value: %s)", v.name, g.keyLiteral(key), g.owned(value, 2))
 	case n < 3:
 		name := g.fresh("v")
 		g.line(kwLet+" %s = %s.remove(%s)", name, v.name, g.keyLiteral(key))
-		g.declare(name, g.option(value), true, false)
+		g.declare(name, tBool, true, false)
 	case n < 4:
 		g.guarded(func() { g.elementStatement2(v) })
 	case n < 5:
-		g.line("print(\"{%s.has(%s)}\\n\")", v.name, g.keyLiteral(key))
+		g.line("print(\"{%s.contains(%s)}\\n\")", v.name, g.keyLiteral(key))
 	default:
 		g.line("print(\"{%s.count()}\\n\")", v.name)
 	}
@@ -1061,15 +1064,15 @@ func (g *generator) preamble() {
 	elem := g.elementType()
 	name := g.fresh("v")
 	arr := g.array(elem)
-	g.line(kwVar+" %s = %s.new()", name, g.typeExpr(arr))
+	g.line(kwVar+" %s = %s.create(0)", name, g.typeExpr(arr))
 	g.declare(name, arr, true, true)
-	g.line("%s.append(%s)", name, g.owned(elem, 2))
-	g.line("%s.append(%s)", name, g.owned(elem, 2))
+	g.line("%s.push(%s)", name, g.owned(elem, 2))
+	g.line("%s.push(%s)", name, g.owned(elem, 2))
 	if g.chance(80) && !g.arraysOnly {
 		elem = g.elementType()
 		p := g.fresh("v")
 		pt := g.pool(elem)
-		g.line(kwVar+" %s = %s.new()", p, g.typeExpr(pt))
+		g.line(kwVar+" %s = %s.create()", p, g.typeExpr(pt))
 		g.declare(p, pt, true, true)
 		h := g.fresh("h")
 		g.line(kwLet+" %s = %s.insert(%s)", h, p, g.owned(elem, 2))
@@ -1079,19 +1082,19 @@ func (g *generator) preamble() {
 		elem = g.elementType()
 		l := g.fresh("v")
 		lt := g.list(elem)
-		g.line(kwVar+" %s = %s.new()", l, g.typeExpr(lt))
+		g.line(kwVar+" %s = %s.create()", l, g.typeExpr(lt))
 		g.declare(l, lt, true, true)
 		h := g.fresh("h")
-		g.line(kwLet+" %s = %s.pushBack(%s)", h, l, g.owned(elem, 2))
+		g.line(kwLet+" %s = %s.append(%s)", h, l, g.owned(elem, 2))
 		g.declare(h, g.handle(elem), false, false)
 	}
 	if g.chance(70) && !g.arraysOnly {
 		key, elem := g.keyType(), g.elementType()
 		m := g.fresh("v")
 		mt := g.mapOf(key, elem)
-		g.line(kwVar+" %s = %s.new()", m, g.typeExpr(mt))
+		g.line(kwVar+" %s = %s.create()", m, g.typeExpr(mt))
 		g.declare(m, mt, true, true)
-		g.line("%s.insert(%s, value: %s)", m, keyOf(key, firstElementKey), g.owned(elem, 2))
+		g.line("%s.upsert(%s, value: %s)", m, keyOf(key, firstElementKey), g.owned(elem, 2))
 	}
 	g.sharingPreamble()
 }

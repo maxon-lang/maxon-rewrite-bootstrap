@@ -1,6 +1,6 @@
 typealias BoolStrMap = table.StringMap with bool
 
-typealias ScopeStack = array with BoolStrMap
+typealias ScopeStack = Array with BoolStrMap
 
 typealias TypeParamMap = table.StringMap with Count
 
@@ -33,7 +33,7 @@ type Segment
 	end 'make'
 end 'Segment'
 
-typealias SegmentList = array with Segment
+typealias SegmentList = Array with Segment
 
 type Resolver
 	export var modID as diag.ModuleID
@@ -45,7 +45,7 @@ type Resolver
 	export var whenDepth as Count
 
 	static function make(modID diag.ModuleID, consumes tree ast.Tree, consumes res ast.Resolution) returns Resolver
-		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.new(), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), whenDepth: 0 as Count}
+		return Resolver{modID: modID, tree: tree, res: res, scopes: ScopeStack.create(0), fields: BoolStrMap.new(), typeParams: TypeParamMap.new(), whenDepth: 0 as Count}
 	end 'make'
 end 'Resolver'
 
@@ -72,8 +72,8 @@ function isDeclVisible(r Resolver, p ast.Project, ref ast.DeclRef) returns bool
 	if ref.module == r.modID or ref.module == diag.stdlibID 'ownOrStd'
 		return true
 	end 'ownOrStd'
-	let owner = p.modules[ast.modIndex(ref.module)].path.copy()
-	let from = p.modules[ast.modIndex(r.modID)].path.copy()
+	let owner = p.modules[ast.modIndex(ref.module)].path.clone()
+	let from = p.modules[ast.modIndex(r.modID)].path.clone()
 	return ast.isVisible(ast.moduleDecl(p, ref: ref).level(), owner: ref.module, ownerPath: owner, from: r.modID, fromPath: from)
 end 'isDeclVisible'
 
@@ -155,7 +155,7 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 	end 'child'
 	var i = 0 as Count
 	while i < rest.count() 'walk'
-		let segName = rest[i].copy()
+		let segName = rest[i].clone()
 		if curMod == diag.stdlibID 'inStd'
 			if p.stdlib.names.has(segName) 'hitStd'
 				break 'walk'
@@ -183,7 +183,7 @@ function qualifiedLookup(mutates r Resolver, p ast.Project, head String, headOff
 		pushErr(errs, modID: r.modID, off: headOff, code: diag.errExpressionError, msg: "'{head}.{joined.toString()}' is a module, not a value")
 		return 0 as Count
 	end 'isMod'
-	let targetName = rest[i].copy()
+	let targetName = rest[i].clone()
 	var optOrd as Option with ast.DeclOrdinal
 	optOrd = Option.none
 	if curMod == diag.stdlibID 'stdGet'
@@ -224,7 +224,7 @@ function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) retur
 	end 'child'
 	var i = 0 as Count
 	while i < rest.count() 'walk'
-		let segName = rest[i].copy()
+		let segName = rest[i].clone()
 		if curMod == diag.stdlibID 'inStd'
 			break 'walk'
 		end 'inStd'
@@ -241,7 +241,7 @@ function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) retur
 	if i == rest.count() 'isMod'
 		return Option.none
 	end 'isMod'
-	let targetName = rest[i].copy()
+	let targetName = rest[i].clone()
 	var optOrd as Option with ast.DeclOrdinal
 	optOrd = Option.none
 	if curMod == diag.stdlibID 'stdGet'
@@ -256,19 +256,19 @@ function qualifiedDeclRef(p ast.Project, head String, rest ast.StringList) retur
 end 'qualifiedDeclRef'
 
 function cloneTypeParamMap(m TypeParamMap) returns TypeParamMap
-	return m.copy()
+	return m.clone()
 end 'cloneTypeParamMap'
 
 function enterTypeParams(mutates r Resolver, p ast.Project, owner String, s Surface, params ast.TypeParamList, constraints ast.ConstraintList, mutates errs diag.ErrorList) returns TypeParamMap
 	let outer = cloneTypeParamMap(r.typeParams)
 	for i in 0 upto params.count() 'add'
-		let tp = ast.TypeParam.make(params[i].id, name: params[i].name.copy())
-		let tpName = tp.name.copy()
+		let tp = ast.TypeParam.make(params[i].id, name: params[i].name.clone())
+		let tpName = tp.name.clone()
 		let slot = r.res.addTypeParam(tp)
 		r.typeParams.insert(tpName, value: slot)
 	end 'add'
 	for i in 0 upto constraints.count() 'cons'
-		let c = constraints[i].copy()
+		let c = constraints[i].clone()
 		match r.typeParams.get(c.paramName) 'hit'
 			some(slot) then bindConstraintSlot(r, p: p, owner: owner, constraints: constraints, curIdx: i, c: c, slot: slot, errs: errs)
 			none then reportUnknownTP(r, c: c, owner: owner, errs: errs)
@@ -329,14 +329,14 @@ function resolveTypeRef(mutates r Resolver, p ast.Project, tr ast.NodeID, mutate
 		pushErr(errs, modID: r.modID, off: off, code: diag.errUnknownType, msg: "no module '{firstQual}'")
 		return
 	end 'noMod'
-	var path = ast.StringList.new()
-	var offs = ast.U32List.new()
+	var path = ast.StringList.create(0)
+	var offs = ast.U32List.create(0)
 	for i in 1 upto qualCount 'qp'
-		path.append(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
-		offs.append(off)
+		path.push(r.tree.nameAt(r.tree.listAt(qualRef, index: i)))
+		offs.push(off)
 	end 'qp'
-	path.append(tName.copy())
-	offs.append(off)
+	path.push(tName.clone())
+	offs.push(off)
 	let used = qualifiedLookup(r, p: p, head: firstQual, headOff: off, rest: path, offs: offs, errs: errs)
 	if used == 0 'failed'
 		return
@@ -390,30 +390,30 @@ function checkAndBindTypeDecl(mutates r Resolver, p ast.Project, tr ast.NodeID, 
 end 'checkAndBindTypeDecl'
 
 function pushScope(mutates r Resolver)
-	r.scopes.append(BoolStrMap.new())
+	r.scopes.push(BoolStrMap.new())
 end 'pushScope'
 
 function pushScopeWith(mutates r Resolver, name String)
 	var m = BoolStrMap.new()
-	m.insert(name.copy(), value: true)
-	r.scopes.append(m)
+	m.insert(name.clone(), value: true)
+	r.scopes.push(m)
 end 'pushScopeWith'
 
 function pushScopeList(mutates r Resolver, names ast.StringList)
 	var m = BoolStrMap.new()
 	for i in 0 upto names.count() 'each'
-		m.insert(names[i].copy(), value: true)
+		m.insert(names[i].clone(), value: true)
 	end 'each'
-	r.scopes.append(m)
+	r.scopes.push(m)
 end 'pushScopeList'
 
 function popScope(mutates r Resolver)
-	_ = r.scopes.pop()
+	try r.scopes.pop() otherwise ignore
 end 'popScope'
 
 function bindLocalName(mutates r Resolver, name String)
 	let top = try r.scopes.count() - 1 otherwise 0 as Count
-	r.scopes[top].insert(name.copy(), value: true)
+	r.scopes[top].insert(name.clone(), value: true)
 end 'bindLocalName'
 
 function isNameBound(r Resolver, name String) returns bool
@@ -555,9 +555,9 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	end 'cw'
 	let nRef = ast.whenStmtNamesRef(r.tree, id: id)
 	let nLen = r.tree.listLen(nRef)
-	var bNames = ast.StringList.new()
+	var bNames = ast.StringList.create(0)
 	for i in 0 upto nLen 'nm'
-		bNames.append(r.tree.nameAt(r.tree.listAt(nRef, index: i)))
+		bNames.push(r.tree.nameAt(r.tree.listAt(nRef, index: i)))
 	end 'nm'
 	pushScopeList(r, names: bNames)
 	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
@@ -574,9 +574,9 @@ function resolveTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutate
 	if ast.tryStmtHasOtherwise(r.tree, id: id) 'ho'
 		checkEnd(r, label: ast.tryStmtHandlerLabel(r.tree, id: id), endNode: ast.tryStmtHandlerEnd(r.tree, id: id), errs: errs)
 		let bnd = ast.tryStmtBinding(r.tree, id: id)
-		var bs = ast.StringList.new()
+		var bs = ast.StringList.create(0)
 		if bnd != "" 'hasB'
-			bs.append(bnd)
+			bs.push(bnd)
 		end 'hasB'
 		pushScopeList(r, names: bs)
 		resolveBlock(r, p: p, listRef: ast.tryStmtHandlerRef(r.tree, id: id), errs: errs)
@@ -593,13 +593,13 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, mc ast.NodeID, muta
 		let arm = r.tree.listAt(armsRef, index: i) as ast.NodeID
 		let patsRef = ast.matchArmPatternsRef(r.tree, id: arm)
 		let patCount = r.tree.listLen(patsRef)
-		var bNames = ast.StringList.new()
+		var bNames = ast.StringList.create(0)
 		for pi in 0 upto patCount 'eachPat'
 			let pat = r.tree.listAt(patsRef, index: pi) as ast.NodeID
 			let bRef = ast.patternBindingsRef(r.tree, id: pat)
 			let bCount = r.tree.listLen(bRef)
 			for bi in 0 upto bCount 'eachB'
-				bNames.append(r.tree.nameAt(r.tree.listAt(bRef, index: bi)))
+				bNames.push(r.tree.nameAt(r.tree.listAt(bRef, index: bi)))
 			end 'eachB'
 		end 'eachPat'
 		pushScopeList(r, names: bNames)
@@ -637,17 +637,17 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 end 'resolveNameExpr'
 
 function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
-	var revSegs = SegmentList.new()
+	var revSegs = SegmentList.create(0)
 	var cur = id
 	while r.tree.kindOf(cur) == ast.NodeKind.memberExpr 'collect'
-		revSegs.append(Segment.make(ast.memberExprName(r.tree, id: cur), node: cur))
+		revSegs.push(Segment.make(ast.memberExprName(r.tree, id: cur), node: cur))
 		cur = ast.memberExprObj(r.tree, id: cur)
 	end 'collect'
-	var segs = SegmentList.new()
+	var segs = SegmentList.create(0)
 	let rc = revSegs.count()
 	for i in 0 upto rc 'rev'
 		let idx = try (rc - 1) - i otherwise 0 as Count
-		segs.append(revSegs[idx].copy())
+		segs.push(revSegs[idx].clone())
 	end 'rev'
 	if r.tree.kindOf(cur) != ast.NodeKind.nameExpr 'notName'
 		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
@@ -683,11 +683,11 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 	if not isModuleRoot(p, name: headName) 'notRoot'
 		return
 	end 'notRoot'
-	var names = ast.StringList.new()
-	var offs = ast.U32List.new()
+	var names = ast.StringList.create(0)
+	var offs = ast.U32List.create(0)
 	for i in 0 upto segs.count() 'cp'
-		names.append(segs[i].name.copy())
-		offs.append(r.tree.startOf(segs[i].node))
+		names.push(segs[i].name.clone())
+		offs.push(r.tree.startOf(segs[i].node))
 	end 'cp'
 	let headOff = r.tree.startOf(cur)
 	let used = qualifiedLookup(r, p: p, head: headName, headOff: headOff, rest: names, offs: offs, errs: errs)
@@ -899,7 +899,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Su
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.constraints, errs: errs)
 	checkEnd(r, label: f.name, endNode: f.endLabel, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
-	r.scopes = ScopeStack.new()
+	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = cloneBoolStrMap(fieldNames)
 	for i in 0 upto f.params.count() 'pNames'
@@ -911,7 +911,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Su
 end 'resolveFuncDecl'
 
 function cloneBoolStrMap(m BoolStrMap) returns BoolStrMap
-	return m.copy()
+	return m.clone()
 end 'cloneBoolStrMap'
 
 function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates errs diag.ErrorList)
@@ -928,7 +928,7 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates e
 end 'resolveTopDecl'
 
 function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
-	r.scopes = ScopeStack.new()
+	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = BoolStrMap.new()
 	resolveExpr(r, p: p, id: cd.valueExpr, errs: errs)
@@ -941,7 +941,7 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
-		fNames.insert(td.fields[i].name.copy(), value: true)
+		fNames.insert(td.fields[i].name.clone(), value: true)
 		let tRef = td.fields[i].typeRef
 		if tRef != 0 'ht'
 			let fTier = narrower(s.tier, b: ast.visibilityOf(td.fields[i].visibility))
@@ -950,7 +950,7 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 		end 'ht'
 		let dExpr = td.fields[i].defaultExpr
 		if dExpr != 0 'hd'
-			r.scopes = ScopeStack.new()
+			r.scopes = ScopeStack.create(0)
 			pushScope(r)
 			r.fields = BoolStrMap.new()
 			resolveExpr(r, p: p, id: dExpr, errs: errs)
@@ -961,9 +961,9 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 	for i in 0 upto td.methods.count() 'meths'
 		let ms = methodSurface(r, owner: td.name, m: td.methods[i])
 		if td.methods[i].isStatic 'st'
-			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
 		end 'st' else 'inst'
-			resolveFuncDecl(r, p: p, f: td.methods[i].copy(), s: ms, fieldNames: fNames, errs: errs)
+			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, errs: errs)
 		end 'inst'
 	end 'meths'
 	r.typeParams = outer
@@ -975,7 +975,7 @@ function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s S
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
 		let ms = methodSurface(r, owner: ed.name, m: ed.methods[i])
-		resolveFuncDecl(r, p: p, f: ed.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
+		resolveFuncDecl(r, p: p, f: ed.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
 	end 'meths'
 end 'resolveEnumDecl'
 
@@ -993,7 +993,7 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'
 		let ms = methodSurface(r, owner: ud.name, m: ud.methods[i])
-		resolveFuncDecl(r, p: p, f: ud.methods[i].copy(), s: ms, fieldNames: emptyFields, errs: errs)
+		resolveFuncDecl(r, p: p, f: ud.methods[i].clone(), s: ms, fieldNames: emptyFields, errs: errs)
 	end 'meths'
 	r.typeParams = outer
 end 'resolveUnionDecl'
@@ -1023,7 +1023,7 @@ export function resolveModule(mutates p ast.Project, modIdx Count, mutates errs 
 	let declCount = p.modules[modIdx].decls.count()
 	for i in 0 upto declCount 'eachD'
 		r.typeParams = TypeParamMap.new()
-		let d = p.modules[modIdx].decls[i].copy()
+		let d = p.modules[modIdx].decls[i].clone()
 		resolveTopDecl(r, p: p, d: d, errs: errs)
 	end 'eachD'
 	var dummyTree = ast.Tree.new(modID, text: "")

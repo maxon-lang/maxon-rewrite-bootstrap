@@ -1,18 +1,18 @@
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 typealias StringSlot = Slot with String
 
 type Ledger
-	export var entries as array with String
+	export var entries as Array with String
 
 	static function make() returns Ledger
-		return Ledger{entries: StringArray.new()}
+		return Ledger{entries: StringArray.create(0)}
 	end 'make'
 
 	function record(mutates self, into cown with Ledger, text String)
-		let note = text.copy()
+		let note = text.clone()
 		when into as l 'append'
-			l.entries.append(note)
+			l.entries.push(note)
 		end 'append'
 	end 'record'
 

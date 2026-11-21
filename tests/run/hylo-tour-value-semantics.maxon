@@ -32,7 +32,7 @@ end 'swap'
 
 function main() returns ExitCode
 	var a = Vector2.create(1, y: 2)
-	var b = a.copy()
+	var b = a.clone()
 	try b.scale(10) otherwise return 1
 	print("{a.describe()} {b.describe()} {a.dot(b)}\n")
 	var left = 1 as Number

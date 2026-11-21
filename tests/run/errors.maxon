@@ -1,6 +1,6 @@
 typealias Amount = int(i64.min to i64.max)
 
-typealias Strings = array with String
+typealias Strings = Array with String
 
 enum ParseError implements Error
 	empty
@@ -25,17 +25,17 @@ type Digits implements Source
 	end 'over'
 
 	function next(mutates self) returns Amount throws ParseError
-		if self.at >= self.text.byteCount() 'done'
+		if self.at >= self.text.byteLength() 'done'
 			throw ParseError.empty
 		end 'done'
-		let d = try strict(self.text.slice(self.at, until: self.at + 1)) otherwise throw ParseError.invalidSyntax
+		let d = try strict(self.text.sliceBytes(self.at, endPos: self.at + 1)) otherwise throw ParseError.invalidSyntax
 		self.at = self.at + 1
 		return d
 	end 'next'
 end 'Digits'
 
 function parseDigit(s String) returns Amount throws ParseError
-	if s.byteCount() == 0 'empty'
+	if s.byteLength() == 0 'empty'
 		throw ParseError.empty
 	end 'empty'
 	return match s 'digit'
@@ -138,11 +138,11 @@ function main() returns ExitCode
 	print("sum {sum(digits)}\n")
 	var bad = Digits.over("12x3")
 	print("sum {sum(bad)}\n")
-	var parts = Strings.new()
-	parts.append("1")
-	parts.append("3")
-	parts.append("q")
-	parts.append("2")
+	var parts = Strings.create(0)
+	parts.push("1")
+	parts.push("3")
+	parts.push("q")
+	parts.push("2")
 	print("first bad {firstBad(parts)} good {goodOnes(parts)}\n")
 	check("q")
 	check("1")

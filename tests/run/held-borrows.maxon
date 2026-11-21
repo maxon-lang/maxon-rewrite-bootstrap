@@ -1,12 +1,12 @@
-typealias Names = array with String
+typealias Names = Array with String
 
-typealias Rows = array with Row
+typealias Rows = Array with Row
 
 type Row
-	export var cells as array with String
+	export var cells as Array with String
 
 	static function make() returns Row
-		return Row{cells: Names.new()}
+		return Row{cells: Names.create(0)}
 	end 'make'
 end 'Row'
 
@@ -19,7 +19,7 @@ type Person
 end 'Person'
 
 function wipe(mutates a Names) returns String
-	_ = a.remove(0)
+	_ = try a.remove(0) otherwise panic("index out of range")
 	return "x"
 end 'wipe'
 
@@ -28,29 +28,29 @@ function take(consumes p Person) returns String
 end 'take'
 
 function shrink(mutates rows Rows) returns Count
-	_ = rows.remove(0)
+	_ = try rows.remove(0) otherwise panic("index out of range")
 	return 0
 end 'shrink'
 
 function main() returns ExitCode
-	var a = Names.new()
-	a.append("n{1}")
-	if a[0].copy() == wipe(a) 'copy'
+	var a = Names.create(0)
+	a.push("n{1}")
+	if a[0].clone() == wipe(a) 'copy'
 		print("same\n")
 	end 'copy'
-	a.append("n{2}")
-	a.append("n{3}")
+	a.push("n{2}")
+	a.push("n{3}")
 	let w = wipe(a)
 	if a[0] != w 'later'
 		print("{a[0]} differs from {w}\n")
 	end 'later'
 	var p = Person.make("p{1}")
-	let name = p.name.copy()
+	let name = p.name.clone()
 	print("{name}{take(p)}\n")
-	var rows = Rows.new()
-	rows.append(Row.make())
-	rows[0].cells.append("c{1}")
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
+	rows[0].cells.push("c{1}")
+	rows.push(Row.make())
 	let i = shrink(rows)
 	print("{rows.count()} {i}\n")
 	return 0

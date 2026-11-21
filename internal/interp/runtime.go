@@ -78,7 +78,7 @@ func (vm *vm) entryStreq(c *runtimeCall) {
 }
 
 func (vm *vm) entryStrLen(c *runtimeCall) {
-	c.num(int64(len(vm.text(c.arg(0), "a string byteCount"))))
+	c.num(int64(len(vm.text(c.arg(0), "a string byteLength"))))
 }
 
 func (vm *vm) entryStrByteAt(c *runtimeCall) {

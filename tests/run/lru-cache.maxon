@@ -1,6 +1,6 @@
-typealias CountEntryHandleMap = map with Count, Handle with Entry
+typealias CountEntryHandleMap = Map with Count, Handle with Entry
 
-typealias EntryList = list with Entry
+typealias EntryList = List with Entry
 
 typealias StringOption = Option with String
 
@@ -14,38 +14,36 @@ type Entry
 end 'Entry'
 
 type Cache
-	var order as list with Entry
-	var index as map with (Count, Handle with Entry)
+	var order as List with Entry
+	var index as Map with (Count, Handle with Entry)
 	var capacity as Count
 
 	static function make(capacity Count) returns Cache
-		return Cache{order: EntryList.new(), index: CountEntryHandleMap.new(), capacity: capacity}
+		return Cache{order: EntryList.create(), index: CountEntryHandleMap.create(), capacity: capacity}
 	end 'make'
 
 	function get(mutates self, key Count) returns Option with String
-		if not index.has(key) 'miss'
+		if not index.contains(key) 'miss'
 			return StringOption.none
 		end 'miss'
 		let node = index[key]
 		order.moveToFront(node)
-		return Option.some(order[node].value.copy())
+		return Option.some(order[node].value.clone())
 	end 'get'
 
 	function put(mutates self, key Count, consumes value String)
-		if index.has(key) 'hit'
+		if index.contains(key) 'hit'
 			let node = index[key]
 			order[node].value = value
 			order.moveToFront(node)
 			return
 		end 'hit'
 		if index.count() == capacity 'full'
-			match order.popBack() 'evict'
-				some(oldest) then _ = index.remove(oldest.key)
-				none then return
-			end 'evict'
+			let oldest = try order.removeLast() otherwise return
+			_ = index.remove(oldest.key)
 		end 'full'
-		let node = order.pushFront(Entry.make(key, value: value))
-		index.insert(key, value: node)
+		let node = order.prepend(Entry.make(key, value: value))
+		index.upsert(key, value: node)
 	end 'put'
 
 	function size() returns Count

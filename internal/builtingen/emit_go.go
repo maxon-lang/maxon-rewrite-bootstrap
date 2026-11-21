@@ -149,38 +149,57 @@ func emitAst(t table) string {
 func emitGoFunction(sb *strings.Builder, f fn) {
 	op := "Intrinsic" + f.Intrinsic
 	ret := f.goType(f.result)
+	var made, place string
+	var extra []string
 	switch {
 	case f.Owner == stringOwner:
-		fmt.Fprintf(sb, "\tb.StringMethods[%q] = b.function(%s, %q, %s%s)\n", f.Name, op, f.Name, ret, f.goParams())
+		made = fmt.Sprintf("b.function(%s, %q, %s%s)", op, f.Name, ret, f.goParams())
+		place = fmt.Sprintf("b.StringMethods[%q] = %%s", f.Name)
 	case f.Owner != "":
-		made := fmt.Sprintf("b.method(%s, %s, %q, %v, %s, %s%s)", goOwner(f.Owner), op, f.Name, f.Static, goConv(f.Self), ret, f.goParams())
-		if len(f.bounds) == 0 {
-			fmt.Fprintf(sb, "\t%s\n", made)
-			return
-		}
-		fmt.Fprintf(sb, "\t{\n\t\tf := %s\n", made)
+		made = fmt.Sprintf("b.method(%s, %s, %q, %v, %s, %s%s)", goOwner(f.Owner), op, f.Name, f.Static, goConv(f.Self), ret, f.goParams())
+		place = "%s"
 		for _, bd := range f.bounds {
-			fmt.Fprintf(sb, "\t\tf.Bounds = append(f.Bounds, ParamBound{Param: %s, Iface: b.%s})\n", f.goType(&tyExpr{name: bd.param}), bd.iface)
+			extra = append(extra, fmt.Sprintf("f.Bounds = append(f.Bounds, ParamBound{Param: %s, Iface: b.%s})", f.goType(&tyExpr{name: bd.param}), bd.iface))
 		}
-		sb.WriteString("\t}\n")
 	default:
-		place := func(made string) string {
-			if f.Field != "" {
-				return fmt.Sprintf("b.%s = %s", f.Field, made)
-			}
-			return fmt.Sprintf("b.stdlib.Declare(%s)", made)
+		place = "b.stdlib.Declare(%s)"
+		if f.Field != "" {
+			place = fmt.Sprintf("b.%s = %%s", f.Field)
 		}
-		if f.generic == "" {
-			fmt.Fprintf(sb, "\t%s\n", place(fmt.Sprintf("b.function(%s, %q, %s%s)", op, f.Name, ret, f.goParams())))
-			return
+		made = fmt.Sprintf("b.function(%s, %q, %s%s)", op, f.Name, ret, f.goParams())
+		if f.generic != "" {
+			made = fmt.Sprintf("b.genericFunction(%s, %q, %s, %s%s)", op, f.Name, goTypeParamVar, ret, f.goParams())
 		}
+	}
+	if f.Throws != "" {
+		extra = append(extra, fmt.Sprintf("f.ErrorType = b.%s", f.Throws))
+	}
+	var lines []string
+	if f.generic != "" {
 		tp := fmt.Sprintf("newTypeParamTy(%q)", f.generic)
 		if f.gbound != "" {
 			tp = fmt.Sprintf("newBoundedTypeParamTy(%q, b.%s)", f.generic, f.gbound)
 		}
-		fmt.Fprintf(sb, "\t{\n\t\t%s := %s\n", goTypeParamVar, tp)
-		fmt.Fprintf(sb, "\t\t%s\n\t}\n", place(fmt.Sprintf("b.genericFunction(%s, %q, %s, %s%s)", op, f.Name, goTypeParamVar, ret, f.goParams())))
+		lines = append(lines, fmt.Sprintf("%s := %s", goTypeParamVar, tp))
 	}
+	if len(extra) == 0 {
+		lines = append(lines, fmt.Sprintf(place, made))
+	} else {
+		lines = append(lines, "f := "+made)
+		lines = append(lines, extra...)
+		if place != "%s" {
+			lines = append(lines, fmt.Sprintf(place, "f"))
+		}
+	}
+	if len(lines) == 1 {
+		fmt.Fprintf(sb, "\t%s\n", lines[0])
+		return
+	}
+	sb.WriteString("\t{\n")
+	for _, l := range lines {
+		fmt.Fprintf(sb, "\t\t%s\n", l)
+	}
+	sb.WriteString("\t}\n")
 }
 
 func quotedList(xs []string) string {

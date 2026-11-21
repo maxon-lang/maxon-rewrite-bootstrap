@@ -34,7 +34,7 @@ type Box uses T where T implements Droppable
 	end 'make'
 
 	function peek() returns T where T implements Copyable
-		return item.copy()
+		return item.clone()
 	end 'peek'
 
 	function replace(mutates self, consumes next T)
@@ -48,8 +48,8 @@ union Slot uses T
 end 'Slot'
 
 function swap(mutates a T, mutates b T) uses T where T implements Copyable
-	var tmp = a.copy()
-	a = b.copy()
+	var tmp = a.clone()
+	a = b.clone()
 	b = tmp
 end 'swap'
 

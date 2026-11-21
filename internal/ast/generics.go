@@ -197,7 +197,7 @@ func typeNames(args []Ty) []string {
 	return names
 }
 
-// InstanceSpelling is how source writes a generic type given its arguments: 'Box with Count', 'map with (String,
+// InstanceSpelling is how source writes a generic type given its arguments: 'Box with Count', 'Map with (String,
 // Count)', and 'Option with (Box with Count)', where an argument that is an instance itself is parenthesized.
 func InstanceSpelling(base string, args []string) string {
 	if len(args) == 1 && !strings.Contains(args[0], " with ") {

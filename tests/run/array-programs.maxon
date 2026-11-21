@@ -1,6 +1,6 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias CounterArray = array with Counter
+typealias CounterArray = Array with Counter
 
 type Counter
 	var n as Count
@@ -19,18 +19,18 @@ type Counter
 end 'Counter'
 
 type Stack
-	var items = CountArray.new()
+	var items = CountArray.create(0)
 
 	static function make() returns Stack
 		return Stack{}
 	end 'make'
 
 	function push(mutates self, n Count)
-		items.append(n)
+		items.push(n)
 	end 'push'
 
 	function pop(mutates self) returns Count
-		return items.pop().unwrap()
+		return try items.pop() otherwise panic("the array is empty")
 	end 'pop'
 
 	function size() returns Count
@@ -39,12 +39,12 @@ type Stack
 end 'Stack'
 
 union Shape
-	row(cells array with Count)
+	row(cells Array with Count)
 	empty
 end 'Shape'
 
 function primesBelow(limit Count) returns Count
-	var prime = array.filled(limit, value: true)
+	var prime = Array.filled(limit, value: true)
 	var found = 0 as Count
 	for i in 2 upto limit 'candidates'
 		if prime[i] 'is'
@@ -59,7 +59,7 @@ function primesBelow(limit Count) returns Count
 	return found
 end 'primesBelow'
 
-function sort(mutates a array with Count)
+function sort(mutates a Array with Count)
 	var swapped = true
 	while swapped 'passes'
 		swapped = false
@@ -76,9 +76,9 @@ end 'sort'
 
 function main() returns ExitCode
 	print("{primesBelow(100)} {primesBelow(1000)}\n")
-	var a = CountArray.new()
+	var a = CountArray.create(0)
 	for i in 0 upto 8 'fill'
-		a.append(((i * 5) mod 8) as Count)
+		a.push(((i * 5) mod 8) as Count)
 	end 'fill'
 	sort(a)
 	var line = ""
@@ -86,9 +86,9 @@ function main() returns ExitCode
 		line = "{line}{a[i]},"
 	end 'show'
 	print("{line}\n")
-	var counters = CounterArray.new()
+	var counters = CounterArray.create(0)
 	for i in 0 upto 3 'make'
-		counters.append(Counter.make())
+		counters.push(Counter.make())
 	end 'make'
 	counters[1].bump()
 	counters[1].bump()
@@ -98,12 +98,12 @@ function main() returns ExitCode
 	stack.push(10)
 	stack.push(20)
 	print("{stack.pop()} {stack.size()} {stack.pop()} {stack.size()}\n")
-	var fib = CountArray.new()
-	fib.append(0)
-	fib.append(1)
+	var fib = CountArray.create(0)
+	fib.push(0)
+	fib.push(1)
 	let rounds = 30 as Count
 	for i in 2 upto rounds 'memo'
-		fib.append(try fib[i - 1] + fib[i - 2] otherwise break)
+		fib.push(try fib[i - 1] + fib[i - 2] otherwise break)
 	end 'memo'
 	print("{fib[29]} {fib.count()}\n")
 	let shape = Shape.row(a)

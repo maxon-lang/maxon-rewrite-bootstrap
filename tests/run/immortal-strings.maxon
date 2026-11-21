@@ -1,4 +1,4 @@
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 type Label
 	export var text as String
@@ -26,17 +26,17 @@ end 'pass'
 
 function main() returns ExitCode
 	var a = "literal"
-	let b = a.copy()
+	let b = a.clone()
 	a = "replaced"
 	let label = Label.make("field")
-	let again = label.copy()
-	var words = StringArray.new()
-	words.append("one")
-	words.append(greeting)
-	words.append(Color.green.name)
+	let again = label.clone()
+	var words = StringArray.create(0)
+	words.push("one")
+	words.push(greeting)
+	words.push(Color.green.name)
 	words[0] = "uno"
 	let moved = pass("passed")
-	let mark = Mark.text("payload").copy()
+	let mark = Mark.text("payload").clone()
 	let named = mark.name
 	print("{a} {b} {label.text} {again.text} {words[0]} {words[1]} {words[2]} {moved} {named} {greeting}\n")
 	return 0

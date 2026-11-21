@@ -1,6 +1,6 @@
 typealias BoolStrMap = table.StringMap with bool
 
-typealias DiscDirList = array with DiscoveredDir
+typealias DiscDirList = Array with DiscoveredDir
 
 type DiscoveredDir
 	export var modPath as String
@@ -10,18 +10,18 @@ type DiscoveredDir
 	export var children as CountList
 
 	static function make(consumes modPath String, consumes dir String) returns DiscoveredDir
-		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.new(), subNames: ast.StringList.new(), children: CountList.new()}
+		return DiscoveredDir{modPath: modPath, dir: dir, filePaths: ast.StringList.create(0), subNames: ast.StringList.create(0), children: CountList.create(0)}
 	end 'make'
 end 'DiscoveredDir'
 
 function endsWithMaxon(name String) returns bool
 	let sn = 6 as Count
-	let n = name.byteCount()
+	let n = name.byteLength()
 	if n <= sn 'short'
 		return false
 	end 'short'
 	let start = n - sn
-	return name.slice(start, until: n) == ".maxon"
+	return name.sliceBytes(start, endPos: n) == ".maxon"
 end 'endsWithMaxon'
 
 function sortStrings(mutates xs ast.StringList)
@@ -31,8 +31,8 @@ function sortStrings(mutates xs ast.StringList)
 		while j > 0 'shift'
 			let prev = try j - 1 otherwise 0 as Count
 			if diag.stringLess(xs[j], b: xs[prev]) 'swap'
-				let cur = xs[j].copy()
-				xs[j] = xs[prev].copy()
+				let cur = xs[j].clone()
+				xs[j] = xs[prev].clone()
 				xs[prev] = cur
 				j = prev
 			end 'swap' else 'done'
@@ -43,7 +43,7 @@ function sortStrings(mutates xs ast.StringList)
 end 'sortStrings'
 
 function trimTrailingSlash(p String) returns String
-	var endPos = p.byteCount()
+	var endPos = p.byteLength()
 	while endPos > 0 'trim'
 		let lastIdx = try endPos - 1 otherwise 0 as Count
 		let ch = p.byteAt(lastIdx)
@@ -55,7 +55,7 @@ function trimTrailingSlash(p String) returns String
 		end 'driveRoot'
 		endPos = lastIdx
 	end 'trim'
-	return p.slice(0 as Count, until: endPos)
+	return p.sliceBytes(0 as Count, endPos: endPos)
 end 'trimTrailingSlash'
 
 function joinPath(dir String, name String) returns String
@@ -64,9 +64,9 @@ function joinPath(dir String, name String) returns String
 		if clean == "." 'dot'
 			return ".\\{name}"
 		end 'dot'
-		return name.copy()
+		return name.clone()
 	end 'cur'
-	let cn = clean.byteCount()
+	let cn = clean.byteLength()
 	if cn > 0 'chkLast'
 		let last = clean.byteAt(try cn - 1 otherwise 0 as Count)
 		if last == 47 or last == 92 'hasSep'
@@ -77,15 +77,15 @@ function joinPath(dir String, name String) returns String
 end 'joinPath'
 
 function parentDir(path String) returns String
-	var i = path.byteCount()
+	var i = path.byteLength()
 	while i > 0 'back'
 		let prev = try i - 1 otherwise 0 as Count
 		let ch = path.byteAt(prev)
 		if ch == 47 or ch == 92 'sep'
 			if prev == 0 'rootSlash'
-				return path.slice(0 as Count, until: 1 as Count)
+				return path.sliceBytes(0 as Count, endPos: 1 as Count)
 			end 'rootSlash'
-			return path.slice(0 as Count, until: prev)
+			return path.sliceBytes(0 as Count, endPos: prev)
 		end 'sep'
 		i = prev
 	end 'back'
@@ -96,7 +96,7 @@ function isQualifier(name String) returns bool
 	if name == "" or ast.isReserved(name) 'res'
 		return false
 	end 'res'
-	let n = name.byteCount()
+	let n = name.byteLength()
 	for i in 0 upto n 'ch'
 		let c = name.byteAt(i)
 		let isAlpha = (c >= 97 and c <= 122) or (c >= 65 and c <= 90) or c == 95
@@ -117,37 +117,37 @@ function scanDirectory(mutates nodes DiscDirList, consumes dir String, consumes 
 	var entries as ast.StringList
 	match consumes optEntries 'ld'
 		some(xs) then entries = xs
-		none then entries = ast.StringList.new()
+		none then entries = ast.StringList.create(0)
 	end 'ld'
-	var rawFiles = ast.StringList.new()
-	var rawDirs = ast.StringList.new()
+	var rawFiles = ast.StringList.create(0)
+	var rawDirs = ast.StringList.create(0)
 	for i in 0 upto entries.count() 'split'
-		let name = entries[i].copy()
+		let name = entries[i].clone()
 		let full = joinPath(dir, name: name)
 		if isDir(full) 'd'
-			let startsDot = name.byteCount() > 0 and name.byteAt(0 as Count) == 46
+			let startsDot = name.byteLength() > 0 and name.byteAt(0 as Count) == 46
 			if not startsDot and name != "bin" and name != "obj" 'keepDir'
-				rawDirs.append(name)
+				rawDirs.push(name)
 			end 'keepDir'
 		end 'd' else if endsWithMaxon(name) 'f'
-			rawFiles.append(full)
+			rawFiles.push(full)
 		end 'f'
 	end 'split'
 	sortStrings(rawFiles)
 	sortStrings(rawDirs)
 	let myIdx = nodes.count()
-	nodes.append(DiscoveredDir.make(modPath.copy(), dir: dir.copy()))
+	nodes.push(DiscoveredDir.make(modPath.clone(), dir: dir.clone()))
 	nodes[myIdx].filePaths = rawFiles
-	var childNames = ast.StringList.new()
-	var childIdxs = CountList.new()
+	var childNames = ast.StringList.create(0)
+	var childIdxs = CountList.create(0)
 	for i in 0 upto rawDirs.count() 'eachSub'
-		let subName = rawDirs[i].copy()
-		var childModPath = subName.copy()
+		let subName = rawDirs[i].clone()
+		var childModPath = subName.clone()
 		if modPath != "" 'sub'
 			childModPath = "{modPath}.{subName}"
 		end 'sub'
 		let childDir = joinPath(dir, name: subName)
-		match scanDirectory(nodes, dir: childDir.copy(), modPath: childModPath, isRoot: false, errs: errs) 'res'
+		match scanDirectory(nodes, dir: childDir.clone(), modPath: childModPath, isRoot: false, errs: errs) 'res'
 			some(childIdx) then checkChildQualifier(isRoot, subName: subName, childDir: childDir, childIdx: childIdx, childNames: childNames, childIdxs: childIdxs, errs: errs)
 			none then _ = 0
 		end 'res'
@@ -166,24 +166,24 @@ function checkChildQualifier(isRoot bool, consumes subName String, consumes chil
 		diag.pushLocatedError(errs, code: diag.errBadModuleName, message: "the directory '{subName}' cannot be written as a qualifier; rename it to an identifier that is not reserved", file: childDir, line: 1 as Count, col: 1 as Count)
 		return
 	end 'bad'
-	childNames.append(subName)
-	childIdxs.append(childIdx)
+	childNames.push(subName)
+	childIdxs.push(childIdx)
 end 'checkChildQualifier'
 
 function collectModuleTree(nodes DiscDirList, nodeIdx Count, mutates p ast.Project) returns diag.ModuleID
-	var m = ast.Module.new(0 as diag.ModuleID, path: nodes[nodeIdx].modPath.copy(), text: "", files: ast.FileSpanList.new())
-	m.dir = nodes[nodeIdx].dir.copy()
+	var m = ast.Module.new(0 as diag.ModuleID, path: nodes[nodeIdx].modPath.clone(), text: "", files: ast.FileSpanList.create(0))
+	m.dir = nodes[nodeIdx].dir.clone()
 	for i in 0 upto nodes[nodeIdx].filePaths.count() 'fp'
-		m.filePaths.append(nodes[nodeIdx].filePaths[i].copy())
+		m.filePaths.push(nodes[nodeIdx].filePaths[i].clone())
 	end 'fp'
 	let mid = ast.addModule(p, m: m)
 	for i in 0 upto nodes[nodeIdx].children.count() 'ch'
 		let subIdx = nodes[nodeIdx].children[i]
-		let subName = nodes[nodeIdx].subNames[i].copy()
+		let subName = nodes[nodeIdx].subNames[i].clone()
 		let childMid = collectModuleTree(nodes, nodeIdx: subIdx, p: p)
 		let mIdx = ast.modIndex(mid)
-		p.modules[mIdx].childNames.append(subName)
-		p.modules[mIdx].childIDs.append(childMid)
+		p.modules[mIdx].childNames.push(subName)
+		p.modules[mIdx].childIDs.push(childMid)
 	end 'ch'
 	return mid
 end 'collectModuleTree'
@@ -192,17 +192,17 @@ function allocShellTypeParams(mutates p ast.Project, modID diag.ModuleID, tid as
 	var seen = BoolStrMap.new()
 	let mIdx = ast.modIndex(modID)
 	for i in 0 upto tps.count() 'each'
-		let tpName = tps[i].name.copy()
+		let tpName = tps[i].name.clone()
 		let tpNode = tps[i].id
 		if seen.has(tpName) 'dup'
 			let off = p.modules[mIdx].tree.records[tpNode as Count].start
 			diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{tpName}' is already declared as a type parameter", module: modID, offset: off)
 			continue 'each'
 		end 'dup'
-		seen.insert(tpName.copy(), value: true)
+		seen.insert(tpName.clone(), value: true)
 		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
 		let tpTid = ast.allocType(p.types, e: tpEntry)
-		p.types.entries[tid as Count].typeParams.append(tpTid)
+		p.types.entries[tid as Count].typeParams.push(tpTid)
 	end 'each'
 end 'allocShellTypeParams'
 
@@ -221,9 +221,9 @@ function createShellType(mutates p ast.Project, modID diag.ModuleID, ord ast.Dec
 end 'createShellType'
 
 function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDecl, mutates errs diag.ErrorList)
-	var e = ast.TypeEntry.make(ast.TypeKind.record, name: td.name.copy())
+	var e = ast.TypeEntry.make(ast.TypeKind.record, name: td.name.clone())
 	e.hasDecl = true
-	e.decl = ref.copy()
+	e.decl = ref.clone()
 	e.isNoncopyable = td.isNoncopyable
 	let tid = ast.allocType(p.types, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
@@ -231,17 +231,17 @@ function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDec
 end 'allocRecordShell'
 
 function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
-	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.copy())
+	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.clone())
 	e.hasDecl = true
-	e.decl = ref.copy()
+	e.decl = ref.clone()
 	let tid = ast.allocType(p.types, e: e)
 	p.declTypes.insert(ast.declKey(ref), value: tid)
 end 'allocEnumShell'
 
 function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, mutates errs diag.ErrorList)
-	var e = ast.TypeEntry.make(ast.TypeKind.unionTy, name: ud.name.copy())
+	var e = ast.TypeEntry.make(ast.TypeKind.unionTy, name: ud.name.clone())
 	e.hasDecl = true
-	e.decl = ref.copy()
+	e.decl = ref.clone()
 	e.isNoncopyable = ud.isNoncopyable
 	let tid = ast.allocType(p.types, e: e)
 	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
@@ -249,9 +249,9 @@ function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDec
 end 'allocUnionShell'
 
 function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl)
-	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.copy())
+	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
-	e.decl = ref.copy()
+	e.decl = ref.clone()
 	let tid = ast.allocType(p.types, e: e)
 	p.declTypes.insert(ast.declKey(ref), value: tid)
 end 'allocIfaceShell'
@@ -278,12 +278,12 @@ function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, p
 end 'pushDuplicateDecl'
 
 function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc Option with String, mutates errs diag.ErrorList)
-	let mPath = p.modules[modIdx].path.copy()
-	var fPaths = ast.StringList.new()
-	var fTexts = ast.StringList.new()
+	let mPath = p.modules[modIdx].path.clone()
+	var fPaths = ast.StringList.create(0)
+	var fTexts = ast.StringList.create(0)
 	for i in 0 upto p.modules[modIdx].filePaths.count() 'readF'
-		let fp = p.modules[modIdx].filePaths[i].copy()
-		fPaths.append(fp.copy())
+		let fp = p.modules[modIdx].filePaths[i].clone()
+		fPaths.push(fp.clone())
 		if i == 0 'chkSingle'
 			match singleSrc 'ss'
 				some(txt) then appendCopyStr(fTexts, s: txt)
@@ -300,18 +300,18 @@ function parseSingleModule(mutates p ast.Project, modIdx Count, singleSrc Option
 	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts)
 	match consumes res 'pr'
 		ok(parsedMod) then copyParsedIntoModule(p, modIdx: modIdx, parsedMod: parsedMod)
-		err(pe) then diag.pushLocatedError(errs, code: pe.code.copy(), message: pe.message.copy(), file: pe.file.copy(), line: pe.line, col: pe.col)
+		err(pe) then diag.pushLocatedError(errs, code: pe.code.clone(), message: pe.message.clone(), file: pe.file.clone(), line: pe.line, col: pe.col)
 	end 'pr'
 end 'parseSingleModule'
 
 function appendCopyStr(mutates fTexts ast.StringList, s String)
-	fTexts.append(s.copy())
+	fTexts.push(s.clone())
 end 'appendCopyStr'
 
 function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag.ErrorList)
 	match consumes readFile(fp) 'rf'
-		some(txt) then fTexts.append(txt)
-		none then diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "cannot read '{fp}'", file: fp.copy(), line: 1 as Count, col: 1 as Count)
+		some(txt) then fTexts.push(txt)
+		none then diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "cannot read '{fp}'", file: fp.clone(), line: 1 as Count, col: 1 as Count)
 	end 'rf'
 end 'readOneFile'
 
@@ -324,10 +324,10 @@ function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes pars
 end 'copyParsedIntoModule'
 
 export function loadProject(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
-	var p = ast.Project.new(rootPath.copy())
+	var p = ast.Project.new(rootPath.clone())
 	if isDir(rootPath) 'dir'
-		var nodes = DiscDirList.new()
-		_ = scanDirectory(nodes, dir: rootPath.copy(), modPath: "", isRoot: true, errs: errs)
+		var nodes = DiscDirList.create(0)
+		_ = scanDirectory(nodes, dir: rootPath.clone(), modPath: "", isRoot: true, errs: errs)
 		if nodes.count() > 0 'collect'
 			let rootMid = collectModuleTree(nodes, nodeIdx: 0 as Count, p: p)
 			p.rootModule = rootMid
@@ -341,9 +341,9 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 			some(txt) then singleText = txt
 			none then return failMissingInput(rootPath, errs: errs)
 		end 'rf'
-		var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.new())
+		var m = ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0))
 		m.dir = parentDir(rootPath)
-		m.filePaths.append(rootPath.copy())
+		m.filePaths.push(rootPath.clone())
 		let rootMid = ast.addModule(p, m: m)
 		p.rootModule = rootMid
 		parseSingleModule(p, modIdx: 0 as Count, singleSrc: Option.some(singleText), errs: errs)
@@ -356,6 +356,6 @@ export function loadProject(rootPath String, mutates errs diag.ErrorList) return
 end 'loadProject'
 
 function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns Option with ast.Project
-	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.copy(), line: 1 as Count, col: 1 as Count)
+	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)
 	return Option.none
 end 'failMissingInput'

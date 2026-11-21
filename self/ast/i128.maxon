@@ -154,7 +154,7 @@ export type I128
 		if hi == -1 and lo >= (9223372036854775808 as Count) 'i64'
 			return "{self.toSigned()}"
 		end 'i64'
-		var mag = self.copy()
+		var mag = self.clone()
 		var negPrefix = ""
 		if self.isNeg() 'neg'
 			mag = self.neg()
@@ -203,16 +203,16 @@ end 'divMod10'
 
 export function maxI128(a I128, b I128) returns I128
 	if a.gt(b) 'gt'
-		return a.copy()
+		return a.clone()
 	end 'gt'
-	return b.copy()
+	return b.clone()
 end 'maxI128'
 
 export function minI128(a I128, b I128) returns I128
 	if a.lt(b) 'lt'
-		return a.copy()
+		return a.clone()
 	end 'lt'
-	return b.copy()
+	return b.clone()
 end 'minI128'
 
 export function mulWide(a I128, b I128) returns I128
@@ -296,11 +296,11 @@ export function quoTrunc(a I128, b I128) returns I128
 	if b.isZero() 'zero'
 		return I128.zero()
 	end 'zero'
-	var magA = a.copy()
+	var magA = a.clone()
 	if magA.isNeg() 'negA'
 		magA = magA.neg()
 	end 'negA'
-	var magB = b.copy()
+	var magB = b.clone()
 	if magB.isNeg() 'negB'
 		magB = magB.neg()
 	end 'negB'

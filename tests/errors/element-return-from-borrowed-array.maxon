@@ -7,7 +7,7 @@ type Cell
 	end 'make'
 end 'Cell'
 
-function f(xs array with Cell) returns Cell
+function f(xs Array with Cell) returns Cell
 	return xs[0]
 end 'f'
 

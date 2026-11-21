@@ -5,7 +5,7 @@ function main() returns ExitCode
 	let own = thaw(d)
 	var again = thaw(e)
 	again.grow()
-	let copied = d.copy()
+	let copied = d.clone()
 	let shelf = Shelf.make(copied, tray: cown(own))
 	let f = freeze(shelf)
 	print("{f.doc.title} {f.doc.n}")

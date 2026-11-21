@@ -1,8 +1,8 @@
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 type Item
 	export var text as String
-	export var parts = StringArray.new()
+	export var parts = StringArray.create(0)
 
 	static function make(consumes text String) returns Item
 		return Item{text: text}
@@ -11,8 +11,8 @@ end 'Item'
 
 function main() returns ExitCode
 	var a = Item.make("a{1}")
-	a.parts.append("p{2}")
-	let b = a.copy()
-	let lit = "lit".copy()
+	a.parts.push("p{2}")
+	let b = a.clone()
+	let lit = "lit".clone()
 	return 0
 end 'main'

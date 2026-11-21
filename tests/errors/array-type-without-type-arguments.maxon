@@ -1,5 +1,5 @@
 // expect-error: E2056 at 2:14
-function f(a array) returns Count
+function f(a Array) returns Count
 	return 0
 end 'f'
 

@@ -1,10 +1,10 @@
 // expect-error: E3902
 function fill(sets out String, from String)
-	out = from.copy()
+	out = from.clone()
 end 'fill'
 
 function main() returns ExitCode
 	var s as String
-	fill(s, from: s.copy())
+	fill(s, from: s.clone())
 	return 0
 end 'main'

@@ -1,8 +1,8 @@
 // expect-error: E3005 at 6:12
-typealias StringCountMap = map with String, Count
+typealias StringCountMap = Map with String, Count
 
 function main() returns ExitCode
-	var m = StringCountMap.new()
+	var m = StringCountMap.create()
 	print("{m[1]}")
 	return 0
 end 'main'

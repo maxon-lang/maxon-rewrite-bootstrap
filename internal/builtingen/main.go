@@ -171,8 +171,8 @@ func load() table {
 	seen := map[string]int{}
 	names := map[string]bool{}
 	for _, f := range functions {
-		if f.Throws != "" {
-			fail("%s throws %s; a built-in that throws needs the declaration of its error first", f.Name, f.Throws)
+		if f.Throws != "" && enumOf(f.Throws) == nil {
+			fail("%s throws %s, which is no enum row of the table", f.Name, f.Throws)
 		}
 		if f.Owner != "" && f.Owner != stringOwner && !isOwner(f.Owner) {
 			fail("%s is a method of %s, which the table does not declare", f.Name, f.Owner)
@@ -274,6 +274,15 @@ func primOf(name string) *primType {
 	for i := range primTypes {
 		if primTypes[i].Key == name {
 			return &primTypes[i]
+		}
+	}
+	return nil
+}
+
+func enumOf(key string) *enumType {
+	for i := range enumTypes {
+		if enumTypes[i].Key == key {
+			return &enumTypes[i]
 		}
 	}
 	return nil

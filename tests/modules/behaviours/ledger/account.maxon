@@ -13,7 +13,7 @@ export function credit(into cown with Account, amount Count)
 end 'credit'
 
 export function report(from cown with Account, label String)
-	let note = label.copy()
+	let note = label.clone()
 	when from as a 'report'
 		print("{note}: {a.balance}\n")
 	end 'report'

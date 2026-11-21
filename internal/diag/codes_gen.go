@@ -49,6 +49,7 @@ const (
 	ErrFieldNotInitialized       = "E3086" // A struct literal omits a field that has no default.
 	ErrUseAfterMove              = "E3102" // A name is read after its value was moved out of it.
 	ErrDivisionByZero            = "E3103" // A division or 'mod' has a constant zero divisor.
+	ErrZeroOutsideElement        = "E3106" // An array is created with zeroed elements of a type that has no zero value.
 	ErrThrowsNotAnErrorEnum      = "E3113" // A 'throws' clause names something other than an enum.
 	ErrAmbiguousBound            = "E3114" // A method call on a type parameter names a method that more than one of its bounds declares.
 	ErrExposesHiddenType         = "E3167" // A declaration's signature names a type less visible than the declaration.

@@ -1,12 +1,12 @@
 // expect-exit: 1
-typealias StringCountMap = map with String, Count
+typealias StringCountMap = Map with String, Count
 
 function main() returns ExitCode
-	var m = StringCountMap.new()
-	m.insert("a", value: 1)
-	print("{m["a"]} {m.has("b")}\n")
+	var m = StringCountMap.create()
+	m.upsert("a", value: 1)
+	print("{m["a"]} {m.contains("b")}\n")
 	let gone = m.remove("a")
-	print("{gone.isSome()} {m.has("a")}\n")
+	print("{gone} {m.contains("a")}\n")
 	print("{m["a"]}\n")
 	return 0
 end 'main'

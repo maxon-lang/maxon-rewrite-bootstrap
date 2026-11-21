@@ -1,9 +1,9 @@
 // expect-error: E3186 at 34:23
-typealias Names = array with String
+typealias Names = Array with String
 
-typealias Rows = array with Row
+typealias Rows = Array with Row
 
-typealias Items = array with Item
+typealias Items = Array with Item
 
 union Item
 	named(name String)
@@ -11,16 +11,16 @@ union Item
 end 'Item'
 
 type Row
-	export var cells as array with String
-	export var items as array with Item
+	export var cells as Array with String
+	export var items as Array with Item
 
 	static function make() returns Row
-		return Row{cells: Names.new(), items: Items.new()}
+		return Row{cells: Names.create(0), items: Items.create(0)}
 	end 'make'
 end 'Row'
 
 function shrink(mutates rows Rows) returns Count
-	_ = rows.remove(0)
+	_ = try rows.remove(0) otherwise panic("index out of range")
 	return 0
 end 'shrink'
 
@@ -29,8 +29,8 @@ function bump(mutates s String)
 end 'bump'
 
 function main() returns ExitCode
-	var rows = Rows.new()
-	rows.append(Row.make())
+	var rows = Rows.create(0)
+	rows.push(Row.make())
 	rows[0].cells[shrink(rows)] = "x"
 	return 0
 end 'main'

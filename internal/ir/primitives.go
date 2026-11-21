@@ -92,6 +92,20 @@ func (l *Lowerer) requireOrTrap(cond V, message string) {
 	l.cur = ok
 }
 
+// failUnless continues only when cond holds, and otherwise fails with the case errorCase of the error the operation
+// throws, after drop, when it is not nil, has dropped what the operation was given and does not keep on that path.
+func (l *Lowerer) failUnless(cond V, errorCase int, drop func()) {
+	ok := l.b.NewBlock()
+	bad := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(cond, ok, bad))
+	l.cur = bad
+	if drop != nil {
+		drop()
+	}
+	l.seal(Jump(l.failure(errorCase, NoReg)))
+	l.cur = ok
+}
+
 // countedLoop runs body once for each index from 0 to below limit.
 func (l *Lowerer) countedLoop(limit V, body func(index V)) {
 	index := l.f.NewSlot(KindScalar)
@@ -204,8 +218,16 @@ func (l *Lowerer) intrinsic(c call) V {
 	return result
 }
 
-func (l *Lowerer) lowerArrayNew(c call, _ V, _ []V) V {
-	return l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
+// lowerArrayCreate is an array of count zero elements. An element with no zero value is refused unless count is 0, so
+// only an array of one with a zero value has slots to fill.
+func (l *Lowerer) lowerArrayCreate(c call, _ V, args []V) V {
+	out := l.entry(c.CallExpr.Position(), RtArrayNew, KindManaged)
+	if ast.HasZero(l.binding.Apply(l.ty(c.CallExpr.Expr())).(*ast.BuiltinTy).Element()) {
+		l.countedLoop(args[0], func(i V) {
+			l.entryVoid(c.CallExpr.Position(), RtArrayInsert, out, i, l.konst(0))
+		})
+	}
+	return out
 }
 
 func (l *Lowerer) lowerArrayFilled(c call, _ V, args []V) V {
@@ -220,17 +242,45 @@ func (l *Lowerer) lowerArrayIsEmpty(c call, recv V, _ []V) V {
 	return l.isZero(l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv))
 }
 
-func (l *Lowerer) lowerArrayAppend(c call, recv V, args []V) V {
+func (l *Lowerer) lowerArrayPush(c call, recv V, args []V) V {
 	l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv), args[0])
 	return l.konst(0)
 }
 
+// lowerArrayAppend pushes a copy of each element of other, which the call only reads. The length of other is read once,
+// before the first push.
+func (l *Lowerer) lowerArrayAppend(c call, recv V, args []V) V {
+	site := c.CallExpr.Position()
+	elem := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
+	l.countedLoop(l.entry(site, RtArrayLen, KindScalar, args[0]), func(i V) {
+		addr := l.entry(site, RtArrayElem, KindScalar, args[0], i)
+		v := l.reg(l.kind(elem))
+		l.emit(LoadAt(v, addr))
+		copied := l.copyValue(site, v, elem)
+		l.entryVoid(site, RtArrayInsert, recv, l.entry(site, RtArrayLen, KindScalar, recv), copied)
+	})
+	return l.konst(0)
+}
+
+// lowerArrayInsert inserts at an index above the count at the end, as maxon's insert clamps it.
 func (l *Lowerer) lowerArrayInsert(c call, recv V, args []V) V {
-	l.entryVoid(c.CallExpr.Position(), RtArrayInsert, recv, args[1], args[0])
+	site := c.CallExpr.Position()
+	n := l.entry(site, RtArrayLen, KindScalar, recv)
+	at := l.f.NewSlot(KindScalar)
+	l.emit(StoreSlot(at, args[0], false))
+	clamp := l.b.NewBlock()
+	insert := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(l.compare(CmpGt, args[0], n, true), clamp, insert))
+	l.cur = clamp
+	l.emit(StoreSlot(at, n, false))
+	l.goTo(insert)
+	l.entryVoid(site, RtArrayInsert, recv, l.load(at), args[1])
 	return l.konst(0)
 }
 
 func (l *Lowerer) lowerArrayRemove(c call, recv V, args []V) V {
+	n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
+	l.failUnless(l.compare(CmpLt, args[0], n, true), ast.ErrorIndexOutOfBounds, nil)
 	return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, args[0])
 }
 
@@ -240,14 +290,13 @@ func (l *Lowerer) lowerArrayDropEmpty(c call, recv V, _ []V) V {
 
 func (l *Lowerer) lowerArrayPop(c call, recv V, _ []V) V {
 	n := l.entry(c.CallExpr.Position(), RtArrayLen, KindScalar, recv)
-	return l.optional(l.nonZero(n), func() V {
-		last := l.reg(KindScalar)
-		l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
-		return l.entry(c.CallExpr.Position(), RtArrayRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, last)
-	})
+	l.failUnless(l.nonZero(n), ast.ErrorIndexOutOfBounds, nil)
+	last := l.reg(KindScalar)
+	l.emit(Bin(last, BinSub, n, l.konst(1), true, NoBlock))
+	return l.entry(c.CallExpr.Position(), RtArrayRemove, l.kind(l.ty(c.CallExpr.Expr())), recv, last)
 }
 
-func (l *Lowerer) lowerMapNew(c call, _ V, _ []V) V {
+func (l *Lowerer) lowerMapCreate(c call, _ V, _ []V) V {
 	return l.entry(c.CallExpr.Position(), RtMapNew, KindManaged)
 }
 
@@ -259,11 +308,24 @@ func (l *Lowerer) lowerMapIsEmpty(c call, recv V, _ []V) V {
 	return l.isZero(l.entry(c.CallExpr.Position(), RtMapLen, KindScalar, recv))
 }
 
-func (l *Lowerer) lowerMapHas(c call, recv V, args []V) V {
+func (l *Lowerer) lowerMapContains(c call, recv V, args []V) V {
 	return l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0])
 }
 
+// lowerMapInsert adds a key the map does not have, and fails with keyAlreadyExists for one it has, dropping the key and
+// the value it was given.
 func (l *Lowerer) lowerMapInsert(c call, recv V, args []V) V {
+	bt := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy)
+	has := l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0])
+	l.failUnless(l.isZero(has), ast.ErrorKeyAlreadyExists, func() {
+		l.dropValue(args[0], bt.Index())
+		l.dropValue(args[1], bt.Element())
+	})
+	l.entryVoid(c.CallExpr.Position(), RtMapInsert, recv, args[0], args[1])
+	return l.konst(0)
+}
+
+func (l *Lowerer) lowerMapUpsert(c call, recv V, args []V) V {
 	l.entryVoid(c.CallExpr.Position(), RtMapInsert, recv, args[0], args[1])
 	return l.konst(0)
 }
@@ -276,13 +338,20 @@ func (l *Lowerer) lowerMapDropEmpty(c call, recv V, _ []V) V {
 	return l.dropEmpty(c, RtMapLen, recv)
 }
 
+// lowerMapRemove drops the value of a key the map has, and gives whether it had one.
 func (l *Lowerer) lowerMapRemove(c call, recv V, args []V) V {
-	return l.optional(l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0]), func() V {
-		return l.entry(c.CallExpr.Position(), RtMapRemove, l.payloadKind(l.ty(c.CallExpr.Expr())), recv, args[0])
-	})
+	value := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
+	present := l.entry(c.CallExpr.Position(), RtMapHas, KindScalar, recv, args[0])
+	remove := l.b.NewBlock()
+	end := l.b.NewBlock()
+	l.b.Terminate(l.cur, Branch(present, remove, end))
+	l.cur = remove
+	l.dropValue(l.entry(c.CallExpr.Position(), RtMapRemove, l.kind(value), recv, args[0]), value)
+	l.goTo(end)
+	return present
 }
 
-func (l *Lowerer) lowerListNew(c call, _ V, _ []V) V {
+func (l *Lowerer) lowerListCreate(c call, _ V, _ []V) V {
 	return l.entry(c.CallExpr.Position(), RtListNew, KindManaged)
 }
 
@@ -298,28 +367,28 @@ func (l *Lowerer) lowerListContains(c call, recv V, args []V) V {
 	return l.entry(c.CallExpr.Position(), RtListContains, KindScalar, recv, args[0])
 }
 
-func (l *Lowerer) lowerListPushFront(c call, recv V, args []V) V {
+func (l *Lowerer) lowerListPrepend(c call, recv V, args []V) V {
 	return l.entry(c.CallExpr.Position(), RtListPushFront, KindScalar, recv, args[0])
 }
 
-func (l *Lowerer) lowerListPushBack(c call, recv V, args []V) V {
+func (l *Lowerer) lowerListAppend(c call, recv V, args []V) V {
 	return l.entry(c.CallExpr.Position(), RtListPushBack, KindScalar, recv, args[0])
 }
 
-func (l *Lowerer) lowerListPopFront(c call, recv V, _ []V) V {
-	return l.popped(c, RtListLen, RtListPopFront, recv)
+func (l *Lowerer) lowerListRemoveFirst(c call, recv V, _ []V) V {
+	return l.removeEnd(c, RtListPopFront, recv)
 }
 
-func (l *Lowerer) lowerListPopBack(c call, recv V, _ []V) V {
-	return l.popped(c, RtListLen, RtListPopBack, recv)
+func (l *Lowerer) lowerListRemoveLast(c call, recv V, _ []V) V {
+	return l.removeEnd(c, RtListPopBack, recv)
 }
 
 func (l *Lowerer) lowerListFirst(c call, recv V, _ []V) V {
-	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListFirst, KindScalar, recv))
+	return l.endHandle(l.entry(c.CallExpr.Position(), RtListFirst, KindScalar, recv))
 }
 
 func (l *Lowerer) lowerListLast(c call, recv V, _ []V) V {
-	return l.handleOrNone(l.entry(c.CallExpr.Position(), RtListLast, KindScalar, recv))
+	return l.endHandle(l.entry(c.CallExpr.Position(), RtListLast, KindScalar, recv))
 }
 
 func (l *Lowerer) lowerListNext(c call, recv V, args []V) V {
@@ -345,7 +414,7 @@ func (l *Lowerer) lowerListMoveToFront(c call, recv V, args []V) V {
 	return l.konst(0)
 }
 
-func (l *Lowerer) lowerPoolNew(c call, _ V, _ []V) V {
+func (l *Lowerer) lowerPoolCreate(c call, _ V, _ []V) V {
 	return l.entry(c.CallExpr.Position(), RtPoolNew, KindManaged)
 }
 
@@ -383,7 +452,7 @@ func (l *Lowerer) lowerOptionUnwrap(c call, recv V, _ []V) V {
 	return l.unwrap(c, recv)
 }
 
-func (l *Lowerer) lowerStringByteCount(c call, recv V, _ []V) V {
+func (l *Lowerer) lowerStringByteLength(c call, recv V, _ []V) V {
 	return l.runtime(RtStrLen, KindScalar, recv)
 }
 
@@ -391,7 +460,7 @@ func (l *Lowerer) lowerStringByteAt(c call, recv V, args []V) V {
 	return l.runtime(RtStrByteAt, KindScalar, recv, args[0])
 }
 
-func (l *Lowerer) lowerStringSlice(c call, recv V, args []V) V {
+func (l *Lowerer) lowerStringSliceBytes(c call, recv V, args []V) V {
 	return l.runtime(RtStrSlice, KindManaged, recv, args[0], args[1])
 }
 
@@ -535,7 +604,7 @@ func (l *Lowerer) lowerExchange(c call, _ V, _ []V) V {
 	return old
 }
 
-// mapReplace is map.insert that gives back the value the key had: it moves that value out of its entry, and the insert
+// mapReplace is Map.upsert that gives back the value the key had: it moves that value out of its entry, and the insert
 // then finds the entry empty, keeps its place and drops nothing.
 func (l *Lowerer) mapReplace(c call, m, key, value V) V {
 	elem := ast.Content(l.binding.Apply(l.ty(c.Receiver))).(*ast.BuiltinTy).Element()
@@ -551,12 +620,18 @@ func (l *Lowerer) isZero(v V) V { return l.compare(CmpEq, v, l.konst(0), false) 
 
 func (l *Lowerer) nonZero(v V) V { return l.compare(CmpNe, v, l.konst(0), false) }
 
-// popped is some(element) from the end of a list that has one, and none from an empty list.
-func (l *Lowerer) popped(c call, length, pop Rt, list V) V {
-	n := l.entry(c.CallExpr.Position(), length, KindScalar, list)
-	return l.optional(l.nonZero(n), func() V {
-		return l.entry(c.CallExpr.Position(), pop, l.payloadKind(l.ty(c.CallExpr.Expr())), list)
-	})
+// removeEnd moves the element at an end of a list out, and fails with indexOutOfBounds on an empty list, as maxon's
+// List does.
+func (l *Lowerer) removeEnd(c call, pop Rt, list V) V {
+	l.failUnless(l.nonZero(l.entry(c.CallExpr.Position(), RtListLen, KindScalar, list)), ast.ErrorIndexOutOfBounds, nil)
+	return l.entry(c.CallExpr.Position(), pop, l.kind(l.ty(c.CallExpr.Expr())), list)
+}
+
+// endHandle is the handle of a list's first or last node, which the entry gives as 0 for an empty list, where the
+// operation fails with indexOutOfBounds.
+func (l *Lowerer) endHandle(handle V) V {
+	l.failUnless(l.nonZero(handle), ast.ErrorIndexOutOfBounds, nil)
+	return handle
 }
 
 // handleOrNone is some(handle) for a handle that names a node, and none for the 0 that an entry returns for no node.

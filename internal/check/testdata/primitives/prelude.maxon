@@ -1,4 +1,4 @@
-typealias CellArray = array with Cell
+typealias CellArray = Array with Cell
 
 type Cell
 	export var n as Count
@@ -18,12 +18,12 @@ type Entry
 end 'Entry'
 
 type Rack
-	export var left as array with Cell
-	export var right as array with Cell
+	export var left as Array with Cell
+	export var right as Array with Cell
 	export var node as Handle with Cell
 
 	static function make(node Handle with Cell) returns Rack
-		return Rack{left: CellArray.new(), right: CellArray.new(), node: node}
+		return Rack{left: CellArray.create(0), right: CellArray.create(0), node: node}
 	end 'make'
 end 'Rack'
 
@@ -43,11 +43,11 @@ function pair(mutates a Cell, mutates b Cell)
 	a.n = b.n
 end 'pair'
 
-function grow(mutates xs array with Count, n Count)
-	xs.append(n)
+function grow(mutates xs Array with Count, n Count)
+	xs.push(n)
 end 'grow'
 
-function drop(mutates xs array with Cell) returns Count
+function drop(mutates xs Array with Cell) returns Count
 	return xs.count()
 end 'drop'
 
@@ -59,8 +59,8 @@ function take(consumes c Cell) returns Count
 	return c.n
 end 'take'
 
-function make() returns array with Cell
-	return CellArray.new()
+function make() returns Array with Cell
+	return CellArray.create(0)
 end 'make'
 
 function total(x T) uses T returns Count where T implements Shape

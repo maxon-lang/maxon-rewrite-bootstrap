@@ -25,30 +25,30 @@ end 'Shape'
 
 function main() returns ExitCode
 	var original = Outer.create(1, label: "first")
-	var duplicate = original.copy()
+	var duplicate = original.clone()
 	duplicate.inner.n = 99
 	duplicate.label = "second"
 	print("{original.inner.n} {original.label} {duplicate.inner.n} {duplicate.label}\n")
 	var n = 5 as Score
-	var m = n.copy()
+	var m = n.clone()
 	m = 6
 	print("{n} {m}\n")
 	let shape = Shape.named(Inner.create(3), name: "tri")
-	let again = shape.copy()
+	let again = shape.clone()
 	match again 'm1'
 		circle(r) then print("circle {r}\n")
 		named(i, name) then print("named {i.n} {name}\n")
 		empty then print("empty\n")
 	end 'm1'
-	let round = Shape.circle(8).copy()
+	let round = Shape.circle(8).clone()
 	match round 'm2'
 		circle(r) then print("circle {r}\n")
 		named(i, name) then print("named {i.n} {name}\n")
 		empty then print("empty\n")
 	end 'm2'
-	let none = Shape.empty.copy()
+	let none = Shape.empty.clone()
 	print("{none.name} {shape.name}\n")
-	let kept = original.inner.copy()
+	let kept = original.inner.clone()
 	original.inner.n = 7
 	print("{kept.n} {original.inner.n}\n")
 	return 0

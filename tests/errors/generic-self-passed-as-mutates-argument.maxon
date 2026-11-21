@@ -8,7 +8,7 @@ type Box uses T where T implements Copyable
 end 'Box'
 
 function replace(mutates b Box with T) uses T where T implements Copyable
-	b.item = b.item.copy()
+	b.item = b.item.clone()
 end 'replace'
 
 function main() returns ExitCode

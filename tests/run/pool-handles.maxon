@@ -1,4 +1,4 @@
-typealias CellPool = pool with Cell
+typealias CellPool = Pool with Cell
 
 type Cell
 	export var n as Count
@@ -13,7 +13,7 @@ function bump(mutates c Cell)
 end 'bump'
 
 function main() returns ExitCode
-	var p = CellPool.new()
+	var p = CellPool.create()
 	let a = p.insert(Cell.make(1))
 	let b = p.insert(Cell.make(2))
 	print("{p.count()} {p.contains(a)} {p.contains(b)} {a == b}\n")
@@ -33,7 +33,7 @@ function main() returns ExitCode
 	print("{first.isSome()} {second.isSome()} {p.isEmpty()}\n")
 	let late = p.insert(Cell.make(4))
 	print("{p.contains(b)} {p.contains(c)} {p.contains(late)} {p[late].n}\n")
-	let copied = p.copy()
+	let copied = p.clone()
 	p[late].n = 5
 	print("{p[late].n} {copied[late].n} {copied.contains(late)}\n")
 	return 0

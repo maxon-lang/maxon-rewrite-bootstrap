@@ -1,18 +1,18 @@
 // expect-error: E3186 at 16:18
-typealias Names = array with String
+typealias Names = Array with String
 
 function label(n Count) returns String
 	return "n{n}"
 end 'label'
 
 function wipe(mutates a Names) returns String
-	_ = a.remove(0)
+	_ = try a.remove(0) otherwise panic("index out of range")
 	return "x"
 end 'wipe'
 
 function main() returns ExitCode
-	var a = Names.new()
-	a.append(label(1))
+	var a = Names.create(0)
+	a.push(label(1))
 	if a[0] != wipe(a) 'ne'
 		print("ne\n")
 	end 'ne'

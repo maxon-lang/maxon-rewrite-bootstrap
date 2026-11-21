@@ -17,10 +17,10 @@ const (
 )
 
 var builtinKinds = [...]builtinKindInfo{
-	BuiltinArray:  {name: "array", managed: true, subscriptable: true, shared: false},
-	BuiltinMap:    {name: "map", managed: true, subscriptable: true, shared: false},
-	BuiltinList:   {name: "list", managed: true, subscriptable: true, shared: false},
-	BuiltinPool:   {name: "pool", managed: true, subscriptable: true, shared: false},
+	BuiltinArray:  {name: "Array", managed: true, subscriptable: true, shared: false},
+	BuiltinMap:    {name: "Map", managed: true, subscriptable: true, shared: false},
+	BuiltinList:   {name: "List", managed: true, subscriptable: true, shared: false},
+	BuiltinPool:   {name: "Pool", managed: true, subscriptable: true, shared: false},
 	BuiltinHandle: {name: "Handle", managed: false, subscriptable: false, shared: false},
 	BuiltinFrozen: {name: "frozen", managed: true, subscriptable: false, shared: true},
 	BuiltinCown:   {name: "cown", managed: true, subscriptable: false, shared: true},
@@ -35,31 +35,33 @@ const (
 	NotIntrinsic Intrinsic = iota
 	IntrinsicOptionIsSome
 	IntrinsicOptionUnwrap
-	IntrinsicArrayNew
+	IntrinsicArrayCreate
 	IntrinsicArrayFilled
 	IntrinsicArrayCount
 	IntrinsicArrayIsEmpty
+	IntrinsicArrayPush
 	IntrinsicArrayAppend
 	IntrinsicArrayInsert
 	IntrinsicArrayRemove
 	IntrinsicArrayPop
 	IntrinsicArrayDropEmpty
-	IntrinsicMapNew
+	IntrinsicMapCreate
 	IntrinsicMapCount
 	IntrinsicMapIsEmpty
-	IntrinsicMapHas
+	IntrinsicMapContains
 	IntrinsicMapInsert
+	IntrinsicMapUpsert
 	IntrinsicMapReplace
 	IntrinsicMapRemove
 	IntrinsicMapDropEmpty
-	IntrinsicListNew
+	IntrinsicListCreate
 	IntrinsicListCount
 	IntrinsicListIsEmpty
 	IntrinsicListContains
-	IntrinsicListPushFront
-	IntrinsicListPushBack
-	IntrinsicListPopFront
-	IntrinsicListPopBack
+	IntrinsicListPrepend
+	IntrinsicListAppend
+	IntrinsicListRemoveFirst
+	IntrinsicListRemoveLast
 	IntrinsicListFirst
 	IntrinsicListLast
 	IntrinsicListNext
@@ -67,7 +69,7 @@ const (
 	IntrinsicListRemove
 	IntrinsicListMoveToFront
 	IntrinsicListDropEmpty
-	IntrinsicPoolNew
+	IntrinsicPoolCreate
 	IntrinsicPoolCount
 	IntrinsicPoolIsEmpty
 	IntrinsicPoolContains
@@ -83,9 +85,9 @@ const (
 	IntrinsicBytesAppend
 	IntrinsicBytesAppendString
 	IntrinsicBytesToString
-	IntrinsicStringByteCount
+	IntrinsicStringByteLength
 	IntrinsicStringByteAt
-	IntrinsicStringSlice
+	IntrinsicStringSliceBytes
 	IntrinsicFreeze
 	IntrinsicShare
 	IntrinsicThaw
@@ -117,6 +119,18 @@ const (
 	ErrorNegativeShift  = 2
 )
 
+// The cases of ArrayError, by index.
+const (
+	ErrorIndexOutOfBounds = 0
+	ErrorEmptySlot        = 1
+)
+
+// The cases of MapError, by index.
+const (
+	ErrorKeyNotFound      = 0
+	ErrorKeyAlreadyExists = 1
+)
+
 // builtinDecls are the declarations of the table that the rest of the compiler names.
 type builtinDecls struct {
 	Array           *BuiltinTy
@@ -129,6 +143,8 @@ type builtinDecls struct {
 	Bytes           *BuiltinTy
 	Option          *UnionTy
 	ArithmeticError *EnumTy
+	ArrayError      *EnumTy
+	MapError        *EnumTy
 	Copyable        *InterfaceTy
 	Droppable       *InterfaceTy
 	Error           *InterfaceTy
@@ -152,54 +168,86 @@ func (b *Builtins) declareTable() {
 		{Name: "none"},
 	}
 	b.ArithmeticError = b.newEnum("ArithmeticError", "overflow", "divisionByZero", "negativeShift")
+	b.ArrayError = b.newEnum("ArrayError", "indexOutOfBounds", "emptySlot")
+	b.MapError = b.newEnum("MapError", "keyNotFound", "keyAlreadyExists")
 	b.Copyable = b.declareInterface("Copyable")
 	b.Droppable = b.declareInterface("Droppable")
 	b.Error = b.declareInterface("Error")
 	b.method(b.Option, IntrinsicOptionIsSome, "isSome", false, ConvLet, BoolTy)
 	b.method(b.Option, IntrinsicOptionUnwrap, "unwrap", false, ConvConsumes, b.Option.Params[0])
-	b.method(b.Array, IntrinsicArrayNew, "new", true, ConvLet, SelfType(b.Array))
+	b.method(b.Array, IntrinsicArrayCreate, "create", true, ConvLet, SelfType(b.Array), param("count", b.Count, ConvLet))
 	{
 		f := b.method(b.Array, IntrinsicArrayFilled, "filled", true, ConvLet, SelfType(b.Array), param("count", b.Count, ConvLet), param("value", b.Array.Params[0], ConvConsumes))
 		f.Bounds = append(f.Bounds, ParamBound{Param: b.Array.Params[0], Iface: b.Copyable})
 	}
 	b.method(b.Array, IntrinsicArrayCount, "count", false, ConvLet, b.Count)
 	b.method(b.Array, IntrinsicArrayIsEmpty, "isEmpty", false, ConvLet, BoolTy)
-	b.method(b.Array, IntrinsicArrayAppend, "append", false, ConvMutates, VoidTy, param("item", b.Array.Params[0], ConvConsumes))
-	b.method(b.Array, IntrinsicArrayInsert, "insert", false, ConvMutates, VoidTy, param("item", b.Array.Params[0], ConvConsumes), param("at", b.Count, ConvLet))
-	b.method(b.Array, IntrinsicArrayRemove, "remove", false, ConvMutates, b.Array.Params[0], param("at", b.Count, ConvLet))
-	b.method(b.Array, IntrinsicArrayPop, "pop", false, ConvMutates, Instantiate(b.Option, []Ty{b.Array.Params[0]}))
+	b.method(b.Array, IntrinsicArrayPush, "push", false, ConvMutates, VoidTy, param("value", b.Array.Params[0], ConvConsumes))
+	{
+		f := b.method(b.Array, IntrinsicArrayAppend, "append", false, ConvMutates, VoidTy, param("other", SelfType(b.Array), ConvLet))
+		f.Bounds = append(f.Bounds, ParamBound{Param: b.Array.Params[0], Iface: b.Copyable})
+	}
+	b.method(b.Array, IntrinsicArrayInsert, "insert", false, ConvMutates, VoidTy, param("at", b.Count, ConvLet), param("value", b.Array.Params[0], ConvConsumes))
+	{
+		f := b.method(b.Array, IntrinsicArrayRemove, "remove", false, ConvMutates, b.Array.Params[0], param("at", b.Count, ConvLet))
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.Array, IntrinsicArrayPop, "pop", false, ConvMutates, b.Array.Params[0])
+		f.ErrorType = b.ArrayError
+	}
 	b.method(b.Array, IntrinsicArrayDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
-	b.method(b.Map, IntrinsicMapNew, "new", true, ConvLet, SelfType(b.Map))
+	b.method(b.Map, IntrinsicMapCreate, "create", true, ConvLet, SelfType(b.Map))
 	b.method(b.Map, IntrinsicMapCount, "count", false, ConvLet, b.Count)
 	b.method(b.Map, IntrinsicMapIsEmpty, "isEmpty", false, ConvLet, BoolTy)
-	b.method(b.Map, IntrinsicMapHas, "has", false, ConvLet, BoolTy, param("key", b.Map.Params[0], ConvLet))
+	b.method(b.Map, IntrinsicMapContains, "contains", false, ConvLet, BoolTy, param("key", b.Map.Params[0], ConvLet))
 	{
 		f := b.method(b.Map, IntrinsicMapInsert, "insert", false, ConvMutates, VoidTy, param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
 		f.Bounds = append(f.Bounds, ParamBound{Param: b.Map.Params[1], Iface: b.Droppable})
+		f.ErrorType = b.MapError
+	}
+	{
+		f := b.method(b.Map, IntrinsicMapUpsert, "upsert", false, ConvMutates, VoidTy, param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
+		f.Bounds = append(f.Bounds, ParamBound{Param: b.Map.Params[1], Iface: b.Droppable})
 	}
 	b.method(b.Map, IntrinsicMapReplace, "replace", false, ConvMutates, Instantiate(b.Option, []Ty{b.Map.Params[1]}), param("key", b.Map.Params[0], ConvConsumes), param("value", b.Map.Params[1], ConvConsumes))
-	b.method(b.Map, IntrinsicMapRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.Map.Params[1]}), param("key", b.Map.Params[0], ConvLet))
+	{
+		f := b.method(b.Map, IntrinsicMapRemove, "remove", false, ConvMutates, BoolTy, param("key", b.Map.Params[0], ConvLet))
+		f.Bounds = append(f.Bounds, ParamBound{Param: b.Map.Params[1], Iface: b.Droppable})
+	}
 	b.method(b.Map, IntrinsicMapDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
-	b.method(b.List, IntrinsicListNew, "new", true, ConvLet, SelfType(b.List))
+	b.method(b.List, IntrinsicListCreate, "create", true, ConvLet, SelfType(b.List))
 	b.method(b.List, IntrinsicListCount, "count", false, ConvLet, b.Count)
 	b.method(b.List, IntrinsicListIsEmpty, "isEmpty", false, ConvLet, BoolTy)
 	b.method(b.List, IntrinsicListContains, "contains", false, ConvLet, BoolTy, param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
-	b.method(b.List, IntrinsicListPushFront, "pushFront", false, ConvMutates, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("item", b.List.Params[0], ConvConsumes))
-	b.method(b.List, IntrinsicListPushBack, "pushBack", false, ConvMutates, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("item", b.List.Params[0], ConvConsumes))
-	b.method(b.List, IntrinsicListPopFront, "popFront", false, ConvMutates, Instantiate(b.Option, []Ty{b.List.Params[0]}))
-	b.method(b.List, IntrinsicListPopBack, "popBack", false, ConvMutates, Instantiate(b.Option, []Ty{b.List.Params[0]}))
-	b.method(b.List, IntrinsicListFirst, "first", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}))
-	b.method(b.List, IntrinsicListLast, "last", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}))
+	b.method(b.List, IntrinsicListPrepend, "prepend", false, ConvMutates, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("value", b.List.Params[0], ConvConsumes))
+	b.method(b.List, IntrinsicListAppend, "append", false, ConvMutates, Instantiate(b.Handle, []Ty{b.List.Params[0]}), param("value", b.List.Params[0], ConvConsumes))
+	{
+		f := b.method(b.List, IntrinsicListRemoveFirst, "removeFirst", false, ConvMutates, b.List.Params[0])
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.List, IntrinsicListRemoveLast, "removeLast", false, ConvMutates, b.List.Params[0])
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.List, IntrinsicListFirst, "first", false, ConvLet, Instantiate(b.Handle, []Ty{b.List.Params[0]}))
+		f.ErrorType = b.ArrayError
+	}
+	{
+		f := b.method(b.List, IntrinsicListLast, "last", false, ConvLet, Instantiate(b.Handle, []Ty{b.List.Params[0]}))
+		f.ErrorType = b.ArrayError
+	}
 	b.method(b.List, IntrinsicListNext, "next", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
 	b.method(b.List, IntrinsicListPrev, "prev", false, ConvLet, Instantiate(b.Option, []Ty{Instantiate(b.Handle, []Ty{b.List.Params[0]})}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
 	b.method(b.List, IntrinsicListRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.List.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
 	b.method(b.List, IntrinsicListMoveToFront, "moveToFront", false, ConvMutates, VoidTy, param("handle", Instantiate(b.Handle, []Ty{b.List.Params[0]}), ConvLet))
 	b.method(b.List, IntrinsicListDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
-	b.method(b.Pool, IntrinsicPoolNew, "new", true, ConvLet, SelfType(b.Pool))
+	b.method(b.Pool, IntrinsicPoolCreate, "create", true, ConvLet, SelfType(b.Pool))
 	b.method(b.Pool, IntrinsicPoolCount, "count", false, ConvLet, b.Count)
 	b.method(b.Pool, IntrinsicPoolIsEmpty, "isEmpty", false, ConvLet, BoolTy)
 	b.method(b.Pool, IntrinsicPoolContains, "contains", false, ConvLet, BoolTy, param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
-	b.method(b.Pool, IntrinsicPoolInsert, "insert", false, ConvMutates, Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), param("item", b.Pool.Params[0], ConvConsumes))
+	b.method(b.Pool, IntrinsicPoolInsert, "insert", false, ConvMutates, Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), param("value", b.Pool.Params[0], ConvConsumes))
 	b.method(b.Pool, IntrinsicPoolRemove, "remove", false, ConvMutates, Instantiate(b.Option, []Ty{b.Pool.Params[0]}), param("handle", Instantiate(b.Handle, []Ty{b.Pool.Params[0]}), ConvLet))
 	b.method(b.Pool, IntrinsicPoolDropEmpty, "dropEmpty", false, ConvConsumes, VoidTy)
 	b.method(b.Bytes, IntrinsicBytesNew, "new", true, ConvLet, b.Bytes)
@@ -211,9 +259,9 @@ func (b *Builtins) declareTable() {
 	b.method(b.Bytes, IntrinsicBytesAppend, "append", false, ConvMutates, VoidTy, param("other", b.Bytes, ConvLet))
 	b.method(b.Bytes, IntrinsicBytesAppendString, "appendString", false, ConvMutates, VoidTy, param("text", StringTy, ConvLet))
 	b.method(b.Bytes, IntrinsicBytesToString, "toString", false, ConvLet, StringTy)
-	b.StringMethods["byteCount"] = b.function(IntrinsicStringByteCount, "byteCount", b.Count)
+	b.StringMethods["byteLength"] = b.function(IntrinsicStringByteLength, "byteLength", b.Count)
 	b.StringMethods["byteAt"] = b.function(IntrinsicStringByteAt, "byteAt", b.Byte, param("index", b.Count, ConvLet))
-	b.StringMethods["slice"] = b.function(IntrinsicStringSlice, "slice", StringTy, param("from", b.Count, ConvLet), param("until", b.Count, ConvLet))
+	b.StringMethods["sliceBytes"] = b.function(IntrinsicStringSliceBytes, "sliceBytes", StringTy, param("start", b.Count, ConvLet), param("endPos", b.Count, ConvLet))
 	{
 		t := newBoundedTypeParamTy("T", b.Droppable)
 		b.stdlib.Declare(b.genericFunction(IntrinsicFreeze, "freeze", t, Instantiate(b.Frozen, []Ty{t}), param("x", t, ConvConsumes)))

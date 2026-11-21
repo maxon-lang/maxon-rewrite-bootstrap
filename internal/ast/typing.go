@@ -303,6 +303,10 @@ func (t *Typing) Reset(tree *Tree) {
 	t.consts, t.constOf = nil, nil
 }
 
+// Numbered is whether Reset has given the module's nodes their slots, which a compile that stopped before the declare
+// pass has not.
+func (t *Typing) Numbered() bool { return t.calls != nil }
+
 // entry is the entry of a node in the table, which must be one the table has.
 func entry[T any](t *Typing, table []T, id NodeID, what string) *T {
 	if int(id) >= len(t.slots) {

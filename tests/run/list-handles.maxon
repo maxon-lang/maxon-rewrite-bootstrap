@@ -1,4 +1,4 @@
-typealias ItemList = list with Item
+typealias ItemList = List with Item
 
 type Item
 	export var name as String
@@ -9,9 +9,12 @@ type Item
 	end 'make'
 end 'Item'
 
-function describe(l list with Item) returns String
+function describe(l List with Item) returns String
 	var text = ""
-	var at = l.first()
+	if l.isEmpty() 'empty'
+		return text
+	end 'empty'
+	var at = Option.some(try l.first() otherwise panic("the list is empty"))
 	while at.isSome() 'walk'
 		let handle = at.unwrap()
 		text = "{text}{l[handle].name}:{l[handle].weight};"
@@ -21,10 +24,10 @@ function describe(l list with Item) returns String
 end 'describe'
 
 function main() returns ExitCode
-	var l = ItemList.new()
-	let b = l.pushBack(Item.make("b", weight: 2))
-	let a = l.pushFront(Item.make("a", weight: 1))
-	let c = l.pushBack(Item.make("c", weight: 3))
+	var l = ItemList.create()
+	let b = l.append(Item.make("b", weight: 2))
+	let a = l.prepend(Item.make("a", weight: 1))
+	let c = l.append(Item.make("c", weight: 3))
 	print("{describe(l)}\n")
 	print("{l.count()} {l.contains(a)} {l.contains(b)} {l.contains(c)}\n")
 	l.moveToFront(c)
@@ -33,13 +36,13 @@ function main() returns ExitCode
 	print("{describe(l)}\n")
 	let removed = l.remove(b)
 	print("{removed.isSome()} {l.contains(b)} {l.count()} {describe(l)}\n")
-	let d = l.pushBack(Item.make("d", weight: 4))
+	let d = l.append(Item.make("d", weight: 4))
 	print("{l.contains(b)} {l.contains(d)} {b == d} {describe(l)}\n")
 	let again = l.remove(b)
 	print("{again.isSome()}\n")
-	let front = l.popFront()
-	let back = l.popBack()
-	print("{front.unwrap().name} {back.unwrap().name} {l.count()} {describe(l)}\n")
+	let front = try l.removeFirst() otherwise panic("the list is empty")
+	let back = try l.removeLast() otherwise panic("the list is empty")
+	print("{front.name} {back.name} {l.count()} {describe(l)}\n")
 	return 0
 end 'main'
 

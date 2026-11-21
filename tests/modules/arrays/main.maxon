@@ -1,13 +1,13 @@
-typealias CountArray = array with Count
+typealias CountArray = Array with Count
 
-typealias ItemArray = array with inventory.Item
+typealias ItemArray = Array with inventory.Item
 
-typealias StringArray = array with String
+typealias StringArray = Array with String
 
 function main() returns ExitCode
-	var items = ItemArray.new()
-	items.append(inventory.Item.make(1, weight: 5))
-	items.append(inventory.Item.make(2, weight: 7))
+	var items = ItemArray.create(0)
+	items.push(inventory.Item.make(1, weight: 5))
+	items.push(inventory.Item.make(2, weight: 7))
 	print("{inventory.heaviest(items)} {inventory.length(items)}\n")
 	var shelf = inventory.Shelf.make()
 	shelf.add(inventory.Item.make(3, weight: 9))
@@ -16,9 +16,9 @@ function main() returns ExitCode
 	print("{total} {shelf.size()}\n")
 	let moved = inventory.drain(shelf)
 	print("{moved.count()} {shelf.size()} {inventory.heaviest(moved)}\n")
-	var numbers = CountArray.new()
-	numbers.append(3)
-	print("{inventory.firstOr(numbers, fallback: 9)} {inventory.firstOr(CountArray.new(), fallback: 9)}\n")
+	var numbers = CountArray.create(0)
+	numbers.push(3)
+	print("{inventory.firstOr(numbers, fallback: 9)} {inventory.firstOr(CountArray.create(0), fallback: 9)}\n")
 	let names = StringArray.filled(2, value: "ab")
 	print("{inventory.firstOr(names, fallback: "none")} {inventory.length(names)}\n")
 	return 0
