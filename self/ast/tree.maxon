@@ -83,9 +83,12 @@ end 'StrPartsBuilder'
 // endKeywordToLabelName is how many bytes an end label's name lies after the 'end' that it closes: 'end', a space and an apostrophe.
 let endKeywordToLabelName = 5 as diag.U32
 
+// asKeywordToType is how many bytes the type of a cast lies after its 'as': 'as' and a space.
+let asKeywordToType = 3 as diag.U32
+
 // isDeclarationKind is whether a node declares a name that a diagnostic about it points at.
 function isDeclarationKind(kind NodeKind) returns bool
-	return kind == NodeKind.funcDecl or kind == NodeKind.constDecl or kind == NodeKind.typeDecl or kind == NodeKind.fieldDecl or kind == NodeKind.enumDecl or kind == NodeKind.unionDecl or kind == NodeKind.aliasDecl or kind == NodeKind.interfaceDecl
+	return kind == NodeKind.funcDecl or kind == NodeKind.constDecl or kind == NodeKind.typeDecl or kind == NodeKind.fieldDecl or kind == NodeKind.enumDecl or kind == NodeKind.unionDecl or kind == NodeKind.aliasDecl or kind == NodeKind.interfaceDecl or kind == NodeKind.extensionDecl
 end 'isDeclarationKind'
 
 // Tree holds a module's flat AST records, list words, escaped strings, and source text.
@@ -199,6 +202,11 @@ export type Tree
 	export function endKeywordStart(id NodeID) returns diag.U32
 		return try records[id as Count].start - endKeywordToLabelName otherwise panic("an end label starts before its 'end'")
 	end 'endKeywordStart'
+
+	// castKeywordStart is where the 'as' of a cast starts, given the type it names.
+	export function castKeywordStart(typeRef NodeID) returns diag.U32
+		return try records[typeRef as Count].start - asKeywordToType otherwise panic("a cast's type starts before its 'as'")
+	end 'castKeywordStart'
 
 	// declNameStart is where the name of a declaration starts, after its modifiers and its keyword.
 	export function declNameStart(id NodeID) returns diag.U32

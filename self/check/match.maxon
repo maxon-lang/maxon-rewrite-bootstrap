@@ -493,7 +493,7 @@ function checkLiteralPattern(mutates c Checker, mutates p ast.Project, pattern a
 		_ = coerce(c, p: p, node: value, at: exprOffset(c, p: p, node: value), src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
 		return
 	end 'integer'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a pattern of {nameOfType(p, t: t)} cannot match {nameOfType(p, t: st)}", errs: errs)
+	checkFail(c.modID, off: off, code: diag.errMatchTypeMismatch, msg: diag.patternTypeMismatch(gotName(p, t: t), scrutinee: gotName(p, t: st)), errs: errs)
 end 'checkLiteralPattern'
 
 function recordBoolPattern(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, value ast.NodeID, mutates state MatchState, mutates errs diag.ErrorList)

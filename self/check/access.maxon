@@ -75,7 +75,7 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.Type
 	if t == ast.noType 'badValue'
 		return false
 	end 'badValue'
-	if not coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, t: rt)}'"), errs: errs) 'badType'
+	if not coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, t: rt)}'", bare: "field '{name}'"), errs: errs) 'badType'
 		return false
 	end 'badType'
 	ordered[index] = value
@@ -132,7 +132,8 @@ function checkTupleElement(mutates c Checker, mutates p ast.Project, node ast.No
 		return ast.noType
 	end 'wide'
 	if wanted != ast.noType 'stated'
-		if not coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment("element {index} of tuple {nameOfType(p, t: want)}"), errs: errs) 'badType'
+		let elementPlace = "element {index} of tuple {nameOfType(p, t: want)}"
+		if not coerce(c, p: p, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment(elementPlace.clone(), bare: elementPlace), errs: errs) 'badType'
 			return ast.noType
 		end 'badType'
 		return wanted
@@ -271,6 +272,13 @@ function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
+	let method = methodOf(c, p: p, t: named, name: member)
+	if method != ast.noFunc 'method'
+		let spelled = "{writtenType(c, p: p, obj: obj)}.{member}"
+		let words = diag.methodAsFunctionValue(spelled) if p.funcs.entries[method as Count].isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)
+		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
+		return ast.noType
+	end 'method'
 	if k == ast.TypeKind.record 'noMember'
 		checkFail(c.modID, off: try off + 1 otherwise off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, t: named), member: member), errs: errs)
 		return ast.noType
@@ -278,6 +286,23 @@ function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, t: named)}.{member}' is not a value", errs: errs)
 	return ast.noType
 end 'checkTypeMember'
+
+// writtenType is a type's name as the source writes it: the path of its module comes first where another module declares it.
+function writtenType(c Checker, p ast.Project, obj ast.NodeID) returns String
+	let written = writtenName(p.modules[c.modIdx].tree, e: obj)
+	match consumes p.resolutions[c.modIdx].decls.get(obj as Count) 'bound'
+		some(ref) then return written if ref.module == c.modID else ast.inModule(p, modID: ref.module, name: written)
+		none then return written
+	end 'bound'
+end 'writtenType'
+
+// writtenName is a name, or a chain of member names, as the source writes it.
+function writtenName(tree ast.Tree, e ast.NodeID) returns String
+	if tree.kindOf(e) == ast.NodeKind.memberExpr 'member'
+		return "{writtenName(tree, e: ast.memberExprObj(tree, id: e))}.{ast.memberExprName(tree, id: e)}"
+	end 'member'
+	return ast.nameExprName(tree, id: e)
+end 'writtenName'
 
 function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)

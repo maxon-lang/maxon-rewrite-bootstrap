@@ -201,6 +201,33 @@ function ifTryKeywordOffset(tree ast.Tree, call ast.NodeID) returns diag.U32
 	return try (ast.exprStart(tree, e: call) - tryKeywordWidth) as diag.U32 otherwise panic("a conditional try starts before its 'try'")
 end 'ifTryKeywordOffset'
 
+// failVoidTry refuses a 	ry of a call that returns nothing where a value is needed, and tells whether e was one.
+function failVoidTry(c Checker, p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns bool
+	if p.modules[c.modIdx].tree.kindOf(e) != ast.NodeKind.tryExpr 'notTry'
+		return false
+	end 'notTry'
+	let call = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
+	if p.modules[c.modIdx].tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		return false
+	end 'notCall'
+	failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(voidCalleeText(c, p: p, call: call)), errs: errs)
+	return true
+end 'failVoidTry'
+
+// voidCalleeText is the callee of a call that returns nothing, as maxon names it: a method of a declared type with its type's name,\n// a method of a built-in type by its own name alone.
+function voidCalleeText(c Checker, p ast.Project, call ast.NodeID) returns String
+	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
+	if p.modules[c.modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'plain'
+		return calleeText(p.modules[c.modIdx].tree, call: call)
+	end 'plain'
+	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
+	let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)))
+	if holder != ast.noType and p.types.entries[ast.originOf(p.types, t: holder) as Count].hasDecl and p.types.entries[ast.originOf(p.types, t: holder) as Count].decl.module != diag.stdlibID 'declared'
+		return "{declaredNameOfType(p, t: holder)}.{name}"
+	end 'declared'
+	return name
+end 'voidCalleeText'
+
 // calleeText is the name a call is written with, as an error names it.
 function calleeText(tree ast.Tree, call ast.NodeID) returns String
 	return placeText(tree, e: ast.callExprCallee(tree, id: call))
@@ -229,7 +256,7 @@ function checkIfTryStmt(mutates c Checker, mutates p ast.Project, s ast.NodeID, 
 		return
 	end 'discards'
 	if name != "" and not hasValue 'noValue'
-		checkFail(c.modID, off: at, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(calleeText(p.modules[c.modIdx].tree, call: call)), errs: errs)
+		checkFail(c.modID, off: at, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(voidCalleeText(c, p: p, call: call)), errs: errs)
 		return
 	end 'noValue'
 	pushScope(c)
@@ -477,6 +504,7 @@ function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 		let owner = c.owner
 		let declared = resolveTypeRef(c, p: p, tr: ast.letStmtType(p.modules[c.modIdx].tree, id: s), selfTy: owner, errs: errs)
 		if declared == ast.noType 'badType'
+			bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 			return
 		end 'badType'
 		bindLet(c, p: p, s: s, name: name, t: declared, isVar: isVar, off: off, errs: errs)
@@ -484,18 +512,24 @@ function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 	end 'declaredOnly'
 	let t = checkExpr(c, p: p, e: initNode, errs: errs)
 	if t == ast.noType 'badInit'
+		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'badInit'
 	let initOff = offsetOf(c, p: p, node: initNode)
 	if not requireSigned64(c, off: initOff, t: t, p: p, errs: errs) 'wide'
+		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'wide'
 	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
-		failAt(c, p: p, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
+		if not failVoidTry(c, p: p, e: initNode, errs: errs) 'plain'
+			failAt(c, p: p, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
+		end 'plain'
+		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'noValue'
 	if isVar and (isConstInt(p, t: t) or typeIsAnonInt(p.types, t: t) or holdsBareNumbers(p, t: t)) 'bareNumber'
 		failAt(c, p: p, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
+		bindLet(c, p: p, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'bareNumber'
 	bindLet(c, p: p, s: s, name: name, t: t, isVar: isVar, off: off, errs: errs)
@@ -517,12 +551,13 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	var wrong = Mismatch.expectedGot
 	if k == ast.NodeKind.nameExpr 'name'
 		target = checkNameExpr(c, p: p, e: targetNode, errs: errs)
-		let constant = constTargetName(c, p: p, node: targetNode)
-		if target != ast.noType and constant != "" 'constant'
+		if target != ast.noType and nameInfoOf(c.typing, node: targetNode).kind == ast.NameKind.nameConst 'constant'
+			let constant = ast.declName(p, ref: nameInfoOf(c.typing, node: targetNode).decl)
 			failAt(c, p: p, node: s, code: diag.errAssignToImmutable, msg: diag.letReassigned(constant), errs: errs)
 			return
 		end 'constant'
-		wrong = Mismatch.assignment("variable '{ast.nameExprName(p.modules[c.modIdx].tree, id: targetNode)}'")
+		let varPlace = "variable '{ast.nameExprName(p.modules[c.modIdx].tree, id: targetNode)}'"
+		wrong = Mismatch.assignment(varPlace.clone(), bare: varPlace)
 	end 'name' else if k == ast.NodeKind.memberExpr 'member'
 		target = checkMember(c, p: p, e: targetNode, errs: errs)
 		if target == ast.noType 'badMember'
@@ -534,7 +569,7 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 			return
 		end 'notField'
 		let holder = ast.contentType(p.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: targetNode)))
-		wrong = Mismatch.assignment("field '{memberName}' of '{declaredNameOfType(p, t: holder)}'")
+		wrong = Mismatch.assignment("field '{memberName}' of '{declaredNameOfType(p, t: holder)}'", bare: "field '{memberName}'")
 	end 'member' else if k == ast.NodeKind.indexExpr 'index'
 		target = checkIndex(c, p: p, e: targetNode, errs: errs)
 	end 'index' else 'other'
@@ -549,24 +584,23 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if value == ast.noType 'badValue'
 		return
 	end 'badValue'
+	if k == ast.NodeKind.nameExpr and not namesAssignable(c, node: targetNode) 'refused'
+		return
+	end 'refused'
 	_ = coerce(c, p: p, node: valueNode, at: placeOffset(c, p: p, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
 
-// constTargetName is the name of the module-level constant or static let that a name stands for, or "" for a name that is no
-// constant.
-function constTargetName(c Checker, p ast.Project, node ast.NodeID) returns String
-	match consumes c.typing.names.get(node as Count) 'info'
-		some(n) then return constNameOf(p, info: n)
-		none then return ""
-	end 'info'
-end 'constTargetName'
-
-function constNameOf(p ast.Project, info ast.NameInfo) returns String
-	if info.kind != ast.NameKind.nameConst 'notConst'
-		return ""
-	end 'notConst'
-	return ast.declName(p, ref: info.decl)
-end 'constNameOf'
+// namesAssignable is whether the name that an assignment targets may be reassigned. When it may not, the value is not held to the\n// name's type, since the refusal is the assignment's, which the ownership pass reports.
+function namesAssignable(c Checker, node ast.NodeID) returns bool
+	let info = nameInfoOf(c.typing, node: node)
+	return match info.kind 'k'
+		nameLocal gives isMutableLocal(c.typing.locals[info.local as Count])
+		nameSelfField gives true
+		nameConst gives false
+		nameFunc gives false
+		nameUnresolved gives false
+	end 'k'
+end 'namesAssignable'
 
 function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
 	match consumes c.typing.members.get(node as Count) 'info'
@@ -619,7 +653,7 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if typeHasKind(p, t: t, kind: ast.TypeKind.funcTy) and typeHasKind(p, t: ret, kind: ast.TypeKind.funcTy) 'function'
 		// A return re-brands a function value of the right shape, as in maxon.
 		if not shapeFits(p, src: t, dst: ret) 'shape'
-			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.funcReturnMismatch(clashName(p, t: ret, other: t), got: clashName(p, t: t, other: ret)), errs: errs)
+			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.functionShapeReturned(clashName(p, t: ret, other: t), got: clashName(p, t: t, other: ret)), errs: errs)
 		end 'shape'
 		return
 	end 'function'

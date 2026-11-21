@@ -170,8 +170,14 @@ function locateFix(mods ModuleList, mutates fix diag.Fix) returns bool
 end 'locateFix'
 
 export function locateAllErrors(mods ModuleList, mutates errs diag.ErrorList)
+	var shown = diag.ErrorList.create(0)
 	for i in 0 upto errs.count() 'each'
-		locateError(mods, e: errs[i])
+		if not errs[i].consequence 'shown'
+			var e = errs[i].clone()
+			locateError(mods, e: e)
+			shown.push(e)
+		end 'shown'
 	end 'each'
+	errs = shown
 	diag.sortErrors(errs)
 end 'locateAllErrors'

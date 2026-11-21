@@ -245,7 +245,7 @@ function callValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, ca
 	let n = ast.funcParamCount(p.types, t: t)
 	var specs = ast.ParamSpecList.create(0)
 	for i in 0 upto n 'params'
-		specs.push(ast.ParamSpec.make("argument {i + 1}", ty: ast.funcParamType(p.types, t: t, index: i), conv: ast.funcParamConv(p.types, t: t, index: i)))
+		specs.push(ast.ParamSpec.make("{i + 1}", ty: ast.funcParamType(p.types, t: t, index: i), conv: ast.funcParamConv(p.types, t: t, index: i)))
 	end 'params'
 	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
 	let given = p.modules[c.modIdx].tree.listLen(argsRef)

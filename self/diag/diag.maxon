@@ -68,20 +68,32 @@ export type CompileError
 	export var col as Count
 	export var site as Site
 	export var located as bool
+	// placed is whether the message has a place in the source: an error about the program as a whole, that it has no 'main', has none.
+	export var placed as bool
+	// consequence is an error that only follows from another one, such as the use of a name whose declaration was refused: it stops the
+	// stage that met it, as an error does, and is never shown.
+	export var consequence as bool
 	// unqualified is a bare name that the error did not find, when the message goes on to name the other modules that declare it.
 	export var unqualified as String
 	export var fix as Fix
 	export var cause as ErrorCause
 
 	export static function at(consumes code String, consumes message String, consumes file String, line Count, col Count) returns CompileError
-		return CompileError{code: code, message: message, file: file, line: line, col: col, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
+		return CompileError{code: code, message: message, file: file, line: line, col: col, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true, placed: true, consequence: false, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
 	end 'at'
 
 	export static function atSite(consumes code String, consumes message String, consumes site Site) returns CompileError
-		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: site, located: false, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
+		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: site, located: false, placed: true, consequence: false, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
 	end 'atSite'
 
+	export static function unplaced(consumes code String, consumes message String) returns CompileError
+		return CompileError{code: code, message: message, file: "", line: 0 as Count, col: 0 as Count, site: Site.make(0 as ModuleID, offset: 0 as U32), located: true, placed: false, consequence: false, unqualified: "", fix: Fix.none(), cause: ErrorCause.none}
+	end 'unplaced'
+
 	export function format() returns String
+		if not placed 'unplaced'
+			return "error {code}: {message}"
+		end 'unplaced'
 		if located 'loc'
 			return "error {code}: {file}:{line}:{col}: {message}"
 		end 'loc'
@@ -125,6 +137,16 @@ export function pushFixedError(mutates errs ErrorList, consumes code String, con
 	e.fix = fix
 	errs.push(e)
 end 'pushFixedError'
+
+export function pushConsequence(mutates errs ErrorList, consumes code String, consumes message String, module ModuleID, offset U32)
+	var e = CompileError.atSite(code, message: message, site: Site.make(module, offset: offset))
+	e.consequence = true
+	errs.push(e)
+end 'pushConsequence'
+
+export function pushUnplacedError(mutates errs ErrorList, consumes code String, consumes message String)
+	errs.push(CompileError.unplaced(code, message: message))
+end 'pushUnplacedError'
 
 export function pushLocatedError(mutates errs ErrorList, consumes code String, consumes message String, consumes file String, line Count, col Count)
 	errs.push(CompileError.at(code, message: message, file: file, line: line, col: col))

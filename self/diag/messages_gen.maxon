@@ -180,14 +180,9 @@ export function floatOutOfRange(value String, alias String, low String, high Str
 	return "Value {value} is outside the range of '{alias}' (float({low} to {high}))"
 end 'floatOutOfRange'
 
-// The text of errUnsafeCast for: Cannot cast from float to int
-export function floatToIntCast() returns String
-	return "Cannot cast from float to int"
-end 'floatToIntCast'
-
-// The text of errUnsafeCast for: cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit � use trunc(x) to truncate toward zero (or round/floor/ceil)
+// The text of errUnsafeCast for: cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 export function lossyFloatConversion(alias String) returns String
-	return "cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit \x97 use trunc(x) to truncate toward zero (or round/floor/ceil)"
+	return "cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)"
 end 'lossyFloatConversion'
 
 // The text of errTypeMismatch for: Value {value} is outside the range of '{alias}' (int({low} to {high}))
@@ -570,11 +565,6 @@ export function writesCaptures(alias String) returns String
 	return "function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`"
 end 'writesCaptures'
 
-// The text of errTypeMismatch for: function type mismatch in return: expected '{expected}', got '{got}'
-export function funcReturnMismatch(expected String, got String) returns String
-	return "function type mismatch in return: expected '{expected}', got '{got}'"
-end 'funcReturnMismatch'
-
 // The text of errEmptyBlock for: empty block: '{label}'
 export function emptyBlock(label String) returns String
 	return "empty block: '{label}'"
@@ -589,3 +579,93 @@ end 'noStaticMember'
 export function fallthroughWithReturn() returns String
 	return "match fallthrough with return: 'cannot combine 'fallthrough' with 'return''"
 end 'fallthroughWithReturn'
+
+// The text of errTypeMismatch for: a function value is only usable where a function type declared with 'typealias' is expected
+export function functionValueHint() returns String
+	return "a function value is only usable where a function type declared with 'typealias' is expected"
+end 'functionValueHint'
+
+// The text of errTypeMismatch for: cannot assign a value of type 'function' to {place}, which holds '{expected}': {hint}
+export function functionValueAssigned(place String, expected String, hint String) returns String
+	return "cannot assign a value of type 'function' to {place}, which holds '{expected}': {hint}"
+end 'functionValueAssigned'
+
+// The text of errTypeMismatch for: cannot pass a value of type 'function' as argument {label}, which holds '{expected}': {hint}
+export function functionValuePassed(label String, expected String, hint String) returns String
+	return "cannot pass a value of type 'function' as argument {label}, which holds '{expected}': {hint}"
+end 'functionValuePassed'
+
+// The text of errTypeMismatch for: Cannot return 'function' from function declared to return '{expected}': {hint}
+export function functionValueReturned(expected String, hint String) returns String
+	return "Cannot return 'function' from function declared to return '{expected}': {hint}"
+end 'functionValueReturned'
+
+// The text of errTypeMismatch for: function type mismatch assigning to {place}: expected '{expected}', got '{got}'
+export function functionShapeAssigned(place String, expected String, got String) returns String
+	return "function type mismatch assigning to {place}: expected '{expected}', got '{got}'"
+end 'functionShapeAssigned'
+
+// The text of errTypeMismatch for: function type mismatch in return: expected '{expected}', got '{got}'
+export function functionShapeReturned(expected String, got String) returns String
+	return "function type mismatch in return: expected '{expected}', got '{got}'"
+end 'functionShapeReturned'
+
+// The text of errUnsafeCast for: function type mismatch in cast: expected '{expected}', got '{got}'
+export function functionShapeCast(expected String, got String) returns String
+	return "function type mismatch in cast: expected '{expected}', got '{got}'"
+end 'functionShapeCast'
+
+// The text of errUnsafeCast for: Cannot cast from {source} to {target}
+export function invalidCast(source String, target String) returns String
+	return "Cannot cast from {source} to {target}"
+end 'invalidCast'
+
+// The text of errUnsafeCast for: Cannot cast from {source} to {target} — {remedy}
+export function castFormsAValue(source String, target String, remedy String) returns String
+	return "Cannot cast from {source} to {target} — {remedy}"
+end 'castFormsAValue'
+
+// The text of errUnsafeCast for: an integer is not a case; use '{enumName}.fromRawValue(raw)', which throws 'noSuchRawValue' for a value no case carries
+export function castToEnumRemedy(enumName String) returns String
+	return "an integer is not a case; use '{enumName}.fromRawValue(raw)', which throws 'noSuchRawValue' for a value no case carries"
+end 'castToEnumRemedy'
+
+// The text of errUnsafeCast for: a union value is built by its case constructor
+export function castToUnionRemedy() returns String
+	return "a union value is built by its case constructor"
+end 'castToUnionRemedy'
+
+// The text of errMethodAsFunctionValue for: '{spelled}' is a method, and a method is not a function value: wrap the call in a closure, such as 'function(...) gives {spelled}(...)'
+export function methodAsFunctionValue(spelled String) returns String
+	return "'{spelled}' is a method, and a method is not a function value: wrap the call in a closure, such as 'function(...) gives {spelled}(...)'"
+end 'methodAsFunctionValue'
+
+// The text of errMethodAsFunctionValue for: '{spelled}' is an instance method, and a method is not a function value: call it on a value, or wrap that call in a closure, such as 'function(value) gives value.{method}(...)'
+export function instanceMethodAsFunctionValue(spelled String, method String) returns String
+	return "'{spelled}' is an instance method, and a method is not a function value: call it on a value, or wrap that call in a closure, such as 'function(value) gives value.{method}(...)'"
+end 'instanceMethodAsFunctionValue'
+
+// The text of errDuplicateTypeAlias for: Duplicate typealias '{name}'
+export function duplicateAlias(name String) returns String
+	return "Duplicate typealias '{name}'"
+end 'duplicateAlias'
+
+// The text of errTypeMismatch for: a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+export function opaqueTypeParameterReason() returns String
+	return "a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known"
+end 'opaqueTypeParameterReason'
+
+// The text of errTypeMismatch for: argument type mismatch for {label}: expected '{expected}', got 'type parameter': {reason}
+export function argTypeMismatchOpaque(label String, expected String, reason String) returns String
+	return "argument type mismatch for {label}: expected '{expected}', got 'type parameter': {reason}"
+end 'argTypeMismatchOpaque'
+
+// The text of errMatchTypeMismatch for: pattern type '{pattern}' does not match scrutinee type '{scrutinee}'
+export function patternTypeMismatch(pattern String, scrutinee String) returns String
+	return "pattern type '{pattern}' does not match scrutinee type '{scrutinee}'"
+end 'patternTypeMismatch'
+
+// The text of errNonConstantInitializer for: Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression
+export function constantCallNotConstant(callee String) returns String
+	return "Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression"
+end 'constantCallNotConstant'

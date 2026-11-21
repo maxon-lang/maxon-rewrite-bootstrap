@@ -42,8 +42,7 @@ returnTypeMismatch	ErrTypeMismatch	Cannot return '{got}' from function declared 
 returnValueFromVoid	ErrTypeMismatch	type mismatch: '{name}' declares no return type, so it cannot return a value
 builtinArgNamed	ErrBuiltinArgNamed	a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)
 floatOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (float({low} to {high}))
-floatToIntCast	ErrUnsafeCast	Cannot cast from float to int
-lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit � use trunc(x) to truncate toward zero (or round/floor/ceil)
+lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 literalOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (int({low} to {high}))
 emptyIntegerRange	ErrTypeMismatch	Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound
 unrepresentableIntegerRange	ErrTypeMismatch	Integer range cannot span both negative values and above i64.max: 'int({low} to {high})' is not representable in 64 bits; use 'i64.min to i64.max' or '0 to u64.max' instead
@@ -120,7 +119,24 @@ destructureArity	ErrUnsupportedFeature	Unsupported: a destructuring binding of {
 destructureNonTuple	ErrUnsupportedFeature	Unsupported: a destructuring binding of a '{valueType}' initializer (only a TUPLE can be destructured — `let (x, y) = …` needs a right-hand side that is a tuple)
 tupleAssignArity	ErrTypeMismatch	Tuple has {elements} elements but destructuring has {names} bindings
 writesCaptures	ErrCapabilityConversion	function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`
-funcReturnMismatch	ErrTypeMismatch	function type mismatch in return: expected '{expected}', got '{got}'
 emptyBlock	ErrEmptyBlock	empty block: '{label}'
 noStaticMember	ErrUnknownStaticMember	type '{typeName}' has no static member named '{member}'
 fallthroughWithReturn	ErrMatchFallthroughWithReturn	match fallthrough with return: 'cannot combine 'fallthrough' with 'return''
+functionValueHint	ErrTypeMismatch	a function value is only usable where a function type declared with 'typealias' is expected
+functionValueAssigned	ErrTypeMismatch	cannot assign a value of type 'function' to {place}, which holds '{expected}': {hint}
+functionValuePassed	ErrTypeMismatch	cannot pass a value of type 'function' as argument {label}, which holds '{expected}': {hint}
+functionValueReturned	ErrTypeMismatch	Cannot return 'function' from function declared to return '{expected}': {hint}
+functionShapeAssigned	ErrTypeMismatch	function type mismatch assigning to {place}: expected '{expected}', got '{got}'
+functionShapeReturned	ErrTypeMismatch	function type mismatch in return: expected '{expected}', got '{got}'
+functionShapeCast	ErrUnsafeCast	function type mismatch in cast: expected '{expected}', got '{got}'
+invalidCast	ErrUnsafeCast	Cannot cast from {source} to {target}
+castFormsAValue	ErrUnsafeCast	Cannot cast from {source} to {target} — {remedy}
+castToEnumRemedy	ErrUnsafeCast	an integer is not a case; use '{enumName}.fromRawValue(raw)', which throws 'noSuchRawValue' for a value no case carries
+castToUnionRemedy	ErrUnsafeCast	a union value is built by its case constructor
+methodAsFunctionValue	ErrMethodAsFunctionValue	'{spelled}' is a method, and a method is not a function value: wrap the call in a closure, such as 'function(...) gives {spelled}(...)'
+instanceMethodAsFunctionValue	ErrMethodAsFunctionValue	'{spelled}' is an instance method, and a method is not a function value: call it on a value, or wrap that call in a closure, such as 'function(value) gives value.{method}(...)'
+duplicateAlias	ErrDuplicateTypeAlias	Duplicate typealias '{name}'
+opaqueTypeParameterReason	ErrTypeMismatch	a generic body is compiled ONCE, against the declaration view, so a type parameter is an opaque machine word here and nothing has fixed what it points at — this is refused even where every 'with' in the program binds it to that very type. Declare the place at the type parameter too, or make the call from a concrete instantiation, where the type argument is known
+argTypeMismatchOpaque	ErrTypeMismatch	argument type mismatch for {label}: expected '{expected}', got 'type parameter': {reason}
+patternTypeMismatch	ErrMatchTypeMismatch	pattern type '{pattern}' does not match scrutinee type '{scrutinee}'
+constantCallNotConstant	ErrNonConstantInitializer	Function calls are not allowed in global variable initializers; '{callee}()' is not a constant expression

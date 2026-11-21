@@ -63,7 +63,7 @@ function floatMismatch(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	if castable 'cast'
 		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
 	end 'cast'
-	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: castable), fix: fix, errs: errs)
+	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, t: src), castable: false), fix: fix, errs: errs)
 end 'floatMismatch'
 
 // requireOneFloatAlias refuses two operands of float aliases with no common ancestor, as two integer aliases are.
@@ -145,7 +145,7 @@ function checkFloatCast(c Checker, mutates p ast.Project, off diag.U32, src ast.
 	if isNumberType(p, t: src) 'number'
 		return target
 	end 'number'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)
+	failCast(c, p: p, off: off, src: src, target: target, errs: errs)
 	return ast.noType
 end 'checkFloatCast'
 

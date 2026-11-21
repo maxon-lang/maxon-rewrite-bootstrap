@@ -234,7 +234,7 @@ export function checkMain(mutates c Checker, mutates p ast.Project, mutates errs
 end 'checkMain'
 
 function reportNoMain(c Checker, p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
-	diag.pushLocatedError(errs, code: diag.errNoMainFunction, message: diag.noEntryFunction(entryFunction), file: p.modules[c.modIdx].dir.clone(), line: 1 as Count, col: 1 as Count)
+	diag.pushUnplacedError(errs, code: diag.errNoMainFunction, message: diag.noEntryFunction(entryFunction))
 	return ast.noFunc
 end 'reportNoMain'
 

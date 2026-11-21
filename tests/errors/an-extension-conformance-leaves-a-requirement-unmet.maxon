@@ -16,4 +16,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3016 at 9:1
+// expect-error: E3016 at 9:11

@@ -53,8 +53,15 @@ end 'argumentCount'
 // positionalName is the name of a parameter of a built-in function that its argument fills by its place, never by a label.
 let positionalName = "_"
 
-// orderArgs puts a call's arguments in the order of the parameters, which labels name after the first.
-function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.NodeIDList
+// failArity reports a call whose arguments do not fit the parameters, counting the receiver of a method as an argument, as maxon does.
+function failArity(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, given Count, receivers Count, mutates errs diag.ErrorList)
+	let expectedCount = try specs.count() + receivers otherwise panic("an argument count overflows")
+	let givenCount = try given + receivers otherwise panic("an argument count overflows")
+	failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{expectedCount}", got: "{givenCount}"), errs: errs)
+end 'failArity'
+
+// orderArgs puts a call's arguments in the order of the parameters, which labels name after the first. receivers is 1 for a method called on a value, which maxon counts as an argument in the arity message.
+function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	var ordered = ast.NodeIDList.create(0)
 	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
 	let total = p.modules[c.modIdx].tree.listLen(argsRef)
@@ -64,7 +71,7 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 		given = try total - 1 otherwise 0 as Count
 	end 'skips'
 	if given > specs.count() 'arity'
-		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{specs.count()}", got: "{given}"), errs: errs)
+		failArity(c, p: p, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
 		return ordered
 	end 'arity'
 	for _ in 0 upto specs.count() 'slots'
@@ -113,7 +120,7 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 	end 'args'
 	for j in 0 upto specs.count() 'required'
 		if ordered[j] == 0 and specs[j].defaultExpr == 0 'missing'
-			failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{specs.count()}", got: "{given}"), errs: errs)
+			failArity(c, p: p, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
 			return ordered
 		end 'missing'
 	end 'required'
@@ -129,9 +136,9 @@ end 'omittedAt'
 
 // checkedArgs orders a call's arguments and types them, before the parameters' types are known: a generic callee's type
 // arguments come from them.
-function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.NodeIDList
+function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
-	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
@@ -147,9 +154,9 @@ function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 end 'checkedArgs'
 
 // bindArgs orders a call's arguments and checks each against its parameter, typing it first unless it was typed already.
-function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
+function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
-	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
@@ -198,8 +205,20 @@ function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, va
 	if payload 'payload'
 		return coerce(c, p: p, node: value, at: closingOffset(c, p: p, call: call), src: t, target: spec.ty, wrong: Mismatch.expectedGot, errs: errs)
 	end 'payload'
-	return coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: call), src: t, target: spec.ty, wrong: Mismatch.argument("'{spec.name}'"), errs: errs)
+	return coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
 end 'coerceArg'
+
+let asciiZero = 48 as Byte
+
+let asciiNine = 57 as Byte
+
+// argumentLabel is how a message names the parameter that an argument goes to: its name in quotes, or its place for the parameter of a\n// function value, which has no name.
+function argumentLabel(name String) returns String
+	if name.byteLength() > 0 and name.byteAt(0) >= asciiZero and name.byteAt(0) <= asciiNine 'positional'
+		return name.clone()
+	end 'positional'
+	return "'{name}'"
+end 'argumentLabel'
 
 // nameable is whether a type can be written as a type argument, so inference may choose it: an integer constant or the
 // range of an expression names no alias.
@@ -366,7 +385,7 @@ function verifyCall(mutates c Checker, mutates p ast.Project, pending PendingCal
 	c.omittedCall = pending.callNode
 	c.omittedArgIdx = pending.omittedArgIdx
 	let mark = errs.count()
-	let ordered = bindArgs(c, p: p, call: pending.callNode, callee: pending.calleeName, specs: pending.params, argsChecked: true, payload: false, errs: errs)
+	let ordered = bindArgs(c, p: p, call: pending.callNode, callee: pending.calleeName, specs: pending.params, receivers: 0, argsChecked: true, payload: false, errs: errs)
 	c.hasOmitted = false
 	if failedSince(errs, mark: mark) 'failed'
 		return

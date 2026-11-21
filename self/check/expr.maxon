@@ -191,7 +191,11 @@ function checkNameExpr(mutates c Checker, mutates p ast.Project, e ast.NodeID, m
 	end 'refused'
 	if local != ast.noLocal 'local'
 		c.typing.names.insert(e as Count, value: ast.NameInfo.localName(local))
-		return c.typing.locals[local as Count].ty
+		let declared = c.typing.locals[local as Count].ty
+		if declared == ast.noType 'refused'
+			diag.pushConsequence(errs, code: diag.errExpressionError, message: "'{name}' was declared with a type that was refused", module: c.modID, offset: off)
+		end 'refused'
+		return declared
 	end 'local'
 	let rt = selfRecord(c, p: p)
 	if rt != ast.noType 'inMethod'
@@ -568,9 +572,14 @@ function checkCond(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	let cond = ast.condExprCond(p.modules[c.modIdx].tree, id: e)
 	let thenNode = ast.condExprThen(p.modules[c.modIdx].tree, id: e)
 	let elseNode = ast.condExprElse(p.modules[c.modIdx].tree, id: e)
-	if not requireBool(c, p: p, e: cond, keyword: "if", errs: errs) 'badCond'
+	let condTy = checkExpr(c, p: p, e: cond, errs: errs)
+	if condTy == ast.noType 'badCond'
 		return ast.noType
 	end 'badCond'
+	if condTy != p.builtins.boolTy 'notBool'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errMatchTypeMismatch, msg: diag.ternaryNonBoolCondition(gotName(p, t: condTy)), errs: errs)
+		return ast.noType
+	end 'notBool'
 	let expected = c.expect
 	let thenTy = checkExpecting(c, p: p, e: thenNode, want: expected, errs: errs)
 	if thenTy == ast.noType 'badThen'
@@ -588,15 +597,18 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	let targetRef = ast.castExprTarget(p.modules[c.modIdx].tree, id: e)
 	let operand = ast.castExprE(p.modules[c.modIdx].tree, id: e)
 	let owner = c.owner
+	let mark = errs.count()
 	let target = resolveTypeRef(c, p: p, tr: targetRef, selfTy: owner, errs: errs)
 	if target == ast.noType 'badTarget'
+		anchorUnknownTypes(c, mark: mark, at: p.modules[c.modIdx].tree.castKeywordStart(targetRef), errs: errs)
 		return ast.noType
 	end 'badTarget'
 	if typeHasKind(p, t: target, kind: ast.TypeKind.funcTy) 'function'
 		return checkFunctionCast(c, p: p, e: e, operand: operand, target: target, errs: errs)
 	end 'function'
 	let toFloat = typeHasKind(p, t: target, kind: ast.TypeKind.floatRange)
-	if not typeHasKind(p, t: target, kind: ast.TypeKind.intRange) and not toFloat 'notNumber'
+	let toInt = typeHasKind(p, t: target, kind: ast.TypeKind.intRange)
+	if not toInt and not toFloat and not castTargetIsRefused(p, target: target) 'notNumber'
 		checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
 		return ast.noType
 	end 'notNumber'
@@ -605,11 +617,19 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		return ast.noType
 	end 'badSource'
 	setOperand(c, node: e, operand: src)
+	if not toInt and not toFloat 'refused'
+		if sameType(p.types, a: src, b: target) or assignable(p, src: src, dst: target) 'identity'
+			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)
+			return ast.noType
+		end 'identity'
+		failCast(c, p: p, off: off, src: src, target: target, errs: errs)
+		return ast.noType
+	end 'refused'
 	if toFloat 'float'
 		return checkFloatCast(c, p: p, off: off, src: src, target: target, errs: errs)
 	end 'float'
 	if ast.isFloatType(p.types, t: src) 'fromFloat'
-		checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: diag.floatToIntCast(), errs: errs)
+		failCast(c, p: p, off: off, src: src, target: target, errs: errs)
 		return ast.noType
 	end 'fromFloat'
 	if isConstInt(p, t: src) 'constant'
@@ -625,7 +645,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if typeHasKind(p, t: src, kind: ast.TypeKind.intRange) 'range'
 		return target
 	end 'range'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "cannot cast {nameOfType(p, t: src)} to {nameOfType(p, t: target)}", errs: errs)
+	failCast(c, p: p, off: off, src: src, target: target, errs: errs)
 	return ast.noType
 end 'checkCast'
 
@@ -637,11 +657,120 @@ function checkFunctionCast(mutates c Checker, mutates p ast.Project, e ast.NodeI
 		return ast.noType
 	end 'badSource'
 	if not typeHasKind(p, t: src, kind: ast.TypeKind.funcTy) or not shapeFits(p, src: src, dst: target) 'shape'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errTypeMismatch, msg: "cannot cast {clashName(p, t: src, other: target)} to {clashName(p, t: target, other: src)}", errs: errs)
+		failCast(c, p: p, off: offsetOf(c, p: p, node: e), src: src, target: target, errs: errs)
 		return ast.noType
 	end 'shape'
 	return target
 end 'checkFunctionCast'
+
+// anchorUnknownTypes moves the refusals of an unknown type that were reported since mark to at, where maxon reports the type of a cast: at its 'as'.
+function anchorUnknownTypes(c Checker, mark Count, at diag.U32, mutates errs diag.ErrorList)
+	for i in mark upto errs.count() 'each'
+		if errs[i].code == diag.errUnknownType 'unknown'
+			errs[i].site = diag.Site.make(c.modID, offset: at)
+		end 'unknown'
+	end 'each'
+end 'anchorUnknownTypes'
+
+// castTargetIsRefused is whether maxon refuses a cast to target, whatever the value: a type that no value is converted to.
+function castTargetIsRefused(p ast.Project, target ast.TypeID) returns bool
+	return match kindOfType(p, t: target) 'k'
+		primBool gives true
+		primString gives true
+		record gives true
+		enumTy gives true
+		unionTy gives true
+		funcTy gives true
+		invalid gives false
+		primVoid gives false
+		primNever gives false
+		intRange gives false
+		constInt gives false
+		floatRange gives false
+		constFloat gives false
+		builtinArray gives false
+		builtinMap gives false
+		builtinList gives false
+		builtinPool gives false
+		builtinHandle gives false
+		builtinFrozen gives false
+		builtinCown gives false
+		typeParam gives false
+		interfaceTy gives false
+	end 'k'
+end 'castTargetIsRefused'
+
+// castKindWord is how maxon's messages about a cast name the type of a value: its kind, or the name of a named type.
+function castKindWord(p ast.Project, t ast.TypeID) returns String
+	let name = nameOfType(p, t: t)
+	return match kindOfType(p, t: t) 'k'
+		invalid gives panic("a cast names a value that has no type")
+		primBool gives "bool"
+		primString gives "String"
+		primVoid gives name
+		primNever gives name
+		intRange gives "int" if typeIsAnonInt(p.types, t: t) else name
+		constInt gives "int"
+		floatRange gives "float" if typeIsAnonFloat(p.types, t: t) else name
+		constFloat gives "float"
+		record gives name
+		enumTy gives "enum"
+		unionTy gives "union"
+		builtinArray gives name
+		builtinMap gives name
+		builtinList gives name
+		builtinPool gives name
+		builtinHandle gives name
+		builtinFrozen gives name
+		builtinCown gives name
+		typeParam gives name
+		interfaceTy gives name
+		funcTy gives "function"
+	end 'k'
+end 'castKindWord'
+
+// castTargetWord is how maxon's messages about a cast name the type it converts to: the kind of the type.
+function castTargetWord(p ast.Project, t ast.TypeID) returns String
+	return match kindOfType(p, t: t) 'k'
+		invalid gives panic("a cast names a target that has no type")
+		primBool gives "bool"
+		primString gives "String"
+		intRange gives "int"
+		constInt gives "int"
+		floatRange gives "float"
+		constFloat gives "float"
+		record gives "struct"
+		funcTy gives "function"
+		primVoid gives nameOfType(p, t: t)
+		primNever gives nameOfType(p, t: t)
+		enumTy gives nameOfType(p, t: t)
+		unionTy gives nameOfType(p, t: t)
+		builtinArray gives nameOfType(p, t: t)
+		builtinMap gives nameOfType(p, t: t)
+		builtinList gives nameOfType(p, t: t)
+		builtinPool gives nameOfType(p, t: t)
+		builtinHandle gives nameOfType(p, t: t)
+		builtinFrozen gives nameOfType(p, t: t)
+		builtinCown gives nameOfType(p, t: t)
+		typeParam gives nameOfType(p, t: t)
+		interfaceTy gives nameOfType(p, t: t)
+	end 'k'
+end 'castTargetWord'
+
+// failCast refuses a cast that has no conversion, with the words maxon uses for it.
+export function failCast(c Checker, p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList)
+	let source = castKindWord(p, t: src)
+	let tName = nameOfType(p, t: target)
+	var msg = diag.invalidCast(source, target: castTargetWord(p, t: target))
+	if kindOfType(p, t: target) == ast.TypeKind.enumTy 'toEnum'
+		msg = diag.castFormsAValue(source, target: "enum '{tName}'", remedy: diag.castToEnumRemedy(tName))
+	end 'toEnum' else if kindOfType(p, t: target) == ast.TypeKind.unionTy 'toUnion'
+		msg = diag.castFormsAValue(source, target: "union '{tName}'", remedy: diag.castToUnionRemedy())
+	end 'toUnion' else if kindOfType(p, t: target) == ast.TypeKind.funcTy and kindOfType(p, t: src) == ast.TypeKind.funcTy 'toFunction'
+		msg = diag.functionShapeCast(tName, got: nameOfType(p, t: src))
+	end 'toFunction'
+	checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: msg, errs: errs)
+end 'failCast'
 
 function checkPanic(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let message = ast.panicExprMessage(p.modules[c.modIdx].tree, id: e)

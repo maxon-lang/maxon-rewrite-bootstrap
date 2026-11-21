@@ -363,7 +363,8 @@ end 'requireSigned64'
 export union Mismatch
 	expectedGot
 	argument(label String)
-	assignment(place String)
+	// bare is the place without the type that holds it, which the messages about a function value leave out.
+	assignment(place String, bare String)
 	returned
 
 	// castable is whether a cast to expected would make the value fit.
@@ -371,10 +372,40 @@ export union Mismatch
 		return match self 'm'
 			expectedGot gives diag.expectedGotCast(expected, got: got) if castable else diag.expectedGot(expected, got: got)
 			argument(label) gives diag.argTypeMismatchCast(label, expected: expected, got: got) if castable else diag.argTypeMismatch(label, expected: expected, got: got)
-			assignment(place) gives diag.assignMismatchCast(got, place: place, expected: expected) if castable else diag.assignMismatch(got, place: place, expected: expected)
+			assignment(place, _) gives diag.assignMismatchCast(got, place: place, expected: expected) if castable else diag.assignMismatch(got, place: place, expected: expected)
 			returned gives diag.returnTypeMismatch(got, expected: expected)
 		end 'm'
 	end 'words'
+
+	// opaqueWords is the refusal of a value of a type parameter where a concrete type is needed.
+	export function opaqueWords(expected String) returns String
+		return match self 'm'
+			expectedGot gives diag.expectedGot(expected, got: "type parameter")
+			argument(label) gives diag.argTypeMismatchOpaque(label, expected: expected, reason: diag.opaqueTypeParameterReason())
+			assignment(place, _) gives diag.assignMismatch("type parameter", place: place, expected: expected)
+			returned gives diag.returnTypeMismatch("type parameter", expected: expected)
+		end 'm'
+	end 'opaqueWords'
+
+	// functionWords is the refusal of a function value where the place needs something that is not a function.
+	export function functionWords(expected String) returns String
+		return match self 'm'
+			expectedGot gives diag.expectedGot(expected, got: "function")
+			argument(label) gives diag.functionValuePassed(label, expected: expected, hint: diag.functionValueHint())
+			assignment(_, bare) gives diag.functionValueAssigned(bare, expected: expected, hint: diag.functionValueHint())
+			returned gives diag.functionValueReturned(expected, hint: diag.functionValueHint())
+		end 'm'
+	end 'functionWords'
+
+	// shapeWords is the refusal of a function value of another shape than the function type the place needs.
+	export function shapeWords(expected String, got String) returns String
+		return match self 'm'
+			expectedGot gives diag.expectedGot(expected, got: got)
+			argument(label) gives diag.argTypeMismatch(label, expected: expected, got: got)
+			assignment(_, bare) gives diag.functionShapeAssigned(bare, expected: expected, got: got)
+			returned gives diag.functionShapeReturned(expected, got: got)
+		end 'm'
+	end 'shapeWords'
 end 'Mismatch'
 
 // coerce requires the value of node, of type src, where a target is needed, and reports a refusal at the offset at, which is
@@ -396,9 +427,9 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	if dk == ast.TypeKind.intRange and ast.isFloatType(p.types, t: src) 'lossy'
 		let lossy = diag.lossyFloatConversion(ast.typeName(p.types, t: target))
 		let msg = match wrong 'where'
-			argument(label) gives "argument '{label}': {lossy}"
+			argument(label) gives "argument {label}: {lossy}"
 			expectedGot gives lossy
-			assignment(_) gives lossy
+			assignment(_, _) gives lossy
 			returned gives lossy
 		end 'where'
 		checkFail(c.modID, off: at, code: diag.errUnsafeCast, msg: msg, errs: errs)
@@ -409,6 +440,15 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(offendingBound(p, src: src, target: target), alias: tName, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString()), errs: errs)
 		return false
 	end 'valueFit'
+	if sk == ast.TypeKind.typeParam and dk != ast.TypeKind.typeParam 'opaque'
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.opaqueWords(tName), errs: errs)
+		return false
+	end 'opaque'
+	if sk == ast.TypeKind.funcTy 'function'
+		let words = wrong.shapeWords(tName, got: gotName(p, t: src)) if dk == ast.TypeKind.funcTy else wrong.functionWords(tName)
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: words, errs: errs)
+		return false
+	end 'function'
 	var fix = diag.Fix.none()
 	let integers = sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange
 	if integers 'cast'

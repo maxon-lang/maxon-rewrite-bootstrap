@@ -45,13 +45,58 @@ end 'callTargetName'
 // reservedPrefix starts the names that the compiler keeps for its intrinsics.
 let reservedPrefix = "__"
 
+// refuseConstantCall refuses a call in the initializer of a constant, as maxon does: a call whose result is a number, an enum or a
+// bool is the constant evaluator's refusal, and any other is the refusal of a call at module level.
+function refuseConstantCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, callee ast.NodeID, mutates errs diag.ErrorList)
+	var scratch = diag.ErrorList.create(0)
+	c.allowCalls = true
+	startUses(c, node: call, inField: false)
+	let t = typeCall(c, p: p, call: call, errs: scratch)
+	c.hasUses = false
+	c.allowCalls = false
+	if scratch.count() == 0 and t != ast.noType and isConstantResult(p, t: t) 'scalar'
+		let name = ast.nameExprName(p.modules[c.modIdx].tree, id: callee) if p.modules[c.modIdx].tree.kindOf(callee) == ast.NodeKind.nameExpr else ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
+		checkFail(c.modID, off: p.modules[c.modIdx].tree.reportStartOf(call), code: diag.errNonConstantInitializer, msg: diag.constantCallNotConstant(name), errs: errs)
+		return
+	end 'scalar'
+	let written = writtenCallee(c, p: p, callee: callee, errs: errs)
+	checkFail(c.modID, off: exprOffset(c, p: p, node: call), code: diag.errModuleLetCallsFunction, msg: diag.moduleLetCallsFunction(c.constName.clone(), callee: written), errs: errs)
+end 'refuseConstantCall'
+
+// isConstantResult is whether a value of type t is a number, an enum or a bool, which a constant may hold.
+function isConstantResult(p ast.Project, t ast.TypeID) returns bool
+	return match kindOfType(p, t: t) 'k'
+		intRange gives true
+		constInt gives true
+		floatRange gives true
+		constFloat gives true
+		enumTy gives true
+		primBool gives true
+		invalid gives false
+		primString gives false
+		primVoid gives false
+		primNever gives false
+		record gives false
+		unionTy gives false
+		builtinArray gives false
+		builtinMap gives false
+		builtinList gives false
+		builtinPool gives false
+		builtinHandle gives false
+		builtinFrozen gives false
+		builtinCown gives false
+		typeParam gives false
+		interfaceTy gives false
+		funcTy gives false
+	end 'k'
+end 'isConstantResult'
+
 function typeCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
 	let k = p.modules[c.modIdx].tree.kindOf(callee)
 	let named = k == ast.NodeKind.nameExpr and lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: callee)) == ast.noLocal
 	if (named or k == ast.NodeKind.memberExpr) and not c.allowCalls 'forbidden'
-		let written = writtenCallee(c, p: p, callee: callee, errs: errs)
-		checkFail(c.modID, off: exprOffset(c, p: p, node: call), code: diag.errModuleLetCallsFunction, msg: diag.moduleLetCallsFunction(c.constName.clone(), callee: written), errs: errs)
+		refuseConstantCall(c, p: p, call: call, callee: callee, errs: errs)
 		return ast.noType
 	end 'forbidden'
 	if named 'named'
@@ -212,7 +257,7 @@ function callPrint(mutates c Checker, mutates p ast.Project, call ast.NodeID, na
 	var specs = ast.ParamSpecList.create(0)
 	specs.push(ast.ParamSpec.make("text", ty: p.builtins.stringTy, conv: ast.Convention.convLet))
 	let mark = errs.count()
-	let ordered = bindArgs(c, p: p, call: call, callee: name, specs: specs, argsChecked: false, payload: false, errs: errs)
+	let ordered = bindArgs(c, p: p, call: call, callee: name, specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'failed'
 		return ast.noType
 	end 'failed'
@@ -378,7 +423,7 @@ function callFunction(mutates c Checker, mutates p ast.Project, call ast.NodeID,
 	info.intrinsic = p.funcs.entries[target as Count].intrinsic
 	if declares(c, p: p, f: target) 'declared'
 		let mark = errs.count()
-		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, payload: false, errs: errs)
+		info.ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receiverCount(p, f: target), argsChecked: false, payload: false, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
 			return ast.noType
 		end 'failed'
@@ -420,6 +465,14 @@ function expectedFor(specs ast.ParamSpecList, slot Count, given Count) returns a
 	return ast.noType
 end 'expectedFor'
 
+// receiverCount is how many arguments beyond its parameters a function takes: its receiver, which maxon counts in the arity of a method.
+function receiverCount(p ast.Project, f ast.FuncID) returns Count
+	if p.funcs.entries[f as Count].hasReceiver 'method'
+		return 1
+	end 'method'
+	return 0
+end 'receiverCount'
+
 // callGeneric types a call whose callee has type parameters. given are the arguments of the instance the callee is called
 // on, which were checked against their bounds where the instance was written; without them they are inferred.
 function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, kind ast.CallKind, target ast.FuncID, hasGiven bool, given ast.TypeIDList, mutates errs diag.ErrorList) returns ast.TypeID
@@ -432,7 +485,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	let mark = errs.count()
 	if hasGiven 'instance'
 		specs = applySpecs(p, specs: declared, params: generics, args: given)
-		ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+		ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receiverCount(p, f: target), errs: errs)
 		if failedSince(errs, mark: mark) 'badOrder'
 			return ast.noType
 		end 'badOrder'
@@ -445,7 +498,7 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 			end 'failed'
 		end 'typed'
 	end 'instance' else 'inferred'
-		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: declared, errs: errs)
+		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: declared, receivers: receiverCount(p, f: target), errs: errs)
 		if failedSince(errs, mark: mark) 'badArgs'
 			return ast.noType
 		end 'badArgs'
@@ -517,7 +570,7 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 	let mark = errs.count()
 	var ordered = ast.NodeIDList.create(0)
 	if p.types.entries[ut as Count].typeParams.count() > 0 'generic'
-		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: specs, errs: errs)
+		ordered = checkedArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: 0, errs: errs)
 		if failedSince(errs, mark: mark) 'badArgs'
 			return ast.noType
 		end 'badArgs'
@@ -538,7 +591,7 @@ function unionConstructor(mutates c Checker, mutates p ast.Project, call ast.Nod
 			end 'badArg'
 		end 'each'
 	end 'generic' else 'plain'
-		ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, argsChecked: false, payload: true, errs: errs)
+		ordered = bindArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: 0, argsChecked: false, payload: true, errs: errs)
 		if failedSince(errs, mark: mark) 'badBind'
 			return ast.noType
 		end 'badBind'
@@ -617,7 +670,7 @@ function boundCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, pa
 	info.selfConv = selfConv
 	info.paramSpecs = specs.clone()
 	let mark = errs.count()
-	info.ordered = bindArgs(c, p: p, call: call, callee: calleeName, specs: specs, argsChecked: false, payload: false, errs: errs)
+	info.ordered = bindArgs(c, p: p, call: call, callee: calleeName, specs: specs, receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
 		return ast.noType
 	end 'badArgs'
@@ -660,7 +713,7 @@ function copyCall(mutates c Checker, mutates p ast.Project, call ast.NodeID, t a
 	end 'noCopy'
 	var info = ast.CallInfo.make(ast.CallKind.callCopy, fn: ast.noFunc, receiverTy: t)
 	let mark = errs.count()
-	info.ordered = bindArgs(c, p: p, call: call, callee: cloneMethod, specs: ast.ParamSpecList.create(0), argsChecked: false, payload: false, errs: errs)
+	info.ordered = bindArgs(c, p: p, call: call, callee: cloneMethod, specs: ast.ParamSpecList.create(0), receivers: 0, argsChecked: false, payload: false, errs: errs)
 	if failedSince(errs, mark: mark) 'badArgs'
 		return ast.noType
 	end 'badArgs'

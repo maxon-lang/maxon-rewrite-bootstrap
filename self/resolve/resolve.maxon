@@ -1034,12 +1034,12 @@ type Surface
 end 'Surface'
 
 function declSurface(r Resolver, d ast.Decl, consumes noun String) returns Surface
-	return Surface.make(d.level(), noun: noun, name: d.name(), at: r.tree.startOf(d.nodeID()))
+	return Surface.make(d.level(), noun: noun, name: d.name(), at: r.tree.reportStartOf(d.nodeID()))
 end 'declSurface'
 
 // methodSurface is a method's: its own visibility decides, not its type's.
 function methodSurface(r Resolver, owner String, m ast.FuncDecl) returns Surface
-	return Surface.make(ast.visibilityOf(m.visibility), noun: "function", name: "{owner}.{m.name}", at: r.tree.startOf(m.id))
+	return Surface.make(ast.visibilityOf(m.visibility), noun: "function", name: "{owner}.{m.name}", at: r.tree.reportStartOf(m.id))
 end 'methodSurface'
 
 function narrower(a ast.Visibility, b ast.Visibility) returns ast.Visibility
@@ -1080,7 +1080,7 @@ function reportIfHidden(p ast.Project, s Surface, position String, ref ast.DeclR
 	end 'wide'
 	let d = ast.moduleDecl(p, ref: ref)
 	let tName = d.name()
-	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(s.tier), noun: s.noun, name: s.name, typeTier: ast.visibilityWord(level), typeNoun: typeNoun(d), typeName: tName, position: position))
+	pushErr(errs, modID: modID, off: s.at, code: diag.errExposesHiddenType, msg: diag.exposesLessVisibleType(ast.visibilityWord(s.tier), noun: s.noun, name: ast.inModule(p, modID: modID, name: s.name), typeTier: ast.visibilityWord(level), typeNoun: typeNoun(d), typeName: tName, position: position))
 end 'reportIfHidden'
 
 // typeNoun names the kind of a type declaration in a message.
@@ -1258,7 +1258,7 @@ function resolveNestedAliases(mutates r Resolver, p ast.Project, td ast.TypeDecl
 	end 'staticScope'
 	for i in 0 upto td.aliases.count() 'targets'
 		let a = td.aliases[i].clone()
-		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(td.name, name: a.name), at: r.tree.startOf(a.id))
+		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(td.name, name: a.name), at: r.tree.reportStartOf(a.id))
 		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
 	end 'targets'
 	for i in 0 upto td.statics.count() 'values'

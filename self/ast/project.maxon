@@ -48,6 +48,18 @@ end 'typeParamKey'
 
 let typeParamKeyBit = 9223372036854775808 as Count
 
+// inModule is a name preceded by the path of the module that declares it, as maxon names a declaration of another module in a message.
+export function inModule(p Project, modID diag.ModuleID, name String) returns String
+	if modID == diag.stdlibID 'library'
+		return name.clone()
+	end 'library'
+	let path = p.modules[modIndex(modID)].path.clone()
+	if path.byteLength() == 0 'root'
+		return name.clone()
+	end 'root'
+	return "{path}.{name}"
+end 'inModule'
+
 export function modIndex(m diag.ModuleID) returns Count
 	if m < 0 'neg'
 		panic("negative ModuleID")

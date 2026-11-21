@@ -496,17 +496,22 @@ function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates er
 		let dName = p.modules[mIdx].decls[i].name()
 		let dOff = p.modules[mIdx].decls[i].offset(p.modules[mIdx].tree)
 		match p.modules[mIdx].indexDecl(ord) 'dup'
-			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, prevOrd: prevOrd, modID: modID, errs: errs)
+			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
 			none then _ = 0
 		end 'dup'
 	end 'each'
 end 'buildModuleTable'
 
-function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
+function pushDuplicateDecl(m ast.Module, consumes dName String, dOff diag.U32, ord ast.DeclOrdinal, prevOrd ast.DeclOrdinal, modID diag.ModuleID, mutates errs diag.ErrorList)
 	if ast.isNestedAlias(dName) 'nested'
 		pushDuplicateNestedAlias(dName, dOff: dOff, modID: modID, errs: errs)
 		return
 	end 'nested'
+	let aliasKeyword = "typealias"
+	if m.decls[ord as Count].keyword() == aliasKeyword and m.decls[prevOrd as Count].keyword() == aliasKeyword 'aliases'
+		diag.pushSiteError(errs, code: diag.errDuplicateTypeAlias, message: diag.duplicateAlias(dName), module: modID, offset: dOff)
+		return
+	end 'aliases'
 	diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: diag.duplicateDefinition(dName, keyword: m.decls[prevOrd as Count].keyword()), module: modID, offset: dOff)
 end 'pushDuplicateDecl'
 

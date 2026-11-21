@@ -121,7 +121,7 @@ function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U3
 		fail(o, p: p, site: site, code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
 		return false
 	end 'frozen'
-	if isForVariable(p.modules[o.c.modIdx].tree, l: root) and path.steps.count() == 0 'forVariable'
+	if (isForVariable(p.modules[o.c.modIdx].tree, l: root) or root.projected) and path.steps.count() == 0 'forVariable'
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
 		return false
 	end 'forVariable'
