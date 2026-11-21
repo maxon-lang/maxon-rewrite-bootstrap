@@ -123,7 +123,6 @@ end 'main'
 ```
 
 <!-- test: process-id.differs-from-a-child -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The only oracle a program can reach: run a child and read ITS id off the spawn (`CollectedOutput.pid`).
 This process is alive for the whole case, so its id belongs to no other process — a constant, an answer
@@ -131,20 +130,17 @@ that was the child's id, or the same id for every process cannot pass. wasm32-wa
 and answers `E3074`, which no skip counts, so the case is pinned on the other lanes.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit")
-	argv.push("0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit")
+		argv.push("0")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 20)
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 20)
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("exit 0")
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 21
 	let childPid = result.pid

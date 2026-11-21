@@ -898,8 +898,6 @@ declared
 ```
 
 <!-- test: error.a-self-managed-read-in-an-array-extension-is-refused-at-the-field -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- positions: moved -->
 An `extension Array` in a program file is not the standard library: `self.managed` is the raw buffer, and the refusal
 lands on the field itself, not on a later member.
 
@@ -907,7 +905,6 @@ lands on the field itself, not on a later member.
 extension Array
 	function probe() returns bool
 		let m = self.managed
-		// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 		return m is self.managed
 	end 'probe'
 end 'Array'
@@ -922,7 +919,6 @@ error E3185: <fragment>:4:16: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: a-self-managed-read-in-an-array-extension-compiles-in-the-library-tier -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same program in the library tier.
 
@@ -930,7 +926,6 @@ The same program in the library tier.
 extension Array
 	function probe() returns bool
 		let m = self.managed
-		// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 		return m is self.managed
 	end 'probe'
 end 'Array'
@@ -984,15 +979,12 @@ error E3185: <fragment>:4:11: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-self-managed-read-in-a-string-extension-is-refused-at-the-field -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- positions: moved -->
 A `String`'s buffer is the same raw surface.
 
 ```maxon
 extension String
 	function probe() returns bool
 		let m = self.managed
-		// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 		return m is self.managed
 	end 'probe'
 end 'String'

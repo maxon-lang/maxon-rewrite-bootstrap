@@ -1043,7 +1043,6 @@ seal-012 [522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e
 ```
 
 <!-- test: aes-hardware.gcm-seal-and-open-match-the-software-backing -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `AesGcm` chooses the CPU's instructions once, in `create`. For each key size, associated data of 0, 1, 13, 16, 17, 31, 32,
 33, 127, 128 and 129 bytes and every data length from 0 to 300 bytes (the 8-block loop, the single blocks and the partial last
@@ -1116,13 +1115,10 @@ function mismatches(keyBytes Count) returns (Count, Count, Count)
 end 'mismatches'
 
 function hardwareExpected() returns bool
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if arch(x64) or arch(arm64)
 		return __Builtins.cpuHasAes()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return false
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'hardwareExpected'
 
@@ -1837,27 +1833,20 @@ opened 0 17 34 51 68 85 102 119 136 153 170 187 204 221 238 255
 ```
 
 <!-- test: aes-hardware.a-sized-fixed-array-is-a-buffer -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A fixed array whose type states its length is a buffer in every position a `ByteArray` is, and gives the same bytes: it
 strides one byte per element, as the runtime-sized form does.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Schedule = FixedArray with 352 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Block = FixedArray with 16 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Stream = FixedArray with 32 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Keys = FixedArray with 432 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Box = FixedArray with 56 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Recovered = FixedArray with 40 Byte
 
 typealias Bytes = FixedArray with Byte

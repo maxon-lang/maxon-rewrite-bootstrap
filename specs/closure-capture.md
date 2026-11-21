@@ -555,7 +555,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.bare-self-field-captured -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 A closure body naming a field of the enclosing type by its BARE name is a capture of `self`: it CAPTURES
 THE RECEIVER and reads the field through it. **The answer is 4.**
 
@@ -574,7 +573,7 @@ fields through a ranged alias and this one deliberately uses bare `int`.
 typealias Fn1 = function(int) returns Integer
 
 function apply(f Fn1, x Integer) returns Integer
-	return f(x)
+	return f(x as FullRangeInt)
 end 'apply'
 
 type Counter
@@ -967,7 +966,7 @@ type Held
 	end 'hold'
 end 'Held'
 
-function perform(action Action) returns bool
+function perform(mutates action Action) returns bool
 	return action()
 end 'perform'
 
@@ -3977,7 +3976,7 @@ function zero(mutates b Box) returns Count
 	return 0
 end 'zero'
 
-function apply(g Thunk) returns Count
+function apply(mutates g Thunk) returns Count
 	return g()
 end 'apply'
 
@@ -4209,7 +4208,7 @@ end 'arm'
 
 function main() returns ExitCode
 	let b = Box.create(1)
-	let f = arm(b)
+	var f = arm(b)
 	_ = f()
 	print("{b.n}\n")
 	return 0
@@ -5408,7 +5407,7 @@ function make() returns Bump
 end 'make'
 
 function main() returns ExitCode
-	let b = make()
+	var b = make()
 	var g = b
 	g = make()
 	let first = g()

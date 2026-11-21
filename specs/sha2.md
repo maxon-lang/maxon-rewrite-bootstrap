@@ -344,7 +344,6 @@ Stack trace:
 ```
 
 <!-- test: sha2.the-hardware-and-software-compressions-agree -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 SHA-256 has two compressions: the SHA instructions (SHA-NI on x64, the ARMv8 SHA2 extension on arm64) where
 the CPU has them, and the portable one everywhere else. `Digest.create` takes the hardware one when it can,
@@ -384,13 +383,10 @@ function report(name String, chunk ByteArray, times Count)
 end 'report'
 
 function hardwareExpected() returns bool
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if arch(x64) or arch(arm64)
 		return __Builtins.cpuHasSha()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return false
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'hardwareExpected'
 

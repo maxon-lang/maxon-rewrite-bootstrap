@@ -1534,27 +1534,25 @@ entry 42 value long enough for a heap record 7 entry 42 value long enough for a 
 ```
 
 <!-- test: a-static-reading-sizeof-that-also-passes-an-int-by-reference-reads-the-call-sites-descriptor -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 A static that does not return `Self` reads `sizeof` of the type parameter and also hands an integer local to an unrelated by-reference parameter. The size comes from the descriptor the call site hands the static.
 ```maxon
 typealias Count = int(0 to 1000)
 
 function bump(mutates n Count)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 end 'bump'
 
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
 	static function width(seed Count) returns Count
 		var k = seed
 		bump(k)
-		// TODO: sizeof(...) is not supported in minimaxon
-		return (sizeof(T) as Count) + k
+		return try (sizeof(T) as Count) + k otherwise panic("out of range")
 	end 'width'
 end 'Cell'
 
@@ -3084,7 +3082,6 @@ error E2015: <fragment>:16:35: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.an-interface-fixed-array-alias-is-reported-once -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal holds for `FixedArray` too, where the length precedes the interface argument.
 ```maxon
@@ -3102,7 +3099,6 @@ type Thing implements Named
 	end 'label'
 end 'Thing'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 Named
 
 function main() returns ExitCode
@@ -3457,6 +3453,7 @@ error E2012: <fragment>:10:24: Circular typealias dependency: A
 
 <!-- test: error.a-struct-literal-over-an-inner-alias-the-conformer-binds-to-an-interface-reports-only-the-refusal -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A conformer that binds an associated type to an interface makes the extension's inner alias `Array with Named`, the same instance the alias written at the bottom is refused for. The literal in the extension body is read whole, fields and all, so the only errors are the conformer's binding and the alias written at the bottom.
 ```maxon
@@ -3480,6 +3477,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{size: 1}
@@ -3518,6 +3516,7 @@ No written site spells the refused instance here: the extension writes `Array wi
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-as-an-element-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 interface Named
@@ -3540,6 +3539,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -3571,6 +3571,7 @@ error E2015: <fragment>:29:34: Unsupported: a container's element type declared 
 
 <!-- test: error.a-conformer-binding-an-interface-is-reported-once-however-many-aliases-and-uses-store-it -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 Two aliases in the extension store `Item`, both are used, and the one conformer binding is still reported once.
 ```maxon
@@ -3594,7 +3595,9 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemList = List with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -3631,6 +3634,7 @@ error E2015: <fragment>:36:34: Unsupported: a container's element type declared 
 
 <!-- test: error.each-conformer-binding-an-interface-that-an-extension-stores-is-reported-at-its-own-binding -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 Two conformers bind `Item` to `Named`: each binding is reported, at its own token.
 ```maxon
@@ -3654,6 +3658,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -3697,6 +3702,7 @@ error E2015: <fragment>:39:35: Unsupported: a container's element type declared 
 
 <!-- test: error.the-reported-binding-is-the-position-the-extension-stores -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension stores `Second`, so the binding of `Second` is the one reported; `First` is bound to a concrete type and is not.
 ```maxon
@@ -3721,6 +3727,7 @@ end 'Pair'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Pair
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SecondArray = Array with Second
 	function seconds() returns Count
 		var xs = SecondArray{}
@@ -3756,6 +3763,7 @@ error E2015: <fragment>:30:39: Unsupported: a container's element type declared 
 
 <!-- test: a-conformer-binding-an-interface-the-extension-does-not-store-compiles -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The extension stores `First`, which is bound to a concrete type; `Second` is bound to an interface and no alias stores it, so nothing is refused.
 ```maxon
 interface Named
@@ -3779,6 +3787,7 @@ end 'Pair'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Pair
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias FirstArray = Array with First
 	function firsts() returns Count
 		let xs = FirstArray{}
@@ -3814,6 +3823,7 @@ end 'main'
 
 <!-- test: a-conformer-binding-a-concrete-type-the-extension-stores-compiles -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same extension and the same use are legal for a conformer that binds `Item` to a concrete type.
 ```maxon
 interface Named
@@ -3836,6 +3846,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		let xs = ItemArray{}
@@ -3865,6 +3876,7 @@ end 'main'
 <!-- test: a-conformer-binding-an-interface-is-not-refused-where-a-conditional-extension-is-withheld -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The extension that stores `Item` holds only for an `Equatable` binding, `Named` is not one, so the alias is never published for the conformer and nothing is refused.
 ```maxon
 interface Named
@@ -3888,6 +3900,7 @@ end 'Source'
 // TODO: extensions of an interface are not supported in minimaxon
 // TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Source where Item implements Equatable
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -3916,6 +3929,7 @@ end 'main'
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-in-another-file-stores-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The extension is declared in `a.maxon` and the conformer in `main.maxon`: the one E2015 is at the conformer's binding.
 ```maxon
@@ -3930,6 +3944,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 export extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	export function collected() returns Count
 		var xs = ItemArray{}
@@ -3972,6 +3987,7 @@ error E2015: <fragment>:31:34: Unsupported: a container's element type declared 
 
 <!-- test: error.a-conformer-binding-an-interface-that-an-extension-stores-is-refused-though-no-body-uses-the-alias -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is the pair of the binding and the extension's declaration, so it stands when nothing reads the alias.
 ```maxon
@@ -3995,6 +4011,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		let xs = 0
@@ -5917,11 +5934,11 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
+	static function create(consumes a T, consumes b T) returns Self
 		return Self{a: a, b: b}
 	end 'create'
 
-	static function twice(v T) returns Self
+	static function twice(consumes v T) returns Self
 		return create(v, b: v)
 	end 'twice'
 end 'DPair'
@@ -5951,7 +5968,7 @@ type Entry
 	export var n as Small
 
 	static function create(name String, n Small) returns Self
-		return Self{name: name, n: n}
+		return Self{name: name.clone(), n: n}
 	end 'create'
 end 'Entry'
 
@@ -5959,11 +5976,11 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(a T, b T) returns Self
+	static function create(consumes a T, consumes b T) returns Self
 		return Self{a: a, b: b}
 	end 'create'
 
-	static function twice(v T) returns Self
+	static function twice(consumes v T) returns Self
 		return create(v, b: v)
 	end 'twice'
 end 'DPair'
@@ -7428,6 +7445,7 @@ The pair of a conformer's interface binding and an extension's alias is refused 
 
 <!-- test: error.an-extension-function-alias-over-a-bound-interface-is-refused-once -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A function alias over the associated type, with a member taking it, is refused at the alias; the program never calls through it.
 ```maxon
@@ -7451,6 +7469,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemFn = function(Item) returns Count
 	function apply(f ItemFn) returns Count
 		return f(self.first())
@@ -7489,6 +7508,7 @@ error E2015: <fragment>:21:30: Unsupported: a function type's parameter declared
 
 <!-- test: error.an-extension-tuple-alias-over-a-bound-interface-is-refused -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A tuple alias holding the associated type is refused at the alias, whatever member uses it.
 ```maxon
@@ -7512,6 +7532,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemPair = (Item, Count)
 	function paired(weight Count) returns ItemPair
 		return (self.first(), weight)
@@ -7604,6 +7625,7 @@ error E2015: stdlib/Interfaces.maxon:204:47: Unsupported: a function type's para
 
 <!-- test: error.a-generic-conformer-binding-an-interface-is-reported-once-however-many-instances -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic conformer binds `Item` to an interface and is instantiated over two element types: the one binding is reported once.
 ```maxon
@@ -7627,6 +7649,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -7658,6 +7681,7 @@ error E2015: <fragment>:29:40: Unsupported: a container's element type declared 
 
 <!-- test: error.an-interface-extension-publishes-no-member-onto-an-enum-conformer-binding-an-interface -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension publishes no member onto an enum conformer, so the alias it stores is never instantiated for one and the call is refused as any call to a missing method is.
 ```maxon
@@ -7681,6 +7705,7 @@ end 'Source'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}
@@ -7707,6 +7732,7 @@ error E4006: <fragment>:40:14: Type 'Mode' has no method named 'collected'
 ```
 
 <!-- test: error.a-conformer-in-the-earlier-file-binding-an-interface-that-an-extension-in-a-later-file-stores-is-refused -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The conformer is declared in `a.maxon` and the extension in `main.maxon`: the one E2015 is at the conformer's binding.
 ```maxon
@@ -7741,6 +7767,7 @@ end 'Impl'
 
 // --- file: main.maxon
 extension Source
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	function collected() returns Count
 		var xs = ItemArray{}

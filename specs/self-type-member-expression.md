@@ -496,7 +496,7 @@ error E3064: <fragment>:12:8: result of pure function 'Gate.make' must be used
 ```
 
 <!-- test: keyword-named-enum-case-through-Self -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'while' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ### A KEYWORD-named enum case through `Self`
 Where `Self.` meets a keyword-named declaration: a case may be spelled with a keyword, and `Self.while` has to read `while` as the
 member name while `Self` is itself a keyword being read as a type name. Two keyword rewrites in one
@@ -504,6 +504,7 @@ three-token expression.
 ```maxon
 enum Kw
 	while
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 
 	function pick() returns Kw

@@ -4192,7 +4192,6 @@ end 'main'
 ```
 
 <!-- test: a-family-buffer-alias-keeps-its-buffer-surface -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- tier: stdlib -->
 
 An alias whose name a nominal type in another directory also holds is a declaration of its own, and it keeps

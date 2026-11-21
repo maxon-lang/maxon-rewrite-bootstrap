@@ -86,23 +86,19 @@ mm_free StringBuilder #2
 ```
 
 <!-- test: debugstream-predicate-selects-the-traced-arm -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ⭐ **`#if debugstream` IS A BUILD PREDICATE, AND A TRACED BUILD TAKES ITS ARM.** The flag is decided
 before any token is filtered, so it is a token-tier predicate like `os` and `arch`, not a per-program
 usage bit. The arm allocates a string the untraced twin never does, and the trace shows it.
 <!-- MmTrace -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if debugstream(true)
 		let n = 7
 		let s = "traced {n}"
 		print(s)
 		return 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 0
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -120,21 +116,17 @@ mm_free StringRecord #2
 ```
 
 <!-- test: debugstream-predicate-drops-the-arm-untraced -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 The untraced twin of the case above: the arm is filtered out at the token tier, so the program neither
 allocates nor prints, and the `#else` arm's exit code says which one ran.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if debugstream(true)
 		let n = 7
 		let s = "traced {n}"
 		print(s)
 		return 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 0
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -570,7 +562,7 @@ line appears here, the buffer has an allocation of its own.**
 typealias Bytes = FixedArray with Byte
 
 function build(count Count) returns Bytes
-	let bytes = Bytes.create(count)
+	var bytes = Bytes.create(count)
 	try bytes.set(0, value: 7) otherwise panic("set")
 	return bytes
 end 'build'
@@ -591,20 +583,18 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: a-type-sized-fixed-array-above-256-bytes-is-one-allocation -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same for a type that states its length: 40 words are 320 bytes, past the growable array's co-allocation bound,
 and still one `mm_alloc`.
 <!-- MmTrace -->
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wide = FixedArray with 40 Word
 
 function main() returns ExitCode
-	let wide = Wide.create()
+	var wide = Wide.create()
 	wide.set(39, value: 5)
-	return wide.get(39) as ExitCode
+	return try wide.get(39) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -385,12 +385,13 @@ end 'main'
 ```
 
 <!-- test: keyword-as-case-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 Keywords can be used as enum case names.
 ```maxon
 enum TokenKind
 	function
 	return
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	if
 end 'TokenKind'
@@ -1570,12 +1571,13 @@ error E3034: specs/constants/error.fromName-invalid-case.maxon:8:25: no enum cas
 ```
 
 <!-- test: keyword-case-rawvalue -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 Keyword-named enum cases have correct ordinal raw values.
 ```maxon
 enum TokenType
 	function
 	return
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	if
 end 'TokenType'
@@ -1590,12 +1592,13 @@ end 'main'
 ```
 
 <!-- test: keyword-case-with-method-rawvalue -->
-<!-- skip: minimaxon does not parse the converted source: Expected a name but got '\n' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 Keyword-named enum cases can use rawValue.
 ```maxon
 enum TokenType
 	function
 	return
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	if
 end 'TokenType'

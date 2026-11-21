@@ -498,6 +498,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: keyword-named-cases-interleaved-with-methods -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Weird
@@ -511,6 +512,7 @@ enum Weird
 		end 'spin'
 		return total
 	end 'mid'
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	export
 
@@ -528,6 +530,7 @@ enum Weird
 			alpha gives 1
 			// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 			function gives 2
+			// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 			end gives 3
 			export gives 4
 			omega gives 5
@@ -561,10 +564,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: sibling-call-past-a-case-named-end -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Sib
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 
@@ -589,7 +593,7 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-free-call-beside-a-case-named-while -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'while' -->
 ```maxon
 enum Sib
 	alpha
@@ -613,7 +617,6 @@ function helper() returns Integer
 end 'helper'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Later)
 	let a = Sib.alpha
 	return a.outer() as ExitCode
@@ -673,23 +676,20 @@ error E2015: <fragment>:7:3: Unsupported: a field access through `self` in a met
 ```
 
 <!-- test: a-directive-selecting-between-two-methods -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'function' -->
 ```maxon
 enum Plat
 	alpha
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
 
 	function tag() returns Integer
 		return 3
 	end 'tag'
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 
 	function tag() returns Integer
 		return 7
 	end 'tag'
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 	omega
 end 'Plat'
@@ -709,19 +709,16 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-directive-inside-a-method-body -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'end' but got 'the end of the indented lines' -->
 ```maxon
 enum Plat
 	alpha
 
 	function tag() returns Integer
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
 	return 3
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	return 7
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 	end 'tag'
 	omega

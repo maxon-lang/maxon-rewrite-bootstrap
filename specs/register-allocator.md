@@ -842,15 +842,14 @@ end 'main'
 72
 ```
 <!-- test: match-statement-or-patterns -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 3
 	match x 'check'
 		1 or
-			2 then return 10
+		2 then return 10
 		3 or
-			4 then return 20
+		4 then return 20
 		default then return 0
 	end 'check'
 end 'main'
@@ -891,15 +890,14 @@ end 'main'
 20
 ```
 <!-- test: match-expression-or-patterns -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 4
 	let result = match x 'eval'
 		1 or
-			2 gives 10
+		2 gives 10
 		3 or
-			4 gives 20
+		4 gives 20
 		default gives 0
 	end 'eval'
 	return result

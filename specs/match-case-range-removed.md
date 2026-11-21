@@ -45,7 +45,6 @@ ordered domain, where a new value cannot appear between the bounds behind the au
 ## Tests
 
 <!-- test: or-chain-wraps -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 A wrapped chain selects every one of its alternatives, in both the expression form (`gives`) and
 the statement form (`then`), and whether or not the arm is the first.
 ```maxon
@@ -61,8 +60,8 @@ end 'Op'
 function scored(op Op) returns Code
 	let v = match op 'op'
 		add or
-			sub or
-			mul gives 1
+		sub or
+		mul gives 1
 		halt gives 9
 	end 'op'
 	return v
@@ -71,9 +70,9 @@ end 'scored'
 function labelled(op Op) returns Code
 	match op 'op'
 		add or
-			halt then return 5
+		halt then return 5
 		sub or
-			mul then return 6
+		mul then return 6
 	end 'op'
 end 'labelled'
 
@@ -91,7 +90,6 @@ end 'main'
 ```
 
 <!-- test: chain-covers-every-case-for-exhaustiveness -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 Every alternative counts toward exhaustiveness, so a chain naming every case needs no `default`.
 ```maxon
 typealias Code = int(0 to 125)
@@ -105,8 +103,8 @@ end 'Color'
 function pick(c Color) returns Code
 	match c 'c'
 		red or
-			green or
-			blue then return 4
+		green or
+		blue then return 4
 	end 'c'
 end 'pick'
 
@@ -119,6 +117,7 @@ end 'main'
 ```
 
 <!-- test: error.case-added-mid-span-is-named -->
+<!-- positions: moved -->
 ⭐ **THE ARGUMENT FOR THE WHOLE RULE, AS A TEST.** `Op` once read `add sub mul halt`, and an arm
 covering the first three was spelled `add to mul`. `fma` is then added BETWEEN `sub` and `mul` — the
 mid-span insert. A range would have absorbed it in silence: its endpoints still say `add` and `mul`,
@@ -139,8 +138,8 @@ end 'Op'
 function classify(op Op) returns Code
 	match op 'op'
 		add or
-			sub or
-			mul then return 1
+		sub or
+		mul then return 1
 		halt then return 2
 	end 'op'
 end 'classify'

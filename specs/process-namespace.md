@@ -46,25 +46,20 @@ end 'main'
 ```
 
 <!-- test: process-namespace.names-the-host-specific-identity -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 On Linux the answer is the pid-namespace link target, `pid:[<inode>]`; on macOS and Windows it is a UUID: 36
 bytes in five groups joined by `-`.
 ```maxon
 function main() returns ExitCode
 	let name = Process.namespace()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Linux)
 		if name.startsWith("pid:[") and name.endsWith("]") 'aPidNamespaceLink'
 			return 3
 		end 'aPidNamespaceLink'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Macos) or os(Windows)
 		if name.byteLength() == 36 and name.split("-").count() == 5 'aUuid'
 			return 3
 		end 'aUuid'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	return 1
 end 'main'

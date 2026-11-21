@@ -1445,7 +1445,6 @@ heard=after shutdown after close threw connectionClosed
 <!-- test: netpoll-socket.a-connection-reset-before-it-is-accepted-leaves-the-listener-serving -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -1457,19 +1456,16 @@ let Greeting = "hello"
 
 function resetBeforeAccept(port NetworkPort) returns bool
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		argv.push("-NoProfile")
 		argv.push("-Command")
 		argv.push("$s = New-Object System.Net.Sockets.Socket([System.Net.Sockets.AddressFamily]::InterNetwork, [System.Net.Sockets.SocketType]::Stream, [System.Net.Sockets.ProtocolType]::Tcp); $s.LingerState = New-Object System.Net.Sockets.LingerOption($true, 0); $s.Connect('127.0.0.1', {port}); $s.Close()")
 		let helper = Executable.name("powershell")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		argv.push("-MSocket")
 		argv.push("-e")
 		argv.push("socket(my $s, PF_INET, SOCK_STREAM, 0) or die; setsockopt($s, SOL_SOCKET, SO_LINGER, pack(\"ii\", 1, 0)) or die; connect($s, pack_sockaddr_in({port}, inet_aton(\"127.0.0.1\"))) or die; close($s)")
 		let helper = Executable.name("perl")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let res = try Subprocess.run(helper, arguments: argv) otherwise return false
 	return res.succeeded()

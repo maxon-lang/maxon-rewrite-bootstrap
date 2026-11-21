@@ -385,7 +385,6 @@ end 'main'
 ```
 
 <!-- test: reference-identity-is-never-promoted -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 `is` compares record ADDRESSES, so it is the one operator that can tell a frame slot from a heap box. A
 record reaching an `is` is never promoted, which is what makes the two storage shapes indistinguishable
 here: two separate constructions are never identical, and an alias always is, whichever storage they use.
@@ -406,11 +405,9 @@ function main() returns ExitCode
 	let b = Point.create(1, y: 2)
 	let c = a
 	var score = 0 as Integer
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'distinctRecordsAreNotIdentical'
 		score = score + 1
 	end 'distinctRecordsAreNotIdentical'
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is c 'anAliasIsIdentical'
 		score = score + 40
 	end 'anAliasIsIdentical'

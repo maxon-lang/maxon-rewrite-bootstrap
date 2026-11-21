@@ -27,7 +27,6 @@ one slot and silently return a wrong number.
 ## Tests
 
 <!-- test: file-private-same-name-in-two-directories-through-a-generic-instance -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in two DIRECTORIES each declare an unmarked `limit`, `tag` and `calls` (a `SharedValue` cell). A generic type
 declared in `a.maxon` has a method that reads them, and `app/main.maxon` instantiates it and calls that method
 from beside its own three declarations of the same names. The method reads `a.maxon`'s declarations
@@ -90,7 +89,6 @@ end 'main'
 ```
 
 <!-- test: exported-globals-of-one-name-in-two-directories-are-read-qualified -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An `export`ed top-level binding is declared in its directory's scope, so two directories that each `export let
 LIMIT` declare two bindings, and a file that sees both reads each qualified: `alpha.LIMIT` is 42 and `beta.LIMIT`
 is 34.
@@ -111,7 +109,6 @@ end 'main'
 ```
 
 <!-- test: error.a-bare-read-of-a-name-two-directories-export-is-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `app/main.maxon` sees both directories' `LIMIT`, so a bare read of it is ambiguous and is E3095, as a bare call to a
 function two directories export is.
 ```maxon
@@ -156,7 +153,6 @@ end 'fromOther'
 
 
 <!-- test: error.exported-global-in-two-files-one-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same refusal with both declarations in ONE directory, pinning that it is not a directory
 rule wearing a duplicate's clothes: a global's name is flat and project-wide, so the two files'
 relative position never enters into it.
@@ -207,7 +203,6 @@ error E3006: <fragment>:14:10: duplicate definition of 'pick' — already declar
 ```
 
 <!-- test: global-file-private-same-name.two-directories-each-declare-a-private-helper-of-one-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same two helpers in two DIRECTORIES are two names, and each file means its own. Typing every call to the
 name from the last declaration the sweep read (`app/main.maxon`'s, returning a `Cnt`) would refuse `lib/a.maxon`
 — the file that is CORRECT — with an `E3005` on its `return`. The program prints `hi` then `1`, exit 0.
@@ -243,7 +238,6 @@ hi
 ```
 
 <!-- test: global-file-private-same-name.two-private-helpers-of-one-name-in-two-directories-returning-different-managed-types -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The `stripTrailingCR` shape: two files of two directories, one unmarked helper name, parameter types that differ
 AND return types that differ — and both of them MANAGED, so the divergence is not one any later retype could
 repair. A result typed from the wrong member here is a leak in one direction and a drop of a record the
@@ -280,7 +274,6 @@ xy
 ```
 
 <!-- test: a-field-and-a-struct-literal-label-named-like-a-contested-binding-keep-their-spelling -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `alpha/` and `beta/` each export a `let counter`, and a type in `alpha/` has a field of the same name. A name
 that is not a reference to the top-level binding is never respelled: the field's declaration, the `counter:` label
 of the struct literal and `self.counter` stay `counter`, so `app/main.maxon`'s `cell.counter` reaches it.
@@ -315,7 +308,6 @@ end 'main'
 ```
 
 <!-- test: a-method-named-like-a-contested-binding-keeps-its-spelling -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A method named `counter` in `alpha/`, beside `alpha/`'s own `let counter` and `beta/`'s: the method's declaration is
 not a reference to the binding, so `meter.counter()` in another directory still finds it.
 ```maxon
@@ -348,7 +340,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-and-an-argument-label-named-like-a-contested-binding-keep-their-spelling -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A parameter named `counter` in `alpha/`, beside two directories' `let counter`: the parameter is not the binding,
 so the call's `counter:` label in `app/main.maxon` still names it.
 ```maxon
@@ -372,7 +363,6 @@ end 'main'
 ```
 
 <!-- test: error.a-local-and-a-parameter-named-like-a-contested-binding-are-reported-by-their-own-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A local and a parameter that shadow `alpha/`'s `let counter` are block-scope names: the diagnostics name them as
 written, and the read of the binding before the local that shadows it stays a read of the binding.
@@ -404,7 +394,6 @@ error E3012: alpha/<fragment>:11:6: unused variable: 'counter'
 ```
 
 <!-- test: a-bare-binding-read-means-the-readers-own-directorys-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `alpha/` declares a free function `limit` and `beta/` exports a `let limit`. A bare `limit` in `alpha/` means the
 reader's own directory's declaration, so it is a function value there; `beta`'s binding is read as `beta.limit`.
 ```maxon
@@ -431,7 +420,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-binding-read-means-the-readers-own-directorys-function-beside-two-lets -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair with a second directory exporting a `let limit`: two bindings of the name are visible to `alpha/`,
 and still its own function is the bare name's meaning, because the reader's own directory decides first.
 ```maxon
@@ -461,7 +449,6 @@ end 'main'
 ```
 
 <!-- test: a-programs-export-let-shadows-a-library-binding-of-its-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `stdlib/helpers/sort/driftQuicksort.maxon` declares `public let SmallSortThreshold = 32` and its sorts read it. A
 program's own `export let SmallSortThreshold` is a different scope: the program reads its own value, and the
 library's sort of forty elements still reads the library's, so the array comes out ordered.
@@ -488,7 +475,6 @@ end 'main'
 ```
 
 <!-- test: every-block-scope-form-named-like-a-contested-binding-keeps-its-own-meaning -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A loop variable, a closure parameter, a union payload with its match-arm binding, a tuple destructuring and an enum
 case are each spelled `counter` in `alpha/`, beside `alpha/`'s own `let counter` and `beta/`'s. Each is a block-scope name that
 shadows the binding exactly as far as its scope runs: the reads inside it mean the local, and the reads before or after

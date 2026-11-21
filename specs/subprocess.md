@@ -64,23 +64,20 @@ streams at once — plus the streaming handle, the async spawn, and the
 byte-transparency of both capture paths.
 
 <!-- test: subprocess-run-collect -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("hello")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("hello")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
@@ -107,23 +104,20 @@ end 'main'
 ```
 
 <!-- test: subprocess-run-path -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("via-path")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("via-path")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
 	if not result.succeeded() 'check-success'
@@ -140,22 +134,19 @@ end 'main'
 ```
 
 <!-- test: subprocess-cwd -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
 	let cwd = Directory.currentPath()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("cd")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/pwd") otherwise return 2)
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd)) otherwise return 2
 	if not result.succeeded() 'check-success'
@@ -178,20 +169,17 @@ end 'main'
 ```
 
 <!-- test: subprocess-stdin-bytes -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
 	// `findstr .` (Windows) / `grep .` (POSIX) echoes any line containing at
 	// least one character — i.e. every non-empty line of stdin. We feed it two
 	// lines and expect both back on stdout.
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let c = Configuration.create(Executable.name("findstr"))
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let c = Configuration.create(Executable.path(try FilePath.from("/usr/bin/grep") otherwise return 2))
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let argv = StringArray.create(0)
 	argv.push(".")
@@ -215,7 +203,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-streaming-roundtrip -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-a' -->
 <!-- unsupported-targets: wasm32-wasi -->
 `StreamingSubprocess` keeps the child's pipes open and drives stdio
 by hand, line by line. We spawn a line-echo child (`findstr "x*"` on
@@ -240,18 +228,15 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 3
@@ -293,7 +278,6 @@ gamma
 ```
 
 <!-- test: subprocess-streaming-a-blank-line-is-not-the-end-of-the-stream -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child's own BLANK line and the end of its stream are different answers, and `readLine` gives
 them differently: the blank line is `LineOrEnd.line("")`, and the end of the stream is `LineOrEnd.ended`.
@@ -308,18 +292,15 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 3
@@ -348,7 +329,6 @@ then: ended
 ```
 
 <!-- test: subprocess-streaming-a-direct-write-is-refused-while-a-payload-is-queued -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
 A payload queued for a child's stdin is pushed in chunks through a write end that is not allowed to block, so a
@@ -364,18 +344,15 @@ function directWriteRefusal(child StreamingSubprocess) returns String
 end 'directWriteRefusal'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("queued\n") otherwise return 4
@@ -394,7 +371,6 @@ I/O failed: a payload is already queued for the child's stdin
 ```
 
 <!-- test: subprocess-streaming-a-second-queued-payload-is-refused-while-the-first-is-pending -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
 A queued payload is copied into a buffer the handle owns, with a cursor and a count, so a second `queueStdin`
@@ -409,18 +385,15 @@ function secondQueueRefusal(child StreamingSubprocess) returns String
 end 'secondQueueRefusal'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("first\n") otherwise return 4
@@ -439,7 +412,6 @@ I/O failed: a payload is already queued for the child's stdin
 ```
 
 <!-- test: subprocess-streaming-an-empty-queued-payload-still-refuses-a-direct-write -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
 An empty payload is still a queued payload: it is pushed, spends no bytes and closes stdin, so until then a direct
@@ -453,18 +425,15 @@ function directWriteRefusal(child StreamingSubprocess) returns String
 end 'directWriteRefusal'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	try child.queueStdin("") otherwise return 4
@@ -485,7 +454,6 @@ I/O failed: a payload is already queued for the child's stdin
 <!-- test: subprocess-streaming-spawn-from-green-thread -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The case above spawns from `main`, i.e. from the OS thread's own stack. This
 one spawns the identical child from inside an `async` body, i.e. from a GREEN
@@ -510,18 +478,15 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function echoFromGreenThread() returns StepCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 3
@@ -559,27 +524,23 @@ step=0
 ```
 
 <!-- test: subprocess-timeout-kill -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
 	// `ping 127.0.0.1 -n 30` (Windows) / `sleep 30` (POSIX) waits ~30 seconds;
 	// we kill it after 200ms.
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("ping")
-	argv.push("127.0.0.1")
-	argv.push("-n")
-	argv.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("ping")
+		argv.push("127.0.0.1")
+		argv.push("-n")
+		argv.push("30")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sleep") otherwise return 1)
-	let argv = StringArray.create(0)
-	argv.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sleep") otherwise return 1)
+		let argv = StringArray.create(0)
+		argv.push("30")
 	#endif
 	let cwd = Directory.currentPath()
 	var sawTimeout = false
@@ -607,7 +568,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-timeout-carries-the-partial-output -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE DOES NOT DESTROY WHAT THE CHILD ALREADY SAID.** The runtime hands back the bytes it
 collected before the kill exactly as it does on a clean exit, so `SubprocessError.timeout` carries them:
@@ -620,25 +580,22 @@ The child here prints `alpha`, flushes, and then sleeps far past the deadline; o
 can hand `alpha` back, so a green here is a statement about the payload and about the arm at once.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("echo")
-	argv.push("alpha")
-	argv.push("&")
-	argv.push("ping")
-	argv.push("127.0.0.1")
-	argv.push("-n")
-	argv.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("echo")
+		argv.push("alpha")
+		argv.push("&")
+		argv.push("ping")
+		argv.push("127.0.0.1")
+		argv.push("-n")
+		argv.push("30")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 1)
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("echo alpha; sleep 30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 1)
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("echo alpha; sleep 30")
 	#endif
 	let cwd = Directory.currentPath()
 	var partial = ""
@@ -646,13 +603,13 @@ function main() returns ExitCode
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
 			executableNotFound or
-				spawnFailed or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused gives ""
+			spawnFailed or
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused gives ""
 		end 'kind'
 	end 'handler'
 	if partial.contains("alpha") 'check'
@@ -666,7 +623,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-deadline-ends-the-grandchild-the-child-started -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE ENDS THE CHILD'S WHOLE PROCESS TREE, A GRANDCHILD THAT LEADS ITS OWN PROCESS GROUP
 INCLUDED.** On Linux and macOS every Maxon program leads a process group
@@ -686,6 +643,7 @@ let graceMs = 2000
 let pollMs = 50
 
 function grandchildIdFrom(line String) returns Pid throws ParseError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat
@@ -748,13 +706,13 @@ function collectedVerdict(me Executable) returns String
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
 			executableNotFound or
-				spawnFailed or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused gives ""
+			spawnFailed or
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused gives ""
 		end 'kind'
 	end 'expired'
 	let pid = try grandchildIdFrom(partial) otherwise panic("the child prints the grandchild's id before the deadline")
@@ -786,7 +744,7 @@ deadline: timed out true, grandchild ended true
 ```
 
 <!-- test: subprocess-endtree-ends-the-grandchild-the-child-started -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 **`endTree()` ENDS THE CHILD'S WHOLE PROCESS TREE AT ONCE, THE KILL A DEADLINE SENDS WITHOUT WAITING FOR ONE.**
 The case runs itself three ways. The child starts a grandchild that sleeps far past the case, prints the
@@ -801,6 +759,7 @@ let graceMs = 2000
 let pollMs = 50
 
 function grandchildIdFrom(line String) returns Pid throws ParseError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat
@@ -1160,7 +1119,7 @@ armed=0 ready=ready endedCleanly=true leaked=0
 ```
 
 <!-- test: subprocess-a-deadline-spares-the-process-the-child-started-detached -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A DEADLINE'S TREE KILL NEVER ENDS A PROCESS THE CHILD STARTED DETACHED.** Detaching is stated at the spawn,
 with `runDetached()`, so the process it starts is no part of the tree a deadline ends, though its parent is
@@ -1184,6 +1143,7 @@ let selfEndBoundMs = 30000
 let pollMs = 50
 
 function detachedIdFrom(line String) returns Pid throws ParseError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(line.trim())
 	if parsed < 0 'negative'
 		throw ParseError.invalidFormat
@@ -1236,13 +1196,13 @@ function main() returns ExitCode
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
 			executableNotFound or
-				spawnFailed or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused gives ""
+			spawnFailed or
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused gives ""
 		end 'kind'
 	end 'expired'
 	let pid = try detachedIdFrom(partial) otherwise panic("the child prints the detached grandchild's id before the deadline")
@@ -1355,7 +1315,6 @@ osError 5
 ```
 
 <!-- test: subprocess-run-bare-name-found-on-path -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A BARE NAME IS FOUND THROUGH `PATH` ON EVERY LANE.** Every other case here spawns a POSIX tool by
 absolute path (`/bin/echo`), so this is the case that sees a Windows-only resolver: on Linux one would
@@ -1365,20 +1324,17 @@ succeeding on Windows and macOS, and the release pipeline, which reads its versi
 build compilers that call themselves `dev`.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit")
-	argv.push("7")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		var argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit")
+		argv.push("7")
 	#else
-	let exe = Executable.name("sh")
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("exit 7")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("sh")
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("exit 7")
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	return result.exitCode() as ExitCode
@@ -1389,7 +1345,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-bare-name-is-never-found-in-the-working-directory -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 ⛔ **A BARE NAME MUST NOT RESOLVE AGAINST THE WORKING DIRECTORY ON POSIX.** Trying the name
 "exactly as given" first is correct on Windows, where the current directory is part of the search, and a
@@ -1409,12 +1364,12 @@ function main() returns ExitCode
 			executableNotFound then refused = true
 			spawnFailed or
 			busy or
-				timeout or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then refused = false
+			timeout or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then refused = false
 		end 'kind'
 	end 'handler'
 	try File.delete(probe) otherwise return 4
@@ -1727,7 +1682,6 @@ rooted: executable not found: \maxon-spec-order-rooted
 ```
 
 <!-- test: subprocess-not-found -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A MISSING BINARY IS `executableNotFound` ON EVERY OS.** POSIX's spawn searches nothing, so a bare name
 the `PATH` walk misses is known not to exist before any spawn. Windows cannot know that from the walk —
@@ -1744,12 +1698,12 @@ function main() returns ExitCode
 			executableNotFound then sawNotFound = true
 			spawnFailed or
 			busy or
-				timeout or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then sawNotFound = false
+			timeout or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then sawNotFound = false
 		end 'kind'
 	end 'handler'
 	if sawNotFound 'check'
@@ -1763,7 +1717,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-path-to-a-missing-file-is-not-found -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **`Executable.path` NAMING A FILE THAT DOES NOT EXIST IS `executableNotFound` TOO.** No search is
 involved — the path is taken as given — so the only evidence is the spawn's own failure, and the answer
@@ -1781,12 +1734,12 @@ function main() returns ExitCode
 			executableNotFound then sawNotFound = true
 			spawnFailed or
 			busy or
-				timeout or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then sawNotFound = false
+			timeout or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then sawNotFound = false
 		end 'kind'
 	end 'handler'
 	if sawNotFound 'check'
@@ -1800,7 +1753,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-spawn-of-an-executable-open-for-writing-follows-the-operating-systems-answer -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A spawn reports what the operating system answers for an executable that is still open for writing. Windows
 and Linux refuse to start it, and the spawn throws `busy`; macOS starts it, and the spawn runs the child. The
@@ -1814,12 +1766,12 @@ function verdictOf(config Configuration) returns String
 			busy then verdict = "busy"
 			spawnFailed(reason) then verdict = "spawnFailed: {reason}"
 			executableNotFound or
-				timeout or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then verdict = "other"
+			timeout or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then verdict = "other"
 		end 'kind'
 	end 'handler'
 	return verdict
@@ -1833,13 +1785,10 @@ function main() returns ExitCode
 	end 'child'
 	let own = try Process.executablePath() otherwise panic("the running program has a path")
 	let image = try File.readBinary(own) otherwise panic("the running program's image is readable")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let copy = Directory.currentPath().join("maxon-spec-busy-image.exe")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let copy = Directory.currentPath().join("maxon-spec-busy-image.exe")
 	#else
-	let copy = Directory.currentPath().join("maxon-spec-busy-image")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let copy = Directory.currentPath().join("maxon-spec-busy-image")
 	#endif
 	let writer = try FileWriter.open(copy, mode: FilePermission.executable) otherwise panic("the scratch image can be opened for writing")
 	try writer.write(image) otherwise panic("the scratch image can be written")
@@ -1849,13 +1798,10 @@ function main() returns ExitCode
 	let verdict = verdictOf(config)
 	writer.close()
 	try File.delete(copy) otherwise panic("the scratch image can be removed")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Macos)
 		let expectedVerdict = "ran"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let expectedVerdict = "busy"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	if verdict == expectedVerdict 'agrees'
 		print("as the operating system answers\n")
@@ -1873,7 +1819,6 @@ as the operating system answers
 ```
 
 <!-- test: subprocess-a-missing-redirect-file-is-spawn-failed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A STANDARD STREAM THAT CANNOT BE OPENED IS `spawnFailed`, NOT `executableNotFound`, ON EVERY OS.** The
 spawn opens a `file` redirect before it launches anything, and a missing file fails with the same
@@ -1889,30 +1834,27 @@ function verdictOf(config Configuration) returns String
 			executableNotFound then verdict = "executableNotFound"
 			spawnFailed then verdict = "spawnFailed"
 			timeout or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then verdict = "other"
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then verdict = "other"
 		end 'kind'
 	end 'handler'
 	return verdict
 end 'verdictOf'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let systemTool = try FilePath.from("C:\\Windows\\System32\\hostname.exe") otherwise panic("a literal path is well formed")
-	let appDir = try (try Process.executablePath() otherwise panic("the running program has a path")).parent() otherwise panic("an executable's path has a directory")
-	let tool = appDir.join("maxon-spec-app-dir-tool.exe")
-	let image = try File.readBinary(systemTool) otherwise panic("hostname.exe is readable")
-	try File.writeBinary(tool, content: image) otherwise panic("the application directory is writable")
-	let exe = Executable.name("maxon-spec-app-dir-tool")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let systemTool = try FilePath.from("C:\\Windows\\System32\\hostname.exe") otherwise panic("a literal path is well formed")
+		let appDir = try (try Process.executablePath() otherwise panic("the running program has a path")).parent() otherwise panic("an executable's path has a directory")
+		let tool = appDir.join("maxon-spec-app-dir-tool.exe")
+		let image = try File.readBinary(systemTool) otherwise panic("hostname.exe is readable")
+		try File.writeBinary(tool, content: image) otherwise panic("the application directory is writable")
+		let exe = Executable.name("maxon-spec-app-dir-tool")
 	#else
-	let exe = Executable.name("sh")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("sh")
 	#endif
 	let control = Configuration.create(exe)
 	control.standardOutput = OutputDestination.discard
@@ -1921,10 +1863,8 @@ function main() returns ExitCode
 	let missingStdoutDir = Configuration.create(exe)
 	missingStdoutDir.standardOutput = OutputDestination.file(Directory.currentPath().join("maxon-spec-no-such-dir-xyzzy").join("out.txt"))
 	print("control={verdictOf(control)} stdin={verdictOf(missingStdin)} stdout={verdictOf(missingStdoutDir)}\n")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	try File.delete(tool) otherwise panic("the copied tool can be removed")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		try File.delete(tool) otherwise panic("the copied tool can be removed")
 	#endif
 	return 0
 end 'main'
@@ -1937,7 +1877,6 @@ control=ran stdin=spawnFailed stdout=spawnFailed
 ```
 
 <!-- test: subprocess-a-relative-executable-resolves-against-the-working-directory -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A RELATIVE `Executable.path` IS RELATIVE TO THE CHILD'S `workingDirectory` ON EVERY OS.** Hosts
 disagree on whether a launch path is read before or after the child enters its directory —
@@ -1958,38 +1897,32 @@ function verdictOf(executable Executable, workingDirectory FilePath) returns Str
 			executableNotFound then verdict = "executableNotFound"
 			spawnFailed then verdict = "spawnFailed"
 			timeout or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then verdict = "other"
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then verdict = "other"
 		end 'kind'
 	end 'handler'
 	return verdict
 end 'verdictOf'
 
 function placeTool(dir FilePath, name String)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let systemTool = try FilePath.from("C:\\Windows\\System32\\hostname.exe") otherwise panic("a literal path is well formed")
-	let image = try File.readBinary(systemTool) otherwise panic("hostname.exe is readable")
-	try File.writeBinary(dir.join(name), content: image) otherwise panic("the tool's directory is writable")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let systemTool = try FilePath.from("C:\\Windows\\System32\\hostname.exe") otherwise panic("a literal path is well formed")
+		let image = try File.readBinary(systemTool) otherwise panic("hostname.exe is readable")
+		try File.writeBinary(dir.join(name), content: image) otherwise panic("the tool's directory is writable")
 	#else
-	try File.writeText(dir.join(name), content: "#!/bin/sh\nexit 0\n", mode: FilePermission.executable) otherwise panic("the tool's directory is writable")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		try File.writeText(dir.join(name), content: "#!/bin/sh\nexit 0\n", mode: FilePermission.executable) otherwise panic("the tool's directory is writable")
 	#endif
 end 'placeTool'
 
 function dotRelative(name String) returns String
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	return ".\\{name}"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return ".\\{name}"
 	#else
-	return "./{name}"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return "./{name}"
 	#endif
 end 'dotRelative'
 
@@ -2003,15 +1936,12 @@ function main() returns ExitCode
 	let childDir = parentDir.join(childDirName)
 	let relativeChildDir = try FilePath.from(childDirName) otherwise panic("a bare directory name is a well-formed path")
 	_ = Directory.create(childDir)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let parentOnly = "maxon-spec-parent-cwd-only-tool.exe"
-	let childOnly = "maxon-spec-child-cwd-only-tool.exe"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let parentOnly = "maxon-spec-parent-cwd-only-tool.exe"
+		let childOnly = "maxon-spec-child-cwd-only-tool.exe"
 	#else
-	let parentOnly = "maxon-spec-parent-cwd-only-tool"
-	let childOnly = "maxon-spec-child-cwd-only-tool"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let parentOnly = "maxon-spec-parent-cwd-only-tool"
+		let childOnly = "maxon-spec-child-cwd-only-tool"
 	#endif
 	placeTool(parentDir, name: parentOnly)
 	placeTool(childDir, name: childOnly)
@@ -2032,26 +1962,22 @@ name parent-cwd-only=executableNotFound name child-cwd-only=ran name relative-di
 ```
 
 <!-- test: subprocess-a-missing-working-directory-is-spawn-failed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A `workingDirectory` THAT DOES NOT EXIST IS `spawnFailed` ON EVERY OS, AND THE CHILD NEVER RUNS.** It
 fails with a not-found code on POSIX, so it too is a step only the runtime can tell apart from the launch.
 The executable is one every lane finds, so `executableNotFound` would be a wrong answer about it.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit 0")
 	#else
-	let exe = Executable.name("sh")
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("sh")
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("exit 0")
 	#endif
 	var verdict = "ran"
 	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise (e) 'handler'
@@ -2059,12 +1985,12 @@ function main() returns ExitCode
 			executableNotFound then verdict = "executableNotFound"
 			spawnFailed then verdict = "spawnFailed"
 			timeout or
-				busy or
-				ioFailed or
-				inputTooLarge or
-				statusLost or
-				treeNotEnded or
-				detachRefused then verdict = "other"
+			busy or
+			ioFailed or
+			inputTooLarge or
+			statusLost or
+			treeNotEnded or
+			detachRefused then verdict = "other"
 		end 'kind'
 	end 'handler'
 	print("{verdict}\n")
@@ -2079,19 +2005,15 @@ spawnFailed
 ```
 
 <!-- test: subprocess-an-empty-working-directory-is-spawn-failed-and-names-the-inherit-case -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An empty path names no directory, so `WorkingDirectory.at` of one is refused as `spawnFailed` before the spawn, and the
 message names `WorkingDirectory.inherit`, the way to start the child in the parent's working directory.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
 	#else
-	let exe = Executable.name("sh")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("sh")
 	#endif
 	try Subprocess.run(exe, arguments: StringArray.create(0), workingDirectory: WorkingDirectory.at(FilePath.empty())) otherwise (e) 'handler'
 		match e 'kind'
@@ -2110,23 +2032,20 @@ spawnFailed names inherit true
 ```
 
 <!-- test: subprocess-exit-code -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-exit' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("exit 42")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("exit 42")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	if result.exitCode() != 42 'check-exit'
@@ -2177,7 +2096,6 @@ signalled 9
 ```
 
 <!-- test: subprocess-streaming-poll-termination-reports-how-the-child-ended -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `pollTermination()` answers how a streaming child ended once it has: on Windows the child exits 42 and is
 `exited 42`; on a POSIX host the shell kills itself with SIGKILL and is `signalled 9`, where `pollExit()`
@@ -2199,21 +2117,18 @@ function describePoll(poll TerminationPoll) returns String
 end 'describePoll'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit 42")
-	let expected = "exited 42"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit 42")
+		let expected = "exited 42"
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("kill -9 $$")
-	let expected = "signalled 9"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("kill -9 $$")
+		let expected = "signalled 9"
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	_ = try child.wait() otherwise return 4
@@ -2235,25 +2150,22 @@ ended as expected
 ```
 
 <!-- test: subprocess-stderr-collect -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
 	// `echo err 1>&2` writes "err" to stderr only (shell redirection works the
 	// same in cmd and sh).
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo err 1>&2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("echo err 1>&2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
@@ -2275,7 +2187,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-collect-exceeds-pipe-buffer -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'check-success' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
@@ -2288,19 +2200,16 @@ function main() returns ExitCode
 	// whichever stream it left alone. The volume comes from long lines rather than
 	// many iterations because the suite runs below normal priority, where a shell
 	// loop of tens of thousands of iterations can starve past the run deadline.
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("(for /L %i in (1,1,1100) do @echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789) & echo stdout-tail & (for /L %j in (1,1,1100) do @echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 1>&2) & echo stderr-tail 1>&2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("-c")
 	argv.push("i=1; while [ $i -le 1100 ]; do echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789; echo 0123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 1>&2; i=$((i+1)); done; echo stdout-tail; echo stderr-tail 1>&2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	if not result.succeeded() 'check-success'
@@ -2330,23 +2239,19 @@ end 'main'
 ```
 
 <!-- test: subprocess-process-execute -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("echo")
-	argv.push("ok")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("echo")
+		argv.push("ok")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("ok")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("ok")
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath()), deadline: WaitDeadline.within(5000)) otherwise return 3
 	if result.succeeded() 'check'
@@ -2362,7 +2267,6 @@ end 'main'
 <!-- test: subprocess-async-await -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Async round-trip: spawn `cmd /c echo hello` as a green thread via
 `async Subprocess.run(...)` and consume the result through `try await`.
@@ -2374,19 +2278,16 @@ save/restore in `EmitCallImportOnSystemStack` keep state consistent
 across the green-thread entry to Win32.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("hello")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("hello")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async Subprocess.run(exe, arguments: argv)
@@ -2411,7 +2312,6 @@ end 'main'
 <!-- test: subprocess-async-multi -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls back-to-back, store the
 promises in an array, then drain them in order. Each child is a
@@ -2430,24 +2330,19 @@ typealias SubP = Promise with (CollectedOutput, SubprocessError)
 typealias SubPArray = Array with SubP
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/echo") otherwise return 7)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let count = 4
 	let promises = SubPArray.create(0)
 	var i = 0 as FullRangeInt
 	while i < count 'spawn'
 		let argv = StringArray.create(0)
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#if os(Windows)
 		argv.push("/c")
 		argv.push("echo")
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#endif
 		argv.push("child-{i}")
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -2482,7 +2377,6 @@ end 'main'
 <!-- test: subprocess-async-parallel -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Spawn four `async Subprocess.run(...)` calls that each sleep ~1 second
 (`ping 127.0.0.1 -n 2` does one ping immediately, waits ~1s, then a
@@ -2520,29 +2414,23 @@ let SpreadAllowanceInFirstCompletions = 2
 
 function sleepArgs() returns StringArray
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	argv.push("/c")
 	argv.push("ping")
 	argv.push("127.0.0.1")
 	argv.push("-n")
 	argv.push("2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	argv.push("1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	return argv
 end 'sleepArgs'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sleep") otherwise return 7)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let promises = SubPArray.create(0)
 	let start = Clock.nowMs()
@@ -3391,7 +3279,6 @@ end 'main'
 pings=30 collects=30 answered=30 slow=0 running=0
 ```
 <!-- test: subprocess-take-stdout-moves-the-stdout-side-out-of-the-child -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `takeStdout` hands the child's stdout side to a `ChildOutputReader` that reads while the child keeps its stdin and its lifetime. The side is handed out once: a second `takeStdout` throws `SubprocessError.ioFailed`, and the reader taken first goes on reading.
 ```maxon
@@ -3420,18 +3307,15 @@ function secondTakeIsRefused(child StreamingSubprocess) returns bool
 end 'secondTakeIsRefused'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
@@ -3460,7 +3344,6 @@ alpha beta
 <!-- test: subprocess-a-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike. The lines are written and the child's stdin closed before the coroutine starts, so every read the coroutine makes has its answer on the way.
@@ -3480,18 +3363,15 @@ function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamE
 end 'drainOf'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
@@ -3522,7 +3402,6 @@ end 'main'
 <!-- test: subprocess-a-taken-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
@@ -3546,18 +3425,15 @@ function drainOf(reader isolated ChildOutputReader) returns Lines throws StreamE
 end 'drainOf'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
 	let argv = StringArray.create(0)
 	argv.push("/c")
 	argv.push("findstr")
 	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let reader = try child.takeStdout() otherwise return 4
@@ -4151,21 +4027,17 @@ unremoved 0
 ```
 
 <!-- test: subprocess-an-exit-poll-says-whether-the-child-is-known-gone -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `ExitPoll.childIsKnownGone()` is `true` only for a child whose exit this process observed: a child still
 running is not known to be gone, and neither would be one whose exit status went to another process.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "set /p line="]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "set /p line="]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "read line"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "read line"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	print("while it reads: gone {child.pollExit().childIsKnownGone()}\n")
@@ -4185,21 +4057,17 @@ after it exits: gone true
 ```
 
 <!-- test: subprocess-a-write-after-the-stdin-pipe-is-closed-is-refused -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child's stdin is closed by `closeStdin()`, and a later write is refused as `ioFailed` rather than reaching
 whatever descriptor the closed end used to be.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 0"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 0"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 0"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 0"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
@@ -4219,7 +4087,6 @@ refused ioFailed
 ```
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A collected run feeds a payload larger than a pipe holds to a child that exits at once without reading a byte. On
 a POSIX host a write to a pipe whose read end is closed raises SIGPIPE, whose default action ends the writer, so
@@ -4238,15 +4105,12 @@ function block() returns String
 end 'block'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let chunk = block()
 	var payload = ""
@@ -4322,21 +4186,17 @@ parent continues
 ```
 
 <!-- test: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A payload that fits in the pipe may be accepted or refused depending on whether the child has already gone, and
 the run answers the same either way: the child's exit status.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 5"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 5"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 5"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 5"]
 	#endif
 	let config = Configuration.create(exe)
 	config.arguments = argv
@@ -4403,21 +4263,17 @@ child exit 4 stdout bye
 ```
 
 <!-- test: subprocess-streaming-a-write-to-a-child-that-has-exited-is-refused-as-ioFailed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A write to the stdin of a child that has exited, whose pipe has no reader left, is refused as `ioFailed`. The
 parent is not ended by SIGPIPE, and the child's exit status is still there to be read.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
@@ -4438,7 +4294,6 @@ child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-megabyte-written-to-a-child-that-has-exited-is-refused-as-ioFailed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same refusal for a write of more than a pipe holds: the first chunk meets the broken pipe, the write stops there,
 and the parent is not ended.
@@ -4454,15 +4309,12 @@ function block() returns String
 end 'block'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let chunk = block()
 	var payload = ""
@@ -4488,7 +4340,6 @@ child exit 7
 ```
 
 <!-- test: subprocess-streaming-every-write-to-a-child-that-has-exited-is-refused -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A broken pipe is not used up by the write that finds it: a second line written to the same child is refused the same
 way, and neither write ends the parent.
@@ -4501,15 +4352,12 @@ function refusalOf(child StreamingSubprocess, line String) returns String
 end 'refusalOf'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
@@ -4560,21 +4408,17 @@ child exit 6
 ```
 
 <!-- test: subprocess-streaming-a-stdin-feed-to-a-child-that-has-exited-settles -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `StdinFeed` queues its line once its anchor has been seen and pushes it into the child's stdin pipe. The child has
 exited, so the pipe has no reader: the push meets the broken pipe, the feed is spent, and the program goes on.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let pump = try ChildPump.of(child) otherwise return 4
@@ -4595,20 +4439,16 @@ feed settled, child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-megabyte-stdin-feed-to-a-child-that-has-exited-settles -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same feed with a line larger than a pipe holds: the first push meets the broken pipe and the feed is spent.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray from ["/c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray from ["/c", "exit 7"]
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray from ["-c", "exit 7"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray from ["-c", "exit 7"]
 	#endif
 	let builder = StringBuilder.create()
 	var filled = 0 as Count

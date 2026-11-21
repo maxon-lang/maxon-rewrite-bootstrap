@@ -4219,7 +4219,6 @@ end 'main'
 <!-- test: where-clauses.error.a-static-reading-its-types-parameter-is-not-spawned -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -4232,7 +4231,6 @@ type Holder uses T where T implements Hashable and Equatable
 
 	static function width(n Count) returns Count
 		sleep(1)
-		// TODO: sizeof(...) is not supported in minimaxon
 		return n + sizeof(T)
 	end 'width'
 end 'Holder'
@@ -4354,7 +4352,6 @@ error E2015: <fragment>:36:22: Unsupported: `async holder.…` spawns a method o
 ```
 
 <!-- test: where-clauses.a-static-with-conditional-witnesses-called-in-a-closure-passed-to-map -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Holder uses T where T implements Hashable and Equatable
 	var v as T
@@ -4364,7 +4361,6 @@ type Holder uses T where T implements Hashable and Equatable
 	end 'create'
 
 	static function width(n Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return n + sizeof(T)
 	end 'width'
 end 'Holder'
@@ -4485,7 +4481,6 @@ true
 ```
 
 <!-- test: where-clauses.a-call-missing-its-descriptor-and-its-tables-is-refused-once -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 `main` names the bare `Holder`, so the call has no instance to take the layout descriptor from or the `where` tables from. It is one refusal, at the call.
 ```maxon
@@ -4497,7 +4492,6 @@ type Holder uses T where T implements Hashable and Equatable
 	end 'make'
 
 	static function width(n Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return n + sizeof(T)
 	end 'width'
 end 'Holder'
@@ -4512,7 +4506,6 @@ error E3162: <fragment>:15:17: 'Holder' is named without type arguments and noth
 ```
 
 <!-- test: where-clauses.a-static-at-the-argument-ceiling-that-reads-its-types-parameter-is-refused -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 The same sixty-two parameters, but the static reads `sizeof(T)`, so it is a carrier and its layout slot makes the sixty-fifth. The refusal is at the declaration.
 ```maxon
@@ -4520,7 +4513,6 @@ type Holder uses T where T implements Hashable and Equatable
 	var v as T
 
 	static function sum(p0 Count, p1 Count, p2 Count, p3 Count, p4 Count, p5 Count, p6 Count, p7 Count, p8 Count, p9 Count, p10 Count, p11 Count, p12 Count, p13 Count, p14 Count, p15 Count, p16 Count, p17 Count, p18 Count, p19 Count, p20 Count, p21 Count, p22 Count, p23 Count, p24 Count, p25 Count, p26 Count, p27 Count, p28 Count, p29 Count, p30 Count, p31 Count, p32 Count, p33 Count, p34 Count, p35 Count, p36 Count, p37 Count, p38 Count, p39 Count, p40 Count, p41 Count, p42 Count, p43 Count, p44 Count, p45 Count, p46 Count, p47 Count, p48 Count, p49 Count, p50 Count, p51 Count, p52 Count, p53 Count, p54 Count, p55 Count, p56 Count, p57 Count, p58 Count, p59 Count, p60 Count, p61 Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T) + p0 + p1 + p2 + p3 + p4 + p5 + p6 + p7 + p8 + p9 + p10 + p11 + p12 + p13 + p14 + p15 + p16 + p17 + p18 + p19 + p20 + p21 + p22 + p23 + p24 + p25 + p26 + p27 + p28 + p29 + p30 + p31 + p32 + p33 + p34 + p35 + p36 + p37 + p38 + p39 + p40 + p41 + p42 + p43 + p44 + p45 + p46 + p47 + p48 + p49 + p50 + p51 + p52 + p53 + p54 + p55 + p56 + p57 + p58 + p59 + p60 + p61
 	end 'sum'
 end 'Holder'

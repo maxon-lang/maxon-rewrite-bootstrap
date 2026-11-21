@@ -37,16 +37,12 @@ Maxon supports conditional compilation via `#if` / `#else` / `#endif` directives
 ## Tests
 
 <!-- test: directives.both-branches-balance -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Wasi)
 		return 42
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 42
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -55,30 +51,20 @@ end 'main'
 ```
 
 <!-- test: directives.not-doubles-back -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if not os(Wasi)
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#if os(Wasi)
 			return 99
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#else
 			return 10
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#endif
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#if not os(Wasi)
 			return 99
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#else
 			return 10
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#endif
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -87,16 +73,12 @@ end 'main'
 ```
 
 <!-- test: directives.or-always-true -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows) or os(Linux) or os(Macos) or os(Wasi)
 		return 5
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 99
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -105,16 +87,12 @@ end 'main'
 ```
 
 <!-- test: directives.dead-branch-unparsed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if not os(Windows) and not os(Linux) and not os(Macos) and not os(Wasi)
 		this_function_does_not_exist_and_should_not_be_parsed()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 13
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -123,16 +101,12 @@ end 'main'
 ```
 
 <!-- test: directives.arch-supported -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if arch(x64) or arch(arm64) or arch(wasm32)
 		return 7
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 99
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -141,16 +115,12 @@ end 'main'
 ```
 
 <!-- test: directives.doc-comment-after-condition -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows) /// a doc comment riding the directive line
 		return 7
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else /// and on the else
 		return 7
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif /// and the endif
 end 'main'
 ```
@@ -159,20 +129,15 @@ end 'main'
 ```
 
 <!-- test: directives.compiler-name-is-not-a-predicate -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 There is one compiler, so a condition asking WHICH ONE is compiling can only ever answer itself. `compiler`
 is not among the accepted functions, and naming it is the same refusal any other unknown function gets —
 loud, rather than a condition that is quietly always false.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if compiler(maxon)
 		return 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 31
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```

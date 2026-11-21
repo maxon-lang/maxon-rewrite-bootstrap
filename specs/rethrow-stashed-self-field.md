@@ -51,20 +51,20 @@ type Holder
 		return Self{pending: Outer.first(0, column: 0)}
 	end 'create'
 
-	function inner() throws Inner
+	function inner(mutates self) throws Inner
 		pending = Outer.second(1, column: 1)
 		throw Inner.exhausted
 	end 'inner'
 
-	function outer() throws Outer
+	function outer(mutates self) throws Outer
 		try inner() otherwise 'innerErr'
-			throw pending
+			throw pending.clone()
 		end 'innerErr'
 	end 'outer'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	try h.outer() otherwise (e) 'fail'
 		match e 'kind'
 			first then return 1

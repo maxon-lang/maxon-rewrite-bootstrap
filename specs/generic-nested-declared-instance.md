@@ -98,19 +98,17 @@ handed. `Bag.probe` hands over its own block 0, which describes `Element` — an
 answer is a machine word.
 
 <!-- test: a-call-on-the-field-reads-the-forwarded-block -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -119,7 +117,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -132,7 +130,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -253,19 +251,17 @@ reserve nothing, and the call would reach the mint for an instance that can neve
 `LayoutDescriptor` panic. `var x as EChain` is the same shape with `as` between the two tokens.
 
 <!-- test: a-parameter-declared-at-the-inner-alias -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -274,7 +270,7 @@ type Bag uses Element
 	export typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -291,7 +287,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -372,19 +368,17 @@ end 'main'
 `Wrapper with (Small, String)` hands `Slot with U` the block of `U`, so `sizeof(V)` inside `Slot` is `String`'s.
 
 <!-- test: an-instance-over-the-second-parameter-of-two-reads-that-parameters-size -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
 type Slot uses V
 	export var v as V
 
-	static function create(first V) returns Self
+	static function create(consumes first V) returns Self
 		return Self{v: first}
 	end 'create'
 
 	function slotSize() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(V)
 	end 'slotSize'
 end 'Slot'
@@ -394,7 +388,7 @@ type Wrapper uses T, U
 	var tag as T
 	var inner as Inner
 
-	static function create(t T, u U) returns Self
+	static function create(consumes t T, consumes u U) returns Self
 		return Self{tag: t, inner: Inner.create(u)}
 	end 'create'
 
@@ -424,19 +418,17 @@ end 'main'
 ### A call two nested instances deep
 
 <!-- test: a-call-on-a-field-of-a-field-both-nested-instances -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -445,7 +437,7 @@ type Middle uses U
 	typealias EChain = Inner with U
 	export var chain as EChain
 
-	static function create(x U) returns Self
+	static function create(consumes x U) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 end 'Middle'
@@ -454,7 +446,7 @@ type Bag uses Element
 	typealias EMiddle = Middle with Element
 	var middle as EMiddle
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{middle: EMiddle.create(x)}
 	end 'create'
 
@@ -467,7 +459,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -480,19 +472,17 @@ end 'main'
 block 0 to it exactly as it does for `chain.slotSize()`.
 
 <!-- test: a-call-on-the-nested-field-of-a-self-typed-parameter -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -501,7 +491,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -515,7 +505,7 @@ typealias IntBag = Bag with Int
 function main() returns ExitCode
 	let a = IntBag.create(7)
 	let b = IntBag.create(9)
-	return a.probe(b)
+	return try a.probe(b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -528,19 +518,17 @@ end 'main'
 `Inner with Element`, whose `slotSize()` reads none. The call after the closure is the field's.
 
 <!-- test: a-closure-parameter-named-like-a-nested-field-calls-through-its-own-instance-and-the-field-keeps-its-own-after -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Pair uses A
 	var w as A
 
-	static function create(x A) returns Self
+	static function create(consumes x A) returns Self
 		return Self{w: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'slotSize'
 end 'Pair'
@@ -548,7 +536,7 @@ end 'Pair'
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
@@ -562,13 +550,13 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var inner as EPair
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{inner: EPair.create(x)}
 	end 'create'
 
 	function probe(chain EChain) returns Int
 		let g = function(inner EChain) gives inner.slotSize()
-		return g(chain) + inner.slotSize()
+		return try g(chain) + inner.slotSize() otherwise panic("out of range")
 	end 'probe'
 end 'Bag'
 
@@ -578,7 +566,7 @@ typealias IntChain = Inner with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe(IntChain.create(9))
+	return try b.probe(IntChain.create(9)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -631,19 +619,17 @@ false alpha 42 value long enough for a heap record
 `chain` is a field over an `Inner`; the closure's `chain` is an `Int`. The call after the closure is still the field's.
 
 <!-- test: a-closure-parameter-of-another-type-leaves-the-field-in-scope-after-it -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -652,14 +638,14 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
 	function probe() returns Int
 		let a = chain.slotSize()
-		let g = function(chain Int) gives chain + 1
-		return a + g(1) + chain.slotSize()
+		let g = function(chain Int) gives try chain + 1 otherwise panic("out of range")
+		return try a + g(1) + chain.slotSize() otherwise panic("out of range")
 	end 'probe'
 end 'Bag'
 
@@ -667,7 +653,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -679,19 +665,17 @@ end 'main'
 The closure's body is a `match` whose arms stand on the lines after the `gives`; the parameter `e` stays an `Inner` instance through the final `end`, so the arm's `e.slotSize()` draws its edge.
 
 <!-- test: a-closure-parameters-extent-runs-through-a-multi-line-match-body -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -719,7 +703,7 @@ typealias IntChain = Inner with Int
 
 function main() returns ExitCode
 	let b = IntBag.create()
-	return b.probe(IntChain.create(9))
+	return try b.probe(IntChain.create(9)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -731,7 +715,6 @@ end 'main'
 `Pairs with (bool, String)` reaches `Slot with W` through its iterator, which `map` builds from a body that carries no descriptor of its own. The read of `sizeof(V)` is `String`'s, never a blank block's.
 
 <!-- test: a-forwarded-size-read-through-a-cursor-of-a-two-parameter-instance -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 public type Slot uses V
 	var v as V
@@ -741,7 +724,6 @@ public type Slot uses V
 	end 'create'
 
 	public static function measure() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(V)
 	end 'measure'
 end 'Slot'
@@ -801,7 +783,6 @@ end 'main'
 `chain.peer().plain()` ends in `Plain`, not in the `Pair` that `peer` answers, so `c.slotSize()` is `Plain`'s.
 
 <!-- test: a-local-bound-to-a-longer-chain-is-the-instance-the-whole-chain-answers -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -820,7 +801,7 @@ end 'Plain'
 type Pair uses A
 	var w as A
 
-	static function create(x A) returns Self
+	static function create(consumes x A) returns Self
 		return Self{w: x}
 	end 'create'
 
@@ -829,7 +810,6 @@ type Pair uses A
 	end 'plain'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'slotSize'
 end 'Pair'
@@ -838,7 +818,7 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{p: P.create(x)}
 	end 'create'
 
@@ -851,7 +831,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -865,7 +845,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -877,19 +857,17 @@ end 'main'
 `chain.peer()` answers a `Pair`, not the `Inner` that `chain` is, so `c.slotSize()` is `Pair`'s.
 
 <!-- test: a-local-bound-to-a-methods-result-is-the-instance-the-method-returns -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Pair uses A
 	var w as A
 
-	static function create(x A) returns Self
+	static function create(consumes x A) returns Self
 		return Self{w: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'slotSize'
 end 'Pair'
@@ -898,7 +876,7 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{p: P.create(x)}
 	end 'create'
 
@@ -915,7 +893,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -929,7 +907,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -939,19 +917,17 @@ end 'main'
 ### The same through a chain of two nested fields
 
 <!-- test: a-local-bound-to-a-methods-result-through-two-nested-fields -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Pair uses A
 	var w as A
 
-	static function create(x A) returns Self
+	static function create(consumes x A) returns Self
 		return Self{w: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'slotSize'
 end 'Pair'
@@ -960,7 +936,7 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{p: P.create(x)}
 	end 'create'
 
@@ -977,7 +953,7 @@ type Middle uses U
 	typealias EChain = Inner with U
 	export var b as EChain
 
-	static function create(x U) returns Self
+	static function create(consumes x U) returns Self
 		return Self{b: EChain.create(x)}
 	end 'create'
 end 'Middle'
@@ -986,7 +962,7 @@ type Bag uses Element
 	typealias EMiddle = Middle with Element
 	var a as EMiddle
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{a: EMiddle.create(x)}
 	end 'create'
 
@@ -1000,7 +976,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create(7)
-	return b.probe()
+	return try b.probe() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1012,7 +988,6 @@ end 'main'
 `dup` and `dupTimes` both answer `Self`, so the result is the receiver's own instance, and `c.size()` reads `bool`'s size.
 
 <!-- test: a-local-bound-to-a-methods-result-is-the-receiver-instance -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Slot uses V
 	var n as Count
@@ -1030,7 +1005,6 @@ type Slot uses V
 	end 'dupTimes'
 
 	function size() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(V)
 	end 'size'
 end 'Slot'
@@ -1067,19 +1041,17 @@ end 'main'
 ### A nested instance bound to a local from a `Self`-typed parameter's field
 
 <!-- test: a-local-bound-to-the-nested-field-of-a-self-typed-parameter -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Inner'
@@ -1088,7 +1060,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
-	static function create(x Element) returns Self
+	static function create(consumes x Element) returns Self
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -1103,7 +1075,7 @@ typealias IntBag = Bag with Int
 function main() returns ExitCode
 	let a = IntBag.create(7)
 	let b = IntBag.create(9)
-	return a.probe(b)
+	return try a.probe(b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1113,19 +1085,17 @@ end 'main'
 ### Two sibling closures, each parameter its own instance
 
 <!-- test: two-sibling-closures-name-a-parameter-alike-over-different-instances -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Pair uses A
 	var w as A
 
-	static function create(x A) returns Self
+	static function create(consumes x A) returns Self
 		return Self{w: x}
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'slotSize'
 end 'Pair'
@@ -1133,7 +1103,7 @@ end 'Pair'
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
@@ -1154,7 +1124,7 @@ type Bag uses Element
 	function probe(chain EChain, pair EPair) returns Int
 		let g = function(c EChain) gives c.slotSize()
 		let h = function(c EPair) gives c.slotSize()
-		return g(chain) + h(pair)
+		return try g(chain) + h(pair) otherwise panic("out of range")
 	end 'probe'
 end 'Bag'
 
@@ -1166,7 +1136,7 @@ typealias IntPair = Pair with Int
 
 function main() returns ExitCode
 	let b = IntBag.create()
-	return b.probe(IntChain.create(9), pair: IntPair.create(7))
+	return try b.probe(IntChain.create(9), pair: IntPair.create(7)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

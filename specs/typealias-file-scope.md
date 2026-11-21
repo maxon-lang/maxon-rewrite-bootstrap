@@ -299,7 +299,6 @@ end 'main'
 
 
 <!-- test: third-file-resolves-to-the-nameable-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A **third** file is what the two-file rule does not answer. `lib.maxon` names `Codepoint` and declares
 none, and `app/main.maxon`'s unmarked `int(0 to 100)`, in another directory, is not a declaration it may name. The one declaration
 `lib.maxon` may NAME is the library's public `Codepoint`, and that is the one it gets, so a legal `70000`
@@ -328,7 +327,6 @@ end 'main'
 
 
 <!-- test: third-file-runtime-guard-uses-the-nameable-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same collision through the door that emits CODE rather than a diagnostic: `big` is opaque, so
 `widen`'s parameter is enforced by its ENTRY GUARD, and that guard reads its bounds through the
 very lookup this rule fixes. Read from `main.maxon`'s `int(0 to 100)` instead, the program would die
@@ -370,7 +368,6 @@ end 'main'
 
 
 <!-- test: error.file-private-alias-still-binds-in-its-own-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The direction the rule must not overreach into: an author declaration beats the library's. `main.maxon`
 declares `Codepoint` unmarked and sees no other author `Codepoint`, so `narrow`'s parameter means
 `int(0 to 100)` **in `main.maxon`** — the library's declaration does not widen it. Only a file that sees
@@ -771,7 +768,6 @@ end 'main'
 
 
 <!-- test: third-file-resolves-a-contested-generic-alias-to-the-nameable-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The generic twin of `third-file-resolves-to-the-nameable-declaration`, and the case that pins the whole
 visibility tier: `lib/main.maxon` declares no `Slots` and sees two, `priv.maxon`'s at the root and
 `lib/shared.maxon`'s in its own directory, and it resolves to its own directory's. Its
@@ -1249,7 +1245,6 @@ end 'main'
 ```
 
 <!-- test: contested-generic-alias-in-a-cross-file-return-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **A CROSS-FILE RETURN TYPE SPELLED WITH A CONTESTED GENERIC ALIAS RESOLVES IN THE CALLEE'S FILE, AND
 THIS CASE EXISTS TO KEEP IT THAT WAY.** `makeBag` returns `StringArray`, and the CALLER is itself a
 contestant that means something else by that name — the shape that would bite hardest if the return
@@ -1319,7 +1314,6 @@ end 'main'
 ```
 
 <!-- test: tuple-alias-over-a-contested-generic-alias-either-order -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **THE RULE ABOVE IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM, AND THIS IS THE CASE
 THAT SAYS SO.** The tuple rule keys a SWEEP-minted spelling per (spelling, file), and the
 first file to mint one keeps the unsuffixed key — so *which* file that is comes off the fold order,
@@ -1395,8 +1389,6 @@ end 'useA'
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-resolves-in-its-own-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⛔⛔ **A TUPLE `typealias` MUST MEAN WHAT ITS OWN FILE MEANS BY IT, AND THE REGISTRY THAT ANSWERS FOR IT
 HOLDS ONE ROW PER BARE NAME.** `ProgramSignatures.tupleAliases` is a
 `Map with (ByteArray, DeclaredTupleAlias)` keyed on the BARE NAME, and `writeTupleAlias` `upsert`s into
@@ -1450,8 +1442,6 @@ alpha 7
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-crosses-as-a-parameter -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SAME ONE-ROW REGISTRY ANSWERS A PARAMETER TYPE, AND A READER THAT DECLARES NO `Pair` AT ALL
 HAS TO GET THE CALLEE'S.** `parseTypeReference` is the second door onto `tupleAliasTargetInAnyFile`,
 and it asks the same fileless question, so `relayA`'s own parameter `p Pair` is typed by whichever
@@ -1496,8 +1486,6 @@ gamma x y
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-resolves-in-its-own-file-either-order -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **An UNMARKED TUPLE ALIAS IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM, AND THIS
 IS THE CASE THAT SAYS SO.** The fold walks `Directory.list` order — NTFS index order on Windows, APFS
 hash order on macOS — so a one-row last-wins registry hands a different file
@@ -1798,7 +1786,6 @@ alpha 7 3 3 3 3 7
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-as-a-generic-type-argument -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ⭐⭐ **A TUPLE ALIAS NAMED AS A GENERIC TYPE ARGUMENT IS INTERNED INTO THE INSTANCE, AND AN INSTANCE HAS NO
 READER TO ASK.** Every other position a contested `Pair` can hold is resolved at a door that takes the
 reading file — `declaredSlotType` for a field, an element and a payload, `parseTypeReference` for a
@@ -1841,7 +1828,6 @@ export type Box uses T
 	end 'create'
 
 	export function size() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'size'
 end 'Box'
@@ -1874,7 +1860,6 @@ ef 16
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-as-a-generic-type-argument-either-order -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ⭐ **THE SAME PROGRAM WITH THE TWO ALIAS-DECLARING FILES' SORT PREFIXES SWAPPED.** Each file's interned
 argument is scoped to that file in both orders, so the answer does not move. A scoping that served only
 whichever file the fold reached last would pass one order and fail the other, and nothing else in the
@@ -1898,7 +1883,6 @@ export type Box uses T
 	end 'create'
 
 	export function size() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'size'
 end 'Box'
@@ -1931,7 +1915,6 @@ ef 16
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-beside-a-nominal-declaration -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐⭐ **THE CROSS-KIND CONTEST RANKS A SET OF CLAIMS, AND THE TUPLE FORM CONTRIBUTES ONE CLAIM PER DECLARING
 FILE.** `ProgramSignatures.typeNameClaimsOf` assembles every declaration a type name holds so
 `contestedTypeNameKindFor` can answer what a given file means by it. Two files may legally declare one tuple
@@ -2001,7 +1984,6 @@ xy
 ```
 
 <!-- test: two-directories-tuple-alias-of-one-name-beside-a-nominal-declaration-either-order -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SAME PROGRAM WITH THE TWO ALIAS-DECLARING FILES' SORT PREFIXES SWAPPED.** Each file keeps its own
 claim whichever the fold reaches first, so the program's meaning does not depend on the directory walk.
 
@@ -2060,7 +2042,6 @@ xy
 
 
 <!-- test: an-exported-signature-through-a-contested-tuple-alias-resolves-the-readers-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 The same three declarations, with `malpha/`'s `Pair` exported and crossing into the root through `makeA`'s
 signature. The root declares no `Pair` and sees only `malpha/`'s, so `sum` takes the `(int, int)` that
 `makeA` returns, and `zgamma/`'s `(String, String)` stays its own (9 + 2).
@@ -2117,7 +2098,6 @@ xy
 ```
 
 <!-- test: a-sized-fixed-array-keeps-its-element-count-when-its-element-is-contested -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ⭐ **A `FixedArray`'s SIZE is part of its type, and the per-file rescoping a contest causes must carry it.**
 When two files disagree about a ranged alias, every generic instance over that element is re-interned
 once per reading file (`SignatureIndex.fileScopedInstance`) so each file gets its own. That re-intern is
@@ -2131,7 +2111,6 @@ unsized, so `fixedSize` is already `NoFixedSize` there and dropping it is a no-o
 // --- file: lib/lib.maxon
 typealias W = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias WVec = FixedArray with 8 W
 
 export function wideCount() returns Wide
@@ -2452,7 +2431,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-interface-instance-over-a-file-private-argument-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/b.maxon` and `app/main.maxon` each declare an unmarked `Measure` and `Items`, and `ItemsSource` is `Source with Items` of `lib/b.maxon`'s. An exported alias and an exported function cannot name an unmarked alias, so both are refused and no dispatch through `ItemsSource` reaches `app/main.maxon`'s own `Items`.
 ```maxon
@@ -2505,7 +2483,6 @@ error E3167: lib/<fragment>:24:17: exported function 'lib.makeSource' names unex
 ```
 
 <!-- test: error.an-array-literal-stored-into-another-files-field-is-refused-at-the-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/bag.maxon` and `app/main.maxon` each declare an unmarked `Measure` and `Items`. `Bag.items` is typed by `lib/bag.maxon`'s `Items`, and an exported field cannot be typed by an unmarked alias, so no array literal can be stored into it from another file.
 ```maxon

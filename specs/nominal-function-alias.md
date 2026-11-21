@@ -441,7 +441,6 @@ end 'main'
 ```
 
 <!-- test: an-alias-from-another-directory-merges-with-a-declared-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api.Score` is declared in `api`, and `addOne` is a function declared in `app` over the same `api.Integer`:
 the two arms merge.
 ```maxon
@@ -452,11 +451,11 @@ export typealias Score = function(Integer) returns Integer
 
 // --- file: app/main.maxon
 function addOne(n api.Integer) returns api.Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function twice(n api.Integer) returns api.Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function pick(f api.Score, flag bool) returns api.Integer
@@ -477,7 +476,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-function-alias-beside-a-ranged-alias-of-its-name-is-the-same-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` declares `Score` as a function alias and `legacy/` declares `Score` as a ranged alias: two
 declarations of one name, of two forms, so even `api/` names its own as `api.Score`. `run`'s parameter and
 `app/`'s value both name that one declaration, so the value reaches `run`.
@@ -496,7 +494,7 @@ export typealias Score = int(0 to 100)
 
 // --- file: app/main.maxon
 function addOne(n api.Integer) returns api.Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function pick() returns api.Score
@@ -518,7 +516,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-function-alias-of-a-contested-shape-reaches-its-own-directorys-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` and `beta/` each export a function alias `Score` of one shape: two declarations, so two types. Each
 directory's function takes its own `Score`, qualified through its directory, and `app/` hands each the
 value it typed through that directory.
@@ -541,11 +538,11 @@ end 'apply'
 
 // --- file: app/main.maxon
 function addOne(n api.Integer) returns api.Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'addOne'
 
 function twice(n api.Integer) returns api.Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function pickApi() returns api.Score
@@ -645,7 +642,6 @@ error E3005: <fragment>:20:10: argument type mismatch for 'o': expected 'fn(Hand
 ```
 
 <!-- test: error.a-function-value-over-a-contested-shape-is-named-in-source-form -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Score` and an unmarked `Grader` over
 it, so the two `Grader`s are two types. A `lib` `Grader` could reach `main` only through an exported field, and the

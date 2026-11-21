@@ -303,11 +303,9 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-alias-takes-from-an-array-literal -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Reading = int(0 to 1000)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias ReadingTriple = FixedArray with 3 Reading
 
 function main() returns ExitCode
@@ -501,12 +499,10 @@ typealias Tally = int(0 to u64.max)
 
 <!-- test: set-list-and-fixed-array-aliases-declared-in-a-generic-type-take-from -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 type Shelf uses T
 	typealias Letters = Set with Character
 	typealias Readings = List with Reading
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias ReadingTriple = FixedArray with 3 Reading
 	export var item as T
 
@@ -542,6 +538,7 @@ typealias Reading = int(0 to 1000)
 
 <!-- test: an-alias-declared-in-an-extension-body-takes-from-an-array-literal -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
@@ -551,6 +548,7 @@ end 'Tagged'
 
 // TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias TagArray = Array with ExitCode
 	function tags() returns Count
 		let result = TagArray from [self.tag(), self.tag()]

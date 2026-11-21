@@ -363,7 +363,6 @@ adopter=77 later=77
 ```
 
 <!-- test: shared-memory-builtins.publish-refuses-a-name-already-published -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 `SharedSegment.publish` never adopts: a name some other segment already publishes is refused with
 `createFailed` (3), so a caller that needs a FRESH section can never be handed a stale one. Once the
 publisher closes, the name is free and a second `publish` succeeds (5).
@@ -373,9 +372,9 @@ function publishOutcome(name String) returns ExitCode
 		return match e 'why'
 			createFailed gives 3
 			invalidName or
-				mapFailed or
-				outOfBounds or
-				closed gives 4
+			mapFailed or
+			outOfBounds or
+			closed gives 4
 		end 'why'
 	end 'refused'
 	segment.close()
@@ -399,7 +398,6 @@ while-held=3 after-close=5
 ```
 
 <!-- test: shared-memory-builtins.create-refuses-an-existing-segment-too-small -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 A `create` that finds the name already published by a section smaller than it asks for is refused at once with
 `createFailed` (3) on every lane, rather than retried or handed a mapping shorter than asked. Asking for no more
 than the section holds adopts it (5).
@@ -409,9 +407,9 @@ function createOutcome(name String, bytes SegmentByteCount) returns ExitCode
 		return match e 'why'
 			createFailed gives 3
 			invalidName or
-				mapFailed or
-				outOfBounds or
-				closed gives 4
+			mapFailed or
+			outOfBounds or
+			closed gives 4
 		end 'why'
 	end 'refused'
 	segment.close()

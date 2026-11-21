@@ -134,14 +134,12 @@ error E3064: specs/discarded-results/pure-method-underscore-discard.maxon:4:2: r
 ```
 
 <!-- test: fixed-array-create-discard -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 Creating a `FixedArray` is a pure call, as creating an `Array` is: nothing is written but the record the call
 returns, so `_ =` does not license discarding it.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -154,21 +152,15 @@ error E3064: specs/discarded-results/fixed-array-create-discard.maxon:6:2: resul
 ```
 
 <!-- test: fixed-array-static-factory-discard -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A static that returns `Self{}` of a `FixedArray` is pure for the same reason.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	static function makeOf(extra Int) returns Self
-		// TODO: countof(...) is not supported in minimaxon
 		if (countof(Self) as Int) + extra == 0 'never'
 			panic("never")
 		end 'never'
@@ -1023,8 +1015,6 @@ end 'main'
 ```
 
 <!-- test: error.pure-throwing-call-statement-in-a-test-body -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 A bare call to a pure throwing function, written as a statement in a `test` body, takes the test's implied
 handler and still discards the value it produced. The discard is refused exactly as it is outside a test.
 ```maxon
@@ -1042,7 +1032,6 @@ function parseNum(s String) returns Integer throws ParseError
 	return s.byteLength()
 end 'parseNum'
 
-// TODO: test declarations are not supported in minimaxon
 test 'discards a pure result'
 	parseNum("abc")
 end 'discards a pure result'
@@ -1645,7 +1634,7 @@ enum SearchError implements Error
 	absent
 end 'SearchError'
 
-function firstWhere(limit Position, test PositionTest) returns Position throws SearchError
+function firstWhere(limit Position, mutates test PositionTest) returns Position throws SearchError
 	for i in 0 upto limit 'each'
 		if test(i) 'hit'
 			return i
@@ -1701,7 +1690,7 @@ enum SearchError implements Error
 	absent
 end 'SearchError'
 
-function firstWhere(limit Position, test PositionTest) returns Position throws SearchError
+function firstWhere(limit Position, mutates test PositionTest) returns Position throws SearchError
 	for i in 0 upto limit 'each'
 		if test(i) 'hit'
 			return i
@@ -2191,14 +2180,12 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-fixed-array-is-pure -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `FixedArray`, discarded, is refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias IntVector = FixedArray with 3 Integer
 
 enum SearchError implements Error
@@ -2233,14 +2220,12 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: error.a-search-through-a-for-loop-over-a-fixed-array-is-pure -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- positions: moved -->
 The same search through a plain `for ... in` loop.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias IntVector = FixedArray with 3 Integer
 
 enum SearchError implements Error
@@ -2275,13 +2260,11 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-fi
 ```
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias IntVector = FixedArray with 3 Integer
 
 function show(values IntVector) returns Integer
@@ -2313,13 +2296,11 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias IntVector = FixedArray with 3 Integer
 
 typealias IntArray = Array with Integer
@@ -2964,7 +2945,7 @@ type Parent
 	end 'growCount'
 end 'Parent'
 
-function run(action Action) returns Integer
+function run(mutates action Action) returns Integer
 	return action()
 end 'run'
 

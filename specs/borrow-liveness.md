@@ -1297,20 +1297,20 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		items.clear()
 	end 'reset'
 
-	function measure() returns Integer
+	function measure(mutates self) returns Integer
 		let s = try items.get(0) otherwise ""
 		reset()
 		print("[{s}]\n")
-		return s.byteLength()
+		return try s.byteLength() as Integer otherwise panic("out of range")
 	end 'measure'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	print("{b.measure()} {b.items.count()}\n")
 	return 0
@@ -2008,7 +2008,7 @@ end 'main'
 ```
 
 <!-- test: a-merged-borrow-carries-every-arms-storage-to-the-call -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ### A value MERGED from two arms, handed beside the array one arm read from
 The `match` produces a new value — the element its chosen arm read, counted — rather than a view of
 either array's storage, so the call hands `clobber` one view of `b` and the clear leaves `borrowed`
@@ -2042,6 +2042,7 @@ function main() returns ExitCode
 	a.push(build(4))
 	b.push(build(10))
 	let m = Mode.second
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	let out = clobber(b, borrowed: match m 'pick'
 		first gives try a.get(0) otherwise ""
 		second gives try b.get(0) otherwise ""

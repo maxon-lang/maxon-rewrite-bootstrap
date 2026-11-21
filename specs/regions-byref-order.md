@@ -6560,13 +6560,12 @@ error E3186: <fragment>:22:17: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-callee-in-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The written fact crosses files: the callee's file is parsed apart from the caller's.
 
 ```maxon
 // --- file: lib/look.maxon
 export function look(mutates a String, b String)
-	print("{a.byteLength() + b.byteLength()}\n")
+	print("{try a.byteLength() + b.byteLength() otherwise panic("out of range")}\n")
 end 'look'
 
 // --- file: app/main.maxon
@@ -6584,7 +6583,6 @@ end 'main'
 ```
 
 <!-- test: write-based-callee-in-another-file-writes -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The same call to the sibling that assigns the parameter.
 

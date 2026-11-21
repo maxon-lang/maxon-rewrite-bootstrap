@@ -403,6 +403,7 @@ end 'main'
 
 <!-- test: a-keyword-case-arm-whose-value-is-a-PARENTHESIZED-match -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ⚠⚠ **`function gives (…)` SPELLS `function <name> (` CHARACTER FOR CHARACTER**, because `function` is a
 legal case NAME and `gives` is word-shaped. Taken at its word, a match ARM reads as a function declaration
 and the parenthesized expression as its parameter list — and everything inside it, the nested `match` and
@@ -428,6 +429,7 @@ end 'Pick'
 
 function classify(k Kw, p Pick) returns Integer
 	return match k 'outer'
+		// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives(match p 'inner'
 			one gives 40
@@ -657,6 +659,7 @@ end 'main'
 ```
 
 <!-- test: a-keyword-named-condition-BESIDE-keyword-named-match-arms -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⭐⭐ **THE DISCRIMINATING CASE: both readings of the same lookahead, alive in one program.** The scoping
@@ -671,6 +674,7 @@ typealias Integer = int(i64.min to i64.max)
 
 enum Kw
 	function
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	if
 	other
@@ -680,6 +684,7 @@ function score(k Kw) returns Integer
 	return match k 'classify'
 		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end gives 4
 		if gives 8
 		other gives 16
@@ -720,7 +725,7 @@ own header says the field-chain arm is "checked FIRST" for exactly this reason �
 last and every specific one keeps its claim by standing above it.
 
 <!-- test: a-try-target-may-be-a-keyword-named-receiver -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 All three shapes in one program, because the rule is about which arm claims which: a KEYWORD-named
 receiver, a PRIMITIVE static, and a `Self.`-qualified static — the two that keep their claim because the
 general arm stands below them.
@@ -759,6 +764,7 @@ function main() returns ExitCode
 	let xs = IntArray.create(0)
 	xs.push(7)
 	let a = firstOf(xs)
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let b = try int.fromString("5") otherwise panic("parse")
 	let c = try Box.checked(1) otherwise panic("checked")
 	print("a={a} b={b} c={c}")

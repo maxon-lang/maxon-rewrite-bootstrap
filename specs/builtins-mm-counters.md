@@ -344,7 +344,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.a-known-box-pattern-moves-each-column-by-its-exact-figure -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 **THE EXACT FIGURES FOR A KNOWN ALLOCATION PATTERN, AND THE ONLY CASE HERE THAT PINS A COLUMN TO A NUMBER.**
 One hundred empty arrays are created and dropped inside a window. An empty array is one box, a 48-byte
@@ -360,15 +359,10 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if debugstream(true)
 	let UntracedBuild = false
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	let UntracedBuild = true
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function churn(rounds Count) returns Count
@@ -424,7 +418,6 @@ end 'main'
 ```
 
 <!-- test: builtins-mm-counters.an-oversize-box-moves-each-column-by-its-exact-figure -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 **THE SAME EXACT FIGURES FOR A BOX THE SLAB DOES NOT CUT FROM A SPAN.** An empty array's element buffer of
 300000 bytes is past the 32 KiB small-object limit, so it takes the OS-direct road and the oversize doors,
@@ -439,15 +432,10 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if debugstream(true)
 	let UntracedBuild = false
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	let UntracedBuild = true
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function reserveAndDrop(bytes Count) returns Count

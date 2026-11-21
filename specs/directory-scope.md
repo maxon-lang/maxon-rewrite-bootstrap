@@ -120,7 +120,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-function-is-not-visible-from-a-sibling-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/helper.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -185,7 +184,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-field-is-not-readable-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The TYPE is exported and the FIELD is unmarked, so the reader may name `Box` and may not read `v`.
 ```maxon
 // --- file: feature/box.maxon
@@ -210,7 +208,6 @@ error E3014: other/<fragment>:16:11: field 'Box.v' is not exported
 ```
 
 <!-- test: an-unmarked-field-is-readable-from-a-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/box.maxon
 public type Box
@@ -320,7 +317,6 @@ error E3219: lib/<fragment>:3:10: unused function: 'helper' is not exported and 
 ```
 
 <!-- test: error.an-exported-function-naming-an-unmarked-typealias-is-reported -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 typealias ElementIndex = int(0 to 100)
@@ -372,7 +368,6 @@ end 'main'
 ```
 
 <!-- test: a-function-in-a-subdirectory-is-visible-to-its-sibling-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/helper.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -383,7 +378,7 @@ end 'helper'
 
 // --- file: feature/main.maxon
 function main() returns ExitCode
-	return helper()
+	return try helper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -391,7 +386,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-function-is-visible-from-a-deeper-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/helper.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -428,7 +422,6 @@ error E3008: <fragment>:11:9: function 'helper' is not exported
 ```
 
 <!-- test: a-type-and-its-fields-are-visible-to-a-sibling-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/point.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -445,7 +438,7 @@ end 'Point'
 // --- file: feature/main.maxon
 function main() returns ExitCode
 	let p = Point.create(20, y: 22)
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -453,7 +446,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-enum-is-visible-to-a-sibling-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/color.maxon
 enum Color
@@ -477,7 +469,6 @@ end 'main'
 ```
 
 <!-- test: unmarked-functions-call-each-other-across-three-files-of-a-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/inner.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -490,12 +481,12 @@ end 'inner'
 typealias Int = int(i64.min to i64.max)
 
 function outer() returns Int
-	return inner() + 20
+	return try inner() + 20 otherwise panic("out of range")
 end 'outer'
 
 // --- file: feature/main.maxon
 function main() returns ExitCode
-	return outer()
+	return try outer() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -503,7 +494,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-let-is-readable-from-a-sibling-files-constant-initializer -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/limits.maxon
 let LIMIT = 21
@@ -520,7 +510,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-let-is-readable-from-a-constant-initializer-in-a-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/limits.maxon
 let LIMIT = 21
@@ -537,7 +526,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-let-is-not-readable-from-another-directorys-constant-initializer -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The compiler collects every file's constant declarations before folding any of them, and that does not widen
 what a file may read.
 ```maxon
@@ -556,7 +544,6 @@ error E2004: other/<fragment>:6:14: Undefined variable 'LIMIT'
 ```
 
 <!-- test: error.an-unmarked-let-is-not-readable-from-another-directorys-body -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/limits.maxon
 let LIMIT = 21
@@ -572,7 +559,6 @@ error E2004: other/<fragment>:7:15: Undefined variable 'LIMIT'
 ```
 
 <!-- test: error.a-sibling-directory-sharing-a-name-prefix-is-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `feature2/` is not a subdirectory of `feature/`. A character-prefix subtree test would admit it.
 ```maxon
 // --- file: feature/helper.maxon
@@ -592,7 +578,6 @@ error E3008: feature2/<fragment>:11:9: function 'helper' is not exported
 ```
 
 <!-- test: error.a-sibling-directory-whose-name-contains-a-dot-is-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `feature.extra/` is a SIBLING of `feature/`, not a subdirectory of it. Its `.`-joined namespace is
 `feature.extra`, which begins with `feature.` — so a subtree test asked on namespaces rather than on
 directories admits it, and the separator guard that catches `feature2/` walks straight past.
@@ -614,7 +599,6 @@ error E3008: feature.extra/<fragment>:11:9: function 'helper' is not exported
 ```
 
 <!-- test: error.a-dotted-directory-is-not-the-nested-directory-it-renders-like -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `my.dir/` and `my/dir/` are different directories that render to the same `.`-joined namespace. The
 reader is in neither the declaring directory nor beneath it.
 ```maxon
@@ -635,7 +619,6 @@ error E3008: my/dir/<fragment>:11:9: function 'helper' is not exported
 ```
 
 <!-- test: a-directory-name-containing-a-dot-is-its-own-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The converse of the two refusals above: a dot in a directory name costs the directory nothing. Its
 own subdirectory is inside its subtree exactly as any other subdirectory is.
 ```maxon
@@ -656,7 +639,6 @@ end 'main'
 ```
 
 <!-- test: a-root-level-unmarked-declaration-is-visible-from-a-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The root directory contains every file, so an unmarked declaration written there is visible
 program-wide.
 ```maxon
@@ -692,7 +674,6 @@ error E3062: <fragment>:2:11: unused typealias: 'DecimalPointScale'
 ```
 
 <!-- test: error.an-unmarked-typealias-is-not-a-cast-target-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The refused cast credits nothing, so the alias nothing in `feature/` names is unused too.
 ```maxon
 // --- file: feature/types.maxon
@@ -710,7 +691,6 @@ error E3008: other/<fragment>:7:16: typealias 'Score' is not exported
 ```
 
 <!-- test: error.an-unmarked-enum-binds-nothing-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A declared enum the reading file may not name is not an enum reference at all, so the base falls
 through to the same diagnostic a misspelled name gets.
 ```maxon
@@ -731,7 +711,6 @@ error E3008: other/<fragment>:10:10: type 'Color' is not exported
 ```
 
 <!-- test: error.an-unmarked-types-method-is-hidden-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A value of an unmarked type that reached a file outside the subtree exposes none of the type's methods there.
 ```maxon
 // --- file: feature/box.maxon
@@ -770,7 +749,6 @@ error E3008: other/<fragment>:28:16: type 'Box' is not exported
 ```
 
 <!-- test: error.an-unmarked-type-is-unreachable-through-a-field-outside-the-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The TYPE's visibility outranks the FIELD's: `v` is exported, and the reader still cannot reach it,
 because it may not name `Box`.
 ```maxon
@@ -805,7 +783,6 @@ error E3008: other/<fragment>:24:15: type 'Box' is not exported
 ```
 
 <!-- test: an-unmarked-type-is-reachable-from-a-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: feature/box.maxon
 typealias Integer = int(i64.min to i64.max)
@@ -881,7 +858,6 @@ error E3062: lib/<fragment>:3:11: unused typealias: 'Size'
 ```
 
 <!-- test: error.a-qualified-static-call-head-the-reader-cannot-see-is-refused-and-the-file-reads-on -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A qualified static-call head the reader may not name is refused at the name, and the refusal does not stop the
 file: a second hidden name later in it is reported too, exactly as two bare ones are.
 ```maxon

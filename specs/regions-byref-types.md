@@ -164,7 +164,7 @@ error E3005: <fragment>:14:25: argument type mismatch for 'n': expected 'Wide', 
 ```
 
 <!-- test: an-inline-range-at-a-mutable-parameter-is-refused-at-its-declaration -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '(' -->
 <!-- positions: moved -->
 A `mutable` parameter has a named alias for its type, so no formal is an unnamed range the variable could be compared to.
 
@@ -708,7 +708,6 @@ error E2001: <fragment>:7:3: unexpected token: 'self'
 ```
 
 <!-- test: a-field-cell-declared-in-another-file-keeps-its-own-alias-when-the-reader-declares-the-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The field's `Narrow` is the declaring file's, whatever `app/main.maxon` means by the same name, so it is compared with `Wide` as that declaration.
 
@@ -938,7 +937,6 @@ error E3006: <fragment>:8:10: duplicate definition of 'bump' — already declare
 ```
 
 <!-- test: a-private-generic-function-of-another-file-is-refused-as-not-exported-before-its-instance-is-judged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The instance of `relay` is declared in `lib/lib.maxon` and the call names it from `app/main.maxon`, outside `lib/`, so the call is refused as naming a function that is not exported.
 
@@ -972,7 +970,6 @@ error E3008: app/<fragment>:21:2: function 'relay' is not exported
 ```
 
 <!-- test: a-private-function-of-another-file-is-refused-as-not-exported-before-its-parameters-are-judged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `widen` is not exported, so the call is refused as naming it; the callee's `Wide` formal is not compared with the `Narrow` variable.
 

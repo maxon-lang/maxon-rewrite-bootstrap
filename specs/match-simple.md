@@ -196,16 +196,15 @@ end 'main'
 ```
 
 <!-- test: match-statements.or-patterns -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 3
 	match x 'check'
 		1 or
-			2 then return 10
+		2 then return 10
 		3 or
-			4 or
-			5 then return 20
+		4 or
+		5 then return 20
 		default then return 0
 	end 'check'
 end 'main'
@@ -215,15 +214,14 @@ end 'main'
 ```
 
 <!-- test: match-statements.or-patterns-first -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 1
 	match x 'check'
 		1 or
-			2 then return 10
+		2 then return 10
 		3 or
-			4 then return 20
+		4 then return 20
 		default then return 0
 	end 'check'
 end 'main'
@@ -233,15 +231,14 @@ end 'main'
 ```
 
 <!-- test: match-statements.or-patterns-second -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 2
 	match x 'check'
 		1 or
-			2 then return 10
+		2 then return 10
 		3 or
-			4 then return 20
+		4 then return 20
 		default then return 0
 	end 'check'
 end 'main'
@@ -268,15 +265,14 @@ end 'main'
 ```
 
 <!-- test: match-expression.or-patterns -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 function main() returns ExitCode
 	let x = 4
 	let result = match x 'eval'
 		1 or
-			2 gives 10
+		2 gives 10
 		3 or
-			4 gives 20
+		4 gives 20
 		default gives 0
 	end 'eval'
 	return result
@@ -357,7 +353,6 @@ end 'main'
 ```
 
 <!-- test: match-statements.nested-in-function -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -365,17 +360,17 @@ typealias Integer = int(i64.min to i64.max)
 function categorize(n Integer) returns Integer
 	match n 'cat'
 		1 or
-			2 or
-			3 then return 1
+		2 or
+		3 then return 1
 		4 or
-			5 or
-			6 then return 2
+		5 or
+		6 then return 2
 		default then return 0
 	end 'cat'
 end 'categorize'
 
 function main() returns ExitCode
-	return categorize(5)
+	return try categorize(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

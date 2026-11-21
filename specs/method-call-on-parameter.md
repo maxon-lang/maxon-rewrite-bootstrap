@@ -113,12 +113,12 @@ type Calculator
 	var base as Integer
 
 	function double() returns Integer
-		return base * 2
+		return try base * 2 otherwise panic("out of range")
 	end 'double'
 
 	function quadruple() returns Integer
 		// Sibling call - calls self.double()
-		return double() * 2
+		return try double() * 2 otherwise panic("out of range")
 	end 'quadruple'
 
 	static function create(base Integer) returns Self
@@ -128,7 +128,7 @@ end 'Calculator'
 
 function main() returns ExitCode
 	let calc = Calculator.create(5)
-	return calc.quadruple()
+	return try calc.quadruple() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -58,16 +58,16 @@ type Lex
 		return Self{pendingError: OuterErr.unexpectedEof(0, column: 0), hasPending: false}
 	end 'create'
 
-	function bump() throws InnerErr
+	function bump(mutates self) throws InnerErr
 		hasPending = true
 		pendingError = OuterErr.unterminatedString(7, column: 13)
 		throw InnerErr.gone
 	end 'bump'
 
-	function run() returns N throws OuterErr
+	function run(mutates self) returns N throws OuterErr
 		try bump() otherwise 'inner'
 			if hasPending 'hp'
-				throw pendingError
+				throw pendingError.clone()
 			end 'hp'
 			throw OuterErr.unexpectedEof(0, column: 0)
 		end 'inner'
@@ -76,18 +76,18 @@ type Lex
 end 'Lex'
 
 function outer() returns N throws OuterErr
-	let lex = Lex.create()
+	var lex = Lex.create()
 	return try lex.run()
 end 'outer'
 
 function main() returns ExitCode
 	let v = try outer() otherwise (e) 'fail'
 		match e 'kind'
-			unterminatedString(line, column) then return (line + column)
-			unexpectedEof(line, column) then return (line + column + 100)
+			unterminatedString(line, column) then return (try line + column otherwise panic("out of range"))
+			unexpectedEof(line, column) then return (try line + column + 100 otherwise panic("out of range"))
 		end 'kind'
 	end 'fail'
-	return (v + 200)
+	return (try v + 200 otherwise panic("out of range"))
 end 'main'
 ```
 ```exitcode

@@ -1826,7 +1826,6 @@ end 'main'
 ```
 
 <!-- test: fallthrough-into-an-or-pattern-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 The other half of that guard: an `or`-pattern arm can never bind (a payload binding on an `or`-pattern
 is `rejectOrPatternBinding`), so it reaches the fallthrough check with an empty binding list and passes
 it. A check that keyed on "does this arm's case carry a payload?" rather than on the bindings in hand
@@ -1846,7 +1845,7 @@ function main() returns ExitCode
 	match u 'k'
 		a(n) then t = n and fallthrough
 		b or
-			c then t = t + 1
+		c then t = try t + 1 otherwise panic("out of range")
 	end 'k'
 	return t as ExitCode
 end 'main'

@@ -139,7 +139,6 @@ emitted code of the first TWO cases below, and is pinned end to end through `max
 `tests/testCommand`'s `uncaught-throw` and `implied-try` fixtures.
 
 <!-- test: bare-try-on-a-foreign-error-compiles -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The whole relaxation in one program, and the exact counterpart of `error.function-does-not-relax`
 below: the SAME `try lookup()` over the SAME foreign error, moved from an ordinary `function` into
 a `test`. There it is E3059; here it compiles. Nothing else distinguishes the two, so this pair is
@@ -159,7 +158,6 @@ function lookup() throws ApiError
 	throw ApiError.notFound
 end 'lookup'
 
-// TODO: test declarations are not supported in minimaxon
 test 'tolerates a foreign error'
 	try lookup()
 end 'tolerates a foreign error'
@@ -174,7 +172,6 @@ end 'main'
 ```
 
 <!-- test: bare-try-on-a-boxed-foreign-error-compiles -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The same relaxation over a **payload-carrying union**, which is a different mechanism and not a second
 spelling of the case above. A payload-free enum's error arrives as an `ordinal + bias` in the flag
 register and owns nothing; a union's arrives as a BOX POINTER the catcher now owns, so the substituted
@@ -200,7 +197,6 @@ function lookup(hit bool) throws ApiError
 	end 'miss'
 end 'lookup'
 
-// TODO: test declarations are not supported in minimaxon
 test 'tolerates a boxed foreign error'
 	try lookup(true)
 	print("reached the end of the test\n")
@@ -247,7 +243,6 @@ error E3059: specs/test-uncaught-throw/error.function-does-not-relax.maxon:16:2:
 ```
 
 <!-- test: error.closure-in-a-test-is-not-a-test -->
-<!-- skip: test declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure inside a test body is a separate function, and a function type cannot express `throws`
 (E3101) — so there is no error channel to relax and a bare `try` inside one is refused, exactly as
@@ -270,7 +265,6 @@ function callIt(produce Producer) returns Tally
 	return produce()
 end 'callIt'
 
-// TODO: test declarations are not supported in minimaxon
 test 'runs a closure'
 	let got = callIt(function() gives try lookup())
 	print("got {got}\n")
@@ -286,7 +280,6 @@ error E2001: specs/test-uncaught-throw/error.closure-in-a-test-is-not-a-test.max
 ```
 
 <!-- test: implied-try-foreign-error -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The no-`try` twin of `bare-try-on-a-foreign-error-compiles`: the test body is an implied `try`, so a
 bare throwing call compiles to the same handler. The emitted code shows the same `__TestReport.threw`
 report and `TestFailure` throw as the `try` form.
@@ -300,7 +293,6 @@ function lookup() throws ApiError
 	throw ApiError.notFound
 end 'lookup'
 
-// TODO: test declarations are not supported in minimaxon
 test 'tolerates a foreign error'
 	lookup()
 end 'tolerates a foreign error'
@@ -315,7 +307,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-boxed-foreign-error -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The no-`try` twin of `bare-try-on-a-boxed-foreign-error-compiles`: a payload-carrying union reaches the
 implied handler as a box the handler owns, releases, and un-enrols on the terminated error edge.
 ```maxon
@@ -330,7 +321,6 @@ function lookup(hit bool) throws ApiError
 	end 'miss'
 end 'lookup'
 
-// TODO: test declarations are not supported in minimaxon
 test 'tolerates a boxed foreign error'
 	lookup(true)
 	print("reached the end of the test\n")
@@ -346,7 +336,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-value-position -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A bare throwing call in value position: the implied handler guards the binding's initializer, and the
 ok edge binds the returned value.
 ```maxon
@@ -364,7 +353,6 @@ function lookup(hit bool) returns Tally throws ApiError
 	return 7
 end 'lookup'
 
-// TODO: test declarations are not supported in minimaxon
 test 'binds a value from a throwing call'
 	let got = lookup(true)
 	print("got {got}\n")
@@ -380,7 +368,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-managed-temporary -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The throwing call is an ARGUMENT evaluated after a managed `String` temporary already exists in the same
 statement, so the implied handler's error edge must release that temporary before it reports.
 ```maxon
@@ -406,7 +393,6 @@ function describe(label String, n Tally) returns String
 	return "{label}{n}"
 end 'describe'
 
-// TODO: test declarations are not supported in minimaxon
 test 'owns a temporary when the call throws'
 	print(describe(prefix("value"), n: lookup(true)))
 end 'owns a temporary when the call throws'
@@ -421,12 +407,10 @@ end 'main'
 ```
 
 <!-- test: implied-try-runtime-callee -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A throwing compiler-owned callee, the array accessor, written bare in a test body takes the implied
 handler exactly as a user function does.
 ```maxon
 // --- file: suite.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'reads an element bare'
 	let a = [10, 20, 30]
 	let x = a.get(1)
@@ -443,7 +427,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-witness-dispatch -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A throwing interface requirement dispatched through an existential in a test body, with no `try`: the
 witness dispatch takes the implied handler exactly as a direct call does.
 ```maxon
@@ -477,7 +460,6 @@ function make(x Code) returns Digest
 	return Point.create(x)
 end 'make'
 
-// TODO: test declarations are not supported in minimaxon
 test 'dispatches a throwing requirement'
 	let d = make(42)
 	let v = d.digest()
@@ -496,7 +478,6 @@ end 'main'
 <!-- test: implied-try-await -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An `await` of a throwing promise written without `try` in a test body takes the implied handler, as a
 `try await` does.
 ```maxon
@@ -515,7 +496,6 @@ function mayFail(succeed bool) returns Integer throws WorkError
 	throw WorkError.failed
 end 'mayFail'
 
-// TODO: test declarations are not supported in minimaxon
 test 'awaits a throwing promise'
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(false)
@@ -534,7 +514,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-argument-of-explicit-try -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An explicit `try` covers its own target call only. A throwing call in that target's ARGUMENT list is a
 separate call, so its foreign error goes to the test body's implied handler.
 ```maxon
@@ -552,7 +531,6 @@ function count(hit bool) returns Tally throws ApiError
 	return 3
 end 'count'
 
-// TODO: test declarations are not supported in minimaxon
 test 'asserts on a counted value'
 	try Expect.equal(count(true), expected: 3)
 end 'asserts on a counted value'
@@ -567,7 +545,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-operand-of-a-parenthesized-target -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A parenthesized `try` target claims the operation that produces the group's value, which here is the
 division. The throwing call that is an OPERAND of that division is a separate call, so its foreign
 error goes to the test body's implied handler.
@@ -590,7 +567,6 @@ function divisor() returns Tally
 	return 4
 end 'divisor'
 
-// TODO: test declarations are not supported in minimaxon
 test 'divides a counted value'
 	let share = try (count(true) / divisor()) otherwise 0
 	Expect.equal(share, expected: 3)
@@ -606,13 +582,11 @@ end 'main'
 ```
 
 <!-- test: implied-try-iteration-error-in-a-for-range-bound -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A `for` loop absorbs the `IterationError` of the call that hands it its cursor, and nothing else. Here the
 source is a RANGE whose lower bound is `peek`, which throws `IterationError` but hands the loop no cursor, so
 the loop has nothing to absorb and the call takes the test body's implied handler like any other.
 ```maxon
 // --- file: suite.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'counts up from a peeked bound'
 	let steps = [1, 2, 3]
 	let it = steps.cursor()
@@ -635,7 +609,6 @@ end 'main'
 <!-- test: implied-try-await-as-a-for-range-bound -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An `await` that is a range's lower bound hands the loop no cursor, so the loop absorbs nothing and the
 awaited error takes the test body's implied handler, as a bare `await` does anywhere else in the body.
 ```maxon
@@ -654,7 +627,6 @@ function start(succeed bool) returns Integer throws WorkError
 	throw WorkError.failed
 end 'start'
 
-// TODO: test declarations are not supported in minimaxon
 test 'counts up from an awaited bound'
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async start(true)
@@ -678,7 +650,6 @@ end 'main'
 <!-- test: implied-try-await-receiver-of-an-explicit-try -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An explicit `try` on `(await p).check()` covers the chain's last call. The awaited promise is the
 RECEIVER, a separate throwing operation, so its error goes to the test body's implied handler.
 ```maxon
@@ -711,7 +682,6 @@ function make(succeed bool) returns Holder throws WorkError
 	throw WorkError.failed
 end 'make'
 
-// TODO: test declarations are not supported in minimaxon
 test 'checks an awaited holder'
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async make(true)
@@ -729,7 +699,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-true-arm-of-a-for-source-ternary -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A ternary `for` source hands the loop the value of whichever arm ran. Neither arm's call is the loop's
 cursor, so the TRUE arm's throwing call takes the test body's implied handler exactly as the false arm's does.
 ```maxon
@@ -752,7 +721,6 @@ function items(hit bool) returns TallyArray throws ApiError
 	return found
 end 'items'
 
-// TODO: test declarations are not supported in minimaxon
 test 'walks the chosen items'
 	let useFirst = true
 	var total = 0 as Tally
@@ -772,7 +740,7 @@ end 'main'
 ```
 
 <!-- test: implied-try-bounds-of-a-parenthesized-range-target -->
-<!-- skip: test declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 An explicit `try` on `(a upto b).createIterator()` covers the chain's last call. The range's BOUNDS are
 operands of the range operator, so a throwing call in either takes the test body's implied handler.
 ```maxon
@@ -795,7 +763,6 @@ function last(hit bool) returns RangeBound throws ApiError
 	return 5
 end 'last'
 
-// TODO: test declarations are not supported in minimaxon
 test 'iterates a range built from throwing bounds'
 	let it = try (first(true) upto last(true)).createIterator()
 	Expect.equal(it.current(), expected: 2)
@@ -811,7 +778,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-reinterpreted-element-as-a-for-range-bound -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A narrow signed enum element is read back through a sign extension the accessor appends after its call.
 That extension is part of the call's result, so when the element read is the receiver of `.rawValue` in a
 range's lower bound, the receiver is still the throwing call and it takes the test body's implied handler.
@@ -824,7 +790,6 @@ end 'Level'
 
 typealias LevelArray = Array with Level
 
-// TODO: test declarations are not supported in minimaxon
 test 'counts up from a stored level'
 	let levels = LevelArray.create(0)
 	levels.push(Level.high)
@@ -846,7 +811,6 @@ end 'main'
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The call that hands a `for` loop its cursor throws `IterationError` for an EMPTY collection, and the loop
 absorbs it: the loop runs zero trips and the test goes on. The implied handler must not claim that call.
 ```maxon
@@ -855,7 +819,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: test declarations are not supported in minimaxon
 test 'an empty traversal runs no trips'
 	var total = 0 as Integer
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
@@ -875,7 +838,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-iteration-error-is-absorbed-parenthesized -->
-<!-- skip: test declarations are not supported in minimaxon -->
 The same loop with its source written in parentheses. A group is transparent, so the loop still absorbs
 the empty collection's `IterationError` and runs zero trips.
 ```maxon
@@ -884,7 +846,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: test declarations are not supported in minimaxon
 test 'an empty parenthesized traversal runs no trips'
 	var total = 0 as Integer
 	for (_, value) in (IntArray.create(0).withIterator()) 'each'
@@ -903,7 +864,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-cast-operand-as-a-for-range-bound -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A cast that emits an op makes its operand an operand like any other. The throwing call under the cast is a
 range's lower bound, so it takes the test body's implied handler.
 ```maxon
@@ -923,7 +883,6 @@ function first(hit bool) returns Integer throws ApiError
 	return 2
 end 'first'
 
-// TODO: test declarations are not supported in minimaxon
 test 'counts up from a cast bound'
 	var total = 0 as Small
 	for i in first(true) as Small upto 5 'each'
@@ -942,7 +901,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-chain-receiver -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An explicit `try` on a postfix chain covers the chain's last call. The RECEIVER is a separate throwing
 call, so its foreign error goes to the test body's implied handler.
 ```maxon
@@ -974,7 +932,6 @@ function make(hit bool) returns Holder throws ApiError
 	return Holder.create(3)
 end 'make'
 
-// TODO: test declarations are not supported in minimaxon
 test 'checks a made holder'
 	try make(true).check()
 end 'checks a made holder'
@@ -989,7 +946,6 @@ end 'main'
 ```
 
 <!-- test: error.implied-try-closure-still-needs-try -->
-<!-- skip: test declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The implied `try` belongs to the test body alone. A closure inside it is a separate function with no
 error channel, so a bare throwing call there is still E3057.
@@ -1011,7 +967,6 @@ function callIt(produce Producer) returns Tally
 	return produce()
 end 'callIt'
 
-// TODO: test declarations are not supported in minimaxon
 test 'runs a closure'
 	let got = callIt(function() gives lookup())
 	print("got {got}\n")
@@ -1026,7 +981,6 @@ end 'main'
 error E3057: specs/test-uncaught-throw/error.implied-try-closure-still-needs-try.maxon:19:36: throwing function requires try: 'lookup'
 ```
 <!-- test: implied-try-explicit-try-of-a-rebranded-call -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An explicit `try` on a parenthesized call renamed to another brand of the same instance claims the call:
 the rebrand emits no op, so the call IS the value the group produces, and the author's `otherwise` owns its
 error.
@@ -1052,7 +1006,6 @@ function items(hit bool) returns IntArray throws ApiError
 	return found
 end 'items'
 
-// TODO: test declarations are not supported in minimaxon
 test 'rebrands the fetched items'
 	let s = try (items(true) as Scores) otherwise Scores.create(0)
 	Expect.equal(s.count(), expected: 2)
@@ -1068,7 +1021,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-explicit-try-of-a-range-checked-division -->
-<!-- skip: test declarations are not supported in minimaxon -->
 An explicit `try` on a parenthesized checked division narrowed to a ranged alias whose representation is
 the division's own: the cast emits no op and only records its range site, so the division IS the value the
 group produces and the author's `otherwise` owns its divide-by-zero.
@@ -1080,7 +1032,6 @@ typealias IntArray = Array with Integer
 
 typealias Wide = int(-1000000000000 to 1000000000000)
 
-// TODO: test declarations are not supported in minimaxon
 test 'divides by a counted value'
 	let d = IntArray.create(0).count()
 	let n = try ((8 / d) as Wide) otherwise 5
@@ -1097,7 +1048,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-for-source-rebranded-cursor-is-absorbed -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A cursor-producing call renamed to another brand of the same instance is still the call that hands the loop
 its cursor: the rebrand emits no op, so the loop absorbs the empty collection's `IterationError`.
 ```maxon
@@ -1108,7 +1058,6 @@ typealias IntArray = Array with Integer
 
 typealias Walk = ArrayIterator with Integer
 
-// TODO: test declarations are not supported in minimaxon
 test 'an empty rebranded traversal runs no trips'
 	var total = 0 as Integer
 	for x in IntArray.create(0).cursor() as Walk 'each'

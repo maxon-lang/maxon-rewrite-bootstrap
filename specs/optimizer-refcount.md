@@ -226,7 +226,6 @@ block; the emitted code (`--emit-ir`) shows no bracket for any of them,
 and nothing in the suite pins that.
 
 <!-- test: prefix-kill-sibling-cleanup -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Two aliases, `b` of `a` and `d` of `c`, whose scopes end in the same
 block. Neither takes a reference, so neither needs a bracket.
 ```maxon
@@ -241,17 +240,15 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = Box.create(7)
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let c = Box.create(11)
 	var total = 0 as Integer
 	if true 'outer'
 		let b = a
 		let d = c
-		total = b.value + d.value
+		total = try b.value + d.value otherwise panic("out of range")
 	end 'outer'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -264,7 +261,6 @@ An alias read on several mutually-exclusive paths (e.g. match arms) still
 takes no reference, so none of the paths owes a decref for it.
 
 <!-- test: multi-exit-match-arm-brackets -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 An alias read on two mutually-exclusive match arms. It takes no
 reference, so neither arm carries a decref for it; the source's own
 single decref is the only one.
@@ -285,7 +281,6 @@ union Tag
 end 'Tag'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = Box.create(42)
 	let tag = Tag.first
 	var total = 0 as Integer
@@ -293,10 +288,10 @@ function main() returns ExitCode
 		let b = a
 		match tag 'branch'
 			first then total = b.value
-			second then total = b.value + 1
+			second then total = try b.value + 1 otherwise panic("out of range")
 		end 'branch'
 	end 'inner'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -304,7 +299,6 @@ end 'main'
 ```
 
 <!-- test: multi-exit-three-way-split -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Three-way exit: the alias is read on three match arms, and none of
 them carries a decref for it.
 ```maxon
@@ -325,7 +319,6 @@ union Tag
 end 'Tag'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let x = Box.create(7)
 	let tag = Tag.b
 	var total = 0 as Integer
@@ -333,11 +326,11 @@ function main() returns ExitCode
 		let alias = x
 		match tag 'three'
 			a then total = alias.value
-			b then total = alias.value * 2
-			c then total = alias.value * 3
+			b then total = try alias.value * 2 otherwise panic("out of range")
+			c then total = try alias.value * 3 otherwise panic("out of range")
 		end 'three'
 	end 'inner'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -353,7 +346,6 @@ own reference instead. The emitted code (`--emit-ir`) is where an
 accidental bracket shows.
 
 <!-- test: try-call-borrow-only-window -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Alias assignment `let b = a` in an inner block, followed by a try-call
 on a borrow-only callee inside the same block. `b` takes no reference,
 so the only decref is `a`'s own at its scope end.
@@ -380,7 +372,6 @@ function inspect(b Box) returns Integer throws BoxError
 end 'inspect'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = Box.create(42)
 	var total = 0 as Integer
 	if true 'inner'
@@ -388,7 +379,7 @@ function main() returns ExitCode
 		let n = try inspect(b) otherwise 0
 		total = n
 	end 'inner'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -396,7 +387,6 @@ end 'main'
 ```
 
 <!-- test: try-call-retaining-callee-preserved -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Same shape, but the callee retains its argument (pushes it into an
 array). A durable store co-owns, so the callee takes its own reference
 (`__mm_own`) and the array's drop releases it, independently of the
@@ -418,21 +408,20 @@ end 'Box'
 
 typealias BoxArray = Array with Box
 
-function stash(arr BoxArray, b Box) returns Integer throws BoxError
+function stash(mutates arr BoxArray, b Box) returns Integer throws BoxError
 	if b.value < 0 'neg'
 		throw BoxError.negative
 	end 'neg'
-	arr.push(b)
+	arr.push(b.clone())
 	return b.value
 end 'stash'
 
 function main() returns ExitCode
-	let arr = BoxArray.create(0)
-	// TODO: @heap annotations are not supported in minimaxon
+	var arr = BoxArray.create(0)
 	@heap let a = Box.create(42)
 	let b = a
 	let n = try stash(arr, b: b) otherwise 0
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -440,7 +429,6 @@ end 'main'
 ```
 
 <!-- test: try-call-aliasfromstore-window -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 The same heap pointer held by two bindings — a function's result and an
 alias of it — with a try-call between. The alias takes no reference, so
 there is no second incref/decref pair.
@@ -471,7 +459,6 @@ function pair() returns Box
 end 'pair'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let primary = pair()
 	var total = 0 as Integer
 	if true 'inner'
@@ -479,7 +466,7 @@ function main() returns ExitCode
 		let n = try peek(alias) otherwise 0
 		total = n
 	end 'inner'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,7 +474,6 @@ end 'main'
 ```
 
 <!-- test: try-call-inside-loop-body -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Try-call inside a loop body where the alias source is stable across
 iterations. The alias takes no reference, so no iteration carries an
 incref/decref for it.
@@ -514,15 +500,14 @@ function peek(b Box) returns Integer throws BoxError
 end 'peek'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let boxed = Box.create(7)
 	var total = 0 as Integer
 	for _ in 0 upto 3 'loop'
 		let alias = boxed
 		let n = try peek(alias) otherwise 0
-		total = total + n
+		total = try total + n otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

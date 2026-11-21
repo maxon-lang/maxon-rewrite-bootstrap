@@ -710,7 +710,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-instance-over-a-qualified-cross-form-alias-is-one-instance -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/` declares `Score` as a function alias and `legacy/` declares `Score` as a ranged alias: two
 declarations of one name, of two forms, so `api/` and `app/` both write the element `api.Score`. `Scores` and
 `Mine` are two aliases of one instance and the `as` is a re-brand.
@@ -1093,8 +1092,6 @@ error E3131: <fragment>:14:12: Cannot cast to 'NarrowCol': a container's element
 ```
 
 <!-- test: error.a-cast-between-fixed-arrays-of-two-sizes-is-not-a-rebrand -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 Two files of one directory each declare an unmarked `Limit` over one range. `Wide` is a `FixedArray with 8`
 of `pkg/lib.maxon`'s and `Quad` a `FixedArray with 4` of `app/main.maxon`'s: the elements share a layout but the containers do not, and the cast is
@@ -1103,7 +1100,6 @@ refused. The exported field that carries the value names an unmarked alias, whic
 // --- file: pkg/lib.maxon
 typealias Limit = int(0 to 9)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wide = FixedArray with 8 Limit
 
 export type Holder
@@ -1117,7 +1113,6 @@ end 'Holder'
 // --- file: app/main.maxon
 typealias Limit = int(0 to 9)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Quad = FixedArray with 4 Limit
 
 function main() returns ExitCode
@@ -1163,7 +1158,6 @@ end 'main'
 ```
 
 <!-- test: error.a-cast-between-elements-of-two-ranges-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 Two files of one directory each declare an unmarked `Limit`, over two ranges of one byte width. `Lows`
 is an `Array` of `pkg/lib.maxon`'s `Limit` and `Highs` an `Array` of `app/main.maxon`'s: the elements share
@@ -1731,7 +1725,6 @@ error E3005: <fragment>:21:9: argument type mismatch for 'xs': expected 'beta.Nu
 ```
 
 <!-- test: error.a-call-result-wears-the-brand-of-the-file-that-declared-the-callee -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and `makeA` returns it, written bare. `p/` declares a `Numbers` of its own over the same instance, visible to `p/` alone, and takes it as `p.Numbers`. `makeA` is declared in `a/a.maxon`, so its result is `a/`'s `Numbers` and not the `Numbers` the calling file declares.
 ```maxon
@@ -1812,7 +1805,6 @@ end 'main'
 ```
 
 <!-- test: error.a-field-read-wears-the-brand-of-the-file-that-declared-the-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and a type whose exported field `xs` holds one, written bare. `p/` declares a `Numbers` of its own over the same instance, visible to `p/` alone, and takes it as `p.Numbers`. The field is declared in `a/a.maxon`, so reading it from `p/` yields `a/`'s `Numbers` and not the `Numbers` the reading file declares.
 ```maxon
@@ -1848,7 +1840,6 @@ error E3005: p/<fragment>:25:9: argument type mismatch for 'xs': expected 'p.Num
 ```
 
 <!-- test: error.a-union-payload-read-wears-the-brand-of-the-file-that-declared-the-union -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/` exports a `Numbers` and a union whose payload holds one. `p/` declares a `Numbers` of its own over the same instance and takes it as `p.Numbers`. The payload is declared in `a/a.maxon`, so the binding a `match` in `p/` makes wears `a/`'s `Numbers`.
 ```maxon
@@ -1888,7 +1879,6 @@ error E3005: p/<fragment>:28:24: argument type mismatch for 'xs': expected 'p.Nu
 ```
 
 <!-- test: error.a-field-store-judges-the-value-against-the-brand-of-the-file-that-declared-the-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/`'s `Box` holds its field `xs` as `a/`'s `Numbers`. `p/` declares a `Numbers` of its own over the same instance and stores one into the field, so the store meets a `p.Numbers` against `a.Numbers`.
 ```maxon
@@ -1960,7 +1950,6 @@ error E3005: <fragment>:29:9: argument type mismatch for 'xs': expected 'beta.Nu
 ```
 
 <!-- test: error.a-field-declared-with-a-qualified-alias-is-read-in-the-declaring-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `holder/` and the reading directory `q/` each see a different `alpha`: the root `alpha/` and `q/alpha/` both export a `Numbers` over one instance. `Box`'s field is declared `alpha.Numbers` in `holder/`, where `alpha` is the root directory, so the read in `q/` wears the root brand and does not reach `q/alpha`'s parameter.
 ```maxon
 // --- file: base/s.maxon

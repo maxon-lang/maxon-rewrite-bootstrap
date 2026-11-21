@@ -958,7 +958,6 @@ error E3036: <fragment>:3:20: '__Builtins.mmAllocBytesByTag' takes exactly 1 arg
 ```
 
 <!-- test: allocations-by-tag.the-public-counters-see-a-population-arrive-and-leave -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The totals beside the buckets, read through the surface a program outside the library tiers reads: a
 population of N widgets built between two readings raises `HeapStats.bytesAllocated()` by at least N widgets'
 bytes, raises the calling thread's `HeapStats.thread()` allocations by at least N and its bytes by at least N
@@ -992,7 +991,6 @@ function main() returns ExitCode
 	let threadHolding = HeapStats.thread()
 	holder = Widgets.create(0)
 	let threadAfter = HeapStats.thread()
-	// TODO: sizeof(...) is not supported in minimaxon
 	let widgetBytes = (Population * sizeof(Widget)) as HeapBytes
 	var score = 0 as ExitCode
 	if bytesAfter - bytesBefore >= widgetBytes 'theProcessCountedTheBytes'

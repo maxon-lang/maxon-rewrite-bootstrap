@@ -2208,7 +2208,7 @@ error E3203: <fragment>:27:13: 'first' roots what 'which' lends or iterates and 
 ```
 
 <!-- test: error.a-match-expression-subjects-roots-are-read-only-in-every-arm -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- positions: moved -->
 A `match` expression in the subject counts as a `cond`: `h` and `g` are read-only holders in every arm of a union with a unique payload, the arm that binds nothing included (ruling 48).
 ```maxon
@@ -2239,6 +2239,7 @@ end 'Holder'
 function main() returns ExitCode
 	let h = Holder.create(Slot.held(Token.create(1)), n: 0)
 	let g = Holder.create(Slot.empty, n: 0)
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	match (match h.n 'pick'
 		0 gives h
 		default gives g

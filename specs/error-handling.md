@@ -658,7 +658,8 @@ error E3059: <fragment>:13:2: type mismatch: 'a void `try` (its call returns not
 ```
 
 <!-- test: error.throwing-function-requires-try -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -669,6 +670,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail() returns Integer throws MyError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("42") otherwise throw MyError.failed
 end 'mayFail'
 
@@ -682,7 +684,8 @@ error E3057: specs/error-handling/error.throwing-function-requires-try.maxon:15:
 ```
 
 <!-- test: error.throwing-method-requires-try -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -691,6 +694,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail() returns Integer throws MyError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("42") otherwise throw MyError.failed
 end 'mayFail'
 

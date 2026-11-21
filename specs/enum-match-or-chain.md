@@ -27,7 +27,6 @@ Every alternative counts toward exhaustiveness. Each case must be covered by exa
 ## Tests
 
 <!-- test: or-chain.basic -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -41,10 +40,10 @@ function main() returns ExitCode
 	let a = Action.skip
 	let result = match a 'check'
 		noop or
-			skip gives 1
+		skip gives 1
 		run(code) gives code
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -52,7 +51,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.first-alternative -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -66,10 +64,10 @@ function main() returns ExitCode
 	let a = Action.noop
 	let result = match a 'check'
 		noop or
-			skip gives 1
+		skip gives 1
 		run(code) gives code
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -77,7 +75,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.binding-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -91,8 +88,8 @@ function main() returns ExitCode
 	let a = Action.run(42)
 	match a 'dispatch'
 		noop or
-			skip then return 0
-		run(code) then return code
+		skip then return 0
+		run(code) then return try code as ExitCode otherwise panic("out of range")
 	end 'dispatch'
 end 'main'
 ```
@@ -101,7 +98,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.two-alternatives -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -116,11 +112,11 @@ function main() returns ExitCode
 	let op = Op.mul
 	let result = match op 'check'
 		add or
-			sub gives 1
+		sub gives 1
 		mul gives 2
 		exec(code) gives code
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -128,7 +124,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.multiple-chains -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -144,12 +139,12 @@ function main() returns ExitCode
 	let op = Op.div
 	let result = match op 'check'
 		add or
-			sub gives 1
+		sub gives 1
 		mul or
-			div gives 2
+		div gives 2
 		exec(code) gives code
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -157,7 +152,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.statement-form -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -172,9 +166,9 @@ function main() returns ExitCode
 	let op = Op.sub
 	match op 'check'
 		add or
-			sub or
-			mul then return 1
-		exec(code) then return code
+		sub or
+		mul then return 1
+		exec(code) then return try code as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```
@@ -183,7 +177,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.chain-covers-all-associated -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -197,8 +190,8 @@ function main() returns ExitCode
 	let m = Mixed.b(42)
 	match m 'check'
 		a or
-			b or
-			c then return 1
+		b or
+		c then return 1
 	end 'check'
 end 'main'
 ```
@@ -207,7 +200,6 @@ end 'main'
 ```
 
 <!-- test: or-chain.case-name-collision -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 // The alternatives' case names (`lt`/`ge`) also exist on a DIFFERENT
 // enum (`Cond`) at other ordinals — here `ge` precedes `lt`, both high, the
@@ -243,9 +235,9 @@ function classify(p Pred) returns String
 		eq gives "eq"
 		ne gives "ne"
 		lt or
-			le or
-			gt or
-			ge gives "ord"
+		le or
+		gt or
+		ge gives "ord"
 	end 'm'
 end 'classify'
 
@@ -262,6 +254,7 @@ end 'main'
 ```
 
 <!-- test: error.or-chain.overlap -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -276,9 +269,9 @@ function main() returns ExitCode
 	let op = Op.add
 	match op 'check'
 		add or
-			sub then return 1
+		sub then return 1
 		sub or
-			mul then return 2
+		mul then return 2
 		exec(code) then return code
 	end 'check'
 end 'main'
@@ -288,6 +281,7 @@ error E2027: specs/enum-match-or-chain/error.or-chain.overlap.maxon:16:3: overla
 ```
 
 <!-- test: error.or-chain.not-exhaustive -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -303,7 +297,7 @@ function main() returns ExitCode
 	let op = Op.mul
 	match op 'check'
 		add or
-			sub then return 1
+		sub then return 1
 		div then return 2
 		exec(code) then return code
 	end 'check'

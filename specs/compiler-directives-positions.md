@@ -25,23 +25,17 @@ its five cases are **all statement-position**. This file covers every other posi
 ## Tests
 
 <!-- test: directives.top-level-branches -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 Top level, between declarations — the position the `pathSeparator` declarations at the top of `stdlib/FilePath.maxon` need. Both arms declare
 `pick`; only the live one exists, so this is not a duplicate definition.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(false)
 	function pick() returns ExitCode
 		return 21
 	end 'pick'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	function pick() returns ExitCode
 		return 99
 	end 'pick'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -53,32 +47,23 @@ end 'main'
 ```
 
 <!-- test: directives.top-level-nested -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 Nesting at TOP LEVEL. The corpus nests only inside a function body, where the enclosing construct
 already brackets the region; here the inner `#if` has nothing but the outer one to balance against.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(false)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
 		function pick() returns ExitCode
 			return 98
 		end 'pick'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		function pick() returns ExitCode
 			return 22
 		end 'pick'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	function pick() returns ExitCode
 		return 97
 	end 'pick'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -90,18 +75,14 @@ end 'main'
 ```
 
 <!-- test: directives.type-body-static-function -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 A `type` body, around a `static function` with no `#else` — the exact shape of
 the `#if os(Windows)` block around `hasInvalidChars` in the `FilePath` type body of `stdlib/FilePath.maxon`.
 ```maxon
 type Holder
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
-
 		static function value() returns ExitCode
 			return 23
 		end 'value'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'Holder'
 
@@ -114,7 +95,6 @@ end 'main'
 ```
 
 <!-- test: directives.type-body-field-pair -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ⭐ **A `#if`-gated FIELD PAIR — the case that pins where conditional compilation lives in the compiler.**
 
 A struct's fields are recorded by the whole-program declaration SWEEP
@@ -124,13 +104,10 @@ honoured by the parse loops alone, the sweep would record BOTH `first` and `unwa
 arm became a field.
 ```maxon
 type Box
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
 		export let first as ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		export let unwanted as ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	export let second as ExitCode
 
@@ -149,7 +126,6 @@ end 'main'
 ```
 
 <!-- test: directives.same-name-in-both-branches -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ⭐ **The shape of the `pathSeparator` declarations at the top of `stdlib/FilePath.maxon`: one NAME declared in both arms, then used.**
 
 The sweep records top-level bindings FIRST-WINS and the parse reports `E3006` when the winner's
@@ -157,15 +133,10 @@ position is not the one it dispatched. With the sweep reading both arms, the liv
 target whose branch is not first would be reported as a duplicate of itself — a correct program
 rejected. Reaching `31` at all is the assertion.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(false)
 	let marker = 31
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	let marker = 91
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -177,16 +148,13 @@ end 'main'
 ```
 
 <!-- test: directives.interface-body-requirement -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 An `interface` body, around a method requirement. The conforming type supplies it either way, so the
 observable is that the interface declaration parses and conformance still checks.
 ```maxon
 interface Shape
 	function area() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
 		function perimeter() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'Shape'
 
@@ -216,20 +184,16 @@ end 'main'
 ```
 
 <!-- test: directives.enum-body-cases -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 An `enum` body. The compiler follows `specs/compiler-directives.md:31-34`. See position 1 above.
 
 The `match` is what makes it an assertion rather than a smoke test: The compiler requires an exhaustive
 match, so if the dead arm's `rejected` had also been recorded this would not compile.
 ```maxon
 enum Mode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
 		chosen
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		rejected
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	steady
 end 'Mode'
@@ -246,18 +210,14 @@ end 'main'
 ```
 
 <!-- test: directives.union-body-cases -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 A `union` body — its own case because it is its own keyword, even though the compiler parses both through
 one loop.
 ```maxon
 union Reading
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
 		settled
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		discarded
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	pending
 end 'Reading'
@@ -274,7 +234,6 @@ end 'main'
 ```
 
 <!-- test: directives.match-arms -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 A directive BETWEEN `match` arms, with an arm before it and one after — the shape `stdlib/AesGcm.maxon`
 uses to take a backing's arm off a target. The union gates the same case, so the exhaustive `match`
 compiles only if the dead arms are skipped and the live `cached` arm is the one taken.
@@ -283,24 +242,19 @@ union Backing
 	software
 	cached
 	closed
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
 		hardware
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'Backing'
 
 function describe(backing Backing)
 	match backing 'backing'
 		software then print("software\n")
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#if testing(true)
 			hardware then print("dead hardware\n")
 			cached then print("dead cached\n")
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#else
 			cached then print("live cached\n")
-		// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 		#endif
 		closed then print("closed\n")
 	end 'backing'
@@ -320,18 +274,14 @@ closed
 ```
 
 <!-- test: directives.dead-branch-unparsed-at-top-level -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 A dead branch at TOP LEVEL holding a call to a function that does not exist. The corpus proves
 token-level skipping inside a function body; this proves it where declarations live, which is a
 different walk.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
 	function ghost() returns ExitCode
 		return no_such_function_anywhere()
 	end 'ghost'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -343,18 +293,14 @@ end 'main'
 ```
 
 <!-- test: directives.dead-branch-unparsed-in-type-body -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 The same, inside a `type` body — the third walk, and the one the declaration sweep descends into
 (`recordScannedType`).
 ```maxon
 type Holder
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
-
 		static function ghost() returns ExitCode
 			return no_such_function_anywhere()
 		end 'ghost'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 
 	static function value() returns ExitCode
@@ -371,7 +317,6 @@ end 'main'
 ```
 
 <!-- test: directives.else-inside-dead-branch-stays-dead -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ⭐ **An `#else` nested inside a DEAD outer branch must NOT go live** — the one shape where "has an arm
 of this `#if` been taken?" is not enough on its own, because no arm of the inner `#if` was ever
 offered. Every other nested case in this file and in `specs/compiler-directives.md` has a LIVE outer
@@ -380,22 +325,16 @@ branch, so none of them can tell a correct implementation from one that resurrec
 If the inner
 `#else` went live, `ghostB` would be parsed and its undefined callee reported.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
 		function ghostA() returns ExitCode
 			return no_such_function_a()
 		end 'ghostA'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		function ghostB() returns ExitCode
 			return no_such_function_b()
 		end 'ghostB'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -407,19 +346,15 @@ end 'main'
 ```
 
 <!-- test: directives.unknown-os-argument-is-false -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 `os(Plan9)` — an unknown ARGUMENT to a KNOWN predicate is silently FALSE, not an error. That is what
 lets portable source name a platform this compiler does not target. Contrast
 `error.unknown-predicate` below, where the FUNCTION is unknown.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Plan9)
 		return 96
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 25
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -428,20 +363,16 @@ end 'main'
 ```
 
 <!-- test: directives.precedence-and-binds-tighter -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 `A or B and C` parses as `A or (B and C)`, not `(A or B) and C`. With A true and C false the two
 readings give different answers, so the exit code pins the precedence rather than merely exercising
 it: `and`-tighter gives `true or (false and false)` = true = 27, `or`-tighter would give
 `(true or false) and false` = false = 95.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false) or testing(true) and testing(true)
 		return 27
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 95
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -450,18 +381,14 @@ end 'main'
 ```
 
 <!-- test: directives.parens-override-precedence -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 The same three operands, parenthesized the other way, giving the opposite answer — which is what
 shows the parentheses are read rather than ignored. See position 2 above.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if (testing(false) or testing(true)) and testing(true)
 		return 94
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 28
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -470,15 +397,11 @@ end 'main'
 ```
 
 <!-- test: error.unknown-predicate -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 An unknown PREDICATE NAME is a hard error. The compiler gives it a parser-band code of its own.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if wibble(true)
 		return 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	return 0
 end 'main'
@@ -488,13 +411,10 @@ error E2064: specs/compiler-directives-positions/error.unknown-predicate.maxon:3
 ```
 
 <!-- test: error.unterminated-if -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 ⚠ An unterminated `#if` silently swallows every declaration after it, and the symptom surfaces as an
 unrelated "undefined" elsewhere — so it is reported at the `#if` that has no partner.
 ```maxon
 function main() returns ExitCode
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(false)
 	return 40
 end 'main'
@@ -504,13 +424,10 @@ error E2063: specs/compiler-directives-positions/error.unterminated-if.maxon:3:1
 ```
 
 <!-- test: error.stray-endif -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 The other half of the same rule: an `#endif` closing nothing.
 ```maxon
 function main() returns ExitCode
 	return 41
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 end 'main'
 ```
@@ -519,17 +436,13 @@ error E2063: specs/compiler-directives-positions/error.stray-endif.maxon:4:1: '#
 ```
 
 <!-- test: error.orphan-else -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 And an `#else` with no `#if`. Its own case because it takes a different arm of the filter from
 `#endif` — one flips a region, the other closes one, and only a test of each proves both guard.
 ```maxon
 function main() returns ExitCode
 	return 42
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	return 43
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 end 'main'
 ```
@@ -538,7 +451,6 @@ error E2063: specs/compiler-directives-positions/error.orphan-else.maxon:4:1: '#
 ```
 
 <!-- test: error.trailing-condition-tokens -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **TEXT AFTER A CONDITION IS REFUSED, AND THE REASON IS THAT ACCEPTING IT WAS TARGET-DEPENDENT.**
 The condition grammar stops at the first token no production wants, and the filter resumes its walk
@@ -550,14 +462,10 @@ neither answer mentioning a directive.
 
 Its own code (**E2065**, not E2064) because there is no predicate name to correct here.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows) os(Linux)
-
-function main() returns ExitCode
-	return 7
-end 'main'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function main() returns ExitCode
+		return 7
+	end 'main'
 #endif
 ```
 ```maxoncstderr
@@ -565,7 +473,6 @@ error E2065: specs/compiler-directives-positions/error.trailing-condition-tokens
 ```
 
 <!-- test: error.malformed-condition -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- positions: moved -->
 The OTHER shape E2065 answers: a condition that does not parse.
 A missing `)` is not an unknown predicate — the name `os` is perfectly good — which is why these two
@@ -579,7 +486,6 @@ function main() returns ExitCode
 	return 5
 end 'main'
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows #endif
 ```
 ```maxoncstderr
@@ -587,18 +493,16 @@ error E2065: specs/compiler-directives-positions/error.malformed-condition.maxon
 ```
 
 <!-- test: error.dead-branch-lexically-invalid -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: unterminated string literal -->
 <!-- positions: moved -->
 **A DEAD BRANCH IS STILL LEXED.** The whole file is tokenized before this pass runs at all, so
 lexical garbage in a branch nobody will parse is still an error — `E1002`, from the lexer, not from
 the filter. That is the boundary that makes the rest of this file's behaviour coherent: a dead branch escapes PARSING and NAME RESOLUTION,
 never TOKENIZATION.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
 	let x = "unterminated
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -610,7 +514,6 @@ error E1002: specs/compiler-directives-positions/error.dead-branch-lexically-inv
 ```
 
 <!-- test: directives.second-else-is-dead -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 A second `#else` for one `#if` is ACCEPTED, and every arm after the first taken one is dead — which
 falls straight out of `takenAlready` and needs no special case. Pinned because it is a shape nothing
 else covers.
@@ -619,28 +522,18 @@ Not an error, deliberately. Unlike an unbalanced region, a repeated `#else` swal
 leaves no declaration silently missing — the reading is unambiguous, so there is no wrong answer to
 prevent.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Plan9)
-
-function main() returns ExitCode
-	return 1
-end 'main'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function main() returns ExitCode
+		return 1
+	end 'main'
 #else
-
-function main() returns ExitCode
-	return 2
-end 'main'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function main() returns ExitCode
+		return 2
+	end 'main'
 #else
-
-function main() returns ExitCode
-	return 3
-end 'main'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function main() returns ExitCode
+		return 3
+	end 'main'
 #endif
 ```
 ```exitcode
@@ -648,7 +541,6 @@ end 'main'
 ```
 
 <!-- test: directives.trailing-text-unread-in-dead-region -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 The complement of `error.trailing-condition-tokens`, and the boundary of that refusal: a `#if` inside
 a DEAD region has its condition **not evaluated at all**, so nothing there is checked — not the
 predicate name, not the grammar, not the end of the line. `wibble(nonsense) and and` would be as
@@ -658,16 +550,10 @@ That is not an oversight in the check's placement; it is the rule that makes a n
 dead branch mean nothing, and both references have it. A directive fault only ever surfaces where the
 directive could have taken effect.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Plan9)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows) this is not a condition
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
-
 function main() returns ExitCode
 	return 21
 end 'main'
@@ -677,15 +563,12 @@ end 'main'
 ```
 
 <!-- test: error.refused-field-after-gated-first-field-poisons-the-type -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- positions: moved -->
 A member refused for a lost declaration fact poisons the whole type when it is a field and only the method when it is inside one, and a type whose first member is a live `#if` field must still tell its later ungated field from the method before it. The refused `value` field is storage, so `h.absent` is a consequence of the refused type and goes unreported, while `other` stays independent.
 ```maxon
 type Holder
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(false)
 		export let flag as ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 
 	export function value() returns ExitCode

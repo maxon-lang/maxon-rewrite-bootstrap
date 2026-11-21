@@ -184,7 +184,6 @@ end 'main'
 ```
 
 <!-- test: error.two-file-private-function-aliases-of-one-shape-are-two-types -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The same two agreeing declarations, and this time a value would have to cross. `Holder.op` is `pkg/lib.maxon`'s `Step` because that is where the field is written, and an exported field cannot be typed by an unmarked alias, so the field is refused (E3167) and the value read from it is refused at `app/main.maxon`'s own `Step` parameter (E3005), because the two are two types.
 ```maxon
@@ -218,7 +217,6 @@ error E3167: pkg/<fragment>:7:19: exported field 'pkg.Holder.op' names unexporte
 ```
 
 <!-- test: error.two-file-private-generic-aliases-of-one-instance-are-two-types -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The GENERIC form: both files declare `Bag` over the same instance, `Array with Integer`. `Holder.items` is `pkg/lib.maxon`'s `Bag`, and an exported field cannot be typed by an unmarked alias, so the field is refused (E3167) and the value read from it is refused at `app/main.maxon`'s own `Bag` parameter (E3005), because the two are two types.
 ```maxon
@@ -254,7 +252,6 @@ error E3167: pkg/<fragment>:7:22: exported field 'pkg.Holder.items' names unexpo
 ```
 
 <!-- test: error.an-element-read-from-another-files-same-instance-alias-is-not-this-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 One level down: `Holder.rows` is a `Rows`, an `Array with Bag` of `pkg/lib.maxon`'s `Bag`. An exported field cannot be typed by an unmarked alias, so the field is refused (E3167), and the value read from it is refused at `app/main.maxon`'s own `Bag` parameter (E3005).
 ```maxon
@@ -296,7 +293,6 @@ error E3167: pkg/<fragment>:8:21: exported field 'pkg.Holder.rows' names unexpor
 ```
 
 <!-- test: error.two-file-private-exit-code-aliases-are-two-types -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `ExitCode` is no exception: each file's own declaration is its own type, whatever the name, so an exported field typed by `pkg/lib.maxon`'s is refused (E3167) and its value is refused at `app/main.maxon`'s parameter (E3005).
 ```maxon
 // --- file: pkg/lib.maxon

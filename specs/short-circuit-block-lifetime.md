@@ -70,8 +70,8 @@ type Blk
 		return Blk{id: i}
 	end 'create'
 
-	function bump()
-		id = id + 1
+	function bump(mutates self)
+		id = try id + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Blk'
 
@@ -84,7 +84,7 @@ type Module
 		return Module{blocks: BlkArray.create(0)}
 	end 'create'
 
-	function addBlock(i Num) returns Blk
+	function addBlock(mutates self, i Num) returns Blk
 		let b = Blk.create(i)
 		blocks.push(b)
 		return b
@@ -93,7 +93,7 @@ type Module
 	function sumIds() returns Num
 		var sum = 0 as Num
 		for b in blocks 'each'
-			sum = sum + b.id
+			sum = try sum + b.id otherwise panic("out of range")
 		end 'each'
 		return sum
 	end 'sumIds'
@@ -104,70 +104,70 @@ type Parser
 	var module as Module
 
 	static function create(m Module, entry Blk) returns Parser
-		return Parser{currentBlock: entry, module: m}
+		return Parser{currentBlock: entry.clone(), module: m.clone()}
 	end 'create'
 
-	function parseIdentifierExpr(block Blk, hasCall bool) returns Num throws ParseErr
-		currentBlock = block
+	function parseIdentifierExpr(mutates self, block Blk, hasCall bool) returns Num throws ParseErr
+		currentBlock = block.clone()
 		var acc = block.id
 		if hasCall 'callArgs'
 			let args = try parseCallArgsRaw(block)
-			acc = acc + args
+			acc = try acc + args otherwise panic("out of range")
 		end 'callArgs'
-		return acc + block.id
+		return try acc + block.id otherwise panic("out of range")
 	end 'parseIdentifierExpr'
 
-	function parseCallArgsRaw(block Blk) returns Num throws ParseErr
-		currentBlock = block
+	function parseCallArgsRaw(mutates self, block Blk) returns Num throws ParseErr
+		currentBlock = block.clone()
 		let arg = try parseExpressionBP(block, opCount: 0, hasCall: false)
-		return arg + block.id
+		return try arg + block.id otherwise panic("out of range")
 	end 'parseCallArgsRaw'
 
-	function parsePrimary(block Blk, hasCall bool) returns Num throws ParseErr
-		currentBlock = block
+	function parsePrimary(mutates self, block Blk, hasCall bool) returns Num throws ParseErr
+		currentBlock = block.clone()
 		let inner = try parseIdentifierExpr(block, hasCall: hasCall)
-		return inner + block.id
+		return try inner + block.id otherwise panic("out of range")
 	end 'parsePrimary'
 
-	function parseUnary(block Blk, hasCall bool) returns Num throws ParseErr
-		currentBlock = block
+	function parseUnary(mutates self, block Blk, hasCall bool) returns Num throws ParseErr
+		currentBlock = block.clone()
 		let inner = try parsePrimary(block, hasCall: hasCall)
-		return inner + block.id
+		return try inner + block.id otherwise panic("out of range")
 	end 'parseUnary'
 
-	function parseExpressionBP(block Blk, opCount Num, hasCall bool) returns Num throws ParseErr
-		var blk = block
+	function parseExpressionBP(mutates self, block Blk, opCount Num, hasCall bool) returns Num throws ParseErr
+		var blk = block.clone()
 		currentBlock = blk
 		var left = try parseUnary(blk, hasCall: hasCall)
-		blk = currentBlock
+		blk = currentBlock.clone()
 		var remaining = opCount
 		while remaining > 0 'prattLoop'
 			let merge = try emitShortCircuit(blk)
-			blk = currentBlock
-			left = left + merge
+			blk = currentBlock.clone()
+			left = try left + merge otherwise panic("out of range")
 			remaining = remaining - 1
 		end 'prattLoop'
 		return left
 	end 'parseExpressionBP'
 
-	function emitShortCircuit(entryBlock Blk) returns Num throws ParseErr
+	function emitShortCircuit(mutates self, entryBlock Blk) returns Num throws ParseErr
 		let entryId = entryBlock.id
 		let rhsBlock = module.addBlock(101)
 		let rhsId = rhsBlock.id
 		currentBlock = rhsBlock
 		let rhsResult = try parseExpressionBP(rhsBlock, opCount: 0, hasCall: true)
-		let mergeBlock = module.addBlock(102)
+		var mergeBlock = module.addBlock(102)
 		mergeBlock.bump()
-		let cond = rhsId + entryId
+		let cond = try rhsId + entryId otherwise panic("out of range")
 		currentBlock = mergeBlock
-		return rhsResult + cond
+		return try rhsResult + cond otherwise panic("out of range")
 	end 'emitShortCircuit'
 end 'Parser'
 
 function main() returns ExitCode
-	let m = Module.create()
+	var m = Module.create()
 	let entry = m.addBlock(1)
-	let p = Parser.create(m, entry: entry)
+	var p = Parser.create(m, entry: entry)
 	let r = try p.parseExpressionBP(entry, opCount: 1, hasCall: true) otherwise return 3
 	let sum = m.sumIds()
 	if sum != 205 'corrupt'

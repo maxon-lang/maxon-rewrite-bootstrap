@@ -509,7 +509,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.cross-file-extension-typealias-param -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A function-typed parameter must work even when its typealias is declared
 inside an `extension` block in a SEPARATE file that the loader hasn't reached
 yet. The stdlib loader walks `stdlib/` in whatever order the OS returns from
@@ -527,6 +527,7 @@ project has been parsed.
 ```maxon
 // --- file: aaa_alias.maxon
 extension Sorter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Comparator = function(Element, Element) returns Element
 end 'Sorter'
 
@@ -571,7 +572,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.type-extension-alias-over-a-type-parameter-at-two-instantiations -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The case above proves ONE instantiation, and one instantiation cannot tell an alias that is genuinely
 per-instantiation from one the compiler resolved against whichever instantiation it happened to meet first.
 `Transform` is `function(Element) returns Element` and `Predicate` is `function(Element) returns bool`, both
@@ -592,7 +593,9 @@ type Holder uses Element
 end 'Holder'
 
 export extension Holder
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Predicate = function(Element) returns bool
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -674,7 +677,7 @@ picked
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-bound-to-an-enum -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An ENUM type argument is the one binding that turns a slot with NO pre-erasure identity into one that HAS
 one: `Element` carries none where the alias is written, `Shade` erases to a bare `int` at resolution, and
 what tells one erased `int` from another is the identity column beside it. The declared side's column is
@@ -696,6 +699,7 @@ type Holder uses Element
 end 'Holder'
 
 export extension Holder
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -729,6 +733,7 @@ dark
 
 <!-- test: first-class-function.interface-extension-alias-over-an-associated-type-at-two-instantiations -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same alias reached through an INTERFACE extension, which is the shape `stdlib/Interfaces.maxon`'s
 `extension Iterable` wears: `ItemPredicate` names the interface's ASSOCIATED type `Item`, and the conformer
 binds that associated type to its OWN type parameter (`implements Container with Element`). Keying the
@@ -744,6 +749,7 @@ end 'Container'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Container
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias ItemPredicate = function(Item) returns bool
 	function checkOnly(p ItemPredicate) returns bool
 		return p(self.only())
@@ -789,7 +795,7 @@ true false
 ```
 
 <!-- test: first-class-function.error.alias-over-a-type-parameter-named-outside-an-instantiation -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The over-acceptance guard, and the one thing about this alias that stays unrepresentable. A nested
 `typealias` is published under its BARE name as well as under `<Type>.<member>`, so `Transform` can be
@@ -808,6 +814,7 @@ type Holder uses Element
 end 'Holder'
 
 export extension Holder
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -837,7 +844,7 @@ error E3005: <fragment>:33:21: argument type mismatch for 'f': expected 'fn(type
 ```
 
 <!-- test: first-class-function.alias-over-a-type-parameter-returning-a-MANAGED-element -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -850,6 +857,7 @@ type Holder uses Element
 end 'Holder'
 
 export extension Holder
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Transform = function(Element) returns Element
 	function apply(f Transform) returns Element
 		return f(self.value)
@@ -2734,7 +2742,6 @@ end 'main'
 ```
 
 <!-- test: error.a-method-name-on-a-ranged-alias-is-a-missing-member -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The bare name means the author's ranged alias, which declares no members, even though the library's type of
 that name declares `stdin`.
 ```maxon
@@ -2796,8 +2803,11 @@ error E2013: <fragment>:15:6: 'Ops.twice' is a method, and a method cannot be as
 ```
 
 <!-- test: error.a-primitive-static-int-is-not-a-function-value -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let f = int.fromString
 	return 0
 end 'main'
@@ -3728,7 +3738,10 @@ error E2078: <fragment>:3:17: 'String.byteLength' is an instance method, and a m
 ```
 
 <!-- test: error.a-primitive-keyword-static-call-at-module-scope-is-refused -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
+// TODO: 'int.fromString' is not supported in minimaxon
 let n = try int.fromString("5") otherwise 0
 
 function main() returns ExitCode
@@ -3740,9 +3753,10 @@ error E2045: <fragment>:2:17: Function calls are not allowed in global variable 
 ```
 
 <!-- test: a-primitive-keyword-static-call-in-a-function-body-is-called -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString("5") otherwise 0
 	return n as ExitCode
 end 'main'
@@ -4065,7 +4079,6 @@ ping
 
 
 <!-- test: a-statement-call-through-a-directory-beside-a-type-of-its-name-reaches-the-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: Point/free.maxon
 public function helper()
@@ -6335,7 +6348,7 @@ error E3005: <fragment>:31:9: argument type mismatch for 'f': expected 'fn(Integ
 ```
 
 <!-- test: first-class-function.generic-instance-returned-through-an-extension-body-alias-is-identified-by-type-not-by-intern-order -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 ⭐⭐ **THE SAME LOSS AT THE ONE POPULATION WHOSE STORED ID IS ALREADY LIVE WHEN THE WHOLE-PROGRAM INDEX
 RECORDS IT — an `extension` body's nested function typealias.** The four cases above declare their alias at
 FILE SCOPE, and a file-scope alias is folded into the index by the declaration sweep, which runs ABOVE
@@ -6378,6 +6391,7 @@ end 'Field'
 typealias FieldArray = Array with Field
 
 extension Field
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
@@ -6404,7 +6418,7 @@ end 'main'
 ```
 
 <!-- test: first-class-function.error.generic-instance-through-an-extension-body-alias-refuses-a-different-instance -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **THE NEGATIVE TWIN OF THE CASE ABOVE, so the extension-body population is pinned in BOTH polarities
 exactly as the file-scope one is.** `buildSmalls` returns `Array with Small` where `Builder` promises
@@ -6430,6 +6444,7 @@ end 'Field'
 typealias FieldArray = Array with Field
 
 extension Field
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Builder = function(Integer) returns FieldArray
 	function runIt(f Builder) returns Integer
 		let produced = f(7)
@@ -7375,7 +7390,6 @@ error E3009: <fragment>:10:14: function type mismatch in cast: expected 'fn() re
 ```
 
 <!-- test: error.a-function-over-a-narrower-parameter-is-refused-at-a-wider-function-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 Agreement is variance-aware. A function type's parameter is a place the caller writes into, so the declared parameter must fit inside the range the function itself accepts: `takesByte` accepts `0 to 255`, so it is refused as a function over an unranged `int`, whose caller may pass `1000`.
 ```maxon
@@ -7398,7 +7412,6 @@ error E3009: <fragment>:10:20: function type mismatch in cast: expected 'fn(int)
 ```
 
 <!-- test: error.a-function-over-a-wider-return-is-refused-at-a-narrower-function-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 <!-- positions: moved -->
 The return slot runs the other way: the declared return must contain every value the function can return, so a function whose result is an unranged `int` is refused where a `Byte` result is declared.
 ```maxon
@@ -7426,7 +7439,6 @@ error E3009: <fragment>:7:12: function type mismatch in cast: expected 'fn() ret
 ```
 
 <!-- test: a-function-over-a-wider-parameter-and-a-narrower-return-is-accepted -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 The two sound directions stay accepted: a function over a wider parameter stands where a `Byte` parameter is declared, and a function returning a `Byte` stands where an unranged result is declared.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -7466,7 +7478,6 @@ end 'main'
 ```
 
 <!-- test: error.a-function-over-a-narrower-parameter-is-refused-at-a-function-typed-argument -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 The same variance holds at an argument door: a function over a `Byte` parameter is refused where a function over an unranged parameter is declared.
 ```maxon

@@ -125,7 +125,6 @@ end 'main'
 ```
 
 <!-- test: error.a-type-in-another-directory-cannot-read-an-unmarked-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `Box` is exported and its field `v` is unmarked, so a method of a type in another directory may name `Box` and
 may not read `v`. The diagnostic points at the FIELD token, never at the value it is read from.
 ```maxon
@@ -161,7 +160,6 @@ error E3014: app/<fragment>:21:12: field 'Box.v' is not exported
 ```
 
 <!-- test: error.a-type-in-another-directory-cannot-write-an-unmarked-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The WRITE half, refused at the same token for the same reason.
 ```maxon
 // --- file: lib/box.maxon

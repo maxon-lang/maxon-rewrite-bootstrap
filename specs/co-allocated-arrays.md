@@ -22,12 +22,10 @@ the window into a new array, so a view cannot outlive the allocation its bytes l
 ## Tests
 
 <!-- test: a-fixed-array-is-one-allocation-and-one-free -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `Planes.create()` allocates once and the drop frees once.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Planes = FixedArray with 8 Word
 
 function churn() returns Word
@@ -59,13 +57,11 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-above-256-bytes-is-one-allocation -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A fixed array created by `create()` never grows, so its buffer shares its record's allocation at 512 bytes as it
 does at 64.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wide = FixedArray with 64 Word
 
 function churn() returns Word
@@ -145,7 +141,7 @@ typealias Word = bits(64)
 typealias Cells = FixedArray with Word
 
 function dirty(count ElementIndex) returns Word
-	let cells = Cells.create(count)
+	var cells = Cells.create(count)
 	try cells.set(0, value: 0xFFFF) otherwise panic("set")
 	try cells.set(count - 1, value: 0xEEEE) otherwise panic("set")
 	return try cells.get(0) otherwise panic("get")
@@ -187,7 +183,6 @@ end 'main'
 ```
 
 <!-- test: a-clone-and-a-slice-of-a-large-fixed-array-copy-their-window -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A clone of a record holding a fixed array, and a slice of the fixed array, copy rather than view, at 400 bytes and at
 40000: writing or clearing either side leaves the other alone, and the slice outlives the array it was cut from.
@@ -196,7 +191,6 @@ typealias Word = bits(64)
 
 typealias Cells = FixedArray with Word
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function windowCount(start ElementIndex, stop ElementIndex) returns ElementIndex
 		let window = try managed.slice(start, stop) otherwise panic("slice")
@@ -360,17 +354,15 @@ end 'main'
 ```
 
 <!-- test: a-recycled-co-allocated-array-reads-zero -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A freed array's box is handed to the next creation; the new array must not see the old one's elements, in the
 buffer or in the record.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Planes = FixedArray with 8 Word
 
 function dirty() returns Word
-	let planes = Planes.create()
+	var planes = Planes.create()
 	planes.set(0, value: 0xFFFF)
 	planes.set(7, value: 0xEEEE)
 	return planes.get(0)
@@ -400,10 +392,8 @@ end 'main'
 ```
 
 <!-- test: a-packed-fixed-array-is-one-allocation -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A sub-byte-packed element sizes the buffer in bits, and the single allocation holds all of them.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 16 bool
 
 function churn() returns bool
@@ -431,19 +421,17 @@ end 'main'
 ```
 
 <!-- test: a-sized-byte-fixed-array-is-as-large-as-its-bytes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A fixed array whose type states its length of 300 bytes is one record of 64 bytes of header and 300 bytes of elements,
 the size a runtime-sized `create(300)` has. **If the sized form's `ArrayRecord` is larger than the runtime-sized
 one's, its elements are not one byte each.**
 <!-- MmTrace -->
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wide = FixedArray with 300 Byte
 
 typealias Runtime = FixedArray with Byte
 
 function sized() returns Byte
-	let wide = Wide.create()
+	var wide = Wide.create()
 	wide.set(299, value: 5)
 	return wide.get(299)
 end 'sized'
@@ -453,7 +441,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function runtime() returns Byte
-	let bytes = Runtime.create(launder(300))
+	var bytes = Runtime.create(launder(300))
 	try bytes.set(299, value: 5) otherwise panic("set")
 	return try bytes.get(299) otherwise panic("get")
 end 'runtime'
@@ -479,7 +467,6 @@ mm_free ArrayRecord #2
 ```
 
 <!-- test: a-sized-fixed-array-is-as-large-as-its-elements-at-every-width -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A sized fixed array's record is the 64-byte header and its elements at their own width: 200 bytes for a hundred 16-bit
 elements, 400 for a hundred 32-bit ones, and a hundred bools, 2-bit and 4-bit elements packed into 13, 25 and 50.
 <!-- MmTrace -->
@@ -492,47 +479,42 @@ typealias Crumb = int(0 to 3)
 
 typealias Nibble = int(0 to 15)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Halves = FixedArray with 100 Half
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wides = FixedArray with 100 Wide
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 100 bool
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Crumbs = FixedArray with 100 Crumb
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Nibbles = FixedArray with 100 Nibble
 
 function halves() returns Half
-	let cells = Halves.create()
+	var cells = Halves.create()
 	cells.set(99, value: 7)
 	return cells.get(99)
 end 'halves'
 
 function wides() returns Wide
-	let cells = Wides.create()
+	var cells = Wides.create()
 	cells.set(99, value: 7)
 	return cells.get(99)
 end 'wides'
 
 function flags() returns bool
-	let cells = Flags.create()
+	var cells = Flags.create()
 	cells.set(99, value: true)
 	return cells.get(99)
 end 'flags'
 
 function crumbs() returns Crumb
-	let cells = Crumbs.create()
+	var cells = Crumbs.create()
 	cells.set(99, value: 3)
 	return cells.get(99)
 end 'crumbs'
 
 function nibbles() returns Nibble
-	let cells = Nibbles.create()
+	var cells = Nibbles.create()
 	cells.set(99, value: 15)
 	return cells.get(99)
 end 'nibbles'
@@ -955,7 +937,6 @@ end 'main'
 
 <!-- test: a-co-allocated-array-crosses-to-a-service-and-is-released-there -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -964,7 +945,6 @@ its elements and the service releases it once.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Planes = FixedArray with 4 Word
 
 type Holder
@@ -1162,16 +1142,12 @@ end 'main'
 ```
 
 <!-- test: a-packed-fixed-array-slice-and-clone-copy-their-window -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A slice of a sub-byte-packed fixed array is a copy, and so is the clone that is a slice of the whole: writing
 either leaves the fixed array's bits alone.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 16 bool
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function windowOnes(start ElementIndex, stop ElementIndex) returns ElementIndex
 		let window = try managed.slice(start, stop) otherwise panic("slice")
@@ -1186,6 +1162,7 @@ extension FixedArray
 		end 'each'
 		return ones
 	end 'windowOnes'
+
 	function clearedWindowLeavesTheArray(start ElementIndex, stop ElementIndex) returns bool
 		let window = try managed.slice(start, stop) otherwise panic("slice")
 		window.clear()
@@ -1219,13 +1196,11 @@ end 'main'
 ```
 
 <!-- test: a-published-co-allocated-array-is-copied-before-it-is-written -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A value published through a `SharedValue` is frozen: a reader that wants to write copies it first, and the copy of
 a co-allocated array owns a buffer of its own while the published one keeps its elements.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Planes = FixedArray with 4 Word
 
 type Config

@@ -106,7 +106,6 @@ end 'main'
 ```
 
 <!-- test: auto-cloneable -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -121,11 +120,10 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(10, y: 20)
-	let b = a.clone()
+	var b = a.clone()
 	b.x = 99
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is not b 'diff'
-		return a.x + a.y
+		return try a.x + a.y otherwise panic("out of range")
 	end 'diff'
 	return 0
 end 'main'
@@ -135,12 +133,10 @@ end 'main'
 ```
 
 <!-- test: string-clone -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let a = "hello"
 	let b = a.clone()
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is not b 'diff'
 		return 1
 	end 'diff'
@@ -152,12 +148,10 @@ end 'main'
 ```
 
 <!-- test: array-clone -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	let a = [1, 2, 3]
 	let b = a.clone()
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is not b 'diff'
 		return 1
 	end 'diff'
@@ -360,7 +354,6 @@ a holds: original label long enough for a heap record
 ```
 
 <!-- test: clone-of-union-array-with-string-payload -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ### A union payload that is a String is copied too
 `String` is the payload a union carries most often. Reference identity is what the copy is
 ABOUT, so it is what the case asks: a retained element leaves both arrays' payloads as one heap
@@ -375,18 +368,17 @@ typealias Words = Array with Word
 
 function payloadOf(w Word) returns String
 	match w 'p'
-		spelled(text) then return text
+		spelled(text) then return text.clone()
 		blank then return "blank"
 	end 'p'
 end 'payloadOf'
 
 function main() returns ExitCode
-	let a = Words.create(0)
+	var a = Words.create(0)
 	a.push(Word.spelled("original word long enough for a heap record"))
 	let b = a.clone()
 	let wa = try a.get(0) otherwise Word.blank
 	let wb = try b.get(0) otherwise Word.blank
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if payloadOf(wa) is payloadOf(wb) 'shared'
 		print("shared\n")
 		return 0
@@ -403,7 +395,6 @@ independent: original word long enough for a heap record
 ```
 
 <!-- test: clone-of-union-array-mixes-payload-and-payload-less-arms -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ### A payload-less arm survives the copy as itself
 The cloner dispatches on the tag, so an arm carrying nothing has to rebuild as that arm rather
 than fall into a neighbour's payload rebuild. Both arms sit in one array here, so a single copy
@@ -418,20 +409,19 @@ typealias Slots = Array with Slot
 
 function textOf(s Slot) returns String
 	match s 'kind'
-		filled(text) then return text
+		filled(text) then return text.clone()
 		empty then return "empty"
 	end 'kind'
 end 'textOf'
 
 function main() returns ExitCode
-	let a = Slots.create(0)
+	var a = Slots.create(0)
 	a.push(Slot.filled("filled with a heap record"))
 	a.push(Slot.empty)
 	let b = a.clone()
 	let a0 = try a.get(0) otherwise Slot.empty
 	let b0 = try b.get(0) otherwise Slot.empty
 	let b1 = try b.get(1) otherwise Slot.filled("wrong")
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if textOf(a0) is textOf(b0) 'shared'
 		print("shared|{textOf(b1)}\n")
 		return 0
@@ -1013,7 +1003,6 @@ end 'main'
 ```
 
 <!-- test: clone-of-a-many-case-union-dispatches-every-tag -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ### Every arm of a many-case union rebuilds as itself
 Enough cases to take the JUMP TABLE rather than a compare chain — the dispatch strategy is chosen by
 interval count (`MaxonToStandardConversion.SwitchDispatch`), so a union with two arms never reaches
@@ -1042,7 +1031,7 @@ typealias Outers = Array with Outer
 
 function innerTextOf(i Inner) returns String
 	match i 'j'
-		text(s) then return s
+		text(s) then return s.clone()
 		none then return "inner-none"
 	end 'j'
 end 'innerTextOf'
@@ -1070,9 +1059,9 @@ function nestedTextOf(o Outer) returns String
 end 'nestedTextOf'
 
 function main() returns ExitCode
-	let w = Words.create(0)
+	var w = Words.create(0)
 	w.push("inner element long enough for a heap record")
-	let a = Outers.create(0)
+	var a = Outers.create(0)
 	a.push(Outer.wraps(Inner.text("nested payload long enough for a heap record")))
 	a.push(Outer.holds(w))
 	a.push(Outer.pair(true, n: 3))
@@ -1087,7 +1076,6 @@ function main() returns ExitCode
 	print("{out}\n")
 	let a0 = try a.get(0) otherwise Outer.blank
 	let b0 = try b.get(0) otherwise Outer.blank
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if nestedTextOf(a0) is nestedTextOf(b0) 'shared'
 		print("nested payload SHARED\n")
 		return 8
@@ -1224,7 +1212,6 @@ handle is DEAD at the write, not merely that it is the only one visible from whe
 written. In the second case the handle is not even bound to a name: it is an argument.
 
 <!-- test: field-record-is-seen-through-a-binding-taken-before-the-write -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the interpolation but got 'is' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1237,13 +1224,13 @@ type Holder
 		return Self{sites: IntArray.create(0)}
 	end 'create'
 
-	function add(x Integer)
+	function add(mutates self, x Integer)
 		sites.push(x)
 	end 'add'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let borrowed = h.sites
 	h.add(1)
 	print("borrowed={borrowed.count()} field={h.sites.count()} same={borrowed is h.sites}")

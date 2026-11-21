@@ -56,11 +56,11 @@ end 'OwnershipClass'
 function classIsAcquired(c OwnershipClass) returns bool
 	return match c 'm'
 		freshRc0 or
-			selfReturnBorrow or
-			incomingOwner gives true
+		selfReturnBorrow or
+		incomingOwner gives true
 		notManaged or
-			callReturnRc1 or
-			borrowed gives false
+		callReturnRc1 or
+		borrowed gives false
 	end 'm'
 end 'classIsAcquired'
 
@@ -85,7 +85,6 @@ borrowed=false
 ```
 
 <!-- test: expr-second-term -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 The second alternative of a three-term or-arm (expression form) fires the arm.
 ```maxon
 enum E
@@ -98,8 +97,8 @@ end 'E'
 function pick(v E) returns ExitCode
 	return match v 'm'
 		a or
-			b or
-			c gives 7
+		b or
+		c gives 7
 		d gives 9
 	end 'm'
 end 'pick'
@@ -113,7 +112,6 @@ end 'main'
 ```
 
 <!-- test: expr-third-term -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 The third alternative of a three-term or-arm (expression form) fires the arm.
 ```maxon
 enum E
@@ -126,8 +124,8 @@ end 'E'
 function pick(v E) returns ExitCode
 	return match v 'm'
 		a or
-			b or
-			c gives 7
+		b or
+		c gives 7
 		d gives 9
 	end 'm'
 end 'pick'
@@ -158,10 +156,10 @@ function classify(v E) returns Tag
 	var r = 0 as Tag
 	match v 'm'
 		a or
-			c or
-			e then r = 1
+		c or
+		e then r = 1
 		b or
-			d then r = 2
+		d then r = 2
 	end 'm'
 	return r
 end 'classify'
@@ -199,9 +197,9 @@ end 'E'
 function isMid(v E) returns bool
 	return match v 'm'
 		c1 or
-			c2 gives true
+		c2 gives true
 		c0 or
-			c3 gives false
+		c3 gives false
 	end 'm'
 end 'isMid'
 
@@ -239,8 +237,8 @@ end 'E'
 function classify(v E) returns ExitCode
 	return match v 'm'
 		a or
-			c or
-			d gives 1
+		c or
+		d gives 1
 		b gives 2
 	end 'm'
 end 'classify'
@@ -273,8 +271,8 @@ alternative of the chain, not just the first.
 function classify(v E) returns ExitCode
 	return match v 'm'
 		c or
-			d or
-			a gives 1
+		d or
+		a gives 1
 		b gives 2
 	end 'm'
 end 'classify'
@@ -305,7 +303,7 @@ d=1
 ```
 
 <!-- test: error.nonfirst-alternative-payload-binding -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+<!-- positions: moved -->
 A payload binding declared by a non-first alternative (`stay or walk(dir)`) binds nothing on the
 payload-less alternative's path, so the arm body cannot read it: E3129.
 ```maxon
@@ -319,7 +317,7 @@ end 'M'
 function get(m M) returns ExitCode
 	return match m 'x'
 		stay or
-			walk(dir) gives dir as ExitCode
+		walk(dir) gives dir as ExitCode
 	end 'x'
 end 'get'
 
@@ -333,6 +331,7 @@ error E3129: <fragment>:12:9: the payload binding 'dir' cannot be honoured: case
 ```
 
 <!-- test: error.nonfirst-alternative-overlap -->
+<!-- positions: moved -->
 A non-first alternative (`b or c or d`) still participates in overlap detection:
 a later arm re-covering `c` is E2027, reported at the offending arm.
 ```maxon
@@ -347,8 +346,8 @@ function classify(v E) returns ExitCode
 	return match v 'm'
 		a gives 1
 		b or
-			c or
-			d gives 2
+		c or
+		d gives 2
 		c gives 3
 	end 'm'
 end 'classify'
@@ -362,7 +361,7 @@ error E2027: specs/match-enum-or-pattern/error.nonfirst-alternative-overlap.maxo
 ```
 
 <!-- test: error.a-payload-less-alternative-cannot-read-a-bound-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+<!-- positions: moved -->
 ```maxon
 typealias Amount = int(i64.min to i64.max)
 
@@ -374,7 +373,7 @@ end 'Shape'
 function readFirst(shape Shape) returns Amount
 	return match shape 'which'
 		wide(first, _) or
-			narrow gives first
+		narrow gives first
 	end 'which'
 end 'readFirst'
 
@@ -388,7 +387,7 @@ error E3129: <fragment>:11:8: the payload binding 'first' cannot be honoured: ca
 ```
 
 <!-- test: error.a-bare-payload-carrying-alternative-cannot-read-a-bound-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+<!-- positions: moved -->
 ```maxon
 typealias Amount = int(i64.min to i64.max)
 
@@ -400,7 +399,7 @@ end 'Shape'
 function readFirst(shape Shape) returns Amount
 	return match shape 'which'
 		wide(first, _) or
-			twin gives first
+		twin gives first
 	end 'which'
 end 'readFirst'
 

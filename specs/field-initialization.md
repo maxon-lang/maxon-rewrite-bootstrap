@@ -492,7 +492,7 @@ end 'main'
 ```
 
 <!-- test: literal-field-init-with-try-otherwise -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A `Self{...}` literal whose field initializer contains control flow — here a
 `try … otherwise panic(…)` nested in a constructor call argument — splits the
 enclosing block: the `structAlloc` lands in one block and that field's
@@ -527,6 +527,7 @@ type Outer
 end 'Outer'
 
 function parseB() returns Integer throws ParseFailure
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("7") otherwise throw ParseFailure.badDigit
 end 'parseB'
 

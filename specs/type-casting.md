@@ -632,7 +632,7 @@ error E3010: <fragment>:9:12: unneeded cast: the literal 5 already fits in 'Real
 ```
 
 <!-- test: error.unneeded.literal-cast-to-nested-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The destination's type may be an alias declared inside an extension body.
 ```maxon
@@ -641,6 +641,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 64)
 	function topLevel() returns Level
 		return 64 as Level
@@ -826,7 +827,7 @@ end 'main'
 ```
 
 <!-- test: distinct-nested-aliases-with-one-member-name-are-not-unneeded -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Two inner aliases that share a member name are still two aliases, so a cast from one to the other is real work.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -846,6 +847,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 10)
 	function level() returns Level
 		return self.raw() as Level
@@ -853,6 +855,7 @@ extension Meter
 end 'Meter'
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 64)
 	function levelOf(meter Meter) returns Level
 		return meter.level() as Level
@@ -869,7 +872,7 @@ end 'main'
 ```
 
 <!-- test: a-nested-alias-and-a-file-scope-alias-of-one-name-are-not-unneeded -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An alias declared inside an extension body is a different alias from a file-scope one that shares its member name.
 ```maxon
 typealias Level = int(0 to 64)
@@ -889,6 +892,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 10)
 	function level() returns Level
 		return self.raw() as Level
@@ -943,7 +947,7 @@ error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
 ```
 
 <!-- test: error.unneeded.same-nested-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
 ```maxon
@@ -962,6 +966,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Idx = int(0 to 9)
 	function index() returns Idx
 		let x = self.raw() as Idx

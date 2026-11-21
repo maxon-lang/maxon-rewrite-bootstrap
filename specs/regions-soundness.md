@@ -4857,6 +4857,7 @@ error E3198: <fragment>:34:46: 'donor.bytes' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-isolated-part-read-in-the-middle-arm-of-a-match-expression-cannot-reach-an-isolated-slot -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -4898,6 +4899,7 @@ function storeMiddle(donor Shelf, shelf Shelf, mode Mode)
 end 'storeMiddle'
 
 function argMiddle(donor Shelf, mode Mode) returns Count
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	return weigh(match mode 'pick'
 		first gives ByteArray.create(0)
 		second gives donor.bytes
@@ -9262,7 +9264,6 @@ error E3198: <fragment>:58:14: 'holder.rack' is isolated and cannot be read outs
 ```
 
 <!-- test: error.an-element-of-an-isolated-fixed-array-field-cannot-leave-a-for-loop -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An element a `for` loop hands out over an `isolated` `FixedArray` field outside a `modify` block is data of the field's region, so returning it as plain data is refused.
@@ -9272,7 +9273,6 @@ typealias Byte = int(0 to u8.max)
 
 typealias ByteArray = Array with Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 Blob
 
 type Blob

@@ -471,11 +471,11 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function store(v Element)
+	function store(mutates self, consumes v Element)
 		items.push(v)
 	end 'store'
 
-	function fill(n Idx, v Element)
+	function fill(mutates self, n Idx, consumes v Element)
 		var i = 0 as Idx
 		while i < n 'innerFill'
 			store(v)
@@ -491,11 +491,11 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	let s = "a filled string long enough to force a heap allocation"
 	b.fill(0, v: s)
 	print("{s}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

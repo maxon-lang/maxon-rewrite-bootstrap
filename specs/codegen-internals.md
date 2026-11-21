@@ -39,17 +39,15 @@ String literals are stored in `.rdata` with null termination. The compiler handl
 ## Tests
 
 <!-- test: stack-probing-large-struct -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias BigVec = FixedArray with 2048 Integer
 
 typealias Depth = int(-1 to 50)
 
 function recurse(n Depth) returns Depth
-	let v = BigVec.create()
+	var v = BigVec.create()
 	v.set(2047, value: n as Integer)
 	if n <= 0 'base'
 		return 0
@@ -58,7 +56,7 @@ function recurse(n Depth) returns Depth
 end 'recurse'
 
 function main() returns ExitCode
-	return recurse(50)
+	return try recurse(50) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -293,7 +293,7 @@ end 'main'
 ```
 
 <!-- test: argv-exec-parity -->
-<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+<!-- skip: minimaxon does not parse the converted source: Expected a label but got 'count-check' -->
 <!-- Args: alpha beta gamma -->
 ```maxon
 function main() returns ExitCode

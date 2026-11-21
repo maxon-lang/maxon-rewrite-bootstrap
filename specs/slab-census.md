@@ -1248,7 +1248,6 @@ mm_free ArrayRecord #1
 ```
 
 <!-- test: slab-census.an-untraced-build-tallies-by-size-class -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 **THE SAME POPULATION, READ BY GEOMETRY INSTEAD OF BY TAG.** Mode 1 needs no prefix word, so it answers
 in every build — and it answers with a bucket per size class, which is a fact the allocator's own ladder
 already holds. The same N widgets move one bucket by N, and that bucket's bytes divided by its count is
@@ -1334,7 +1333,6 @@ function main() returns ExitCode
 	if (slot * count) != bytes 'theBucketMixesSlotSizes'
 		return 4
 	end 'theBucketMixesSlotSizes'
-	// TODO: sizeof(...) is not supported in minimaxon
 	if slot < ((sizeof(Widget) + HeaderBytes) as HeapBytes) 'slotTooSmallForAWidget'
 		return 4
 	end 'slotTooSmallForAWidget'

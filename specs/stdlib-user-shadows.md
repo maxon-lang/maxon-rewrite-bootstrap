@@ -793,7 +793,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-file-is-unaffected-by-an-authors-same-named-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user EXPORTS `type FilePath` in another file; `stdlib/Directory.maxon`'s own `FilePath` still answers its
 return value, and the user's is named through its directory (4 + 9).
 ```maxon
@@ -818,7 +817,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.an-authors-array-beside-an-extension-alias-leaves-the-librarys-alias-the-librarys -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A program declares its own `type Array` and an `extension Array` whose nested alias `SortComparator` the library's
 `stdlib/helpers/sort/insertionSort.maxon` also declares. The program sweeps first, so the only `SortComparator` filed
 when `stdlib/Array.maxon` reads the name is the author's, which a library file never sees: the library keeps its own
@@ -837,6 +836,7 @@ typealias Digit = int(0 to 9)
 
 // --- file: ext.maxon
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SortComparator = function(Digit, Digit) returns Ordering
 	function ordered(cmp SortComparator) returns bool
 		return cmp(self.n, self.n) == Ordering.equalTo
@@ -1537,7 +1537,7 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-extension-reads-the-librarys-alias-past-an-authors-member-alias-of-that-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A program extends `Array` with a member typealias named `ElementIndex`, the name of an alias the library's own `Array`
 extensions spell bare. A library file never sees an author's declaration, so the library's sort keeps indexing with
 the library's `ElementIndex` and sorts an array longer than the program's alias could index.
@@ -1547,6 +1547,7 @@ typealias Tally = int(0 to 1000)
 typealias TallyArray = Array with Tally
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	public typealias ElementIndex = int(0 to 5)
 end 'Array'
 

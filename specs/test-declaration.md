@@ -67,10 +67,8 @@ sanitize alike are refused, naming both.
 `SpecParser.isUnimplementedFenceOpen` refuses the fence rather than walking past it.
 
 <!-- test: basic -->
-<!-- skip: test declarations are not supported in minimaxon -->
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'adds two numbers'
 	let sum = 2 + 2
 	print("sum is {sum}")
@@ -86,11 +84,9 @@ end 'main'
 ```
 
 <!-- test: multi-word-name-round-trip -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A prose name may contain spaces, digits and punctuation; `end` must repeat it verbatim.
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'rejects a negative index (regression, issue #42)'
 	print("ran")
 end 'rejects a negative index (regression, issue #42)'
@@ -105,11 +101,8 @@ end 'main'
 ```
 
 <!-- test: error.mismatched-end-label -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'adds two numbers'
 	print("ran")
 end 'adds three numbers'
@@ -124,7 +117,6 @@ error E2008: specs/test-declaration/error.mismatched-end-label.maxon:5:1: Mismat
 ```
 
 <!-- test: implied-throws-accepts-bare-try -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A bare `try` with no `otherwise` compiles inside a test body. Outside a function declaring
 `throws` that is E2001, so this is positive evidence of the implied `throws TestFailure`.
 ```maxon
@@ -136,7 +128,6 @@ function assertTrue(ok bool) throws TestFailure
 end 'assertTrue'
 
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'a bare try needs no otherwise'
 	try assertTrue(true)
 end 'a bare try needs no otherwise'
@@ -151,7 +142,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-bare-assertion-compiles -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A bare assertion in a test body compiles, because the test body is an implied `try`. The assertion's
 `TestFailure` is the test's own error, so it propagates plainly, with no report.
 ```maxon
@@ -163,7 +153,6 @@ function assertTrue(ok bool) throws TestFailure
 end 'assertTrue'
 
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'forgets its try'
 	assertTrue(true)
 end 'forgets its try'
@@ -178,11 +167,10 @@ end 'main'
 ```
 
 <!-- test: error.rejects-parameters -->
-<!-- skip: test declarations are not supported in minimaxon -->
+<!-- skip: differing error code: syntax error -->
 <!-- positions: moved -->
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'takes an argument' (value int)
 	print("ran")
 end 'takes an argument'
@@ -197,11 +185,9 @@ error E2001: specs/test-declaration/error.rejects-parameters.maxon:3:25: Expecte
 ```
 
 <!-- test: error.rejects-returns -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'returns something' returns int
 	return 1
 end 'returns something'
@@ -216,11 +202,8 @@ error E2001: specs/test-declaration/error.rejects-returns.maxon:3:26: Expected n
 ```
 
 <!-- test: error.outside-test-file -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: regular.maxon
-// TODO: test declarations are not supported in minimaxon
 test 'not in a test file'
 	print("ran")
 end 'not in a test file'
@@ -235,17 +218,13 @@ error E2058: specs/test-declaration/error.outside-test-file.maxon:3:1: a 'test' 
 ```
 
 <!-- test: error.duplicate-sanitized-name -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 Two prose names that sanitize to the same symbol are refused, naming both.
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'adds two'
 	print("first")
 end 'adds two'
 
-// TODO: test declarations are not supported in minimaxon
 test 'adds-two'
 	print("second")
 end 'adds-two'
@@ -260,11 +239,8 @@ error E3107: specs/test-declaration/error.duplicate-sanitized-name.maxon:7:6: du
 ```
 
 <!-- test: error.empty-name -->
-<!-- skip: test declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 // --- file: example.maxtest
-// TODO: test declarations are not supported in minimaxon
 test ''
 	print("ran")
 end ''
@@ -315,7 +291,6 @@ end 'main'
 ```
 
 <!-- test: survives-dead-function-elimination -->
-<!-- skip: test declarations are not supported in minimaxon -->
 Nothing in the program calls a test, so dead-function elimination would drop it. Tests are
 roots instead.
 
@@ -331,7 +306,6 @@ wasi (`stdlib/Process.maxon`). A rendering naming one of them is a HOST fact, so
 emitted code say the same thing. Do not "simplify" this back to the stdlib alias.
 ```maxon
 // --- file: kept.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'is kept alive'
 	throw TestFailure.assertion
 end 'is kept alive'
@@ -348,11 +322,9 @@ end 'main'
 ```
 
 <!-- test: namespace-qualified-name -->
-<!-- skip: test declarations are not supported in minimaxon -->
 A test in a subdirectory takes that directory's namespace, exactly as a function does.
 ```maxon
 // --- file: suite/deep.maxtest
-// TODO: test declarations are not supported in minimaxon
 test 'lives in a subdirectory'
 	print("ran")
 end 'lives in a subdirectory'

@@ -641,7 +641,6 @@ end 'main'
 ```
 
 <!-- test: error.an-instance-cannot-reach-a-private-method-that-is-no-requirement -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib.maxon
@@ -684,7 +683,6 @@ error E3008: <fragment>:5:12: type 'Point' is not exported
 ```
 
 <!-- test: an-instance-calls-a-requirement-of-a-type-its-file-may-not-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A requirement the `where` clause names is the constraining interface's surface, so a copy calls it by name even
 where the type that satisfies it is hidden.
 ```maxon
@@ -728,7 +726,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-instance-calls-a-requirement-of-a-type-its-file-may-not-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A closure written in a generic function belongs to the copy it is written in, so it calls the requirement too.
 ```maxon
 // --- file: lib.maxon
@@ -773,7 +770,6 @@ end 'main'
 
 <!-- test: an-instance-calls-an-extension-method-of-its-constraint-on-a-type-its-file-may-not-name -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An `extension` of the constraining interface is that interface's surface too, so a copy calls its methods on a
 type it may not name.
 ```maxon
@@ -819,7 +815,6 @@ end 'main'
 
 <!-- test: an-extension-method-calls-an-unmarked-requirement-of-a-conformer-in-a-subdirectory -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An `extension` body calls a requirement through the interface's surface, so the conformer's implementation may be
 unmarked in a directory the extension cannot see.
 ```maxon
@@ -861,7 +856,6 @@ end 'main'
 
 <!-- test: error.an-instance-cannot-read-a-field-named-like-a-method-of-its-constraint -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 What a constraint grants is its methods. A field of the same name is a member of the type, and is hidden with it.
 ```maxon
@@ -1493,7 +1487,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-in-another-file-interpolates-the-callers-file-private-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: l.maxon
 function describe(a T) uses T returns String
@@ -1519,7 +1512,6 @@ dark
 ```
 
 <!-- test: a-generic-in-another-file-quotes-the-callers-file-private-stringable-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: l.maxon
 function describe(a T) uses T returns String
@@ -1554,7 +1546,6 @@ tag7
 ```
 
 <!-- test: error.a-generic-in-another-file-matching-the-callers-file-private-enum-cases-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The case names in `code`'s `match` are written by the generic's author, in `l.maxon`, outside the directory
 `Shade` is visible in: they are names crossing the directory boundary, and they stay refused.
 ```maxon

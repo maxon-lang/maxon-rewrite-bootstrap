@@ -52,7 +52,6 @@ author wrote them in, so one illegal program has one diagnostic.
 ## Tests
 
 <!-- test: public-function-is-visible-across-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 public typealias Integer = int(i64.min to i64.max)
@@ -71,7 +70,6 @@ end 'main'
 ```
 
 <!-- test: public-type-is-visible-across-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shapes.maxon
 public typealias Integer = int(i64.min to i64.max)
@@ -100,7 +98,6 @@ end 'main'
 ```
 
 <!-- test: public-typealias-is-visible-across-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/types.maxon
 public typealias Score = int(0 to 100)
@@ -119,7 +116,6 @@ end 'main'
 ```
 
 <!-- test: public-enum-is-visible-across-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/color.maxon
 public enum Color
@@ -143,7 +139,6 @@ end 'main'
 ```
 
 <!-- test: public-constants-are-visible-across-files -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/limits.maxon
 public let BASE = 30
@@ -160,7 +155,6 @@ end 'main'
 ```
 
 <!-- test: public-is-not-audited-where-export-is -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE DISCRIMINATING PAIR.** This program and the next are identical but for one word. Under
 `public` the unreferenced declaration is API surface and nothing is reported; under `export` it is
 E3092. If `public` were merely a spelling of `export`, this pair could not both hold.
@@ -186,7 +180,6 @@ end 'main'
 ```
 
 <!-- test: error.the-same-declaration-as-export-is-audited -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export typealias Integer = int(i64.min to i64.max)

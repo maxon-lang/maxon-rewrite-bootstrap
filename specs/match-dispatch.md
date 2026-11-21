@@ -75,7 +75,6 @@ end 'main'
 ```
 
 <!-- test: dispatch.enum-range-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Day
 	mon
@@ -92,8 +91,8 @@ function kind(d Day) returns ExitCode
 		mon gives 1
 		tue gives 2
 		wed or
-			thu or
-			fri gives 3
+		thu or
+		fri gives 3
 		sat gives 4
 		sun gives 5
 	end 'm'
@@ -225,16 +224,15 @@ end 'main'
 ```
 
 <!-- test: dispatch.or-list-nonadjacent -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias N = int(i64.min to i64.max)
 
 function ored(x N) returns N
 	return match x 'c'
 		1 or
-			9 gives 1
+		9 gives 1
 		3 or
-			7 gives 2
+		7 gives 2
 		5 gives 3
 		default gives 9
 	end 'c'

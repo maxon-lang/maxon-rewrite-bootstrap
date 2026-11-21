@@ -901,7 +901,7 @@ error E3005: specs/field-defaults/error.a-field-default-above-i64-max-into-a-sig
 ### A field default whose call argument is a `match` expression ends at the line holding the call's closing parenthesis
 
 <!-- test: field-defaults.a-match-expression-in-a-call-argument-of-a-field-default -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ```maxon
 enum Mode
 	quiet
@@ -921,6 +921,7 @@ type Label
 end 'Label'
 
 type Box
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	var label = Label.make(match Mode.loud 'm'
 		quiet gives "quiet"
 		loud gives "loud"

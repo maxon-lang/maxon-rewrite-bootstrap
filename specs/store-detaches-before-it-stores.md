@@ -16,14 +16,12 @@ side of every guard, and an element type that owes a destructor on the arm that 
 ## Tests
 
 <!-- test: a-proven-store-through-a-viewed-owner-detaches-first -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The owner of a viewed buffer is written at a proven index. The view keeps what it read (11 and 22) and the
 owner sees the new words (99 and 98): the store went to a private copy.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -46,14 +44,12 @@ end 'main'
 ```
 
 <!-- test: a-view-taken-between-two-proven-stores-forces-the-second-to-detach -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The first store establishes that the buffer is private; the view taken after it takes that away, so the
 second store must detach again. A store that trusted the first would write through the view.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -154,17 +150,15 @@ end 'main'
 ```
 
 <!-- test: a-proven-store-into-a-literal-fixed-array-never-reaches-its-image -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A fixed array built from a literal may be an immortal image. The clone has a private buffer that the proven
 stores write, and a second call over the same literal still reads the original.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function bumped() returns Int
-	let v = (Vec3 from [1, 2, 3]).clone()
+	var v = (Vec3 from [1, 2, 3]).clone()
 	let before = v.get(0)
 	v.set(0, value: 10)
 	v.set(1, value: 20)
@@ -283,16 +277,14 @@ end 'main'
 ```
 
 <!-- test: consecutive-stores-with-computed-words-land-in-order -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Eight words, each computed from the others and stored in turn: every store lands with the value computed
 for it, and the sum of the stored words pins the order.
 ```maxon
 typealias Word = bits(64)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Planes = FixedArray with 8 Word
 
-function mix(planes Planes)
+function mix(mutates planes Planes)
 	let a = planes.get(0)
 	let b = planes.get(1)
 	let c = planes.get(2)
@@ -312,7 +304,7 @@ function mix(planes Planes)
 end 'mix'
 
 function main() returns ExitCode
-	let planes = Planes.create()
+	var planes = Planes.create()
 	planes.set(0, value: 1)
 	planes.set(1, value: 2)
 	planes.set(2, value: 4)

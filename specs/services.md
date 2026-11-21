@@ -2737,7 +2737,6 @@ kept first1
 
 <!-- test: a-shared-value-that-cannot-be-cloned-is-handed-back-retained -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2812,7 +2811,6 @@ function offer(h Door.handle, held immutable Holder)
 end 'offer'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Port)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Door.create()
@@ -15063,7 +15061,7 @@ function main() returns ExitCode
 	let value = try await calc.divide(10, by: 0) otherwise (e) 'failed'
 		match e 'why'
 			divideByZero or
-				serviceStopped then print("no answer\n")
+			serviceStopped then print("no answer\n")
 			mailboxFull then print("full\n")
 		end 'why'
 		return 1
@@ -21074,7 +21072,6 @@ end 'main'
 
 <!-- test: spawn-of-a-type-two-directories-export-starts-each-directorys-own-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `a/` and `b/` each export a `type Calc` and each spawns the bare `Calc` of its own directory. The whole-program
 spawn probe reads raw tokens, so it records the written name and must resolve it against the spawning file's

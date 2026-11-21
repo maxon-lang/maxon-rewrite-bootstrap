@@ -1237,8 +1237,6 @@ error E3004: <fragment>:3:12: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-compared-by-identity -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Box
 	export var n = 0 as Count
@@ -1250,7 +1248,6 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	return 0 if frobnicate(2) is b else 1
 end 'main'
 ```
@@ -1588,7 +1585,8 @@ error E3004: <fragment>:14:17: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-called-alone-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1600,6 +1598,7 @@ function main() returns ExitCode
 		print("{v}")
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Failure.bad then return 3
 		end 'kind'
 	end 'handler'
@@ -1611,7 +1610,8 @@ error E3004: <fragment>:8:11: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-thrown-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1622,6 +1622,7 @@ function main() returns ExitCode
 		throw frobnicate(2)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Failure.bad then return 3
 		end 'kind'
 	end 'handler'
@@ -1633,7 +1634,8 @@ error E3004: <fragment>:8:9: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-called-alone-in-a-try-block -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
+<!-- positions: moved -->
 ```maxon
 enum Failure implements Error
 	bad
@@ -1645,6 +1647,7 @@ function main() returns ExitCode
 		c.run()
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Failure.bad then return 3
 		end 'kind'
 	end 'handler'

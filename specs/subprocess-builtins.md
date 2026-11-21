@@ -261,7 +261,6 @@ kind=0 code=0 outLen=6 errLen=0 matches=true
 ```
 
 <!-- test: subprocess-builtins.posix-a-reported-exit-is-reaped-rather-than-polled -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 ⭐⭐ **A CHILD'S EXIT REACHES THE POLLER ONCE, SO THE COLLECT MUST REAP ON IT RATHER THAN ASK AGAIN.** The
@@ -300,15 +299,12 @@ end 'appendToken'
 // One attached run, collected: whether the child exited 0 having written a line.
 function collectOne() returns bool
 	let argv = ByteArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Macos)
-	appendToken(argv, token: "/usr/bin/git")
-	appendToken(argv, token: "--version")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		appendToken(argv, token: "/usr/bin/git")
+		appendToken(argv, token: "--version")
 	#else
-	appendToken(argv, token: "/bin/echo")
-	appendToken(argv, token: "hello")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		appendToken(argv, token: "/bin/echo")
+		appendToken(argv, token: "hello")
 	#endif
 	let empty = ""
 	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
@@ -1048,7 +1044,7 @@ kind=2 code=3
 ```
 
 <!-- test: subprocess-builtins.posix-a-child-that-exited-before-the-deadline-keeps-its-own-code -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows -->
 `a-child-that-exited-before-the-deadline-keeps-its-own-code` on this lane. The shell exits with `3` and the
@@ -1079,6 +1075,7 @@ function appendToken(out ByteArray, token String)
 end 'appendToken'
 
 function memberPid(out String) returns Pid
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
 	return parsed as Pid
 end 'memberPid'
@@ -1125,7 +1122,7 @@ kind=2 code=3 memberEnded=true
 ```
 
 <!-- test: subprocess-builtins.posix-a-zombie-group-leader-keeps-its-own-code-when-the-deadline-kills-its-group -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 **A DEADLINE KILL OF A GROUP WHOSE LEADER HAS EXITED UNREAPED REPORTS THE LEADER'S OWN CODE.** The shell exits
@@ -1175,6 +1172,7 @@ function awaitZombie(pid Pid)
 end 'awaitZombie'
 
 function memberPid(out String) returns Pid
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(out.trim()) otherwise panic("the shell prints its background member's id before it exits")
 	return parsed as Pid
 end 'memberPid'
@@ -1223,7 +1221,6 @@ kind=2 code=3 memberEnded=true
 <!-- test: subprocess-builtins.a-release-under-a-parked-collect-is-a-named-stop -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1269,13 +1266,10 @@ function parkedInCollect(parkedFrom ParkMark) returns bool
 	if mark == 0 'notYet'
 		return false
 	end 'notYet'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	return true
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	return Scheduler.counters().netpollBlocks >= mark
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'parkedInCollect'
 
@@ -1297,17 +1291,14 @@ end 'collector'
 
 function main() returns ExitCode
 	let argv = ByteArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	appendToken(argv, token: "cmd")
 	appendToken(argv, token: "/c")
 	appendToken(argv, token: "set /p released=")
 	let argc = 3
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	appendToken(argv, token: "/bin/cat")
 	let argc = 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let empty = ""
 	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")
@@ -1335,7 +1326,6 @@ fatal error: runtime abort 117 (subpCollectSlotReleased)
 <!-- test: subprocess-builtins.a-second-collect-on-a-held-slot-is-a-named-stop -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1371,13 +1361,10 @@ function parkedInCollect(parkedFrom ParkMark) returns bool
 	if mark == 0 'notYet'
 		return false
 	end 'notYet'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	return true
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	return Scheduler.counters().netpollBlocks >= mark
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'parkedInCollect'
 
@@ -1399,17 +1386,14 @@ end 'collector'
 
 function main() returns ExitCode
 	let argv = ByteArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	appendToken(argv, token: "cmd")
 	appendToken(argv, token: "/c")
 	appendToken(argv, token: "set /p released=")
 	let argc = 3
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	appendToken(argv, token: "/bin/cat")
 	let argc = 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let empty = ""
 	let env = try __ManagedMemory.create(1, 1) otherwise panic("create(1, 1) cannot fail")

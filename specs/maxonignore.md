@@ -81,7 +81,7 @@ end 'main'
 ```
 
 <!-- test: marker-contents-are-never-read -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: incomplete directive -->
 The marker is a flag. Its text here is a plausible-looking negation of exactly the file it excludes,
 and it selects nothing: reading the contents at all would make this program stop compiling.
 ```maxon
@@ -91,7 +91,6 @@ function main() returns ExitCode
 end 'main'
 
 // --- file: fixtures/.maxonignore
-// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 # every line of this file is inert, including the two below
 
 ! second - program.maxon

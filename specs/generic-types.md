@@ -2976,7 +2976,6 @@ error E2055: <fragment>:3:22: Type 'Nonexistent' has no associated types
 ```
 
 <!-- test: error.field-reads-of-an-undeclared-generic-base-report-only-the-with -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 Two reads of a value whose type is the refused alias, in two functions, and a `sizeof` of it: each is a consequence of
 the one E2055 recorded at the `with`, so the `with` is reported once and nothing else is.
@@ -2994,7 +2993,6 @@ function readSecond(t IntThing) returns Int
 end 'readSecond'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(IntThing) as ExitCode
 end 'main'
 ```
@@ -3233,8 +3231,6 @@ error E2015: <fragment>:13:2: Unsupported: a field access on 'a': `Array` is a B
 ```
 
 <!-- test: error.field-read-on-the-second-builtin-base-a-declaration-also-claims -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- positions: moved -->
 The SECOND-NAME twin, and the READ direction — the two builtins are one rule, so a check
 that reached only one of them would leave the other silently handing out its record's own
 words as if they were the declared field.
@@ -3260,7 +3256,6 @@ type FixedArray uses T
 	export var value as T
 end 'FixedArray'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias IntVec = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -3273,7 +3268,6 @@ error E2015: <fragment>:12:9: Unsupported: a field access on 'v': `FixedArray` i
 ```
 
 <!-- test: error.sizeof-of-undeclared-generic-base -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 The other query that assumes an instance's base exists, and it is NOT the field walks'
 gate: `genericInstanceBoxSize` answers for a BUILTIN (the fixed 48-byte record) as happily
@@ -3289,7 +3283,6 @@ typealias Int = int(i64.min to i64.max)
 typealias IntMap = Nonexistent with (Int, Int)
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(IntMap) as ExitCode
 end 'main'
 ```
@@ -3434,7 +3427,6 @@ error E2062: <fragment>:4:33: Cannot use 'float' as a type argument: a float typ
 ```
 
 <!-- test: a-float-element-is-admitted-on-a-buffer-base -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ### The exemption, stated as an acceptance
 The refusal above is about a dictionary-passed type-parameter slot, so it lifts exactly where there is
 no such slot. Both buffer bases take both float spellings, and this is the case that turns RED if the
@@ -3444,15 +3436,14 @@ typealias Real = float(f64.min to f64.max)
 
 typealias Reals = Array with Real
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Real
 
 function main() returns ExitCode
-	let a = Reals.create(0)
+	var a = Reals.create(0)
 	a.push(1.5)
-	let v = Vec2.create()
+	var v = Vec2.create()
 	v.set(0, value: 3.5)
-	return trunc((try a.get(0) otherwise 0.0) + v.get(0))
+	return try trunc((try a.get(0) otherwise 0.0) + v.get(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6030,6 +6021,7 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 
 <!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
 own member of that name and so the extension's alias is never what a conformer reads.
@@ -6047,6 +6039,7 @@ end 'Container'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Container
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 
@@ -6075,6 +6068,7 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 <!-- test: error.a-wrong-arity-alias-in-a-conditional-extension-no-conformer-meets-reports-the-arity-error -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when the alias sits in a conditional extension whose `where` clause no conformer meets: the alias is
 judged where it is written, whether or not any conformer ever reads it.
@@ -6093,6 +6087,7 @@ end 'Container'
 // TODO: extensions of an interface are not supported in minimaxon
 // TODO: conditional extensions (extension ... where) are not supported in minimaxon
 extension Container where Item implements Comparable
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 
@@ -6127,6 +6122,7 @@ error E2056: <fragment>:14:27: generic type 'Pair' expects 2 type argument(s), b
 
 <!-- test: error.a-wrong-arity-alias-in-an-extension-of-an-interface-nothing-implements-reports-the-arity-error -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal when nothing implements the extended interface at all.
 ```maxon
@@ -6141,6 +6137,7 @@ end 'Container'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Container
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Pairs = Pair with Item
 end 'Container'
 

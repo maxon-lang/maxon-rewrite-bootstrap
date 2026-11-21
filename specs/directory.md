@@ -266,7 +266,6 @@ Directory not found
 ```
 
 <!-- test: list-an-unreadable-directory-is-access-denied -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A directory the process may not list is `accessDenied`, never `notFound`: a caller that cannot tell a missing directory from
 one it may not read cannot report the reason. The case denies itself the listing (a deny entry for Everyone on Windows,
@@ -279,17 +278,10 @@ let toolTimeoutMs = 30000
 
 let directoryName = "directory-unreadable-listed"
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
-
-let listerRefusedExit = 5
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 5
 #else
-
-let listerRefusedExit = 1
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 1
 #endif
 
 function runTool(tool String, arguments StringArray) returns bool
@@ -299,18 +291,15 @@ end 'runTool'
 
 function hostRefusesListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("-NoProfile")
-	arguments.push("-Command")
-	arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
-	let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-NoProfile")
+		arguments.push("-Command")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
-	arguments.push("-r")
-	arguments.push(directory.toString())
-	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-r")
+		arguments.push(directory.toString())
+		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
 		return false
@@ -323,54 +312,45 @@ end 'hostRefusesListing'
 
 function tokenBypassesDenial() returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("/priv")
-	arguments.push("/fo")
-	arguments.push("csv")
-	arguments.push("/nh")
-	let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("/priv")
+		arguments.push("/fo")
+		arguments.push("csv")
+		arguments.push("/nh")
+		let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
 	#else
-	arguments.push("-u")
-	let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and result.stdout.trim() == "0"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-u")
+		let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(toolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and result.stdout.trim() == "0"
 	#endif
 end 'tokenBypassesDenial'
 
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/deny")
-	arguments.push("*S-1-1-0:(RD)")
-	return runTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/deny")
+		arguments.push("*S-1-1-0:(RD)")
+		return runTool("icacls", arguments: arguments)
 	#else
-	arguments.push("000")
-	arguments.push(directory.toString())
-	return runTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("000")
+		arguments.push(directory.toString())
+		return runTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
 
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/remove:d")
-	arguments.push("*S-1-1-0")
-	return runTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/remove:d")
+		arguments.push("*S-1-1-0")
+		return runTool("icacls", arguments: arguments)
 	#else
-	arguments.push("755")
-	arguments.push(directory.toString())
-	return runTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("755")
+		arguments.push(directory.toString())
+		return runTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
 
@@ -865,7 +845,6 @@ end 'main'
 ```
 
 <!-- test: remove-tree-removes-a-directory-link-and-not-what-it-points-at -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A directory link inside the tree is removed as an entry. The directory it points at, and what that holds, is
 never entered. The link is a junction on Windows and a symbolic link elsewhere.
@@ -874,21 +853,18 @@ let linkToolTimeoutMs = 30000
 
 function plantDirectoryLink(link FilePath, target FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("/c")
-	arguments.push("mklink")
-	arguments.push("/J")
-	arguments.push(link.toString())
-	arguments.push(target.toString())
-	let tool = "cmd"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("/c")
+		arguments.push("mklink")
+		arguments.push("/J")
+		arguments.push(link.toString())
+		arguments.push(target.toString())
+		let tool = "cmd"
 	#else
-	arguments.push("-s")
-	arguments.push(target.toString())
-	arguments.push(link.toString())
-	let tool = "ln"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-s")
+		arguments.push(target.toString())
+		arguments.push(link.toString())
+		let tool = "ln"
 	#endif
 	let result = try Subprocess.run(Executable.name(tool), arguments: arguments, deadline: WaitDeadline.within(linkToolTimeoutMs)) otherwise return false
 	return result.succeeded()
@@ -925,7 +901,6 @@ end 'main'
 ```
 
 <!-- test: remove-tree-reports-what-it-cannot-remove -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A directory the process may not list cannot be emptied. `removeTree` reports it, removes what it can around it,
 and leaves the directories above it standing. The case denies itself the listing (a deny entry for Everyone on
@@ -937,17 +912,10 @@ elsewhere) explains.
 ```maxon
 let accessToolTimeoutMs = 30000
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
-
-let listerRefusedExit = 5
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 5
 #else
-
-let listerRefusedExit = 1
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 1
 #endif
 
 function runAccessTool(tool String, arguments StringArray) returns bool
@@ -957,18 +925,15 @@ end 'runAccessTool'
 
 function hostRefusesListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("-NoProfile")
-	arguments.push("-Command")
-	arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
-	let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-NoProfile")
+		arguments.push("-Command")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
-	arguments.push("-r")
-	arguments.push(directory.toString())
-	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-r")
+		arguments.push(directory.toString())
+		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
 		return false
@@ -981,54 +946,45 @@ end 'hostRefusesListing'
 
 function tokenBypassesDenial() returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("/priv")
-	arguments.push("/fo")
-	arguments.push("csv")
-	arguments.push("/nh")
-	let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("/priv")
+		arguments.push("/fo")
+		arguments.push("csv")
+		arguments.push("/nh")
+		let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
 	#else
-	arguments.push("-u")
-	let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and result.stdout.trim() == "0"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-u")
+		let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and result.stdout.trim() == "0"
 	#endif
 end 'tokenBypassesDenial'
 
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/deny")
-	arguments.push("*S-1-1-0:(RD)")
-	return runAccessTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/deny")
+		arguments.push("*S-1-1-0:(RD)")
+		return runAccessTool("icacls", arguments: arguments)
 	#else
-	arguments.push("000")
-	arguments.push(directory.toString())
-	return runAccessTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("000")
+		arguments.push(directory.toString())
+		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
 
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/remove:d")
-	arguments.push("*S-1-1-0")
-	return runAccessTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/remove:d")
+		arguments.push("*S-1-1-0")
+		return runAccessTool("icacls", arguments: arguments)
 	#else
-	arguments.push("755")
-	arguments.push(directory.toString())
-	return runAccessTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("755")
+		arguments.push(directory.toString())
+		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
 
@@ -1082,7 +1038,6 @@ a denial that did not bind is a privileged token's true
 ```
 
 <!-- test: remove-tree-waiting-for-busy-reports-a-refusal-of-another-class-at-once -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Only a file refused as busy is waited for. A directory the process may not list stays for another reason, so a call
 given a minute to wait reports it and returns without spending the minute: the case fails if the call takes half of
@@ -1094,17 +1049,10 @@ let accessToolTimeoutMs = 30000
 
 let waitForBusyMs = 60000
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
-
-let listerRefusedExit = 5
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 5
 #else
-
-let listerRefusedExit = 1
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	let listerRefusedExit = 1
 #endif
 
 function runAccessTool(tool String, arguments StringArray) returns bool
@@ -1114,18 +1062,15 @@ end 'runAccessTool'
 
 function hostRefusesListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("-NoProfile")
-	arguments.push("-Command")
-	arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
-	let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-NoProfile")
+		arguments.push("-Command")
+		arguments.push("try \{ [void][System.IO.Directory]::GetFileSystemEntries('{directory.toString()}'); exit 0 \} catch [System.UnauthorizedAccessException] \{ exit {listerRefusedExit} \}")
+		let result = try Subprocess.run(Executable.name("powershell"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#else
-	arguments.push("-r")
-	arguments.push(directory.toString())
-	let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-r")
+		arguments.push(directory.toString())
+		let result = try Subprocess.run(Executable.name("test"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's lister did not run")
 	#endif
 	if result.succeeded() 'listable'
 		return false
@@ -1138,54 +1083,45 @@ end 'hostRefusesListing'
 
 function tokenBypassesDenial() returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push("/priv")
-	arguments.push("/fo")
-	arguments.push("csv")
-	arguments.push("/nh")
-	let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("/priv")
+		arguments.push("/fo")
+		arguments.push("csv")
+		arguments.push("/nh")
+		let result = try Subprocess.run(Executable.name("whoami"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and (result.stdout.contains("SeBackupPrivilege") or result.stdout.contains("SeRestorePrivilege"))
 	#else
-	arguments.push("-u")
-	let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
-	return result.succeeded() and result.stdout.trim() == "0"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("-u")
+		let result = try Subprocess.run(Executable.name("id"), arguments: arguments, deadline: WaitDeadline.within(accessToolTimeoutMs)) otherwise panic("the host's privilege report did not run")
+		return result.succeeded() and result.stdout.trim() == "0"
 	#endif
 end 'tokenBypassesDenial'
 
 function denyListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/deny")
-	arguments.push("*S-1-1-0:(RD)")
-	return runAccessTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/deny")
+		arguments.push("*S-1-1-0:(RD)")
+		return runAccessTool("icacls", arguments: arguments)
 	#else
-	arguments.push("000")
-	arguments.push(directory.toString())
-	return runAccessTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("000")
+		arguments.push(directory.toString())
+		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'denyListing'
 
 function restoreListing(directory FilePath) returns bool
 	let arguments = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	arguments.push(directory.toString())
-	arguments.push("/remove:d")
-	arguments.push("*S-1-1-0")
-	return runAccessTool("icacls", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push(directory.toString())
+		arguments.push("/remove:d")
+		arguments.push("*S-1-1-0")
+		return runAccessTool("icacls", arguments: arguments)
 	#else
-	arguments.push("755")
-	arguments.push(directory.toString())
-	return runAccessTool("chmod", arguments: arguments)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		arguments.push("755")
+		arguments.push(directory.toString())
+		return runAccessTool("chmod", arguments: arguments)
 	#endif
 end 'restoreListing'
 

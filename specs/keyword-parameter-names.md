@@ -30,7 +30,6 @@ binding like any other word.
 
 <!-- test: type-as-parameter-name-crossfile -->
 <!-- skip: 'type' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
@@ -52,7 +51,6 @@ end 'main'
 
 <!-- test: enum-as-parameter-name-crossfile -->
 <!-- skip: 'enum' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
@@ -74,7 +72,6 @@ end 'main'
 
 <!-- test: union-as-parameter-name-crossfile -->
 <!-- skip: 'union' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)
@@ -96,7 +93,6 @@ end 'main'
 
 <!-- test: interface-as-parameter-name-crossfile -->
 <!-- skip: 'interface' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shared.maxon
 export typealias StdType = int(i64.min to i64.max)

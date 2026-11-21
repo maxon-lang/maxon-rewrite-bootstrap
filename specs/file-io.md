@@ -388,7 +388,6 @@ end 'main'
 ```
 
 <!-- test: write-text-over-the-running-executable-throws-busy -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: arm64-macos, wasm32-wasi -->
 A file a running program's image keeps from being written — which Windows refuses with a sharing violation and
 Linux with `ETXTBSY` — is `FileWriteError.busy`, distinct from a permission refusal. The program writes over a COPY
@@ -399,15 +398,10 @@ Windows keeps a program's image locked for a moment after the program has exited
 says when it lets go, so the copy's deletion there is retried for as long as it is refused: an image that is never
 released is a TIMEOUT, and no budget of attempts has to outlast how long the host takes.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
 	let CopyDeleteWaitsForTheImage = true
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	let CopyDeleteWaitsForTheImage = false
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 let CopyDeleteRetryMs = 50

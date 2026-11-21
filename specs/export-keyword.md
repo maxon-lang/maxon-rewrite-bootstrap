@@ -105,7 +105,6 @@ Qualification never bypasses visibility, and a type hidden from a file hides its
 ## Tests
 
 <!-- test: export-function-basic -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -124,7 +123,6 @@ end 'main'
 ```
 
 <!-- test: export-type-basic -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shapes.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -170,7 +168,6 @@ end 'main'
 ```
 
 <!-- test: mixed-export-and-non-export -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -193,7 +190,6 @@ end 'main'
 ```
 
 <!-- test: export-typealias-basic -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ This gates the `Array with T` TYPEALIAS reaching another file, and the `export` keyword is
 load-bearing in it: strip `export` and the alias is unreachable from `app/main.maxon`, so the
 declaring file is told `E3062: unused typealias: 'IntArray'` and the use site loses its type name.
@@ -216,7 +212,6 @@ end 'main'
 ```
 
 <!-- test: export-typealias-in-type-field -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/types.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -256,7 +251,6 @@ end 'main'
 ```
 
 <!-- test: export-typealias-as-return-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same reach in RETURN position — and the same caveat as `export-typealias-basic`:
 the `export` keyword is inert here, so what this gates is the instance typealias
 resolving to one type across a file boundary.
@@ -299,7 +293,6 @@ end 'main'
 ```
 
 <!-- test: exported-function-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/helper.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -369,7 +362,6 @@ error E3011: specs/export-keyword/error.typealias-with-unknown-element-type.maxo
 ```
 
 <!-- test: exported-type-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/point.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -1138,7 +1130,6 @@ end 'main'
 ```
 
 <!-- test: exported-enum-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/color.maxon
 export enum Color
@@ -1231,7 +1222,6 @@ error E3008: specs/export-keyword/error.a-non-exported-unions-case-construction-
 ```
 
 <!-- test: exported-typealias-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/types.maxon
 export typealias Score = int(0 to 100)
@@ -1301,7 +1291,6 @@ end 'main'
 ```
 
 <!-- test: exported-var-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Cross-file access to an exported module-level var with a simple constant value.
 ```maxon
 // --- file: api/counter.maxon
@@ -1317,7 +1306,6 @@ end 'main'
 ```
 
 <!-- test: exported-array-let-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Cross-file access to an exported module-level array.
 ```maxon
 // --- file: api/state.maxon
@@ -1379,7 +1367,6 @@ must still be found. `zz/` is outside `lib/`, so `zz/b.maxon` cannot see `lib/`'
 ambiguous, and `lib/main.maxon` cannot see `zz/`'s.
 
 <!-- test: exported-alias-found-past-a-later-private-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: lib/a.maxon
 typealias Score = int(0 to 100)

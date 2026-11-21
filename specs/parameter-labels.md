@@ -827,11 +827,12 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-match-expression-argument -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 A `match` expression written over several lines inside a split argument list keeps its own line structure.
 ```maxon
 function main() returns ExitCode
 	let n = 2
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	print(match n 'pick'
 			1 gives "one\n"
 			default gives "many\n"
@@ -847,7 +848,7 @@ many
 ```
 
 <!-- test: multi-line-call-after-an-inactive-branch-with-an-unclosed-call -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 An unclosed call in an inactive `#if` branch does not leak into the live code after it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -856,7 +857,6 @@ function pair(a Integer, b Integer) returns Integer
 	return a * 10 + b
 end 'pair'
 
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
 
 function dead() returns Integer
@@ -880,7 +880,7 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-handler-block-argument-holding-nested-blocks -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 A labelled `otherwise` handler written as an argument keeps its own line structure through every block nested inside it: an `if`, a `for`, a `while`, a `match` statement and a `try` block each end at their own `end`, and the statements after them stay separate statements.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -900,6 +900,7 @@ function main() returns ExitCode
 	let xs = IntArray.create(0)
 	xs.push(4)
 	let mode = Mode.loud
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	let r = pair(try xs.get(5) otherwise 'missing'
 		if xs.count() > 0 'some'
 			print("some\n")
@@ -942,13 +943,15 @@ n=2
 ```
 
 <!-- test: multi-line-call-match-argument-with-keyword-named-cases -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 A `match` expression written as an argument keeps its own line structure when its arms are cases named by block keywords: `end(m) gives` and `if gives` are arms, not the match's end or a new block.
 ```maxon
 typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(m Num)
 	while (m Num)
 	if
@@ -961,8 +964,10 @@ end 'show'
 
 function main() returns ExitCode
 	let k = Kw.end(2)
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	show(match k 'm'
 		alpha(n) gives "alpha {n}"
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(m) gives "end {m}" while (m) gives "while {m}" if gives "if" omega gives "omega"
 	end 'm',
 		tail: "\n"
@@ -1015,13 +1020,11 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-sizeof -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof(…)` takes a split argument list like a call.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	let n = sizeof(Integer)
 	return n as ExitCode
 end 'main'

@@ -114,7 +114,6 @@ new
 ```
 
 <!-- test: multi-file-struct-param-after-global-branch -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Multi-file version: accessing struct fields inside an untaken if branch must not corrupt function parameters across file boundaries. The exported aliases use names that don't clash with stdlib (which itself exports `ByteArray` from `stdlib/File.maxon`) — bare cross-file references to a name with multiple visible declarations would otherwise raise E3063.
 ```maxon
 // --- file: api/0-Types.maxon

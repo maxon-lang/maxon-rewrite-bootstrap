@@ -107,7 +107,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-first-error -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Two distinct error types; the first call throws, the handler matches.
 ```maxon
 typealias Score = int(0 to 100)
@@ -142,7 +142,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.kaboom then sum = 11
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 22
 		end 'k'
 	end 'h'
@@ -154,7 +156,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-second-error -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Two distinct error types; the second call throws, the handler matches.
 ```maxon
 typealias Score = int(0 to 100)
@@ -189,7 +191,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.kaboom then sum = 11
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 22
 		end 'k'
 	end 'h'
@@ -201,7 +205,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-enum-success-path -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Two distinct error types; no calls throw — otherwise body is skipped.
 ```maxon
 typealias Score = int(0 to 100)
@@ -236,7 +240,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.kaboom then sum = 99
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -296,6 +302,7 @@ error E3084: specs/try-block/error.try-block-no-match.maxon:18:19: otherwise blo
 ```
 
 <!-- test: error.try-block-non-exhaustive-union -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 Non-exhaustive match on an error union must fail with a specific missing-cases list.
 ```maxon
@@ -332,6 +339,7 @@ function main() returns ExitCode
 		x = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.kaboom then x = 1
 		end 'k'
 	end 'h'
@@ -545,7 +553,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-success -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union with one assoc-value member: the assoc member throws,
 the case-binding extracts the payload, and the heap object is freed via the
 per-arm typed-enum binding's scope-end decref. No leak.
@@ -582,7 +590,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -594,7 +604,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-second-error -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union: the simple-enum sibling throws (not the assoc-value
 member). The simple match arm fires, no heap object exists to leak.
 ```maxon
@@ -630,7 +640,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -642,7 +654,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-success-path -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union: no calls throw, otherwise body is skipped. Sanity
 check that the try-block construct doesn't leak when nothing happens.
 ```maxon
@@ -678,7 +690,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -690,7 +704,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-default -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union with a `default panic` arm: the assoc-value member
 throws but the user only covers the simple-enum case. Default fires; pre-default
 cleanup block decrefs the heap pointer (incref-then-decref pair to balance the
@@ -728,6 +742,7 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 			default panic("unhandled error variant")
 		end 'k'
@@ -746,7 +761,7 @@ Stack trace:
 ```
 
 <!-- test: try-block.multi-union-assoc-discard-bindings -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union: assoc-value case matched without payload bindings
 (`EnumName.case` form, no parens). Heap object is still freed via the per-arm
 typed-enum binding's scope-end decref.
@@ -783,7 +798,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad then sum = 77
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -795,7 +812,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-multiple-payloads -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Multi-member error union with an assoc-value member carrying TWO payloads. Both
 bindings extract correctly.
 ```maxon
@@ -833,7 +850,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code, msg) then sum = code + (msg as Score)
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -845,7 +864,7 @@ end 'main'
 ```
 
 <!-- test: try-block.multi-union-assoc-mixed-bindings -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Mix assoc-value and bare patterns of the same enum (different cases) in one
 union match. The discard-binding case still gets its heap object freed.
 ```maxon
@@ -887,8 +906,11 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse then sum = 120
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -900,7 +922,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-multi-union-assoc-wrong-binding-count -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 Wrong binding count on an error-union assoc-value pattern: error E3035 fires.
 ```maxon
@@ -938,7 +960,9 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrB.splat then sum = 99
 		end 'k'
 	end 'h'
@@ -1397,7 +1421,7 @@ end 'main'
 
 
 <!-- test: try-block.union-member-names-join-injectively -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Each handler's `match` resolves its patterns against its OWN block's synthesized error union,
 whatever its member enums are called. A union identified by joining its member names with `_` would
 not be injective — `_` is inside the identifier alphabet, so `{A_B, C}` and `{A, B_C}` spell
@@ -1468,12 +1492,16 @@ function main() returns ExitCode
 			sum = p + q
 		end 'inner' otherwise (f) 'ih'
 			match f 'ik'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				A.zonk then sum = 1
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				B_C.whap then sum = 2
 			end 'ik'
 		end 'ih'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			A_B.kaboom then sum = 11
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			C.splat then sum = 22
 		end 'k'
 	end 'h'
@@ -1513,7 +1541,7 @@ error E2008: <fragment>:14:2: Mismatched end label: expected 'work', got 'job'
 ```
 
 <!-- test: try-block.or-arm-joins-cases-of-two-error-types -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 An arm of a combined error's `match` joins cases with `or`, across error types as well as within one. `ErrA`
 is a union, so its error arrives as a box: the arm naming both types cannot keep it, and releases it on the
 path where `ErrA` is the error in flight — a leak exits 101, a double release faults.
@@ -1552,10 +1580,13 @@ function classify(failA bool, failB bool) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad or
-				ErrB.splat then sum = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+			ErrB.splat then sum = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse or
-				crash then sum = 200
+			crash then sum = 200
 		end 'k'
 	end 'h'
 	return sum
@@ -1578,7 +1609,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-or-arm-within-one-union-member-reads-a-payload-one-alternative-lacks -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 An arm whose alternatives all belong to one error type is held to the ordinary `or`-arm rule: `worse` binds
 nothing at slot 0, so on its path the body would read a `code` no pattern bound, and the arm is refused.
@@ -1619,8 +1650,10 @@ function classify(which Score) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) or
-				ErrA.worse then sum = code + 1
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+			ErrA.worse then sum = code + 1
 			splat then sum = 999
 		end 'k'
 	end 'h'
@@ -1639,7 +1672,7 @@ error E3129: <fragment>:43:13: the payload binding 'code' cannot be honoured: ca
 
 
 <!-- test: try-block.split-arms-within-one-union-member-bind-their-payload -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 Alternatives of one error type that disagree about a payload take an arm each, and the arm that names `bad` binds
 its `code`.
 ```maxon
@@ -1679,7 +1712,9 @@ function classify(which Score) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(code) then sum = code + 1
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse then sum = 1
 			splat then sum = 999
 		end 'k'
@@ -1702,7 +1737,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-or-arm-across-error-types-binds-a-payload -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 An arm naming cases of two error types cannot bind a payload: `ErrB.splat` is an enum ordinal, not a box with a
 slot 0. The refusal names `code`, the binding that reads, rather than the `_` before it.
@@ -1733,8 +1768,10 @@ function main() returns ExitCode
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(_, code) or
-				ErrB.splat then sum = code
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+			ErrB.splat then sum = code
 		end 'k'
 	end 'h'
 	return sum
@@ -1745,7 +1782,7 @@ error E3129: <fragment>:30:16: the payload binding 'code' cannot be honoured: th
 ```
 
 <!-- test: try-block.fallthrough-between-arms-of-a-boxed-error-member -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 `and fallthrough` between arms of a combined error's `match` releases a boxed member's error exactly once on
 every path: out of the arm that named it into an arm naming several types or into a `default throws`, and
 from an arm of another type into the arm that names it. A leak exits 101; a double release, or a release of
@@ -1791,9 +1828,11 @@ function intoSeveral(which Score) returns Score
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad then sum = 1 and fallthrough
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse or
-				splat then sum = sum + 10
+			splat then sum = sum + 10
 			crash then sum = 500
 		end 'k'
 	end 'h'
@@ -1809,9 +1848,11 @@ function intoBoxedArm(which Score) returns Score
 	end 'work' otherwise (e) 'h'
 		match e 'k'
 			splat then sum = 3 and fallthrough
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad then sum = sum + 30
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse or
-				crash then sum = 700
+			crash then sum = 700
 		end 'k'
 	end 'h'
 	return sum
@@ -1829,6 +1870,7 @@ function intoDefault(which Score) returns Score throws Gave
 		sum = a + b
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad then sum = 4 and fallthrough
 			default throws Gave.up
 		end 'k'
@@ -1865,7 +1907,7 @@ end 'main'
 ```
 
 <!-- test: error.try-block-combined-error-matched-again-inside-an-arm-naming-several-types -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match e` inside an arm of the `match e` that already ran is a second match on that path: the arm naming
 several error types released the box as it was entered, so the inner arm would read a released box.
@@ -1906,12 +1948,17 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad or
-				ErrB.splat then said = match e 'inner'
-					ErrA.bad(msg) gives msg
-					ErrA.worse or
-						splat gives "other"
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+			ErrB.splat then said = match e 'inner'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+				ErrA.bad(msg) gives msg
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+				ErrA.worse or
+				splat gives "other"
 				end 'inner'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse then said = "worse"
 		end 'k'
 	end 'h'
@@ -1931,7 +1978,7 @@ error E3161: <fragment>:44:28: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: error.try-block-combined-error-matched-again-inside-a-boxed-member-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A second `match e` inside the arm that keeps one boxed error type's box is refused too, though that arm still
 holds the box: the inner match's arms release boxes of their own.
@@ -1966,12 +2013,15 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad then said = match e 'inner'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) gives "{msg}!"
 				default panic("not bad")
 				end 'inner'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse or
-				splat then said = "other"
+			splat then said = "other"
 		end 'k'
 	end 'h'
 	return said
@@ -1988,7 +2038,7 @@ error E3161: <fragment>:35:25: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: try-block.fallthrough-chain-through-a-boxed-members-payload-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 A chain of `and fallthrough` arms over a combined error, starting at an arm that moves a boxed member's `String`
 payload out, releases that box once on every path, and each later arm's own dispatch edge releases its own.
 ```maxon
@@ -2032,8 +2082,10 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(msg) then said = msg and fallthrough
 			splat then said = "{said}+splat" and fallthrough
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.worse then said = "{said}+worse"
 			crash then said = "crash"
 		end 'k'
@@ -2062,7 +2114,7 @@ sum 11
 ```
 
 <!-- test: error.try-block-combined-error-matched-twice-in-sequence -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 Two `match e` statements in sequence match one combined error twice on one path, and the first already
 released the box.
@@ -2099,10 +2151,12 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		match e 'first'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(msg) then said = msg
 			splat then said = "splat"
 		end 'first'
 		match e 'second'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(msg) then said = "{said}/{msg}"
 			splat then said = "{said}/splat"
 		end 'second'
@@ -2121,7 +2175,7 @@ error E3161: <fragment>:42:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-on-one-path-only -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A combined error matched on only one path through its handler is never released on the other, so the join
 the two paths reach is refused.
@@ -2159,6 +2213,7 @@ function classify(which Score) returns String
 	end 'work' otherwise (e) 'h'
 		if which == 1 'loud'
 			match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) then said = msg
 				splat then said = "splat"
 			end 'k'
@@ -2178,7 +2233,7 @@ error E3161: <fragment>:37:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-inside-a-loop -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match e` inside a loop the handler opened runs once per iteration — never, if the loop does not run, and
 again on a box the first iteration released if it runs twice.
@@ -2213,6 +2268,7 @@ function classify(which Score, tries Score) returns String
 	end 'work' otherwise (e) 'h'
 		for _ in 0 upto tries 'again'
 			match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) then said = "{said}{msg};"
 				splat then said = "{said}splat;"
 			end 'k'
@@ -2231,7 +2287,7 @@ error E3161: <fragment>:34:4: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-returns-before-its-match -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `return` that leaves the handler before its `match e` never releases a boxed error in flight.
 ```maxon
@@ -2267,6 +2323,7 @@ function classify(which Score, quiet bool) returns String
 			return "quiet"
 		end 'early'
 		match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(msg) then said = msg
 			splat then said = "splat"
 		end 'k'
@@ -2284,7 +2341,7 @@ error E3161: <fragment>:34:4: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-breaks-out-before-its-match -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `break` out of a loop around the whole `try` leaves the handler too, and before its `match e` it never releases
 a boxed error in flight.
@@ -2322,6 +2379,7 @@ function main() returns ExitCode
 				break
 			end 'stop'
 			match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) then said = "{said}{msg};"
 				splat then said = "{said}splat;"
 			end 'k'
@@ -2336,7 +2394,7 @@ error E3161: <fragment>:35:5: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: try-block.combined-error-matched-once-after-other-statements -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 A handler over a combined error with a boxed member may do other work before its one `match e` — a nested
 `try` block, an `if` — and may match `e` on each arm of an `if`/`else`, which is one match per path. Every path
 releases the box exactly once: a leak exits 101, a double release faults.
@@ -2393,11 +2451,13 @@ function classify(which Score) returns String
 		end 'innerHandler'
 		if extra == 1 'loud'
 			match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) then said = "{msg}!"
 				splat then said = "splat!"
 			end 'k'
 		end 'loud' else 'soft'
 			match e 'k2'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) then said = "{msg}+{extra}"
 				splat then said = "splat+{extra}"
 			end 'k2'
@@ -2425,7 +2485,7 @@ sum 11
 ```
 
 <!-- test: error.try-block-combined-error-matched-on-the-right-of-and -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match e` on the right of `and` runs only when the left is true, so the path that skips it leaves the handler
 without having matched `e`.
@@ -2459,6 +2519,7 @@ function classify(which Score) returns String
 		said = "sum {a + b}"
 	end 'work' otherwise (e) 'h'
 		let loud = which == 1 and match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad gives true
 			splat gives false
 		end 'k'
@@ -2478,7 +2539,7 @@ error E3161: <fragment>:33:25: 'e' may hold a boxed error, which only the arm of
 ```
 
 <!-- test: error.try-block-combined-error-matched-in-a-while-condition -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match e` in a `while` condition runs on every trip, so a second trip matches a box the first released.
 ```maxon
@@ -2511,6 +2572,7 @@ function classify(which Score) returns Score
 		trips = a + b
 	end 'work' otherwise (e) 'h'
 		while trips < 3 and match e 'k'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			ErrA.bad(msg) gives msg.byteLength() > 0
 			splat gives false
 		end 'k' 'again'
@@ -2530,7 +2592,7 @@ error E3161: <fragment>:33:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-between-two-calls-of-an-inner-try -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 A `match e` between two throwing calls of a `try` block inside the handler is matched on the second call's
 error path and not on the first's, which reach the inner handler together.
@@ -2577,6 +2639,7 @@ function classify(which Score) returns String
 		try 'inner'
 			let first = callC(which)
 			said = match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) gives msg
 				splat gives "splat"
 			end 'k'
@@ -2601,7 +2664,7 @@ error E3161: <fragment>:45:3: 'e' may hold a boxed error, which only the arm of 
 ```
 
 <!-- test: error.try-block-combined-error-matched-in-an-arm-another-arm-falls-from -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- positions: moved -->
 An `and fallthrough` arm reached both from an arm that matched `e` and straight from the dispatch arrives with
 `e` matched on one edge and not on the other.
@@ -2636,6 +2699,7 @@ function classify(which Score) returns String
 	end 'work' otherwise (e) 'h'
 		match which 'w'
 			1 then said = match e 'k'
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				ErrA.bad(msg) gives msg
 				splat gives "splat"
 			end 'k' and fallthrough
@@ -2877,7 +2941,7 @@ end 'main'
 ```
 
 <!-- test: an-error-union-binding-read-after-a-boxed-arm-is-the-flag -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -2911,8 +2975,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then total = text.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		let again = e
@@ -2935,7 +3002,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-inside-a-boxed-arm-is-the-member -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -2969,8 +3036,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then print("in arm {e} {text}\n")
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		let again = e
@@ -2994,7 +3064,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copied-into-a-var-after-a-boxed-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3028,8 +3098,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then total = text.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		var again = e
@@ -3053,7 +3126,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copied-into-a-var-reassigned-on-one-path -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3087,8 +3160,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then total = text.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		var again = e
@@ -3114,7 +3190,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-copies-into-a-var -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3148,8 +3224,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then total = text.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		var again = e
@@ -3173,7 +3252,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-assigned-to-an-outer-var-after-a-boxed-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3208,8 +3287,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) then total = text.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then print("sharp {e}\n")
 		end 'kind'
 		x = e
@@ -3231,7 +3313,7 @@ sharp 2
 ```
 
 <!-- test: an-error-union-binding-given-by-an-arm-after-a-boxed-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3265,8 +3347,11 @@ function probe(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		let got = match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(text) gives text.byteLength()
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat gives 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp gives e as BytePos
 		end 'kind'
 		total = got as Tally
@@ -3287,7 +3372,8 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3327,13 +3413,17 @@ function inArm(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
+			// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 			BoxErr.boxed then total = run(function() gives (n + n + n + n + n + n) * 0 + match e 'outer'
 				boxed(e) gives match e 'inner'
 					"big 9" gives 1 as Tally
 					default gives 2 as Tally
 				end 'inner'
 			end 'outer')
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then total = 7
 		end 'kind'
 	end 'handler'
@@ -3356,7 +3446,8 @@ inArm 1 7 3
 ```
 
 <!-- test: a-closure-in-a-scalar-arm-does-not-see-the-handlers-error-union -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3397,8 +3488,11 @@ function inArm(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed then total = 50
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 			Plain.sharp then total = run(function() gives (n + n) * 0 + match s 'outer'
 				boxed(e) gives match e 'inner'
 					"big 9" gives 1 as Tally
@@ -3426,7 +3520,7 @@ inArm 50 1 3
 ```
 
 <!-- test: a-closure-in-a-boxed-arm-captures-the-member -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3476,8 +3570,11 @@ function captured(n Tally, readers TextArray) returns Tally
 		sink = sink + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed then sink = applyReader(function() gives textOf(e), into: readers)
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then sink = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then sink = 7
 		end 'kind'
 	end 'handler'
@@ -3506,7 +3603,7 @@ captured 5 7 5 2
 ```
 
 <!-- test: a-payload-binding-named-like-the-handlers-error-in-a-boxed-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3540,8 +3637,11 @@ function payloadNamedE(n Tally) returns Tally
 		total = total + fb(n)
 	end 'work' otherwise (e) 'handler'
 		match e 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			BoxErr.boxed(e) then total = e.byteLength() as Tally
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.flat then total = 100
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			Plain.sharp then total = 7
 		end 'kind'
 	end 'handler'

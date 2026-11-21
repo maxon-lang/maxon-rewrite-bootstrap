@@ -566,8 +566,6 @@ error E3207: <fragment>:36:27: 'keep' takes `immutable` 'p'; 'v' is mutable. Fre
 ```
 
 <!-- test: view-binding.error.a-heap-annotated-view-is-refused -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
-<!-- positions: moved -->
 `@heap` places a binding's own record on the heap, and must be followed by `var` or `let`, not `view`.
 
 ```maxon
@@ -582,7 +580,6 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap view b = Box.create(1)
 	print("{b.n}\n")
 	return 0

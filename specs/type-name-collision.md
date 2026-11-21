@@ -243,7 +243,6 @@ error E3006: <fragment>:5:6: duplicate definition of 'Box' — already declared 
 
 
 <!-- test: error.a-struct-of-a-name-a-private-alias-also-holds-is-not-offered-a-cast -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/main.maxon` means the STRUCT `Box`, while `b.maxon` means its own ranged alias by the same spelling. A `Box` struct handed to a ranged parameter is a record meeting a number, which no `as` converts, so the refusal names no cast.
 ```maxon
@@ -284,7 +283,6 @@ error E3005: lib/<fragment>:32:10: argument type mismatch for 's': expected 'Sma
 ```
 
 <!-- test: crossfile-type-and-file-private-typealias-coexist -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Across directories, with an unmarked alias at the root. The struct registry is bare, so if it were
 consulted first `b.maxon`'s own `typealias Box` would be unreachable from `b.maxon` itself: the cast below
 would be rejected with `E3009: Cannot cast from int to struct`, against a `type` declared in a directory it
@@ -367,7 +365,6 @@ error E3006: <fragment>:10:18: duplicate definition of 'Score' — already decla
 
 
 <!-- test: cross-directory-type-and-exported-typealias-coexist -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `type` and an exported `typealias` of one name in two DIRECTORIES coexist: each is named by its directory, so
 no reader has to guess which one a spelling means. `a/score.maxon` sees both too, so it names its own type as
 `Self` rather than by the bare name.
@@ -386,7 +383,7 @@ export typealias Score = int(0 to 10)
 
 // --- file: app/main.maxon
 function total(s a.Score, n b.Score) returns ExitCode
-	return s.v + (n as ExitCode)
+	return try s.v + (n as ExitCode) otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
@@ -452,7 +449,6 @@ b 7 7
 ```
 
 <!-- test: error.a-generic-alias-beside-a-type-of-its-name-refuses-another-alias-of-its-instance -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/` names `Array with Integer` as `Xs` while `shapes/` declares `type Xs`, so `lib/` spells its own alias
 `lib.Xs`. `app/` names the same instance `Ys`: two aliases are two types, so a `Ys` does not reach a parameter
@@ -574,7 +570,7 @@ end 'main'
 ```
 
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
 `extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
@@ -612,6 +608,7 @@ end 'Box'
 
 // --- file: a/ext.maxon
 export extension Seq
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
 	export function all() returns Items
 		var result = Items{}
@@ -622,6 +619,7 @@ end 'Seq'
 
 // --- file: b/ext.maxon
 export extension Seq
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	export typealias Items = Array with Item
 	export function twice() returns Items
 		var result = Items{}
@@ -1716,7 +1714,6 @@ end 'main'
 
 
 <!-- test: array-literal-of-unrelated-type-onto-declared-type -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The sharpest one: the literal is of `Bar`, and `Array with Foo` is interned anyway. A local's type is
 invisible to the token sweep, so a `[<identifier>…]` literal anywhere in a file over-interns
 `Array with T` for **every** declared struct and union in the program — the parser then reads back
@@ -1752,11 +1749,10 @@ type Array_Foo
 end 'Array_Foo'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Foo)
 	let xs = [Bar.create(1), Bar.create(2)]
 	let m = Array_Foo.create(7)
-	return ((xs.count() as Num) + m.tag) as ExitCode
+	return try ((xs.count() as Num) + m.tag) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2474,7 +2470,6 @@ end 'main'
 
 
 <!-- test: crossfile-return-type-is-the-declaring-files-meaning -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **A CALLEE'S RETURN TYPE IS A SLOT OF THE FILE THAT DECLARED IT, NEVER OF THE FILE CALLING IT** —
 the shape neither of the coexistence cases above reaches, and the one where getting it wrong is SILENT.
 `a.maxon` means an unmarked root `int(0 to 5)` by `Widget` and `lib/b.maxon` an unmarked `type` of the same name;
@@ -2528,7 +2523,6 @@ end 'main'
 
 
 <!-- test: crossfile-return-type-through-two-alias-forms -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same rule through the arm that has no nominal declaration in it at all — a RANGED alias in one file
 against a TUPLE alias in another. It is a different code path (a tuple alias resolves to the tuple's own
 `structRef`, not to a declared `type`), so narrowing only the nominal side of the cascade leaves it open:
@@ -2712,7 +2706,6 @@ end 'main'
 
 
 <!-- test: crossfile-return-type-that-is-an-enum-in-its-own-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **A COEXISTING NAME WHOSE DECLARING FILE MEANS AN `enum`, IN A RETURN TYPE.** Nothing in the suite put
 this shape in front of the code: an enum and a union are the two kinds that stay a bare `named` through
 resolution (`resolveNamedStruct` normalizes a struct, `resolveNamedAlias` the function/generic/tuple forms,
@@ -2758,7 +2751,6 @@ end 'main'
 
 
 <!-- test: crossfile-return-type-that-is-a-boxed-union-in-its-own-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE SILENT ONE: a BOXED union crossing a file boundary as a returned TEMPORARY.** `holds(s String)`
 gives the union a heap box, so the caller adopts the result and drops it once. Erase the type at the
 crossing and the box is never enrolled — no diagnostic, no output, **exit 139** — which is why this case
@@ -2806,7 +2798,6 @@ end 'main'
 
 
 <!-- test: crossfile-float-alias-against-a-nominal-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A FLOAT ranged alias in the contest. `resolveFloatAliasType` reaches the ranged registry through
 `aliasOf`, which is reader-aware about the RANGE and must be about the KIND too — otherwise `lib/b.maxon`'s
 own `returns Level` would be resolved against `a.maxon`'s float alias, and the refusal would land
@@ -2847,7 +2838,6 @@ end 'main'
 
 
 <!-- test: crossfile-indirect-call-through-a-contested-returning-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An INDIRECT call through a function-alias value whose return type is a coexisting name. The result's type
 is a slot of the file that declared the ALIAS, not of the file making the call — and `lib/c.maxon` below
 declares neither `Token` nor `Cb`, so a call scoped by the caller resolved `Token` to `lib/b.maxon`'s struct
@@ -2900,7 +2890,6 @@ end 'main'
 
 
 <!-- test: crossfile-boxed-union-temporary-is-discarded-by-a-stranger -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE SILENT SHAPE, AND THE ONE THE LOUD UNION CASE ABOVE CANNOT REACH.** `lib/main.maxon` declares
 NEITHER claimant and mentions `Container` only in `relay`'s signature — a function nothing calls — so the
 boxed union arrives as a DISCARDED owned temporary and every check that would have refused it is bypassed.
@@ -3160,7 +3149,6 @@ error E3092: ranks/<fragment>:3:18: exported typealias 'Score' is never referenc
 ```
 
 <!-- test: a-qualified-ranged-field-beside-a-nominal-of-its-name-is-one-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `lib/` exports `typealias Count` and `shapes/` exports `type Count`, and the library declares a `Count` of
 its own. `Tally`'s field is declared `lib.Count`, and its body stores and compares a `lib.Count` it builds
 itself: the field's type and the body's are one declaration, so the store and the comparison take it, and
@@ -3190,7 +3178,7 @@ type Tally
 		return Self{x: 7}
 	end 'create'
 
-	function raise() returns bool
+	function raise(mutates self) returns bool
 		let limit = ceiling()
 		self.x = limit
 		return self.x == limit
@@ -3202,7 +3190,7 @@ type Tally
 end 'Tally'
 
 function main() returns ExitCode
-	let t = Tally.create()
+	var t = Tally.create()
 	let before = t.value()
 	let same = t.raise()
 	print("{before} {t.value()} {same}")
@@ -3746,7 +3734,6 @@ end 'main'
 ```
 
 <!-- test: error.a-bare-name-two-directories-export-is-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/` and `b/` each export a `Box`, and `app/main.maxon` sees both: a bare `Box` could mean either, so it is
 E3063 at the name and lists both qualified spellings.
@@ -3894,6 +3881,7 @@ b missing
 
 <!-- test: error.extension-alias-pair-compiling-to-one-name -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ The same non-injective `_` join as `error.two-instantiations-compile-to-one-name`, reached through the
 door that case cannot reach: a `typealias` declared INSIDE an `extension`, minted once per conforming
@@ -3961,6 +3949,7 @@ end 'Duo'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Duo
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Both = Pair with (K, V)
 	function packedSecond() returns Num
 		let p = Both.make(first(), y: second())
@@ -4006,7 +3995,6 @@ error E3006: <fragment>:53:12: duplicate definition of 'Pair_A_B_C' — the gene
 ```
 
 <!-- test: a-throws-clause-beside-the-librarys-type-names-the-authors -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `ParseError` exported beside the library's: a bare `throws ParseError` in a third file names the
 user's enum, because a library declaration never takes part in ambiguity. Only the user's has `malformed`.
 ```maxon
@@ -4047,8 +4035,6 @@ error E3008: <fragment>:2:52: type 'ParentComponentRule' is not exported
 ```
 
 <!-- test: an-implemented-interface-beside-the-librarys-names-the-authors -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 A user `Parsable` exported beside the library's: a bare `implements Parsable` in a third file names the
 user's interface, whose one requirement `Doc` meets.
 ```maxon
@@ -4065,7 +4051,6 @@ type Doc implements Parsable
 end 'Doc'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Doc)
 	return 0
 end 'main'
@@ -4075,7 +4060,6 @@ end 'main'
 ```
 
 <!-- test: a-constraint-interface-beside-the-librarys-names-the-authors -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair named by a `where` constraint.
 ```maxon
 // --- file: lib/parsable.maxon
@@ -4107,7 +4091,6 @@ end 'main'
 ```
 
 <!-- test: a-parent-interface-beside-the-librarys-names-the-authors -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair named by an `extends` clause.
 ```maxon
 // --- file: lib/parsable.maxon
@@ -4513,7 +4496,6 @@ error E3008: <fragment>:7:52: type 'OverlayModuleProtocol' is not exported
 ```
 
 <!-- test: error.a-hidden-qualified-construction-head-is-refused-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked typealias named through its directory as the head of a top-level `from` construction: the qualified spelling reaches the declaration without making it visible.
 ```maxon
 // --- file: lib/codes.maxon
@@ -4536,7 +4518,6 @@ error E3008: app/<fragment>:11:9: typealias 'lib.Codes' is not exported
 ```
 
 <!-- test: a-literal-init-head-beside-the-librarys-builds-the-authors-type-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a `FilePath` that initializes from a string literal beside the library's; a top-level
 `FilePath from "x"` in another directory builds the user's type, the one with a `text` field.
 ```maxon
@@ -4588,7 +4569,6 @@ error E3008: <fragment>:11:9: type 'OverlayPrivateTag' is not exported
 ```
 
 <!-- test: an-enum-case-beside-the-librarys-type-names-the-authors-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a `ParseError` beside the library's; a top-level constant naming one of its cases in another
 directory names the user's enum, the one with `malformed`.
 ```maxon
@@ -4641,7 +4621,6 @@ end 'main'
 ```
 
 <!-- test: an-exported-enum-named-like-a-library-alias-is-read-in-a-constant -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same constant in another directory. The library's `CivilMonth` takes no part in ambiguity, so the bare
 name means `lib/`'s exported enum.
 ```maxon
@@ -4692,7 +4671,6 @@ error E3008: <fragment>:8:9: type 'OverlayPrivateMode' is not exported
 ```
 
 <!-- test: a-union-case-construction-beside-the-librarys-type-names-the-authors-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a union `ParseError` beside the library's enum; a top-level construction of one of its cases
 in another directory builds the user's union.
 ```maxon
@@ -4736,7 +4714,6 @@ error E3008: <fragment>:8:9: type 'OverlayPrivateOp' is not exported
 ```
 
 <!-- test: a-payload-free-union-case-beside-the-librarys-type-names-the-authors-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The payload-free case of a payload-carrying union is a box rather than a tag, and its type name is judged like
 every other position's: beside the library's declaration it names the user's union.
 ```maxon
@@ -4780,7 +4757,6 @@ error E3008: <fragment>:8:9: type 'OverlayPrivateOp' is not exported
 ```
 
 <!-- test: a-factory-type-beside-the-librarys-names-the-authors -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a `FilePath` with a `create()` factory beside the library's; a `FilePath.create()`
 in another directory calls the user's factory.
 ```maxon
@@ -4827,7 +4803,6 @@ error E3008: <fragment>:11:9: type 'OverlayPrivateThing' is not exported
 ```
 
 <!-- test: error.an-unmarked-type-named-through-its-directory-in-a-signature-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked type written through its directory in a parameter and a return type, from outside that directory: the
 qualified spelling reaches the declaration without making it visible.
 ```maxon
@@ -4855,7 +4830,6 @@ error E3008: a/<fragment>:12:34: type 'b.Thing' is not exported
 ```
 
 <!-- test: error.an-unmarked-type-named-through-its-directory-as-a-call-base-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked type written through its directory as the base of a static call, from another directory.
 ```maxon
 // --- file: b/thing.maxon
@@ -4875,7 +4849,6 @@ error E3008: a/<fragment>:11:9: type 'b.Thing' is not exported
 ```
 
 <!-- test: error.an-unmarked-type-named-through-its-directory-is-refused-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked type written through its directory as a top-level factory head, from outside that directory.
 ```maxon
 // --- file: b/thing.maxon
@@ -4899,7 +4872,6 @@ error E3008: a/<fragment>:12:9: type 'b.Thing' is not exported
 ```
 
 <!-- test: error.an-unmarked-type-named-bare-outside-its-subtree-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The bare name is held to the same tier as the qualified one.
 ```maxon
 // --- file: b/thing.maxon
@@ -4926,7 +4898,6 @@ error E3008: a/<fragment>:12:32: type 'Thing' is not exported
 ```
 
 <!-- test: an-unmarked-type-named-through-its-directory-is-reachable-from-a-subdirectory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Inside the declaring directory's subtree the qualified spelling of an unmarked type reaches it.
 ```maxon
 // --- file: b/thing.maxon
@@ -4950,7 +4921,6 @@ end 'main'
 ```
 
 <!-- test: a-directory-qualified-alias-is-a-top-level-cast-target -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two directories export a `Score`; a top-level constant casts to each through its directory, which is the spelling
 E3063 prescribes.
 ```maxon
@@ -4975,7 +4945,6 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-cast-to-a-directory-qualified-alias-checks-its-range -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The qualified cast target is that declaration's range, not the other directory's.
 ```maxon
@@ -5000,7 +4969,6 @@ error E3005: app/<fragment>:10:12: Value 70 is outside the range of 'legacy.Scor
 ```
 
 <!-- test: error.a-hidden-directory-qualified-alias-is-refused-as-a-top-level-cast-target -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked typealias named through its directory as a top-level cast target, from another directory.
 ```maxon
 // --- file: lib/score.maxon
@@ -5023,7 +4991,6 @@ error E3008: app/<fragment>:11:14: typealias 'lib.Score' is not exported
 ```
 
 <!-- test: error.a-member-beside-the-librarys-enum-is-refused-on-the-authors-alias-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a typealias `Ordering` beside the library's enum. The bare name means the author's int alias,
 because the library takes no part in ambiguity, and a ranged alias declares no members, so
 a top-level read of the enum's case `Ordering.lessThan` is refused.
@@ -5043,7 +5010,6 @@ error E2073: app/<fragment>:6:18: 'Ordering' is a ranged alias and has no member
 ```
 
 <!-- test: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A directory exports a typealias `LogValue` beside the library's union. The bare name means the author's int alias,
 because the library takes no part in ambiguity, and a ranged alias declares no members, so
@@ -5063,7 +5029,6 @@ error E3004: app/<fragment>:7:19: call to undefined function 'LogValue.boolean'
 ```
 
 <!-- test: error.a-member-beside-the-librarys-union-is-refused-on-the-authors-alias-in-a-function-body -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same construction in a function body.
 ```maxon
 // --- file: lib/value.maxon
@@ -5080,7 +5045,6 @@ error E3004: app/<fragment>:7:19: call to undefined function 'LogValue.boolean'
 ```
 
 <!-- test: error.a-member-beside-the-librarys-payload-carrying-union-is-refused-on-the-authors-alias-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory exports a typealias `StatusCode` beside the library's payload-carrying union. The bare name means the author's int alias,
 because the library takes no part in ambiguity, and a ranged alias declares no members, so
 a top-level read of the payload-free case `StatusCode.ok` is refused.
@@ -5100,7 +5064,6 @@ error E2073: app/<fragment>:6:20: 'StatusCode' is a ranged alias and has no memb
 ```
 
 <!-- test: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A directory exports a typealias `Console` beside the library's type. The bare name means the author's int alias,
 because the library takes no part in ambiguity, and a ranged alias declares no members, so
@@ -5120,7 +5083,6 @@ error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
 ```
 
 <!-- test: error.a-member-beside-the-librarys-type-is-refused-on-the-authors-alias-in-a-function-body -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same call in a function body.
 ```maxon
 // --- file: lib/console.maxon
@@ -5228,7 +5190,6 @@ error E3016: <fragment>:10:6: Partial interface implementation: type 'Bytes' has
 ```
 
 <!-- test: a-field-named-like-a-contested-type-keeps-its-spelling-and-a-parameter-type-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `a/` and `b/` each export a `type Box`, and a type in `a/` has a field spelled `Box`. A parameter's type `Box` is
 a reference to the directory's declaration; the field's name is not, so the declaration, the struct literal's `Box:`
 label and `holder.Box` in another directory all spell it as written.
@@ -5276,7 +5237,7 @@ end 'main'
 ```
 
 <!-- test: a-panic-in-a-contested-types-method-names-the-type-by-its-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `a/` and `b/` each export a `type Box`, and `a/`'s `explode` panics. The stack trace names the frame through the
 directory that declares the type, `a.Box.explode`, as an author writes it, and never through the compiler's own
 spelling of the contested name.

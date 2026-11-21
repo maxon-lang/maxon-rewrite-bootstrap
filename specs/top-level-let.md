@@ -361,7 +361,6 @@ error E2012: <fragment>:3:5: Circular dependency detected among global constants
 ```
 
 <!-- test: export-let-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Exported constants are visible from other files.
 ```maxon
 // --- file: api/constants.maxon
@@ -379,7 +378,6 @@ end 'main'
 ```
 
 <!-- test: file-private-same-name-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked (non-exported) top-level `let` is scoped to its declaring directory, so files in two directories may declare the same bare name with different values. Each file's reads resolve to its OWN directory's constant.
 ```maxon
 // --- file: featA/a.maxon
@@ -900,7 +898,6 @@ error E3220: <fragment>:15:13: the initializer of 'mixed' calls 'Pair.create': a
 ```
 
 <!-- test: an-unstated-tuple-constant-declared-in-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A constant whose tuple type no file writes is built by the module init whichever file declares it and whichever
 file reads it, and a second file's own constant of the same type shares the layout.
 ```maxon
@@ -991,7 +988,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-constant-in-initializer -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A top-level `let` initializer may reference an exported constant from another file. The declaring
 file here is fed to the compiler LAST, after the file that reads it — resolution is by declaration,
 not by the order the files happen to arrive, so the reference resolves either way.
@@ -1011,7 +1007,6 @@ export let BASE = 21
 ```
 
 <!-- test: cross-file-constant-in-initializer-declared-first -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same program with the declaring file fed FIRST. Both orders must produce the same executable.
 ```maxon
 // --- file: api/base.maxon
@@ -1029,7 +1024,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-constant-chain -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A cross-file constant chain folds transitively, in either direction, regardless of which file
 declares which link.
 ```maxon
@@ -1051,7 +1045,6 @@ let ROOT = 10
 ```
 
 <!-- test: error.circular-dependency-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A cycle among top-level constants is reported as a circular dependency even when the cycle spans
 files.
 
@@ -1075,7 +1068,6 @@ error E2012: app/<fragment>:3:12: Circular dependency detected among global cons
 ```
 
 <!-- test: error.file-private-constant-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked top-level `let` is not a constant another directory may read, so a reference to one
 from another directory's constant initializer is undefined — the whole-program view the
 compiler takes of constant DECLARATIONS does not widen their VISIBILITY.
@@ -1099,7 +1091,6 @@ error E2004: app/specs/top-level-let/error.file-private-constant-cross-file.maxo
 ```
 
 <!-- test: error.file-private-constant-read-in-a-body-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/secret.maxon
 let SECRET = 5
@@ -1119,7 +1110,6 @@ error E2004: app/<fragment>:11:13: Undefined variable 'SECRET'
 ```
 
 <!-- test: cross-file-exported-reads-own-private-declared-last -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An exported constant whose initializer reads a constant UNEXPORTED from its own directory resolves
 to the right value from another directory — because it is folded in ITS declarer's perspective, where
 that constant is visible, not in the demander's. The declaring file is fed LAST here; it must give
@@ -1142,7 +1132,6 @@ export let BASE = SECRET + 1
 ```
 
 <!-- test: cross-file-exported-reads-own-private-declared-first -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same program with the declaring file fed FIRST. Both orders must produce the same executable —
 this is the order-independence the residual fix closes.
 ```maxon
@@ -1163,7 +1152,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-exported-cast-to-own-alias-declared-last -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An exported constant whose initializer casts to a ranged `typealias` of its own declaring file folds in
 the declarer's perspective, resolving that file's alias — the cast type is looked up as the declarer
 would see it, not the demander. The alias is `export` because a constant's type may not be less visible
@@ -1186,7 +1174,6 @@ export let BASE = 21 as Small
 ```
 
 <!-- test: cross-file-exported-cast-to-own-alias-declared-first -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same program with the declaring file fed FIRST — the same executable either way.
 ```maxon
 // --- file: api/base.maxon
@@ -1206,7 +1193,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-private-constant-name-collision -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two directories each declare an UNMARKED constant of the same name with different values, each read through
 an exported constant. The exported constants must fold against their OWN directory's constant — proving
 the fold memo keys by declaration identity, not by bare name. A name-keyed memo would serve the
@@ -1492,7 +1478,7 @@ type Registry
 end 'Registry'
 
 function main() returns ExitCode
-	return Registry.value() as ExitCode
+	return try Registry.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1737,7 +1723,6 @@ error E2010: <fragment>:10:7: Expected '=' but got ':'
 ```
 
 <!-- test: error.a-failed-file-beside-a-same-named-function-reports-the-healthy-files-argument-mistake -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The file that fails to parse declares a `helper`; a healthy file in another directory declares its own and
 calls it with the wrong argument. The mistake is in the healthy declaration's call, so it is reported
 beside the parse error.
@@ -1768,7 +1753,6 @@ error E3005: b/<fragment>:18:15: argument type mismatch for 'n': expected 'b.Dig
 ```
 
 <!-- test: error.a-failed-file-beside-a-same-named-private-function-reports-the-healthy-declarations-refusal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The file that fails to parse declares an unmarked `helper`, which no other directory can name. A healthy file calls
 a `helper` that a healthy file in another directory keeps unexported: that refusal is the healthy declaration's, so it is
 reported beside the parse error.
@@ -1795,7 +1779,6 @@ error E3004: b/<fragment>:15:9: call to undefined function 'helper'
 ```
 
 <!-- test: error.a-failed-file-beside-a-same-named-type-reports-the-healthy-files-mistake -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The file that fails to parse declares a typealias `Shape` that only it can name; a healthy file declares a
 type of that name and calls a member it does not have. The call is the healthy type's mistake, so it is
 reported beside the parse error.
@@ -1828,7 +1811,6 @@ error E3004: b/<fragment>:20:15: call to undefined function 'Shape.nothere'
 
 <!-- test: error.a-failed-file-leaves-a-healthy-callers-ownership-unjudged -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The file that fails to parse declares `pick`, which hands back a record. A healthy file binds a `let` to
 `pick`'s result while it also writes the record it handed `pick`. Nothing is known of what a refused
@@ -1865,7 +1847,6 @@ error E2001: a/<fragment>:14:1: Expected function declaration, got 'end'
 
 <!-- test: error.a-failed-file-leaves-a-healthy-callers-function-argument-unjudged -->
 <!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A healthy file passes the result of a refused declaration, called with a record it still writes, to a
 function-typed parameter. What a refused declaration returns is unknown, so the pass is not judged: only the parse
@@ -3248,7 +3229,7 @@ error E3005: <fragment>:11:9: argument type mismatch for 'n': expected 'Small', 
 ```
 
 <!-- test: error.a-match-expression-in-a-call-argument-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `tag`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3261,6 +3242,7 @@ function tag(text String, tail String) returns String
 	return "{text}{tail}"
 end 'tag'
 
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let LABEL = tag(match Mode.loud 'm'
 	quiet gives "quiet"
 	loud gives "loud"
@@ -3278,13 +3260,14 @@ error E3220: <fragment>:11:13: the initializer of 'LABEL' calls 'tag': a module-
 ```
 
 <!-- test: a-match-expression-in-a-parenthesised-group-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ```maxon
 enum Mode
 	quiet
 	loud
 end 'Mode'
 
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let LABEL = (match Mode.loud 'm'
 	quiet gives "quiet"
 	loud gives "loud"
@@ -3305,12 +3288,14 @@ loud next
 ```
 
 <!-- test: a-match-expression-in-an-array-element-ends-a-top-level-let-at-its-own-line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 ```maxon
 enum Mode
 	quiet
 	loud
 end 'Mode'
 
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let LABELS = [match Mode.loud 'm'
 	quiet gives "quiet"
 	loud gives "loud"
@@ -3336,7 +3321,7 @@ next
 ```
 
 <!-- test: error.a-handler-block-otherwise-in-a-call-argument-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `parse`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3355,6 +3340,7 @@ function tag(n Count, tail String) returns String
 	return "{n}{tail}"
 end 'tag'
 
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let LABEL = tag(try parse(3) otherwise 'bad'
 	print("recovering\n")
 	panic("unreachable")
@@ -4033,7 +4019,7 @@ error E3004: <fragment>:27:14: call to undefined function 'Bar.missing'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-method-miss-on-a-list-not-built-from-the-extended-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4050,6 +4036,7 @@ type Box
 end 'Box'
 
 extension Box
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
 	function all() returns Items
 		return Items.create()
@@ -4068,7 +4055,7 @@ error E4006: <fragment>:24:5: Type 'List' has no method named 'pushh'
 ```
 
 <!-- test: error.a-refused-extension-keeps-a-missing-static-method-whose-argument-came-from-the-refused-producer -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/token.maxon
@@ -4093,6 +4080,7 @@ type Box
 end 'Box'
 
 extension Box
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Items = Array with Digit
 	function all() returns Items
 		return Items.create()
@@ -4835,15 +4823,19 @@ error E3004: <fragment>:10:9: call to undefined function 'nothere'
 ```
 
 <!-- test: error.constants-initialized-by-a-match-are-each-refused -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- positions: moved -->
 A `match` expression is not a constant expression, so a constant whose initializer holds one is refused, and every such constant in the file is reported, the second as well as the first.
 
 ```maxon
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let first = (match 2 'pickFirst'
 	1 gives 10
 	2 gives 20
 	default gives 0
 end 'pickFirst')
 
+// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 let second = (match 3 'pickSecond'
 	1 gives 11
 	3 gives 33
@@ -4861,7 +4853,6 @@ error E2045: <fragment>:8:14: Global initializer for 'second' is not a constant 
 ```
 
 <!-- test: error.a-constant-refused-for-an-unknown-type-leaves-another-files-use-of-it-unreported -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A constant whose initializer names a type that does not exist is refused where it is written. Another file's
 read of it is that refusal's consequence, and is no second error.
 ```maxon

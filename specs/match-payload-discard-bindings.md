@@ -80,12 +80,14 @@ error E3081: specs/match-payload-discard-bindings/error.all-discard-in-a-gives-a
 ```
 
 <!-- test: error.all-discard-on-a-keyword-named-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
+<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 union Kw
 	alpha(n Integer)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(a Integer, b Integer)
 end 'Kw'
 
@@ -93,6 +95,7 @@ function main() returns ExitCode
 	let k = Kw.end(1, b: 2)
 	match k 'check'
 		alpha(n) then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(_, _) then return 0
 	end 'check'
 end 'main'

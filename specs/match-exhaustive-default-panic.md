@@ -130,7 +130,6 @@ end 'main'
 ```
 
 <!-- test: default-panic.enum-range-statement -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -145,8 +144,8 @@ function main() returns ExitCode
 	let op = Op.sub
 	match op 'check'
 		add or
-			sub or
-			mul then return 1
+		sub or
+		mul then return 1
 		default panic("unexpected op")
 	end 'check'
 end 'main'
@@ -156,7 +155,6 @@ end 'main'
 ```
 
 <!-- test: default-panic.enum-range-expression -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -171,7 +169,7 @@ function main() returns ExitCode
 	let op = Op.mul
 	let result = match op 'eval'
 		add or
-			sub gives 1
+		sub gives 1
 		mul gives 2
 		default panic("unexpected op")
 	end 'eval'

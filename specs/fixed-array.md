@@ -133,32 +133,28 @@ end 'loop'
 ## Tests
 
 <!-- test: create-zero-initialized -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
 	let v = Vec3.create()
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
 0
 ```
 <!-- test: count -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
 	let v = Vec4.create()
-	return v.count()
+	return try v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -166,39 +162,35 @@ end 'main'
 ```
 
 <!-- test: set-and-get -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 42)
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
 42
 ```
 <!-- test: set-all-elements -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 10)
 	v.set(1, value: 20)
 	v.set(2, value: 30)
 	let a = v.get(0)
 	let b = v.get(1)
 	let c = v.get(2)
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -206,12 +198,10 @@ end 'main'
 ```
 
 <!-- test: get-out-of-bounds -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Reading at an index beyond the fixed size that is only known at run time throws ArrayError.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -219,7 +209,7 @@ function runtimeIndex(i ElementIndex) returns ElementIndex
 end 'runtimeIndex'
 
 function main() returns ExitCode
-	let v = Vec2.create()
+	var v = Vec2.create()
 	v.set(0, value: 10)
 	let result = try v.get(runtimeIndex(5)) otherwise -1
 	print("{result}\n")
@@ -231,13 +221,11 @@ end 'main'
 ```
 
 <!-- test: error.get-at-a-constant-index-past-the-size-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A constant index beyond the fixed size is refused at compile time.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Int
 
 function main() returns ExitCode
@@ -252,12 +240,10 @@ error E3005: <fragment>:7:21: Value 5 is outside the range of the indices of 'Fi
 ```
 
 <!-- test: set-out-of-bounds-throws -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Writing at an index beyond the fixed size that is only known at run time throws ArrayError.indexOutOfBounds.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -265,12 +251,12 @@ function runtimeIndex(i ElementIndex) returns ElementIndex
 end 'runtimeIndex'
 
 function main() returns ExitCode
-	let v = Vec2.create()
+	var v = Vec2.create()
 	v.set(0, value: 10)
 	try v.set(runtimeIndex(5), value: 99) otherwise 'oob'
 		return 7
 	end 'oob'
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -278,13 +264,11 @@ end 'main'
 ```
 
 <!-- test: error.set-at-a-constant-index-past-the-size-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A constant index beyond the fixed size is refused at compile time for a write too.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Int
 
 function main() returns ExitCode
@@ -298,17 +282,15 @@ error E3005: <fragment>:7:8: Value 5 is outside the range of the indices of 'Fix
 ```
 
 <!-- test: single-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec1 = FixedArray with 1 Int
 
 function main() returns ExitCode
-	let v = Vec1.create()
+	var v = Vec1.create()
 	v.set(0, value: 77)
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -316,15 +298,13 @@ end 'main'
 ```
 
 <!-- test: larger-fixed-array -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec10 = FixedArray with 10 Int
 
 function main() returns ExitCode
-	let v = Vec10.create()
+	var v = Vec10.create()
 	var i = 0 as Int
 	while i < 10 'fill'
 		try v.set(i as ElementIndex, value: i * 10) otherwise panic("test invariant: set OOB")
@@ -332,7 +312,7 @@ function main() returns ExitCode
 	end 'fill'
 	let first = v.get(0)
 	let last = v.get(9)
-	return first + last
+	return try first + last otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -340,16 +320,14 @@ end 'main'
 ```
 
 <!-- test: count-single -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec1 = FixedArray with 1 Int
 
 function main() returns ExitCode
 	let v = Vec1.create()
-	return v.count()
+	return try v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -357,18 +335,16 @@ end 'main'
 ```
 
 <!-- test: overwrite-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(1, value: 10)
 	v.set(1, value: 42)
-	return v.get(1)
+	return try v.get(1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -376,20 +352,18 @@ end 'main'
 ```
 
 <!-- test: float-fixed-array -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Float = float(f64.min to f64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2F = FixedArray with 2 Float
 
 function main() returns ExitCode
-	let v = Vec2F.create()
+	var v = Vec2F.create()
 	v.set(0, value: 2.5)
 	v.set(1, value: 3.5)
 	let a = v.get(0)
 	let b = v.get(1)
-	return trunc(a + b)
+	return try trunc(a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -397,16 +371,14 @@ end 'main'
 ```
 
 <!-- test: byte-fixed-array -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 
 typealias Byte = int(0 to u8.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias ByteVec4 = FixedArray with 4 Byte
 
 function main() returns ExitCode
-	let v = ByteVec4.create()
+	var v = ByteVec4.create()
 	v.set(0, value: 10)
 	v.set(1, value: 20)
 	v.set(2, value: 30)
@@ -421,27 +393,25 @@ end 'main'
 ```
 
 <!-- test: pass-to-function -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Integer
 
 function sum(v Vec3) returns Integer
 	let a = v.get(0)
 	let b = v.get(1)
 	let c = v.get(2)
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 10)
 	v.set(1, value: 20)
 	v.set(2, value: 12)
-	return sum(v)
+	return try sum(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -449,16 +419,14 @@ end 'main'
 ```
 
 <!-- test: return-from-function -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Integer
 
 function makeVec(a Integer, b Integer) returns Vec2
-	let v = Vec2.create()
+	var v = Vec2.create()
 	v.set(0, value: a)
 	v.set(1, value: b)
 	return v
@@ -468,7 +436,7 @@ function main() returns ExitCode
 	let v = makeVec(30, b: 12)
 	let a = v.get(0)
 	let b = v.get(1)
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -476,24 +444,22 @@ end 'main'
 ```
 
 <!-- test: iterate -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(0, value: 1)
 	v.set(1, value: 2)
 	v.set(2, value: 3)
 	v.set(3, value: 4)
 	var sum = 0 as Int
 	for elem in v 'loop'
-		sum = sum + elem
+		sum = try sum + elem otherwise panic("out of range")
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -501,15 +467,13 @@ end 'main'
 ```
 
 <!-- test: let-fixed-array-read -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function makeVec() returns Vec3
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 10)
 	v.set(1, value: 20)
 	v.set(2, value: 12)
@@ -521,7 +485,7 @@ function main() returns ExitCode
 	let a = v.get(0)
 	let b = v.get(1)
 	let c = v.get(2)
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -529,10 +493,8 @@ end 'main'
 ```
 
 <!-- test: from-array-literal -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	return v.get(0)
 end 'main'
@@ -542,10 +504,8 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-sum -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(0)
 	let b = v.get(1)
@@ -558,14 +518,12 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-float -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1.5, 2.5]
 	let a = v.get(0)
 	let b = v.get(1)
-	return trunc(a + b)
+	return try trunc(a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -573,16 +531,14 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-iterate -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1, 2, 3, 4]
 	var sum = 0 as FullRangeInt
 	for elem in v 'loop'
-		sum = sum + elem
+		sum = try sum + elem otherwise panic("out of range")
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -590,10 +546,8 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-single -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [99]
 	return v.get(0)
 end 'main'
@@ -603,28 +557,26 @@ end 'main'
 ```
 
 <!-- test: from-literal-typealias-compatible -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The inferred type from a literal is compatible with a typealias of the same element type and size.
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Integer
 
 function sum(v Vec3) returns Integer
 	let a = v.get(0)
 	let b = v.get(1)
 	let c = v.get(2)
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 10)
 	v.set(1, value: 20)
 	v.set(2, value: 12)
-	return sum(v)
+	return try sum(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -632,15 +584,13 @@ end 'main'
 ```
 
 <!-- test: accumulate-sum -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
 function main() returns ExitCode
-	let v = Vec5.create()
+	var v = Vec5.create()
 	v.set(0, value: 1)
 	v.set(1, value: 2)
 	v.set(2, value: 3)
@@ -649,10 +599,10 @@ function main() returns ExitCode
 	var sum = 0 as Int
 	var i = 0 as Count
 	while i < v.count() 'loop'
-		sum = sum + (try v.get(i) otherwise 0)
+		sum = try sum + (try v.get(i) otherwise 0) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -660,13 +610,11 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-cross-byte -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Bits16 = FixedArray with 16 bool
 
 function main() returns ExitCode
-	let v = Bits16.create()
+	var v = Bits16.create()
 	v.set(0, value: true)
 	v.set(3, value: true)
 	v.set(8, value: true)
@@ -676,11 +624,11 @@ function main() returns ExitCode
 	while i < v.count() 'scan'
 		let bit = try v.get(i) otherwise false
 		if bit 'isSet'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'isSet'
 		i = i + 1
 	end 'scan'
-	return count
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -688,13 +636,11 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-overwrite-clear -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Bits8 = FixedArray with 8 bool
 
 function main() returns ExitCode
-	let v = Bits8.create()
+	var v = Bits8.create()
 	v.set(2, value: true)
 	v.set(5, value: true)
 	v.set(2, value: false)
@@ -715,18 +661,16 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-from-literal -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [true, false, true, true, false, true, false, false, true]
 	var count = 0 as FullRangeInt
 	for bit in v 'each'
 		if bit 'isSet'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'isSet'
 	end 'each'
-	return count
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -739,17 +683,14 @@ A `FixedArray with 3 Int` and a `FixedArray with 4 Int` are two types, wherever 
 declared alias, a field of a generic type, or a synthesized instance nothing has named.
 
 <!-- test: capacity-is-part-of-instance-identity -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The size is part of the type, so a generic type's capacity-4 field must keep that capacity
 rather than adopting a declared `FixedArray with 3` alias that happens to share its element type.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -775,14 +716,12 @@ end 'main'
 ```
 
 <!-- test: distinct-capacities-are-distinct-instances -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Two generic types whose fields differ only in capacity must not collapse onto one instance,
 even when nothing in the project declares a name for either.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder4 uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot4 = FixedArray with 4 Element
 	var quad as Slot4
 
@@ -796,7 +735,6 @@ type Holder4 uses Element
 end 'Holder4'
 
 type Holder7 uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot7 = FixedArray with 7 Element
 	var septet as Slot7
 
@@ -824,17 +762,14 @@ end 'main'
 ```
 
 <!-- test: error.wrong-size-fixed-array-argument -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The size is part of the type, so a differently-sized fixed array is not a widening — it is a different
 type, and passing one where the other is declared is refused rather than silently accepted.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function wants4(v Vec4) returns Int
@@ -851,17 +786,14 @@ error E3005: <fragment>:12:9: argument type mismatch for 'v': expected 'Vec4', g
 ```
 
 <!-- test: error.same-size-aliases-are-two-brands -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 Two names for one size are one INSTANCE under two brands, and the brand is the type: a `Triple` does
 not reach a `Vec3` parameter unasked (`nominal-generic-alias.md`).
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Triple = FixedArray with 3 Int
 
 function first(v Vec3) returns Int
@@ -881,16 +813,13 @@ error E3005: <fragment>:13:10: argument type mismatch for 'v': expected 'Vec3', 
 ```
 
 <!-- test: same-size-aliases-cross-through-as -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The legal twin: `t as Vec3` re-brands the same three slots, and separating the sizes has not separated
 two spellings of one size.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Triple = FixedArray with 3 Int
 
 function first(v Vec3) returns Int
@@ -921,13 +850,11 @@ than by luck: `dispatchMethodOnReceiver`'s array arm tests `isArrayInstanceAt`, 
 and a `FixedArray`'s base is not an `Array`'s. All five growth spellings are pinned.
 
 <!-- test: error.push-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The spelling `W86` named first, and the one a hijacked receiver would have ANSWERED rather than refused.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -941,14 +868,12 @@ error E4006: <fragment>:7:4: Type 'FixedArray' has no method named 'push'
 ```
 
 <!-- test: error.resize-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The growth spelling that, served, would let `resize(9)` then `count()` answer **9** — a three-element
 type grown to nine with no diagnostic.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -962,13 +887,11 @@ error E4006: <fragment>:7:4: Type 'FixedArray' has no method named 'resize'
 ```
 
 <!-- test: error.clear-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `clear` empties the record. A fixed-size container whose `count()` could reach 0 is not fixed.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -982,14 +905,12 @@ error E4006: <fragment>:7:4: Type 'FixedArray' has no method named 'clear'
 ```
 
 <!-- test: error.insert-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⚠ **`insert` AND `remove` ARE REFUSED WITHOUT BEING LISTED ANYWHERE.** Neither is declared, so neither
 is served — no typed-out list of refused members exists to drift.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -1003,13 +924,11 @@ error E4006: <fragment>:7:8: Type 'FixedArray' has no method named 'insert'
 ```
 
 <!-- test: error.remove-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The second of that pair, and the one that SHRINKS.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -1022,8 +941,6 @@ error E4006: <fragment>:7:15: Type 'FixedArray' has no method named 'remove'
 ```
 
 <!-- test: error.a-bare-growth-call-inside-an-extension-body-is-refused -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **THE SECOND ENTRANCE `W86`'s LANDMINE COULD HAVE COME IN BY, AND IT IS SHUT FOR A DIFFERENT REASON
 FROM THE FIVE ABOVE.** `implicitSelfTakesTheArrayRoster` gives a BARE call inside a container's own body
@@ -1035,10 +952,8 @@ a method nothing declares.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function grow() returns Int
 		push(4)
@@ -1056,8 +971,6 @@ error E3004: <fragment>:7:3: call to undefined function 'push'
 ```
 
 <!-- test: error.the-buffer-under-a-fixed-array-is-still-the-buffer -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE THIRD ENTRANCE.** `bufferSurfaceOfDeclaredRecord` deliberately RETYPES a sized container's
@@ -1067,10 +980,8 @@ BUFFER's, so what it serves is `bufferSurfaceMemberNames` and the growable array
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function grow() returns Int
 		managed.push(4)
@@ -1104,14 +1015,12 @@ ArrayError.indexOutOfBounds` turns this case red where the intact declaration an
 control `stdlib-loading.md` runs for a stdlib module.
 
 <!-- test: the-members-are-functions-and-answer-to-their-static-spelling -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both declared accessors, named statically, with the receiver passed as the first argument and the
 declaration's own `index:`/`value:` labels on the rest. The index is not proven, so both calls reach the
 declared bodies.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -1129,12 +1038,10 @@ end 'main'
 ```
 
 <!-- test: the-static-spelling-at-a-proven-index-needs-no-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The static spelling is the same call, so a proven index makes it total as well.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -1148,14 +1055,12 @@ end 'main'
 ```
 
 <!-- test: the-count-is-a-function-too -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same for `count`, which had no arguments at all to tell the two roads apart by — so the static spelling
 is the whole of the difference. Under the dispatch arm it folded to a literal at the CALL and `FixedArray.count`
 named nothing.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
 function main() returns ExitCode
@@ -1175,17 +1080,15 @@ mutable data, so the write reaches the record. A `let` built by a literal is con
 same `set` is refused at the write.
 
 <!-- test: a-write-through-a-let-fixed-array-reaches-the-record -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 7)
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1193,12 +1096,10 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -1241,15 +1142,12 @@ carries the identical guard for the identical reason, and its header says so.
 them would pass on the other's arithmetic.
 
 <!-- test: a-write-past-the-fixed-size-is-refused-however-the-fixed-array-was-built -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both fixed arrays hold three elements and both refuse index 3. The index is laundered through a call so no
 constant is in the compiler's hands at the write — what is under test is the RUNTIME bound, and a folded
 index would be answering a different question.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function runtimeIndex(n Int) returns Int
@@ -1258,7 +1156,6 @@ end 'runtimeIndex'
 
 function main() returns ExitCode
 	let made = Vec3.create()
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let lit = FixedArray from [1, 2, 3].clone()
 	var refused = 0 as Int
 	try made.set(runtimeIndex(3) as ElementIndex, value: 99) otherwise 'madePastEnd'
@@ -1292,7 +1189,6 @@ starts its fixed array with `create(value: v)` writes every slot, so it is admit
 instantiation (`a-generic-body-fills-a-fixed-array-with-a-managed-instantiation`).
 
 <!-- test: a-fixed-array-field-in-a-generic-body-round-trips-its-elements -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The CAPABILITY itself, which the two cases above do not reach. Both of them only call `count()`, and a fixed array's count folds to a literal off the instance's
 own size, so **they would both still pass if every slot read and wrote the wrong address.** This one
 drives `set` and `get` through the shared generic body: a written slot reads back, an UNWRITTEN slot
@@ -1302,7 +1198,6 @@ count is unchanged by the writes: `a=10 b=7 zero=0 count=4`, exit 17.
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1341,7 +1236,6 @@ a=10 b=7 zero=0 count=4
 ```
 
 <!-- test: error.a-managed-instantiation-of-a-fixed-array-field-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A type parameter can be instantiated at a managed type, whose zero is not a value, so a `create()` over one is refused (E3106) at the `create()` that would publish its slots — not at the instantiation, and not at run time. A managed element starts from `create(n, value:)` instead.
 
@@ -1350,7 +1244,6 @@ A type parameter can be instantiated at a managed type, whose zero is not a valu
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1375,7 +1268,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.an-enum-instantiation-whose-raw-values-exclude-zero-refuses-a-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The shared body publishes zeroed slots for every instantiation, so an instantiation at an enum whose raw values exclude 0 refuses it as a concrete `FixedArray with 4 Level` is refused.
 ```maxon
@@ -1387,7 +1279,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1412,7 +1303,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-zero-excluding-alias-instantiation-refuses-a-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1420,7 +1310,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Percent = int(1 to 100)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1445,7 +1334,6 @@ error E3106: <fragment>:11:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: an-enum-instantiation-with-a-zero-case-keeps-a-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -1455,7 +1343,6 @@ enum Gauge
 end 'Gauge'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1480,7 +1367,6 @@ end 'main'
 ```
 
 <!-- test: error.one-zero-excluding-instantiation-refuses-the-shared-body -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The rule is existential here as it is for a managed instantiation: a trivial instantiation that admits 0 standing beside the enum does not buy the body back.
 ```maxon
@@ -1492,7 +1378,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1520,8 +1405,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: a-fixed-array-literal-publishes-no-zero-slot -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `FixedArray from [..]` writes every slot, so an enum whose raw values exclude 0 is accepted as its element, where `Level.create()` over the same element is refused.
 ```maxon
 enum Level
@@ -1529,11 +1412,9 @@ enum Level
 	high = 20
 end 'Level'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Pair = FixedArray with 2 Level
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let literal = FixedArray from [Level.low, Level.high]
 	let named = Pair from [Level.high, Level.low]
 	print("{literal.get(1).name} {named.get(0).name}\n")
@@ -1548,14 +1429,12 @@ high high
 ```
 
 <!-- test: error.a-contested-alias-instantiation-that-excludes-zero-refuses-a-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `Count` is the standard library's `int(0 to u64.max)`, which admits 0, and this program declares its own `Count` that does not. The program's instantiation means its own declaration, so the body is refused although the library's declaration of the name admits 0.
 ```maxon
 typealias Count = int(1 to 9)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1580,7 +1459,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-library-tier-fixed-array-field-is-refused-for-a-zero-excluding-instantiation -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The refusal of a `FixedArray with N <type parameter>` field holds in every tier.
@@ -1593,7 +1471,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1618,7 +1495,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-nested-generic-instantiation-refuses-the-inner-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` holds a `Holder with T` and is itself instantiated at `Level`; the only `Holder` row that exists is the one `Outer with Level` substitutes into its inner alias, which no author wrote.
 ```maxon
@@ -1630,7 +1506,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1668,7 +1543,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.one-managed-instantiation-refuses-the-shared-body -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The body is compiled ONCE and serves every instantiation, so the rule is EXISTENTIAL: one managed
 instantiation refuses it, and a trivial instantiation standing beside it does not buy it back.
@@ -1676,7 +1550,6 @@ instantiation refuses it, and a trivial instantiation standing beside it does no
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1704,7 +1577,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-managed-instantiation-another-file-reaches-refuses-the-shared-body-holder-first -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same rule when the managed instantiation is written nowhere: `Holder with String` exists only because a
 SECOND file builds an `Outer with String`, whose field is a `Holder` over `Outer`'s own parameter. The body is
@@ -1715,7 +1587,6 @@ parsed before the body.
 export typealias Int = int(i64.min to i64.max)
 
 export type Holder uses T
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 T
 	var slot as Slot
 
@@ -1753,7 +1624,6 @@ error E3106: <fragment>:11:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-managed-instantiation-another-file-reaches-refuses-the-shared-body-use-first -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: a_use.maxon
@@ -1768,7 +1638,6 @@ end 'main'
 export typealias Int = int(i64.min to i64.max)
 
 export type Holder uses T
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 T
 	var slot as Slot
 
@@ -1799,7 +1668,6 @@ error E3106: <fragment>:19:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: a-fixed-array-in-an-extension-body-over-an-associated-type -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 The construct reached from its third position, which sources its layout
 descriptor differently from the other two: an `extension` body has no `uses` clause of its own and is
@@ -1812,7 +1680,6 @@ typealias Int = int(i64.min to i64.max)
 
 interface Sized uses Element
 	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	function tally() returns Int
 end 'Sized'
@@ -1826,7 +1693,6 @@ extension Sized
 end 'Sized'
 
 type Bag uses Element implements Sized with Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var n as Int
 
@@ -1851,11 +1717,8 @@ end 'main'
 ```
 
 <!-- test: error.a-concrete-managed-element-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- positions: moved -->
 The CONCRETE half of the same invariant. A `String` has no zero value, so `Vec2.create()` over `FixedArray with 2 String` is E3106 and the array starts from `create(value: v)` instead.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 String
 
 function main() returns ExitCode
@@ -1869,7 +1732,6 @@ error E3106: <fragment>:5:10: 'FixedArray.create' cannot publish slots of 'Strin
 
 <!-- test: error.a-service-handle-element-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A `<Service>.handle` is a pointer to a cown box, so `Slots.create()` would publish null handles that a send dereferences. It is refused as a `String` is, and the array starts from `create(value: h)` instead.
@@ -1886,7 +1748,6 @@ type Worker
 	end 'ping'
 end 'Worker'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Slots = FixedArray with 2 Worker.handle
 
 function main() returns ExitCode
@@ -1904,7 +1765,6 @@ error E3106: <fragment>:18:14: 'FixedArray.create' cannot publish slots of 'Work
 
 <!-- test: a-service-handle-fixed-array-starts-from-a-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every slot starts as the one handle, so a send through any slot reaches the service.
 ```maxon
@@ -1920,7 +1780,6 @@ type Worker
 	end 'ping'
 end 'Worker'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Slots = FixedArray with 2 Worker.handle
 
 function main() returns ExitCode
@@ -1938,7 +1797,6 @@ end 'main'
 ```
 
 <!-- test: error.a-handle-of-a-type-nothing-spawns-is-an-unknown-fixed-array-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 Without a `spawn` there is no `Worker.handle` to hold, so the element is an unknown type and not a type judged for a zero value.
 ```maxon
@@ -1954,7 +1812,6 @@ type Worker
 	end 'ping'
 end 'Worker'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Slots = FixedArray with 2 Worker.handle
 
 function main() returns ExitCode
@@ -1967,13 +1824,11 @@ error E3011: <fragment>:14:37: Unknown type 'Worker.handle'
 ```
 
 <!-- test: error.an-element-that-is-neither-scalar-nor-managed-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 An element must be an integer, a bool, a float or a managed value. A `Promise` is none of them, so the alias over it is E2015, before any slot is published.
 ```maxon
 typealias Count = int(0 to 100)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Waits = FixedArray with 2 Promise with Count
 
 function main() returns ExitCode
@@ -2004,7 +1859,7 @@ function main() returns ExitCode
 	let buf = Buf.create(launder(4), value: 7)
 	var sum = 0 as Int
 	for x in buf 'each'
-		sum = sum + x
+		sum = try sum + x otherwise panic("out of range")
 	end 'each'
 	print("{buf.count()} {sum}\n")
 	return 0
@@ -2032,7 +1887,7 @@ function main() returns ExitCode
 	let levels = Levels.create(launder(3), value: 5)
 	var sum = 0 as Count
 	for level in levels 'each'
-		sum = sum + (level as Count)
+		sum = try sum + (level as Count) otherwise panic("out of range")
 	end 'each'
 	print("{levels.count()} {sum}\n")
 	return 0
@@ -2064,7 +1919,7 @@ function main() returns ExitCode
 	var highs = 0 as Count
 	for tier in tiers 'each'
 		if tier == Tier.high 'isHigh'
-			highs = highs + 1
+			highs = try highs + 1 otherwise panic("out of range")
 		end 'isHigh'
 	end 'each'
 	print("{tiers.count()} {highs}\n")
@@ -2079,12 +1934,10 @@ end 'main'
 ```
 
 <!-- test: a-type-sized-create-takes-a-value-and-no-length -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The count is the type's, so only `value:` is written, and the proven indices need no `try`: `2 8`.
 ```maxon
 typealias Level = int(1 to 9)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Pair = FixedArray with 2 Level
 
 function main() returns ExitCode
@@ -2114,7 +1967,7 @@ function main() returns ExitCode
 	var set = 0 as Count
 	for flag in flags 'each'
 		if flag 'isSet'
-			set = set + 1
+			set = try set + 1 otherwise panic("out of range")
 		end 'isSet'
 	end 'each'
 	print("{flags.count()} {set}\n")
@@ -2199,13 +2052,11 @@ error E3106: <fragment>:10:16: 'FixedArray.create' cannot publish slots of 'Leve
 ```
 
 <!-- test: error.a-value-label-inside-a-braced-argument-is-not-a-type-sized-value-fill -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A type-sized alias states its length, so a length argument is E3194 however the argument is written, and a braced `value:` is not the fill; `Level` has no zero, so the plain `create` rule is asked first and refuses with E3106.
 ```maxon
 typealias Level = int(1 to 9)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Pair = FixedArray with 2 Level
 
 type Cell
@@ -2238,14 +2089,14 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let buf = Buf.create(launder(5))
+	var buf = Buf.create(launder(5))
 	for i in 0 upto buf.count() 'fill'
 		try buf.set(i, value: i as Int) otherwise panic("set")
 	end 'fill'
 	buf.refill(7)
 	var sum = 0 as Int
 	for x in buf 'each'
-		sum = sum + x
+		sum = try sum + x otherwise panic("out of range")
 	end 'each'
 	print("{buf.count()} {sum}\n")
 	return 0
@@ -2259,16 +2110,14 @@ end 'main'
 ```
 
 <!-- test: refill-writes-a-value-that-is-not-zero-into-a-type-sized-array -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `refill` reaches a type-sized fixed array too, and the new value may be any element: `3 6`.
 ```maxon
 typealias Level = int(1 to 9)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 Level
 
 function main() returns ExitCode
-	let trio = Trio.create(value: 1)
+	var trio = Trio.create(value: 1)
 	trio.refill(2)
 	print("{trio.count()} {trio.get(0) + trio.get(1) + trio.get(2)}\n")
 	return 0
@@ -2292,7 +2141,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let buf = Buf.create(launder(0))
+	var buf = Buf.create(launder(0))
 	buf.refill(3)
 	print("{buf.count()}\n")
 	return 0
@@ -2315,12 +2164,12 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let flags = Flags.create(launder(10), value: true)
+	var flags = Flags.create(launder(10), value: true)
 	flags.refill(false)
 	var set = 0 as Count
 	for flag in flags 'each'
 		if flag 'isSet'
-			set = set + 1
+			set = try set + 1 otherwise panic("out of range")
 		end 'isSet'
 	end 'each'
 	print("{flags.count()} {set}\n")
@@ -2382,7 +2231,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let names = Names.create(launder(3), value: label(1))
+	var names = Names.create(launder(3), value: label(1))
 	let held = try names.get(1) otherwise "missing"
 	try names.set(1, value: label(9)) otherwise panic("set")
 	let current = try names.get(1) otherwise "missing"
@@ -2413,7 +2262,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let names = Names.create(launder(4), value: label(1))
+	var names = Names.create(launder(4), value: label(1))
 	try names.set(0, value: label(2)) otherwise panic("set")
 	try names.set(0, value: label(3)) otherwise panic("set")
 	try names.set(0, value: label(4)) otherwise panic("set")
@@ -2449,7 +2298,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let names = Names.create(launder(3), value: label(1))
+	var names = Names.create(launder(3), value: label(1))
 	let held = try names.get(0) otherwise "missing"
 	names.refill(label(2))
 	var joined = ""
@@ -2482,7 +2331,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let names = Names.create(launder(0), value: label(1))
+	var names = Names.create(launder(0), value: label(1))
 	names.refill(label(2))
 	print("{names.count()}\n")
 	return 0
@@ -2512,7 +2361,7 @@ end 'label'
 
 function main() returns ExitCode
 	let names = Names.create(launder(2), value: label(1))
-	let copy = names.clone()
+	var copy = names.clone()
 	try copy.set(0, value: label(8)) otherwise panic("set")
 	let a = try names.get(0) otherwise "missing"
 	let b = try names.get(1) otherwise "missing"
@@ -2613,7 +2462,7 @@ function main() returns ExitCode
 	let names = Names.create(launder(0), value: label(1))
 	var seen = 0 as Int
 	for _ in names 'each'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'each'
 	print("{names.count()} {seen} {names.clone().count()}\n")
 	return 0
@@ -2627,12 +2476,10 @@ end 'main'
 ```
 
 <!-- test: a-type-sized-managed-fixed-array-takes-a-value-and-no-length -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The count is the type's, so the proven indices need no `try`: `3 name4 name4 name5`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 String
 
 function label(n Int) returns String
@@ -2640,7 +2487,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let trio = Trio.create(value: label(4))
+	var trio = Trio.create(value: label(4))
 	trio.set(2, value: label(5))
 	print("{trio.count()} {trio.get(0)} {trio.get(1)} {trio.get(2)}\n")
 	return 0
@@ -2654,11 +2501,9 @@ end 'main'
 ```
 
 <!-- test: a-type-sized-managed-fixed-array-refills-and-clones -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 String
 
 function label(n Int) returns String
@@ -2666,7 +2511,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let trio = Trio.create(value: label(1))
+	var trio = Trio.create(value: label(1))
 	let copy = trio.clone()
 	trio.refill(label(2))
 	print("{trio.get(0)} {trio.get(2)} {copy.get(0)} {copy.get(2)}\n")
@@ -2681,13 +2526,10 @@ name2 name2 name1 name1
 ```
 
 <!-- test: a-managed-fixed-array-literal-holds-heap-strings -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both literal heads build a managed fixed array whose elements are released when it dies: `2 name1 name2 3`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Pair = FixedArray with 2 String
 
 function label(n Int) returns String
@@ -2695,10 +2537,9 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let bare = FixedArray from [label(1), label(2)]
 	let named = Pair from [label(3), label(4)]
-	print("{bare.count()} {bare.get(0)} {bare.get(1)} {named.get(0).byteLength() - 2}\n")
+	print("{bare.count()} {bare.get(0)} {bare.get(1)} {try named.get(0).byteLength() - 2 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -2719,7 +2560,7 @@ type Tag
 	export var weight as Int
 
 	static function make(n Int) returns Tag
-		return Tag{text: "name{n}", weight: n + 2}
+		return Tag{text: "name{n}", weight: try n + 2 otherwise panic("out of range")}
 	end 'make'
 end 'Tag'
 
@@ -2730,7 +2571,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let tags = Tags.create(launder(3), value: Tag.make(5))
+	var tags = Tags.create(launder(3), value: Tag.make(5))
 	let first = try tags.get(0) otherwise Tag.make(0)
 	let last = try tags.get(2) otherwise Tag.make(0)
 	print("{tags.count()} {first.text} {last.text} {last.weight}\n")
@@ -2761,14 +2602,14 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function makeRow(n Int) returns Row
-	let row = Row.create(0)
+	var row = Row.create(0)
 	row.push(n)
-	row.push(n + 1)
+	row.push(try n + 1 otherwise panic("out of range"))
 	return row
 end 'makeRow'
 
 function main() returns ExitCode
-	let grid = Grid.create(launder(2), value: makeRow(4))
+	var grid = Grid.create(launder(2), value: makeRow(4))
 	try grid.set(1, value: makeRow(8)) otherwise panic("set")
 	let top = try grid.get(0) otherwise makeRow(0)
 	let bottom = try grid.get(1) otherwise makeRow(0)
@@ -2800,13 +2641,13 @@ end 'launder'
 
 function describe(shape Shape) returns String
 	return match shape 'which'
-		named(label) gives label
+		named(label) gives label.clone()
 		sized(width, height) gives "{width}x{height}"
 	end 'which'
 end 'describe'
 
 function main() returns ExitCode
-	let shapes = Shapes.create(launder(2), value: Shape.named("sq{launder(4)}"))
+	var shapes = Shapes.create(launder(2), value: Shape.named("sq{launder(4)}"))
 	try shapes.set(1, value: Shape.sized(3, height: 4)) otherwise panic("set")
 	let a = describe(try shapes.get(0) otherwise Shape.sized(0, height: 0))
 	let b = describe(try shapes.get(1) otherwise Shape.sized(0, height: 0))
@@ -2882,7 +2723,7 @@ function label(n Int) returns String
 end 'label'
 
 function build(n ElementIndex) returns Names
-	let names = Names.create(n, value: label(1))
+	var names = Names.create(n, value: label(1))
 	try names.set(0, value: label(2)) otherwise panic("set")
 	return names
 end 'build'
@@ -2905,10 +2746,8 @@ name2 2
 ```
 
 <!-- test: a-constant-fixed-array-of-string-literals-is-read-cloned-and-dropped -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `let` fixed array of string literals is image data, in a module-level `let` and in a `static let` alike. Reading it allocates nothing, and its `clone()` is a real heap copy that owns its elements: writing and refilling the clone changes none of the image, and dropping the clone frees the heap strings it was given and releases nothing the image owns. Leak-gated and poisoned against a double free: `ab cde changed2 k2 f zzz 2` then `r2 r2 r2 3`.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 String
 
 let Names = Trio from ["ab", "cde", "f"]
@@ -2927,7 +2766,7 @@ end 'Registry'
 
 function main() returns ExitCode
 	let n = Registry.lengthOfSecond()
-	let copy = Names.clone()
+	var copy = Names.clone()
 	let other = Registry.wordsCopy()
 	copy.set(0, value: "changed{n}")
 	copy.set(1, value: "k{n}")
@@ -2946,11 +2785,9 @@ r2 r2 r2 3
 ```
 
 <!-- test: a-proven-get-in-a-generic-body-holds-a-managed-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A shared generic body reads slot 0 of its fixed array at a proven index and hands the element back. The caller gets a reference of its own, so reading it more often than the ring has slots, allocating, reading again and dropping the ring leaves nothing freed twice and nothing leaked: the four reads print `abc1` and the last line is `def2 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
@@ -2988,11 +2825,9 @@ def2 abc1
 ```
 
 <!-- test: a-counted-loop-get-in-a-generic-body-holds-each-managed-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The index of a `for i in 0 upto 3` loop is proven inside the three slots of a shared generic body, so each read is a proven `get` of an element the body cannot name: `abc1 abc1 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
@@ -3027,11 +2862,9 @@ abc1 abc1 abc1
 ```
 
 <!-- test: a-proven-set-in-a-generic-body-replaces-a-managed-element -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A shared generic body writes slot 1 at a proven index over a live managed element: the old element is released once and the new one is kept, and a ring built from a value drops cleanly: `abc1 xyz2 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
@@ -3065,13 +2898,11 @@ abc1 xyz2 abc1
 ```
 
 <!-- test: a-generic-body-fills-a-fixed-array-with-a-managed-instantiation -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A shared generic body starts its fixed array from a value, so a `String` instantiation never needs a zero: it keeps what it was handed through `set`, `get` and `refill`: `name1 name2 name9`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Ring uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
@@ -3117,10 +2948,8 @@ name1 name2 name9
 ```
 
 <!-- test: error.a-type-sized-managed-element-has-no-zero -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 String
 
 function main() returns ExitCode
@@ -3173,8 +3002,6 @@ cannot produce; this refusal costs nothing at runtime and closes the seam one le
 `push` is already refused on this surface.
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-cleared -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE A — the bare `managed` read inside an `extension FixedArray`**, the primary shape. `managed` is
@@ -3182,10 +3009,8 @@ not exported, so this is the shortest spelling that reaches the record.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		managed.clear()
@@ -3203,8 +3028,6 @@ error E2015: <fragment>:7:11: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-relengthened -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `setLength` is the member the measurement caught moving the length furthest — `grow(64)` then
@@ -3212,10 +3035,8 @@ error E2015: <fragment>:7:11: Unsupported: `__ManagedMemory` member 'clear' — 
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function stretch()
 		try managed.setLength(2) otherwise ignore
@@ -3233,18 +3054,14 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'setLength' 
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-lose-an-element -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `remove` shrinks by one and slides the tail — 5 to 4.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function drop()
 		try managed.remove(0) otherwise ignore
@@ -3262,8 +3079,6 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'remove' —
 ```
 
 <!-- test: error.a-sized-containers-buffer-may-not-be-appended-to -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐ **THIS CASE ALSO PRE-EMPTS A COMPILER PANIC, AND THAT IS A CONSEQUENCE OF THE REFUSAL RATHER THAN ITS
@@ -3286,10 +3101,8 @@ same `E2015` at their own line:column. (A fifth, `v.managed.append(…)` from ou
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function double()
 		try managed.append(managed) otherwise ignore
@@ -3307,8 +3120,6 @@ error E2015: <fragment>:7:15: Unsupported: `__ManagedMemory` member 'append' —
 ```
 
 <!-- test: error.the-chained-self-managed-reaches-the-same-refusal -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE B — `self.managed`, which mints NO value to mark** and passes the surface along the dispatch
@@ -3317,10 +3128,8 @@ it drifts to `count=3 len=0`, identically to A.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		self.managed.clear()
@@ -3338,8 +3147,6 @@ error E2015: <fragment>:7:16: Unsupported: `__ManagedMemory` member 'clear' — 
 ```
 
 <!-- test: error.a-local-bound-to-the-buffer-reaches-the-same-refusal -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ENTRANCE C — the buffer bound to a local first.** The compiler has no stack slots, so `m` binds to the
@@ -3349,10 +3156,8 @@ reopen the seam here.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		var m = managed
@@ -3371,8 +3176,6 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-return-it -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE D — THE RECORD LEAVING BY `return`, FROM A USER FILE.** A user extension cannot reach a
 fixed array's record at all, so it cannot hand it out either. The first raw door in this program is the
@@ -3381,10 +3184,8 @@ Element`), and it is refused there, ahead of the `return managed` and the caller
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function buf() returns ElementMemory
 		return managed
@@ -3401,8 +3202,6 @@ error E3185: <fragment>:6:25: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: the-length-preserving-buffer-members-are-still-served -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OVER-REFUSAL CONTROL, AND IT IS THE HALF A REFUSAL USUALLY FORGETS.** Everything on the
 buffer surface that does NOT write the length word is still served on a sized container's buffer. Each
@@ -3412,10 +3211,8 @@ refusal blanket, and THIS case is what goes red.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function survey() returns Int
 		try managed.grow(64) otherwise ignore
@@ -3466,8 +3263,6 @@ end 'main'
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-pass-it-to-a-helper -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ENTRANCE E — THE ARGUMENT DIRECTION OF D.** An `extension FixedArray` whose `bust()` is `wipe(managed)`
 and whose `wipe(m ElementMemory)` is `m.clear()` would leave the type saying 3 while the walk finds nothing
@@ -3476,14 +3271,13 @@ raw door, and it is refused at the read, before the helper's `ElementMemory` par
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust()
 		wipe(managed)
 	end 'bust'
+
 	function wipe(m ElementMemory)
 		m.clear()
 	end 'wipe'
@@ -3501,8 +3295,6 @@ error E3185: <fragment>:10:18: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: the-slice-a-member-hands-to-a-helper-is-served -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **A SLICE IS A VIEW WITH A LENGTH OF ITS OWN.** `managed.slice(0, 2)` is not the fixed array's record —
 `__managed_slice` mints a fresh view whose `length@8` is its own — so a helper that takes it as an
@@ -3512,15 +3304,14 @@ untouched (3).
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function sliceThenClear() returns Int
 		let s = try managed.slice(0, 2) otherwise panic("slice")
 		return wipe(s) + (10 * (managed.length() as Int))
 	end 'sliceThenClear'
+
 	function wipe(m ElementMemory) returns Int
 		m.clear()
 		return m.length() as Int
@@ -3537,18 +3328,14 @@ end 'main'
 ```
 
 <!-- test: the-slice-a-member-returns-is-served -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **… AND A MEMBER MAY RETURN A SLICE, WHICH ITS CALLER MAY CHANGE FREELY.** The caller clears the view
 it was handed (0); the fixed array's own record keeps its three elements (3).
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function part() returns ElementMemory
 		return try managed.slice(0, 2) otherwise panic("slice")
@@ -3577,8 +3364,7 @@ tiers. A user extension cannot read `managed` or name the raw buffer type, so ea
 at its first raw door by **E3185**, before any value of the record exists to carry.
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-push-it-into-a-container -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE F — THE RECORD AS A CONTAINER'S ELEMENT.** `Array with ElementMemory` would hold the record, and
 `get` would hand it back with no mark. The first raw door is the element type in the extension's
@@ -3586,11 +3372,10 @@ at its first raw door by **E3185**, before any value of the record exists to car
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Bufs = Array with ElementMemory
 	function bust() returns Int
 		var b = Bufs.create(0)
@@ -3611,8 +3396,6 @@ error E3185: <fragment>:6:30: 'ElementMemory' named outside the library tiers: t
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-put-it-in-a-tuple -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE G — THE RECORD AS A TUPLE SLOT**, which needs no container type spelled anywhere: two tokens of
 punctuation would launder the mark. The only raw door is the bare `managed` inside the tuple, and it is
@@ -3620,10 +3403,8 @@ refused there.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust() returns Int
 		let t = (managed, 1)
@@ -3642,8 +3423,7 @@ error E3185: <fragment>:7:12: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-store-it-in-a-field -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 **ROUTE H — THE RECORD ASSIGNED INTO A GROWABLE `Array`'s OWN `managed` FIELD.** The growable record's
 buffer carries no sized mark, so every length writer would be served on it. The first raw door is the
@@ -3651,11 +3431,10 @@ buffer carries no sized mark, so every length writer would be served on it. The 
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Arr = Array with Element
 	function bust() returns Int
 		var a = Arr.create(0)
@@ -3675,8 +3454,7 @@ error E3185: <fragment>:10:5: '.managed' read from outside the library tiers: a 
 ```
 
 <!-- test: error.a-user-extension-cannot-read-a-fixed-arrays-buffer-to-hand-it-to-a-generic -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **ROUTE I — THE RECORD THROUGH A USER'S OWN GENERIC.** A nine-line `Box uses T` would take the record
 in and hand it straight back out with no mark on it. From a user file the extension cannot spell the
@@ -3684,7 +3462,6 @@ instantiation: `Box with ElementMemory` names the raw buffer type, and that is t
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 type Box uses T
@@ -3699,8 +3476,8 @@ type Box uses T
 	end 'get'
 end 'Box'
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias BufBox = Box with ElementMemory
 	function bust() returns Int
 		let b = BufBox.create(managed)
@@ -3720,8 +3497,7 @@ error E3185: <fragment>:18:30: 'ElementMemory' named outside the library tiers: 
 ```
 
 <!-- test: a-slice-may-be-stored-passed-and-returned-freely -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **EVERY ROUTE ABOVE IS LEGAL ON A `slice`, IN THE LIBRARY TIER.** A view's `length@8` is its own, so no
 answer about it can contradict the fixed array's type. The slice here is stored into a container, put in a
@@ -3730,7 +3506,6 @@ the end.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 type Box uses T
@@ -3745,9 +3520,10 @@ type Box uses T
 	end 'get'
 end 'Box'
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Bufs = Array with ElementMemory
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias BufBox = Box with ElementMemory
 	function survey() returns Int
 		let b = Bufs.create(0)
@@ -3788,8 +3564,6 @@ facts:
   third case here pins it.
 
 <!-- test: error.a-buffer-through-a-ternary-reaches-the-same-refusal -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ROUTE J — THE TERNARY MERGE.** The degenerate `x if c else x` is deliberate: both edges are the same
@@ -3797,10 +3571,8 @@ expression, so nothing about the program needs two answers — only the phi's fr
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust(flag bool) returns Int
 		var m = managed if flag else managed
@@ -3819,8 +3591,6 @@ error E2015: <fragment>:8:5: Unsupported: `__ManagedMemory` member 'clear' — t
 ```
 
 <!-- test: error.a-buffer-through-a-try-fallback-reaches-the-same-refusal -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 **ROUTE K — THE `try … otherwise` MERGE**, which needs no second spelling of the record at all: the ok
@@ -3829,10 +3599,8 @@ would have to be right about both.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function bust() returns Int
 		var m = try managed.slice(0, 99) otherwise managed
@@ -3877,9 +3645,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-still-walks-its-own-fixed-array -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **AN EXTENSION WALKS ITS OWN FIXED ARRAY BOTH WAYS:** `for e in self`, which goes through the declaration's
 own `createIterator`, and a `for` over a `slice` of its record. The exit code is the two walks side by
@@ -3887,10 +3652,8 @@ side.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function walkedTwoWays() returns Int
 		var viaSelf = 0 as Int
@@ -3898,7 +3661,6 @@ extension FixedArray
 			viaSelf = viaSelf + (e - e) + 1
 		end 'eachOwn'
 		var viaSlice = 0 as Int
-		// TODO: countof(...) is not supported in minimaxon
 		for e in try managed.slice(0, countof(Self)) otherwise panic("slice") 'eachSliced'
 			viaSlice = viaSlice + (e - e) + 1
 		end 'eachSliced'
@@ -3916,11 +3678,9 @@ end 'main'
 ```
 
 <!-- test: fixed-array.an-array-element-may-hold-a-union-carrying-a-fixed-array -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A record whose field is a union with a `FixedArray` payload is an ordinary array element: pushing it and
 reading it back copies nothing a `slice` would, so an array of such records is legal.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 4 bool
 
 typealias CellArray = Array with Cell
@@ -3934,7 +3694,7 @@ type Cell
 	var content as Content
 
 	static function create(content Content) returns Self
-		return Self{content: content}
+		return Self{content: content.clone()}
 	end 'create'
 
 	function firstFlag() returns bool
@@ -3946,9 +3706,9 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	let flags = Flags.create()
+	var flags = Flags.create()
 	flags.set(0, value: true)
-	let cells = CellArray.create(0)
+	var cells = CellArray.create(0)
 	cells.push(Cell.create(Content.marked(flags)))
 	for cell in cells 'each'
 		print("{cell.firstFlag()}\n")
@@ -3961,11 +3721,9 @@ true
 ```
 
 <!-- test: fixed-array.a-slice-deep-copies-a-fixed-array-held-in-a-field-and-in-a-union-payload -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `FixedArray`'s record is an `Array`'s, so `slice` copies it like one: writing the original cells after the
 slice — replacing the union and setting a flag in the fixed array field — leaves the copies as they were.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 4 bool
 
 typealias CellArray = Array with Cell
@@ -3980,7 +3738,7 @@ type Cell
 	var mask as Flags
 
 	static function create(content Content) returns Self
-		return Self{content: content, mask: Flags.create()}
+		return Self{content: content.clone(), mask: Flags.create()}
 	end 'create'
 
 	function firstFlag() returns bool
@@ -3994,16 +3752,16 @@ type Cell
 		return self.mask.get(1)
 	end 'secondMaskBit'
 
-	function overwrite()
+	function overwrite(mutates self)
 		self.content = Content.empty
 		self.mask.set(1, value: true)
 	end 'overwrite'
 end 'Cell'
 
 function main() returns ExitCode
-	let flags = Flags.create()
+	var flags = Flags.create()
 	flags.set(0, value: true)
-	let cells = CellArray.create(0)
+	var cells = CellArray.create(0)
 	cells.push(Cell.create(Content.marked(flags)))
 	cells.push(Cell.create(Content.marked(flags)))
 	let copies = try cells.slice(0, endIndex: 2) otherwise return 1
@@ -4028,7 +3786,6 @@ copy true false
 
 <!-- test: fixed-array.a-record-holding-fixed-arrays-crosses-to-a-service-and-back -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -4036,7 +3793,6 @@ copy true false
 A service boundary walks a `FixedArray` as it walks an `Array`: a record holding one in a field and one in a union
 payload crosses at the `spawn` and as a call argument, and a record the handler builds comes back as the reply.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 4 bool
 
 union Content
@@ -4106,13 +3862,10 @@ reply false true
 ```
 
 <!-- test: error.a-fixed-array-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- positions: moved -->
 A `FixedArray` instance alias at the head of `from […]` is a type name, and another directory's unexported one is
 refused.
 ```maxon
 // --- file: probe/probe.maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Pair = FixedArray with 2 ExitCode
 
 export function probePair() returns ExitCode
@@ -4133,7 +3886,6 @@ error E3008: <fragment>:13:10: typealias 'Pair' is not exported
 ```
 
 <!-- test: a-let-fixed-array-read-is-range-known -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 A `FixedArray from […]` bound by `let` is a constant, so a value read from it carries the range of the elements written.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4143,7 +3895,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(1)
 	print("{take(a)}\n")
@@ -4158,8 +3909,6 @@ end 'main'
 ```
 
 <!-- test: error.a-let-fixed-array-read-outside-a-narrower-alias -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- positions: moved -->
 The range a `let` fixed array's elements carry is checked at the use, and the reachable extreme is named.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4169,7 +3918,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 2000]
 	let a = v.get(0)
 	let b = take(a)
@@ -4181,12 +3929,9 @@ error E3005: <fragment>:11:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.a-let-fixed-array-mutation-is-refused -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- positions: moved -->
 A `let` fixed array literal is immutable, so a write through it is refused as a `let` array's is.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10, 20, 30]
 	v.set(0, value: 99)
 	return v.count() as ExitCode
@@ -4197,14 +3942,12 @@ error E3207: <fragment>:4:2: 'set' writes its receiver (line 137: `try managed.s
 ```
 
 <!-- test: error.the-name-vector-is-not-a-builtin -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The fixed-size type is `FixedArray`. `Vector` names no builtin, so `Vector with 3 Int` does not parse as
 a sized instance: the size `3` stands where a type argument is expected.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias V = Vector with 3 Int
 
 function main() returns ExitCode
@@ -4221,7 +3964,6 @@ error E2010: <fragment>:3:27: Expected 'a type' but got '3'
 A `FixedArray` holds scalars only, so a write into one never releases a record, and a read from one is never a record to hold. What these cases pin is that its being an array record does not change the verdict on the records around it: a record read out of an `Array` is still kept alive across the array's overwrite of that slot, whatever fixed arrays are written between the read and the use. Each exits 0, and a leak would exit 101.
 
 <!-- test: a-record-read-from-an-array-survives-its-slots-overwrite-between-fixed-array-writes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `held` is the record in slot 0 of `nodes`. The overwrite of that slot releases the record `nodes` owned, and `held` is read after it between two writes to a fixed array: `7 1 2`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -4236,13 +3978,12 @@ end 'Node'
 
 typealias Nodes = Array with Node
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Marks = FixedArray with 2 Tally
 
 function main() returns ExitCode
-	let nodes = Nodes.create(0)
+	var nodes = Nodes.create(0)
 	nodes.push(Node.create(7))
-	let marks = Marks.create()
+	var marks = Marks.create()
 	let held = try nodes.get(0) otherwise panic("get")
 	marks.set(0, value: 1)
 	try nodes.set(0, value: Node.create(9)) otherwise panic("set")
@@ -4259,7 +4000,6 @@ end 'main'
 ```
 
 <!-- test: a-record-read-through-a-field-survives-its-slots-overwrite-beside-a-fixed-array-field -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same read through a record that holds both containers as fields, so the read is a chain of a field hop and an element hop, and the fixed array it sits beside is a field of the same holder: `7 1 2`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -4274,7 +4014,6 @@ end 'Node'
 
 typealias Nodes = Array with Node
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Marks = FixedArray with 2 Tally
 
 type Ledger
@@ -4287,7 +4026,7 @@ type Ledger
 end 'Ledger'
 
 function main() returns ExitCode
-	let ledger = Ledger.create()
+	var ledger = Ledger.create()
 	ledger.nodes.push(Node.create(7))
 	let held = try ledger.nodes.get(0) otherwise panic("get")
 	ledger.marks.set(0, value: 1)
@@ -4305,13 +4044,11 @@ end 'main'
 ```
 
 <!-- test: a-generic-fixed-array-slot-write-keeps-the-element-it-replaced -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A fixed array over a type parameter has elements the generic body cannot name, so the body is compiled for any element: the slot's old value is read, the slot is overwritten with the replacement, and the old value is returned. At `Int` the swaps answer `0 5`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Ring uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 4 Element
 	var slots as Slots
 
@@ -4363,7 +4100,7 @@ function main() returns ExitCode
 	var zeros = 0 as Int
 	for x in buf 'each'
 		if x == 0 'zero'
-			zeros = zeros + 1
+			zeros = try zeros + 1 otherwise panic("out of range")
 		end 'zero'
 	end 'each'
 	print("{buf.count()} {zeros}\n")
@@ -4389,7 +4126,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let buf = Buf.create(launder(4))
+	var buf = Buf.create(launder(4))
 	var i = 0 as Int
 	while i < 4 'fill'
 		try buf.set(i as ElementIndex, value: (i + 1) * 10) otherwise panic("fill")
@@ -4444,7 +4181,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let buf = Buf.create(launder(3))
+	var buf = Buf.create(launder(3))
 	try buf.set(launder(3), value: 99) otherwise 'oob'
 		return 7
 	end 'oob'
@@ -4493,7 +4230,7 @@ function main() returns ExitCode
 	let buf = Buf.create(launder(0))
 	var seen = 0 as Int
 	for _ in buf 'each'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'each'
 	let missed = try buf.get(0) otherwise -1
 	print("{buf.count()} {seen} {missed}\n")
@@ -4519,13 +4256,13 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let flags = Flags.create(launder(17))
+	var flags = Flags.create(launder(17))
 	try flags.set(0, value: true) otherwise panic("set 0")
 	try flags.set(16, value: true) otherwise panic("set 16")
 	var ones = 0 as Int
 	for flag in flags 'each'
 		if flag 'on'
-			ones = ones + 1
+			ones = try ones + 1 otherwise panic("out of range")
 		end 'on'
 	end 'each'
 	let last = try flags.get(16) otherwise panic("get 16")
@@ -4552,7 +4289,7 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let samples = Samples.create(launder(3))
+	var samples = Samples.create(launder(3))
 	try samples.set(1, value: 2.5) otherwise panic("set")
 	try samples.set(2, value: 4.0) otherwise panic("set")
 	var total = 0.0 as Real
@@ -4584,7 +4321,7 @@ type Ledger
 		return Ledger{cells: Buf.create(size)}
 	end 'create'
 
-	function record(value Int)
+	function record(mutates self, value Int)
 		try self.cells.set(0, value: value) otherwise panic("record")
 		try self.cells.set(2, value: value) otherwise panic("record")
 	end 'record'
@@ -4597,13 +4334,13 @@ end 'launder'
 function total(cells Buf) returns Int
 	var sum = 0 as Int
 	for cell in cells 'each'
-		sum = sum + cell
+		sum = try sum + cell otherwise panic("out of range")
 	end 'each'
 	return sum
 end 'total'
 
 function main() returns ExitCode
-	let ledger = Ledger.create(launder(3))
+	var ledger = Ledger.create(launder(3))
 	ledger.record(6)
 	print("{ledger.cells.count()} {total(ledger.cells)}\n")
 	return 0
@@ -4664,18 +4401,14 @@ end 'main'
 ```
 
 <!-- test: an-extension-reading-countof-Self-answers-the-record-length -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 `countof(Self)` inside `extension FixedArray` is the receiver's count. For a runtime-sized receiver the count is not in the type, so the call site passes the record's length: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 typealias Buf = FixedArray with Int
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function slots() returns Count
-		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'slots'
 end 'FixedArray'
@@ -4698,13 +4431,11 @@ end 'main'
 ```
 
 <!-- test: error.a-type-sized-create-takes-no-length -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The length is in the type, so `create` takes no argument.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
@@ -4864,22 +4595,20 @@ error E3005: <fragment>:8:12: argument type mismatch for 'newLength': expected '
 ```
 
 <!-- test: a-constant-length-create-is-the-sized-type -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `Buf.create(4)` is a `FixedArray with 4 Int`, unbranded, so it is accepted where the `Vec4` alias is declared, its bare `set` and `get` at proven indices need no `try`, and `count()` is the constant: `4 5`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 typealias Buf = FixedArray with Int
 
 function sumOf(v Vec4) returns Int
-	return v.get(0) + v.get(1) + v.get(2) + v.get(3)
+	return try v.get(0) + v.get(1) + v.get(2) + v.get(3) otherwise panic("out of range")
 end 'sumOf'
 
 function main() returns ExitCode
-	let v = Buf.create(4)
+	var v = Buf.create(4)
 	v.set(2, value: 5)
 	print("{v.count()} {sumOf(v)}\n")
 	return 0
@@ -4893,13 +4622,10 @@ end 'main'
 ```
 
 <!-- test: a-let-bound-a-top-level-let-and-a-countof-fold-are-constant-lengths -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `let` bound to a constant, a top-level `let` and a folded `countof` expression are all constants, so each array has its length in its type and its last element is read bare: `2 3 4`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -4910,9 +4636,8 @@ function main() returns ExitCode
 	let local = 2
 	let a = Buf.create(local)
 	let b = Buf.create(Width)
-	// TODO: countof(...) is not supported in minimaxon
 	let c = Buf.create(countof(Vec3) + 1)
-	print("{a.count()} {b.count()} {c.count()} {a.get(1) + b.get(2) + c.get(3)}\n")
+	print("{a.count()} {b.count()} {c.count()} {try a.get(1) + b.get(2) + c.get(3) otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -4934,7 +4659,7 @@ function main() returns ExitCode
 	var n = 3 as ElementIndex
 	let buf = Buf.create(n)
 	n = n + 1
-	print("{buf.count()} {buf.get(0)} {n}\n")
+	print("{buf.count()} {try buf.get(0) otherwise panic("out of range")} {n}\n")
 	return 0
 end 'main'
 ```
@@ -4957,8 +4682,8 @@ function main() returns ExitCode
 	var firsts = 0 as Int
 	for n in 1 to 3 'each'
 		let buf = Buf.create(n)
-		total = total + (buf.count() as Int)
-		firsts = firsts + (try buf.get(0) otherwise -100)
+		total = try total + (buf.count() as Int) otherwise panic("out of range")
+		firsts = try firsts + (try buf.get(0) otherwise -100) otherwise panic("out of range")
 	end 'each'
 	print("{total} {firsts}\n")
 	return 0
@@ -5044,23 +4769,21 @@ end 'main'
 ```
 
 <!-- test: a-sized-fixed-array-widens-to-runtime-sized -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `Vec3` is accepted where a `Buf` is declared: the record's length is the 3 the type states, so nothing converts. The callee sees a runtime-sized array, so its `get` needs `try`: `14`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
 
 function describe(buf Buf) returns Int
 	let last = try buf.get(2) otherwise -1
-	return (buf.count() as Int) * 3 + last
+	return try (buf.count() as Int) * 3 + last otherwise panic("out of range")
 end 'describe'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(2, value: 5)
 	print("{describe(v)}\n")
 	return 0
@@ -5094,13 +4817,11 @@ end 'main'
 ```
 
 <!-- test: error.a-runtime-sized-value-where-a-sized-one-is-declared -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The widening runs one way. A runtime-sized value has no length in its type to satisfy a `Vec3`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -5140,11 +4861,10 @@ error E2069: <fragment>:6:33: A `FixedArray` element count runs from 1 to 429496
 ```
 
 <!-- test: error.fixed-array-with-a-negative-count -->
-<!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-typealias Vec = FixedArray with - 3 Int
+typealias Vec = FixedArray with -3 Int
 
 function main() returns ExitCode
 	return 0
@@ -5182,10 +4902,10 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let bufs = Bufs.create(0)
+	var bufs = Bufs.create(0)
 	bufs.push(Buf.create(launder(2)))
 	bufs.push(Buf.create(4))
-	let second = try bufs.get(1) otherwise panic("second")
+	var second = try bufs.get(1) otherwise panic("second")
 	try second.set(3, value: 7) otherwise panic("set")
 	let first = try bufs.get(0) otherwise panic("first")
 	let written = try second.get(3) otherwise panic("get")
@@ -5212,9 +4932,9 @@ function launder(n ElementIndex) returns ElementIndex
 end 'launder'
 
 function main() returns ExitCode
-	let buf = Buf.create(launder(5))
+	var buf = Buf.create(launder(5))
 	try buf.set(4, value: 9) otherwise panic("set")
-	let probe = function() gives (try buf.get(4) otherwise -1) + (buf.count() as Int)
+	let probe = function() gives try (try buf.get(4) otherwise -1) + (buf.count() as Int) otherwise panic("out of range")
 	print("{probe()}\n")
 	return 0
 end 'main'
@@ -5267,8 +4987,6 @@ error E3194: <fragment>:8:15: 'Cells' states no length in its type, so 'create' 
 ```
 
 <!-- test: runtime-sized-reached-through-a-witness-reads-its-record-length -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 An interface conformance declared on `extension FixedArray` is dispatched through a witness table. The table's adapter passes the count the impl reads, and for a runtime-sized instance that count is the receiver's record length: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5279,10 +4997,8 @@ interface Measured
 	function measure() returns Count
 end 'Measured'
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Measured
 	function measure() returns Count
-		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'measure'
 end 'FixedArray'
@@ -5290,7 +5006,7 @@ end 'FixedArray'
 type Probe uses Item where Item implements Measured
 	var item as Item
 
-	static function create(item Item) returns Self
+	static function create(consumes item Item) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -5319,8 +5035,6 @@ end 'main'
 ```
 
 <!-- test: error.a-static-witness-reading-countof-Self-through-a-runtime-sized-alias -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 <!-- positions: moved -->
 A `static` requirement is not dispatchable through a type parameter at all, so a witness table can never hand a runtime-sized instance a count that only a record could answer: the call is refused before any table is read.
 ```maxon
@@ -5332,10 +5046,8 @@ interface Counting
 	static function slots() returns Count
 end 'Counting'
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Counting
 	static function slots() returns Count
-		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'slots'
 end 'FixedArray'
@@ -5369,12 +5081,10 @@ error E3116: <fragment>:23:15: 'Item.slots' is a `static` requirement, and a `st
 ```
 
 <!-- test: a-conditional-joins-a-sized-and-a-runtime-sized-fixed-array-in-either-order -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The two arms meet in a type that holds either, which is the runtime-sized one whichever arm is written first. Both results are runtime-sized, so `get` needs `try`: `8 8 0 0`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -5389,7 +5099,7 @@ function main() returns ExitCode
 	let second = Buf.create(launder(5)) if flag else Vec3.create()
 	let a = try first.get(0) otherwise -1
 	let b = try second.get(0) otherwise -1
-	print("{first.count() + second.count()} {second.count() + first.count()} {a} {b}\n")
+	print("{try first.count() + second.count() otherwise panic("out of range")} {try second.count() + first.count() otherwise panic("out of range")} {a} {b}\n")
 	return 0
 end 'main'
 ```
@@ -5401,12 +5111,10 @@ end 'main'
 ```
 
 <!-- test: a-generic-type-built-from-a-sized-and-a-runtime-sized-fixed-array-in-either-order -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A generic factory takes the type argument from its arguments. A sized and a runtime-sized fixed array give the runtime-sized one whichever is written first: `8 8`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -5439,12 +5147,10 @@ end 'main'
 ```
 
 <!-- test: a-sized-fixed-array-widens-on-a-return-and-on-a-field-store -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `Vec3` returned from a function declared to return a `Buf`, written into a `Buf` field by a struct literal and stored into it by a later assignment: `3 3 3`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -5463,7 +5169,7 @@ end 'make'
 
 function main() returns ExitCode
 	let made = make()
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let first = holder.cells.count()
 	holder.cells = Vec3.create()
 	print("{made.count()} {first} {holder.cells.count()}\n")
@@ -5487,7 +5193,7 @@ type Holder
 
 	static function make() returns Int
 		let cells = Cells from [4, 5, 6]
-		return (cells.count() as Int) * 100 + cells.get(2)
+		return try (cells.count() as Int) * 100 + cells.get(2) otherwise panic("out of range")
 	end 'make'
 end 'Holder'
 
@@ -5521,6 +5227,7 @@ error E2069: <fragment>:6:23: A `FixedArray` element count runs from 1 to 429496
 ```
 
 <!-- test: a-negative-runtime-length-panics-at-the-range-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A length that is negative at run time is not an `ElementIndex`: the cast that proves it panics where it is written.
 ```maxon
 typealias Signed = int(i64.min to i64.max)
@@ -5563,8 +5270,6 @@ error E3005: <fragment>:6:12: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: runtime-sized-reached-through-a-witness-table-that-also-holds-a-static-requirement -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
 A conformance whose interface also declares a `static` requirement reading the count builds a table with a slot for each. The instance slot reads the record's length; the static slot is never dispatched through the type parameter, so the table needs no receiver for it: `6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5576,15 +5281,12 @@ interface Measured
 	static function slots() returns Count
 end 'Measured'
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray implements Measured
 	function measure() returns Count
-		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'measure'
 
 	static function slots() returns Count
-		// TODO: countof(...) is not supported in minimaxon
 		return countof(Self)
 	end 'slots'
 end 'FixedArray'
@@ -5621,14 +5323,11 @@ end 'main'
 ```
 
 <!-- test: a-sized-fixed-array-minted-in-two-files-is-one-type -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `Buf.create(4)` in one file and `Buf from [...]` in another each build a `FixedArray with 4 Int` while their bodies are parsed. Both are the one instance the `Vec4` alias names, so each value crosses to a `Vec4` parameter in the other file: `9 4`.
 ```maxon
 // --- file: lib/types.maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 typealias Buf = FixedArray with Int
@@ -5645,14 +5344,14 @@ end 'lastOf'
 // --- file: lib/b.maxon
 function sumB(v Vec4) returns Int
 	let own = Buf from [1, 2, 3, 4]
-	return v.get(3) + lastOf(own)
+	return try v.get(3) + lastOf(own) otherwise panic("out of range")
 end 'sumB'
 
 // --- file: lib/main.maxon
 function main() returns ExitCode
-	let v = fromA()
+	var v = fromA()
 	v.set(3, value: 5)
-	print("{sumB(v)} {lastOf(Buf.create(4)) + 4}\n")
+	print("{sumB(v)} {try lastOf(Buf.create(4)) + 4 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -5664,12 +5363,10 @@ end 'main'
 ```
 
 <!-- test: a-try-otherwise-joins-a-sized-and-a-runtime-sized-fixed-array-in-either-order -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The call's result and its fallback meet in the runtime-sized type whichever of them is the sized one, as the arms of a conditional do. Each result is runtime-sized, so `get` needs `try`, and each keeps the length of the array that reached the merge: `5 5 3 3 0 0`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 typealias Buf = FixedArray with Int
@@ -5717,8 +5414,6 @@ end 'main'
 ## A Sized Fixed Array Strides By Its Element, Not By The Machine Word
 
 <!-- test: a-sized-fixed-array-strides-by-its-element-and-reads-back-every-element -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A fixed array whose type states its length lays its elements out at the element's own width, exactly as the runtime-sized form does: one byte for a `Byte` or a `bits(8)`, two for a 16-bit element, four for a 32-bit one, and a packed 1, 2 or 4 bits for a `bool`, an `int(0 to 3)` and an `int(0 to 15)`. Every element written through `set` reads back through `get`, through `for` and through a `clone`.
 ```maxon
@@ -5734,31 +5429,22 @@ typealias Crumb = int(0 to 3)
 
 typealias Nibble = int(0 to 15)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Bytes = FixedArray with 300 Byte
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Halves = FixedArray with 300 Half
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Wides = FixedArray with 300 Wide
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Octets = FixedArray with 300 Octet
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Lanes = FixedArray with 300 Lane
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Flags = FixedArray with 301 bool
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Crumbs = FixedArray with 301 Crumb
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Nibbles = FixedArray with 301 Nibble
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -5966,14 +5652,11 @@ nibble -4 -4 2238 2238 2238
 ```
 
 <!-- test: a-second-type-parameter-strides-by-its-own-instantiation -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic type holding a fixed array over its SECOND parameter lays the elements out at that parameter's instantiation, whatever the first parameter is: one byte for `Byte` beside an `Integer`, a packed bit for `bool` beside a `String`. Every element reads back through `get` and through `for`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -5981,7 +5664,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Two uses A, B
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Cells = FixedArray with 8 B
 	var tag as A
 	var cells as Cells
@@ -6044,12 +5726,9 @@ flag -1 3 8
 ```
 
 <!-- test: a-nested-generic-passes-its-instantiation-to-the-fixed-array-it-holds -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic `Outer uses T` holding an `Inner with T`, whose `create` builds a `FixedArray with 6 T`, reaches that array through the descriptor table: the elements still stride at `T`'s own width, one byte for `Byte` and a packed bit for `bool`.
 ```maxon
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -6057,7 +5736,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Inner uses T
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 6 T
 	var slots as Slots
 
@@ -6132,14 +5810,11 @@ flag -1 3
 ```
 
 <!-- test: a-user-generic-over-a-packed-element-strides-by-its-bits -->
-<!-- skip: extensions of 'FixedArray' are not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A user generic over a packed element passes a negative stride through its own body: forty `bool` elements pack into five bytes, and 40 `int(0 to 3)` elements into ten, and every element written through the body reads back.
 ```maxon
 typealias Crumb = int(0 to 3)
 
-// TODO: extensions of 'FixedArray' are not supported in minimaxon
 extension FixedArray
 	function strideText() returns String
 		return "{managed.elementSize()}"
@@ -6147,7 +5822,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Bits uses T
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Cells = FixedArray with 40 T
 	var cells as Cells
 

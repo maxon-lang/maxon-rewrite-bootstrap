@@ -114,7 +114,6 @@ error E3006: <fragment>:10:17: duplicate definition of 'f' — already declared 
 ```
 
 <!-- test: error-default-on-a-duplicate-in-a-directory-a-second-directory-contests -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same refusal in a directory whose bare name a second directory also declares. `beta/` declares a `pick`
 of its own, so `alpha/`'s declarations are registered under `alpha.pick`, and the first declaration's place
 in the registry has to travel with them: the second `alpha` declaration is still the duplicate.

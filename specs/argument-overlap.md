@@ -195,18 +195,16 @@ end 'main'
 ```
 
 <!-- test: one-array-handed-twice-to-a-callee-that-only-reads-both -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 `areSame` writes neither parameter, so handing it `x` twice is legal.
 ```maxon
 typealias StringArray = Array with String
 
 function areSame(a StringArray, b StringArray) returns bool
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	return a is b and a.count() == b.count()
 end 'areSame'
 
 function main() returns ExitCode
-	let x = StringArray.create(0)
+	var x = StringArray.create(0)
 	x.push("hello {40 + 2} world, long enough for the heap")
 	print("{areSame(x, b: x)} {x.count()}\n")
 	return 0

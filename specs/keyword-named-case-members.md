@@ -112,10 +112,11 @@ which is precisely why it goes through the same shared predicate as the loud hal
 ## Tests
 
 <!-- test: closer-case-member-in-if-condition -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -123,6 +124,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -142,10 +144,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-in-while-condition -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -153,6 +156,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -175,10 +179,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-in-for-iterable -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -186,6 +191,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -206,10 +212,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-as-match-scrutinee -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -217,6 +224,7 @@ end 'Kw'
 function main() returns ExitCode
 	match Kw.end 'm'
 		alpha then return 11
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 22
 		omega then return 33
 	end 'm'
@@ -227,10 +235,11 @@ end 'main'
 ```
 
 <!-- test: closer-case-member-in-match-arm-body -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -238,6 +247,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -261,10 +271,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-in-else-if-chain -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -272,6 +283,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -294,10 +306,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-spelling-a-labelled-end-in-a-header -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -353,10 +366,11 @@ end 'main'
 ```
 
 <!-- test: closer-case-member-before-a-ternary-else -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -461,11 +475,13 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: every-block-keyword-as-a-case-member -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 enum Kw
 	if
 	else
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	while
 	match
@@ -478,6 +494,7 @@ function tagOf(k Kw) returns Integer
 	match k 'm'
 		if then return 1
 		else then return 2
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 4
 		while then return 8
 		match then return 16
@@ -502,10 +519,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-nested-two-deep -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -513,6 +531,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -537,10 +556,11 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-in-a-method-body-keeps-later-siblings -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -548,6 +568,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'
@@ -625,12 +646,13 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: closer-case-member-with-a-payload-binding-list -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(m Num)
 	omega
 end 'Kw'
@@ -638,6 +660,7 @@ end 'Kw'
 function tagOf(k Kw) returns Num
 	match k 'm'
 		alpha(n) then return n
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(m) then return m + 40
 		omega then return 3
 	end 'm'
@@ -687,18 +710,20 @@ end 'main'
 ```
 
 <!-- test: payload-case-member-with-two-slots-in-a-gives-arm -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(a Num, b Num)
 end 'Kw'
 
 function tagOf(k Kw) returns Num
 	return match k 'm'
 		alpha(n) gives n
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(a, b) gives a + b
 	end 'm'
 end 'tagOf'
@@ -715,6 +740,7 @@ end 'main'
 ```
 
 <!-- test: every-block-keyword-as-a-payload-carrying-case -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 ```maxon
 typealias Num = int(0 to 1000)
@@ -722,6 +748,7 @@ typealias Num = int(0 to 1000)
 union Kw
 	if (a Num)
 	else (b Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(c Num)
 	while (d Num)
 	match (e Num)
@@ -734,6 +761,7 @@ function tagOf(k Kw) returns Num
 	match k 'm'
 		if (a) then return a
 		else (b) then return b
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(c) then return c
 		while (d) then return d
 		match (e) then return e
@@ -761,18 +789,20 @@ end 'main'
 ```
 
 <!-- test: constructing-a-payload-carrying-keyword-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(a Num, b Num)
 end 'Kw'
 
 function tagOf(k Kw) returns Num
 	match k 'm'
 		alpha(n) then return n
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(a, b) then return a + b
 	end 'm'
 end 'tagOf'
@@ -815,10 +845,11 @@ end 'main'
 ```
 
 <!-- test: closer-case-member-and-the-declaration-sweep -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 enum Kw
 	alpha
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	omega
 end 'Kw'
@@ -826,6 +857,7 @@ end 'Kw'
 function tagOf(k Kw) returns Integer
 	match k 'm'
 		alpha then return 1
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end then return 2
 		omega then return 3
 	end 'm'

@@ -606,7 +606,6 @@ retaken=yes
 <!-- test: an-async-child-wait-leaves-the-sleeping-coroutine-running -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
 Two `async` coroutines share one strand: a streaming child's `wait` in the first and a `sleep` in the second.
@@ -621,17 +620,14 @@ let napMs = 100
 
 function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		argv.push("-n")
 		argv.push("3")
 		argv.push("127.0.0.1")
 		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		argv.push("2")
 		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'spawnTimedChild'
 
@@ -680,7 +676,6 @@ slept=true exited=true
 
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -695,17 +690,14 @@ typealias Integer = int(i64.min to i64.max)
 
 function spawnTimedChild() returns StreamingSubprocess throws SubprocessError
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		argv.push("-n")
 		argv.push("3")
 		argv.push("127.0.0.1")
 		return try StreamingSubprocess.spawn(Executable.name("ping"), arguments: argv)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		argv.push("2")
 		return try StreamingSubprocess.spawn(Executable.path(FilePath from "/bin/sleep"), arguments: argv)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'spawnTimedChild'
 

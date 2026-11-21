@@ -276,7 +276,6 @@ end 'main'
 ```
 
 <!-- test: every-collection-count-is-a-count -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 <!-- skip: 'Set' is not supported in minimaxon -->
 Every collection's `count()` is a `Count`, so each goes to a `Count` parameter with no cast.
 ```maxon
@@ -295,7 +294,6 @@ function main() returns ExitCode
 	let map = [1: 10, 2: 20, 3: 30]
 	// TODO: 'Set' is not supported in minimaxon
 	let set = Set from [5, 6, 7, 8]
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let vec = FixedArray from [1, 2, 3, 4, 5]
 	let text = "a😀b"
 	print("{takesCount(arr.count())} {takesCount(list.count())} {takesCount(map.count())} {takesCount(set.count())} {takesCount(vec.count())} {takesCount(text.codepoints().count())} {takesCount(text.utf16().count())}\n")
@@ -1614,14 +1612,12 @@ error E3005: <fragment>:9:8: argument type mismatch for 'value': expected 'Wide'
 ```
 
 <!-- test: error.fixed-array-set-across-aliases -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to u64.max)
 
 typealias Narrow = int(0 to 16)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias WideVec = FixedArray with 2 Wide
 
 function main() returns ExitCode
@@ -2764,7 +2760,6 @@ error E3063: <fragment>:9:41: Ambiguous type name 'Base': more than one visible 
 ```
 
 <!-- test: error.a-qualified-implements-parent-the-reader-cannot-see-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A qualified parent is held to the declaration's tier like every other qualified type name: an unmarked alias is
 not nameable from outside its directory.
 ```maxon

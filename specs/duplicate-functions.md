@@ -416,23 +416,17 @@ error E3006: <fragment>:4:11: Duplicate requirement 'area' in interface 'Shape'
 ```
 
 <!-- test: a-function-and-a-method-of-one-name-in-mutually-exclusive-if-branches-is-one-declaration -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 **THE CONTROL FOR THE CASES ABOVE.** `testing(false)` holds in every build, so each `#if` keeps its first
 declaration and drops the second: `pick` and `size` are each declared once, and nothing is refused.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(false)
 	function pick() returns ExitCode
 		return 21
 	end 'pick'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	function pick() returns ExitCode
 		return 99
 	end 'pick'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 type Counter
@@ -441,19 +435,15 @@ type Counter
 	static function create() returns Self
 		return Self{total: 7}
 	end 'create'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
-	#if testing(false)
 
+	#if testing(false)
 		function size() returns ExitCode
 			return self.total
 		end 'size'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
-
 		function size(scale ExitCode) returns ExitCode
 			return scale
 		end 'size'
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'Counter'
 

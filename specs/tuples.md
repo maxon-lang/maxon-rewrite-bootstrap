@@ -748,7 +748,6 @@ end 'main'
 ```
 
 <!-- test: an-eight-deep-nesting-is-one-type-however-it-is-spelled -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **NESTING DEPTH, WHICH NO OTHER CASE TAKES PAST THREE.** A nested element is cited by an interned
 token, so a tuple's identity costs time linear in its depth — and this is the case that says the CITATION is
 still an identity rather than merely cheap.
@@ -1634,7 +1633,6 @@ typealias PairArray = Array with Pair
 ```
 
 <!-- test: error.nested-tuple-name-does-not-depend-on-which-file-declares-it -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 
 ⭐⭐ **A NESTED TUPLE'S NAME IS A STATEMENT ABOUT THE PROGRAM, NOT ABOUT THE FILESYSTEM.** This case
 and its twin below are the SAME program with the SAME file NAMES; the only difference is which of the two
@@ -1682,7 +1680,6 @@ error E3005: <fragment>:18:2: Cannot return '((String, String), int)' from funct
 ```
 
 <!-- test: error.nested-tuple-name-does-not-depend-on-which-file-declares-it-swapped -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 
 ⭐ **THE IDENTICAL PROGRAM, THE TWO ALIASES DECLARED THE OTHER WAY ROUND.** `aaa.maxon` holds `PY` and
 `zzz.maxon` holds `PX`. **The pinned sentence below must stay byte-identical to its twin's** — that equality
@@ -1756,7 +1753,6 @@ error E3005: <fragment>:6:2: Cannot return '((int, Int), Int)' from function dec
 ```
 
 <!-- test: error.self-referential-tuple-alias-with-an-unrelated-tuple-interned-alongside -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 <!-- positions: moved -->
 
 ⭐⭐ **THE CASE ABOVE, WITH AN UNRELATED SIBLING FILE THAT INTERNS TWO TUPLES OF ITS OWN.** The program
@@ -1794,7 +1790,6 @@ error E3005: <fragment>:14:2: Cannot return '((int, Int), Int)' from function de
 ```
 
 <!-- test: error.a-tuple-over-a-contested-alias-is-named-in-source-form -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Bytes` over a `Byte` of their own, and
 `Holder.pair` is a `(Bytes, String)` of `pkg/lib.maxon`'s. An exported field cannot be typed by a
@@ -1854,7 +1849,6 @@ denotes. The consume boundary and the drop boundary must read ONE name: they are
 they answer differently about does not give a coarse answer, it manufactures a kind the type does not have.
 
 <!-- test: sizeof-of-a-tuple-alias-type-argument-declared-below-its-use -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 
 ⭐ `sizeof(T)` inside a shared generic body, instantiated at a tuple typealias whose declaration sits BELOW
 the instantiation — so the SWEEP recorded the instance's argument as a bare `named`. A `(Integer, Integer)`
@@ -1869,7 +1863,6 @@ type Sizer uses T
 	end 'create'
 
 	function typeSize() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'typeSize'
 end 'Sizer'
@@ -1878,7 +1871,7 @@ typealias PairSizer = Sizer with TPair
 
 function main() returns ExitCode
 	let s = PairSizer.create()
-	return s.typeSize()
+	return try s.typeSize() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1958,7 +1951,6 @@ end 'main'
 ```
 
 <!-- test: shared-body-reassign-with-a-heap-owning-tuple-alias-instantiation -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 
 ⭐ A shared generic body reassigns its opaque `T` field, and the SAME generic is ALSO instantiated at a tuple
 typealias that OWNS heap (`(Integer, String)`), declared BELOW the instantiation. The reassign gate scans
@@ -1969,11 +1961,11 @@ live without being constructed.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -1986,14 +1978,13 @@ type Holder
 	export var b as PairBox
 
 	static function create(b PairBox) returns Self
-		return Self{b: b}
+		return Self{b: b.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Holder)
-	let b = StringBox.create("alpha")
+	var b = StringBox.create("alpha")
 	b.replace("beta")
 	return 0
 end 'main'
@@ -2041,7 +2032,6 @@ a heap payload
 ```
 
 <!-- test: array-of-bare-primitive-element-tuples-clones-each -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 The CONTROL for the case above, and the reason the two are a pair: with the element spelled `int` rather than
 through a ranged alias, the sweep's spelling and the canonical one are the SAME bytes, so this program
 compiled and ran throughout — a clone case written only this way would have passed for a reason that has
@@ -3347,7 +3337,6 @@ end 'main'
 ```
 
 <!-- test: error.two-tuples-differing-only-by-the-file-an-alias-brand-comes-from-name-each-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `pkg/lib.maxon` and `app/main.maxon` each declare an unmarked `Xs` over one and the same instance, and `Holder.pair` is a `(Xs, Item)` of `pkg/lib.maxon`'s. An exported field cannot be typed by an unmarked alias, even as a tuple's element, so the field is refused; the tuple it hands to `app/main.maxon`'s `takes` is a different `Xs` and is refused beside it, each named by the file it comes from.
 ```maxon
 // --- file: item/item.maxon

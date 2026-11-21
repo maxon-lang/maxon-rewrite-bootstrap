@@ -855,6 +855,7 @@ error E3196: specs/readonly-element-types/error.a-set-element-read-by-for-is-not
 
 <!-- test: an-immutable-element-is-carried-to-the-ninth-argument-of-a-nested-instance -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An `extension Array` member returns a nine-argument instance whose last argument is the array's element type. On an
 `Array with immutable Counter` that argument is immutable, and the position it occupies is the ninth, past the eight a
 one-byte mask could hold.
@@ -883,6 +884,7 @@ type Wide uses A, B, C, D, E, F, G, H, I
 end 'Wide'
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias NineWide = Wide with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
 	function wide() returns NineWide throws ArrayError
 		let first = try self.get(0)
@@ -906,6 +908,7 @@ end 'main'
 
 <!-- test: an-immutable-element-is-carried-to-the-sixty-fourth-argument-of-a-nested-instance -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The sixty-fourth argument is the last position an instance records, and an `Array with immutable Counter`'s element
 reaches it.
 
@@ -933,6 +936,7 @@ type Widest uses P0, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, P13, P14
 end 'Widest'
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SixtyFourWide = Widest with (Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Integer, Element)
 	function widest() returns SixtyFourWide throws ArrayError
 		let first = try self.get(0)

@@ -89,7 +89,7 @@ typealias Idx = int(0 to u64.max)
 type Box uses T
 	export var slot as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{slot: v}
 	end 'make'
 
@@ -110,7 +110,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.make(1 as Idx)
-	return (b.bareCall() + b.qualifiedCall() * 2) as ExitCode
+	return try (b.bareCall() + b.qualifiedCall() * 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -135,13 +135,13 @@ end 'Box'
 
 extension Box
 	function twin() returns Integer
-		return of(7).v + self.v
+		return try of(7).v + self.v otherwise panic("out of range")
 	end 'twin'
 end 'Box'
 
 function main() returns ExitCode
 	let b = Box.of(4)
-	return b.twin() as ExitCode
+	return try b.twin() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -206,19 +206,19 @@ end 'Box'
 
 extension Box
 	function tripled() returns Integer
-		return self.v * 3
+		return try self.v * 3 otherwise panic("out of range")
 	end 'tripled'
 end 'Box'
 
 extension Box
 	function reported() returns Integer
-		return tripled() + 1
+		return try tripled() + 1 otherwise panic("out of range")
 	end 'reported'
 end 'Box'
 
 function main() returns ExitCode
 	let b = Box.of(5)
-	return b.reported() as ExitCode
+	return try b.reported() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -250,13 +250,13 @@ end 'Box'
 
 extension Box
 	function tripled() returns Integer
-		return self.v * 3
+		return try self.v * 3 otherwise panic("out of range")
 	end 'tripled'
 end 'Box'
 
 function main() returns ExitCode
 	let b = Box.of(5)
-	return (b.viaBare() + b.viaSelf()) as ExitCode
+	return try (b.viaBare() + b.viaSelf()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

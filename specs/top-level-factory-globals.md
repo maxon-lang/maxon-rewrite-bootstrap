@@ -247,7 +247,6 @@ error E3220: <fragment>:14:9: the initializer of 'c' calls 'Counter.create': a m
 ```
 
 <!-- test: error.cross-file-file-private-generic-create -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The initializer of a module-level or `static` `let` calls `Box.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/box.maxon
@@ -275,7 +274,6 @@ error E3220: bin/<fragment>:16:9: the initializer of 'b' calls 'Box.create': a m
 ```
 
 <!-- test: error.cross-file-file-private-generic-create-in-a-function-body -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The byte-identical call in a function body, reported at the same token.
 ```maxon
 // --- file: api/box.maxon
@@ -415,7 +413,6 @@ error E3220: <fragment>:16:9: the initializer of 'a' calls 'Outer.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-record-declared-in-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The initializer of a module-level or `static` `let` calls `Outer.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/inner.maxon
@@ -472,7 +469,6 @@ error E3220: <fragment>:11:9: the initializer of 'a' calls 'Maker.build': a modu
 ```
 
 <!-- test: error.factory-returning-a-tuple-alias-declared-in-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Maker.build`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -665,7 +661,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.cross-file-file-private-factory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The initializer of a module-level or `static` `let` calls `Database.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 // --- file: api/db.maxon
@@ -690,7 +685,6 @@ error E3220: bin/<fragment>:13:10: the initializer of 'db' calls 'Database.creat
 ```
 
 <!-- test: error.cross-file-file-private-factory-in-a-function-body -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/db.maxon
 export type Database

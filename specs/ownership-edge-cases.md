@@ -13,7 +13,6 @@ Uses `MmTrace: true` so the trace log verifies correct incref/decref/free behavi
 ## Tests
 
 <!-- test: rc-single-alloc-freed -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Single struct allocated and freed in the same function scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -28,9 +27,8 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let p = Point.create(1, y: 2)
-	return p.x
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -38,7 +36,6 @@ end 'main'
 ```
 
 <!-- test: rc-alias-incref -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Aliasing a struct increfs it; both variables share refcount and object is freed once.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -52,10 +49,9 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = Box.create(42)
 	let b = a
-	return b.value
+	return try b.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -87,7 +83,6 @@ end 'main'
 ```
 
 <!-- test: rc-inner-block-freed -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Struct created in an inner if-block is freed when that block exits, before the outer block ends.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -103,11 +98,10 @@ end 'Widget'
 function main() returns ExitCode
 	var result = 0 as Integer
 	if true 'inner'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let w = Widget.create(7)
 		result = w.id
 	end 'inner'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -166,7 +160,6 @@ end 'main'
 ```
 
 <!-- test: rc-loop-per-iteration-freed -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 A struct allocated each loop iteration is freed at loop-block exit before the next iteration.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -183,12 +176,11 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let c = Counter.create(i)
-		total = total + c.n
+		total = try total + c.n otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -196,7 +188,6 @@ end 'main'
 ```
 
 <!-- test: rc-break-frees-before-exit -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Struct allocated before a break is decref'd before the loop block is exited.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -212,14 +203,13 @@ end 'Step'
 function main() returns ExitCode
 	var i = 0 as Integer
 	while i < 10 'loop'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let s = Step.create(i)
 		if s.val == 3 'stop'
 			break
 		end 'stop'
 		i = i + 1
 	end 'loop'
-	return i
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -227,7 +217,6 @@ end 'main'
 ```
 
 <!-- test: rc-continue-frees-before-restart -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Struct allocated before a continue is decref'd before the loop restarts.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -244,15 +233,14 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 5 'loop'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let item = Item.create(i)
 		i = i + 1
 		if item.v == 2 'skip'
 			continue
 		end 'skip'
-		total = total + item.v
+		total = try total + item.v otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -677,7 +665,6 @@ end 'main'
 ```
 
 <!-- test: rc-return-from-inner-block-cleanup -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Returning from inside a nested block must decref all locals in every enclosing block before returning.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -691,18 +678,16 @@ type Step
 end 'Step'
 
 function compute(flag bool) returns Integer
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let outer = Step.create(1)
 	if flag 'inner'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let inner = Step.create(2)
-		return outer.n + inner.n
+		return try outer.n + inner.n otherwise panic("out of range")
 	end 'inner'
 	return outer.n
 end 'compute'
 
 function main() returns ExitCode
-	return compute(true)
+	return try compute(true) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1016,7 +1001,6 @@ end 'main'
 ```
 
 <!-- test: rc-multiple-aliases-freed-once -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Three aliases to the same object; the object is freed exactly once when the last alias leaves scope.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1030,11 +1014,10 @@ type Data
 end 'Data'
 
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = Data.create(7)
 	let b = a
 	let c = a
-	return a.n + b.n + c.n
+	return try a.n + b.n + c.n otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1291,11 +1274,9 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-primitive-freed -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 A tuple of primitives is heap-allocated and freed at scope exit.
 ```maxon
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let t = (10, 32)
 	return t.0
 end 'main'
@@ -1305,11 +1286,9 @@ end 'main'
 ```
 
 <!-- test: rc-tuple-alias-incref -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Aliasing a tuple increfs it; both variables share the same tuple object.
 ```maxon
 function main() returns ExitCode
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let a = (3, 7)
 	let b = a
 	return b.0 + b.1
@@ -2758,7 +2737,7 @@ end 'main'
 ```
 
 <!-- test: rc-release-on-error-propagation -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'notFound' -->
 Propagating an error out of a frame exits that frame's scope, so allocations made before the
 throwing call are freed on the way out.
 ```maxon
@@ -2781,7 +2760,6 @@ function loadResource() returns Resource throws ResourceError
 end 'loadResource'
 
 function process() returns Integer throws ResourceError
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let marker = Resource.create(42)
 	let res = try loadResource()
 	return res.id + marker.id

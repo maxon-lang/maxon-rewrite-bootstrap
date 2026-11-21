@@ -1643,7 +1643,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Outer` binds `Bag`'s associated type to `Inner with (Wrap with (X, Y))`. `Wrap` stores only its `X`, so a share walk cannot tell `Wrap with (Tally, bool)` from `Wrap with (Tally, Tally)`; but `Wrap.width` reads `sizeof(Y)`, and `Inner.current` reaches it through its `where W is Probe` witness. The two bindings' `Cursor` tables must stay apart, each handing `current` its own descriptor: 1 and 8.
 
@@ -1670,7 +1669,6 @@ type Wrap uses X, Y implements Probe
 	end 'create'
 
 	function width() returns Tally
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(Y)
 	end 'width'
 end 'Wrap'
@@ -1843,7 +1841,6 @@ end 'main'
 ```
 
 <!-- test: held.bindings-differing-in-a-constrained-position-keep-their-own-tables -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` with `where P is Weigh` and reads `sizeof(P)` in `current`, which the `Cursor` table's adapter reaches through its descriptor and `P`'s witness; the two bindings' tables stay apart: 8 and 16.
 
@@ -1895,7 +1892,6 @@ type Item uses T, P implements Cursor where P implements Weigh
 	end 'create'
 
 	function current() returns Tally
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(P) as Tally
 	end 'current'
 end 'Item'

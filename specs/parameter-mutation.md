@@ -921,20 +921,20 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 
-	function bumpTwice()
+	function bumpTwice(mutates self)
 		bump()
 		bump()
 	end 'bumpTwice'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.bumpTwice()
-	return c.n as ExitCode
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -955,20 +955,20 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 
-	function bumpTwice()
+	function bumpTwice(mutates self)
 		bump()
 		bump()
 	end 'bumpTwice'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.bumpTwice()
-	return c.n as ExitCode
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

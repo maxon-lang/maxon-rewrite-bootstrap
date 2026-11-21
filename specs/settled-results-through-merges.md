@@ -1455,7 +1455,7 @@ function relay() returns Bump
 end 'relay'
 
 function main() returns ExitCode
-	let b = relay()
+	var b = relay()
 	var h = relay()
 	h = b
 	let first = b()

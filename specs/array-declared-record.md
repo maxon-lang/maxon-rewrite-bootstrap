@@ -1645,7 +1645,6 @@ end 'main'
 ```
 
 <!-- test: error.a-conformer-named-for-a-container-that-constructs-nothing-still-does-not-take-its-surface -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE HALF THE TWO CASES ABOVE CANNOT SEE: A CONFORMER THAT CONSTRUCTS NOTHING.** Its `init` satisfies
@@ -1684,7 +1683,6 @@ type FixedArray uses Element implements BuiltinArrayLiteral
 	end 'init'
 end 'FixedArray'
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Num
 
 function main() returns ExitCode

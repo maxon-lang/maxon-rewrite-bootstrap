@@ -2097,12 +2097,12 @@ type Holder uses Element
 	export var items as ElementArray
 	export var single as Element
 
-	static function fill(xs ElementArray, first Element)
+	static function fill(mutates xs ElementArray, consumes first Element)
 		xs.push(first)
 	end 'fill'
 
-	static function of(first Element, single Element) returns Self
-		let xs = ElementArray.create(0)
+	static function of(consumes first Element, consumes single Element) returns Self
+		var xs = ElementArray.create(0)
 		fill(xs, first: first)
 		return Self{items: xs, single: single}
 	end 'of'
@@ -2777,7 +2777,6 @@ VERDICT: a conformer the extension is withheld from is not scanned, because thos
 <!-- test: a-withheld-conditional-extension-scans-no-descriptor-site -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Num = int(i64.min to i64.max)
 
@@ -2814,7 +2813,6 @@ type Bag uses T implements Holder with Plain
 	end 'get'
 
 	function slotSize() returns Num
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'slotSize'
 end 'Bag'
@@ -2942,11 +2940,11 @@ type Container uses Element
 end 'Container'
 
 extension Container
-	function stash(item Element)
+	function stash(mutates self, consumes item Element)
 		items.push(item)
 	end 'stash'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		stash(item)
 	end 'add'
 end 'Container'
@@ -2958,10 +2956,10 @@ function main() returns ExitCode
 	while seed < 3 'grow'
 		seed = seed + 1
 	end 'grow'
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	let owned = "heap-built element number {seed} long enough to escape any small-string envelope"
 	sc.add(owned)
-	let second = "heap-built element number {seed + 1} long enough to escape any small-string envelope"
+	let second = "heap-built element number {try seed + 1 otherwise panic("out of range")} long enough to escape any small-string envelope"
 	sc.add(second)
 	if sc.count() == 2 'check'
 		return 0
@@ -3028,7 +3026,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calling-a-static-that-reads-sizeof-and-returns-a-concrete-array -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The static returns an `Array with Count`, a concrete generic instance that is not the instance the static builds, so the call takes the descriptor from the enclosing method. The closure that makes the call holds it.
 ```maxon
 type Box uses T
@@ -3040,8 +3037,7 @@ type Box uses T
 	end 'create'
 
 	static function widths() returns Widths
-		let out = Widths.create(0)
-		// TODO: sizeof(...) is not supported in minimaxon
+		var out = Widths.create(0)
 		out.push(sizeof(T))
 		return out
 	end 'widths'
@@ -3115,7 +3111,6 @@ first long enough to allocate
 ```
 
 <!-- test: a-closure-in-a-generic-type-in-a-sub-directory-calls-a-descriptor-reader -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The generic type is declared in `sub/`, so its methods are named through the directory; the closure's call to `width` still has to reach the descriptor of `viaClosure`.
 ```maxon
 // --- file: sub/box.maxon
@@ -3133,7 +3128,6 @@ type Box uses T
 	end 'create'
 
 	function width() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'width'
 
@@ -3144,7 +3138,7 @@ type Box uses T
 end 'Box'
 
 export function probe() returns Count
-	return SmallBox.create().viaClosure() * 10 + FlagBox.create().viaClosure()
+	return try SmallBox.create().viaClosure() * 10 + FlagBox.create().viaClosure() otherwise panic("out of range")
 end 'probe'
 
 // --- file: main.maxon
@@ -3161,7 +3155,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-an-extension-method-of-a-generic-type-calls-a-descriptor-reader -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Box uses T
 	export var n as Count
@@ -3171,7 +3164,6 @@ type Box uses T
 	end 'create'
 
 	function width() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'width'
 end 'Box'
@@ -3204,7 +3196,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calls-a-generic-method-that-reads-the-descriptor -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `size` is the method that reads `sizeof(T)`, and a closure calls it.
 ```maxon
 type Box uses T
@@ -3220,12 +3211,11 @@ type Box uses T
 	end 'sizeFlag'
 
 	function size(items Items) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(T) + items.count()
+		return try sizeof(T) + items.count() otherwise panic("out of range")
 	end 'size'
 
 	function viaClosure() returns Count
-		let items = Items.create(0)
+		var items = Items.create(0)
 		items.push(1)
 		let f = function() gives self.size(items)
 		return f()
@@ -3253,7 +3243,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-calls-the-statics-of-a-generic-type -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The instance `own` and the two statics `m` and `mPlus` are three declarations. A closure that calls a static reads it back by the static's own declaration.
 ```maxon
 type Box uses T
@@ -3268,13 +3257,11 @@ type Box uses T
 	end 'own'
 
 	static function m(b SmallBox) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(T) + b.n
+		return try sizeof(T) + b.n otherwise panic("out of range")
 	end 'm'
 
 	static function mPlus(b SmallBox, extra Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(T) + b.n + extra
+		return try sizeof(T) + b.n + extra otherwise panic("out of range")
 	end 'mPlus'
 
 	function viaClosure(other SmallBox) returns Count
@@ -3316,16 +3303,16 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function width(n Level, extra Level = sizeof(T) as Level) returns Level
-		return n + extra
+	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try n + extra otherwise panic("out of range")
 	end 'width'
 
-	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
-		return (n.count() as Level) + extra
+	function widthText(n String, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try (n.count() as Level) + extra otherwise panic("out of range")
 	end 'widthText'
 
 	function probe() returns Level
@@ -3556,7 +3543,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-before-another -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Two types each extended with a `Transform` of their own, the one that spells `Count` first and the one that spells `Level` last. Each default fills its own extension's alias.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3578,6 +3565,7 @@ type Plain uses U
 end 'Plain'
 
 extension Plain
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
@@ -3593,6 +3581,7 @@ type Leveled uses T
 end 'Leveled'
 
 extension Leveled
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
@@ -3618,7 +3607,7 @@ end 'main'
 ```
 
 <!-- test: an-extension-default-names-the-alias-of-the-extension-declared-after-another -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The same two extensions with the order swapped, so the one that spells `Count` is declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3648,6 +3637,7 @@ type Leveled uses T
 end 'Leveled'
 
 extension Leveled
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
@@ -3655,6 +3645,7 @@ extension Leveled
 end 'Leveled'
 
 extension Plain
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
@@ -3796,7 +3787,7 @@ end 'main'
 ```
 
 <!-- test: three-directories-each-declare-a-transform-and-the-last-declares-it-in-an-extension -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
@@ -3911,6 +3902,7 @@ type Plain uses U
 end 'Plain'
 
 extension Plain
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
@@ -3926,6 +3918,7 @@ type Leveled uses T
 end 'Leveled'
 
 extension Leveled
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	function run(n Level, f Transform = bump) returns Level
 		return f(n)
@@ -3961,7 +3954,7 @@ end 'main'
 ```
 
 <!-- test: a-type-body-and-an-extension-in-two-directories-each-read-their-own-transform -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
@@ -4006,6 +3999,7 @@ type Plain uses U
 end 'Plain'
 
 extension Plain
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
@@ -4041,16 +4035,16 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function width(n Level, extra Level = sizeof(T) as Level) returns Level
-		return n + extra
+	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try n + extra otherwise panic("out of range")
 	end 'width'
 
-	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
-		return (n.count() as Level) + extra
+	function widthText(n String, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try (n.count() as Level) + extra otherwise panic("out of range")
 	end 'widthText'
 end 'Gauge'
 
@@ -4079,16 +4073,16 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function width(n Level, extra Level = sizeof(T) as Level) returns Level
-		return n + extra
+	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try n + extra otherwise panic("out of range")
 	end 'width'
 
-	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
-		return (n.count() as Level) + extra
+	function widthText(n String, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try (n.count() as Level) + extra otherwise panic("out of range")
 	end 'widthText'
 
 	function viaClosure() returns Level
@@ -4124,18 +4118,18 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Gauge'
 
 extension Gauge
-	function width(n Level, extra Level = sizeof(T) as Level) returns Level
-		return n + extra
+	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try n + extra otherwise panic("out of range")
 	end 'width'
 
-	function widthText(n String, extra Level = sizeof(T) as Level) returns Level
-		return (n.count() as Level) + extra
+	function widthText(n String, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try (n.count() as Level) + extra otherwise panic("out of range")
 	end 'widthText'
 
 	function probe() returns Level
@@ -4168,7 +4162,7 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -4176,12 +4170,12 @@ type Gauge uses T
 		return 7
 	end 'fixed'
 
-	static function width(n Level, extra Level = sizeof(T) as Level) returns Level
-		return n + extra
+	static function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try n + extra otherwise panic("out of range")
 	end 'width'
 
-	static function widthText(n String, extra Level = sizeof(T) as Level) returns Level
-		return (n.count() as Level) + extra
+	static function widthText(n String, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
+		return try (n.count() as Level) + extra otherwise panic("out of range")
 	end 'widthText'
 end 'Gauge'
 
@@ -4203,7 +4197,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-the-default-of-a-generic-function-instance-named-over-a-range-finds-its-host -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 The instance's name holds the `$` of its range-qualified type argument, and so does the name of the closure lifted out of its default helper.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4211,7 +4204,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias Pred = function(Count) returns bool
 
 function accept(x T, f Pred = function(v Count) gives v > 1) uses T returns bool
-	// TODO: sizeof(...) is not supported in minimaxon
 	return f(sizeof(T) + (0 if x == x else 1))
 end 'accept'
 
@@ -4322,7 +4314,7 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	static function make(x T, n Count = sizeof(T)) returns Self
+	static function make(consumes x T, n Count = sizeof(T)) returns Self
 		return Self{item: x, n: n}
 	end 'make'
 end 'Box'
@@ -4347,7 +4339,7 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	static function make(x T, n Count = sizeof(T)) returns Self
+	static function make(consumes x T, n Count = sizeof(T)) returns Self
 		return Self{item: x, n: n}
 	end 'make'
 end 'Box'
@@ -4355,7 +4347,7 @@ end 'Box'
 type Outer uses U
 	var tag as U
 
-	static function create(tag U) returns Self
+	static function create(consumes tag U) returns Self
 		return Self{tag: tag}
 	end 'create'
 
@@ -4405,10 +4397,8 @@ ab! 8
 ```
 
 <!-- test: a-closure-building-the-type-runs-a-field-default-that-reads-sizeof -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Box uses T
-	// TODO: sizeof(...) is not supported in minimaxon
 	export var n = sizeof(T) as Count
 
 	static function create() returns Self
@@ -4891,7 +4881,7 @@ c 6
 ```
 
 <!-- test: a-member-array-of-self-declared-by-an-extension-of-the-generic-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 The member alias may be declared in an `extension` of the generic type.
 ```maxon
 type Box uses T
@@ -4899,6 +4889,7 @@ type Box uses T
 end 'Box'
 
 extension Box
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Peers = Array with Self
 	static function peers(v T) returns Peers
 		let out = Peers.create(0)

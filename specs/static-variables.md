@@ -187,7 +187,6 @@ error E2073: <fragment>:7:16: type 'Config' has no static member named 'MIN_SIZE
 ```
 
 <!-- test: static-let-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Cross-file: the storage key is the qualified name and nothing else, so an `export static let` read from
 another file resolves through the very probe an `export let` at file scope does. This is where a
 name-keying mistake would show — a key that carried the declaring FILE would make the reader's lookup
@@ -625,7 +624,6 @@ error E3207: <fragment>:7:14: 'pop' writes its receiver (line 246: `return try m
 ```
 
 <!-- test: top-level-let-enum-initializer-cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Cross-file: enum defined in one file, top-level `let` initialized with it in another.
 ```maxon
 // --- file: api/defs.maxon
@@ -2637,7 +2635,7 @@ count=4 sum=28 first=7
 ```
 
 <!-- test: error.a-boxed-union-constant-cannot-be-read-through-a-payload-less-alternative -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
+<!-- positions: moved -->
 An `or` pattern binds a payload only on the alternative that names it. `none or some(n)` reads `n` on the
 `none` path too, where no pattern bound it, so the arm is refused (E3129) — for a union constant as for any
 other scrutinee. Give `none` an arm of its own.
@@ -2654,7 +2652,7 @@ let sentinel = Counter.none
 function valueOf(c Counter) returns Integer
 	return match c 'k'
 		none or
-			some(n) gives n
+		some(n) gives n
 	end 'k'
 end 'valueOf'
 
@@ -2800,7 +2798,6 @@ error E3005: specs/static-variables/error.an-array-literal-may-not-mix-two-enums
 ### A STATIC MEMBER'S VISIBILITY IS THE MEMBER'S, NOT ITS TYPE'S
 
 <!-- test: error.an-unmarked-static-read-from-another-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked static member is visible in the declaring directory's subtree only, while the type
 around it stays exported and nameable everywhere. A reader outside the subtree may therefore write
 `Config` and must still be refused `used`, at the member token — the base is not the problem here and a
@@ -3558,7 +3555,8 @@ xé
 ### A static member's initializer ends at the line holding the closing bracket of a kept `match` block
 
 <!-- test: error.a-match-expression-in-a-call-argument-of-a-static-let -->
-<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
+<!-- skip: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own -->
+<!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `tag`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
 enum Mode
@@ -3571,6 +3569,7 @@ function tag(text String, tail String) returns String
 end 'tag'
 
 type Holder
+	// TODO: a block inside brackets is not supported in minimaxon: a line break inside parentheses is a syntax error; bind the block's value on a line of its own
 	static let LABEL = tag(match Mode.loud 'm'
 		quiet gives "quiet"
 		loud gives "loud"

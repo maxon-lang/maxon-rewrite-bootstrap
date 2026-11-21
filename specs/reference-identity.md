@@ -50,7 +50,6 @@ areSame(p, b: p)  // true  — same reference passed twice
 ## Tests
 
 <!-- test: self-identity -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -65,7 +64,6 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is a 'check'
 		return 1
 	end 'check'
@@ -77,7 +75,6 @@ end 'main'
 ```
 
 <!-- test: assignment-creates-alias -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -93,7 +90,6 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = a
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -105,7 +101,6 @@ end 'main'
 ```
 
 <!-- test: clone-creates-new-object -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -121,7 +116,6 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = a.clone()
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -133,7 +127,6 @@ end 'main'
 ```
 
 <!-- test: different-objects -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -149,7 +142,6 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = Point.create(1, y: 2)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -161,7 +153,6 @@ end 'main'
 ```
 
 <!-- test: is-not-operator -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -177,7 +168,6 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = Point.create(1, y: 2)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is not b 'check'
 		return 1
 	end 'check'
@@ -189,7 +179,6 @@ end 'main'
 ```
 
 <!-- test: is-not-self -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -204,7 +193,6 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is not a 'check'
 		return 1
 	end 'check'
@@ -216,7 +204,6 @@ end 'main'
 ```
 
 <!-- test: function-same-arg -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -229,7 +216,6 @@ type Box
 end 'Box'
 
 function areSame(a Box, b Box) returns bool
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	return a is b
 end 'areSame'
 
@@ -251,7 +237,6 @@ end 'main'
 ```
 
 <!-- test: string-identity -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
 	// Two identical string literals are INTERNED: a never-mutated literal is emitted once as a
@@ -259,11 +244,9 @@ function main() returns ExitCode
 	let a = "hello"
 	let b = "hello"
 	var result = 0 as ExitCode
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is a 'self'
 		result = result + 1
 	end 'self'
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'diff'
 		result = result + 10
 	end 'diff'
@@ -299,13 +282,10 @@ end 'main'
 ```
 
 <!-- test: primitive-error -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	let a = 42
 	let b = 42
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'check'
 		return 1
 	end 'check'
@@ -317,7 +297,6 @@ error E3068: specs/reference-identity/primitive-error.maxon:5:7: 'is' requires r
 ```
 
 <!-- test: byte-array-constant-identity -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 A module-level `let` holding a byte string is image data, not a heap object: the whole program reads ONE
 `.rdata` record for it, and the record table pools by bytes. So `is` answers the same way it does for the
 interned string literals above — a constant is itself, and two constants with the same bytes are one
@@ -332,19 +311,15 @@ let C = b"ho"
 
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if A is A 'self'
 		result = result + 1
 	end 'self'
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if A is B 'sameBytes'
 		result = result + 2
 	end 'sameBytes'
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if A is not C 'otherBytes'
 		result = result + 4
 	end 'otherBytes'
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if A is b"hi" 'inlineIsPooled'
 		result = result + 8
 	end 'inlineIsPooled'
@@ -412,7 +387,6 @@ error E3196: <fragment>:10:9: cannot store an immutable 'NumArray' into 'an elem
 ```
 
 <!-- test: a-durable-store-of-a-cloned-constant-is-its-own-object -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 ⭐ **A CLONE OF A CONSTANT IS A DIFFERENT OBJECT, AND THE STORE TAKES IT.** `let b = A` shares the one
 record, so `b is A`; the container's element is the private copy `.clone()` made, so it is not `A`. `is` is
 where the representation choice becomes visible, and this case is where the compiler says which answer is
@@ -429,14 +403,12 @@ let Anchor = NumArray.create(0)
 function main() returns ExitCode
 	var result = 0 as ExitCode
 	let bound = Anchor
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if bound is Anchor 'bindingBorrows'
 		result = result + 1
 	end 'bindingBorrows'
 	let h = Holder.create(0)
 	h.push(Anchor.clone())
 	let stored = try h.get(0) otherwise NumArray.create(0)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if stored is not Anchor 'storeCopies'
 		result = result + 2
 	end 'storeCopies'
@@ -474,7 +446,6 @@ end 'main'
 ```
 
 <!-- test: an-immutable-container-keeps-the-constants-identity -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 ⭐ **AN `immutable` ELEMENT NEEDS NO PRIVATE COPY OF AN IMMORTAL IMAGE.** The container shares the constant's own
 record, so the element read back IS the constant: `stored is Anchor`, where a container of writable elements
@@ -493,7 +464,6 @@ function main() returns ExitCode
 	let h = Holder.create(0)
 	h.push(Anchor)
 	let stored = try h.get(0) otherwise NumArray.create(0)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if stored is Anchor 'keepsIdentity'
 		return 1
 	end 'keepsIdentity'

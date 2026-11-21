@@ -155,7 +155,7 @@ false
 ```
 
 <!-- test: supplementary-plane-category -->
-<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '🎉' -->
 ### A codepoint above the BMP is classified through the sorted range table
 The BMP table is indexed directly; everything above U+FFFF takes a binary search. No other case
 distinguishes the two — `string-trim/trim-end-emoji` only needs an emoji NOT to be whitespace, which a
@@ -200,7 +200,7 @@ end 'main'
 ```
 
 <!-- test: supplementary-plane-table-bounds -->
-<!-- skip: minimaxon does not parse the converted source: incomplete label -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '󠄀' -->
 ### The sorted table's TOP, and the `Cn` a codepoint in no range falls out to
 `supplementary-plane-category` finds both its codepoints in the table's MIDDLE, so nothing above
 reaches the last entry and nothing at all reaches the fall-out — a lookup that answered any

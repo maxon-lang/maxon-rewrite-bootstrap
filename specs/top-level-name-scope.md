@@ -250,7 +250,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-type-name-means-the-readers-own-directorys-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `a/` and `b/` each export a `type Box`. A function in each directory writes the bare `Box`, and each means its
 own directory's: `a/`'s has the field `v` and `b/`'s the field `w`. `app/main.maxon` declares neither and
 reaches each through its directory.
@@ -295,7 +294,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-enum-and-union-name-mean-the-readers-own-directorys-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `a/` exports an `enum Mode` and `b/` a `union Mode`. Each directory's `match` over a `Mode` it writes bare lists
 that directory's cases, so the two kinds coexist and neither reader is asked to qualify.
 ```maxon
@@ -335,7 +333,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-alias-name-means-the-readers-own-directorys-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `a/` and `b/` each export a `typealias Score`, over `int(0 to 100)` and `int(0 to 200)`. Each directory's
 function takes and returns its own bare `Score`, and `app/main.maxon` hands each directory a value of the alias
 that directory declares: a bare `Score` read as the other directory's would reject the argument.
@@ -413,7 +410,6 @@ end 'fromOther'
 ```
 
 <!-- test: error.a-bare-type-name-is-ambiguous-where-neither-the-readers-directory-nor-the-root-declares-it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `a/` and `b/` each export a `type Box`, and `c/` declares none. A bare `Box` in `c/` has no nearer declaration to
 mean, so it is E3063 and lists both directories' spellings.
@@ -452,7 +448,6 @@ error E3063: c/<fragment>:22:12: Ambiguous type name 'Box': more than one visibl
 ```
 
 <!-- test: error.a-diagnostic-names-a-nested-directorys-type-whose-leaf-directory-also-declares-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `deep/` and `sub/deep/` each export a `type Box`, and the file in `sub/deep/` reads a field `Box` does not have. The
 diagnostic names the type as `sub.deep.Box`: the spelling of `deep/`'s type does not stand inside the longer one.
 ```maxon
@@ -494,7 +489,6 @@ error E3018: sub/deep/<fragment>:27:20: type 'sub.deep.Box' has no field named '
 ```
 
 <!-- test: error.a-diagnostic-names-a-nested-directorys-type-declared-before-the-leaf-directorys -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair with the nested directory sorting first (`a/deep/` before `deep/`), so the two orders of one program say
 the same thing.
 ```maxon

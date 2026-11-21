@@ -152,7 +152,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: runtime-scratch-reclaim.every-spawn-door-returns-its-scratch -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- unsupported-targets: wasm32-wasi -->
 **THE PUBLIC SPAWN DOORS, AND EVERY ROAD OUT OF THEM.** A `Subprocess.run` takes scratch in three
@@ -180,25 +179,19 @@ enum Door
 end 'Door'
 
 function shell() returns Executable
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	return Executable.name("cmd")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return Executable.name("cmd")
 	#else
-	return Executable.name("sh")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return Executable.name("sh")
 	#endif
 end 'shell'
 
 function exitZero() returns StringArray
 	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	argv.push("/c")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		argv.push("/c")
 	#else
-	argv.push("-c")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		argv.push("-c")
 	#endif
 	argv.push("exit 0")
 	return argv

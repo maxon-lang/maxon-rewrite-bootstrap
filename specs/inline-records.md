@@ -47,7 +47,6 @@ summing past 64 bits.
 ## Tests
 
 <!-- test: inline-records.two-u32-fields-are-one-word -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 Two 32-bit fields sum to exactly 64 bits, so `Pair` is one word and `sizeof` is 8; as a two-slot heap
 record the program would exit 16.
 ```maxon
@@ -63,7 +62,6 @@ type Pair
 end 'Pair'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Pair)
 end 'main'
 ```
@@ -112,7 +110,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.mixed-widths-round-trip -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 Five fields of five different widths sum to 31 bits and pack into one word, so the exit code is 8; a
 five-slot heap record would read the values back correctly and exit with that record's size instead.
 ```maxon
@@ -141,7 +138,6 @@ function main() returns ExitCode
 	let bottom = Mixed.create(false, q: 0, nib: 0, b: 0, w: 0)
 	print("{top.flag} {top.q} {top.nib} {top.b} {top.w}\n")
 	print("{bottom.flag} {bottom.q} {bottom.nib} {bottom.b} {bottom.w}\n")
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Mixed)
 end 'main'
 ```
@@ -154,7 +150,6 @@ false 0 0 0 0
 ```
 
 <!-- test: inline-records.bits-alias-field -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 Four `bits(n)` fields sum to 56 bits, so `Packed` is one word and the exit code is 8; a four-slot heap
 record would exit with its size instead. The two wide fields carry every bit set, so a field read
 that sign-extended or masked short would print the wrong number.
@@ -179,7 +174,6 @@ end 'Packed'
 function main() returns ExitCode
 	let p = Packed.create(15, b: 9, w: 0xFFFFFFFF, h: 0xFFFF)
 	print("{p.a} {p.b} {p.w} {p.h}\n")
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Packed)
 end 'main'
 ```
@@ -445,8 +439,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.is-on-an-inline-record-is-refused -->
-<!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- positions: moved -->
 Two inline records are two words and there is no record for the two names to share, so `is` is
 refused with the diagnostic every primitive already gets.
 ```maxon
@@ -464,7 +456,6 @@ end 'Pair'
 function main() returns ExitCode
 	let a = Pair.create(1, hi: 2)
 	let b = Pair.create(1, hi: 2)
-	// TODO: 'is' / 'is not' comparison is not supported in minimaxon
 	if a is b 'same'
 		return 1
 	end 'same'
@@ -529,7 +520,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-var-field-stays-a-heap-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: a mutable field disqualifies the type — a word has nowhere to be written through — so `Pair` is
 a two-slot heap record.
 ```maxon
@@ -541,7 +531,6 @@ type Pair
 end 'Pair'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Pair)
 end 'main'
 ```
@@ -550,7 +539,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-signed-field-stays-a-heap-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: a signed range is not zero-based, so it has no storage width on the packing ladder and the type
 stays a heap record.
 ```maxon
@@ -566,7 +554,6 @@ type Span
 end 'Span'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Span)
 end 'main'
 ```
@@ -575,7 +562,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.sixty-five-bits-stays-a-heap-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: 64 bits plus one is past the word, and the bound is the SUM rather than any single field, so a
 whole-word pattern beside a single flag stays a heap record.
 ```maxon
@@ -591,7 +577,6 @@ type Flagged
 end 'Flagged'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Flagged)
 end 'main'
 ```
@@ -642,7 +627,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-nonzero-lower-bound-stays-a-heap-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: the ladder is defined on zero-based ranges only — a range starting at 1 carries an offset a shift
 and mask cannot express — so the type stays a heap record.
 ```maxon
@@ -658,7 +642,6 @@ type Duo
 end 'Duo'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Duo)
 end 'main'
 ```
@@ -754,7 +737,6 @@ Stack trace:
 ```
 
 <!-- test: inline-records.as-a-field-of-a-heap-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: a qualifying type held by a heap record is one 8-byte slot either way — the word itself, or a
 pointer to a box — so the outer record's size is the same.
 ```maxon
@@ -776,12 +758,11 @@ type Outer
 	export var n as Integer
 
 	static function create(p Pair, n Integer) returns Self
-		return Self{p: p, n: n}
+		return Self{p: p.clone(), n: n}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Outer)
 end 'main'
 ```
@@ -888,7 +869,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-sole-whole-word-field -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 CONTROL: one 64-bit field is the whole word, so the literal is the field's own value retagged and the read
 is the word unmasked — the two branches a multi-field record never reaches. Every bit is set, so a read
 that masked, shifted or sign-extended would print a different number.
@@ -906,7 +886,6 @@ end 'Handle'
 function main() returns ExitCode
 	let h = Handle.create(0xFFFFFFFFFFFFFFFF)
 	print("{h.w}\n")
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Handle)
 end 'main'
 ```
@@ -950,7 +929,6 @@ end 'main'
 ```
 
 <!-- test: inline-records.a-contested-alias-is-read-in-the-declaring-file -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 A field's storage width is read through the alias the DECLARING file means, not through a fold over
 every file's declaration. `wide/wide.maxon` declares `Wide` as the whole signed span and never names `Packed`;
 `packed/packed.maxon`, in another directory, declares its own `Wide` and the type built on it, so `Packed` is two 32-bit fields in one
@@ -978,7 +956,6 @@ export type Packed
 end 'Packed'
 
 export function packedSize() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Packed)
 end 'packedSize'
 

@@ -119,12 +119,12 @@ extension Direction
 	end 'oppositeCode'
 
 	function bareOppositeCode() returns ExitCode
-		return opposite().code() + 1
+		return try opposite().code() + 1 otherwise panic("out of range")
 	end 'bareOppositeCode'
 end 'Direction'
 
 function main() returns ExitCode
-	return Direction.north.oppositeCode() + Direction.south.bareOppositeCode() - 10
+	return try Direction.north.oppositeCode() + Direction.south.bareOppositeCode() - 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1083,6 +1083,7 @@ error E3006: <fragment>:13:18: Duplicate method 'opposite' in type 'Direction'
 ```
 
 <!-- test: error.a-nested-typealias-in-an-enum-extension-is-refused -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An enum body declares cases and methods and no nested `typealias`, so the extension of one declares no more.
 ```maxon
@@ -1091,6 +1092,7 @@ enum Color
 end 'Color'
 
 extension Color
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Tint = int(0 to 3)
 	function tinted(tint Tint) returns ExitCode
 		return 1

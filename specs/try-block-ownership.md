@@ -773,7 +773,7 @@ on one fused value and the drops shared by every throw edge carry that value alo
 in turn, with the owners bound before it released and the ones after it never built.
 
 <!-- test: routed-throw-of-two-error-types-through-shared-drops -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 ```maxon
 typealias Index = int(0 to 255)
 
@@ -825,9 +825,13 @@ function run(k Index) returns String
 		log = "{log} {a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength()}"
 	end 'work' otherwise (caught) 'bad'
 		match caught 'kind'
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			NetError.timeout then log = "{log} net timeout"
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			NetError.refused then log = "{log} net refused"
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			DiskError.missing then log = "{log} disk missing"
+			// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 			DiskError.full then log = "{log} disk full"
 		end 'kind'
 	end 'bad'

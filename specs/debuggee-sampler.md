@@ -508,7 +508,6 @@ captured true true
 ```
 
 <!-- test: a-just-spawned-childs-module-list-holds-the-system-library -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-linux, wasm32-wasi -->
 <!-- process: own -->
 The program runs itself as a child that sleeps, opens the child the moment it is spawned, without waiting for it to
@@ -518,15 +517,11 @@ Toolhelp names in capitals. A Linux program is one static image with no loader, 
 list, so the case does not run on Linux.
 ```maxon
 function systemLibrary() returns String
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Macos)
 		return "libsystem_kernel.dylib"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		return "kernel32.dll"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'systemLibrary'
 
@@ -807,7 +802,7 @@ pin depth after the drop 0
 ```
 
 <!-- test: a-dropped-seized-set-kills-the-process-whose-thread-it-cannot-detach -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 <!-- process: own -->
@@ -820,6 +815,7 @@ line can be pinned exactly.
 function main() returns ExitCode
 	let arguments = CommandLine.args()
 	if arguments.count() > 2 'asTheSampler'
+		// TODO: 'int.fromString' is not supported in minimaxon
 		let target = try int.fromString(try arguments.get(2) otherwise return 1) otherwise return 2
 		holdAndDrop(target as Pid)
 		return 0

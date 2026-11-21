@@ -67,7 +67,6 @@ outside the declaring directory's subtree. The fixture's interior symbol
 (`unusedHelper`, `LocalPoint`, etc.) is the one the diagnostic targets.
 
 <!-- test: error.unused-exported-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -90,7 +89,6 @@ error E3092: api/<fragment>:5:17: exported function 'api.unusedHelper' is never 
 ```
 
 <!-- test: error.an-unused-export-whose-name-contains-union-cases-is-reported -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `int.unionCasesFor` is an extension method its author wrote, whose qualified name only CONTAINS the word
 a union's companion member is named by: an `export` nothing outside its file calls is reported like any
 other.
@@ -116,7 +114,6 @@ error E3092: api/<fragment>:4:18: exported function 'api.int.unionCasesFor' is n
 ```
 
 <!-- test: error.unused-exported-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **ONE diagnostic, about the TYPE, though `LocalPoint` declares two exported METHODS.** A method takes
 its visibility from its declaring type by convention, so auditing methods separately would report an
 internal helper of a public type as dead. The type owns the finding.
@@ -152,7 +149,6 @@ error E3092: api/<fragment>:5:13: exported type 'LocalPoint' is never referenced
 ```
 
 <!-- test: error.unused-exported-typealias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The alias IS named in its declaring file — `consumeAlias`'s parameter is typed by it — and is still
 E3092, because the question is whether anything OUTSIDE its directory names it.
 ```maxon
@@ -179,7 +175,6 @@ error E3092: api/<fragment>:3:18: exported typealias 'UnusedAlias' is never refe
 ```
 
 <!-- test: error.unused-exported-var -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/counter.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -200,7 +195,6 @@ error E3092: api/<fragment>:5:12: exported constant 'unusedCounter' is never ref
 ```
 
 <!-- test: error.unused-exported-const -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/limits.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -221,7 +215,6 @@ error E3092: api/<fragment>:5:12: exported constant 'MAX_UNUSED' is never refere
 ```
 
 <!-- test: error.unused-exported-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/status.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -268,7 +261,6 @@ end 'main'
 `public` that did nothing at all — an alias for `export` — would pass every other test in this file.
 
 <!-- test: public-function-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 public typealias Integer = int(i64.min to i64.max)
@@ -291,7 +283,6 @@ end 'main'
 ```
 
 <!-- test: public-type-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/shapes.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -324,7 +315,6 @@ end 'main'
 ```
 
 <!-- test: public-typealias-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 public typealias UnusedAlias = int(0 to 100)
@@ -349,7 +339,6 @@ end 'main'
 ```
 
 <!-- test: public-constant-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/limits.maxon
 export typealias Integer = int(i64.min to i64.max)
@@ -370,7 +359,6 @@ end 'main'
 ```
 
 <!-- test: public-var-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/counter.maxon
 public typealias Integer = int(i64.min to i64.max)
@@ -391,7 +379,6 @@ end 'main'
 ```
 
 <!-- test: a-public-function-read-only-in-its-directory-is-not-flagged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `public` declaration nothing outside its declaring directory reaches is exempt; written `export`, the same
 declaration is E3092.
 ```maxon
@@ -421,7 +408,6 @@ These are the false-positive guards. Each names the declaration from the OTHER f
 route, and each route is a separate thing the check has to be able to see.
 
 <!-- test: cross-file-constant-read-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ **AN INLINED CONSTANT LEAVES NO OP.** A `let` with no storage is materialized at its use site, so this
 read is invisible in the IR — the check is told about it by `ProgramSignatures.constantValueOf`, the door
 the use site resolves through.
@@ -439,7 +425,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-constant-chain-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ **AND AN INITIALIZER IS A SECOND DOOR.** `FINAL` reads `MIDDLE` from inside a constant initializer,
 which is folded during the declaration sweep rather than read at a use site. Hooking only the use site
 would report every link of a cross-file chain as unreferenced.
@@ -462,7 +447,6 @@ export let ROOT = 10
 ```
 
 <!-- test: a-type-named-only-in-another-files-const-initializer-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ **AND A TOP-LEVEL INITIALIZER IS THE SECOND DOOR FOR TYPES TOO.** `app/main.maxon` names `ColumnWidth`
 nowhere but in a constant's initializer, and the real parse SKIPS those tokens — the declaration sweep folds
 them on a throwaway `Parser` whose artifact nobody reads. A file whose every mention of another file's
@@ -489,7 +473,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-var-read-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/counter.maxon
 export let usedCounter = 9 as FullRangeInt
@@ -504,7 +487,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-type-use-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `app/main.maxon` never writes `UsedPoint` in a TYPE position — it calls a static on it. The owner half of
 a qualified callee is what makes that a reference.
 ```maxon
@@ -528,7 +510,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-alias-in-a-signature-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ **A RANGED ALIAS IS ERASED TO `integer` BEFORE ANY PASS SEES IT**, so a parameter typed by one leaves
 no trace in the declared signature. The reference is recovered from the set of type names each file wrote
 in a type position — the same set E3062 is answered from.
@@ -550,7 +531,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-enum-case-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `Color.blue` is an EXPRESSION, not a type position and not a call, and it is how an enum is used across a
 file boundary almost every time.
 ```maxon
@@ -576,7 +556,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-element-member-access-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠⚠ **`app/main.maxon` NEVER WRITES `Item` — IT REACHES IT, AND THE TWO DIAGNOSTICS MUST NOT CONTRADICT
 EACH OTHER OVER THAT.** The element type is behind a generic-instance alias, so a transitive walk over
 `Holder`'s field type stops at `ItemArray`; counted that way, E3092 would say to drop the `export`, and
@@ -631,7 +610,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-inferred-value-member-access-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same defect one route over: `a`'s type is INFERRED from a callee's declared return, so `app/main.maxon`
 needs `Rec` visible for `a.n` and never writes the name. Counting written names, E3092 would report it
 and E4006 would refuse the access once the advice was taken.
@@ -662,7 +640,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-union-match-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠⚠ **`app/main.maxon` NEVER WRITES `Answer` — A `match` ARM NAMES ITS *CASES*, NOT ITS TYPE.** That is
 the same contradiction `cross-file-element-member-access-is-a-reference` guards, arriving through the one
 door a written name cannot reach: the scrutinee's type is INFERRED from `classify`'s declared return, and
@@ -699,7 +676,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-enum-match-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The payload-free half of the case above: a plain `enum` matched cross-file reaches the same layout through
 the same door, and a written-names count would report it the same way. The two are kept apart because a bare enum's value IS its tag
 — `emitEnumTagOf` emits nothing for it — so a cure that only credited the BOXED load would pass the union
@@ -733,7 +709,6 @@ end 'main'
 ```
 
 <!-- test: cross-file-enum-accessor-is-a-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `.ordinal` on a value whose enum is declared elsewhere — the third arrival at that one door, and the
 narrowest: the whole program mentions `Shade` in exactly one file.
 ```maxon
@@ -763,7 +738,6 @@ end 'main'
 ```
 
 <!-- test: error.unused-exported-element-nothing-outside-reaches -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⭐⭐ **THE DISCRIMINATING CONTROL FOR THE TWO CASES ABOVE.** The count happens inside `api/store.maxon`
 instead of `app/main.maxon` reading `it.n`, and the verdict flips back. Nothing outside `api/store.maxon` reaches INTO an `Item`, so nothing outside needs it
@@ -818,7 +792,6 @@ error E3092: api/<fragment>:3:13: exported type 'Item' is never referenced outsi
 ```
 
 <!-- test: error.unused-exported-union-nothing-outside-reaches -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⭐⭐ **THE DISCRIMINATING CONTROL FOR THE THREE `match` / ACCESSOR CASES ABOVE.** An `Answer` is produced,
 held and matched entirely inside `api/answer.maxon`; `app/main.maxon` gets a number. Nothing outside the
@@ -956,7 +929,6 @@ end 'main'
 ## A finding may not depend on WHICH INTERNER an id is resolved in
 
 <!-- test: error.unused-exported-type-when-the-two-interners-disagree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⛔⛔ **A PROGRAM'S VERDICT MUST NOT MOVE WHEN AN UNRELATED FILE IS ADDED, AND THIS IS THE SMALLEST PROGRAM
 THAT SHOWS HOW IT COULD.** A merged function's `maxonParamTypes` carry ids minted against the PROJECT interner
@@ -1141,7 +1113,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-library-function-named-only-in-an-excluded-branch-of-a-sibling -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 The sibling's only mention sits in a `#if` branch no target takes, so no op and no token of the active
 stream holds it.
 ```maxon
@@ -1153,14 +1124,10 @@ function overlayShared() returns OverlayCount
 end 'overlayShared'
 
 // --- stdlib-overlay: Math.maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
-
-public function overlayCaller() returns OverlayCount
-	return overlayShared()
-end 'overlayCaller'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	public function overlayCaller() returns OverlayCount
+		return overlayShared()
+	end 'overlayCaller'
 #endif
 
 // --- file: main.maxon
@@ -1173,7 +1140,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-library-function-no-excluded-branch-names -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- positions: moved -->
 The negative control: the excluded branch exists and does not spell the name.
 ```maxon
@@ -1185,14 +1151,10 @@ function overlayShared() returns OverlayCount
 end 'overlayShared'
 
 // --- stdlib-overlay: Math.maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if testing(true)
-
-public function overlayCaller() returns OverlayCount
-	return 8
-end 'overlayCaller'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	public function overlayCaller() returns OverlayCount
+		return 8
+	end 'overlayCaller'
 #endif
 
 // --- file: main.maxon
@@ -1233,7 +1195,6 @@ end 'main'
 ```
 
 <!-- test: an-export-named-only-by-a-generic-function-nothing-instantiates -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export function helper() returns ExitCode
@@ -1256,7 +1217,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-function-named-only-in-an-inactive-branch -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 // --- file: lib.maxon
 function helper() returns ExitCode
@@ -1265,10 +1225,8 @@ end 'helper'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
-	return helper()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return helper()
 	#endif
 	return 0
 end 'main'
@@ -1303,7 +1261,6 @@ error E3219: <fragment>:3:10: unused function: 'helper' is not exported and noth
 ```
 
 <!-- test: error.an-unmarked-function-no-inactive-branch-names -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib.maxon
@@ -1313,10 +1270,8 @@ end 'helper'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if testing(true)
-	return 1
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		return 1
 	#endif
 	return 0
 end 'main'

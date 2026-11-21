@@ -362,7 +362,6 @@ line=closed bytes=closed
 ```
 
 <!-- test: releasing-a-child-whose-grandchild-holds-stdout-does-not-strand-the-reader -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child that exits while a grandchild it started still holds its output pipes leaves the pump's reads parked: the
@@ -371,43 +370,36 @@ both streams still open and a read parked on each, then releases the child and s
 at once and the program must end, rather than wait for the grandchild to let go of the pipes. The case ends the
 grandchild itself before it returns, because a descendant a case leaves running fails it.
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
+	function holderExecutable() returns Executable
+		return Executable.name("cmd")
+	end 'holderExecutable'
 
-function holderExecutable() returns Executable
-	return Executable.name("cmd")
-end 'holderExecutable'
-
-function holderArguments() returns StringArray
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("start")
-	argv.push("/b")
-	argv.push("ping")
-	argv.push("-n")
-	argv.push("30")
-	argv.push("127.0.0.1")
-	argv.push("&")
-	argv.push("exit")
-	argv.push("0")
-	return argv
-end 'holderArguments'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function holderArguments() returns StringArray
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("start")
+		argv.push("/b")
+		argv.push("ping")
+		argv.push("-n")
+		argv.push("30")
+		argv.push("127.0.0.1")
+		argv.push("&")
+		argv.push("exit")
+		argv.push("0")
+		return argv
+	end 'holderArguments'
 #else
+	function holderExecutable() returns Executable
+		return Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
+	end 'holderExecutable'
 
-function holderExecutable() returns Executable
-	return Executable.path(try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a valid path"))
-end 'holderExecutable'
-
-function holderArguments() returns StringArray
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("sleep 30 & exit 0")
-	return argv
-end 'holderArguments'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+	function holderArguments() returns StringArray
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("sleep 30 & exit 0")
+		return argv
+	end 'holderArguments'
 #endif
 
 function hasExited(child StreamingSubprocess) returns bool
@@ -448,25 +440,21 @@ child exited, streams closed before the release: 0
 ```
 
 <!-- test: a-stdin-feed-whose-childs-stdin-the-owner-closed-settles-without-writing -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `StdinFeed` waits for an anchor line on the child's stdout and then queues its own line for the child's stdin. The
 owner may close that stdin first, which it is free to do at any time. The feed then has nothing it can deliver: the
 anchor settles it as spent, nothing is written, and the program goes on.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("findstr")
-	argv.push("x*")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("C:/Windows/System32/cmd.exe") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("findstr")
+		argv.push("x*")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
-	let argv = StringArray.create(0)
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/cat") otherwise return 2)
+		let argv = StringArray.create(0)
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let pump = try ChildPump.of(child) otherwise return 4

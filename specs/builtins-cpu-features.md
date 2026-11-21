@@ -81,20 +81,16 @@ true
 ```
 
 <!-- test: builtins-cpu-features.a-native-host-has-hardware-aes -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- tier: stdlib -->
 Every x64 machine this suite runs on has AES-NI, PCLMULQDQ, SSSE3 and SSE4.1, and every arm64 one has the AES and PMULL
 extensions, so the answer is `true` wherever the intrinsic is answered at all. A probe that stored nothing, or
 read the wrong register or bit, answers `false` here.
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if arch(x64) or arch(arm64)
 		let expected = true
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let expected = false
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	print("{__Builtins.cpuHasAes() == expected}\n")
 	return 0

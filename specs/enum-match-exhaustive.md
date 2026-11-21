@@ -50,7 +50,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.single-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Color
 	red
@@ -62,8 +61,8 @@ function main() returns ExitCode
 	let c = Color.green
 	match c 'check'
 		red or
-			green or
-			blue then return 1
+		green or
+		blue then return 1
 	end 'check'
 end 'main'
 ```
@@ -72,7 +71,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.multiple-ranges -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Priority
 	low
@@ -85,9 +83,9 @@ function main() returns ExitCode
 	let p = Priority.high
 	match p 'check'
 		low or
-			medium then return 1
+		medium then return 1
 		high or
-			critical then return 2
+		critical then return 2
 	end 'check'
 end 'main'
 ```
@@ -96,7 +94,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.mix-explicit-and-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Priority
 	low
@@ -110,8 +107,8 @@ function main() returns ExitCode
 	match p 'check'
 		low then return 1
 		medium or
-			high or
-			critical then return 2
+		high or
+		critical then return 2
 	end 'check'
 end 'main'
 ```
@@ -120,7 +117,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.int-backed-range-covers-upper-bound -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Level
 	low = 10
@@ -131,7 +127,7 @@ end 'Level'
 function classify(l Level) returns ExitCode
 	let r = match l 'm'
 		low or
-			medium gives 41
+		medium gives 41
 		high gives 42
 	end 'm'
 	return r
@@ -146,7 +142,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.int-backed-range-covers-lower-bound -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Level
 	low = 10
@@ -157,7 +152,7 @@ end 'Level'
 function classify(l Level) returns ExitCode
 	let r = match l 'm'
 		low or
-			medium gives 41
+		medium gives 41
 		high gives 42
 	end 'm'
 	return r
@@ -172,7 +167,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.int-backed-range-excludes-outside-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Level
 	low = 10
@@ -183,7 +177,7 @@ end 'Level'
 function classify(l Level) returns ExitCode
 	let r = match l 'm'
 		low or
-			medium gives 41
+		medium gives 41
 		high gives 42
 	end 'm'
 	return r
@@ -198,7 +192,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.int-backed-range-is-declaration-order-not-raw-order -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Code
 	ok = 500
@@ -209,7 +202,7 @@ end 'Code'
 function classify(c Code) returns ExitCode
 	let r = match c 'm'
 		ok or
-			notFound gives 41
+		notFound gives 41
 		serverError gives 42
 	end 'm'
 	return r
@@ -224,7 +217,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.int-backed-range-declaration-order-matches-second-case -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Code
 	ok = 500
@@ -235,7 +227,7 @@ end 'Code'
 function classify(c Code) returns ExitCode
 	let r = match c 'm'
 		ok or
-			notFound gives 41
+		notFound gives 41
 		serverError gives 42
 	end 'm'
 	return r
@@ -250,7 +242,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.expression -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Status
 	pending
@@ -263,7 +254,7 @@ function main() returns ExitCode
 	let code = match s 'eval'
 		pending gives 0
 		approved or
-			rejected gives 1
+		rejected gives 1
 	end 'eval'
 	return code
 end 'main'
@@ -273,7 +264,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.upto-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Color
 	red
@@ -285,7 +275,7 @@ function main() returns ExitCode
 	let c = Color.red
 	match c 'check'
 		red or
-			green then return 1
+		green then return 1
 		blue then return 2
 	end 'check'
 end 'main'
@@ -350,7 +340,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.float-backed-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Threshold
 	low = 0.1
@@ -362,8 +351,8 @@ function main() returns ExitCode
 	let t = Threshold.medium
 	match t 'check'
 		low or
-			medium or
-			high then return 1
+		medium or
+		high then return 1
 	end 'check'
 end 'main'
 ```
@@ -470,7 +459,7 @@ function main() returns ExitCode
 	let p = Priority.high
 	match p 'check'
 		low or
-			medium then return 1
+		medium then return 1
 		critical then return 2
 	end 'check'
 end 'main'
@@ -493,11 +482,11 @@ function main() returns ExitCode
 	let p = Priority.high
 	match p 'check'
 		low or
-			medium or
-			high then return 1
 		medium or
-			high or
-			critical then return 2
+		high then return 1
+		medium or
+		high or
+		critical then return 2
 	end 'check'
 end 'main'
 ```
@@ -518,8 +507,8 @@ function main() returns ExitCode
 	let c = Color.green
 	match c 'check'
 		red or
-			green or
-			blue then return 1
+		green or
+		blue then return 1
 		green then return 2
 	end 'check'
 end 'main'
@@ -550,7 +539,6 @@ end 'main'
 ```
 
 <!-- test: enum-exhaustive.bare-case-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 enum Priority
 	low
@@ -563,9 +551,9 @@ function main() returns ExitCode
 	let p = Priority.high
 	match p 'check'
 		low or
-			medium then return 1
+		medium then return 1
 		high or
-			critical then return 2
+		critical then return 2
 	end 'check'
 end 'main'
 ```
@@ -596,7 +584,6 @@ end 'main'
 ```
 
 <!-- test: error.enum-qualified-case-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'gives', 'panic', 'then' or 'throws' but got '.' -->
 <!-- positions: moved -->
 ```maxon
 enum Color
@@ -687,7 +674,6 @@ expands the range against `SpanOp`'s OWN ordinals, so the match is recognized as
 exhaustive.
 
 <!-- test: cross-file-shadowed-union-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 // --- file: spans.maxon
 union BigSpan
@@ -709,17 +695,17 @@ typealias Code = int(0 to 125)
 function classify(op SpanOp) returns Code
 	return match op 'check'
 		condBr or
-			br gives 7
+		br gives 7
 	end 'check'
 end 'classify'
 
 function describeBig(op BigSpan) returns Code
 	return match op 'check'
 		condBr or
-			cmp or
-			call or
-			br or
-			ret gives 3
+		cmp or
+		call or
+		br or
+		ret gives 3
 	end 'check'
 end 'describeBig'
 
@@ -750,7 +736,6 @@ TypeResolution, which expands the range against `NarrowOp`'s real ordinals, so
 this exhaustive non-overlapping match compiles cleanly.
 
 <!-- test: cross-file-range-no-false-overlap -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 // --- file: ops.maxon
 union WideOp
@@ -773,16 +758,16 @@ function classify(op NarrowOp) returns Code
 	return match op 'check'
 		ret gives 1
 		call or
-			param gives 2
+		param gives 2
 	end 'check'
 end 'classify'
 
 function describeWide(op WideOp) returns Code
 	return match op 'check'
 		call or
-			ret or
-			param or
-			extra gives 9
+		ret or
+		param or
+		extra gives 9
 	end 'check'
 end 'describeWide'
 
@@ -807,6 +792,7 @@ bare `ret` arm is a real overlap. TypeResolution detects it against the resolved
 enum and reports E2027 at the offending arm's line/column.
 
 <!-- test: error.cross-file-range-genuine-overlap -->
+<!-- positions: moved -->
 ```maxon
 // --- file: ops.maxon
 export union WideOp
@@ -821,8 +807,8 @@ typealias Code = int(0 to 125)
 function classify(op WideOp) returns Code
 	return match op 'check'
 		call or
-			ret or
-			param gives 1
+		ret or
+		param gives 1
 		ret gives 2
 	end 'check'
 end 'classify'

@@ -18,7 +18,7 @@ value the program produces.
 ## Tests
 
 <!-- test: many-constants -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 4 -->
 Constant-rematerialization gating test: forces the allocator to materialize many distinct
 integer constants in arithmetic against a large number of working values
@@ -42,6 +42,7 @@ end 'ident'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 4 working values that live across the body — opaque w.r.t. the
 	// constant folder thanks to the runtime seed. The body below uses
@@ -80,7 +81,7 @@ end 'main'
 ```
 
 <!-- test: dialect-roundtrip -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Gating test for the X64 dialect's memory- and immediate-operand ALU variants
 (addRegMem / subRegMem / andRegMem / orRegMem / xorRegMem / imulRegMem /
@@ -113,6 +114,7 @@ end 'ident'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// Two values defined via opaque calls so the constant folder cannot
 	// see through them. Each combines with a small set of distinct masks
@@ -134,7 +136,7 @@ end 'main'
 ```
 
 <!-- test: many-call-crossing -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Spill-slot read fold gating test: a function with several i64 values live across
 multiple helper calls inside a loop body. Without the fold, every spilled-
@@ -179,6 +181,7 @@ end 'add2'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 6 working values live across the loop body. Each `ident`-produced
 	// value is opaque to the constant folder, so all 6 land in the live
@@ -213,7 +216,7 @@ end 'main'
 ```
 
 <!-- test: eviction-required -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Eviction gating test: forces the colorer into a scenario where greedy
 first-fit assigns cold values to limited callee-saved registers first,
@@ -255,6 +258,7 @@ end 'combine'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// 6 cold values defined early via opaque calls — the constant folder
 	// cannot see through `opaque` so each lives as a real working scalar.
@@ -290,7 +294,7 @@ end 'main'
 ```
 
 <!-- test: scheduler-pressure -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 List-scheduler gating test: forces the bottom-up list scheduler to make a
 pressure-vs-critical-path choice. `kernel` defines four "early" values
@@ -363,6 +367,7 @@ end 'kernel'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	let result = kernel(seed)
 	// Mask to 0..127 so the value fits both POSIX (0..255) and wasi
@@ -377,7 +382,7 @@ end 'main'
 ```
 
 <!-- test: call-arg-parallel-copy -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 0 -->
 Sequentialized call-arg setup test. Each ABI parameter slot is moved
 into one-by-one by `emitDirectCall`; unsequentialized, an
@@ -432,6 +437,7 @@ end 'combine6'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let seed = (try int.fromString(try args.get(1) otherwise "0") otherwise 0) as Integer
 	// Six values live across the helper call. Each comes from an opaque
 	// helper so the constant folder cannot fold them out. They are all

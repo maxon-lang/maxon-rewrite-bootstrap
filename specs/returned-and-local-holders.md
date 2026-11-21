@@ -1195,7 +1195,7 @@ function main() returns ExitCode
 	let first = Row.create(3)
 	let second = Row.create(4)
 	let g = function() gives Reader.over(first).size()
-	let holder = Holder.over(function() gives Reader.over(second).size())
+	var holder = Holder.over(function() gives Reader.over(second).size())
 	print("{g()} {holder.probe()}\n")
 	return 0
 end 'main'
@@ -1492,7 +1492,7 @@ function bump(mutates counter Counter) returns Count
 	return counter.n
 end 'bump'
 
-function runIt(g Bump) returns Count
+function runIt(mutates g Bump) returns Count
 	return g()
 end 'runIt'
 

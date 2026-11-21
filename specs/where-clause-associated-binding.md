@@ -340,7 +340,6 @@ error E3133: <fragment>:32:11: 'Wrap' constrains type parameter 'S' to 'Cursor w
 ```
 
 <!-- test: error.a-constraint-over-one-files-limit-is-not-met-by-another-files-wider-or-narrower-limit -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The binding is a declaration, not a spelling. `pkg/lib.maxon`'s constraint binds `Element` to its own
 `Limit`; `Tick` binds it to `app/main.maxon`'s `Limit`, a different declaration over a different range. The exported
@@ -389,7 +388,6 @@ error E3167: pkg/<fragment>:9:13: exported type 'pkg.Wrap' names unexported type
 ```
 
 <!-- test: error.a-constraint-over-one-files-limit-is-not-met-by-another-files-limit-of-the-same-range -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The same program with both declarations over one range. They are still two declarations, so the binding
 still disagrees, and the exported `Wrap` still names the unmarked `Limit`, which E3167 refuses.
@@ -899,7 +897,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.mutually-recursive-conformers-filing-witness-entries-terminate -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -926,12 +923,11 @@ type Ping uses T implements Sized
 	var keep as Keep
 
 	static function create(keep Keep) returns Self
-		return Self{keep: keep}
+		return Self{keep: keep.clone()}
 	end 'create'
 
 	function size() returns Val
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(T) as Val + self.keep.touch()
+		return try sizeof(T) as Val + self.keep.touch() otherwise panic("out of range")
 	end 'size'
 end 'Ping'
 
@@ -942,12 +938,11 @@ type Pong uses U implements Sized
 	var keep as Keep
 
 	static function create(keep Keep) returns Self
-		return Self{keep: keep}
+		return Self{keep: keep.clone()}
 	end 'create'
 
 	function size() returns Val
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(U) as Val + self.keep.touch()
+		return try sizeof(U) as Val + self.keep.touch() otherwise panic("out of range")
 	end 'size'
 end 'Pong'
 
@@ -1031,7 +1026,6 @@ error E3133: <fragment>:42:11: 'Wrap' constrains type parameter 'S' to 'Cursor w
 ```
 
 <!-- test: associated-binding.a-method-reading-nothing-of-its-parameter-supplies-a-parametric-witness-from-its-own-table -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `Holder.run` reads nothing of `T` itself. It calls `Keeper.measure`, which dispatches through `Keeper`'s `A is Sized` table, and that table has to be the one for `Pair with T`, whose `size` reads its type argument's size. Only `Holder`'s own descriptor can supply it, so `run` carries one.
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -1048,7 +1042,7 @@ type Keeper uses A where A implements Sized
 	end 'create'
 
 	function measure(probe A) returns Val
-		return probe.size() + self.n
+		return try probe.size() + self.n otherwise panic("out of range")
 	end 'measure'
 end 'Keeper'
 
@@ -1060,7 +1054,6 @@ type Pair uses P implements Sized
 	end 'create'
 
 	function size() returns Val
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(P) as Val
 	end 'size'
 end 'Pair'
@@ -1100,7 +1093,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-witness-read-only-inside-a-closure-the-callee-builds-is-supplied-from-the-callers-table -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `Keeper.measure` dispatches through its `A is Sized` table only inside a closure it builds, so its caller still has to supply the table for `Pair with T`.
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -1118,7 +1110,7 @@ type Keeper uses A where A implements Sized
 
 	function measure(probe A) returns Val
 		let f = function(p A) gives p.size()
-		return f(probe) + self.n
+		return try f(probe) + self.n otherwise panic("out of range")
 	end 'measure'
 end 'Keeper'
 
@@ -1130,7 +1122,6 @@ type Pair uses P implements Sized
 	end 'create'
 
 	function size() returns Val
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(P) as Val
 	end 'size'
 end 'Pair'

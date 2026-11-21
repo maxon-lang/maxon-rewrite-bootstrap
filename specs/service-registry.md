@@ -4270,6 +4270,7 @@ error E3171: <fragment>:3:19: `Element` cannot be a registry value or a `SharedV
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter-in-its-extension -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 interface Holder uses Element
@@ -4278,6 +4279,7 @@ end 'Holder'
 
 // TODO: extensions of an interface are not supported in minimaxon
 extension Holder
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Cell = SharedValue with Element
 end 'Holder'
 
@@ -4393,7 +4395,7 @@ error E3171: <fragment>:11:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-in-an-extension-of-its-type -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 An extension of a generic type declares the alias over that type's parameter, and the bound is the type's.
 ```maxon
@@ -4406,6 +4408,7 @@ type Bag uses T
 end 'Bag'
 
 extension Bag
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias TCell = SharedValue with T
 end 'Bag'
 
@@ -4555,6 +4558,7 @@ error E3171: <fragment>:3:31: `T` cannot be a registry value or a `SharedValue`:
 
 <!-- test: a-shared-value-alias-in-an-interface-extension-over-another-alias-of-it -->
 <!-- skip: extensions of an interface are not supported in minimaxon -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 An interface extension's `SharedValue` alias over a concrete element, named through a sibling alias, is
 built on each conformer.
 ```maxon
@@ -4566,7 +4570,9 @@ end 'Tagged'
 
 // TODO: extensions of an interface are not supported in minimaxon
 export extension Tagged
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Small = int(0 to 9)
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias SmallCell = SharedValue with Small
 	function cellTag() returns Small
 		let c = SmallCell.create(3 as Small)

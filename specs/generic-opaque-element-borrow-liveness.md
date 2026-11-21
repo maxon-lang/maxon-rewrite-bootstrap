@@ -1284,22 +1284,22 @@ type Slot uses T
 	var spare as T
 	var scrub as String
 
-	static function create(first T, second T) returns Self
+	static function create(consumes first T, consumes second T) returns Self
 		return Self{current: first, spare: second, scrub: ""}
 	end 'create'
 
-	function glue(kept T, other T) returns T
+	function glue(mutates self, consumes kept T, consumes other T) returns T
 		self.spare = other
 		return kept
 	end 'glue'
 
-	function replace() returns T
+	function replace(mutates self) returns T
 		self.current = self.spare
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
 		return self.spare
 	end 'replace'
 
-	function run() returns T
+	function run(mutates self) returns T
 		return glue(self.current, other: replace())
 	end 'run'
 end 'Slot'
@@ -1307,7 +1307,7 @@ end 'Slot'
 typealias StrSlot = Slot with String
 
 function main() returns ExitCode
-	let s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "beta {40 + 2} value long enough for a heap record")
+	var s = StrSlot.create("alpha {40 + 2} value long enough for a heap record", second: "beta {40 + 2} value long enough for a heap record")
 	print("{s.run()}\n")
 	return 0
 end 'main'

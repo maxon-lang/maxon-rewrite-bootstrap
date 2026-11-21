@@ -44,13 +44,13 @@ end 'Kind'
 function isScalar(k Kind) returns bool
 	return match k 'check'
 		boolean or
-			integer or
-			float gives true
+		integer or
+		float gives true
 		named or
-			// TODO: 'or' is a keyword in minimaxon and cannot be used as a name; rename it
-			function or
-			unresolved or
-			other gives false
+		// TODO: 'or' is a keyword in minimaxon and cannot be used as a name; rename it
+		function or
+		unresolved or
+		other gives false
 	end 'check'
 end 'isScalar'
 

@@ -116,7 +116,6 @@ library signature names is therefore written `public` itself.
 The rule bites where the function outranks a type in its signature.
 
 <!-- test: error.an-export-function-names-a-file-private-parameter-and-return-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **TWO POSITIONS, ONE TYPE, TWO DIAGNOSTICS, IN SIGNATURE ORDER** — the parameter first, then the
 return type. One offending (function, type) pair per POSITION is what makes the report tell an author
 what to change, and both sit at the function name.
@@ -141,7 +140,6 @@ error E3167: api/<fragment>:5:17: exported function 'api.f' names unexported typ
 ```
 
 <!-- test: error.an-export-function-throws-a-file-private-error -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The throws clause is a signature position: a caller that wants to MATCH on the error has to be able to
 name it. The `otherwise` here does not, so nothing but this rule refuses the program.
@@ -170,7 +168,6 @@ error E3167: api/<fragment>:7:17: exported function 'api.f' names unexported enu
 ```
 
 <!-- test: error.an-export-function-read-in-its-directory-names-an-unmarked-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The only reader sits in `api/` itself, where `Config` is visible, and the rule still holds: an `export`
 function's surface is judged at `export`, whoever calls it. Both tier words are read off the written modifiers.
 ```maxon
@@ -199,7 +196,6 @@ error E3167: api/<fragment>:11:17: exported function 'api.make' names unexported
 ```
 
 <!-- test: error.a-public-function-names-an-export-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **THE TOP OF THE LADDER.** `public` states API surface, and API surface may not be built out of a
 type that is merely `export`. Nothing else about this program differs from a legal one.
 ```maxon
@@ -228,7 +224,6 @@ error E3167: api/<fragment>:11:17: public function 'api.make' names exported typ
 ```
 
 <!-- test: error.a-type-argument-counts -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE WALK IS STRUCTURAL, NOT SURFACE.** `SecretArray` is `export` and passes on its own; the
 element it carries does not, and a caller holding the array holds `Secret` values. Asking only the
 written name would let every unmarked type out through one exported alias.
@@ -263,7 +258,6 @@ error E3167: api/<fragment>:11:17: exported function 'api.all' names unexported 
 ```
 
 <!-- test: error.a-tuple-element-counts -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The tuple itself names no declaration and is asked nothing. Its ELEMENTS are asked, one at a time —
 `ExitCode` answers and `Secret` does not.
 ```maxon
@@ -289,7 +283,6 @@ error E3167: api/<fragment>:9:17: exported function 'api.pair' names unexported 
 ```
 
 <!-- test: error.a-generic-instances-base-type-counts -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A generic instance names two things and both are asked: the argument, and the BASE the argument is
 substituted into. `IntBox` is `export` and its argument `ExitCode` is a primitive, so the surface and
 the argument both answer — the base `Box` does not, and a caller holding the returned value holds a
@@ -322,7 +315,6 @@ error E3167: api/<fragment>:13:17: exported function 'api.wrap' names unexported
 ```
 
 <!-- test: error.a-method-outranks-its-parameter-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **THE MEMBER'S OWN MODIFIER IS THE BAR, NOT ITS TYPE'S.** `Box` is `export`, so `Slot` would pass
 against the type — the member says `public`, and it is the member that is held. The anchor is the
 member NAME, one tab in: a tab is one column, so `get` sits at column 18.
@@ -351,7 +343,6 @@ error E3167: api/<fragment>:10:18: public function 'api.Box.get' names unexporte
 ```
 
 <!-- test: error.a-user-name-containing-union-cases-is-still-checked -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `unionCasesFor` is a method its author wrote, whose qualified name only CONTAINS the word a union's
 companion member is named by: it is held to its `export` like any other method.
 ```maxon
@@ -379,7 +370,6 @@ error E3167: api/<fragment>:10:18: exported function 'api.Holder.unionCasesFor' 
 ```
 
 <!-- test: error.a-public-interface-member-names-a-file-private-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An interface member writes no modifier of its own, so it takes the INTERFACE's: a caller reaches the
 requirement through `Sized`, and whatever can name `Sized` must be able to name what `size` returns.
 The conforming `Box.size` is unmarked and names the same alias legally — the tier that was
@@ -417,7 +407,6 @@ error E3167: api/<fragment>:6:11: public function 'api.Sized.size' names unexpor
 ```
 
 <!-- test: error.a-narrower-generic-alias-in-an-interface-requirement-return-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A generic alias is a declaration like a ranged one, and a requirement's return type is asked like a
 function's. `Tallies` is unmarked and `Stocked` is `export`, so whatever can name `Stocked` must be able to
 name what `items` returns.
@@ -456,7 +445,6 @@ error E3167: api/<fragment>:6:11: exported function 'api.Stocked.items' names un
 ```
 
 <!-- test: error.a-narrower-alias-as-an-instance-argument-in-an-interface-requirement-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The structural walk reaches a requirement's parameters too. `Secrets` is `export`, but the element it carries
 is the unmarked `Secret`, and a conformer's caller hands `keep` an array of them.
@@ -497,7 +485,6 @@ error E3167: api/<fragment>:7:11: exported function 'api.Keeper.keep' names unex
 ```
 
 <!-- test: error.an-interface-inner-alias-over-a-file-private-type-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias declared inside an interface body is as visible as its right-hand side, not as its interface.
@@ -545,7 +532,6 @@ error E3167: api/<fragment>:7:11: exported function 'api.Keeper.keep' names unex
 ```
 
 <!-- test: error.a-stdlib-internal-alias-is-not-nameable-from-user-code -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE LIBRARY IS HELD TO THE SAME RULE, AND THIS IS WHAT THAT COSTS USER CODE.**
 `stdlib/Math.maxon:8` writes `typealias SeriesTermLimit = int(2 to 64)` with no modifier; its one
 reader is `Math.lnBySeries`, an unmarked static, and no other library file names it. It is an
@@ -570,7 +556,6 @@ error E3008: api/<fragment>:4:15: typealias 'SeriesTermLimit' is not exported
 ```
 
 <!-- test: error.an-export-function-names-an-unmarked-type-declared-in-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The declaring file is not the naming file. `Config` is unmarked, so `api/lib.maxon` may name it and
 `app/main.maxon` may not — which is exactly the gap the rule closes, and the only shape in this file
 where the type and the function are written in two different files.
@@ -607,7 +592,6 @@ Now the guards. Each is legal: the rule is a floor under the function's own
 tier, and nothing below that floor is an error.
 
 <!-- test: a-file-private-function-may-name-a-public-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The bar is one-directional. A narrow function may name anything it can see — `scoreOf` is
 unmarked and names two `public` declarations, which is the common case and must stay silent.
 ```maxon
@@ -636,7 +620,6 @@ end 'main'
 ```
 
 <!-- test: a-type-parameter-names-no-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **`T` IS NOT A DECLARATION AND HAS NO TIER.** `create` and `get` are `export` and their signatures
 name `T`, which every instantiation supplies — asking `T` for a modifier would refuse every generic
 type's exported surface.
@@ -669,7 +652,6 @@ end 'main'
 ```
 
 <!-- test: a-type-parameter-named-like-a-file-private-type-is-not-judged -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Inside `Bag`, `Item` is `Bag`'s type parameter, whatever else in the file holds the name. The unmarked
 `type Item` beside it is a different declaration, and `first` names only the parameter, so nothing is asked.
 ```maxon
@@ -713,7 +695,6 @@ end 'main'
 ```
 
 <!-- test: a-public-function-naming-a-family-alias-beside-an-export-interface-is-judged-by-the-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `lib/` exports an interface `X` and `digits.maxon` declares a `public typealias X` of its own: two
 declarations of one name. `f` names the alias, which is `public` like `f`, so the interface's narrower tier
 is never asked. The root's own declaration is spelled `export.X`, because `digits.maxon` sees `lib/`'s too.
@@ -754,7 +735,6 @@ end 'main'
 ```
 
 <!-- test: a-function-naming-an-alias-beside-an-invisible-interface-of-its-name-is-judged-by-the-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `lib/`'s interface `X` is unmarked, so the root cannot see it and its bare `X` means its own `public` alias.
 `f` names that alias, at `f`'s own tier; the interface is never asked.
 ```maxon
@@ -804,7 +784,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-alias-in-an-exported-method-is-not-judged-as-the-files-same-named-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Inside `Wrapper`, a bare `Idx` means `Wrapper`'s own alias, whatever the file declares under the same name.
 `at` names that inner alias, which is `export` like `at` and whose right-hand side is a range naming no
 declaration, so `at` is legal and the unmarked `Idx` beside it is never asked. `7` is outside the file's
@@ -849,7 +828,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-inner-alias-in-an-exported-signature-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A type's inner alias carries its own modifier like any other member, and an unmarked one is unmarked
 however visible its type is. `Idx` sits inside the `export` type `Wrapper` with no modifier, so the
 `export` method `at` names an unmarked alias.
@@ -877,7 +855,6 @@ error E3167: api/<fragment>:10:18: exported function 'api.Wrapper.at' names unex
 ```
 
 <!-- test: error.an-extension-in-another-file-naming-a-file-private-inner-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An extension written in another directory names the type's unmarked inner alias `Arr`, which is visible only
 in `api/`, so `more/more.maxon` cannot name it at all, and the `export` method `f` could not
 hand it to a caller either.
@@ -908,7 +885,6 @@ error E3008: more/<fragment>:13:23: typealias 'Arr' is not exported
 ```
 
 <!-- test: error.a-qualified-file-private-inner-alias-from-another-file-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Qualifying the name does not widen it. `Wrapper.Idx` is unmarked, so it is unmarked to `api/lib.maxon`
 however visible `Wrapper` is, and `app/main.maxon` cannot name it as `Wrapper.Idx` any more than bare.
 ```maxon
@@ -939,7 +915,6 @@ error E3008: app/<fragment>:16:14: typealias 'Wrapper.Idx' is not exported
 ```
 
 <!-- test: error.a-per-instance-spelling-of-a-file-private-inner-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 An instance alias reaches the same member. `Pools` names `Pool with ExitCode`, so `Pools.Idx` is that
@@ -977,7 +952,6 @@ error E3008: app/<fragment>:19:14: typealias 'Pools.Idx' is not exported
 ```
 
 <!-- test: equal-tiers-are-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal is enough at every tier — the rule asks "at least as visible", not "wider". Both pairs are here
 in one program so that a check written as a strict comparison fails on both.
 ```maxon
@@ -1012,7 +986,6 @@ end 'main'
 ```
 
 <!-- test: a-users-own-byte-does-not-judge-the-librarys-signatures -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐⭐ **THE LIBRARY IS NEVER HELD AGAINST AN AUTHOR'S DECLARATION.** `api/lib.maxon` declares its own
 `export typealias Byte`, and `stdlib/` is full of `public` signatures naming a `Byte` of its own. Those
 two names never meet: a library file resolves a bare name to the library's declaration, and a signature
@@ -1041,7 +1014,6 @@ end 'main'
 ```
 
 <!-- test: a-users-own-generic-alias-does-not-reach-the-librarys-readers -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **THE SAME LAYER RULE AT THE GENERIC-INSTANCE DOOR.** `api/lib.maxon` declares an `export typealias
 ByteArray` of its own, over a two-byte element, and `stdlib/File.maxon` declares the library's. `stdlib/Sha2.maxon`
 declares none of the name and its `public function sha256(data ByteArray) returns ByteArray` names it, so
@@ -1107,7 +1079,6 @@ error E3092: pkg/<fragment>:3:13: exported type 'Item' is never referenced outsi
 ```
 
 <!-- test: error.a-contested-generic-alias-is-judged-by-the-readers-own-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ⚠ **THE TIER IS THE READER'S DECLARATION'S, NOT THE FIRST ONE FILED UNDER THE NAME.** The library declares a
 `public` `StringArray`, and `pkg/lib.maxon` keeps an unmarked one of its own, which is what its bare
@@ -1146,7 +1117,6 @@ error E3167: pkg/<fragment>:14:17: exported function 'pkg.apply' names unexporte
 ```
 
 <!-- test: error.an-alias-walked-from-another-file-judges-its-components-in-its-own-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⚠ **AN ALIAS'S COMPONENTS MEAN WHAT THEY MEAN WHERE THE ALIAS IS WRITTEN.** `Handler` is declared in
 `pkg/lib.maxon`, whose bare `StringArray` is its own unmarked alias. `pkg/use.maxon` declares no
 `StringArray`, so there the bare name would mean the library's `public` one. `apply` is written in
@@ -1174,7 +1144,6 @@ error E3167: pkg/<fragment>:8:17: exported function 'pkg.apply' names unexported
 ```
 
 <!-- test: error.a-function-alias-over-a-file-private-instance-element-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A function alias's parameter that is a generic alias is asked like any other component. `Cb` is `export`,
 and its parameter `Secrets` is unmarked, so `f` names an unmarked alias. The walk stops at the first
@@ -1204,7 +1173,6 @@ error E3167: api/<fragment>:8:17: exported function 'api.f' names unexported typ
 ```
 
 <!-- test: error.a-file-private-tuple-alias-in-an-exported-signature-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A tuple alias is a declaration like any other alias form. The tuple it stands for names no declaration, but
 the ALIAS does, and the parameter is written with the alias, so the alias's own tier is asked.
 ```maxon
@@ -1234,7 +1202,6 @@ the rule above: its own modifier is the bar.
 
 <!-- test: a-service-message-may-name-a-file-private-type -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐⭐ **THE MESSAGE'S `export` MEANS "MESSAGE", NOT "WIDER THAN THE TYPE".** `Worker` is unmarked and so
 is `Report`, and the only spelling that can reach `run` is a handle produced by a `spawn` written in this
@@ -1284,7 +1251,6 @@ end 'main'
 
 <!-- test: error.an-exported-services-message-names-a-file-private-type -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ⭐⭐ **THE EXEMPTION STOPS AT THE SERVICE TYPE'S TIER, AND ONE WORD IS THE WHOLE DIFFERENCE.** This program
@@ -1337,7 +1303,6 @@ error E3167: api/<fragment>:20:18: exported function 'api.Worker.run' names unex
 ```
 
 <!-- test: error.a-contested-function-alias-is-named-as-written -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 Two directories declare an unmarked `Op` over two shapes, so each declaration is held under a name of its
 own inside the compiler. The refusal still names `Op`, which is what the author wrote.
@@ -1374,7 +1339,6 @@ error E3167: aaa/<fragment>:6:17: exported function 'aaa.twice' names unexported
 ## A top-level binding is judged by its type
 
 <!-- test: error.an-exported-let-of-a-file-private-enum-type-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A binding is part of the surface its tier opens, and a reader of `BIG` holds a `Status` it has no spelling for.
 The refusal sits at the binding NAME, in the words a function gets, and the noun is the binding's own — a
 `let` is a "constant" and a `var` a "variable".
@@ -1397,7 +1361,6 @@ error E3167: api/<fragment>:8:12: exported constant 'api.BIG' names unexported e
 ```
 
 <!-- test: error.a-public-let-of-an-unmarked-enum-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `public` outranks every other tier, so a `public` binding may not hold even an `export` type, and an unmarked
 enum is two tiers short. The type here comes from the initializer: `Config.small` is the whole of what
 says what `DEFAULT` holds.
@@ -1420,7 +1383,6 @@ error E3167: api/<fragment>:8:12: public constant 'api.DEFAULT' names unexported
 ```
 
 <!-- test: error.an-exported-let-of-an-inferred-file-private-enum-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 No type is written anywhere on the binding: the enum is the value of the initializer and nothing else
 names it.
 
@@ -1446,7 +1408,6 @@ error E3167: api/<fragment>:8:12: exported constant 'api.SHARED' names unexporte
 ```
 
 <!-- test: error.an-export-static-let-of-a-file-private-enum-type-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `static let` is a binding with a tier of its own, and the member's own modifier is the bar, not its type's:
 `Holder` is `export` and `Status` is not.
 ```maxon
@@ -1470,7 +1431,6 @@ error E3167: api/<fragment>:9:20: exported constant 'api.Holder.DEFAULT' names u
 ```
 
 <!-- test: error.an-exported-let-cast-to-a-file-private-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A constant keeps the alias its initializer was cast to, and the alias is a declaration like any other.
 ```maxon
 // --- file: api/lib.maxon
@@ -1488,7 +1448,6 @@ error E3167: api/<fragment>:5:12: exported constant 'api.CAP' names unexported t
 ```
 
 <!-- test: error.an-exported-let-built-through-a-file-private-generic-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The alias the initializer was spelled through is the binding's own spelling of its type. `Array with ExitCode` is
 nameable by anyone, `Tallies` is not, and the binding is read under that name.
 ```maxon
@@ -1507,7 +1466,6 @@ error E3167: api/<fragment>:5:12: exported constant 'api.EMPTY' names unexported
 ```
 
 <!-- test: an-exported-let-of-an-exported-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The control for the refusals above: `Status` is `export`, so `BIG` may hold one. The reader names no type —
 `main` matches on the cases — and the type is still credited as needed by `BIG`, so the unused-export
 audit has nothing to say about it.
@@ -1533,7 +1491,6 @@ end 'main'
 ```
 
 <!-- test: a-file-private-let-of-a-file-private-type-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A binding no narrower than its type is not asked anything: both are unmarked, and nothing outside
 `api/lib.maxon` can reach either.
 ```maxon
@@ -1562,7 +1519,6 @@ end 'main'
 ```
 
 <!-- test: exported-lets-of-scalar-string-and-array-types-are-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Primitives, `String` and a library container name no declaration an author wrote, so no tier is asked of them.
 ```maxon
 // --- file: api/lib.maxon
@@ -1586,7 +1542,6 @@ hi3
 ```
 
 <!-- test: an-inferred-library-type-is-not-judged-as-a-same-named-private-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `api/lib.maxon` declares an unmarked `HeapCensusMode` of its own, beside the library's `public` one. `MODE`
 holds `stdlib.HeapCensusMode.byTag`, so its type is the library's enum: the declaration the initializer
 reached, not whichever `HeapCensusMode` the binding's own file declares.
@@ -1626,7 +1581,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-let-of-a-private-enum-beside-the-librarys-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The pair of the case above: the binding holds the file's own `HeapCensusMode`, and the refusal names the
 unmarked declaration the initializer reached.
 ```maxon
@@ -1648,7 +1602,6 @@ error E3167: api/<fragment>:8:12: exported constant 'api.MODE' names unexported 
 ```
 
 <!-- test: a-parameter-naming-the-librarys-type-is-not-judged-as-a-same-named-private-one -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A function's parameter type is judged by the declaration it names, the same as a binding's type:
 `stdlib.HeapCensusMode` is the library's `public` enum, and the unmarked `HeapCensusMode` beside the
 function is another type.
@@ -1693,7 +1646,6 @@ end 'main'
 ```
 
 <!-- test: equal-tiers-are-legal-for-bindings -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal is enough for a binding too, at both tiers that name a type: unmarked beside unmarked, `public` beside
 `public`.
 ```maxon
@@ -1731,7 +1683,6 @@ surface:
 | an `extends` clause | `interface` | `in its extends clause` | the interface's |
 
 <!-- test: error.an-exported-field-of-a-file-private-enum-type-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A field reachable from outside hands its readers a `Mode` they have no spelling for. The refusal sits at the
 type the field names, and the field is called by its qualified name.
 ```maxon
@@ -1766,7 +1717,6 @@ error E3167: api/<fragment>:9:21: exported field 'api.Holder.mode' names unexpor
 ```
 
 <!-- test: error.an-exported-field-typed-by-a-tuple-of-a-file-private-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A field's type is judged as a parameter's is, so a tuple spelled over an unmarked alias is refused at the field: the element's alias is a declaration like any other.
 ```maxon
 // --- file: api/lib.maxon
@@ -1790,7 +1740,6 @@ error E3167: api/<fragment>:5:13: exported field 'api.Holder.pair' names unexpor
 ```
 
 <!-- test: error.an-exported-field-typed-by-a-tuple-of-a-contested-file-private-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files declaring one `Scores` over one instance make it a contested name, and the field is still judged at the alias its own file wrote.
 ```maxon
 // --- file: api/lib.maxon
@@ -1820,7 +1769,6 @@ error E3167: api/<fragment>:5:13: exported field 'api.Holder.pair' names unexpor
 ```
 
 <!-- test: error.an-exported-field-typed-by-a-contested-file-private-generic-alias-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same contest without a tuple: the field names `Scores` directly, and `Scores` is declared in both files over one instance.
 ```maxon
 // --- file: api/lib.maxon
@@ -1850,7 +1798,6 @@ error E3167: api/<fragment>:6:23: exported field 'api.Holder.scores' names unexp
 ```
 
 <!-- test: an-unmarked-field-of-an-exported-type-read-in-its-directory-may-name-an-unmarked-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The field and `Mode` are unmarked, and `Holder` is `export`. `api/other.maxon` reads `mode` from inside `api/`,
 and nothing outside `api/` can read it, so nothing outside needs to name `Mode`.
 ```maxon
@@ -1886,7 +1833,6 @@ end 'main'
 ```
 
 <!-- test: an-export-field-of-an-unmarked-type-is-bounded-by-the-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The other half of the bound: `Holder` is unmarked, so its `export` field reaches no further than `api/`, and an
 unmarked `Mode` is enough.
 ```maxon
@@ -1918,7 +1864,6 @@ end 'main'
 ```
 
 <!-- test: an-exported-field-of-an-exported-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal tiers. The reader names no type, and `Mode` is credited as needed by `mode`, so the unused-export audit
 has nothing to say about it.
 ```maxon
@@ -1953,7 +1898,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-field-of-an-exported-type-may-name-a-file-private-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked field is visible only inside its type's directory, so no caller outside `api/` can read it and nothing
 there is owed a spelling of its type.
 ```maxon
@@ -1989,7 +1933,6 @@ end 'main'
 ```
 
 <!-- test: an-export-field-of-a-file-private-type-may-name-a-file-private-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked type bounds its `export` field to its directory, so the field and the enum sit at one tier.
 ```maxon
 // --- file: api/lib.maxon
@@ -2024,7 +1967,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-union-case-payload-of-a-file-private-enum-type-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A payload is read by whoever matches the union, so it is held to the union's tier. The union writes no modifier
 on a case, and the refusal sits at the payload's type.
 ```maxon
@@ -2056,7 +1998,6 @@ error E3167: api/<fragment>:9:7: exported union case 'api.Result.ok' names unexp
 ```
 
 <!-- test: an-exported-union-case-payload-of-an-exported-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal tiers, and `Mode` is named by the payload alone.
 ```maxon
 // --- file: api/lib.maxon
@@ -2087,7 +2028,6 @@ end 'main'
 ```
 
 <!-- test: a-file-private-union-case-payload-may-name-a-file-private-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2117,7 +2057,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-generic-alias-over-a-file-private-enum-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An alias is nameable wherever its tier reaches, and so is what it stands for. The refusal sits at the alias NAME.
 ```maxon
 // --- file: api/lib.maxon
@@ -2138,7 +2077,6 @@ error E3167: api/<fragment>:8:18: exported typealias 'api.ModeArray' names unexp
 ```
 
 <!-- test: error.an-exported-function-alias-over-a-file-private-enum-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2158,7 +2096,6 @@ error E3167: api/<fragment>:8:18: exported typealias 'api.Chooser' names unexpor
 ```
 
 <!-- test: error.an-exported-tuple-alias-over-a-file-private-enum-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2178,7 +2115,6 @@ error E3167: api/<fragment>:8:18: exported typealias 'api.ModePair' names unexpo
 ```
 
 <!-- test: an-exported-generic-alias-over-an-exported-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal tiers; `Mode` is named by the alias alone, which the reader uses.
 ```maxon
 // --- file: api/lib.maxon
@@ -2200,7 +2136,6 @@ end 'main'
 ```
 
 <!-- test: an-unmarked-alias-over-an-unmarked-enum-read-in-its-directory-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2213,7 +2148,7 @@ typealias ModeArray = Array with Mode
 // --- file: api/main.maxon
 function main() returns ExitCode
 	let modes = ModeArray.create(0)
-	return (modes.count() as ExitCode) + 7
+	return try (modes.count() as ExitCode) + 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2221,7 +2156,6 @@ end 'main'
 ```
 
 <!-- test: a-file-private-alias-over-a-file-private-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 enum Mode
@@ -2246,7 +2180,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-type-implementing-a-file-private-interface-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Whoever can name `Holder` can ask what it implements. The refusal sits at the type NAME.
 ```maxon
 // --- file: api/lib.maxon
@@ -2274,7 +2207,6 @@ error E3167: api/<fragment>:7:13: exported type 'api.Holder' names unexported in
 ```
 
 <!-- test: error.an-exported-type-binding-a-file-private-enum-in-its-implements-clause-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The `with` arguments of a conformance are named types of the declaration.
 ```maxon
 // --- file: api/lib.maxon
@@ -2314,7 +2246,6 @@ error E3167: api/<fragment>:12:13: exported type 'api.Holder' names unexported e
 ```
 
 <!-- test: error.an-exported-enum-implementing-a-file-private-interface-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 interface Marker
@@ -2340,7 +2271,6 @@ error E3167: api/<fragment>:7:13: exported enum 'api.Mode' names unexported inte
 ```
 
 <!-- test: error.an-exported-type-constrained-by-a-file-private-interface-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A `where` constraint is a requirement every user of `Box` has to satisfy, so the interface it names has to be
 nameable wherever `Box` is.
@@ -2368,7 +2298,6 @@ error E3167: api/<fragment>:7:13: exported type 'api.Box' names unexported inter
 ```
 
 <!-- test: error.an-exported-interface-extending-a-file-private-interface-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 interface Inner
@@ -2389,7 +2318,6 @@ error E3167: api/<fragment>:7:18: exported interface 'api.Outer' names unexporte
 ```
 
 <!-- test: an-exported-type-implementing-an-exported-interface-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Equal tiers, and the interface is named by the clause and by the reader.
 ```maxon
 // --- file: api/lib.maxon
@@ -2421,7 +2349,6 @@ end 'main'
 ```
 
 <!-- test: an-exported-type-implementing-with-an-exported-enum-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export enum Mode
@@ -2460,7 +2387,6 @@ end 'main'
 ```
 
 <!-- test: a-file-private-type-may-implement-a-file-private-interface -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 interface Marker
@@ -2491,7 +2417,6 @@ end 'main'
 ```
 
 <!-- test: an-exported-type-constrained-by-an-exported-interface-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export interface Marker
@@ -2531,7 +2456,6 @@ end 'main'
 7
 ```
 <!-- test: an-exported-interface-extending-an-exported-interface-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export interface Inner
@@ -2570,7 +2494,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-interface-requirement-names-an-unmarked-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An interface requirement takes the interface's tier (see above), so an `export` interface's requirement may not
 name an unmarked type.
 ```maxon
@@ -2591,7 +2514,6 @@ error E3167: api/<fragment>:6:11: exported function 'api.Sized.size' names unexp
 ```
 
 <!-- test: error.an-exported-enum-backed-by-a-file-private-record-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A struct-backed enum hands out its record through `rawValue`, so the record is part of the enum's surface and
@@ -2623,7 +2545,6 @@ error E3167: api/<fragment>:7:13: exported enum 'api.Instruction' names unexport
 ```
 
 <!-- test: an-exported-enum-backed-by-an-exported-record-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Equal tiers, and `OpMeta` is named by the enum's backing alone.
 ```maxon
@@ -2654,7 +2575,6 @@ end 'main'
 
 <!-- test: error.an-exported-alias-over-a-file-private-services-handle-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 A service's handle is the service's own tier, so an alias naming `Worker.handle` names `Worker`.
@@ -2690,7 +2610,6 @@ error E3167: api/<fragment>:13:18: exported typealias 'api.WorkerArray' names un
 
 <!-- test: an-exported-alias-over-an-exported-services-handle-credits-the-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The control, and the reason the demand is filed against `Worker` and not against its `handle`: nothing outside
 `api/lib.maxon` names `Worker`, and the audit would call it unused if the alias's demand did not reach it.
@@ -2726,7 +2645,6 @@ end 'main'
 ```
 
 <!-- test: a-type-reached-only-through-a-chain-of-aliases-is-credited -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⭐ **A DEMAND IS CREDITED THROUGH A DEMANDER THAT IS ITSELF ONLY CREDITED.** The reader names `ItemRows` and
 nothing else. `ItemRows` demands `ItemArray` at `export`, and `ItemArray` demands `Item` at `export`; neither
 is named outside `api/lib.maxon`, and neither is unused.
@@ -2759,7 +2677,6 @@ end 'main'
 ```
 
 <!-- test: a-type-reached-only-through-a-chain-of-fields-is-credited -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The reader names `Root` and nothing else. `Root.middle` demands `Middle` at `export`, and `Middle.leaf` demands
 `Leaf` at `export`. `Leaf` and `Middle` are declared before the types whose fields name them.
 ```maxon
@@ -2802,7 +2719,6 @@ end 'main'
 ```
 
 <!-- test: error.an-exported-generic-function-constrained-by-a-file-private-interface-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A generic function's `where` constraint is a requirement every caller has to meet, so the interface it names is
 held to the function's tier. The refusal sits at the function name.
@@ -2826,7 +2742,6 @@ error E3167: api/<fragment>:7:17: exported function 'api.bigger' names unexporte
 ```
 
 <!-- test: an-exported-generic-function-constrained-by-an-exported-interface-is-legal -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 export interface Marker
@@ -2860,7 +2775,6 @@ end 'main'
 
 <!-- test: error.an-exported-extension-method-constrained-by-a-file-private-interface-is-refused -->
 <!-- skip: conditional extensions (extension ... where) are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 The conditional extension's `where` clause is part of every method's contract: only a conformer of `Marker` has
 the method, so whoever can call it has to be able to name `Marker`.

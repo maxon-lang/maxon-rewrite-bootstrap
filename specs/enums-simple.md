@@ -399,12 +399,14 @@ error E3032: specs/enums-simple/error.raw-value-type-mismatch.maxon:4:2: raw val
 ```
 
 <!-- test: keyword-as-case-name -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 <!-- skip: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it -->
 Keywords can be used as enum case names (e.g., `function`, `return`, `end`).
 ```maxon
 enum TokenType
 	function
 	return
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end
 	if
 	else
@@ -419,6 +421,7 @@ function main() returns ExitCode
 		// TODO: 'gives' is a keyword in minimaxon and cannot be used as a name; rename it
 		function gives 1
 		return gives 0
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end gives 0
 		if gives 0
 		else gives 0

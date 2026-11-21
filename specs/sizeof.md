@@ -13,19 +13,17 @@ Returns the size of a type in bytes as a compile-time integer constant.
 ## Tests
 
 <!-- test: sizeof.type-parameter -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Sizer uses T
 	export var dummy as T
 
-	static function create(dummy T) returns Self
+	static function create(consumes dummy T) returns Self
 		return Self{dummy: dummy}
 	end 'create'
 
 	function typeSize() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'typeSize'
 end 'Sizer'
@@ -34,7 +32,7 @@ typealias BoolSizer = Sizer with bool
 
 function main() returns ExitCode
 	let s = BoolSizer.create(false)
-	return s.typeSize()
+	return try s.typeSize() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -42,7 +40,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.type-parameter-struct -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -58,12 +55,11 @@ end 'Pair'
 type Sizer uses T
 	export var dummy as T
 
-	static function create(dummy T) returns Self
+	static function create(consumes dummy T) returns Self
 		return Self{dummy: dummy}
 	end 'create'
 
 	function typeSize() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'typeSize'
 end 'Sizer'
@@ -72,7 +68,7 @@ typealias PairSizer = Sizer with Pair
 
 function main() returns ExitCode
 	let s = PairSizer.create(Pair.create(0, b: 0))
-	return s.typeSize()
+	return try s.typeSize() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -80,7 +76,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.concrete -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -94,7 +89,6 @@ type Pair
 end 'Pair'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(bool) + sizeof(Integer) + sizeof(Pair)
 end 'main'
 ```
@@ -103,19 +97,17 @@ end 'main'
 ```
 
 <!-- test: sizeof.self-forward -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Sizer uses T
 	export var dummy as T
 
-	static function create(dummy T) returns Self
+	static function create(consumes dummy T) returns Self
 		return Self{dummy: dummy}
 	end 'create'
 
 	function directSize() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'directSize'
 
@@ -128,7 +120,7 @@ typealias BoolSizer = Sizer with bool
 
 function main() returns ExitCode
 	let s = BoolSizer.create(false)
-	return s.indirectSize()
+	return try s.indirectSize() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -136,7 +128,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.transitive-two-hop -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -152,12 +143,11 @@ end 'Pair'
 type Sizer uses T
 	export var dummy as T
 
-	static function create(dummy T) returns Self
+	static function create(consumes dummy T) returns Self
 		return Self{dummy: dummy}
 	end 'create'
 
 	function level0() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'level0'
 
@@ -174,7 +164,7 @@ typealias PairSizer = Sizer with Pair
 
 function main() returns ExitCode
 	let s = PairSizer.create(Pair.create(0, b: 0))
-	return s.level2()
+	return try s.level2() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -182,10 +172,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.int -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(int)
 end 'main'
 ```
@@ -194,10 +182,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.float -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(float)
 end 'main'
 ```
@@ -206,10 +192,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.bool -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(bool)
 end 'main'
 ```
@@ -218,10 +202,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.byte -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(byte)
 end 'main'
 ```
@@ -230,7 +212,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.struct -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -240,7 +221,6 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Point)
 end 'main'
 ```
@@ -249,7 +229,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.struct-three-fields -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -260,7 +239,6 @@ type Vec3
 end 'Vec3'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Vec3)
 end 'main'
 ```
@@ -269,7 +247,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.enum -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 enum Color
 	red
@@ -278,7 +255,6 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Color)
 end 'main'
 ```
@@ -287,10 +263,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.arithmetic -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(int) + sizeof(bool)
 end 'main'
 ```
@@ -299,10 +273,8 @@ end 'main'
 ```
 
 <!-- test: sizeof.let-binding -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	let size = sizeof(int)
 	return size
 end 'main'
@@ -312,7 +284,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.the-corpus-byte-record-embeds-the-buffer-record -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ### A `managed` field of a builtin-literal conformer is embedded whole
 
 THE ENVELOPE COLLAPSE. A type whose `implements` clause names one of `stdlib/Builtins.maxon`'s three
@@ -338,7 +309,6 @@ conformers that remain are the two the corpus declares, and this reads one of th
 
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(String) as ExitCode
 end 'main'
 ```
@@ -347,7 +317,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.a-plain-managed-field-is-still-a-pointer -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### Without the marker, `managed` is an ordinary pointer field
 
@@ -362,7 +331,6 @@ type Plain
 end 'Plain'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return sizeof(Plain) as ExitCode
 end 'main'
 ```
@@ -371,7 +339,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.through-a-Self-typed-parameter -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ### A `Self`-typed PARAMETER is a value of the enclosing type, and the descriptor forwards to it
 
 `merge(other Self)` binds `other` to the same instance the receiver is, so `other.slotSize()`
@@ -394,7 +361,6 @@ type Bag uses Element
 	end 'create'
 
 	function slotSize() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(Element)
 	end 'slotSize'
 
@@ -406,7 +372,7 @@ end 'Bag'
 function main() returns ExitCode
 	let a = IntBag.create()
 	let b = IntBag.create()
-	return a.pairWith(b)
+	return try a.pairWith(b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -414,7 +380,6 @@ end 'main'
 ```
 
 <!-- test: sizeof-in-a-static-reads-the-descriptor-of-the-instance-the-call-names -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof(T)` in statics, one through an alias (`ByteCell`, `WideCell`) and one through a bare generic base whose argument fixes the instance (`Cell.widthOf(true)`). `width` is reached directly, through `Self.width` from a sibling static, and each answers the size of the instance its call names.
 ```maxon
 typealias Byte = int(0 to 255)
@@ -429,13 +394,11 @@ type Cell uses T where T implements Equatable
 	end 'make'
 
 	static function width(n Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T) + n
 	end 'width'
 
 	static function widthOf(x T) returns Count
 		let c = Self{v: x}
-		// TODO: sizeof(...) is not supported in minimaxon
 		return Self.width(0) + sizeof(T) + (0 if c.v == c.v else 0)
 	end 'widthOf'
 end 'Cell'
@@ -459,7 +422,6 @@ end 'main'
 ```
 
 <!-- test: sizeof-in-a-closure-in-a-static-reads-the-call-sites-descriptor -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof` of a type parameter in a closure written in a static reads the descriptor the static took from its call site.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -467,13 +429,12 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
-	static function sized(v T, n Int) returns Self
-		// TODO: sizeof(...) is not supported in minimaxon
-		let f = function() gives (sizeof(T) as Int) + n
+	static function sized(consumes v T, n Int) returns Self
+		let f = function() gives try (sizeof(T) as Int) + n otherwise panic("out of range")
 		if f() != 9 'theSizeOfAnIntegerPlusOne'
 			panic("the closure read the wrong size")
 		end 'theSizeOfAnIntegerPlusOne'
@@ -486,7 +447,7 @@ typealias IntCell = Cell with Int
 function main() returns ExitCode
 	let c = IntCell.create(4)
 	let d = IntCell.sized(2, n: 1)
-	return (d.v + c.v) as ExitCode
+	return try (d.v + c.v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -494,8 +455,6 @@ end 'main'
 ```
 
 <!-- test: error.sizeof-is-a-count -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
-<!-- positions: moved -->
 `sizeof` produces a `Count`, which a parameter of another alias refuses.
 ```maxon
 typealias Score = int(0 to u64.max)
@@ -505,7 +464,6 @@ function show(v Score)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	show(sizeof(int))
 	return 0
 end 'main'
@@ -519,7 +477,6 @@ error E3005: <fragment>:9:2: argument type mismatch for 'v': expected 'Score', g
 Each parameter's block of the descriptor holds that parameter's own size.
 
 <!-- test: sizeof-of-each-parameter-of-a-two-parameter-generic -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -527,23 +484,20 @@ type Holder uses T, U
 	var tag as T
 	var held as U
 
-	static function create(t T, u U) returns Self
+	static function create(consumes t T, consumes u U) returns Self
 		return Self{tag: t, held: u}
 	end 'create'
 
 	function sizeOfFirst() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'sizeOfFirst'
 
 	function sizeOfSecond() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(U)
 	end 'sizeOfSecond'
 
 	function bothSizes() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(T) * 1000 + sizeof(U)
+		return try sizeof(T) * 1000 + sizeof(U) otherwise panic("out of range")
 	end 'bothSizes'
 end 'Holder'
 
@@ -567,7 +521,6 @@ end 'main'
 A sibling call forwards the whole descriptor, and a nested instance over a run of the caller's parameters forwards the block the run begins at.
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-forwarded-descriptors -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -575,13 +528,12 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(a A, b B) returns Self
+	static function create(consumes a A, consumes b B) returns Self
 		return Self{a: a, b: b}
 	end 'create'
 
 	function sizes() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(A) * 1000 + sizeof(B)
+		return try sizeof(A) * 1000 + sizeof(B) otherwise panic("out of range")
 	end 'sizes'
 end 'Probe'
 
@@ -589,12 +541,11 @@ type Holder uses T, U
 	typealias Straight = Probe with (T, U)
 	var straight as Straight
 
-	static function create(t T, u U) returns Self
+	static function create(consumes t T, consumes u U) returns Self
 		return Self{straight: Straight.create(t, b: u)}
 	end 'create'
 
 	function sizeOfSecond() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(U)
 	end 'sizeOfSecond'
 
@@ -625,7 +576,6 @@ end 'main'
 ### `sizeof` of a two-parameter generic's parameter through a permuted instance, a closure and a static
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-a-permutation-a-closure-and-a-static -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
 
@@ -633,13 +583,12 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(a A, b B) returns Self
+	static function create(consumes a A, consumes b B) returns Self
 		return Self{a: a, b: b}
 	end 'create'
 
 	function sizes() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(A) * 1000 + sizeof(B)
+		return try sizeof(A) * 1000 + sizeof(B) otherwise panic("out of range")
 	end 'sizes'
 end 'Probe'
 
@@ -647,13 +596,12 @@ type Holder uses T, U
 	typealias Swapped = Probe with (U, T)
 	var swapped as Swapped
 
-	static function create(t T, u U) returns Self
+	static function create(consumes t T, consumes u U) returns Self
 		return Self{swapped: Swapped.create(u, b: t)}
 	end 'create'
 
 	static function widthOfSecond(n Count) returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
-		return sizeof(U) + n
+		return try sizeof(U) + n otherwise panic("out of range")
 	end 'widthOfSecond'
 
 	function viaSwapped() returns Count
@@ -661,7 +609,6 @@ type Holder uses T, U
 	end 'viaSwapped'
 
 	function viaClosure() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		let f = function() gives sizeof(U)
 		return f()
 	end 'viaClosure'
@@ -685,19 +632,17 @@ end 'main'
 ### `sizeof` read by a call chained on a method's result
 
 <!-- test: sizeof-read-through-a-call-chained-on-a-result -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 65535)
 
 type Inner uses T
 	var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
 	function size() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'size'
 end 'Inner'
@@ -706,7 +651,7 @@ type Outer uses T
 	typealias Held = Inner with T
 	var held as Held
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{held: Held.create(x)}
 	end 'create'
 
@@ -738,7 +683,6 @@ end 'main'
 ```
 
 <!-- test: sizeof-read-through-a-methods-result -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Left uses A
 	var n as Count
@@ -748,7 +692,6 @@ type Left uses A
 	end 'create'
 
 	function size() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(A)
 	end 'size'
 end 'Left'
@@ -761,7 +704,6 @@ type Right uses B
 	end 'create'
 
 	function size() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(B)
 	end 'size'
 end 'Right'
@@ -821,7 +763,6 @@ end 'main'
 ### `sizeof` behind a method taken as a value, and read by a field default built from outside
 
 <!-- test: sizeof.error.a-static-of-a-generic-type-is-not-a-function-value -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 A method of a generic type is not a function value, so no thunk is ever asked to call one without the descriptor it reads.
 ```maxon
@@ -833,7 +774,6 @@ type Box uses T
 	end 'create'
 
 	static function width() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'width'
 
@@ -858,10 +798,8 @@ error E2078: <fragment>:14:16: 'Self.width' is a method, and a method is not a f
 ```
 
 <!-- test: sizeof-read-by-a-field-default-built-through-a-typealias -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Box uses T
-	// TODO: sizeof(...) is not supported in minimaxon
 	export var n = sizeof(T) as Count
 
 	static function create() returns Self
@@ -890,7 +828,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.error.a-static-of-a-generic-type-is-not-a-function-value-from-main -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Box uses T
@@ -901,7 +838,6 @@ type Box uses T
 	end 'create'
 
 	static function width() returns Count
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'width'
 end 'Box'

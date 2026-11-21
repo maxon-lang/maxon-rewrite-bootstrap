@@ -192,7 +192,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.cross-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Function-backed enums may reference functions defined in other files.
 
@@ -227,7 +226,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.contested-name-resolves-at-the-declaring-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A case's function name is resolved where the ENUM is declared, under the bare-call rule: `doubleFn` is
 declared in `alpha/` (unmarked) and in `beta/` (exported), so from `api/dispatch.maxon` it means
@@ -268,7 +266,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.error.contested-name-with-two-visible-candidates -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 Two visible declarations of the case's function name are an ambiguity at the enum's declaration, and
@@ -304,7 +301,6 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 ```
 
 <!-- test: function-backing.error.contested-name-with-different-results-is-called-from-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 When the candidates disagree about the result, calling the refused case's value from another file reports
@@ -340,7 +336,6 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 ```
 
 <!-- test: function-backing.error.undeclared-name-is-called-from-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A case backed by a function no file declares is refused where it is declared, and calling its value from
@@ -366,7 +361,6 @@ error E2004: api/<fragment>:6:2: Undefined variable 'nosuchFn'
 ```
 
 <!-- test: function-backing.contested-name-qualified-by-its-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 The remedy E3095 names is writable in the declaration: a directory-qualified function name backs the case with
 the declaration that directory holds.
@@ -404,7 +398,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.error.a-throwing-backing-function-is-refused-by-the-name-it-was-written-as -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 The case's refusal quotes the function name the declaration wrote, though it resolves to beta's declaration.

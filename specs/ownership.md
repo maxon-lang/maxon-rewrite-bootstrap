@@ -33,7 +33,6 @@ Reference cycles are a **compile error**. A type may not reference itself direct
 ## Tests
 
 <!-- test: local-struct-freed -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Struct created and used inside a function; no leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -48,7 +47,6 @@ type Point
 end 'Point'
 
 function testLocal()
-	// TODO: @heap annotations are not supported in minimaxon
 	@heap let p = Point.create(1, y: 2)
 	print("{p.x}\n")
 end 'testLocal'
@@ -131,7 +129,6 @@ end 'main'
 ```
 
 <!-- test: nested-block-frees -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 Struct created inside an if-block is freed when that block exits.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -147,7 +144,6 @@ end 'Widget'
 function testNestedBlock(cond bool)
 	var result = 0 as Integer
 	if cond 'check'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let w = Widget.create(42)
 		result = w.id
 	end 'check'
@@ -814,7 +810,6 @@ end 'main'
 ```
 
 <!-- test: if-then-block-cleanup -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 A struct created in an if-block is freed when the block exits.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -830,7 +825,6 @@ end 'Widget'
 function main() returns ExitCode
 	var result = 0 as Integer
 	if true 'check'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let w = Widget.create(5)
 		result = w.id
 	end 'check'
@@ -884,7 +878,6 @@ end 'main'
 ```
 
 <!-- test: while-loop-iteration-cleanup -->
-<!-- skip: @heap annotations are not supported in minimaxon -->
 A struct created each loop iteration is freed before the next iteration begins.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -901,9 +894,8 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var i = 0 as Integer
 	while i < 5 'loop'
-		// TODO: @heap annotations are not supported in minimaxon
 		@heap let c = Counter.create(i)
-		total = total + c.val
+		total = try total + c.val otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	print("{total}\n")

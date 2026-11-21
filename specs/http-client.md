@@ -408,7 +408,6 @@ two-digits=invalidResponse peer=answered
 ```
 
 <!-- test: http-client.every-named-status-round-trips-through-its-number -->
-<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 ```maxon
 typealias NamedCount = int(0 to 100)
 
@@ -438,7 +437,7 @@ function successor(code StatusCode) returns StatusCode
 		badGateway gives StatusCode.serviceUnavailable
 		serviceUnavailable gives StatusCode.httpVersionNotSupported
 		httpVersionNotSupported or
-			other gives StatusCode.other(999)
+		other gives StatusCode.other(999)
 	end 'which'
 end 'successor'
 

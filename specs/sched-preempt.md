@@ -975,7 +975,7 @@ function main() returns ExitCode
 			match e 'why'
 				neverAsked then return monitorNeverAsked()
 				preemptedBeforeTheWindow or
-					preemptedAfterTheWindow then continue
+				preemptedAfterTheWindow then continue
 			end 'why'
 		end 'disturbed'
 		print("first={outcome.0} sum={outcome.1}\n")

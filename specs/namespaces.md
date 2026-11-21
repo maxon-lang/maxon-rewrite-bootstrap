@@ -127,7 +127,6 @@ end 'main'
 
 
 <!-- test: cross-file-bare-name-resolves -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A bare call from `app/main.maxon` finds an exported function in a sibling directory `utils/helper.maxon` via cross-file resolution.
 ```maxon
 // --- file: utils/helper.maxon
@@ -148,7 +147,6 @@ end 'main'
 
 
 <!-- test: cross-file-qualified-name-resolves -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A qualified call `utils.helper()` from `app/main.maxon` resolves to the function declared in `utils/helper.maxon`. The directory name is the module namespace.
 ```maxon
 // --- file: utils/helper.maxon
@@ -160,7 +158,7 @@ end 'qualifiedHelper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return utils.qualifiedHelper()
+	return try utils.qualifiedHelper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -169,7 +167,6 @@ end 'main'
 
 
 <!-- test: same-directory-bare-name-sees-sibling -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in the same directory `utils/` share a namespace. A function in `utils/b.maxon` calls a function in `utils/a.maxon` with no qualifier because they belong to the same directory. The producer is unmarked, so it is visible across files inside the `utils/` subtree but not to callers outside it; the consumer (`export`ed) is the only entry point from `app/main.maxon`.
 ```maxon
 // --- file: utils/a.maxon
@@ -195,7 +192,6 @@ end 'main'
 
 
 <!-- test: multi-segment-namespace-resolves -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A function declared in a nested user directory `lib/inner/leaf.maxon` is reachable via its full multi-segment qualified name `lib.inner.deepHelper`. The parser walks the dotted chain greedily and resolves against the registered function name; if the qualified callee matches `funcReturnTypes` it routes through the qualified-call path without first looking for a struct or local variable.
 ```maxon
 // --- file: lib/inner/leaf.maxon
@@ -216,7 +212,6 @@ end 'main'
 
 
 <!-- test: error.cross-file-bare-name-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 When two different directories both export a function with the same bare name, a third file's unqualified call is ambiguous. E3095 instructs the user to qualify the call with the appropriate directory namespace. The compiler emits exactly the message pinned below.
 ```maxon
 // --- file: alpha/dup.maxon
@@ -260,19 +255,19 @@ type Counter
 		return Counter{total: 0}
 	end 'make'
 
-	function bump(amount Count) returns Count
-		self.total = self.total + amount
+	function bump(mutates self, amount Count) returns Count
+		self.total = try self.total + amount otherwise panic("out of range")
 		return self.total
 	end 'bump'
 
-	function bumpTwice(amount Count) returns Count
+	function bumpTwice(mutates self, amount Count) returns Count
 		let first = bump(amount)
 		return bump(first)
 	end 'bumpTwice'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.make()
+	var c = Counter.make()
 	return c.bumpTwice(5)
 end 'main'
 ```
@@ -282,7 +277,6 @@ end 'main'
 
 
 <!-- test: bare-call-resolves-free-fn-over-different-arity-method -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A bare call binds a FREE function — a method (`TypeName.method`) needs an
 explicit receiver. When a same-named method has a DIFFERENT non-receiver
 signature, the bare call resolves to the free function by argument matching

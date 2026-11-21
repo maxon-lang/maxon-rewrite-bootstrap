@@ -867,7 +867,6 @@ qualifies each by its directory, `dir.Name`, and without that qualifier the case
 CONTENTLESS — both sides spelling the same word.
 
 <!-- test: error.a-contested-alias-is-qualified-by-its-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ### Claimants in different directories: the NAMESPACE is the qualifier
 `api/lib.maxon` and `app/main.maxon` each declare an unmarked `Bytes` over their own `Byte`, and those
@@ -910,7 +909,6 @@ error E3005: app/<fragment>:25:9: argument type mismatch for 'b': expected 'app.
 ```
 
 <!-- test: error.a-returned-bytes-answers-to-the-declaring-file-not-the-caller -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 ### A RETURNED `ByteArray` is the callee's, not the caller's
 ⛔ **WITHOUT THIS REFUSAL THE PROGRAM COMPILES AND RUNS, AND ITS ANSWER IS WRONG.** `toByteArray()` builds
@@ -1014,7 +1012,6 @@ error E2015: <fragment>:6:10: Unsupported: a `b"…"` byte-string literal in a p
 ```
 
 <!-- test: a-buffer-field-strides-its-declaring-directorys-byte -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- tier: stdlib -->
 ### A `__ManagedMemory` FIELD strides its DECLARING directory's `Byte`, not its reader's
 `ProgramSignatures.declaredSlotType` resolves a slot's compiler-minted alias against the file that
@@ -1055,7 +1052,6 @@ end 'main'
 
 <!-- test: a-buffer-field-refuses-another-directorys-byte-at-the-construction -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### …and the disagreement lands LOUDLY, at the construction
@@ -2345,7 +2341,6 @@ error E3005: <fragment>:11:9: argument type mismatch for 's': expected 'Small', 
 ```
 
 <!-- test: a-byte-string-literal-beside-an-authors-type-named-byte -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `b"…"` literal's element follows the file's bare `Byte` only when that names an integer alias. Here the
 bare `Byte` names a nominal `type Byte`, which cannot be a byte element, so the literal's element is the
 library's `Byte`.
@@ -2363,7 +2358,7 @@ end 'Byte'
 function main() returns ExitCode
 	let bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
-	return (h as ExitCode) - 100 + a.Byte.make().v
+	return try (h as ExitCode) - 100 + a.Byte.make().v otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2371,7 +2366,6 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-string-literal-under-an-ambiguous-bare-byte-is-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `main.maxon` declares no `Byte` and sees two exported author declarations of it, so its bare `Byte` is
 ambiguous, and the `b"hi"` literal, whose element is what that bare name means, is ambiguous with it.
 ```maxon

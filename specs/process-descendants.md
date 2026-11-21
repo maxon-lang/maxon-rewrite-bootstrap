@@ -36,7 +36,6 @@ being recorded: two generations of ended processes between this process and it.
 ## Tests
 
 <!-- test: process-descendants.a-detached-sleeper-is-listed-ended-and-named -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -45,17 +44,14 @@ let EndsWithinMs = 30000
 let PollMs = 50
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("30")
 	#endif
 	let armed = Process.endDescendants()
 	let pid = try config.runDetached() otherwise return 3
@@ -154,25 +150,21 @@ armed=0 removed=0 named=true onlyOne=true ended=true
 ```
 
 <!-- test: process-descendants.a-waited-child-is-not-listed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit")
-	argv.push("0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit")
+		argv.push("0")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("exit 0")
 	#endif
 	let armed = Process.endDescendants()
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 3
@@ -189,7 +181,6 @@ armed=0 ran=true found=0
 ```
 
 <!-- test: process-descendants.a-child-that-has-signalled-is-a-descendant-until-it-ends -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child that removes a flag file and only then lingers has signalled, not ended: it is still running and still
@@ -200,24 +191,21 @@ let FlagName = "process-descendants-signalled-child.flag"
 function main() returns ExitCode
 	let flag = try FilePath.from(FlagName) otherwise return 2
 	try File.writeText(flag, content: "go") otherwise return 3
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("cmd"))
-	config.arguments.push("/c")
-	config.arguments.push("del")
-	config.arguments.push(FlagName)
-	config.arguments.push("&")
-	config.arguments.push("ping")
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	config.arguments.push(">nul")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("cmd"))
+		config.arguments.push("/c")
+		config.arguments.push("del")
+		config.arguments.push(FlagName)
+		config.arguments.push("&")
+		config.arguments.push("ping")
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
+		config.arguments.push(">nul")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 4))
-	config.arguments.push("-c")
-	config.arguments.push("rm -f {FlagName}; sleep 30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 4))
+		config.arguments.push("-c")
+		config.arguments.push("rm -f {FlagName}; sleep 30")
 	#endif
 	let armed = Process.endDescendants()
 	let pid = try config.runDetached() otherwise return 5
@@ -244,7 +232,6 @@ armed=0 aliveAtSignal=true listed=true ended=true
 ```
 
 <!-- test: process-descendants.an-ended-detached-child-is-not-listed -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 A detached child nobody waits for stays an entry of the process table once it ends, so it is a zombie under
@@ -255,18 +242,15 @@ let EndsWithinMs = 30000
 let PollMs = 50
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("cmd"))
-	config.arguments.push("/c")
-	config.arguments.push("exit")
-	config.arguments.push("0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("cmd"))
+		config.arguments.push("/c")
+		config.arguments.push("exit")
+		config.arguments.push("0")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
-	config.arguments.push("-c")
-	config.arguments.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
+		config.arguments.push("-c")
+		config.arguments.push("exit 0")
 	#endif
 	let armed = Process.endDescendants()
 	let pid = try config.runDetached() otherwise return 3
@@ -288,7 +272,7 @@ armed=0 ended=true found=0
 ```
 
 <!-- test: process-descendants.an-orphaned-detached-grandchild-is-found -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a child. The child detaches a long sleeper, names its id on stdout and exits, so
@@ -303,17 +287,14 @@ let PollMs = 50
 let SleeperLabel = "sleeper="
 
 function detachSleeper() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
 	print("{SleeperLabel}{pid}\n")
@@ -330,6 +311,7 @@ function main() returns ExitCode
 	let me = try Process.executablePath() otherwise return 2
 	let child = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
 	let text = child.stdout.trim().replace(SleeperLabel, with: "")
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let pid = try int.fromString(text) otherwise return 4
 	let alive = Process.isAlive(pid as Pid)
 	let found = Process.endDescendants()
@@ -358,7 +340,7 @@ armed=0 alive=true listed=true named=true onlyOne=true ended=true
 ```
 
 <!-- test: process-descendants.a-first-call-lists-everything-the-program-started-before-it -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The program runs itself as a probe whose environment carries no armed token, the shape of a program run outside
@@ -381,17 +363,14 @@ let ProbeMode = "probe"
 let OrphanerMode = "orphaner"
 
 function startSleeper() returns Pid
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise panic("/bin/sleep is a valid path")))
-	config.arguments.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise panic("/bin/sleep is a valid path")))
+		config.arguments.push("30")
 	#endif
 	return try config.runDetached() otherwise panic("the sleeper did not start")
 end 'startSleeper'
@@ -407,6 +386,7 @@ function runAsProbe() returns ExitCode
 	let argv = StringArray.create(0)
 	argv.push(OrphanerMode)
 	let orphaner = try Subprocess.run(Executable.path(me), arguments: argv) otherwise return 3
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let orphan = try int.fromString(orphaner.stdout.trim().replace(SleeperLabel, with: "")) otherwise return 4
 	let found = Process.endDescendants()
 	var listedDirect = false
@@ -454,7 +434,7 @@ exit=0 found=2 direct=true orphan=true ended=true
 ```
 
 <!-- test: process-descendants.an-armed-case-that-leaves-a-sleeper-reports-it-in-a-framed-line -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -481,17 +461,14 @@ let TokenSeparator = "\t"
 typealias PidArray = Array with Pid
 
 function detachSleeper() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
 	print("{SleeperLabel}{pid}\n")
@@ -505,6 +482,7 @@ function framedPids(text String) returns PidArray
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
 			let digits = try fields.get(0) otherwise continue
+			// TODO: 'int.fromString' is not supported in minimaxon
 			let pid = try int.fromString(digits) otherwise continue
 			found.push(pid as Pid)
 		end 'framed'
@@ -538,6 +516,7 @@ function main() returns ExitCode
 	config.arguments.push("child")
 	config.environment = Environment.inheritUpdating(overrides)
 	let child = try config.run() otherwise return 3
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let sleeper = try int.fromString(child.stdout.trim().replace(SleeperLabel, with: "")) otherwise return 4
 	let framed = framedPids(child.stderr)
 	let tokens = framedTokens(child.stderr)
@@ -569,7 +548,6 @@ exit=0 framed=1 listed=true tokened=true ended=true
 ```
 
 <!-- test: process-descendants.an-armed-case-that-waits-for-its-child-reports-nothing -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
 The armed child starts a short detached process and polls it until it has ended, so nothing is left to find at
@@ -587,17 +565,14 @@ let ArmedValue = "A4242"
 let FramePrefix = "@@maxon-spec@@!"
 
 function waitForShortChild() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("2")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("2")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("1")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
 	var waitedMs = 0 as DurationMs
@@ -634,7 +609,7 @@ exit=0 childSaid=sawD=true ended=true framed=false
 ```
 
 <!-- test: process-descendants.the-children-of-an-armed-case-do-not-arm -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
 <!-- process: own -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -661,17 +636,14 @@ let GrandchildMode = "grandchild"
 typealias PidArray = Array with Pid
 
 function detachSleeper() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("30")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("30")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("30")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("30")
 	#endif
 	let pid = try config.runDetached() otherwise return 3
 	let token = try Process.environmentVariable(TrackVariable) otherwise "unset"
@@ -687,6 +659,7 @@ function framedPids(text String) returns PidArray
 		if line.startsWith(FramePrefix) 'framed'
 			let fields = line.replace(FramePrefix, with: "").split(" ")
 			let digits = try fields.get(0) otherwise continue
+			// TODO: 'int.fromString' is not supported in minimaxon
 			let pid = try int.fromString(digits) otherwise continue
 			found.push(pid as Pid)
 		end 'framed'
@@ -721,6 +694,7 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array
 	for line in child.stdout.split("\n") 'eachLine'
 		if line.startsWith(SleeperLabel) 'theSleeper'
+			// TODO: 'int.fromString' is not supported in minimaxon
 			let parsed = try int.fromString(line.trim().replace(SleeperLabel, with: "")) otherwise return 4
 			sleeper = parsed as Pid
 		end 'theSleeper'

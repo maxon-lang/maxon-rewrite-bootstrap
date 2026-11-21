@@ -907,7 +907,6 @@ at=4 first=48 over=999
 ```
 
 <!-- test: error.a-managed-memory-parameter-mismatch-names-managed-memory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A bare `__ManagedMemory` parameter holds the library's `Byte`. A buffer over a `Byte` the program declares

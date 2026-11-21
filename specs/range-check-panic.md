@@ -617,7 +617,6 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.an-alias-beside-a-same-named-type-is-named-as-its-file-spells-it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A file's own alias that shares its name with another directory's unmarked type is named in the panic exactly
 as the file writes it.
 ```maxon
@@ -663,7 +662,6 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-library-alias-beside-an-authors-type-is-named-through-stdlib -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The library's `ElementIndex` beside an author's enum of that name is named `stdlib.ElementIndex` in the panic,
 the spelling a compile-time diagnostic gives it in the same file.
 ```maxon
@@ -723,7 +721,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.error.literal-cast-to-inner-alias -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 <!-- positions: moved -->
 A literal cast to an alias declared inside an extension body is checked against that alias's range.
 ```maxon
@@ -732,6 +730,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 extension Array
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 64)
 	function topLevel() returns Level
 		let top = 100 as Level
@@ -749,7 +748,7 @@ error E3005: <fragment>:9:19: Value 100 is outside the range of 'Level' (int(0 t
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-admits-its-top-value -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A full-unsigned alias declared inside an extension body admits `u64.max` at a direct call, as a file-scope one does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -767,6 +766,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Wide = int(0 to u64.max)
 	function take(w Wide) returns bool
 		return w == u64.max
@@ -786,7 +786,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-nested-full-unsigned-alias-parameter-through-an-interface-takes-a-large-unsigned-word -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A large unsigned word reaches a full-unsigned nested-alias parameter through an interface: the call site checks the argument, and the conformer takes no sign test at its entry.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -804,6 +804,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Wide = int(0 to u64.max)
 end 'Meter'
 
@@ -874,7 +875,7 @@ error E3005: <fragment>:27:17: Value -1 is outside the range of 'Idx' (int(0 to 
 ```
 
 <!-- test: range-check-panic.inner-alias-cast-guard -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'function' but got 'typealias' -->
+<!-- skip: typealias declarations in an extension are not supported in minimaxon -->
 A runtime value cast to an alias declared inside an extension body carries that alias's guard.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -892,6 +893,7 @@ type Meter
 end 'Meter'
 
 extension Meter
+	// TODO: typealias declarations in an extension are not supported in minimaxon
 	typealias Level = int(0 to 64)
 	function level() returns Level
 		return self.scaleOf() as Level

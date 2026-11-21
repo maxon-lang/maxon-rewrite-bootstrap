@@ -39,7 +39,7 @@ end 'main'
 7
 ```
 <!-- test: day4a -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 1 -->
 ```maxon
 
@@ -51,6 +51,7 @@ end 'multiply'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(try args.get(1) otherwise "") otherwise 0
 	if parsed > 1000 'guard'
 		return 99
@@ -62,7 +63,7 @@ end 'main'
 3
 ```
 <!-- test: day4b -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- Args: 3 -->
 ```maxon
 
@@ -74,6 +75,7 @@ end 'multiply'
 
 function main() returns ExitCode
 	let args = CommandLine.args()
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let parsed = try int.fromString(try args.get(1) otherwise "") otherwise 0
 	if parsed > 1000 'guard'
 		return 99

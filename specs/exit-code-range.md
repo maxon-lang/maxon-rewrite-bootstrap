@@ -461,18 +461,20 @@ and a `return` in a `throws` function owes its guard exactly as any other `retur
     that is a fact about the LITERAL rather than about `try`.
 
 <!-- test: join-in-a-gives-arm-is-guarded -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(a Num, b Num)
 end 'Kw'
 
 function tagOf(k Kw) returns Num
 	return match k 'm'
 		alpha(n) gives n
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(a, b) gives a + b
 	end 'm'
 end 'tagOf'
@@ -534,7 +536,7 @@ Stack trace:
 ```
 
 <!-- test: in-range-join-is-guarded-and-passes -->
-<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'end' -->
+<!-- skip: 'end' is a keyword in minimaxon and cannot be used as a name; rename it -->
 ⛔ **THIS CASE DOES NOT ELIDE.**
 Its own emitted code (`--emit-ir`) carries the `__rc_panic` block, and the emitted `matchcont` runs the full
 `0 ≤ x ≤ 1000` cascade — because `a + b` denotes no alias, so the arm proves nothing and the merge keeps
@@ -548,12 +550,14 @@ typealias Num = int(0 to 1000)
 
 union Kw
 	alpha(n Num)
+	// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 	end(a Num, b Num)
 end 'Kw'
 
 function tagOf(k Kw) returns Num
 	return match k 'm'
 		alpha(n) gives n
+		// TODO: 'end' is a keyword in minimaxon and cannot be used as a name; rename it
 		end(a, b) gives a + b
 	end 'm'
 end 'tagOf'

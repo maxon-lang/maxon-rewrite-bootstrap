@@ -43,17 +43,17 @@ type Counter
 	end 'create'
 
 	function bump() returns Integer
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'bump'
 
 	function twice() returns Integer
-		return bump() + bump()
+		return try bump() + bump() otherwise panic("out of range")
 	end 'twice'
 end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	return c.twice()
+	return try c.twice() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -77,13 +77,13 @@ type Rec
 		if k <= 0 'base'
 			return 0
 		end 'base'
-		return k + sumTo(k - 1)
+		return try k + sumTo(k - 1) otherwise panic("out of range")
 	end 'sumTo'
 end 'Rec'
 
 function main() returns ExitCode
 	let r = Rec.create()
-	return r.sumTo(3)
+	return try r.sumTo(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -105,7 +105,7 @@ type Box
 	end 'create'
 
 	function first() returns Integer
-		return second() + 1
+		return try second() + 1 otherwise panic("out of range")
 	end 'first'
 
 	function second() returns Integer
@@ -115,7 +115,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.first()
+	return try b.first() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -137,17 +137,17 @@ type Adder
 	end 'create'
 
 	function add(x Integer) returns Integer
-		return base + x
+		return try base + x otherwise panic("out of range")
 	end 'add'
 
 	function addTwice(x Integer) returns Integer
-		return add(x) + add(x)
+		return try add(x) + add(x) otherwise panic("out of range")
 	end 'addTwice'
 end 'Adder'
 
 function main() returns ExitCode
 	let a = Adder.create(1)
-	return a.addTwice(3)
+	return try a.addTwice(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -179,7 +179,7 @@ end 'Maker'
 
 function main() returns ExitCode
 	let m = Maker.create()
-	return m.useIt()
+	return try m.useIt() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -201,12 +201,12 @@ type Maker
 	end 'mk'
 
 	static function build() returns Integer
-		return mk() + 1
+		return try mk() + 1 otherwise panic("out of range")
 	end 'build'
 end 'Maker'
 
 function main() returns ExitCode
-	return Maker.build()
+	return try Maker.build() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -300,7 +300,7 @@ type Box
 
 	function pick() returns Integer
 		let r = 1 if n > 0 else 2
-		return r + later()
+		return try r + later() otherwise panic("out of range")
 	end 'pick'
 
 	function later() returns Integer
@@ -310,7 +310,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.pick()
+	return try b.pick() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -334,7 +334,7 @@ type Box
 
 	function branchy(x Integer) returns Integer
 		if x > 0 'pos'
-			return helper() + 1
+			return try helper() + 1 otherwise panic("out of range")
 		end 'pos' else 'neg'
 			return helper()
 		end 'neg'
@@ -347,7 +347,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.branchy(1)
+	return try b.branchy(1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -355,7 +355,6 @@ end 'main'
 ```
 
 <!-- test: generic-descriptor-forwarding-through-bare-call -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 A generic type: an instance method reaches a `sizeof(T)`-reading sibling through
 a BARE call. The layout descriptor must forward through the implicit-self call
 exactly as it does through an explicit `self.typeSize()`. `sizeof(bool)` is 1.
@@ -366,12 +365,11 @@ typealias Integer = int(i64.min to i64.max)
 type Sizer uses T
 	export var dummy as T
 
-	static function create(dummy T) returns Self
+	static function create(consumes dummy T) returns Self
 		return Self{dummy: dummy}
 	end 'create'
 
 	function typeSize() returns Integer
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(T)
 	end 'typeSize'
 
@@ -384,7 +382,7 @@ typealias BoolSizer = Sizer with bool
 
 function main() returns ExitCode
 	let s = BoolSizer.create(false)
-	return s.indirectSize()
+	return try s.indirectSize() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

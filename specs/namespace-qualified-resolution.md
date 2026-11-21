@@ -44,7 +44,6 @@ DISCRIMINATE:
 ## Tests
 
 <!-- test: namespace-qualified-void-call-statement -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A qualified call written as a STATEMENT — the only position a `void` function can be called from.
 Both segment counts are exercised, because they reach the parser through different lookaheads: the
 statement door's bare-call arm tests `identifier (`, which a qualifier's `.` fails, so without a
@@ -83,7 +82,6 @@ shouted
 
 
 <!-- test: qualified-alias-carries-its-own-declaring-range -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two directories export a `Score` over different ranges. `api.Score` admits 50 and `legacy.Score`
 admits 5, and each is checked against ITS OWN declaration — the discrimination the collision spec's
 own cases cannot make, because both of their values happen to fit both ranges.
@@ -101,7 +99,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let wide = seed()
-	let low = (wide - 45) as legacy.Score
+	let low = try (wide - 45) as legacy.Score otherwise panic("out of range")
 	return (wide + (low as api.Score)) as ExitCode
 end 'main'
 ```
@@ -111,7 +109,6 @@ end 'main'
 
 
 <!-- test: error.qualified-alias-out-of-its-own-range -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same two declarations, with a value that fits the WIDER one written against the narrower
 qualified name, then widened to `api.Score`. The refusal quotes the qualified spelling the author wrote
 and the bounds of the declaration in that directory — proof that the qualifier selected a declaration
@@ -134,7 +131,6 @@ error E3005: app/specs/namespace-qualified-resolution/error.qualified-alias-out-
 ```
 
 <!-- test: error.a-qualified-alias-beside-a-same-named-type-takes-its-own-declarations-range -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An alias whose name another directory's type also holds is still selected by its qualifier: `stdlib.Byte` is
 the library's `0 to 255` even in a file whose own alias of that primitive is wider.
 ```maxon
@@ -162,7 +158,6 @@ error E3005: app/specs/namespace-qualified-resolution/error.a-qualified-alias-be
 
 
 <!-- test: qualified-alias-in-signature-positions -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A qualified alias is a TYPE, so it is legal wherever a type name is — a parameter and a return
 clause, not only an `as` cast target. The call in the same program is qualified through a
 multi-segment directory chain AND names a function declared with a keyword (`from`), which the
@@ -193,7 +188,6 @@ end 'main'
 
 
 <!-- test: static-method-outranks-a-same-named-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory `Point/` exports a free `make`, and a `type Point` declares a static `make`. The tokens
 `Point.make()` are identical for both readings and the TYPE reading wins, so naming a directory
 after a type moves no existing call.
@@ -224,8 +218,7 @@ end 'main'
 
 
 <!-- test: keyword-named-directory-segment-resolves-in-both-positions -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected 'Self' or a name but got 'from' -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'Self', 'int' or a name but got 'from' -->
 A namespace segment whose name is a KEYWORD (`lib/from/`). A directory name is a FILESYSTEM name and owes
 the grammar nothing, so the two positions that walk a dotted chain — the call door and the type door —
 must admit the same segments. A type door that refused `5 as lib.from.Score` with
@@ -253,7 +246,6 @@ end 'main'
 
 
 <!-- test: a-nested-directory-types-static-is-called-by-its-qualified-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A static of a type declared two directories down is called through the whole chain: `outer.inner` is the
 directory, `Calc` the type in it, and `make` its static.
 ```maxon
@@ -329,13 +321,14 @@ error E3004: <fragment>:3:10: call to undefined function 'foo.bar.baz': nothing 
 
 
 <!-- test: a-throwing-static-of-a-directory-type-is-called-under-try -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A throwing static reached through its directory chain is a throwing call under `try … otherwise`: `"7"`
 parses and returns 7, and `"x"` throws, so the fallback 30 is taken (7 + 30).
 ```maxon
 // --- file: sub/calc.maxon
 export type Calc
 	export static function parse(text String) returns ExitCode throws ParseError
+		// TODO: 'int.fromString' is not supported in minimaxon
 		let n = try int.fromString(text)
 		if n < 0 or n > 255 'outOfRange'
 			throw ParseError.invalidFormat
@@ -391,7 +384,6 @@ end 'main'
 
 
 <!-- test: error.qualified-call-to-non-exported-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualifier is a name LOOKUP, not a visibility bypass: an unmarked function named through its
 directory is refused by the tier its declaration wrote, and the message is the one that says what is
 actually wrong rather than "no such function".
@@ -418,7 +410,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.qualified-call-to-no
 
 
 <!-- test: error.multi-segment-qualified-call-to-an-unmarked-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same rule through a multi-segment qualifier: an unmarked declaration named from outside its directory
 subtree is refused.
 ```maxon
@@ -444,7 +435,6 @@ error E3008: app/<fragment>:15:19: function 'scopedHelper' is not exported
 
 
 <!-- test: error.an-unmarked-alias-is-not-nameable-outside-its-subtree -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked typealias named through its directory from a file outside that subtree. The
 qualified spelling finds the declaration — which is what makes this the sharper diagnostic rather
 than "unknown type" — and the tier then refuses it.
@@ -468,7 +458,6 @@ error E3008: app/<fragment>:11:16: typealias 'feature.Level' is not exported
 
 
 <!-- test: error.hidden-alias-as-a-qualified-static-call-head -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A typealias named through its directory as the HEAD of a static call, `lib.ScoreArray.create(0)`, is refused
 like the same name in any other type position: the declaration is unmarked to `lib/scores.maxon`, and
@@ -500,7 +489,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.hidden-alias-as-a-qu
 
 
 <!-- test: error.hidden-type-written-qualified-in-a-parameter-is-refused-once -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A parameter typed with a directory-qualified type its file may not name is refused at the written name. The
 value the parameter binds is that refused name's, so reading its field is no second refusal.
 ```maxon
@@ -527,7 +515,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.hidden-type-written-
 ```
 
 <!-- test: error.a-method-call-through-a-parameter-of-a-hidden-qualified-type-is-refused-once -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same holds for a method call and for a second read through the parameter: the refusal is the written
 name's, and every use of the value it typed is that one refusal.
 ```maxon
@@ -558,7 +545,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-method-call-throug
 ```
 
 <!-- test: error.a-typealias-over-a-hidden-generic-type-is-refused-once -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A typealias whose generic base is a type its file may not name is refused at the base. A parameter written
 through the alias reads the alias's refused instance, so a field read through it is no second refusal.
 ```maxon
@@ -588,7 +574,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-typealias-over-a-h
 ```
 
 <!-- test: error.a-hidden-qualified-type-as-a-static-call-head-is-refused-once -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The head of a static call names its type, and the value the call returns is of the refused type: reading its
 field is no second refusal.
 ```maxon
@@ -616,7 +601,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-hidden-qualified-t
 ```
 
 <!-- test: error.a-hidden-type-reached-without-being-written-is-refused-at-its-member -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A file that never writes the hidden type's name has no refusal of it to rely on, so the first use of a value of
 that type is the refusal.
 ```maxon
@@ -649,7 +633,6 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-hidden-type-reache
 ```
 
 <!-- test: error.a-refused-member-of-a-hidden-type-leaves-its-later-uses-unreported -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A file that reaches a hidden type without writing its name has its member read refused, and that refusal
 stands. A top-level binding it loses is no fresh error where another file uses it.
 ```maxon
@@ -684,7 +667,6 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-refused-member-of-
 ```
 
 <!-- test: error.a-written-hidden-name-does-not-explain-another-hidden-type-reached-without-being-written -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The file writes the hidden `Item` in a parameter and reaches the hidden `Box` through an exported function's
 result. Only `Item` has a written refusal, so the member read of `Box` is refused as well.
 ```maxon
@@ -726,7 +708,6 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-written-hidden-nam
 ```
 
 <!-- test: error.a-written-hidden-name-explains-only-its-own-files-member-reads -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `first.maxon` writes the hidden `Box`; `second.maxon` reaches it without writing it. The refusal of the name is
 `first.maxon`'s, so the member read in `second.maxon` is refused on its own.
 ```maxon
@@ -762,7 +743,6 @@ error E3167: lib/specs/namespace-qualified-resolution/error.a-written-hidden-nam
 ```
 
 <!-- test: error.a-written-hidden-typealias-explains-the-member-reads-of-the-type-it-denotes -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A parameter written through a typealias its file may not name is refused at that name. Reading a field of the
 value is no second refusal, of the type the alias denotes.
 ```maxon
@@ -793,7 +773,6 @@ error E3008: app/specs/namespace-qualified-resolution/error.a-written-hidden-typ
 ```
 
 <!-- test: error.same-directory-underlying-conflict-is-reported-once -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in ONE directory export a `Score` over different underlying primitives. The pair is one
 mistake and earns exactly one diagnostic, E3061 at the second declaration — a directory-qualified
 declaration is filed under its qualified spelling as well, and that second entry must not report the
@@ -816,7 +795,6 @@ error E3061: api/specs/namespace-qualified-resolution/error.same-directory-under
 
 
 <!-- test: contested-free-function-pair-routes-each-qualifier-to-its-own -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The FUNCTION half of directory-as-module, and the case a bare-name registry cannot express: two
 directories each `export function pick`, and BOTH are callable through their own qualifier.
 
@@ -849,7 +827,6 @@ end 'main'
 
 
 <!-- test: contested-free-function-bare-call-means-its-own-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 "Local namespace wins": once a name is contested, a file that declares one of the competitors goes
 on calling it UNQUALIFIED and means its own. Without this tier a directory would be forced to
 qualify its own declarations the moment an unrelated directory happened to pick the same name — and
@@ -888,7 +865,6 @@ end 'main'
 
 
 <!-- test: error.free-function-pair-in-one-directory-still-collides -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The boundary of the relaxation above, from the inside: two files in ONE directory share one
 namespace, so their `pick` declarations are one name declared twice and stay a hard duplicate. The
 reader qualifies with `dir.` and there is still only one thing that could mean.
@@ -919,7 +895,6 @@ error E3006: dir/specs/namespace-qualified-resolution/error.free-function-pair-i
 
 
 <!-- test: error.free-function-pair-in-one-directory-beside-another-directorys-declaration-still-collides -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair when a second directory declares `pick` too. `alpha/`'s two files still declare one name twice, so
 the refusal is the plain duplicate at the later declaration; a collision with a method's mangled name is not what
 it says, because no method is involved.
@@ -992,7 +967,6 @@ error E3006: specs/namespace-qualified-resolution/error.flat-root-level-free-fun
 
 
 <!-- test: error.two-main-declarations-in-different-directories-still-collide -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `main` is the ONE free function never qualified by its directory: the entry point is one name for the
 whole program. Qualifying it would turn a
 hard duplicate into two silently-accepted entry points, neither of which the entry-point check would
@@ -1014,7 +988,6 @@ error E3006: beta/specs/namespace-qualified-resolution/error.two-main-declaratio
 
 
 <!-- test: same-directory-alias-pair-is-not-offered-as-its-own-disambiguation -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in ONE directory export `Score` over two RANGES of one primitive. Both would be spelled
 `api.Score`, so no qualification could tell them apart: the pair is a duplicate whatever the ranges, E3061
 at the second declaration, with no reader needed to provoke it.
@@ -1036,7 +1009,6 @@ error E3061: api/<fragment>:6:18: Duplicate typealias 'Score'
 
 
 <!-- test: contested-free-function-defaults-follow-the-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **A CONTESTED FUNCTION'S SYNTHESIZED DEFAULT HELPERS ARE RENAMED WITH IT.** A default value is
 compiled as a nullary helper function whose name `Project.paramDefaultHelperName` mints from the
 DECLARING function's name, and that mint's uniqueness cannot rest on
@@ -1074,7 +1046,6 @@ end 'main'
 
 
 <!-- test: contested-free-function-nested-directory-qualifier -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **A CONTESTED FREE FUNCTION IN A NESTED DIRECTORY, CALLED THROUGH ITS MULTI-SEGMENT QUALIFIER.**
 The `declaresCallee` veto in `resolvesAsNamespaceQualifiedFunction` means "a `type lib.inner` already
 wears this key, so the TYPE reading wins" — but a contested free function is registered under its own
@@ -1107,7 +1078,6 @@ end 'main'
 
 
 <!-- test: contested-free-function-three-directories -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The contest's first arm handles TWO declarations; this is the third. The first pair is what
 mints the contest and re-files the INCUMBENT's already-folded entries; a third directory finds the
 name already contested and has nothing left to move, so it takes a different arm of
@@ -1142,7 +1112,6 @@ end 'main'
 
 
 <!-- test: contested-free-function-root-declaration-keeps-the-bare-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A ROOT declaration contests the name but contributes NO qualified spelling, because it has none —
 the root IS the unqualified namespace. Its entries keep the bare key, so a bare call from anywhere
 finds it while the subdirectory's is reached through `beta.`. This is the arm
@@ -1172,7 +1141,6 @@ end 'main'
 
 
 <!-- test: contested-free-function-void-call-statement -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A contested pair called as VOID STATEMENTS through their qualifiers — the statement-position door
 (`namespaceQualifiedCallStmt`), which admits ONE dot where expression position starts at two. It
 reaches `parseNamespaceQualifiedCall` directly rather than through the static-call arm, so it is the
@@ -1201,7 +1169,6 @@ AB
 
 
 <!-- test: contested-bare-call-with-exactly-one-visible-candidate-resolves -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **A DECLARATION THE CALLER CANNOT SEE NEVER COUNTS TOWARD A CONTEST.** `helper` is declared in two
 directories; from `app/`, alpha's is unmarked and out of reach, so beta's exported one is the
 only candidate and the bare call resolves to it. Ambiguity is a question about what a file could
@@ -1237,7 +1204,6 @@ end 'main'
 ```
 
 <!-- test: contested-bare-call-inside-a-borrow-parses-on-a-worker -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same one-visible resolution, reached from a body that holds a borrow: `for cell in cells` borrows the
 array, and `helper(cell.s)` hands the callee a field of the borrowed element, so the parse records the call
 as a possible write under the name the call binds. That name is beta's qualified spelling, which the whole-
@@ -1294,7 +1260,6 @@ end 'main'
 
 
 <!-- test: contested-bare-call-resolves-past-a-file-private-competitor-declared-first -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked competitor in another directory, folded BEFORE the exported declaration. The two
 declarations disagree about the return type (`bool` against an integer), so a call that bound the
 unmarked one would be refused at the cast rather than merely answer differently; `true 8` is only
@@ -1333,7 +1298,6 @@ true 8
 
 
 <!-- test: contested-bare-call-resolves-past-a-file-private-competitor-declared-second -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair with the exported declaration folded FIRST, so neither order of the two can decide the
 answer.
 ```maxon
@@ -1411,7 +1375,6 @@ main 2
 
 
 <!-- test: contested-bare-call-resolves-to-the-roots-unmarked-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A ROOT declaration keeps the bare key, and an unmarked one is visible from every directory, so from `app/`
 the bare call means the root's `helper` and not beta's `public` one.
 ```maxon
@@ -1442,7 +1405,6 @@ end 'main'
 
 
 <!-- test: a-let-initializer-call-resolves-past-an-invisible-competitor -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `let`'s initializer resolves its bare call the way a body does: gamma's `make` is unmarked, so it is
 no candidate in `app/`, and beta's exported declaration is the one meant.
 ```maxon
@@ -1482,7 +1444,6 @@ end 'main'
 
 
 <!-- test: a-let-initializer-call-resolves-to-its-one-visible-contested-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two sibling directories declare `make`; `alpha`'s is unmarked, so `beta`'s is the one visible from
 `app/`, and a `let`'s initializer means it as a body call would. Returns 37.
 ```maxon
@@ -1523,7 +1484,6 @@ end 'main'
 
 
 <!-- test: a-let-initializer-call-named-by-its-directory-resolves -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A `let`'s initializer may name the callee by its directory, as a body call may. Returns 7.
 ```maxon
 // --- file: r.maxon
@@ -1558,7 +1518,6 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-let-initializer-call-is-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two sibling directories export `make` and the `let` initializer names neither, so it is ambiguous as a body call
 would be.
 ```maxon
@@ -1609,7 +1568,6 @@ error E3004: <fragment>:5:10: call to undefined function 'nothere'
 
 
 <!-- test: error.a-let-initializer-call-to-a-name-only-invisible-declarations-carry -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `gamma`'s and `alpha`'s `make` are both unmarked, so `app/` can name neither; the `let` initializer is
 refused as a body call naming it is.
 ```maxon
@@ -1645,7 +1603,6 @@ error E3004: app/<fragment>:24:10: call to undefined function 'make'
 
 
 <!-- test: contested-bare-call-resolves-to-the-same-directory-declaration-of-another-file -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The caller's OWN directory declares the name, in another file and unmarked. An unmarked declaration is
 visible to every file of its directory, so the local tier answers and beta's `public` one is not reached.
 ```maxon
@@ -1676,7 +1633,6 @@ end 'main'
 
 
 <!-- test: contested-bare-function-value-resolves-past-an-invisible-competitor -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A bare name READ as a function value answers the same question a bare call does: the one declaration
 the file may name, here beta's, whose return type the value's calls carry.
 ```maxon
@@ -1714,7 +1670,6 @@ true 8
 
 
 <!-- test: error.contested-bare-function-value-with-two-visible-candidates -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A function value is refused for the ambiguity a call is refused for, rather than bound to either
 declaration.
 ```maxon
@@ -1742,7 +1697,6 @@ error E3095: app/<fragment>:16:10: Ambiguous bare function name 'helper' used as
 
 
 <!-- test: contested-function-value-named-by-its-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The remedy E3095 names is writable at the value door: a directory-qualified name read as a value binds the
 declaration that directory holds, exactly as a qualified call does.
 ```maxon
@@ -1771,14 +1725,13 @@ end 'main'
 
 
 <!-- test: function-value-named-by-its-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An uncontested name qualified by its directory is a route to the one declaration, as a value as well as a call.
 ```maxon
 // --- file: lib/util.maxon
 export typealias Integer = int(0 to 125)
 
 export function triple(raw Integer) returns Integer
-	return raw * 3
+	return try raw * 3 otherwise panic("out of range")
 end 'triple'
 
 // --- file: app/main.maxon
@@ -1793,7 +1746,6 @@ end 'main'
 
 
 <!-- test: error.a-directory-qualified-function-value-is-refused-by-the-name-it-was-written-as -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 A refusal at the value door quotes the name the author wrote, not the declaration it resolved to.
 ```maxon
@@ -1828,7 +1780,6 @@ error E3101: app/<fragment>:24:10: Cannot use throwing function 'beta.risky' as 
 
 
 <!-- test: two-subdirectory-candidates-are-no-ambiguity-beside-the-roots-unmarked-declaration -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked ROOT declaration keeps the bare key and is visible from `app/`, so the call means it: the two
 subdirectory declarations visible beside it do not make the call ambiguous.
 ```maxon
@@ -1864,8 +1815,8 @@ end 'main'
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-under-try -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 A `try` over the contested bare call gets the same ambiguity. Both candidates throw, so no claim about
 whether "the" function throws can be made before the call is resolved.
 ```maxon
@@ -1883,6 +1834,7 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -1898,7 +1850,6 @@ error E3095: app/<fragment>:21:14: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-with-different-results-are-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The candidates disagree about the result, so the call's result is not typed from either of them ahead of
 the ambiguity.
 ```maxon
@@ -1931,8 +1882,7 @@ error E3095: app/<fragment>:21:10: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-under-if-try -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `if let … = try` over the contested bare call gets the ambiguity.
 ```maxon
@@ -1950,6 +1900,7 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -1969,8 +1920,7 @@ error E3095: app/<fragment>:21:17: Ambiguous bare-name call to 'pick': more than
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-and-awaited-under-try -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 A spawn of the contested bare call gets the ambiguity, not a claim about whether its promise throws.
 ```maxon
@@ -1988,6 +1938,7 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -2008,8 +1959,7 @@ error E3095: app/<fragment>:21:16: Ambiguous bare-name call to 'pick': more than
 <!-- test: error.two-visible-candidates-are-ambiguous-when-spawned-inside-try-await -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 The same spawn written inside the `try await` gets the ambiguity.
 ```maxon
@@ -2027,6 +1977,7 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -2046,8 +1997,7 @@ error E3095: app/<fragment>:21:26: Ambiguous bare-name call to 'pick': more than
 <!-- test: error.two-visible-candidates-are-ambiguous-when-a-spawn-is-stored -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- positions: moved -->
 Storing the spawn's promise gets the ambiguity, not a mismatch with the storage's throws clause.
 ```maxon
@@ -2065,6 +2015,7 @@ end 'pick'
 
 // --- file: zulu/f.maxon
 export function pick() returns Integer throws Oops
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return try int.fromString("4") otherwise throw Oops.bad
 end 'pick'
 
@@ -2168,7 +2119,6 @@ after
 
 
 <!-- test: error.two-visible-candidates-are-ambiguous-past-an-invisible-third -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two VISIBLE declarations are still an ambiguity, and the invisible third is neither what makes it one
 nor offered as a way out of it.
 ```maxon
@@ -2204,7 +2154,6 @@ error E3095: app/<fragment>:25:10: Ambiguous bare-name call to 'pick': more than
 
 
 <!-- test: contested-free-function-in-a-directory-named-after-a-type-leaves-the-types-method-alone -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory called `Point/` holding a contested `create` registers it as `Point~create`, and a
 registration name built with `~` can never equal a method's mangled name, which is built with `.`. So the
 type's own `Point.create` and the directory's `create` coexist, and `Point.create()` reaches the type's
@@ -2241,7 +2190,6 @@ end 'create'
 ```
 
 <!-- test: contested-free-function-in-a-type-named-directory-coexists-whichever-file-is-compiled-first -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The case above with the files in the other order: the contested free function's file is compiled first.
 The type's method is still the one `Point.create()` reaches.
 ```maxon
@@ -2276,7 +2224,6 @@ end 'create'
 ```
 
 <!-- test: contested-free-function-in-a-type-named-directory-coexists-with-a-method-that-returns-a-plain-integer -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The variant with no field to witness the answer: the method returns a plain `Integer`, so only the exit
 code tells which of the three `create`s was reached. It is the type's: 9.
 ```maxon
@@ -2310,7 +2257,6 @@ end 'create'
 ```
 
 <!-- test: contested-free-function-in-a-type-named-directory-that-collides-with-nothing -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **THE REFUSAL ABOVE MUST NOT BE A RULE ABOUT DIRECTORY NAMES.** `Point/` is still named after a type
 and its `helper` is still contested with `other/`'s — but `type Point` declares no `helper`, so
 `Point.helper` collides with nothing and both spellings resolve: the type's `create` through the
@@ -2347,7 +2293,6 @@ end 'main'
 
 
 <!-- test: uncontested-free-function-in-a-type-named-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same shape with NO contest at all — one declaration of `helper`, in a directory named after a
 type. It keeps its bare registration name and never goes near the `Type.method` space, so this is the
 case the guard must not be able to reach however the contest logic changes.
@@ -2379,7 +2324,6 @@ end 'main'
 
 
 <!-- test: error.three-way-ambiguous-bare-call -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 E3095's candidate list with THREE competitors, declared in an order the sorted output does not
 preserve (`zulu`, `alpha`, `mid`). The list is rendered lexicographically because the compiler's `Map` is
 open-addressed and its iteration is SLOT order — a function of two file paths' hashes — so an
@@ -2414,7 +2358,6 @@ error E3095: app/specs/namespace-qualified-resolution/error.three-way-ambiguous-
 
 
 <!-- test: error.contested-free-function-default-is-not-inherited -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⛔⛔ **A CONTESTANT'S PARAMETER DEFAULT BELONGS TO ITS OWN DECLARATION, NEVER TO WHICHEVER FILE FOLDED
 FIRST.** The end-of-fold SELF refile moves this file's declaration
 off the bare key — but the bare key ACCUMULATES, so a positive fact sitting there may be an earlier
@@ -2450,7 +2393,6 @@ error E3036: app/specs/namespace-qualified-resolution/error.contested-free-funct
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-default -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⛔⛔ **THE CASE ABOVE WITH THE SECOND CONTESTANT AT THE *ROOT*, AND THAT IS A DIFFERENT KEY.**
 Above, `beta/` has a qualified key of its own and never looks at
 the bare name, so leaving a stale fact there is harmless. A ROOT declaration has no qualified spelling:
@@ -2488,7 +2430,6 @@ error E3036: app/<fragment>:18:10: 'pick' expects 2 argument(s) but 1 were provi
 
 
 <!-- test: error.a-root-contestant-does-not-inherit-a-subdirectorys-throws -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ⛔ **THE SAME HOLE ON THE `throws` REGISTRY.** `error.contested-free-function-throws-is-not-inherited`
 below is this program with the second contestant in `beta/` instead of at the root — and that one passes
 whether or not the by-name clear runs, for the reason above. Without the clear this program would
@@ -2521,7 +2462,6 @@ error E3055: app/<fragment>:18:10: try requires a throwing function: 'pick' does
 
 
 <!-- test: contested-free-function-own-default-still-applies -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The positive half of the case above, and the reason the cure is a SOURCE test rather than a clear of
 the bare key: alpha's own default must still reach alpha's own qualified key. Only one of the two
 contestants declares a default here, which is precisely the asymmetry the refusal above rests on —
@@ -2552,7 +2492,6 @@ end 'main'
 
 
 <!-- test: error.contested-free-function-throws-is-not-inherited -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'bad' -->
 **THE SAME BORROWED FACT ON THE `throws` REGISTRY.** The six
 facts the SELF refile moves travel together, so the `throws` clause could be inherited exactly as the
@@ -2591,7 +2530,6 @@ error E3055: app/specs/namespace-qualified-resolution/error.contested-free-funct
 
 
 <!-- test: contested-free-function-caller-location-slots-are-not-renamed -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: the caller-location default '__file__' is not supported in minimaxon -->
 <!-- skip: the caller-location default '__line__' is not supported in minimaxon -->
 **A CONTESTED FUNCTION'S CALLER-LOCATION SLOTS ARE SKIPPED BY THE RENAME, AND ITS HELPER SLOT IS NOT.**
@@ -2665,7 +2603,6 @@ sum=2:3:4:9:9
 ```
 
 <!-- test: error.two-directories-function-aliases-of-one-shape-do-not-interchange -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 **A DIRECTORY-QUALIFIED FUNCTION ALIAS IS A BRAND.** `api.Score` and `legacy.Score` are file-scope
 declarations wearing their directory, and an author can write either in a type position — so the
@@ -2705,7 +2642,6 @@ error E3005: app/<fragment>:24:10: argument type mismatch for 'f': expected 'api
 ```
 
 <!-- test: two-directories-export-one-alias-over-two-primitives-and-both-stand -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Author against author across directories: the pair coexists and both qualified spellings work (50 + 1).
 ```maxon
 // --- file: api/t.maxon
@@ -2717,7 +2653,7 @@ export typealias Score = float(0.0 to 1.0)
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let a = 50 as api.Score
-	let f = 0.5 as legacy.Score
+	let f = try 0.5 as legacy.Score otherwise panic("out of range")
 	return (a + (1 if f > 0.25 else 0)) as ExitCode
 end 'main'
 ```
@@ -2748,7 +2684,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unmarked-and-an-exported-alias-in-one-directory-are-a-duplicate -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two declarations of one name in one directory are a duplicate at the second declaration, whatever tiers
 they were written at.
 ```maxon
@@ -2769,7 +2704,6 @@ error E3061: api/<fragment>:6:18: Duplicate typealias 'Score'
 ```
 
 <!-- test: error.a-file-private-alias-beside-its-directorys-exported-one-is-a-duplicate -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory declares a name once, whatever the visibility of its declarations: the unmarked alias that one file
 reads beside the directory's exported one is a duplicate at the second declaration. The remedy is to rename it.
 ```maxon
@@ -2793,7 +2727,6 @@ error E3061: api/<fragment>:10:18: Duplicate typealias 'Score'
 ```
 
 <!-- test: a-root-export-beside-the-librarys-alias-is-what-the-bare-name-means -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The standard library never takes part in ambiguity: beside the library's `Byte`, the bare `Byte` is the root's
 alias, whose range admits 500.
 ```maxon
@@ -2810,7 +2743,6 @@ end 'main'
 ```
 
 <!-- test: the-root-namespace-is-named-by-export -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `export.X` reaches a root declaration of every kind a directory qualifier reaches — an alias as a cast target
 and an argument to a root function declared over the bare name, a type as a parameter and a static call's base,
 and a free function called, called as a statement, and read as a value (5 + 3 + 3 + 1).
@@ -2863,7 +2795,6 @@ root
 ```
 
 <!-- test: a-root-types-statics-are-called-through-export -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A static of a root type is called through `export` both as a statement, the `void` `ping`, and as a value,
 `make`.
 ```maxon
@@ -2894,7 +2825,6 @@ ping
 ```
 
 <!-- test: error.a-directory-named-export-cannot-be-a-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory is a namespace, so its name must be one a qualified reference can spell. `export` already qualifies
 the project root, so a directory named `export` is refused when the program is loaded, before any reference to
 it could be offered a spelling that names the root instead.
@@ -2914,7 +2844,6 @@ error E3182: Directory 'export' cannot be a namespace: 'export' already qualifie
 ```
 
 <!-- test: error.a-directory-named-runtime-cannot-be-a-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `runtime` names the runtime tier's directory, so an author's directory of that name is refused when the program
 is loaded.
 ```maxon
@@ -2932,7 +2861,6 @@ error E3182: Directory 'runtime' cannot be a namespace: 'runtime' already names 
 
 
 <!-- test: a-files-own-alias-beside-another-directorys-type-is-its-bare-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A file's own declaration wins its bare name: the file also sees `a.Foo`, yet `Foo` written bare means the
 file's own ranged alias, so `3 as Foo` is an integer, while the qualified spelling reaches the other
 directory's struct.
@@ -2959,7 +2887,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let local = seed()
-	return take(a.Foo.make()) + (local as ExitCode)
+	return try take(a.Foo.make()) + (local as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2967,7 +2895,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-type-reaches-its-declaration-past-the-readers-own-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualified spelling reaches the other directory's declaration in a file that also declares a ranged alias of
 its own: `a.Foo` is the struct in every position — a parameter type, a static call's base and the field read
 through the parameter — while the file's alias, renamed to `LocalFoo` so its bare name is not ambiguous, is a
@@ -2995,7 +2922,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let local = seed()
-	return take(a.Foo.make()) + (local as ExitCode)
+	return try take(a.Foo.make()) + (local as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3003,7 +2930,6 @@ end 'main'
 ```
 
 <!-- test: export-qualified-type-reaches-the-roots-declaration-past-the-readers-own-alias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same rule through the root qualifier: `export.Foo` is the root directory's struct in a parameter type and a
 static call's base, beside the reading file's own ranged alias.
 ```maxon
@@ -3037,7 +2963,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-enum-keeps-its-identity-where-the-files-own-alias-takes-its-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualified spelling reaches the enum in a file that declares a ranged alias of its own: the value
 `a.Color.red` is the enum's, so `rawValue` reads it.
 ```maxon
@@ -3053,7 +2978,7 @@ typealias LocalColor = int(0 to 10)
 function main() returns ExitCode
 	let local = 3 as LocalColor
 	let d = a.Color.red
-	return (d.rawValue - 38 + local) as ExitCode
+	return try (d.rawValue - 38 + local) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3061,7 +2986,6 @@ end 'main'
 ```
 
 <!-- test: a-local-binding-named-like-a-directory-keeps-its-member-access -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A local binding shadows a directory of the same name inside an expression: `api.Score` on a parameter named
 `api` reads that value's `Score` field, while `api.Score.make()` written where no binding of that name exists
 names the directory's type.
@@ -3084,13 +3008,13 @@ type Panel
 	end 'make'
 
 	function total(api Panel) returns ExitCode
-		return api.Score + self.Score
+		return try api.Score + self.Score otherwise panic("out of range")
 	end 'total'
 end 'Panel'
 
 function main() returns ExitCode
 	let p = Panel.make()
-	return p.total(Panel.make()) + api.Score.make().v
+	return try p.total(Panel.make()) + api.Score.make().v otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3098,7 +3022,6 @@ end 'main'
 ```
 
 <!-- test: an-argument-label-named-like-a-directory-does-not-shadow-it -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A name that binds no value in the function, such as the argument label `api:`, leaves `api.Score` naming the
 directory's type.
 ```maxon
@@ -3115,7 +3038,7 @@ end 'Score'
 typealias LocalScore = int(0 to 10)
 
 function scaled(by ExitCode, api ExitCode) returns ExitCode
-	return by + api
+	return try by + api otherwise panic("out of range")
 end 'scaled'
 
 function seed() returns LocalScore
@@ -3125,7 +3048,7 @@ end 'seed'
 function main() returns ExitCode
 	let local = seed()
 	let base = scaled(1, api: 2)
-	return base + api.Score.make().v + (local as ExitCode)
+	return try base + api.Score.make().v + (local as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3133,7 +3056,6 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-binding-named-like-a-directory-claims-a-call-in-an-expression -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The binding claims a CALL through its name as it claims a field: in the file that declares `util`, `util.f()` is
 a method call on the binding's `int`, which supplies no `f`, while a file in another directory, which the binding
 is hidden from, calls the directory's function.
@@ -3160,7 +3082,6 @@ error E2015: app/<fragment>:11:14: Unsupported: 'int' has no method named 'f' �
 ```
 
 <!-- test: error.a-top-level-binding-named-like-a-directory-claims-a-call-statement -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A call written as a statement resolves its chain as the same call written in an expression does.
 ```maxon
 // --- file: util/f.maxon
@@ -3306,7 +3227,6 @@ end 'main'
 ```
 
 <!-- test: error.a-keyword-named-directory-cannot-be-a-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory named with a keyword cannot begin a qualified name, so nothing in it could ever be named by
 qualification; it is refused when the program is loaded. A keyword is still a legal LATER segment
 (`lib/from/`).
@@ -3325,7 +3245,6 @@ error E3182: Directory 'from' cannot be a namespace: 'from' is a keyword, which 
 ```
 
 <!-- test: error.a-directory-whose-name-is-not-a-name-cannot-be-a-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A directory name that does not lex as one name cannot be written as a qualifier segment at all.
 ```maxon
 // --- file: my-dir/h.maxon
@@ -3342,7 +3261,6 @@ error E3182: Directory 'my-dir' cannot be a namespace: 'my-dir' is not a name. R
 ```
 
 <!-- test: an-enum-returned-into-a-file-whose-own-alias-takes-its-name-stays-the-enum -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A value keeps the type it was declared with when it crosses into a file that declares a ranged alias of its own:
 `a.pick()` hands back the enum, so its `rawValue` reads and it passes back to `a.rank` as the enum.
 ```maxon
@@ -3357,7 +3275,7 @@ export function pick() returns Color
 end 'pick'
 
 export function rank(c Color) returns ExitCode
-	return c.rawValue
+	return try c.rawValue as ExitCode otherwise panic("out of range")
 end 'rank'
 
 // --- file: app/main.maxon
@@ -3366,7 +3284,7 @@ typealias LocalColor = int(0 to 10)
 function main() returns ExitCode
 	let local = 3
 	let c = a.pick()
-	return ((((c.rawValue - 38) as LocalColor) + local) as ExitCode) + a.rank(c) - 41
+	return try ((((c.rawValue - 38) as LocalColor) + local) as ExitCode) + a.rank(c) - 41 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3374,7 +3292,6 @@ end 'main'
 ```
 
 <!-- test: a-union-keeps-its-identity-where-the-files-own-alias-takes-its-name -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The union twin: a parameter typed `a.Shape`, a value returned by `a.longest()` and the case `a.Shape.dot` are
 all the union, matched on its cases, in a file that declares a ranged alias of its own.
 ```maxon
@@ -3404,7 +3321,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let local = seed()
-	return measure(a.longest()) + measure(a.Shape.dot) + (local as ExitCode)
+	return try measure(a.longest()) + measure(a.Shape.dot) + (local as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3412,7 +3329,6 @@ end 'main'
 ```
 
 <!-- test: one-alias-reached-by-its-bare-and-qualified-spellings-is-one-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A typealias only one file declares is one type however it is spelled: `aaa.bump(3)` returns the alias as its
 own file spells it and `5 as aaa.Small` names it through its directory, and the two add.
 ```maxon
@@ -3420,7 +3336,7 @@ own file spells it and `5 as aaa.Small` names it through its directory, and the 
 export typealias Small = int(0 to 1000)
 
 export function bump(v Small) returns Small
-	return v + 1
+	return try v + 1 otherwise panic("out of range")
 end 'bump'
 
 // --- file: app/main.maxon
@@ -3438,7 +3354,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-alias-reached-bare-and-qualified-beside-another-directorys-is-one-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two directories declare `Score`, and only one of them is visible to `a/t.maxon`, so that file's bare `Score` and
 its `a.Score` name one declaration and are one type. `b`'s unmarked alias is read only inside `b`, where `a`'s
 public alias is visible too, so it is read there as `b.Score`.
@@ -3468,7 +3383,7 @@ end 'tally'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return (a.mix() + b.tally()) as ExitCode
+	return try (a.mix() + b.tally()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3476,7 +3391,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-enum-beside-the-librarys-element-index-leaves-the-alias-one-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `ElementIndex` is the library's typealias, and an author's directory declares an enum of that name. The
 alias keeps one identity: `xs.count()` returns it and `stdlib.ElementIndex` names it, so the two add,
 while `a.ElementIndex` reaches the enum.
@@ -3497,7 +3411,7 @@ function main() returns ExitCode
 	let b = a.pick(false)
 	let c = a.ElementIndex.above
 	let q = 3
-	return (((b.rawValue + c.rawValue + 1) as stdlib.ElementIndex) + xs.count() + q) as ExitCode
+	return try (((b.rawValue + c.rawValue + 1) as stdlib.ElementIndex) + xs.count() + q) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3505,7 +3419,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-type-beside-the-librarys-byte-pos-leaves-the-alias-one-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `BytePos` is a public typealias of `stdlib/String.maxon`. An author's
 `type BytePos` beside it makes the same pair any other library alias makes with an author's type: the
 author's file means its own type by the bare name, and the library's positions stay one alias.

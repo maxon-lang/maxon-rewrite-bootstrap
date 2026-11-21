@@ -165,7 +165,6 @@ error E3219: specs/unused-file-private-declaration/error.reported-in-source-orde
 ```
 
 <!-- test: error.the-same-name-in-another-file-does-not-keep-it-alive -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 function helper() returns ExitCode
@@ -373,7 +372,6 @@ hello
 ```
 
 <!-- test: used.only-by-an-exported-function -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 ```maxon
 // --- file: api/lib.maxon
 function privateHelper() returns ExitCode
@@ -394,7 +392,6 @@ end 'main'
 ```
 
 <!-- test: used.only-in-one-branch-of-a-conditional-region -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function windowsOnly() returns ExitCode
 	return 0
@@ -405,13 +402,10 @@ function elsewhereOnly() returns ExitCode
 end 'elsewhereOnly'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		return windowsOnly()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return elsewhereOnly()
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```
@@ -420,21 +414,15 @@ end 'main'
 ```
 
 <!-- test: used.declared-and-used-in-one-conditional-region -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if os(Windows)
 	function onlyHere() returns ExitCode
 		return 0
 	end 'onlyHere'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #else
 	function onlyHere() returns ExitCode
 		return 0
 	end 'onlyHere'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 
 function main() returns ExitCode
@@ -446,29 +434,29 @@ end 'main'
 ```
 
 <!-- test: used.declarations-indented-inside-a-conditional-region -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #if not testing(true)
 	let Step = 3
+
 	enum Shade
 		light
 		dark
 	end 'Shade'
+
 	function lift(value ExitCode) returns ExitCode
-		return value + Step
+		return try value + Step otherwise panic("out of range")
 	end 'lift'
+
 	function pick(shade Shade) returns ExitCode
 		match shade 'which'
 			light then return 1
 			dark then return lift(2)
 		end 'which'
 	end
+
 	function main() returns ExitCode
 		return pick(Shade.dark)
 	end 'main'
-
-// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 #endif
 ```
 ```exitcode
@@ -476,21 +464,16 @@ end 'main'
 ```
 
 <!-- test: error.unused-in-a-file-with-conditional-regions -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 function unusedHere() returns ExitCode
 	return 1
 end 'unusedHere'
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		return 0
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		return 0
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 end 'main'
 ```

@@ -3989,7 +3989,6 @@ doors — the body cast and the
 top-level `let`'s, which are two different walks over two different code paths.
 
 <!-- test: error.bare-int-parameter -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A parameter is an ordinary type position, so the keyword is refused there and the diagnostic is anchored
 on the keyword itself — the token that has to change, not the name to its left.
 ```maxon
@@ -4021,7 +4020,6 @@ error E3005: specs/ranged-typealias/error.bare-float-return.maxon:2:25: Cannot u
 ```
 
 <!-- test: error.bare-int-struct-field -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A struct field is the third spelling of a declared type, and it takes the same refusal. (`var x as int`
 is the FIELD form; a local is always `let x = expr` and has no annotation to refuse.)
 ```maxon
@@ -4038,7 +4036,6 @@ error E3005: specs/ranged-typealias/error.bare-int-struct-field.maxon:3:18: Cann
 ```
 
 <!-- test: error.cast-to-bare-int -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 A CAST TARGET gets its own sentence, because the rewrite it needs is shaped differently: a declaration
 site is told to declare an alias, a cast site is shown the cast that would work.
 ```maxon
@@ -4055,7 +4052,6 @@ error E3005: specs/ranged-typealias/error.cast-to-bare-int.maxon:6:15: Cannot ca
 ```
 
 <!-- test: error.top-level-const-cast-to-bare-int -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
 ⭐ **THE SECOND CAST DOOR.** A top-level `let`'s initializer is folded during the declaration sweep, by the
 body's expression parser. A top-level door that accepted the bare keyword as an "identity cast" would
 compile this exact program and refuse the identical cast inside a function: one mistake with two verdicts,
@@ -4072,7 +4068,6 @@ error E3005: specs/ranged-typealias/error.top-level-const-cast-to-bare-int.maxon
 ```
 
 <!-- test: the-typealias-rhs-admits-the-keyword -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 ⭐ **THE ONE POSITION WHERE THE BARE KEYWORD IS LEGAL IS THE WHOLE RHS — not just the ranged form.** A FUNCTION
 alias's parameters and return and a TUPLE alias's elements are inside the RHS too, and all three are
 accepted. `bool` stays bare everywhere. A bare `int` there is an unranged integer and no wildcard: a
@@ -4106,15 +4101,13 @@ end 'main'
 ```
 
 <!-- test: error.a-tuple-in-a-parameter-is-not-an-rhs -->
-<!-- skip: minimaxon does not parse the converted source: Expected a type but got 'int' -->
-<!-- positions: moved -->
 The negative half of the pair above, and the reason the exemption had to be stated as a POSITION rather
 than as a construct: the identical `(int, int)` that a `typealias` RHS accepts is refused in a parameter,
 because a parameter is not an RHS.
 ```maxon
 typealias Small = int(0 to 100)
 
-function first(t(int, int)) returns Small
+function first(t (int, int)) returns Small
 	return t.0
 end 'first'
 
@@ -4127,12 +4120,10 @@ error E3005: specs/ranged-typealias/error.a-tuple-in-a-parameter-is-not-an-rhs.m
 ```
 
 <!-- test: sizeof-admits-the-keyword -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
 `sizeof` asks about a REPRESENTATION, not about a value's domain, so there is no range for an alias to
 carry and the keyword is admitted. 8 + 8 = 16.
 ```maxon
 function main() returns ExitCode
-	// TODO: sizeof(...) is not supported in minimaxon
 	return (sizeof(int) + sizeof(float)) as ExitCode
 end 'main'
 ```

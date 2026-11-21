@@ -332,9 +332,10 @@ end 'main'
 ```
 
 <!-- test: parsable.int-fromstring -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString("42") otherwise 0
 	return n
 end 'main'
@@ -344,9 +345,10 @@ end 'main'
 ```
 
 <!-- test: parsable.int-fromstring-negative -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString("-7") otherwise 0
 	return n + 10
 end 'main'
@@ -356,9 +358,10 @@ end 'main'
 ```
 
 <!-- test: parsable.int-fromstring-invalid -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString("abc") otherwise 99
 	return n
 end 'main'
@@ -670,7 +673,8 @@ error E3004: <fragment>:13:14: call to undefined function 'byte.frobnicate'
 ```
 
 <!-- test: error.minted-callee-arity-names-the-source-spelling -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 **THE MINT MUST NOT REACH THE AUTHOR'S DIAGNOSTICS.** `int.fromString` links
 to `__int_fromString`, so every message that quotes a callee must know the difference or it would
 report the right error code about a program the reader does not have: `'__int_fromString' expects 1
@@ -686,6 +690,7 @@ identity compare against the real `<stdlibDir>/Builtins.maxon`, which no spec fi
 recorded here rather than tested.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString() otherwise 0
 	return n
 end 'main'
@@ -695,7 +700,8 @@ error E3036: <fragment>:3:18: 'int.fromString' expects 1 argument(s) but 0 were 
 ```
 
 <!-- test: error.minted-callee-missing-try-names-the-source-spelling -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 **E3057 IS THE SAME LEAK AT THE MISTAKE PEOPLE ACTUALLY MAKE** — forgetting the `try` on a throwing call —
 so it is pinned beside the arity one rather than trusted to share its door. Both nouns come from the single
 `callDiagnosticNoun` door; without it, this would say `throwing function requires try: '__int_fromString'`.
@@ -704,6 +710,7 @@ so it is pinned beside the arity one rather than trusted to share its door. Both
 routine at the same site — so the two doors cannot diverge on the noun either.
 ```maxon
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = int.fromString("42")
 	return n
 end 'main'
@@ -713,7 +720,8 @@ error E3057: <fragment>:3:14: throwing function requires try: 'int.fromString'
 ```
 
 <!-- test: error.int-from-string-is-a-full-range-int -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
+<!-- positions: moved -->
 `int.fromString` returns a `FullRangeInt`, which a parameter of another alias refuses.
 ```maxon
 typealias Score = int(0 to u64.max)
@@ -723,6 +731,7 @@ function show(v Score)
 end 'show'
 
 function main() returns ExitCode
+	// TODO: 'int.fromString' is not supported in minimaxon
 	show(try int.fromString("5") otherwise 0)
 	return 0
 end 'main'
@@ -732,11 +741,12 @@ error E3005: <fragment>:9:2: argument type mismatch for 'v': expected 'Score', g
 ```
 
 <!-- test: parsable.int-fromstring-refuses-a-value-past-the-int-range -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 A digit string whose value does not fit a 64-bit `int` is not a number: it is refused instead of wrapping around to a small one, and both ends of the range still read.
 
 ```maxon
 function show(text String)
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString(text) otherwise 'refused'
 		print("{text}: refused\n")
 		return
@@ -767,11 +777,12 @@ end 'main'
 ```
 
 <!-- test: parsable.int-fromstring-refuses-a-second-or-a-trailing-minus -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 `int.fromString` takes one optional leading `-` and then digits; a second minus, a minus after a digit, and a lone minus are all refused rather than read as a number.
 
 ```maxon
 function show(text String)
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let n = try int.fromString(text) otherwise 'refused'
 		print("{text}: refused\n")
 		return

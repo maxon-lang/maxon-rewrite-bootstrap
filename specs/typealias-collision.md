@@ -52,7 +52,6 @@ This mirrors **E3095** for function-name ambiguity — same model, different reg
 ## Tests
 
 <!-- test: error.exported-typealias-collision -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in different directories both export `Score`. A bare reference from a third file is rejected with E3063. The diagnostic is emitted at the parse site, with exactly the candidate ordering pinned below.
 ```maxon
 // --- file: api/types.maxon
@@ -73,7 +72,6 @@ error E3063: app/specs/typealias-collision/error.exported-typealias-collision.ma
 
 
 <!-- test: exported-typealias-collision-qualified -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two files in different directories both export `Score`. A reader file disambiguates by writing `api.Score` and `legacy.Score`. Both qualified forms resolve to the alias declared in the matching directory.
 ```maxon
 // --- file: api/types.maxon
@@ -89,7 +87,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let a = 50
-	let score = seed() as legacy.Score
+	let score = try seed() as legacy.Score otherwise panic("out of range")
 	return (a + (score as api.Score)) as ExitCode
 end 'main'
 ```
@@ -99,7 +97,6 @@ end 'main'
 
 
 <!-- test: exported-typealias-collision-multi-segment-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A collision between a deeply-nested file (`lib/fmt/types.maxon`) and a top-level file (`legacy/types.maxon`) is disambiguated via the full directory chain — `lib.fmt.Score` vs `legacy.Score`. Confirms the parser's dotted-name walk consumes multi-segment qualifiers.
 ```maxon
 // --- file: lib/fmt/types.maxon
@@ -125,7 +122,6 @@ end 'main'
 
 
 <!-- test: exported-typealias-no-collision-bare-works -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 When only ONE declaration of a name is visible, the bare name resolves to it without qualification — here `api.Score`, and the same holds for every library name no author file redeclares (`ExitCode`, `ElementIndex`, ...).
 ```maxon
 // --- file: api/types.maxon
@@ -143,7 +139,6 @@ end 'main'
 
 
 <!-- test: project-export-shadows-stdlib-export -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A project file EXPORTS a typealias whose bare name the standard library also
 declares `public` (here `StringArray`, from `stdlib/Json.maxon`). A library declaration
 never takes part in ambiguity, so a bare reference from a file that declares neither
@@ -167,7 +162,6 @@ end 'main'
 
 
 <!-- test: a-directorys-own-export-outranks-its-nested-directorys -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A file in `Compiler/` exports `Tally` over `int(0 to 200)`, and a file in the nested `Compiler/Coverage/`
 subdirectory exports another over `int(0 to 100)`. Both are visible to the reader, a third file in `Compiler/`,
 and the reader's own directory decides: its bare `Tally` is `Compiler.Tally`. `150` fits only that one, so a
@@ -204,7 +198,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-directorys-own-export-outranks-its-enclosing-directorys -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair read from the nested directory: a file in `Compiler/Coverage/` means its own directory's `Tally`,
 over `int(0 to 100)`, and not the enclosing directory's that is visible to it too. `main` hands `nestedKeep` a
 value of `Compiler.Coverage.Tally`, which only a parameter declared with that alias accepts: two declarations of
@@ -239,7 +232,6 @@ end 'main'
 
 
 <!-- test: two-unmarked-typealiases-in-two-directories-do-not-collide -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An unmarked `typealias` is visible only in its declaring directory and its subdirectories. When `app/types.maxon` and `legacy/util.maxon` each declare an unmarked `Score`, `app/main.maxon`'s bare `Score` resolves to its own directory's without ambiguity: `legacy/`'s alias is not reachable from `app/`, and neither declaring file sees the other's.
 ```maxon
 // --- file: app/types.maxon
@@ -265,7 +257,6 @@ end 'main'
 
 
 <!-- test: error.three-way-ambiguous-typealias -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 E3063's candidate list with THREE competitors, declared `zulu`, `alpha`, `mid` and rendered
 lexicographically — `insertCandidateName`'s sort, shared with E3095 for the reason given there.
 ```maxon
@@ -290,8 +281,6 @@ error E3063: app/specs/typealias-collision/error.three-way-ambiguous-typealias.m
 
 
 <!-- test: error.exported-function-alias-collision-is-ambiguous-at-the-reference -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 A FUNCTION typealias collides on the same terms as a ranged one. Two directories export `Step` over the identical shape; the shapes agreeing does not make the bare reference unambiguous, because either declaration is one the reader may legally name.
 ```maxon
@@ -317,8 +306,6 @@ error E3063: app/specs/typealias-collision/error.exported-function-alias-collisi
 ```
 
 <!-- test: error.exported-function-alias-collision-over-two-shapes-is-still-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'int' -->
 <!-- positions: moved -->
 The twin of the case above with the two exported `Step`s declared over DIFFERENT shapes. The answer is the same E3063: disagreeing shapes are a reason the reader cannot be assumed to mean either one, not a way to pick between them.
 ```maxon
@@ -344,7 +331,6 @@ error E3063: app/specs/typealias-collision/error.exported-function-alias-collisi
 ```
 
 <!-- test: error.ambiguous-typealias-is-anchored-on-the-name-token -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 **WHERE E3063 POINTS**, pinned on its own because an anchor deserves a case that can only be
 satisfied one way. The binding name is 21 characters, so the NAME token's column
 (36) cannot be confused with the cast operand's (30) or with the statement's. The type token is the one
@@ -368,7 +354,6 @@ error E3063: app/specs/typealias-collision/error.ambiguous-typealias-is-anchored
 
 
 <!-- test: error.exported-cross-form-typealias-collision -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Two exported aliases of one name in different directories, in DIFFERENT FORMS — one ranged, one
 function. They get the same rule the same-form pair gets four cases above, not an `E3061` at
 DECLARATION time: two exported declarations are accepted and the ambiguity is a property of the USE. The form they are written in is not what decides
@@ -393,7 +378,6 @@ error E3063: app/specs/typealias-collision/error.exported-cross-form-typealias-c
 
 
 <!-- test: exported-cross-form-typealias-qualified -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The same pair disambiguated, and it is the half that proves the two declarations both SURVIVED rather
 than one having been discarded to silence the diagnostic: `api.Score` is used as a ranged type and
 `legacy.Score` as a function type, in one file, at once. A cure that dropped either declaration would
@@ -415,8 +399,8 @@ function seven() returns ExitCode
 end 'seven'
 
 function main() returns ExitCode
-	let score = (seven() * 5) as api.Score
-	return (score as ExitCode) + run(seven)
+	let score = try (seven() * 5) as api.Score otherwise panic("out of range")
+	return try (score as ExitCode) + run(seven) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -424,7 +408,6 @@ end 'main'
 ```
 
 <!-- test: error.a-user-directory-named-stdlib-cannot-be-a-namespace -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A project directory named `stdlib` would be a namespace spelled exactly like the library's, so `stdlib.Score`
 could name neither declaration for certain. The directory is refused when the program is loaded.
 ```maxon
@@ -445,7 +428,6 @@ error E3182: Directory 'stdlib' cannot be a namespace: 'stdlib' already names th
 ```
 
 <!-- test: an-author-export-beside-the-librarys-alias-over-another-primitive-is-what-the-bare-name-means -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 An author's `float` `Byte` beside the library's `int` one: the two declarations coexist whatever their
 underlying primitives, and the bare read from a third file means the author's, because a library
 declaration never takes part in ambiguity. `0.75` keeps its fraction only in the `float` alias.
@@ -464,7 +446,6 @@ end 'main'
 ```
 
 <!-- test: an-author-export-beside-the-librarys-alias-over-another-primitive-is-named-by-its-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Both declarations stand and both qualified spellings work; `stdlib.Byte` is the same type as the `Byte` a
 byte-string literal's elements carry (104 - 7 + 1).
 ```maxon
@@ -475,8 +456,8 @@ export typealias Byte = float(0.0 to 1.0)
 function main() returns ExitCode
 	let bytes = b"hi"
 	let h = try bytes.get(0) otherwise 0
-	let f = 0.5 as legacy.Byte
-	return (h - (7 as stdlib.Byte) + (1 if f > 0.25 else 0)) as ExitCode
+	let f = try 0.5 as legacy.Byte otherwise panic("out of range")
+	return try (h - (7 as stdlib.Byte) + (1 if f > 0.25 else 0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -484,7 +465,6 @@ end 'main'
 ```
 
 <!-- test: a-project-export-and-the-librarys-are-each-named-by-their-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualified twin of `project-export-shadows-stdlib-export`, in a type position and as a static call's base.
 ```maxon
 // --- file: lib/types.maxon
@@ -492,20 +472,20 @@ export typealias StringArray = Array with String
 
 // --- file: app/main.maxon
 function countMine(xs lib.StringArray) returns ExitCode
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'countMine'
 
 function countTheirs(xs stdlib.StringArray) returns ExitCode
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'countTheirs'
 
 function main() returns ExitCode
-	let mine = lib.StringArray.create(0)
+	var mine = lib.StringArray.create(0)
 	mine.push("a")
-	let theirs = stdlib.StringArray.create(0)
+	var theirs = stdlib.StringArray.create(0)
 	theirs.push("b")
 	theirs.push("c")
-	return (countMine(mine) * 10 + countTheirs(theirs)) as ExitCode
+	return try (countMine(mine) * 10 + countTheirs(theirs)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -513,7 +493,6 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-alias-exported-by-two-directories-is-ambiguous -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A generic alias collides on the same terms as a ranged one.
 ```maxon
 // --- file: lib/t.maxon
@@ -538,7 +517,6 @@ error E3063: app/<fragment>:9:18: Ambiguous type name 'Bag': more than one visib
 ```
 
 <!-- test: generic-tuple-and-nominal-names-are-named-by-their-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Every kind an E3063 list can name resolves through its qualified spelling (7 + 3 + 5 + 1).
 ```maxon
 // --- file: lib/t.maxon
@@ -566,7 +544,7 @@ end 'first'
 
 function sum(p lib.Pair) returns ExitCode
 	let (a, b) = p
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function flags(p alt.Pair, marks alt.Bag) returns ExitCode
@@ -576,11 +554,11 @@ function flags(p alt.Pair, marks alt.Bag) returns ExitCode
 end 'flags'
 
 function main() returns ExitCode
-	let b = lib.Bag.create(0)
+	var b = lib.Bag.create(0)
 	b.push(7)
 	let p = lib.Point.make()
 	let marks = alt.Bag from [true]
-	return first(b) + sum((1, 2)) + p.x + flags((true, false), marks: marks)
+	return try first(b) + sum((1, 2)) + p.x + flags((true, false), marks: marks) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -588,7 +566,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-beside-the-librarys-alias-is-what-the-bare-name-means -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The cross-KIND pair: a user `type` against `stdlib/Builtins.maxon`'s public `typealias FullRangeInt`, read from a
 third file as a static call's base. The library's declaration takes no part in ambiguity, so the bare name
 is the user's `type`, the only one of the two with a `create`.
@@ -613,7 +590,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-and-the-librarys-alias-are-each-named-by-their-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualified twin of the case above.
 ```maxon
 // --- file: lib/p.maxon
@@ -633,7 +609,7 @@ end 'valueOf'
 function main() returns ExitCode
 	let p = lib.FullRangeInt.create(7)
 	let five = (valueOf(p) - 2) as stdlib.FullRangeInt
-	return valueOf(p) + (five as ExitCode)
+	return try valueOf(p) + (five as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -641,7 +617,6 @@ end 'main'
 ```
 
 <!-- test: a-user-type-beside-the-librarys-type-is-what-the-bare-name-means -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `type Clock` exported beside `stdlib/Clock.maxon`'s public `Clock`, read bare from a third file. The
 library's declaration moves out of the user's way (`__Clock`) and takes no part in ambiguity, so the bare
 name is the user's type, the one with a `make`.
@@ -666,8 +641,7 @@ end 'main'
 ```
 
 <!-- test: a-user-type-and-the-librarys-type-are-each-named-by-their-directory -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 `stdlib.X` reaches the library's type and `lib.X` the user's — in a struct FIELD (recorded by the declaration
 sweep), a throws clause, a static call and an enum case (7 + 10 + 2 + 20).
 ```maxon
@@ -698,6 +672,7 @@ type Holder
 end 'Holder'
 
 function parsed(text String) returns ExitCode throws stdlib.ParseError
+	// TODO: 'int.fromString' is not supported in minimaxon
 	return (try int.fromString(text)) as ExitCode
 end 'parsed'
 
@@ -720,7 +695,6 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-array-from-head-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 Two directories export an `Array` instance alias of one name, so a bare `from` head in a third file could build
 either and must be qualified.
@@ -745,7 +719,6 @@ error E3063: app/<fragment>:11:11: Ambiguous type name 'Smalls': more than one v
 ```
 
 <!-- test: a-bare-literal-init-head-beside-the-librarys-builds-the-users-type -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `FilePath` exported beside the library's: a bare `FilePath from "…"` in a third file builds the user's
 type, because the library's declaration takes no part in ambiguity. Only the user's has a `text` field.
 ```maxon
@@ -773,7 +746,6 @@ x
 ```
 
 <!-- test: a-qualified-literal-init-head-names-the-type-it-qualifies -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The qualified spelling of that `FilePath` builds the user's type.
 ```maxon
 // --- file: lib/path.maxon
@@ -781,14 +753,14 @@ export type FilePath implements InitableFromStringLiteral
 	export let text as String
 
 	export static function init(value String) returns FilePath
-		return Self{text: value}
+		return Self{text: value.clone()}
 	end 'init'
 end 'FilePath'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
 	let p = lib.FilePath from "abc"
-	return p.text.byteLength() as ExitCode
+	return try p.text.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -796,7 +768,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The spelling E3063 prescribes for that `Smalls` builds the `Array` instance its directory declares.
 ```maxon
 // --- file: api/types.maxon
@@ -809,7 +780,7 @@ export typealias Smalls = Array with bool
 function main() returns ExitCode
 	let xs = api.Smalls from [1, 2, 3]
 	let flags = legacy.Smalls from [true]
-	return (xs.count() * flags.count()) as ExitCode
+	return try (xs.count() * flags.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -818,7 +789,6 @@ end 'main'
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `CharSet` exported beside the library's: each qualified head builds the set its own declaration states.
 ```maxon
 // --- file: api/chars.maxon
@@ -838,7 +808,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies-at-top-level -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A top-level constant's qualified `from` head builds the `Array` instance its directory declares, as a body's does.
 ```maxon
 // --- file: api/types.maxon
@@ -853,7 +822,7 @@ let Xs = api.Smalls from [1, 2, 3]
 let Flags = legacy.Smalls from [true]
 
 function main() returns ExitCode
-	return (Xs.count() * Flags.count()) as ExitCode
+	return try (Xs.count() * Flags.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -862,7 +831,6 @@ end 'main'
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies-at-top-level -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Each qualified `CharSet` head of a top-level constant builds the set its own declaration states.
 ```maxon
 // --- file: api/chars.maxon
@@ -884,7 +852,6 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-top-level-cast-target-is-refused -->
-<!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A top-level constant's cast target is a type position like any other, so an ambiguous one is refused there too.
 ```maxon
 // --- file: api/types.maxon

@@ -97,7 +97,7 @@ end 'main'
 ```
 
 <!-- test: process-liveness.an-exited-child-still-held-is-not-alive -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
+<!-- skip: 'int.fromString' is not supported in minimaxon -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
@@ -112,6 +112,7 @@ function main() returns ExitCode
 		line(text) gives text
 		ended gives ""
 	end 'read'
+	// TODO: 'int.fromString' is not supported in minimaxon
 	let pid = try int.fromString(printed.trim()) otherwise return 5
 	let code = try child.wait() otherwise return 6
 	var answer = 3 as ExitCode
@@ -129,24 +130,20 @@ end 'main'
 ```
 
 <!-- test: process-liveness.a-reaped-child-is-gone -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let exe = Executable.name("cmd")
-	let argv = StringArray.create(0)
-	argv.push("/c")
-	argv.push("exit")
-	argv.push("0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.name("cmd")
+		let argv = StringArray.create(0)
+		argv.push("/c")
+		argv.push("exit")
+		argv.push("0")
 	#else
-	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	let argv = StringArray.create(0)
-	argv.push("-c")
-	argv.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
+		let argv = StringArray.create(0)
+		argv.push("-c")
+		argv.push("exit 0")
 	#endif
 	let result = try Subprocess.run(exe, arguments: argv) otherwise return 2
 	if result.pid == 0 'noId'
@@ -163,7 +160,6 @@ end 'main'
 ```
 
 <!-- test: process-liveness.a-running-child-is-alive -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
 let ChildEndsWithinMs = 30000
@@ -171,17 +167,14 @@ let ChildEndsWithinMs = 30000
 let ChildPollMs = 50
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("ping"))
-	config.arguments.push("-n")
-	config.arguments.push("3")
-	config.arguments.push("127.0.0.1")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("ping"))
+		config.arguments.push("-n")
+		config.arguments.push("3")
+		config.arguments.push("127.0.0.1")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
-	config.arguments.push("2")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sleep") otherwise return 2))
+		config.arguments.push("2")
 	#endif
 	let pid = try config.runDetached() otherwise return 2
 	let aliveAtStart = Process.isAlive(pid)
@@ -204,7 +197,6 @@ end 'main'
 ```
 
 <!-- test: process-liveness.a-detached-child-that-ended-reads-ended-though-unreaped -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A detached child is one nobody waits for, so under POSIX it stays an unreaped zombie after it ends. It reads as ended all the same: the id still names an entry in the process table, and `isAlive` answers about the process.
 ```maxon
@@ -213,18 +205,15 @@ let ChildEndsWithinMs = 30000
 let ChildPollMs = 50
 
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-	let config = Configuration.create(Executable.name("cmd"))
-	config.arguments.push("/c")
-	config.arguments.push("exit")
-	config.arguments.push("0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.name("cmd"))
+		config.arguments.push("/c")
+		config.arguments.push("exit")
+		config.arguments.push("0")
 	#else
-	let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
-	config.arguments.push("-c")
-	config.arguments.push("exit 0")
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
+		let config = Configuration.create(Executable.path(try FilePath.from("/bin/sh") otherwise return 2))
+		config.arguments.push("-c")
+		config.arguments.push("exit 0")
 	#endif
 	let pid = try config.runDetached() otherwise return 2
 	var waitedMs = 0 as DurationMs

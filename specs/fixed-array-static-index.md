@@ -47,18 +47,16 @@ only a sized container has — and `an-array-at-a-constant-index-keeps-its-check
 ## Tests
 
 <!-- test: a-constant-index-inside-the-fixed-array-round-trips -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A write and a read at a constant index inside the fixed array round-trip, both written bare.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(2, value: 33)
-	return v.get(2)
+	return try v.get(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -66,18 +64,16 @@ end 'main'
 ```
 
 <!-- test: a-variable-index-inside-the-fixed-array-round-trips -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The CONTROL for the case above: the same fixed array, the same element, reached through a `var` a
 `while` loop steps. That `var` is not proven, so both accesses keep their `try`, and a loop-carried
 index reads the slot the loop wrote.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	var i = 0 as Int
 	while i < 4 'fill'
 		try v.set(i as ElementIndex, value: i * 11) otherwise panic("test invariant: set OOB")
@@ -86,10 +82,10 @@ function main() returns ExitCode
 	var total = 0 as Int
 	var r = 2 as Int
 	while r < 3 'read'
-		total = total + (try v.get(r as ElementIndex) otherwise 0)
+		total = try total + (try v.get(r as ElementIndex) otherwise 0) otherwise panic("out of range")
 		r = r + 1
 	end 'read'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -97,18 +93,16 @@ end 'main'
 ```
 
 <!-- test: a-constant-index-write-round-trips -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The `set` half of the pair above: a bare write at a constant index, read back at the same one.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(0, value: 7)
-	return v.get(0)
+	return try v.get(0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -116,17 +110,15 @@ end 'main'
 ```
 
 <!-- test: a-variable-index-write-round-trips -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The CONTROL for the case above, writing through a loop variable and reading its writes back through a
 `for … in`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	var i = 0 as Int
 	while i < 3 'fill'
 		try v.set(i as ElementIndex, value: 4) otherwise panic("test invariant: set OOB")
@@ -134,9 +126,9 @@ function main() returns ExitCode
 	end 'fill'
 	var total = 0 as Int
 	for elem in v 'sum'
-		total = total + elem
+		total = try total + elem otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -144,25 +136,23 @@ end 'main'
 ```
 
 <!-- test: a-counted-loop-counter-inside-the-size-is-proven -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A counted loop between literal bounds that stay inside the fixed array proves its counter, so both the
 writes in the loop and the read after it are bare.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	for i in 0 upto 4 'fill'
 		v.set(i, value: (i as Int) * 11)
 	end 'fill'
 	var total = 0 as Int
 	for i in 1 to 2 'read'
-		total = total + v.get(i)
+		total = try total + v.get(i) otherwise panic("out of range")
 	end 'read'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -170,27 +160,25 @@ end 'main'
 ```
 
 <!-- test: a-counter-cast-to-an-index-alias-needs-no-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A counter whose interval reaches past the size is narrowed by a cast to an alias inside it: the cast's
 guard holds the value to `Slot`, so the access is proven by the narrower of the two facts.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 typealias Slot = int(0 to 3) implements ElementIndex
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	var total = 0 as Int
 	for i in 0 upto 10 'each'
 		if i < 4 'inside'
 			v.set(i as Slot, value: (i * 10) as Int)
-			total = total + v.get(i as Slot)
+			total = try total + v.get(i as Slot) otherwise panic("out of range")
 		end 'inside'
 	end 'each'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -198,28 +186,23 @@ end 'main'
 ```
 
 <!-- test: a-counter-bounded-by-the-count-of-the-type-is-proven -->
-<!-- skip: countof(...) is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `countof(Vec4)` folds to the constant 4, so it bounds a counter exactly as the literal does, and a loop
 over every slot needs no `try` and no second spelling of the size.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
-	// TODO: countof(...) is not supported in minimaxon
+	var v = Vec4.create()
 	for i in 0 upto countof(Vec4) 'fill'
 		v.set(i, value: 5)
 	end 'fill'
 	var total = 0 as Int
-	// TODO: countof(...) is not supported in minimaxon
 	for i in 0 upto countof(Vec4) 'sum'
-		total = total + v.get(i)
+		total = try total + v.get(i) otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -227,25 +210,23 @@ end 'main'
 ```
 
 <!-- test: a-let-computed-from-a-counter-is-proven -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `let` computed from a proven counter carries the computed range: `s + 2` for `s` in `0 upto 2` lies in
 `2 to 3`, inside a `FixedArray with 4`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(2, value: 5)
 	v.set(3, value: 6)
 	var total = 0 as Int
 	for s in 0 upto 2 'pairs'
 		let k = s + 2
-		total = total + v.get(k)
+		total = try total + v.get(k) otherwise panic("out of range")
 	end 'pairs'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -253,14 +234,12 @@ end 'main'
 ```
 
 <!-- test: error.a-counter-reaching-past-the-size-requires-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `0 to 4` reaches index 4 of a `FixedArray with 4`, so its counter is not proven and a bare access is
 refused.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -277,21 +256,19 @@ error E3057: <fragment>:9:21: throwing function requires try: 'get' — its inde
 ```
 
 <!-- test: a-counter-reaching-past-the-size-keeps-its-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same loop with its `try`: the last iteration takes the `otherwise` arm.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
 	let v = Vec4.create()
 	var total = 0 as Int
 	for i in 0 to 4 'sum'
-		total = total + (try v.get(i) otherwise 100)
+		total = try total + (try v.get(i) otherwise 100) otherwise panic("out of range")
 	end 'sum'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -299,13 +276,11 @@ end 'main'
 ```
 
 <!-- test: error.a-counter-with-a-runtime-bound-requires-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A counter whose bound is not a literal has no known range, so a bare access is refused.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function sum(v Vec4, n Count) returns Int
@@ -326,19 +301,17 @@ error E3057: <fragment>:8:21: throwing function requires try: 'get' — its inde
 ```
 
 <!-- test: a-let-bound-literal-is-a-constant-index -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `let` bound to a literal is a known constant, so it proves the index exactly as a bare literal does.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	let slot = 3
 	v.set(slot, value: 19)
-	return v.get(slot)
+	return try v.get(slot) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -346,18 +319,16 @@ end 'main'
 ```
 
 <!-- test: a-folded-expression-is-a-constant-index -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 `1 + 1` and `4 - 2` fold to a known constant inside the fixed array, so both accesses are proven.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(1 + 1, value: 23)
-	return v.get(4 - 2)
+	return try v.get(4 - 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -365,19 +336,17 @@ end 'main'
 ```
 
 <!-- test: the-last-slot-is-in-range -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The boundary the proof must get right: `size - 1` is inside, so the access is proven and reads the
 element that was written there.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(3, value: 44)
-	return v.get(3)
+	return try v.get(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -385,13 +354,11 @@ end 'main'
 ```
 
 <!-- test: an-in-range-constant-set-needs-no-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `set` at a constant inside the fixed array is total too. The value is read back through an index
 that is not proven, so the `get` keeps its `try` and only the `set` is under test.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -399,9 +366,9 @@ function runtimeIndex(i ElementIndex) returns ElementIndex
 end 'runtimeIndex'
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(0, value: 7)
-	return try v.get(runtimeIndex(0)) otherwise 0
+	return try (try v.get(runtimeIndex(0)) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -409,13 +376,11 @@ end 'main'
 ```
 
 <!-- test: an-index-whose-range-fits-the-size-needs-no-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 An index that is not a constant is proven by its declared range: `Slot` is `int(0 to 3)`, inside a
 `FixedArray with 4`, so the `get` on the parameter is total.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 typealias Slot = int(0 to 3) implements ElementIndex
@@ -425,9 +390,9 @@ function read(v Vec4, at Slot) returns Int
 end 'read'
 
 function main() returns ExitCode
-	let v = Vec4.create()
+	var v = Vec4.create()
 	v.set(3, value: 44)
-	return read(v, at: 3)
+	return try read(v, at: 3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -435,13 +400,11 @@ end 'main'
 ```
 
 <!-- test: a-ranged-index-wider-than-the-size-keeps-its-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The CONTROL for the case above: `Wide` is `int(0 to 4)`, which reaches one past a `FixedArray with 4`,
 so the index is not proven, the access keeps its `try`, and the out-of-range value throws at run time.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 typealias Wide = int(0 to 4) implements ElementIndex
@@ -462,13 +425,11 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-get -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A proven `get` cannot fail, so a `try` on it has nothing to catch and is refused.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -482,13 +443,11 @@ error E3055: <fragment>:7:10: try requires a throwing function: this `get` canno
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-set -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same refusal for a proven `set`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -502,14 +461,12 @@ error E3055: <fragment>:7:2: try requires a throwing function: this `set` cannot
 ```
 
 <!-- test: error.an-unproven-fixed-array-index-requires-try -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 An `ElementIndex` parameter is not proven, so the access can throw and a bare call is refused; the
 message names the ranged type that would prove it.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function read(v Vec4, at ElementIndex) returns Int
@@ -526,14 +483,12 @@ error E3057: <fragment>:6:11: throwing function requires try: 'get' — its inde
 ```
 
 <!-- test: error.a-constant-index-at-the-size-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The other side of the last slot's boundary: `size` itself is out of range, and a constant there is
 refused at compile time.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -548,12 +503,10 @@ error E3005: <fragment>:7:21: Value 4 is outside the range of the indices of 'Fi
 ```
 
 <!-- test: a-runtime-index-at-the-size-throws -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same index known only at run time is checked there: it throws, and the `otherwise` arm runs.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -572,13 +525,11 @@ end 'main'
 ```
 
 <!-- test: error.a-constant-index-well-past-the-size-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A constant FAR outside is refused by the same rule as the one at the boundary.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -593,12 +544,10 @@ error E3005: <fragment>:7:21: Value 9 is outside the range of the indices of 'Fi
 ```
 
 <!-- test: a-runtime-index-well-past-the-size-throws -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The same index known only at run time throws as the one at the boundary does.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -617,14 +566,12 @@ end 'main'
 ```
 
 <!-- test: error.a-negative-constant-index-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A negative constant is outside `ElementIndex` itself, so it is refused as an argument before the
 fixed array's size is consulted.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -639,13 +586,11 @@ error E3005: <fragment>:7:21: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.an-out-of-range-constant-set-is-refused -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 `set` decides the same way `get` does: a constant past the size is refused at compile time.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec4 = FixedArray with 4 Int
 
 function main() returns ExitCode
@@ -659,13 +604,11 @@ error E3005: <fragment>:7:8: Value 9 is outside the range of the indices of 'Fix
 ```
 
 <!-- test: an-out-of-range-runtime-set-throws -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A write at an index known only at run time throws when it is out of range, and the rejected write
 leaves the fixed array untouched.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2 = FixedArray with 2 Int
 
 function runtimeIndex(i ElementIndex) returns ElementIndex
@@ -673,10 +616,10 @@ function runtimeIndex(i ElementIndex) returns ElementIndex
 end 'runtimeIndex'
 
 function main() returns ExitCode
-	let v = Vec2.create()
+	var v = Vec2.create()
 	v.set(0, value: 5)
 	try v.set(runtimeIndex(9), value: 99) otherwise 'oob'
-		return v.get(0) + 60
+		return try v.get(0) + 60 otherwise panic("out of range")
 	end 'oob'
 	return 0
 end 'main'
@@ -706,13 +649,11 @@ end 'main'
 ```
 
 <!-- test: an-index-that-is-a-parameter-keeps-the-check -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 An index that is a parameter of a type wider than the fixed array is not proven however the caller
 spelled it — the call below passes a literal — so the access keeps its `try`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function slotOf(v Vec3, at Int) returns Int
@@ -720,9 +661,9 @@ function slotOf(v Vec3, at Int) returns Int
 end 'slotOf'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(2, value: 21)
-	return slotOf(v, at: 2)
+	return try slotOf(v, at: 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -730,12 +671,10 @@ end 'main'
 ```
 
 <!-- test: an-index-that-is-a-call-result-keeps-the-check -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A call result is not proven either, and the callee returning a literal does not make it one.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function whichSlot() returns Int
@@ -743,9 +682,9 @@ function whichSlot() returns Int
 end 'whichSlot'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	try v.set(whichSlot() as ElementIndex, value: 18) otherwise panic("test invariant: set OOB")
-	return (try v.get(whichSlot() as ElementIndex) otherwise 0) as ExitCode
+	return try (try v.get(whichSlot() as ElementIndex) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -753,13 +692,11 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-parameter-at-a-constant-index -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 The size rides the TYPE, so a fixed array arriving as a parameter — whose record the callee
 never built — is proven exactly as a local one is.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec3 = FixedArray with 3 Int
 
 function middle(v Vec3) returns Int
@@ -767,9 +704,9 @@ function middle(v Vec3) returns Int
 end 'middle'
 
 function main() returns ExitCode
-	let v = Vec3.create()
+	var v = Vec3.create()
 	v.set(1, value: 26)
-	return middle(v)
+	return try middle(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -777,17 +714,15 @@ end 'main'
 ```
 
 <!-- test: every-slot-of-a-fixed-array-at-constant-indexes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Each slot addressed by its own constant, written and read back, so a wrong stride would
 show as a wrong sum rather than as a crash.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec5 = FixedArray with 5 Int
 
 function main() returns ExitCode
-	let v = Vec5.create()
+	var v = Vec5.create()
 	v.set(0, value: 1)
 	v.set(1, value: 2)
 	v.set(2, value: 4)
@@ -798,7 +733,7 @@ function main() returns ExitCode
 	let c = v.get(2)
 	let d = v.get(3)
 	let e = v.get(4)
-	return a + b + c + d + e
+	return try a + b + c + d + e otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -806,22 +741,20 @@ end 'main'
 ```
 
 <!-- test: a-byte-fixed-array-at-constant-indexes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A one-byte stride: the total access shares its element load with the checked one, so the narrow
 element must read back narrow.
 ```maxon
 typealias Byte = int(0 to u8.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias ByteVec4 = FixedArray with 4 Byte
 
 function main() returns ExitCode
-	let v = ByteVec4.create()
+	var v = ByteVec4.create()
 	v.set(0, value: 200)
 	v.set(3, value: 55)
 	let a = v.get(0)
 	let b = v.get(3)
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -829,16 +762,14 @@ end 'main'
 ```
 
 <!-- test: a-bit-packed-bool-fixed-array-at-constant-indexes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `FixedArray with N bool` is bit-packed (8 elements to a byte), which has no slot ADDRESS at
 all — the shared element load is what makes the packed case correct, and the constants
 here cross a byte boundary.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Bits16 = FixedArray with 16 bool
 
 function main() returns ExitCode
-	let v = Bits16.create()
+	var v = Bits16.create()
 	v.set(0, value: true)
 	v.set(7, value: true)
 	v.set(8, value: true)
@@ -872,23 +803,21 @@ end 'main'
 ```
 
 <!-- test: a-float-fixed-array-at-constant-indexes -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A float element comes back as its bits and is reinterpreted at the call site, which is the
 one thing the accessor does OUTSIDE the runtime entry — so the total access must leave it
 intact.
 ```maxon
 typealias Float = float(f64.min to f64.max)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Vec2F = FixedArray with 2 Float
 
 function main() returns ExitCode
-	let v = Vec2F.create()
+	var v = Vec2F.create()
 	v.set(0, value: 2.5)
 	v.set(1, value: 4.25)
 	let a = v.get(0)
 	let b = v.get(1)
-	return trunc((a + b) * 4.0)
+	return try trunc((a + b) * 4.0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

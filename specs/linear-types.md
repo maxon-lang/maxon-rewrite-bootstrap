@@ -2973,6 +2973,7 @@ error E3201: <fragment>:62:39: an isolated value from outside 'w' cannot be move
 
 <!-- test: a-try-block-that-moves-an-outer-isolated-value-in-a-send-and-routes-a-second-error-is-refused-inside-a-modify-block -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
+<!-- skip: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -3058,6 +3059,7 @@ function main() returns ExitCode
 			match e 'why'
 				Sink.take.sendError.mailboxFull(back) then useS(giveS(back))
 				Sink.take.sendError.serviceStopped(back) then useS(giveS(back))
+				// TODO: a handler's match on the combined error of several errors, by qualified case names, is not supported in minimaxon
 				FileError.notFound then print("missing\n")
 			end 'why'
 		end 'refused'

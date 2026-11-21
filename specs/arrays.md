@@ -3935,12 +3935,8 @@ error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is im
 ```
 
 <!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- positions: moved -->
 The same for a `FixedArray from` literal.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias CountVector = FixedArray with 3 Count
 
 function poke(v CountVector)
@@ -3948,7 +3944,6 @@ function poke(v CountVector)
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
 	f(v)
@@ -4122,13 +4117,11 @@ end 'main'
 ```
 
 <!-- test: error.a-fixed-array-cannot-hold-an-alias-that-excludes-zero -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 A `FixedArray` publishes every slot as zero at `create()`, so an element alias that excludes zero is refused.
 ```maxon
 typealias Percent = int(1 to 100)
 
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias PercentVector = FixedArray with 3 Percent
 
 function main() returns ExitCode
@@ -4162,12 +4155,8 @@ error E3197: <fragment>:12:29: cannot write 'a' through the closure that capture
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-fixed-array-to-a-function-value-is-refused -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- positions: moved -->
 The same for a captured `FixedArray from` literal.
 ```maxon
-// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias CountVector = FixedArray with 3 Count
 
 function poke(v CountVector) returns Count
@@ -4176,7 +4165,6 @@ function poke(v CountVector) returns Count
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
 	let g = function() gives f(v)
@@ -4387,12 +4375,9 @@ error E3005: <fragment>:3:24: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-fixed-array-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
-<!-- positions: moved -->
 And for a `FixedArray from` literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [-1, u64.max]
 	return v.count() as ExitCode
 end 'main'
@@ -4423,13 +4408,11 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-from-a-literal-over-an-alias-that-excludes-zero-is-accepted -->
-<!-- skip: 'FixedArray' is not supported in minimaxon -->
 `FixedArray from` supplies every slot, so the zero-excluding element is only refused at `create`, which publishes zeroed slots.
 ```maxon
 typealias Percent = int(1 to 100)
 
 function main() returns ExitCode
-	// TODO: 'FixedArray' is not supported in minimaxon
 	let v = FixedArray from [10 as Percent, 20 as Percent, 30 as Percent]
 	return v.get(2) as ExitCode
 end 'main'

@@ -809,7 +809,6 @@ error E3162: <fragment>:15:26: 'Box' is named without type arguments inside 'typ
 ```
 
 <!-- test: error.a-bare-generic-base-may-not-take-a-layout-needing-call -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A base the scope does not bind may not take a layout-needing call
 `Holder.create` sizes a `FixedArray with 4 Element`, so it is handed a layout descriptor. The bare `Holder` has
@@ -818,7 +817,6 @@ none, and the enclosing frame's describes `Outer`'s parameters rather than `Hold
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -897,8 +895,6 @@ error E3162: <fragment>:24:14: 'Tag' is named without type arguments inside 'typ
 ```
 
 <!-- test: error.a-receiver-of-a-bare-generic-base-may-not-take-a-layout-needing-call -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
-<!-- positions: moved -->
 ### The receiver spelling of the layout-needing call
 `Tag.width` reads `sizeof(Element)` out of the descriptor it is handed. Through the bare receiver there is no
 `Element` to size, and the only descriptor in reach is `Outer with String`'s.
@@ -913,7 +909,6 @@ type Tag uses Element
 	end 'create'
 
 	function width() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(Element)
 	end 'width'
 end 'Tag'
@@ -942,7 +937,6 @@ error E3162: <fragment>:24:14: 'Tag' is named without type arguments inside 'typ
 ```
 
 <!-- test: error.a-bare-generic-base-outside-a-generic-body-may-not-take-a-layout-needing-call -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ### Outside a generic body a bare base's layout-needing static has no descriptor either
 `main` has no type parameters to bind `Holder` over and `create` takes no argument that could fix
@@ -951,7 +945,6 @@ error E3162: <fragment>:24:14: 'Tag' is named without type arguments inside 'typ
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -974,8 +967,6 @@ error E3162: <fragment>:19:17: 'Holder' is named without type arguments and noth
 ```
 
 <!-- test: error.a-receiver-of-a-bare-generic-base-outside-a-generic-body-may-not-take-a-layout-needing-call -->
-<!-- skip: sizeof(...) is not supported in minimaxon -->
-<!-- positions: moved -->
 ### Outside a generic body a bare receiver's layout-needing method has no descriptor either
 `Tag.create()` needs no descriptor, so `t` holds the bare base legally. `width` sizes an `Element`, and neither
 the base nor `main` has a descriptor to hand it.
@@ -990,7 +981,6 @@ type Tag uses Element
 	end 'create'
 
 	function width() returns Int
-		// TODO: sizeof(...) is not supported in minimaxon
 		return sizeof(Element)
 	end 'width'
 end 'Tag'
@@ -1092,13 +1082,11 @@ beta
 ```
 
 <!-- test: a-base-written-with-the-enclosing-parameter-takes-a-layout-needing-call -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 ### The control: the same layout-needing call through `typealias Held = Holder with T`
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1141,7 +1129,6 @@ end 'main'
 ```
 
 <!-- test: error.a-managed-instantiation-a-later-body-mints-refuses-the-fixed-array-body-first -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ### …and at a MANAGED argument the fixed array is refused, though the instance is minted below the body that asks
 `Holder with String` is written nowhere: `Outer`'s body mints it, below `Holder`'s. A parse asks whether some
@@ -1152,7 +1139,6 @@ be the whole program's rather than the rows the file had minted by then — admi
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 
@@ -1191,7 +1177,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: error.a-managed-instantiation-a-later-body-mints-refuses-the-fixed-array-use-first -->
-<!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same program with the minting body ABOVE the fixed array's, which the file's own rows answered all along.
 ```maxon
@@ -1219,7 +1204,6 @@ function main() returns ExitCode
 end 'main'
 
 type Holder uses Element
-	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
 

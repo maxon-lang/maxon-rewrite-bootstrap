@@ -643,16 +643,12 @@ end 'main'
 ```
 
 <!-- test: filepath-normalize-stops-at-the-root -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let spellings = ["C:/x/../../y", "C:/..", "//server/share/x/../..", "C:a/../..", "/x/.."]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let spellings = ["/x/../../y", "/..", "//a/./b", "/x/..", "/"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	for spelled in spellings 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
@@ -805,18 +801,14 @@ C:/Other/C:/Users/file.txt
 ```
 
 <!-- test: filepath-resolve-folds-dot-segments -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let base = FilePath from "C:/work/project"
 		let absolute = FilePath from "C:/work/./runtime/../stdlib/Clock.maxon"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let base = FilePath from "/work/project"
 		let absolute = FilePath from "/work/./runtime/../stdlib/Clock.maxon"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "../../runtime/Clock.maxon", "."] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
@@ -845,18 +837,14 @@ end 'main'
 ```
 
 <!-- test: filepath-resolve-drive-relative -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let sameDrive = FilePath from "C:/work/project"
 		let otherDrive = FilePath from "D:/elsewhere"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let sameDrive = FilePath from "/work/project"
 		let otherDrive = FilePath from "/elsewhere"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:"] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
@@ -881,18 +869,14 @@ end 'main'
 ```
 
 <!-- test: filepath-anchored-at-keeps-parent-components -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let base = FilePath from "C:/work/project"
 		let absolute = FilePath from "C:/work/./runtime/../stdlib//Clock.maxon/"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let base = FilePath from "/work/project"
 		let absolute = FilePath from "/work/./runtime/../stdlib//Clock.maxon/"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "a//b/", "../../runtime/Clock.maxon", "a/../b", ".", ""] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
@@ -927,20 +911,16 @@ end 'main'
 ```
 
 <!-- test: filepath-anchored-at-roots-and-drives -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let sameDrive = FilePath from "C:/work/project"
 		let otherDrive = FilePath from "D:/elsewhere"
 		let roots = ["C:/..", "C:/", "//server/share", "//server/share/x/..", "/x/./"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let sameDrive = FilePath from "/work/project"
 		let otherDrive = FilePath from "/elsewhere"
 		let roots = ["/..", "/", "//a/./b", "/x/./"]
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	for spelled in roots 'eachRoot'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
@@ -1234,10 +1214,8 @@ empty=false
 ```
 
 <!-- test: filepath-starts-with-follows-the-hosts-case-rule -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let path = FilePath from "C:\\Work\\Proj\\main.maxon"
 		let sameCase = FilePath from "C:\\Work"
@@ -1245,7 +1223,6 @@ function main() returns ExitCode
 		let lowerRoot = FilePath from "c:\\work"
 		let upperDirectory = FilePath from "C:\\WORK\\PROJ"
 		let partialComponent = FilePath from "c:\\wor"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let path = FilePath from "/Work/Proj/main.maxon"
 		let sameCase = FilePath from "/Work"
@@ -1253,7 +1230,6 @@ function main() returns ExitCode
 		let lowerRoot = FilePath from "/work"
 		let upperDirectory = FilePath from "/WORK/PROJ"
 		let partialComponent = FilePath from "/wor"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	print("{path.startsWith(sameCase)}\n")
 	print("{path.startsWith(driveOnly)}\n")
@@ -1285,18 +1261,14 @@ true
 ```
 
 <!-- test: filepath-relative-to-follows-the-hosts-case-rule -->
-<!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 		let path = FilePath from "C:\\Work\\Proj\\Sub\\main.maxon"
 		let base = FilePath from "c:\\work\\proj\\"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 		let path = FilePath from "/Work/Proj/Sub/main.maxon"
 		let base = FilePath from "/work/proj/"
-	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let relative = try path.relativeTo(base) otherwise 'outside'
 		print("outside\n")
