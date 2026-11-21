@@ -30,3 +30,4 @@ built by the Go compiler and C2 is `self/` built by C1; their columns are the wa
 | 2026-11-21 | 181cfdf | 1.4 runtime arrays, layout table | 30889 | 39.3 | 38.6 | 30.6 | — | — |
 | 2026-11-21 | 655806e | 1.4 range analysis, runtime OS | 32961 | 53.9 | 45.8 | 39.6 | — | — |
 | 2026-11-21 | 054227e | 1.5 self-compile works | 33606 | 48.2 | 38.8 | 37.7 | 2032 | 4471 |
+| 2026-11-21 | 7260842 | 1.5 M1 gate: c1 and c2 test pass | 34043 | 131.0 | 120.0 | 221.6 | 3896 | 7034 |
