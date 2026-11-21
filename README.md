@@ -1005,7 +1005,7 @@ and nothing else.
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
-  maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
+  maxon's iteration protocol, `for (k, v) in m` over a map and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
   without a handler (see "Checked arithmetic").
@@ -1952,9 +1952,19 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   loop over a cursor moves it on in place (a place it is must be mutable, and is held while the body runs); a loop
   over a collection calls `createIterator()` once and owns the cursor. Each `current()` is a value of its own, owned by
   `x` until the pass ends. A throw of `createIterator()` or `advance()` ends the loop, and a `createIterator()` that
-  throws another error is `E2015`, as is a loop over anything else: a string, a map, a list, a pool. A map has no way to
-  walk its keys yet. A string's `bytes()`, `codepoints()` and `utf16()` views are such collections; a loop over the
-  string itself waits for `Character`.
+  throws another error is `E2015`, as is a loop over anything else: a string, a list, a pool. A string's `bytes()`,
+  `codepoints()` and `utf16()` views are such collections; a loop over the string itself waits for `Character`.
+  A map is walked in the order its keys were inserted (maxon's order is that of its hash table, which no program can
+  rely on): `for (key, value) in m` binds the key and the value of each entry, `_` for the one the body does not use,
+  and each is lent as an array's element is, a scalar copied and anything else a borrow (`E3900` to move it, `.clone()`
+  is the fix). Both are `let`s (`E2013`), the key is read-only, and the value's fields are as writable as the map's. The
+  map is held while the body runs as an array is (`E3186`). A map holds no pair of a key and a value, so a loop that
+  names one variable, `for entry in m`, is `E2015`. The lowering is a loop over the entries' positions, reading the key
+  and the value in place with `rt.map.keyAt` and `rt.map.valueAt`, so a program that walks a map runs under the
+  interpreter, as every use of a map does.
+  `E.allCases` is a new `Array` of an enum's cases and `E.allCaseNames` one of the names of the cases of an enum or a
+  union, `Array with String`, in declaration order; both are read before a case of the same name. `allCases` of a union
+  is `E4006`. A loop over either walks the array as any other (`for c in E.allCases` is a loop over a fresh array).
 - **Running them.** An array runs natively: heap-allocated, bounds-checked, and freed with what it holds where its owner
   dies (see "The primitives in the IR" and "Native freeing"). A map, a list and a pool are checked and lowered, and the interpreter runs them (see "The interpreter"), so a
   program that uses one is refused when it is compiled to an executable (`E9900`) and still passes `check`; the test
@@ -2292,6 +2302,12 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   that declares neither the type nor the interface gives its conformance to no other module (Hylo's orphan rule). A method
   that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
   extension's method, reported when the modules are verified.
+- `for` loops (see "Primitives"): a `Map` is walked as `for (key, value) in m`, in the order its keys were inserted where maxon's is
+  that of its hash table, and a loop that names one variable for the pair (maxon binds a tuple) is `E2015`; the key and the value are
+  lent, not copied, and the map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
+  and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
+  supported. Not supported, and skipped by the converter: a loop over the characters of a `String` (there is no `Character`),
+  over its grapheme clusters, `split()` or `lines()`, and over `withIterator()`.
 - Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as
   maxon does (maxon's `Type.case` arms of a handler over the combined error of several errors are not supported, see
   "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`
@@ -2337,8 +2353,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes
   `.clone()`, and so does naming it in a `for (a, b) in xs` over a collection of them. A tuple of bare numbers has the ranges of
   its numbers (`(int(1 to 1), int(2 to 2))`, for the messages that name it), not `(int, int)`, and two tuple literals of
-  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), `withIterator()`, the loop over
-  a `Map`'s `(key, value)` pairs, which needs the map to be walked (see "Primitives"), the spelling `t._0` of an element that
+  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), `withIterator()`, a loop over
+  a `Map` that names the `(key, value)` pair by one variable (see "Primitives"), the spelling `t._0` of an element that
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
@@ -2360,7 +2376,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   range, and `int(5)` is a syntax error (`E2010`) where `bits(5)` is `E3148`. A cast to the alias a value already has is
   not refused as unneeded (`E3010`), as for every other alias.
 - Raw values (see "Raw values"): integer, float and string raw values of an enum, and an integer, float or string tag on a
-  union case; a case written with a record, a function or a character has none yet, and `fromRawValue`, `allCases`,
+  union case; a case written with a record, a function or a character has none yet, and `fromRawValue`, `fromName`,
   `unionCases`, comparing a case with its raw value and using it where a number is expected are the library's and are not
   here. An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
 - A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
@@ -2409,9 +2425,10 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   types rather than stdlib code, and keep these differences: a subscript is a place (`a[i].f = x`, `mutates a[i]`) that
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
-  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array is walked
-  by `for x in` (a `String`, a `Map`'s entries, a `List`, a range value and `withIterator()` are not), and the loop holds
-  the array, so a body that pushes to it or reassigns it is refused (`E3186`) where maxon re-reads the live count; the
+  maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array, a `Map`'s
+  entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List`, a range value and
+  `withIterator()` are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
+  refused (`E3186`) where maxon re-reads the live count; the
   iteration protocol is found on the concrete type, never through an interface; there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
   zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
   There is no built-in `Option`, which maxon's stdlib has no more of either: an

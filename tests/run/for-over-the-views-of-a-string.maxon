@@ -1,0 +1,20 @@
+function main() returns ExitCode
+	for unit in "h€llo".utf16() 'units'
+		print("{unit};")
+	end 'units'
+	print("\n")
+	for point in "héllo".codepoints() 'points'
+		print("{point};")
+	end 'points'
+	print("\n")
+	let text = "abc"
+	for byte in text.bytes() 'bytes'
+		print("{byte};")
+	end 'bytes'
+	print("\n")
+	return 0
+end 'main'
+
+//> 104;8364;108;108;111;
+//> 104;233;108;108;111;
+//> 97;98;99;

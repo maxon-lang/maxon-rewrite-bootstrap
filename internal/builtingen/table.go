@@ -597,6 +597,8 @@ var entries = []entry{
 	{"MapLen", "rt.map.len", "Interpreter", roleCall, "(map) -> count"},
 	{"MapHas", "rt.map.has", "Interpreter", roleCall, "(map, key) -> bool"},
 	{"MapElem", "rt.map.elem", "Interpreter", roleCall, "(map, key) -> address of the value"},
+	{"MapKeyAt", "rt.map.keyAt", "Interpreter", roleCall, "(map, position) -> address of the key of the entry at that position, in the order the keys were inserted"},
+	{"MapValueAt", "rt.map.valueAt", "Interpreter", roleCall, "(map, position) -> address of the value of the entry at that position"},
 	{"MapInsert", "rt.map.insert", "Interpreter", roleCall, "(map, key, value): moves both in; the value of an existing key is dropped"},
 	{"MapRemove", "rt.map.remove", "Interpreter", roleCall, "(map, key) -> value: moves it out; the key is dropped"},
 	{"MapCopy", "rt.map.copy", "Interpreter", roleCall, "(map) -> map: every key and value copied"},

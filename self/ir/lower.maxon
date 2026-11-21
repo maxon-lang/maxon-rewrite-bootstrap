@@ -415,6 +415,10 @@ function visitForStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 		visitForCursor(l, p: p, s: s)
 		return
 	end 'cursor'
+	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) and isMap(l, p: p, collection: exprType(p, module: l.module, node: ast.forStmtFrom(p.modules[l.mi].tree, id: s))) 'entries'
+		visitForMap(l, p: p, s: s)
+		return
+	end 'entries'
 	if not ast.forStmtIsRange(p.modules[l.mi].tree, id: s) 'forEach'
 		visitForEach(l, p: p, s: s)
 		return
@@ -509,6 +513,61 @@ function visitForEach(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	goTo(l, target: top)
 	l.cur = exit
 end 'visitForEach'
+
+// visitForMap lowers a for over a map to a loop over the positions of its entries, which run in the order the keys were
+// inserted. The map is read once, and the ownership pass keeps the body from changing it. Each pass lends the key and the
+// value of the entry at the position to the names of the loop, as a subscript lends an element.
+function visitForMap(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
+	let site = siteOf(l, p: p, node: s)
+	let held = l.b.f.newSlot(IrKind.kindManaged)
+	let position = l.b.f.newSlot(IrKind.kindScalar)
+	let top = l.b.newBlock()
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let coll = lowerRead(l, p: p, e: source)
+	emit(l, i: newStoreSlot(held, src: coll, borrow: true))
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(position, src: zero, borrow: false))
+	goTo(l, target: top)
+	let whole = load(l, slot: held)
+	let n = entry(l, p: p, site: site, symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(whole))
+	let at = load(l, slot: position)
+	let below = compare(l, op: CmpOp.cmpLt, a: at, b: n, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(below, ifTrue: body, ifFalse: exit))
+	l.cur = body
+	let namesRef = ast.forStmtVarsRef(p.modules[l.mi].tree, id: s)
+	for i in 0 upto 2 'names'
+		let name = p.modules[l.mi].tree.listAt(namesRef, index: i) as ast.NodeID
+		let id = localOfNode(p, module: l.module, node: name)
+		if id == ast.noLocal 'discard'
+			continue 'names'
+		end 'discard'
+		let sym = localEntry(p, module: l.fnModule, id: id)
+		let m = load(l, slot: held)
+		let place = load(l, slot: position)
+		var part = Rt.rtMapKeyAt
+		if i == 1 'value'
+			part = Rt.rtMapValueAt
+		end 'value'
+		let addr = entry(l, p: p, site: site, symbol: part, kind: IrKind.kindScalar, args: argsOf2(m, b: place))
+		let lent = newReg(l, kind: kindOf(l, p: p, t: sym.ty))
+		emit(l, i: newLoadAt(lent, addr: addr))
+		emit(l, i: newStoreSlot(slotOf(sym), src: lent, borrow: regKind(l, v: lent) == IrKind.kindManaged))
+	end 'names'
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	lowerBlock(l, p: p, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: cont)
+	popJumps(l)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let cur = load(l, slot: position)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(position, src: next, borrow: false))
+	goTo(l, target: top)
+	l.cur = exit
+end 'visitForMap'
 
 // visitForCursor lowers a for over a type with the iteration protocol. The cursor is made once, by the collection's
 // createIterator(), and owned by the statement, or is the collection itself, borrowed. Each pass reads the element with

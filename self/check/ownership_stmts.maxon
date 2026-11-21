@@ -506,8 +506,14 @@ function forEachOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, c
 			requireWritable(o, p: p, site: offsetOfOwn(o, p: p, node: source), path: path)
 		end 'advances'
 	end 'protocol'
-	if lends 'lend'
-		o.lenders.push(OwnLender.make(ownLocalOf(o, node: st), collection: path.clone()))
+	var lent = ast.LocalIDList.create(0)
+	if lends and p.types.entries[ast.contentType(p.types, t: ownType(o, node: source)) as Count].kind == ast.TypeKind.builtinMap 'entries'
+		lent = lentValue(o, p: p, st: st)
+	end 'entries' else if lends 'element'
+		lent.push(ownLocalOf(o, node: st))
+	end 'element'
+	for i in 0 upto lent.count() 'lend'
+		o.lenders.push(OwnLender.make(lent[i], collection: path.clone()))
 	end 'lend'
 	if held 'hold'
 		o.projections.push(OwnProjection.make(path, place: 0 as ast.NodeID, kind: OwnProjectionKind.projectLoop, ty: ownType(o, node: source)))
@@ -516,11 +522,24 @@ function forEachOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, c
 	if held 'release'
 		_ = try o.projections.pop() otherwise panic("ownership: the hold of a loop's collection vanished")
 	end 'release'
-	if lends 'unlend'
+	for _ in 0 upto lent.count() 'unlend'
 		_ = try o.lenders.pop() otherwise panic("ownership: the lender of a loop's variable vanished")
 	end 'unlend'
 	return out
 end 'forEachOwn'
+
+// lentValue is the variable that a for over a map names its values by, the only one whose parts are as writable
+// as the map's: a key is read-only, and `_` is no variable.
+function lentValue(o Ownership, p ast.Project, st ast.NodeID) returns ast.LocalIDList
+	var lent = ast.LocalIDList.create(0)
+	let namesRef = ast.forStmtVarsRef(p.modules[o.c.modIdx].tree, id: st)
+	let at = p.modules[o.c.modIdx].tree.listAt(namesRef, index: 1 as Count) as ast.NodeID
+	match consumes o.c.typing.nodeLocals.get(at as Count) 'value'
+		some(local) then lent.push(local)
+		none then _ = 0
+	end 'value'
+	return lent
+end 'lentValue'
 
 function iterationOwn(o Ownership, node ast.NodeID) returns ast.IterationInfo
 	return match consumes o.c.typing.iterations.get(node as Count) 'hit'

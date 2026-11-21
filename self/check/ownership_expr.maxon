@@ -826,7 +826,7 @@ end 'subscript'
 
 function memberExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consumes s OwnState) returns OwnState
 	let kind = ownMember(o, node: e).kind
-	if kind == ast.MemberKind.memberEnumCase or kind == ast.MemberKind.memberUnionCase or kind == ast.MemberKind.memberLimit 'case'
+	if ast.memberOfType(kind) 'case'
 		return s
 	end 'case'
 	if o.partials > 0 and kind == ast.MemberKind.memberField and readPart(o, p: p, e: e, s: s) 'part'

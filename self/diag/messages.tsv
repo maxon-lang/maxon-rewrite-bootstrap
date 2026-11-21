@@ -138,6 +138,7 @@ tupleAssignArity	ErrTypeMismatch	Tuple has {elements} elements but destructuring
 writesCaptures	ErrCapabilityConversion	function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`
 emptyBlock	ErrEmptyBlock	empty block: '{label}'
 noStaticMember	ErrUnknownStaticMember	type '{typeName}' has no static member named '{member}'
+allCasesOnUnion	ErrInvalidFieldAccess	allCases is not available on unions
 fallthroughWithReturn	ErrMatchFallthroughWithReturn	match fallthrough with return: 'cannot combine 'fallthrough' with 'return''
 functionValueHint	ErrTypeMismatch	a function value is only usable where a function type declared with 'typealias' is expected
 functionValueAssigned	ErrTypeMismatch	cannot assign a value of type 'function' to {place}, which holds '{expected}': {hint}

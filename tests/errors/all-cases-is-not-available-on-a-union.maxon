@@ -1,0 +1,13 @@
+union Shape
+	dot
+	circle(r Count)
+end 'Shape'
+
+function main() returns ExitCode
+	for shape in Shape.allCases 'each'
+		print("x")
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E4006 at 7:15

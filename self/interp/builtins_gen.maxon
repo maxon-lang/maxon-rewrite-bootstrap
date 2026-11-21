@@ -159,6 +159,14 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryMapElem(vm, f: f, x: x)
 		return
 	end 'rtMapElem'
+	if symbol == ir.Rt.rtMapKeyAt 'rtMapKeyAt'
+		try entryMapKeyAt(vm, f: f, x: x)
+		return
+	end 'rtMapKeyAt'
+	if symbol == ir.Rt.rtMapValueAt 'rtMapValueAt'
+		try entryMapValueAt(vm, f: f, x: x)
+		return
+	end 'rtMapValueAt'
 	if symbol == ir.Rt.rtMapInsert 'rtMapInsert'
 		try entryMapInsert(vm, f: f, x: x)
 		return

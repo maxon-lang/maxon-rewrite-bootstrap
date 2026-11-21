@@ -660,6 +660,11 @@ export function noStaticMember(typeName String, member String) returns String
 	return "type '{typeName}' has no static member named '{member}'"
 end 'noStaticMember'
 
+// The text of errInvalidFieldAccess for: allCases is not available on unions
+export function allCasesOnUnion() returns String
+	return "allCases is not available on unions"
+end 'allCasesOnUnion'
+
 // The text of errMatchFallthroughWithReturn for: match fallthrough with return: 'cannot combine 'fallthrough' with 'return''
 export function fallthroughWithReturn() returns String
 	return "match fallthrough with return: 'cannot combine 'fallthrough' with 'return''"

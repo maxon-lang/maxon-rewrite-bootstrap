@@ -1,0 +1,59 @@
+typealias Ages = Map with (String, Count)
+
+typealias Boxes = Map with (Count, Box)
+
+type Box
+	export var n as Count
+
+	static function make(n Count) returns Box
+		return Box{n: n}
+	end 'make'
+end 'Box'
+
+function main() returns ExitCode
+	var ages = Ages.create()
+	ages.upsert("ada", value: 36)
+	ages.upsert("alan", value: 41)
+	ages.upsert("grace", value: 85)
+	for (name, age) in ages 'entries'
+		print("{name}: {age}\n")
+	end 'entries'
+	for (name, _) in ages 'keys'
+		print("{name};")
+	end 'keys'
+	for (_, age) in ages 'values'
+		print("{age};")
+	end 'values'
+	print("\n")
+	for (name, age) in ages 'first'
+		if age > 40 'older'
+			break 'first'
+		end 'older'
+		print("{name}\n")
+	end 'first'
+	let none = Ages.create()
+	for (name, age) in none 'empty'
+		print("never {name} {age}\n")
+	end 'empty'
+	var boxes = Boxes.create()
+	boxes.upsert(1, value: Box.make(5))
+	boxes.upsert(2, value: Box.make(7))
+	for (key, box) in boxes 'boxes'
+		box.n = try box.n * 2 otherwise panic("overflow")
+		print("{key} {box.n}\n")
+	end 'boxes'
+	for (key, box) in boxes 'again'
+		print("{key} {box.n}\n")
+	end 'again'
+	return 0
+end 'main'
+
+//> ada: 36
+//> alan: 41
+//> grace: 85
+//> ada;alan;grace;36;41;85;
+//> ada
+//> 1 10
+//> 2 14
+//> 1 10
+//> 2 14

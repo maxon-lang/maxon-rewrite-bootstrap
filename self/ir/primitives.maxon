@@ -187,6 +187,11 @@ function isArray(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID
 	return p.types.entries[bt as Count].kind == ast.TypeKind.builtinArray
 end 'isArray'
 
+function isMap(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
+	let bt = builtinOf(l, p: p, collection: collection)
+	return p.types.entries[bt as Count].kind == ast.TypeKind.builtinMap
+end 'isMap'
+
 // elemEntry is the address of an element of a map, a list or a pool; an array's goes through arrayOf.
 function elemEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
 	let bt = builtinOf(l, p: p, collection: collection)

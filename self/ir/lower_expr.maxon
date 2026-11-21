@@ -744,6 +744,9 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	if kind == ast.MemberKind.memberUnionCase 'unionCase'
 		return record(l, p: p, t: exprType(p, module: l.module, node: e), tag: indexOf(member.enumCase), values: ExprRefList.create(0))
 	end 'unionCase'
+	if kind == ast.MemberKind.memberAllCases or kind == ast.MemberKind.memberAllCaseNames 'caseList'
+		return lowerCaseList(l, p: p, e: e, member: member)
+	end 'caseList'
 	if kind == ast.MemberKind.memberEnumOrdinal 'ordinal'
 		return lowerExpr(l, p: p, e: obj)
 	end 'ordinal'
@@ -773,6 +776,25 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	end 'unionName'
 	panic("lower: unresolved member")
 end 'visitMemberExpr'
+
+// lowerCaseList builds the array that 'Type.allCases' or 'Type.allCaseNames' is: a new one each time, since an array has
+// one owner, holding a case of the enum, or the name of a case, for each case in the order they are declared.
+function lowerCaseList(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, member ast.MemberInfo) returns Reg
+	let site = siteOf(l, p: p, node: e)
+	let box = arrayOf(l, p: p, site: site, t: exprType(p, module: l.module, node: e))
+	let list = arrayNew(l, p: p, box: box)
+	let names = caseNames(p, t: member.ownerTy)
+	for i in 0 upto names.count() 'each'
+		var v = noReg
+		if member.kind == ast.MemberKind.memberAllCases 'cases'
+			v = konst(l, value: try i as Word otherwise panic("ir: a case index is out of range"))
+		end 'cases' else 'caseNames'
+			v = strReg(l, value: names[i])
+		end 'caseNames'
+		arrayPush(l, p: p, box: box, arr: list, v: v)
+	end 'each'
+	return list
+end 'lowerCaseList'
 
 // rawValueOf is the raw value of the case of the enum or union type t that index says: the index itself for integers that the
 // cases did not write, and otherwise the raw value of each case, chosen by a switch.

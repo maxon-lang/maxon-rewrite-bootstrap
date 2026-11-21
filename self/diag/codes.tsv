@@ -124,6 +124,7 @@ ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is 
 ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
 ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
 ErrAmbiguousExtension	E3942	-	A call names a method that two extensions the calling module sees add to the type.
+ErrInvalidFieldAccess	E4006	invalidFieldAccess	A member is used that its type does not have: allCases on a union.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

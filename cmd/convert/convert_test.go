@@ -402,6 +402,33 @@ end 'make'
 			want: "function f(from Count) returns Count\n\tlet text = String.from(bytes)\n\tif (try values.get(0) otherwise panic(\"live\")) != from 'differs'\n\t\treturn from + 1\n\tend 'differs'\n\treturn 0\nend 'f'\n",
 		},
 		{
+			name: "a for loop over a variable named like a view, the cases of an enum and the view of a literal is walked",
+			in: `function f(lines Array with String)
+	for line in lines 'each'
+		print(line)
+	end 'each'
+	for c in Color.allCases 'cases'
+		print("{c}")
+	end 'cases'
+	for u in "abc".utf16() 'views'
+		print("{u}")
+	end 'views'
+end 'f'
+`,
+			want: `function f(lines Array with String)
+	for line in lines 'each'
+		print(line)
+	end 'each'
+	for c in Color.allCases 'cases'
+		print("{c}")
+	end 'cases'
+	for u in "abc".utf16() 'views'
+		print("{u}")
+	end 'views'
+end 'f'
+`,
+		},
+		{
 			name: "a member named from and a literal after a from are not unsupported conversions",
 			in:   "function f() returns Count\n\tlet text = String.from (bytes)\n\tlet path = FilePath from \"a.txt\"\n\tlet xs = Ages from [1, 2]\n\treturn 0\nend 'f'\n",
 			want: "function f() returns Count\n\tlet text = String.from(bytes)\n\tlet path = FilePath from \"a.txt\"\n\tlet xs = Ages from [1, 2]\n\treturn 0\nend 'f'\n",
@@ -478,12 +505,12 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		{
 			name:     "for loop over a string's view",
 			in:       "function f(s String)\n\tfor b in s.lines() 'each'\n\t\tprint(\"{b}\")\n\tend 'each'\nend 'f'\n",
-			wantTodo: "iterator-based for loops over a string",
+			wantTodo: "for loops over the characters of a string",
 		},
 		{
 			name:     "for loop over a string literal",
 			in:       "function f()\n\tfor c in \"abc\" 'each'\n\t\tprint(\"{c}\")\n\tend 'each'\nend 'f'\n",
-			wantTodo: "iterator-based for loops over a string",
+			wantTodo: "for loops over the characters of a string",
 		},
 		{
 			name:     "byte string spanning lines",

@@ -1,0 +1,12 @@
+typealias Ages = Map with (String, Count)
+
+function main() returns ExitCode
+	var ages = Ages.create()
+	ages.upsert("a", value: 1)
+	for (name, age) in ages 'each'
+		ages.upsert("b", value: 2)
+	end 'each'
+	return 0
+end 'main'
+
+// expect-error: E3186 at 7:3

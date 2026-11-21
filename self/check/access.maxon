@@ -269,6 +269,9 @@ function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	if failedSince(errs, mark: mark) 'generic'
 		return ast.noType
 	end 'generic'
+	if (k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy) and (member == allCasesMember or member == allCaseNamesMember) 'caseList'
+		return checkCaseListMember(c, p: p, e: e, obj: obj, member: member, nt: named, errs: errs)
+	end 'caseList'
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
@@ -306,6 +309,33 @@ function writtenName(tree ast.Tree, e ast.NodeID) returns String
 	end 'member'
 	return ast.nameExprName(tree, id: e)
 end 'writtenName'
+
+// The members that give every case of an enum, or every name of the cases of an enum or a union, in the order they are
+// declared. They are read before a case of the same name, as maxon reads them.
+let allCasesMember = "allCases"
+
+let allCaseNamesMember = "allCaseNames"
+
+// checkCaseListMember types 'Type.allCases', an Array of the cases of an enum, and 'Type.allCaseNames', an Array with
+// String of the names of the cases of an enum or a union. A union has no value for a case that carries a payload, so it has
+// no 'allCases'.
+function checkCaseListMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, obj ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	var kind = ast.MemberKind.memberAllCaseNames
+	var elem = p.builtins.stringTy
+	if member == allCasesMember 'cases'
+		if kindOfType(p, t: nt) == ast.TypeKind.unionTy 'union'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: obj), code: diag.errInvalidFieldAccess, msg: diag.allCasesOnUnion(), errs: errs)
+			return ast.noType
+		end 'union'
+		kind = ast.MemberKind.memberAllCases
+		elem = nt
+	end 'cases'
+	c.typing.members.insert(e as Count, value: ast.MemberInfo.make(kind, ownerTy: nt))
+	var args = ast.TypeIDList.create(0)
+	args.push(elem)
+	let origin = p.builtins.arrayOrigin
+	return instantiateGeneric(c, p: p, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+end 'checkCaseListMember'
 
 function checkCaseMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let off = offsetOf(c, p: p, node: e)

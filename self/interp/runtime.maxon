@@ -401,6 +401,29 @@ function entryMapElem(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveAddress(vm, x: x, c: element)
 end 'entryMapElem'
 
+// mapEntryAt is the entry of a map at a position of the order the keys were inserted in.
+function mapEntryAt(mutates vm Vm, f ir.IrFunction, x ir.Instr, what String) returns Count throws Halt
+	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: what)
+	let data = vm.h.oData[m]
+	let position = bitsOf(argNum(vm, f: f, x: x, i: 1))
+	if position >= vm.h.maps[data].entries.count() 'past'
+		throw trap(vm, message: indexOutOfRangeMessage)
+	end 'past'
+	return vm.h.maps[data].entries[position]
+end 'mapEntryAt'
+
+function entryMapKeyAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let e = try mapEntryAt(vm, f: f, x: x, what: "a key address")
+	let key = vm.h.entryKey[e]
+	giveAddress(vm, x: x, c: key)
+end 'entryMapKeyAt'
+
+function entryMapValueAt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let e = try mapEntryAt(vm, f: f, x: x, what: "an element address")
+	let val = vm.h.entryVal[e]
+	giveAddress(vm, x: x, c: val)
+end 'entryMapValueAt'
+
 function entryMapInsert(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let m = try collection(vm, o: argRef(vm, f: f, x: x, i: 0), kind: kindMap, what: "an insert")
 	let data = vm.h.oData[m]

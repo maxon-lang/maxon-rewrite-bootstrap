@@ -317,8 +317,7 @@ end 'checkFor'
 // checkForBody declares the variable of a for and checks the body it is in scope for. A variable that borrows is an
 // element the collection lends, as a match binding of a payload is.
 function checkForBody(mutates c Checker, mutates p ast.Project, s ast.NodeID, varType ast.TypeID, borrows bool, mutates errs diag.ErrorList)
-	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
-	pushScope(c)
+	enterForBody(c, p: p, s: s)
 	let destructures = p.modules[c.modIdx].tree.listLen(ast.forStmtVarsRef(p.modules[c.modIdx].tree, id: s)) > 0
 	var local = ast.noLocal
 	var bound = ast.NodeIDList.create(0)
@@ -336,9 +335,47 @@ function checkForBody(mutates c Checker, mutates p ast.Project, s ast.NodeID, va
 			putStepsBeforeBody(c, p: p, s: s, steps: bound)
 		end 'steps'
 	end 'declared'
+	leaveForBody(c)
+end 'checkForBody'
+
+function enterForBody(mutates c Checker, p ast.Project, s ast.NodeID)
+	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
+	pushScope(c)
+end 'enterForBody'
+
+function leaveForBody(mutates c Checker)
 	popScope(c)
 	popBlock(c)
-end 'checkForBody'
+end 'leaveForBody'
+
+// checkMapEntries types a for over the entries of a Map, in the order their keys were inserted. Each pass lends the key
+// and the value of one entry to the two names of the loop, as an array lends an element, so no pair is made for the
+// entry: the loop names both, `for (key, value) in m`, and `_` stands for one it does not need.
+function checkMapEntries(mutates c Checker, mutates p ast.Project, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	let namesRef = ast.forStmtVarsRef(p.modules[c.modIdx].tree, id: s)
+	if p.modules[c.modIdx].tree.listLen(namesRef) != 2 'notPair'
+		failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}` needs a name for the key and one for the value, `for (key, value) in map`, with `_` for the one the body does not use: the map holds no pair of the two to bind to a single variable", errs: errs)
+		return
+	end 'notPair'
+	let args = ast.typeArgsOf(p.types, t: t)
+	enterForBody(c, p: p, s: s)
+	for i in 0 upto 2 'names'
+		let at = p.modules[c.modIdx].tree.listAt(namesRef, index: i) as ast.NodeID
+		let name = ast.bindNameName(p.modules[c.modIdx].tree, id: at)
+		if name == "_" 'discard'
+			continue 'names'
+		end 'discard'
+		let local = declareLocal(c, p: p, name: name, t: args[i], isVar: false, definedAt: s, off: offsetOf(c, p: p, node: at), errs: errs)
+		if local == ast.noLocal 'failed'
+			leaveForBody(c)
+			return
+		end 'failed'
+		c.typing.locals[local as Count].projected = ast.isManagedType(p.types, t: args[i])
+		c.typing.nodeLocals.insert(at as Count, value: local)
+	end 'names'
+	checkStmts(c, p: p, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	leaveForBody(c)
+end 'checkMapEntries'
 
 // The methods of maxon's iteration protocol: a cursor's current() is its element and advance() moves it on, throwing
 // IterationError past the last one, and a collection's createIterator() makes a cursor, throwing where it is empty.
@@ -349,7 +386,8 @@ let advanceMethod = "advance"
 let createIteratorMethod = "createIterator"
 
 // checkForEach types a for over the elements of a collection. An array lends each element to the variable, as a
-// subscript lends it; a type that declares the iteration protocol gives each one as the value its current() returns.
+// subscript lends it, and a map its keys and values; a type that declares the iteration protocol gives each one as the
+// value its current() returns.
 function checkForEach(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
 	let source = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
 	let typed = checkExpr(c, p: p, e: source, errs: errs)
@@ -365,6 +403,10 @@ function checkForEach(mutates c Checker, mutates p ast.Project, s ast.NodeID, mu
 		checkForBody(c, p: p, s: s, varType: elem, borrows: ast.isManagedType(p.types, t: elem), errs: errs)
 		return
 	end 'array'
+	if kindOfType(p, t: t) == ast.TypeKind.builtinMap 'map'
+		checkMapEntries(c, p: p, s: s, t: t, errs: errs)
+		return
+	end 'map'
 	let elem = checkIteration(c, p: p, s: s, t: t, typed: typed, errs: errs)
 	if elem == ast.noType 'notIterable'
 		return
@@ -419,7 +461,7 @@ function checkIteration(mutates c Checker, mutates p ast.Project, s ast.NodeID, 
 end 'checkIteration'
 
 function failNotIterable(c Checker, p ast.Project, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}` value — the compiler iterates an `Array`, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
+	failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
 end 'failNotIterable'
 
 // declaresCursor is whether a type is a cursor: its current() gives a value and cannot fail, and its advance() throws

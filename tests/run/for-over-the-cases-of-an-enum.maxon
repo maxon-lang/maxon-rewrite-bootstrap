@@ -1,0 +1,47 @@
+enum Color
+	red
+	green
+	blue
+end 'Color'
+
+enum Level
+	low = 10
+	high = 20
+end 'Level'
+
+union Shape
+	dot
+	circle(r Count)
+end 'Shape'
+
+function main() returns ExitCode
+	for color in Color.allCases 'colors'
+		print("{color.name}={color.ordinal};")
+	end 'colors'
+	print("\n")
+	for level in Level.allCases 'levels'
+		print("{level.rawValue};")
+	end 'levels'
+	print("\n")
+	for name in Shape.allCaseNames 'names'
+		print("{name};")
+	end 'names'
+	print("\n")
+	let cases = Color.allCases
+	let names = Color.allCaseNames
+	print("{cases.count()} {names.count()} {names[1]}\n")
+	var pairs = 0 as Count
+	for _ in Color.allCases 'outer'
+		for _ in Color.allCases 'inner'
+			pairs = try pairs + 1 otherwise panic("overflow")
+		end 'inner'
+	end 'outer'
+	print("{pairs}\n")
+	return 0
+end 'main'
+
+//> red=0;green=1;blue=2;
+//> 10;20;
+//> dot;circle;
+//> 3 3 green
+//> 9
