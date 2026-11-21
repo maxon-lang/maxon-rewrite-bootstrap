@@ -174,7 +174,6 @@ end 'main'
 ```
 
 <!-- test: otherwise-value-expression-allocates -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The `otherwise <value>` fallback is an expression, so it may build its OWN owned temporary that it does not hand back — `[1, 2].count()` builds an array and yields a scalar. That temporary runs on the error edge only and must die there, not at the shared statement tail (which the ok edge reaches too — releasing it there is a release of a value that edge never built, a register-allocator "use dominates its def" panic on a valid program). This pins the fallback expression as a fork region alongside a ternary/match arm. Unlike the borrow guard above, getting this wrong is a compiler crash, not a silent free, so this case goes red on it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -182,13 +181,12 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let v = try arr.get(9) otherwise [1, 2].count() as Integer
-	return v
+	let v = try arr.get(9) otherwise try [1, 2].count() as Integer otherwise panic("out of range")
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

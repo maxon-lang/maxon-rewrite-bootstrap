@@ -326,7 +326,6 @@ end 'main'
 ```
 
 <!-- test: error.otherwise-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -337,14 +336,13 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.failed
 end 'mayFail'
 
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(counter) otherwise 'err'
 		result = 42
 	end 'err'
@@ -356,7 +354,6 @@ end 'main'
 ```
 
 <!-- test: error.otherwise-block-success -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -367,7 +364,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(shouldFail bool, mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	if shouldFail 'check'
 		throw MyError.failed
 	end 'check'
@@ -377,7 +374,6 @@ end 'mayFail'
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(false, counter: counter) otherwise 'err'
 		result = 42
 	end 'err'
@@ -389,7 +385,6 @@ end 'main'
 ```
 
 <!-- test: error.otherwise-block-with-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -400,14 +395,13 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.failed
 end 'mayFail'
 
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var caught = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(counter) otherwise (e) 'handler'
 		match e 'kind'
 			failed then caught = 42
@@ -878,8 +872,6 @@ error E3059: specs/error-handling/error.otherwise-ignore-in-assignment.maxon:15:
 ```
 
 <!-- test: error.otherwise-block-fallthrough-in-assignment -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -897,7 +889,6 @@ function mayFail() returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let val = try mayFail() otherwise (e) 'handler'
 		let note = 1
 	end 'handler'
@@ -909,8 +900,6 @@ error E3059: specs/error-handling/error.otherwise-block-fallthrough-in-assignmen
 ```
 
 <!-- test: error.void-try-in-assignment -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ```maxon
 // Assigning from a void-returning try call is an error
 enum MyError implements Error
@@ -922,7 +911,6 @@ function mayFail() throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let val = try mayFail() otherwise 'handler'
 		return 1
 	end 'handler'
@@ -934,7 +922,6 @@ error E3059: specs/error-handling/error.void-try-in-assignment.maxon:12:12: type
 ```
 
 <!-- test: error.binding-match-single-case -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -945,14 +932,13 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.failed
 end 'mayFail'
 
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(counter) otherwise (e) 'handler'
 		match e 'check'
 			failed then result = 42
@@ -966,7 +952,6 @@ end 'main'
 ```
 
 <!-- test: error.binding-match-multi-case -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -979,7 +964,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(code Integer, mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	if code == 1 'c1'
 		throw MyError.failed
 	end 'c1'
@@ -992,7 +977,6 @@ end 'mayFail'
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(2, counter: counter) otherwise (e) 'handler'
 		match e 'check'
 			failed then result = 10
@@ -1008,7 +992,6 @@ end 'main'
 ```
 
 <!-- test: error.binding-success-no-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1019,7 +1002,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(shouldFail bool, mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	if shouldFail 'check'
 		throw MyError.failed
 	end 'check'
@@ -1029,7 +1012,6 @@ end 'mayFail'
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(false, counter: counter) otherwise (e) 'handler'
 		match e 'kind'
 			failed then result = 99
@@ -1043,7 +1025,6 @@ end 'main'
 ```
 
 <!-- test: error.assoc-value-throw-catch -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -1064,7 +1045,6 @@ end 'mayFail'
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(counter) otherwise (e) 'handler'
 		match e 'check'
 			notFound(code) then result = code
@@ -1079,7 +1059,6 @@ end 'main'
 ```
 
 <!-- test: error.assoc-value-throw-catch-2 -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -1100,7 +1079,6 @@ end 'mayFail'
 function main() returns ExitCode
 	var counter = 0 as Integer
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(counter) otherwise (e) 'handler'
 		match e 'check'
 			notFound(code) then result = code
@@ -1115,7 +1093,6 @@ end 'main'
 ```
 
 <!-- test: error.union-caught-cross-file-declared-in-the-forward-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 An error union declared in the FORWARD file (`liberr.maxon` sorts before
 `main.maxon`, so it is folded into the signatures index before the catch site is
@@ -1145,7 +1122,6 @@ end 'risky'
 // --- file: main.maxon
 function main() returns ExitCode
 	var result = 0 as Code
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try risky(9) otherwise (e) 'handler'
 		match e 'check'
 			bad(code) then result = code
@@ -1159,7 +1135,6 @@ end 'main'
 ```
 
 <!-- test: error.cross-file-throws-caught-later-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering: `risky`/`Woe` are declared in `zzz.maxon`, which sorts AFTER
 the catch site in `app.maxon`. The whole-program signature sweep
@@ -1179,7 +1154,6 @@ file's interner: a declaration-order union-layout prescan.
 // as `Woe`.
 function main() returns ExitCode
 	var result = 0 as Code
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try risky(9) otherwise (e) 'handler'
 		match e 'check'
 			tooBig(by) then result = by
@@ -1210,7 +1184,6 @@ end 'risky'
 ```
 
 <!-- test: error.cross-file-throws-string-payload-later-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering with a MANAGED (String) payload: `Woe.bad(msg String)` is
 declared in `zzz.maxon` (sorts after `app.maxon`), thrown by `risky`, and caught
@@ -1223,7 +1196,6 @@ wrong number. This pins the managed backward path the scalar case above cannot.
 // --- file: app.maxon
 function main() returns ExitCode
 	var result = 0 as BytePos
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try risky(9) otherwise (e) 'handler'
 		match e 'check'
 			bad(msg) then result = msg.byteLength()
@@ -1254,7 +1226,6 @@ end 'risky'
 ```
 
 <!-- test: error.cross-file-throws-struct-payload-later-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 BACKWARD ordering with a MANAGED (struct) payload: `Woe.bad(p Payload)` and the
 struct `Payload` are declared in `zzz.maxon` (sorts after `app.maxon`). The catch
@@ -1266,7 +1237,6 @@ family that `classifyUnionPayload` panics on without the doors.
 // --- file: app.maxon
 function main() returns ExitCode
 	var result = 0 as Code
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try risky(9) otherwise (e) 'handler'
 		match e 'check'
 			bad(p) then result = p.mass
@@ -1359,7 +1329,6 @@ end 'Woe'
 ```
 
 <!-- test: error.otherwise-block-reused-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -1390,14 +1359,12 @@ end 'mayFailSimple'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFailAssoc() otherwise (e) 'handler1'
 		match e 'check1'
 			withCode(code) then result = result + code
 			plain then result = result + 1
 		end 'check1'
 	end 'handler1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFailSimple() otherwise (e) 'handler2'
 		match e 'check2'
 			broken then result = result + 35
@@ -1847,7 +1814,6 @@ end 'main'
 ```
 
 <!-- test: error.rethrow-caught-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1867,7 +1833,6 @@ function inner() returns Integer throws Fault
 end 'inner'
 
 function outer() returns Integer throws Fault
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	return try inner() otherwise (e) 'h'
 		throw e
 	end 'h'
@@ -1875,7 +1840,6 @@ end 'outer'
 
 function main() returns ExitCode
 	var code = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try outer() otherwise (e) 'top'
 		match e 'm'
 			low then code = 1
@@ -1891,7 +1855,6 @@ end 'main'
 
 
 <!-- test: error.string-payload-throw-catch -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -1914,7 +1877,6 @@ end 'mk'
 
 function main() returns ExitCode
 	var n = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mk() otherwise (e) 'h'
 		match e 'm'
 			failed(msg) then n = msg.byteLength() as ExitCode
@@ -1928,7 +1890,6 @@ end 'main'
 ```
 
 <!-- test: error.otherwise-no-binding-boxed-decref -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -1950,7 +1911,6 @@ end 'tokenize'
 
 function main() returns ExitCode
 	var ran = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try tokenize() otherwise 'noBinding'
 		ran = 5
 	end 'noBinding'
@@ -1962,7 +1922,6 @@ end 'main'
 ```
 
 <!-- test: throw-borrowed-union-co-owns -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a BORROWED union CO-OWNS its box — it does not move it
 ⛔⛔ **A BORROWED AGGREGATE CROSSES A CALL BOUNDARY WITHOUT A CROSS-CALL CONSUME, AND A `throw` IS NO
@@ -1994,7 +1953,6 @@ function rethrow(e Fault) returns Integer throws Fault
 end 'rethrow'
 
 function useAfterRethrow(e Fault) returns Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try rethrow(e) otherwise 'caught'
 		return match e 'stillLive'
 			bad(code) gives code
@@ -2019,7 +1977,6 @@ a=7 b=7
 ```
 
 <!-- test: throw-borrowed-union-leaves-a-sibling-path-borrowing -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
@@ -2075,7 +2032,6 @@ function main() returns ExitCode
 	let keeper = Keeper.create()
 	try keeper.keep(3) otherwise return 1
 	try keeper.keep(40) otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try keeper.keep(900) otherwise (e) 'late'
 		match e 'fault'
 			bad(_, at) then print("late {at}\n")
@@ -2094,7 +2050,6 @@ kept 9
 ```
 
 <!-- test: throw-sole-owned-field-leaves-a-sibling-path-borrowing -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
@@ -2137,7 +2092,6 @@ function main() returns ExitCode
 	let kept = FaultArray.create(0)
 	try Holder.keepInto(kept, at: 3) otherwise return 1
 	try Holder.keepInto(kept, at: 40) otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Holder.keepInto(kept, at: 900) otherwise (e) 'late'
 		match e 'fault'
 			bad(_, at) then print("late {at}\n")
@@ -2207,7 +2161,6 @@ end 'main'
 ```
 
 <!-- test: error.throw-payload-expr-temp-decref -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ```maxon
 
@@ -2234,7 +2187,6 @@ end 'mk'
 
 function main() returns ExitCode
 	var n = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mk(7) otherwise (e) 'h'
 		match e 'm'
 			problem(code) then n = code as ExitCode
@@ -2332,7 +2284,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: error.try-binding-block-in-while -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A block-form `try … otherwise (e) 'label' … end` STATEMENT nested inside a `while`
 loop. The loop's carried-variable pre-scan re-derives block structure at the token
 level (`opensBlockAt`), and must recognize the block-form `otherwise` as opening a
@@ -2355,15 +2306,14 @@ function main() returns ExitCode
 	var acc = 0 as Code
 	var i = 0 as Code
 	while i < 4 'loop'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try risky(i) otherwise (e) 'h'
 			match e 'f'
-				broken then acc = acc + 1
+				broken then acc = try acc + 1 otherwise panic("out of range")
 			end 'f'
 		end 'h'
 		i = i + 1
 	end 'loop'
-	return acc
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2371,7 +2321,6 @@ end 'main'
 ```
 
 <!-- test: error.try-label-block-in-while -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The no-binding block form `try … otherwise 'label' … end` (a bare charLiteral label
 after `otherwise`, no `(e)`) nested in a `while`. Exercises the other `opensBlockAt`
 branch. `i` increments after the try-block.
@@ -2390,13 +2339,12 @@ function main() returns ExitCode
 	var acc = 0 as Code
 	var i = 0 as Code
 	while i < 4 'loop'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try risky(i) otherwise 'h'
-			acc = acc + 1
+			acc = try acc + 1 otherwise panic("out of range")
 		end 'h'
 		i = i + 1
 	end 'loop'
-	return acc
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2404,7 +2352,6 @@ end 'main'
 ```
 
 <!-- test: error.try-block-in-if -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A block-form `try … otherwise (e) 'label' … end` inside an `if` body, with a var
 assigned AFTER the try-block. `parseIfStatement` shares the same carried-variable
 pre-scan + drift guard as `parseWhileStatement`, so without the `opensBlockAt` check it
@@ -2423,7 +2370,6 @@ end 'risky'
 function main() returns ExitCode
 	var acc = 0 as Code
 	if acc < 5 'guard'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try risky(3) otherwise (e) 'h'
 			match e 'f'
 				broken then acc = 7
@@ -2740,8 +2686,6 @@ error E3059: <fragment>:14:3: type mismatch: 'throw of 'BoxedError' but the encl
 ```
 
 <!-- test: error.throw-a-different-scalar-error-than-declared -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⭐⭐ **THE SAME HOLE WITH NO LEAK IN IT — A SILENT WRONG ANSWER, which is why the rule is about the TYPE and
 not about boxedness.** Both enums are scalar, so nothing is allocated and the `exit 101` gate above is blind.
 The caller still decodes the flag against the DECLARED clause: **accepted, `throw ErrB.bOne` under
@@ -2768,7 +2712,6 @@ function f(x Code) returns Code throws ErrA
 end 'f'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	return try f(3) otherwise (e) 'caught'
 		match e 'which'
 			aZero then return 1
@@ -2836,7 +2779,6 @@ error E3005: <fragment>:10:3: throw requires an error enum value
 ```
 
 <!-- test: throw-matching-the-declared-clause-is-untouched -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐ **THE CONTROL FOR ALL FOUR REFUSALS ABOVE.** The same two error types, the same throw, the same catch —
 only the thrown type IS the declared one, and it compiles, runs, and decodes `bOne` as `bOne`, answering
 2. Nothing those refusals refuse leaves an author without a spelling for what they meant.
@@ -2861,7 +2803,6 @@ function f(x Code) returns Code throws ErrB
 end 'f'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	return try f(3) otherwise (e) 'caught'
 		match e 'which'
 			bZero then return 1
@@ -2951,8 +2892,6 @@ error E3059: <fragment>:16:11: type mismatch: 'throw of 'BoxedError' but the enc
 ```
 
 <!-- test: error.mismatched-otherwise-end-label -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 A label written after `end` must repeat the `otherwise` block's opening label.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2967,7 +2906,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail() otherwise 'recover'
 		result = 42
 	end 'handler'
@@ -2979,7 +2917,6 @@ error E2008: <fragment>:16:2: Mismatched end label: expected 'recover', got 'han
 ```
 
 <!-- test: a-throws-clause-names-an-error-enum-through-its-directory -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `checked` declares `throws sub.Err`, the error enum `sub/` declares, and throws its `tooBig` case; the
 caller's handler decodes the error into that enum and matches it (4 + 20).
 ```maxon
@@ -2999,10 +2936,9 @@ end 'checked'
 
 function main() returns ExitCode
 	let fine = try checked(4) otherwise 0
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let refused = try checked(50) otherwise (e) 'failed'
 		match e 'which'
-			tooBig then return fine + 20
+			tooBig then return try fine + 20 otherwise panic("out of range")
 			tooSmall then return 1
 		end 'which'
 	end 'failed'

@@ -866,13 +866,11 @@ end 'main'
 ```
 
 <!-- test: async-subprocess.spawn-failure-binds-its-case -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux -->
 The spawn failure is `RunProcessError.spawnFailed`, so an `otherwise (e)` handler can `match` on it.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __Builtins.runProcess("nonexistentprogram_xyz_24680") otherwise (e) 'handler'
 		match e 'check'
 			spawnFailed then return 42

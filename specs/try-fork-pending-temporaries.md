@@ -176,7 +176,6 @@ end 'main'
 ```
 
 <!-- test: a-call-argument-evaluated-before-the-fork -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same shape one construct over: an array literal is an argument, and the `try` that
 follows it forks before the call consumes it. Both edges are exercised — `2 + 5` on the
 error path, `1 + 2` on the ok path.
@@ -197,15 +196,13 @@ function mayFail(n Integer) returns Integer throws Boom
 end 'mayFail'
 
 function take(argv StrArray, n Integer) returns Integer
-	return (argv.count() as Integer) + n
+	return try (argv.count() as Integer) + n otherwise panic("out of range")
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = take(["x", "y"], n: try mayFail(900) otherwise 5)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = take(["z"], n: try mayFail(2) otherwise 5)
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -213,8 +210,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-return-in-a-fell-through-handler-releases-them -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The polarity a per-handler classification cannot see: the handler FALLS THROUGH at its `end`
 and still leaves by `return` on an inner path. `run(900)` takes the inner return, `run(200)`
 takes the error edge and falls through to the merge, `run(1)` never errors — so one program
@@ -233,12 +228,10 @@ function consume(argv StrArray, n Integer) returns Integer throws Boom
 	if n > 100 'big'
 		throw Boom.bad
 	end 'big'
-	return (argv.count() as Integer) + n
+	return try (argv.count() as Integer) + n otherwise panic("out of range")
 end 'consume'
 
 function run(n Integer) returns Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try consume(["x", "y"], n: n) otherwise 'h'
 		if n > 500 'deep'
 			return 7
@@ -248,7 +241,7 @@ function run(n Integer) returns Integer
 end 'run'
 
 function main() returns ExitCode
-	return (run(900) + run(200) + run(1)) as ExitCode
+	return try (run(900) + run(200) + run(1)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -256,8 +249,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-throw-in-a-fell-through-handler-releases-them -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same shape leaving by `throw` rather than `return`, so the two hand-off exits are pinned
 apart. Answers `3 + 1`.
 ```maxon
@@ -273,12 +264,10 @@ function consume(argv StrArray, n Integer) returns Integer throws Boom
 	if n > 100 'big'
 		throw Boom.bad
 	end 'big'
-	return (argv.count() as Integer) + n
+	return try (argv.count() as Integer) + n otherwise panic("out of range")
 end 'consume'
 
 function run(n Integer) returns Integer throws Boom
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try consume(["x", "y"], n: n) otherwise 'h'
 		if n > 500 'deep'
 			throw Boom.bad
@@ -290,7 +279,7 @@ end 'run'
 function main() returns ExitCode
 	let a = try run(900) otherwise 3
 	let b = try run(200) otherwise 3
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -298,8 +287,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-break-in-a-fell-through-handler-releases-them -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `break` leaves the enclosing expression too, and it is the exit whose destination decides the
 answer: this one targets a loop OUTSIDE the `try`, so the fork's temporaries are below that
 loop's floor and are released on the way out. A `break` to a loop opened INSIDE the handler
@@ -318,28 +305,26 @@ function consume(argv StrArray, n Integer) returns Integer throws Boom
 	if n > 100 'big'
 		throw Boom.bad
 	end 'big'
-	return (argv.count() as Integer) + n
+	return try (argv.count() as Integer) + n otherwise panic("out of range")
 end 'consume'
 
 function run(limit Integer) returns Integer
 	var seen = 0 as Integer
 	var i = 0 as Integer
 	while i < limit 'loop'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try consume(["x", "y"], n: i * 400) otherwise 'h'
 			if i > 1 'deep'
 				break
 			end 'deep'
 		end 'h'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return seen
 end 'run'
 
 function main() returns ExitCode
-	return run(9) as ExitCode
+	return try run(9) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -460,16 +460,13 @@ end 'main'
 ```
 
 <!-- test: a-write-nested-inside-another-writes-arguments -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A container write NESTED in another's arguments happens FIRST
 The `pop` inside `set`'s argument list runs before the `set`, and the `set` releases the record
 `borrowed` read, which `borrowed` still holds.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let xs = ["alpha {40 + 2} value long enough for a heap record", "beta {40 + 2} value long enough for a heap record"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let ys = ["gamma {40 + 2} value long enough for a heap record"]
+	var xs = ["alpha {40 + 2} value long enough for a heap record", "beta {40 + 2} value long enough for a heap record"]
+	var ys = ["gamma {40 + 2} value long enough for a heap record"]
 	let borrowed = try xs.get(0) otherwise panic("oob")
 	try xs.set(0, value: try ys.pop() otherwise "z") otherwise panic("oob")
 	print("{borrowed}\n")
@@ -1013,7 +1010,6 @@ end 'main'
 ```
 
 <!-- test: a-throwing-static-over-an-opaque-element-passes-the-descriptor-to-its-try-call -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A throwing `static function` receives the descriptor through a `try` call as well
 `keepFirst` throws on an empty source; the descriptor travels with the checked call exactly as it does with a plain
@@ -1051,7 +1047,6 @@ function main() returns ExitCode
 	xs.push("alpha {40 + 2} value long enough for a heap record")
 	let ys = Words.create(0)
 	try StrBox.keepFirst(xs, into: ys) otherwise return 3
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try StrBox.keepFirst(xs, into: ys) otherwise 'second'
 		print("second call refused\n")
 	end 'second'

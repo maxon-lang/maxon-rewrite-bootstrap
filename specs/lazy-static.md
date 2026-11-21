@@ -107,7 +107,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A static initialized by an array literal
 
@@ -118,7 +117,6 @@ typealias IntArray = Array with Integer
 
 type Lookup
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let values = IntArray from [10, 20, 30]
 
 	static function get(index Integer) returns Integer
@@ -177,7 +175,6 @@ space tab
 ```
 
 <!-- test: lazy-static.collection-initializer -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A static initialized by a collection conversion
@@ -187,7 +184,6 @@ typealias CharSet = Set with Character
 
 type Vowels
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	static let vowelSet = CharSet from ['a', 'e', 'i', 'o', 'u']
 
@@ -434,7 +430,6 @@ end 'main'
 ```
 
 <!-- test: lazy-static.struct-literal-array-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 ### A struct literal whose field is an array literal
@@ -447,7 +442,6 @@ typealias CountArray = Array with Count
 type Holder
 	export var xs as CountArray
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let seeded = Holder{xs: [1, 2, 3]}
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon

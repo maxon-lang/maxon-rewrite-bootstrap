@@ -27,9 +27,7 @@ Implemented at the Std-IR level inside `eliminateDeadStdFunctions` after the fun
 ## Tests
 
 <!-- test: unused-array-literal-init-dropped -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 public let deadArr = [1, 2, 3, 4, 5]
 
 function main() returns ExitCode

@@ -472,14 +472,12 @@ end 'main'
 ```
 
 <!-- test: clock.civil-date-create-refuses-an-impossible-day -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `CivilDate.create` checks the day against its month in its year and throws
 `CivilDateError.impossibleDay` for a day the month does not have: February 29 exists only in a leap year
 (1900 is not one, 2000 and 2024 are), and April has 30 days.
 
 ```maxon
 function show(year CivilYear, month CivilMonth, day CivilDay)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let date = try CivilDate.create(year, month: month, day: day) otherwise (e) 'refused'
 		match e 'why'
 			impossibleDay then print("{year}-{month}-{day}: refused\n")

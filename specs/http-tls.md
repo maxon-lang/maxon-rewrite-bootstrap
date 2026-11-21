@@ -37,8 +37,6 @@ thread. The certificates are a P-256 root and a leaf for `localhost` and `127.0.
 
 <!-- test: http-tls.get-and-post-round-trip -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -124,7 +122,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -136,7 +133,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -175,7 +171,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -211,8 +206,6 @@ ip: 200 connection=close [get https://127.0.0.1/ip?- body=0 tls13 alpn=http/1.1 
 
 <!-- test: http-tls.tls12-and-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -298,7 +291,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -310,7 +302,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -349,7 +340,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -369,11 +359,9 @@ end 'fetchOver'
 
 function scenario(label String, serverProtocol TlsProtocol, clientProtocol TlsProtocol) returns String
 	let options = serverOptions()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setProtocols(TlsProtocolArray from [serverProtocol]) otherwise return "{label}: the server protocols were refused"
 	let server = try HttpServer.bindTls("127.0.0.1", port: 0, options: options) otherwise return "{label}: bind failed"
 	let client = clientOptions()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [clientProtocol]) otherwise return "{label}: the client protocols were refused"
 	return "{label}: {fetchOver(server, client: client)}"
 end 'scenario'
@@ -398,8 +386,6 @@ server 1.2, client 1.3: error tlsFailed(peerAlert(protocolVersion))
 
 <!-- test: http-tls.a-large-body-round-trips -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -473,7 +459,6 @@ function describeHttp(error HttpError) returns String
 end 'describeHttp'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -485,7 +470,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -533,7 +517,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(server)
 	let sent = payload()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.post, url: "https://localhost:{boundPort}/echo") otherwise 'refused2x158'
 		peer.cancel()
 		return 2
@@ -541,7 +524,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	request.setBody(sent)
 	let limits = HttpClientLimits.create()
 	limits.timeoutMs = 110000
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, limits: limits, tls: clientOptions()) otherwise (error) 'failed'
 		print("error {describeHttp(error)}\n")
 		peer.cancel()
@@ -573,8 +555,6 @@ status=200 sent=2359296 received=2359296 identical=true
 
 <!-- test: http-tls.several-requests-are-served -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -660,7 +640,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -672,7 +651,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -711,7 +689,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -749,8 +726,6 @@ end 'main'
 
 <!-- test: http-tls.mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -833,7 +808,6 @@ function describeHttp(error HttpError) returns String
 end 'describeHttp'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -845,7 +819,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -868,7 +841,6 @@ let verificationTime = 1767225600
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -877,7 +849,6 @@ function fetch(method HttpMethod, url String, body String, options TlsClientOpti
 end 'fetch'
 
 function chainSummary(chain ByteArrays) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let leaf = try chain.first() otherwise 'anonymous'
 		return "no client certificate"
 	end 'anonymous'
@@ -925,10 +896,8 @@ end 'scenario'
 
 function main() returns ExitCode
 	let required = serverOptions()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try required.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
 	let requested = serverOptions()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try requested.requestClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 2
 	let requiredServer = try HttpServer.bindTls("127.0.0.1", port: 0, options: required) otherwise return 3
 	let requestedServer = try HttpServer.bindTls("127.0.0.1", port: 0, options: requested) otherwise return 4
@@ -951,8 +920,6 @@ requested
 
 <!-- test: http-tls.untrusted-misnamed-and-expired-certificates-are-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1038,7 +1005,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1050,7 +1016,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1097,7 +1062,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -1107,7 +1071,6 @@ end 'fetch'
 
 function untrustingClient() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(otherRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1131,7 +1094,6 @@ end 'exampleOptions'
 
 function exampleClient() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(exampleRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1161,7 +1123,6 @@ function namedExchange(server HttpServer) returns ExitCode
 	let peer = async serving(server)
 	print("host from the url: {fetch(HttpMethod.get, url: "https://127.0.0.1:{port}/", body: "", options: exampleClient())}\n")
 	let named = exampleClient()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try named.setServerName("example.com") otherwise 'refused3x226'
 		peer.cancel()
 		return 3
@@ -1196,8 +1157,6 @@ named in the options: 200 connection=close [get https://127.0.0.1/?- body=0 tls1
 <!-- test: http-tls.a-plain-peer-on-a-tls-port-is-refused-cleanly -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1294,7 +1253,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1306,7 +1264,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1345,7 +1302,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -1367,15 +1323,12 @@ end 'filler'
 function plainBytesHeard(port NetworkPort) returns String
 	let client = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect failed"
 	let padding = filler()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try client.send("GET / HTTP/1.1\r\nHost: x\r\n\r\n") otherwise (error) 'headUnsent'
 		return "send {error.name}"
 	end 'headUnsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let alert = try client.readSome(1024) otherwise (error) 'unanswered'
 		return "no alert {error.name}"
 	end 'unanswered'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try client.send(padding) otherwise (error) 'unsent'
 		return "send {error.name}"
 	end 'unsent'
@@ -1402,7 +1355,6 @@ function plainExchange(server HttpServer) returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("raw plain bytes: {plainBytesHeard(port)}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let plain = try HttpClient.post("http://127.0.0.1:{port}/", body: filler()) otherwise (error) 'refused'
 		print("HttpClient over http: error {describeHttp(error)}\n")
 		print("then over https: {fetch(HttpMethod.get, url: "https://localhost:{port}/after", body: "", options: clientOptions())}\n")
@@ -1429,7 +1381,6 @@ function secureExchange(server HttpServer) returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
 	print("HttpClient over https to a plain server: {fetch(HttpMethod.get, url: "https://127.0.0.1:{port}/", body: "", options: clientOptions())}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let plain = try HttpClient.get("http://127.0.0.1:{port}/still") otherwise 'refused2x240'
 		peer.cancel()
 		return 2
@@ -1461,8 +1412,6 @@ then over http: 200 [get http://127.0.0.1/still?- body=0 plaintext]
 
 <!-- test: http-tls.a-redirect-to-https-is-returned-as-is -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1548,7 +1497,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1560,7 +1508,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1599,7 +1546,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -1643,7 +1589,6 @@ function exchangeOver(secure HttpServer, plain HttpServer) returns ExitCode
 	let location = "https://localhost:{securePort}/moved"
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let plainPeer = async redirecting(plain, location: location)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let redirect = try HttpClient.get("http://127.0.0.1:{plainPort}/") otherwise 'refused3x192'
 		plainPeer.cancel()
 		securePeer.cancel()
@@ -1670,8 +1615,6 @@ the location, fetched: 200 connection=close [get https://localhost/moved?- body=
 <!-- test: http-tls.stalled-handshakes-are-bounded -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -1757,7 +1700,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1769,7 +1711,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -1808,7 +1749,6 @@ end 'serving'
 function fetch(method HttpMethod, url String, body String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(method, url: url) otherwise return "bad-url"
 	request.setBody(body)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -1825,7 +1765,6 @@ let AcceptWindowMs = 500
 function holdOpen(listener TcpListener) returns String
 	let connection = try listener.accept() otherwise return "accept failed"
 	while true 'held'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try connection.readSome(RequestBytes) otherwise (cause) 'left'
 			return cause.name
 		end 'left'
@@ -1840,14 +1779,12 @@ function stalledServer() returns ExitCode
 	let listenerPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async holdOpen(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.get, url: "https://127.0.0.1:{listenerPort}/") otherwise 'refused2x178'
 		peer.cancel()
 		return 2
 	end 'refused2x178'
 	let limits = HttpClientLimits.create()
 	limits.timeoutMs = ClientBudgetMs
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, limits: limits, tls: clientOptions()) otherwise (error) 'failed'
 		print("a server that never answers the hello: error {describeHttp(error)}\n")
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
@@ -1876,7 +1813,6 @@ function silentExchange(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused5x212'
 		peer.cancel()
 		return 5
@@ -1898,7 +1834,6 @@ function deadlineExchange(server HttpServer) returns ExitCode
 	try server.setAcceptDeadline(AcceptWindowMs) otherwise return 7
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused8x229'
 		peer.cancel()
 		return 8
@@ -1936,8 +1871,6 @@ with no more connections serve ended: acceptDeadlinePassed
 
 <!-- test: http-tls.alpn-and-the-request-target-follow-the-protocol -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2009,7 +1942,6 @@ function describeSecurity(security HttpConnectionSecurity) returns String
 end 'describeSecurity'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -2021,7 +1953,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -2060,11 +1991,9 @@ end 'serving'
 function rawExchange(port NetworkPort, protocols StringArray, request String) returns String
 	let options = clientOptions()
 	try options.setApplicationProtocols(protocols) otherwise return "protocols refused"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("localhost", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send(request) otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -2080,7 +2009,6 @@ function rawExchange(port NetworkPort, protocols StringArray, request String) re
 	let status = try lines.first() otherwise "-"
 	let parts = heard.split("\r\n\r\n")
 	let body = try parts.get(parts.count() - 1) otherwise "-"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let alpn = try stream.applicationProtocol() otherwise (error) 'unnegotiated'
 		return "alpn: {describe(error)}"
 	end 'unnegotiated'
@@ -2122,8 +2050,6 @@ absolute-form http: alpn=http/1.1 HTTP/1.1 400 Bad Request |
 
 <!-- test: http-tls.an-ipv6-loopback-server-is-reached-over-https -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2220,7 +2146,6 @@ function serving(server HttpServer) returns HttpServeEnd
 end 'serving'
 
 function serverOptions() returns TlsServerOptions
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let options = TlsServerOptions.create(try TlsIdentity.fromDer(ByteArrays from [fromHex(ipv6LeafHex)], key: fromHex(ipv6KeyHex)) otherwise panic("the case's identity was refused"))
 	options.setVerificationTime(verificationTime)
 	return options
@@ -2228,7 +2153,6 @@ end 'serverOptions'
 
 function clientTrusting(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -2236,7 +2160,6 @@ end 'clientTrusting'
 
 function fetch(url String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "bad-url"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -2276,8 +2199,6 @@ untrusted: error tlsFailed(certificateRejected(unknownAuthority))
 ```
 
 <!-- test: http-tls.binding-a-taken-port-throws-bindfailed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 A second TLS bind on a port a TLS server already holds throws `TlsError.bindFailed`.
@@ -2334,7 +2255,6 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -2352,7 +2272,6 @@ let verificationTime = 1767225600
 
 function main() returns ExitCode
 	let first = try HttpServer.bindTls("127.0.0.1", port: 0, options: serverOptions()) otherwise return 1
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let second = try HttpServer.bindTls("127.0.0.1", port: first.port(), options: serverOptions()) otherwise (error) 'taken'
 		print("a second bind on the same port: {describe(error)}\n")
 		first.close()
@@ -2372,8 +2291,6 @@ a second bind on the same port: bindFailed
 
 <!-- test: http-tls.a-silent-client-does-not-delay-another-clients-request -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- procs: 1 -->
@@ -2445,7 +2362,6 @@ function describeHttp(error HttpError) returns String
 end 'describeHttp'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -2457,7 +2373,6 @@ end 'serverOptions'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -2491,7 +2406,6 @@ end 'serveAnswers'
 
 function fetchOnce(url String, options TlsClientOptions) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: url) otherwise return "bad-url"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -2509,7 +2423,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveAnswers(server)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let silent = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused2x160'
 		peer.cancel()
 		return 2

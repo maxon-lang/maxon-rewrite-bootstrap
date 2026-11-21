@@ -185,7 +185,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-read-still-reports-an-empty-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 The control for the read arm. A slot opened through the raw buffer holds nothing; read back through
 `Array.get` over a managed element it is `emptySlot`, which only the `__im_empty` arm can say. The
@@ -198,7 +197,6 @@ function main() returns ExitCode
 	let a = Names.create(0)
 	a.reserve(2)
 	try a.managed.setLength(2) otherwise panic("setLength: capacity just reserved for 2")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.get(0) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42

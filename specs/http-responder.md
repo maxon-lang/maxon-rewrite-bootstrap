@@ -27,7 +27,6 @@ for an answer. `respondLater` throws `alreadyResponded` on an exchange already a
 
 <!-- test: a-handler-asks-an-auth-service-and-answers-through-the-continuation -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The handler defers the answer with `respondLater`, sends the responder to the `Auth` service in a message of its own, and returns. `Auth` answers through the responder, so the answer reaches the client from the service, and `respondWith` is the finalizer that consumes it.
@@ -42,7 +41,6 @@ type Auth
 	export function check(token String, responder HttpResponder)
 		self.checked = self.checked + 1
 		if token == "/secret" 'allowed'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try responder.respondWith(StatusCode.ok, body: "welcome", contentType: "text/plain") otherwise (e) 'unsent'
 				match e 'why'
 					notSent(back) then back.abandon()
@@ -51,7 +49,6 @@ type Auth
 			end 'unsent'
 			return
 		end 'allowed'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try responder.respondWith(StatusCode.unauthorized, body: "no", contentType: "text/plain") otherwise (e) 'unsentNo'
 			match e 'whyNo'
 				notSent(back) then back.abandon()
@@ -62,7 +59,6 @@ type Auth
 end 'Auth'
 
 function refuse(responder HttpResponder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.serviceUnavailable, body: "busy", contentType: "text/plain") otherwise (e) 'unsent'
 		match e 'why'
 			notSent(back) then back.abandon()
@@ -81,7 +77,6 @@ type AuthHandler implements HttpHandler
 	function handle(mutates exchange HttpExchange) throws HttpServerError
 		let responder = try exchange.respondLater()
 		let token = exchange.request().url().path
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
 				mailboxFull(_, back) then refuse(back)
@@ -105,18 +100,15 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let auth = spawn Auth.create()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let allowed = try HttpClient.get("http://127.0.0.1:{port}/secret") otherwise 'cancelled1'
 		peer.cancel()
 		return 2
 	end 'cancelled1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let denied = try HttpClient.get("http://127.0.0.1:{port}/other") otherwise 'cancelled2'
 		peer.cancel()
 		return 3
 	end 'cancelled2'
 	auth.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let busy = try HttpClient.get("http://127.0.0.1:{port}/secret") otherwise 'cancelled3'
 		peer.cancel()
 		return 4
@@ -141,7 +133,6 @@ allowed=200 welcome denied=401 busy=503
 
 <!-- test: a-failed-send-hands-the-responder-back-and-the-handler-answers-503 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The `Auth` service is shut down, so the handler's send fails `serviceStopped` and carries the responder back. The handler's `otherwise` arm answers 503 through it.
@@ -155,7 +146,6 @@ type Auth
 
 	export function check(token String, responder HttpResponder)
 		self.checked = self.checked + 1
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try responder.respondWith(StatusCode.ok, body: token, contentType: "text/plain") otherwise (e) 'unsent'
 			match e 'why'
 				notSent(back) then back.abandon()
@@ -166,7 +156,6 @@ type Auth
 end 'Auth'
 
 function refuse(responder HttpResponder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.serviceUnavailable, body: "busy", contentType: "text/plain") otherwise (e) 'unsent'
 		match e 'why'
 			notSent(back) then back.abandon()
@@ -185,7 +174,6 @@ type AuthHandler implements HttpHandler
 	function handle(mutates exchange HttpExchange) throws HttpServerError
 		let responder = try exchange.respondLater()
 		let token = exchange.request().url().path
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
 				mailboxFull(_, back) then refuse(back)
@@ -210,7 +198,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	auth.shutdown()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let busy = try HttpClient.get("http://127.0.0.1:{port}/anything") otherwise 'cancelled'
 		peer.cancel()
 		return 2
@@ -236,7 +223,6 @@ busy=503 busy
 <!-- test: the-responder-travels-through-two-services-in-continuation-messages -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` passes the responder on to `Directory` in another message, and `Directory` answers. No message waits for the answer.
@@ -250,7 +236,6 @@ type Directory
 
 	export function lookup(name String, responder HttpResponder)
 		self.looked = self.looked + 1
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try responder.respondWith(StatusCode.ok, body: "found {name}", contentType: "text/plain") otherwise (e) 'unsent'
 			match e 'why'
 				notSent(back) then back.abandon()
@@ -265,7 +250,6 @@ type Directory
 end 'Directory'
 
 function refuse(responder HttpResponder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.serviceUnavailable, body: "busy", contentType: "text/plain") otherwise (e) 'unsent'
 		match e 'why'
 			notSent(back) then back.abandon()
@@ -282,7 +266,6 @@ type Auth
 	end 'create'
 
 	export function check(token String, responder HttpResponder)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.directory.lookup(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
 				mailboxFull(_, back) then refuse(back)
@@ -302,7 +285,6 @@ type AuthHandler implements HttpHandler
 	function handle(mutates exchange HttpExchange) throws HttpServerError
 		let responder = try exchange.respondLater()
 		let token = exchange.request().url().path
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.auth.check(token, responder: responder) otherwise (e) 'busy'
 			match e 'why'
 				mailboxFull(_, back) then refuse(back)
@@ -328,12 +310,10 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let auth = spawn Auth.create(directory.clone())
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try HttpClient.get("http://127.0.0.1:{port}/alice") otherwise 'cancelled1'
 		peer.cancel()
 		return 2
 	end 'cancelled1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let second = try HttpClient.get("http://127.0.0.1:{port}/bob") otherwise 'cancelled2'
 		peer.cancel()
 		return 3
@@ -360,7 +340,6 @@ end 'main'
 
 <!-- test: abandon-closes-the-connection-without-an-answer -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 `abandon` is the finalizer for a responder that cannot answer: it ends the responder and the worker closes the connection, so the client sees no response.
 ```maxon
@@ -389,7 +368,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let port = server.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reached = try HttpClient.get("http://127.0.0.1:{port}/nothing") otherwise (e) 'noAnswer'
 		peer.cancel()
 		server.close()
@@ -417,7 +395,6 @@ no answer: invalidResponse
 <!-- test: an-exchange-from-accept-has-no-worker-to-defer-to -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 `HttpServer.accept` hands out an exchange no worker serves, so `respondLater` throws `deferralUnavailable` and the handler answers directly.
 ```maxon
@@ -428,7 +405,6 @@ end 'fetch'
 
 function serveOne(server HttpServer) returns ExitCode throws HttpServerError
 	let exchange = try server.accept()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let responder = try exchange.respondLater() otherwise (e) 'refused'
 		print("deferral refused: {e.name}\n")
 		try exchange.respondWith(StatusCode.ok, body: "answered directly", contentType: "text/plain")
@@ -443,7 +419,6 @@ function main() returns ExitCode
 	let port = server.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let client = async fetch(port)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let served = try serveOne(server) otherwise 'failed'
 		client.cancel()
 		return 2
@@ -496,7 +471,6 @@ error E3012: <fragment>:10:7: unused variable: 'responder'
 ```
 
 <!-- test: a-responder-left-by-an-early-return-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 
@@ -513,7 +487,6 @@ type HastyHandler implements HttpHandler
 		if exchange.request().url().path == "/skip" 'skip'
 			return
 		end 'skip'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try responder.respondWith(StatusCode.ok, body: label, contentType: "text/plain") otherwise (e) 'unsent'
 			match e 'why'
 				notSent(back) then back.abandon()
@@ -570,19 +543,16 @@ error E3223: <fragment>:12:3: this drops a linear value that was never consumed:
 ```
 
 <!-- test: answering-twice-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 
 ```maxon
 function answerTwice(responder HttpResponder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.ok, body: "first", contentType: "text/plain") otherwise (e) 'unsent'
 		match e 'why'
 			notSent(back) then back.abandon()
 			invalidResponse(back) then back.abandon()
 		end 'why'
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.ok, body: "second", contentType: "text/plain") otherwise (e) 'unsentAgain'
 		match e 'again'
 			notSent(back) then back.abandon()
@@ -620,13 +590,11 @@ error E3224: <fragment>:3:6: the field 'waiting' holds a linear value, and a lin
 
 <!-- test: an-invalid-response-hands-the-responder-back-and-the-service-answers-again -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 `Auth` answers a `204` that carries a body, which no connection can send. `respondWith` validates the response before it sends, so it throws `invalidResponse` carrying the responder back, and `Auth` answers a valid `500` through it.
 ```maxon
 function answerValid(responder HttpResponder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try responder.respondWith(StatusCode.internalServerError, body: "fallback", contentType: "text/plain") otherwise (e) 'unsent'
 		match e 'why'
 			notSent(back) then back.abandon()
@@ -644,7 +612,6 @@ type Auth
 
 	export function check(responder HttpResponder)
 		self.checked = self.checked + 1
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try responder.respondWith(StatusCode.noContent, body: "unsendable", contentType: "text/plain") otherwise (e) 'rejected'
 			match e 'why'
 				notSent(back) then back.abandon()
@@ -663,7 +630,6 @@ type CheckHandler implements HttpHandler
 
 	function handle(mutates exchange HttpExchange) throws HttpServerError
 		let responder = try exchange.respondLater()
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.auth.check(responder) otherwise (e) 'busy'
 			match e 'why'
 				mailboxFull(back) then answerValid(back)
@@ -687,7 +653,6 @@ function exchangeOver(server HttpServer) returns ExitCode
 	let auth = spawn Auth.create()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serving(server, auth: auth.clone())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let answer = try HttpClient.get("http://127.0.0.1:{port}/anything") otherwise 'cancelled'
 		peer.cancel()
 		return 2

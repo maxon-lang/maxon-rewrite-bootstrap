@@ -348,7 +348,6 @@ then: ended
 ```
 
 <!-- test: subprocess-streaming-a-direct-write-is-refused-while-a-payload-is-queued -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
@@ -358,7 +357,6 @@ write is refused, whatever the child reads: `SubprocessError.ioFailed` names the
 drops the queue and lets the child end.
 ```maxon
 function directWriteRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdin("direct\n") otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -396,7 +394,6 @@ I/O failed: a payload is already queued for the child's stdin
 ```
 
 <!-- test: subprocess-streaming-a-second-queued-payload-is-refused-while-the-first-is-pending -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
@@ -405,7 +402,6 @@ while the first is pending would replace what has not been pushed. It is refused
 is, and the first payload stays queued: closing stdin ends the child.
 ```maxon
 function secondQueueRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.queueStdin("second\n") otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -443,7 +439,6 @@ I/O failed: a payload is already queued for the child's stdin
 ```
 
 <!-- test: subprocess-streaming-an-empty-queued-payload-still-refuses-a-direct-write -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 <!-- tier: stdlib -->
@@ -451,7 +446,6 @@ An empty payload is still a queued payload: it is pushed, spends no bytes and cl
 `writeStdin` would interleave with the push. The write is refused the way it is for a payload with bytes.
 ```maxon
 function directWriteRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdin("direct\n") otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -565,7 +559,6 @@ step=0
 ```
 
 <!-- test: subprocess-timeout-kill -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ```maxon
@@ -590,7 +583,6 @@ function main() returns ExitCode
 	#endif
 	let cwd = Directory.currentPath()
 	var sawTimeout = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: WaitDeadline.within(200)) otherwise (e) 'handler'
 		match e 'kind'
 			timeout then sawTimeout = true
@@ -615,7 +607,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-timeout-carries-the-partial-output -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE DOES NOT DESTROY WHAT THE CHILD ALREADY SAID.** The runtime hands back the bytes it
@@ -651,7 +642,6 @@ function main() returns ExitCode
 	#endif
 	let cwd = Directory.currentPath()
 	var partial = ""
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(cwd), deadline: WaitDeadline.within(2000)) otherwise (e) 'handler'
 		partial = match e 'kind'
 			timeout(_, out, _) gives out
@@ -676,7 +666,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-deadline-ends-the-grandchild-the-child-started -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ **A DEADLINE ENDS THE CHILD'S WHOLE PROCESS TREE, A GRANDCHILD THAT LEADS ITS OWN PROCESS GROUP
 INCLUDED.** On Linux and macOS every Maxon program leads a process group
@@ -743,7 +733,6 @@ function streamingVerdict(me Executable) returns String throws SubprocessError
 	let line = textOf(try reader.readLine() otherwise panic("the child's stdout is readable"))
 	let pid = try grandchildIdFrom(line) otherwise panic("the child prints the grandchild's id")
 	var timedOut = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.wait(WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 	end 'expired'
@@ -754,7 +743,6 @@ end 'streamingVerdict'
 function collectedVerdict(me Executable) returns String
 	var partial = ""
 	var timedOut = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(me, arguments: argumentsFor("child"), deadline: WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 		partial = match e 'kind'
@@ -896,7 +884,6 @@ tree ended true, child exited true, grandchild ended true
 ```
 
 <!-- test: subprocess-a-deadline-ends-the-sleep-the-shell-was-forking -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- process: own -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A deadline can fall while the child's shell is forking its `sleep`. The case runs a hundred shells, each
@@ -918,7 +905,6 @@ function main() returns ExitCode
 		let argv = StringArray.create(0)
 		argv.push("-c")
 		argv.push("echo hello; sleep 60")
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try Subprocess.run(exe, arguments: argv, deadline: WaitDeadline.within((1 + lap mod DeadlineSpanMs) as WaitDeadlineMs)) otherwise (e) 'expired'
 			if e.timedOut() 'counted'
 				timedOut = timedOut + 1
@@ -1176,7 +1162,7 @@ armed=0 ready=ready endedCleanly=true leaked=0
 ```
 
 <!-- test: subprocess-a-deadline-spares-the-process-the-child-started-detached -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A DEADLINE'S TREE KILL NEVER ENDS A PROCESS THE CHILD STARTED DETACHED.** Detaching is stated at the spawn,
 with `runDetached()`, so the process it starts is no part of the tree a deadline ends, though its parent is
@@ -1247,7 +1233,6 @@ function main() returns ExitCode
 	end 'child'
 	var partial = ""
 	var timedOut = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(me, arguments: argumentsFor("child"), deadline: WaitDeadline.within(deadlineMs)) otherwise (e) 'expired'
 		timedOut = e.timedOut()
 		partial = match e 'kind'
@@ -1278,7 +1263,6 @@ timed out true, detached grandchild survived true, ended by itself true
 ```
 
 <!-- test: subprocess-a-detached-launch-of-a-directory-is-access-denied-not-a-job-refusal -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 A detached launch whose executable is a directory is refused by the operating system as access denied, and
 `runDetached()` throws `spawnFailed` with that refusal as its reason. Only a job that does not allow breakaway
@@ -1287,7 +1271,6 @@ throws `detachRefused`; a launch the operating system itself refuses never does.
 function main() returns ExitCode
 	let config = Configuration.create(Executable.path(Directory.currentPath()))
 	var verdict = "started"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try config.runDetached() otherwise (e) 'refused'
 		verdict = "threw {e.name}"
 	end 'refused'
@@ -1408,7 +1391,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-bare-name-is-never-found-in-the-working-directory -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 ⛔ **A BARE NAME MUST NOT RESOLVE AGAINST THE WORKING DIRECTORY ON POSIX.** Trying the name
 "exactly as given" first is correct on Windows, where the current directory is part of the search, and a
@@ -1423,7 +1406,6 @@ function main() returns ExitCode
 	let probe = try FilePath.from("maxon-cwd-shadow-probe") otherwise return 2
 	try File.writeText(probe, content: "#!/bin/sh\nexit 99\n", mode: FilePermission.executable) otherwise return 3
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(Executable.name("maxon-cwd-shadow-probe"), arguments: StringArray.create(0)) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then refused = true
@@ -1449,7 +1431,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-environment-names-fold-case-on-windows -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -1497,7 +1478,6 @@ end 'printFoldedEntries'
 function main() returns ExitCode
 	let args = CommandLine.args()
 	if args.count() == 1 'outer'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		print(outcomeOf("middle", environment: Environment.inheritUpdating(["Maxon_Spec_Env_Fold": "inherited"])))
 		return 0
 	end 'outer'
@@ -1505,11 +1485,8 @@ function main() returns ExitCode
 	if role == "inner" 'inner'
 		return printFoldedEntries()
 	end 'inner'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	print(outcomeOf("inner", environment: Environment.inheritUpdating(["MAXON_SPEC_ENV_FOLD": "overridden"])))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	print(outcomeOf("inner", environment: Environment.inheritUpdating(["MAXON_SPEC_ENV_FOLD": "a", "maxon_spec_env_fold": "b"])))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	print(outcomeOf("inner", environment: Environment.custom(["MAXON_SPEC_ENV_FOLD": "a", "maxon_spec_env_fold": "b"])))
 	return 0
 end 'main'
@@ -1759,7 +1736,7 @@ rooted: executable not found: \maxon-spec-order-rooted
 ```
 
 <!-- test: subprocess-not-found -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A MISSING BINARY IS `executableNotFound` ON EVERY OS.** POSIX's spawn searches nothing, so a bare name
 the `PATH` walk misses is known not to exist before any spawn. Windows cannot know that from the walk —
@@ -1771,7 +1748,6 @@ function main() returns ExitCode
 	let exe = Executable.name("definitely-not-a-real-binary-xyzzy")
 	let argv = StringArray.create(0)
 	var sawNotFound = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(exe, arguments: argv) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then sawNotFound = true
@@ -1796,7 +1772,7 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-path-to-a-missing-file-is-not-found -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **`Executable.path` NAMING A FILE THAT DOES NOT EXIST IS `executableNotFound` TOO.** No search is
 involved — the path is taken as given — so the only evidence is the spawn's own failure, and the answer
@@ -1809,7 +1785,6 @@ function main() returns ExitCode
 		return 2
 	end 'present'
 	var sawNotFound = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(Executable.path(missing), arguments: StringArray.create(0)) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then sawNotFound = true
@@ -1834,7 +1809,6 @@ end 'main'
 ```
 
 <!-- test: subprocess-a-spawn-of-an-executable-open-for-writing-follows-the-operating-systems-answer -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A spawn reports what the operating system answers for an executable that is still open for writing. Windows
@@ -1844,7 +1818,6 @@ saw otherwise.
 ```maxon
 function verdictOf(config Configuration) returns String
 	var verdict = "ran"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try config.run() otherwise (e) 'handler'
 		match e 'kind'
 			busy then verdict = "busy"
@@ -1909,7 +1882,6 @@ as the operating system answers
 ```
 
 <!-- test: subprocess-a-missing-redirect-file-is-spawn-failed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A STANDARD STREAM THAT CANNOT BE OPENED IS `spawnFailed`, NOT `executableNotFound`, ON EVERY OS.** The
@@ -1921,7 +1893,6 @@ the executable's file can stand in for the runtime's answer.
 ```maxon
 function verdictOf(config Configuration) returns String
 	var verdict = "ran"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try config.run() otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then verdict = "executableNotFound"
@@ -1975,7 +1946,6 @@ control=ran stdin=spawnFailed stdout=spawnFailed
 ```
 
 <!-- test: subprocess-a-relative-executable-resolves-against-the-working-directory -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A RELATIVE `Executable.path` IS RELATIVE TO THE CHILD'S `workingDirectory` ON EVERY OS.** Hosts
@@ -1992,7 +1962,6 @@ function verdictOf(executable Executable, workingDirectory FilePath) returns Str
 	let config = Configuration.create(executable)
 	config.workingDirectory = WorkingDirectory.at(workingDirectory)
 	var verdict = "ran"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try config.run() otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then verdict = "executableNotFound"
@@ -2072,7 +2041,6 @@ name parent-cwd-only=executableNotFound name child-cwd-only=ran name relative-di
 ```
 
 <!-- test: subprocess-a-missing-working-directory-is-spawn-failed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐ **A `workingDirectory` THAT DOES NOT EXIST IS `spawnFailed` ON EVERY OS, AND THE CHILD NEVER RUNS.** It
@@ -2095,7 +2063,6 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	var verdict = "ran"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(exe, arguments: argv, workingDirectory: WorkingDirectory.at(Directory.currentPath().join("maxon-spec-no-such-working-directory-xyzzy"))) otherwise (e) 'handler'
 		match e 'kind'
 			executableNotFound then verdict = "executableNotFound"
@@ -2121,7 +2088,6 @@ spawnFailed
 ```
 
 <!-- test: subprocess-an-empty-working-directory-is-spawn-failed-and-names-the-inherit-case -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 An empty path names no directory, so `WorkingDirectory.at` of one is refused as `spawnFailed` before the spawn, and the
@@ -2136,7 +2102,6 @@ function main() returns ExitCode
 	let exe = Executable.name("sh")
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Subprocess.run(exe, arguments: StringArray.create(0), workingDirectory: WorkingDirectory.at(FilePath.empty())) otherwise (e) 'handler'
 		match e 'kind'
 			spawnFailed(reason) then print("spawnFailed names inherit {reason.contains("WorkingDirectory.inherit")}\n")
@@ -3021,7 +2986,6 @@ prefix holds x
 
 <!-- test: subprocess-stdin-bytes-holding-a-nul-reach-the-child-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -3031,7 +2995,6 @@ stdin to the end and prints the count and the value of every byte it received.
 ```maxon
 function readAllStdin() returns String
 	let stdin = Console.stdin()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try stdin.readToEnd() otherwise (e) 'unread'
 		return "read threw {e.name}"
 	end 'unread'
@@ -3087,7 +3050,6 @@ streamed: 4 bytes [97 0 98 10]
 ```
 
 <!-- test: subprocess-a-spawn-whose-pipes-cannot-be-made-fails-instead-of-panicking -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
@@ -3123,7 +3085,6 @@ function spawnWithoutDescriptors(exe Executable)
 end 'spawnWithoutDescriptors'
 
 function exhaustThenSpawn(me FilePath)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let held = try __ManagedFile.openRead(me.path.toByteArray().managed) otherwise 'exhausted'
 		print("exhausted\n")
 		spawnWithoutDescriptors(Executable.path(me))
@@ -3216,7 +3177,6 @@ fed: refused spawn failed: os error 231
 ```
 
 <!-- test: subprocess-a-program-started-with-its-stdin-closed-reads-and-hands-on-the-null-device -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A program started with its standard input closed reads its standard input as the null device, and a child that
@@ -3255,7 +3215,6 @@ function main() returns ExitCode
 		let mode = try args.get(1) otherwise ""
 		if mode == "fed" 'readFed'
 			let stdin = Console.stdin()
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let received = try stdin.readToEnd() otherwise (e) 'unread'
 				print("read threw {e.name}\n")
 				return 1
@@ -3286,7 +3245,6 @@ child exit 0
 ```
 
 <!-- test: subprocess-a-child-that-writes-before-it-reads-gets-its-whole-stdin -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A collected run feeds a child's stdin and drains its stdout together, so a child that writes more than a pipe
@@ -3321,7 +3279,6 @@ function main() returns ExitCode
 		var received = 0 as Tally
 		let stdin = Console.stdin()
 		while true 'drain'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let read = try stdin.readBytes(4096) otherwise (e) 'unread'
 				printError("child read threw {e.name}\n")
 				return 1
@@ -3472,7 +3429,6 @@ end 'main'
 pings=30 collects=30 answered=30 slow=0 running=0
 ```
 <!-- test: subprocess-take-stdout-moves-the-stdout-side-out-of-the-child -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `takeStdout` hands the child's stdout side to a `ChildOutputReader` that reads while the child keeps its stdin and its lifetime. The side is handed out once: a second `takeStdout` throws `SubprocessError.ioFailed`, and the reader taken first goes on reading.
@@ -3485,7 +3441,6 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function secondTakeIsRefused(child StreamingSubprocess) returns bool
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return match e 'why'
 			ioFailed gives true
@@ -3543,7 +3498,6 @@ alpha beta
 <!-- test: subprocess-a-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -3585,7 +3539,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let drain = async drainOf(reader)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3607,7 +3560,6 @@ end 'main'
 <!-- test: subprocess-a-taken-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -3655,7 +3607,6 @@ function main() returns ExitCode
 	drains.push(async drainOf(reader))
 	let drain = try drains.pop() otherwise panic("one drain was pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -3779,12 +3730,10 @@ Length: 4|WXYZ|0|last|0
 ```
 
 <!-- test: subprocess-stdout-reader-read-bytes-after-the-child-is-released-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 A reader kept past `release` names a child that no longer exists, so once its buffered bytes are spent `readBytes` throws `StreamError.closed` rather than reading a closed handle. The first read takes every byte the child wrote without meeting the end of the stream, so the read after the release has nothing buffered and must ask the stream.
 ```maxon
 function readAfterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let bytes = try reader.readBytes(4) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3817,7 +3766,6 @@ abcdefghij closed
 ```
 
 <!-- test: subprocess-take-stderr-moves-the-stderr-side-out-of-the-child -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 `takeStderr` hands the child's stderr side to a `ChildOutputReader` that reads while the child keeps its stdin and its lifetime. The side is handed out once: a second `takeStderr` throws `SubprocessError.ioFailed`, and the reader taken first goes on reading the next line.
 ```maxon
@@ -3829,7 +3777,6 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function takeRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try child.takeStderr() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3905,7 +3852,6 @@ one|0|three|5|ended
 ```
 
 <!-- test: subprocess-stderr-reader-read-line-after-the-child-is-released-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 A stderr reader kept past `release` names a child that no longer exists, so once its buffered line is spent `readLine` throws `StreamError.closed` rather than reading a closed handle. The child writes one line, so the read after the release has nothing buffered and must ask the stream.
 ```maxon
@@ -3917,7 +3863,6 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function readAfterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3950,7 +3895,6 @@ alpha closed
 ```
 
 <!-- test: subprocess-the-stdout-and-stderr-readers-are-out-independently -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 Both readers can be out at once, each reading its own stream: a second take of either stream throws `SubprocessError.ioFailed` while both readers go on reading, and neither stream's lines reach the other's reader.
 ```maxon
@@ -3962,7 +3906,6 @@ function textOf(read LineOrEnd) returns String
 end 'textOf'
 
 function stdoutTakeRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -3970,7 +3913,6 @@ function stdoutTakeRefusal(child StreamingSubprocess) returns String
 end 'stdoutTakeRefusal'
 
 function stderrTakeRefusal(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try child.takeStderr() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -4014,7 +3956,6 @@ out-2
 <!-- test: subprocess-a-stderr-reader-moved-into-a-coroutine-drains-to-the-end-before-the-child-is-released -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A coroutine drains a taken stderr reader, moved into it through an `isolated` parameter, to the end of the stream; the child is waited for and released once the drain has been awaited, on the error path and the plain path alike.
@@ -4047,7 +3988,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let drain = async drainOf(reader)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -4069,7 +4009,6 @@ end 'main'
 <!-- test: subprocess-a-taken-stderr-reader-handed-to-a-coroutine-leaves-its-promise-storable -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A taken stderr reader moved into a coroutine through an `isolated` parameter leaves the caller nothing the coroutine holds, so the promise of the coroutine that drains it may be stored and awaited later.
@@ -4108,7 +4047,6 @@ function main() returns ExitCode
 	drains.push(async drainOf(reader))
 	let drain = try drains.pop() otherwise panic("one drain was pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try await drain otherwise (e) 'drainFailed'
 		child.release()
 		print("{e.name}\n")
@@ -4130,7 +4068,6 @@ end 'main'
 <!-- test: a-reader-moved-into-a-coroutine-comes-back-with-its-line-and-its-promise-is-storable -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
@@ -4183,7 +4120,6 @@ function main() returns ExitCode
 	reads.push(async readOne(reader))
 	let pending = try reads.pop() otherwise panic("one read was pushed")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let carried = try await pending otherwise (e) 'unread'
 		child.release()
 		print("read threw {e.name}\n")
@@ -4255,7 +4191,6 @@ unremoved 0
 ```
 
 <!-- test: subprocess-an-exit-poll-says-whether-the-child-is-known-gone -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `ExitPoll.childIsKnownGone()` is `true` only for a child whose exit this process observed: a child still
@@ -4265,12 +4200,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "set /p line="]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "read line"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4292,8 +4225,6 @@ after it exits: gone true
 ```
 
 <!-- test: subprocess-a-write-after-the-stdin-pipe-is-closed-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A child's stdin is closed by `closeStdin()`, and a later write is refused as `ioFailed` rather than reaching
@@ -4303,18 +4234,15 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 0"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 0"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	child.closeStdin()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdinLine("late") otherwise (e) 'refused'
 		print("refused {e.name}\n")
 	end 'refused'
@@ -4331,7 +4259,6 @@ refused ioFailed
 ```
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -4355,12 +4282,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4392,7 +4317,6 @@ parent continues
 ```
 
 <!-- test: subprocess-a-megabyte-fed-to-a-child-that-closes-its-stdin-after-a-pause-ends-in-the-childs-own-exit -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The first part of the payload fills the pipe and the push waits for room; the child then closes its standard input
@@ -4413,7 +4337,6 @@ end 'block'
 
 function main() returns ExitCode
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exec 0<&-; sleep 0.3; exit 3"]
 	let chunk = block()
 	var payload = ""
@@ -4443,7 +4366,6 @@ parent continues
 ```
 
 <!-- test: subprocess-a-short-payload-fed-to-a-child-that-exits-unread-ends-in-the-childs-own-exit -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -4454,12 +4376,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 5"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 5"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4485,7 +4405,6 @@ parent continues
 ```
 
 <!-- test: subprocess-a-run-keeps-the-output-of-a-child-that-exits-without-reading-its-fed-payload -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The output a child wrote before it exited without reading its input is collected whole when the feed of a payload
@@ -4505,7 +4424,6 @@ end 'block'
 
 function main() returns ExitCode
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "echo bye; exit 4"]
 	let chunk = block()
 	var payload = ""
@@ -4533,8 +4451,6 @@ child exit 4 stdout bye
 ```
 
 <!-- test: subprocess-streaming-a-write-to-a-child-that-has-exited-is-refused-as-ioFailed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A write to the stdin of a child that has exited, whose pipe has no reader left, is refused as `ioFailed`. The
@@ -4544,18 +4460,15 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdin("late\n") otherwise (e) 'refused'
 		print("refused {e.name}\n")
 	end 'refused'
@@ -4573,8 +4486,6 @@ child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-megabyte-written-to-a-child-that-has-exited-is-refused-as-ioFailed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same refusal for a write of more than a pipe holds: the first chunk meets the broken pipe, the write stops there,
@@ -4594,12 +4505,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4610,7 +4519,6 @@ function main() returns ExitCode
 	end 'fill'
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let code = try child.wait() otherwise return 4
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdin(payload) otherwise (e) 'refused'
 		print("refused {e.name}\n")
 	end 'refused'
@@ -4628,15 +4536,12 @@ child exit 7
 ```
 
 <!-- test: subprocess-streaming-every-write-to-a-child-that-has-exited-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A broken pipe is not used up by the write that finds it: a second line written to the same child is refused the same
 way, and neither write ends the parent.
 ```maxon
 function refusalOf(child StreamingSubprocess, line String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdinLine(line) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -4647,12 +4552,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4673,15 +4576,13 @@ first ioFailed second ioFailed child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-write-to-a-child-that-closed-its-stdin-and-went-on-running-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A child may close its standard input and keep running. Once it has said so, the pipe has no reader and a write is
 refused as `ioFailed`; the child is still alive and ends on its own.
 ```maxon
 function main() returns ExitCode
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exec 0<&-; echo closed; sleep 0.3; exit 6"]
 	let child = try StreamingSubprocess.spawn(exe, arguments: argv) otherwise return 3
 	let out = try child.takeStdout() otherwise return 4
@@ -4690,7 +4591,6 @@ function main() returns ExitCode
 		line(text) gives text
 		ended gives "ended"
 	end 'announced'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdin("late\n") otherwise (e) 'refused'
 		print("{announced} refused {e.name}\n")
 	end 'refused'
@@ -4709,7 +4609,6 @@ child exit 6
 ```
 
 <!-- test: subprocess-streaming-a-stdin-feed-to-a-child-that-has-exited-settles -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `StdinFeed` queues its line once its anchor has been seen and pushes it into the child's stdin pipe. The child has
@@ -4719,12 +4618,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -4747,7 +4644,6 @@ feed settled, child exit 7
 ```
 
 <!-- test: subprocess-streaming-a-megabyte-stdin-feed-to-a-child-that-has-exited-settles -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 The same feed with a line larger than a pipe holds: the first push meets the broken pipe and the feed is spent.
@@ -4756,12 +4652,10 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
 	let exe = Executable.name("cmd")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["/c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
 	let exe = Executable.path(try FilePath.from("/bin/sh") otherwise return 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let argv = StringArray from ["-c", "exit 7"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif

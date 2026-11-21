@@ -177,7 +177,6 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A panic's label is decided where its message is written down, and every copy keeps it. The string
 operations put a long run of CONCRETE stdlib panics into the program ahead of the guard that fires —
@@ -214,11 +213,9 @@ function main() returns ExitCode
 	for u in "h€llo".utf16() 'u'
 		n = n + (u as Signed)
 	end 'u'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2]
 	n = n + (m.count() as Signed)
 	print("{n}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [10, 20, 30]
 	a.insert(launder(-2) as ElementIndex, value: 99)
 	return 0
@@ -238,7 +235,6 @@ Stack trace:
 ```
 
 <!-- test: panic.specialized-panic-keeps-its-own-message-twin -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same program again, deliberately. The runner compiles on a pool of worker threads, and a label
 derived from per-thread state answers differently on a thread that parsed the stdlib and one that did
@@ -263,11 +259,9 @@ function main() returns ExitCode
 	for u in "h€llo".utf16() 'u'
 		n = n + (u as Signed)
 	end 'u'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2]
 	n = n + (m.count() as Signed)
 	print("{n}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [10, 20, 30]
 	a.insert(launder(-2) as ElementIndex, value: 99)
 	return 0

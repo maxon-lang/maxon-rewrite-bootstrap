@@ -163,11 +163,8 @@ error E2053: specs/lexer-parser-robustness/truncated-after-arg-comma.maxon:4:1: 
 ```
 
 <!-- test: truncated-after-open-bracket -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let x = [
 ```
 ```maxoncstderr
@@ -407,14 +404,14 @@ error E1010: specs/lexer-parser-robustness/random-printable-garbage-3.maxon:2:13
 ```
 
 <!-- test: random-operator-soup-1 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array
 + -* / = < > (){} []
 ```
 ```maxoncstderr
@@ -442,14 +439,12 @@ error E1010: specs/lexer-parser-robustness/random-operator-soup-3.maxon:2:10: Un
 ```
 
 <!-- test: random-mixed-delim-1 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 ({[)}](})[){[(])}
 ```
 ```maxoncstderr
@@ -469,14 +464,12 @@ error E2001: specs/lexer-parser-robustness/random-mixed-delim-2.maxon:6:1: Expec
 ```
 
 <!-- test: random-mixed-delim-3 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 [} ({)]}{[(
 ```
 ```maxoncstderr
@@ -602,14 +595,12 @@ error E2001: specs/lexer-parser-robustness/deep-braces-open-only.maxon:6:1: Expe
 ```
 
 <!-- test: deep-brackets-open-only -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: differing error code: syntax error -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 [[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[
 ```
 ```maxoncstderr
@@ -617,14 +608,11 @@ error E2001: specs/lexer-parser-robustness/deep-brackets-open-only.maxon:6:1: Ex
 ```
 
 <!-- test: deep-mixed-delimiters -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	return 0
 end 'main'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 ({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[({[
 ```
 ```maxoncstderr

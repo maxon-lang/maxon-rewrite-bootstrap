@@ -133,7 +133,6 @@ sha512-007 [a21b1077d52b27ac545af63b32746c6e3c51cb0cb9f281eb9f3580a6d4996d5c9917
 ```
 
 <!-- test: sha2.digest-gives-the-one-shot-digest-however-the-message-is-split -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Zero chunks, an empty chunk, empty chunks between others, a byte at a time, and splits mid-block and at a block's end all give the one-shot digest of the concatenation.
@@ -184,55 +183,31 @@ end 'report'
 
 function main() returns ExitCode
 	report("sha256-chunked-001", algorithm: HashAlgorithm.sha256, chunks: ChunkHexList.create(0))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-002", algorithm: HashAlgorithm.sha256, chunks: [""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-003", algorithm: HashAlgorithm.sha256, chunks: ["61", "62", "63"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-004", algorithm: HashAlgorithm.sha256, chunks: ["", "6162", "", "63", ""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-005", algorithm: HashAlgorithm.sha256, chunks: ["61", "62636462636465636465666465666765666768666768696768696a68696a6b696a6b6c6a6b6c6d6b6c6d6e6c6d6e6f6d6e6f706e6f7071"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-006", algorithm: HashAlgorithm.sha256, chunks: ["6162636462636465636465666465666765666768666768696768696a68696a6b", "696a6b6c6a6b6c6d6b6c6d6e6c6d6e6f6d6e6f706e6f7071"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-007", algorithm: HashAlgorithm.sha256, chunks: ["5a86b737eaea8ee976a0a24da63e7ed7eefad18a101c1211e2b3650c5187c2a8a650547208251f6d4237e661c7bf4c77f335390394c37fa1a9f9be836ac285", "09"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-008", algorithm: HashAlgorithm.sha256, chunks: ["e2f76e97606a872e317439f1a03fcd92e632e5bd4e7cbc4e97f1afc19a16fde9", "2d77cbe546416b51640cddb92af996534dfd81edb17c4424cf1ac4d75aceeb"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha256-chunked-009", algorithm: HashAlgorithm.sha256, chunks: ["61", "62", "63", "64", "62", "63", "64", "65", "63", "64", "65", "66", "64", "65", "66", "67", "65", "66", "67", "68", "66", "67", "68", "69", "67", "68", "69", "6a", "68", "69", "6a", "6b", "69", "6a", "6b", "6c", "6a", "6b", "6c", "6d", "6b", "6c", "6d", "6e", "6c", "6d", "6e", "6f", "6d", "6e", "6f", "70", "6e", "6f", "70", "71"])
 	report("sha384-chunked-001", algorithm: HashAlgorithm.sha384, chunks: ChunkHexList.create(0))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-002", algorithm: HashAlgorithm.sha384, chunks: [""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-003", algorithm: HashAlgorithm.sha384, chunks: ["61", "62", "63"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-004", algorithm: HashAlgorithm.sha384, chunks: ["", "6162", "", "63", ""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-005", algorithm: HashAlgorithm.sha384, chunks: ["61", "626364656667686263646566676869636465666768696a6465666768696a6b65666768696a6b6c666768696a6b6c6d6768696a6b6c6d6e68696a6b6c6d6e6f696a6b6c6d6e6f706a6b6c6d6e6f70716b6c6d6e6f7071726c6d6e6f707172736d6e6f70717273746e6f707172737475"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-006", algorithm: HashAlgorithm.sha384, chunks: ["61626364656667686263646566676869636465666768696a6465666768696a6b65666768696a6b6c666768696a6b6c6d6768696a6b6c6d6e68696a6b6c6d6e6f", "696a6b6c6d6e6f706a6b6c6d6e6f70716b6c6d6e6f7071726c6d6e6f707172736d6e6f70717273746e6f707172737475"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-007", algorithm: HashAlgorithm.sha384, chunks: ["3bf52cc5ee86b9a0190f390a5c0366a560b557000dbe5115fd9ee11630a62769011575f15881198f227876e8fe685a6939bc8b89fd48a34ec5e71e131462b2886794dffa68ccc6d564733e67ffef25e627c6f4b5460796e3bce67bf58ca6e8e555bc916a8531697ac948b90dc8616f25101db90b50c3d3dbc9e21e42ff3871", "87"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-008", algorithm: HashAlgorithm.sha384, chunks: ["dbed7612448d46cbe0a384d1c93233f02ffd1c984ba765299518656d3723b766c1658d4b1e7047cdc729459e366ef9349efc40cbd990f2a9a24db7a5045e1dea", "12dce8f9d9f2aaed933f93031e7b8959ac5e7bf6bbbdf30b48f7eb783f8fe292371a2f245c5c94b4acae160767a20ce7c0ea7723d97691d8eedda9efd1fe2d"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha384-chunked-009", algorithm: HashAlgorithm.sha384, chunks: ["61", "62", "63", "64", "65", "66", "67", "68", "62", "63", "64", "65", "66", "67", "68", "69", "63", "64", "65", "66", "67", "68", "69", "6a", "64", "65", "66", "67", "68", "69", "6a", "6b", "65", "66", "67", "68", "69", "6a", "6b", "6c", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", "69", "6a", "6b", "6c", "6d", "6e", "6f", "70", "6a", "6b", "6c", "6d", "6e", "6f", "70", "71", "6b", "6c", "6d", "6e", "6f", "70", "71", "72", "6c", "6d", "6e", "6f", "70", "71", "72", "73", "6d", "6e", "6f", "70", "71", "72", "73", "74", "6e", "6f", "70", "71", "72", "73", "74", "75"])
 	report("sha512-chunked-001", algorithm: HashAlgorithm.sha512, chunks: ChunkHexList.create(0))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-002", algorithm: HashAlgorithm.sha512, chunks: [""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-003", algorithm: HashAlgorithm.sha512, chunks: ["61", "62", "63"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-004", algorithm: HashAlgorithm.sha512, chunks: ["", "6162", "", "63", ""])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-005", algorithm: HashAlgorithm.sha512, chunks: ["61", "626364656667686263646566676869636465666768696a6465666768696a6b65666768696a6b6c666768696a6b6c6d6768696a6b6c6d6e68696a6b6c6d6e6f696a6b6c6d6e6f706a6b6c6d6e6f70716b6c6d6e6f7071726c6d6e6f707172736d6e6f70717273746e6f707172737475"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-006", algorithm: HashAlgorithm.sha512, chunks: ["61626364656667686263646566676869636465666768696a6465666768696a6b65666768696a6b6c666768696a6b6c6d6768696a6b6c6d6e68696a6b6c6d6e6f", "696a6b6c6d6e6f706a6b6c6d6e6f70716b6c6d6e6f7071726c6d6e6f707172736d6e6f70717273746e6f707172737475"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-007", algorithm: HashAlgorithm.sha512, chunks: ["fd2203e467574e834ab07c9097ae164532f24be1eb5d88f1af7748ceff0d2c67a21f4e4097f9d3bb4e9fbf97186e0db6db0100230a52b453d421f8ab9c9a6043aa3295ea20d2f06a2f37470d8a99075f1b8a8336f6228cf08b5942fc1fb4299c7d2480e8e82bce175540bdfad7752bc95b577f229515394f3ae5cec870a4b2", "f8"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-008", algorithm: HashAlgorithm.sha512, chunks: ["c13e6ca3abb893aa5f82c4a8ef754460628af6b75af02168f45b72f8f09e45ed127c203bc7bb80ff0c7bd96f8cc6d8110868eb2cfc01037d8058992a6cf2effc", "bfe498c842e53a2e68a793867968ba18efc4a78b21cdf6a11e5de821dcabab14921ddb33625d48a13baffad6fe8272dbdf4433bd0f7b813c981269c388f001"])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("sha512-chunked-009", algorithm: HashAlgorithm.sha512, chunks: ["61", "62", "63", "64", "65", "66", "67", "68", "62", "63", "64", "65", "66", "67", "68", "69", "63", "64", "65", "66", "67", "68", "69", "6a", "64", "65", "66", "67", "68", "69", "6a", "6b", "65", "66", "67", "68", "69", "6a", "6b", "6c", "66", "67", "68", "69", "6a", "6b", "6c", "6d", "67", "68", "69", "6a", "6b", "6c", "6d", "6e", "68", "69", "6a", "6b", "6c", "6d", "6e", "6f", "69", "6a", "6b", "6c", "6d", "6e", "6f", "70", "6a", "6b", "6c", "6d", "6e", "6f", "70", "71", "6b", "6c", "6d", "6e", "6f", "70", "71", "72", "6c", "6d", "6e", "6f", "70", "71", "72", "73", "6d", "6e", "6f", "70", "71", "72", "73", "74", "6e", "6f", "70", "71", "72", "73", "74", "75"])
 	return 0
 end 'main'
@@ -359,13 +334,11 @@ Stack trace:
 ```
 
 <!-- test: sha2.digest-panics-on-update-after-finalize -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 An `update()` after `finalize()` is a programming error, so it panics rather than extending a finished message.
 ```maxon
 function main() returns ExitCode
 	let d = Digest.create(HashAlgorithm.sha256)
 	_ = d.finalize()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	d.update([0x61])
 	return 0
 end 'main'
@@ -385,7 +358,6 @@ Stack trace:
 ```
 
 <!-- test: sha2.the-hardware-and-software-compressions-agree -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -449,7 +421,6 @@ function main() returns ExitCode
 	report("abc", chunk: "abc".toByteArray(), times: 1)
 	report("two-block", chunk: "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq".toByteArray(), times: 1)
 	report("million", chunk: letters(1000), times: 1000)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = LengthList from [1, 55, 56, 63, 64, 65, 119, 120, 127, 128, 129, 1000]
 	var disagreements = 0 as Count
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'

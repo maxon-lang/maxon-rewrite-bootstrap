@@ -268,7 +268,6 @@ error E3004: <fragment>:14:11: call to undefined function 'Pair.nope'
 ```
 
 <!-- test: static-method-statement.error.a-method-writing-a-field-of-a-static-let-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same statement over a `static let`: the receiver chain `Registry.current.items` is immutable (a module-level or `static` `let` holds immutable data), so a method that writes the field is refused as writing through immutable storage (E3207).
@@ -278,7 +277,6 @@ typealias StringArray = Array with String
 type Registry
 	export var items as StringArray
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let current = Registry{items: StringArray from ["a"]}
 end 'Registry'
 

@@ -323,7 +323,6 @@ q=25
 ```
 
 <!-- test: checked-divide-error-edge-reassigns-a-managed-var -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The ERROR edge is the one taken here, and its handler REASSIGNS an owned String — dropping the one
 the var held and taking a new one — inside the handler's own scope frame. The `(e)` binding
 discriminates `divisionByZero`, so the caught error's type is the one `runtimeThrowsClause` answers
@@ -336,7 +335,6 @@ end 'opaque'
 function main() returns ExitCode
 	let z = opaque(0)
 	var label = "not caught\n"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try (100 / z) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then label = "caught divisionByZero\n"

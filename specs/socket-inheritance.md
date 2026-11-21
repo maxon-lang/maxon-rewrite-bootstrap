@@ -20,7 +20,6 @@ is closed, not when the last child that could have held a copy of it exits.
 <!-- test: socket-inheritance.an-accepted-socket-closes-while-a-spawned-child-lives -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 The server accepts a connection, spawns a child that lives until the server closes the child's standard
 input, then closes the accepted socket. The client, reading to the end of the connection, must see that end
@@ -54,14 +53,12 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let reader = async readsItsEnd(listener.port())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let conn = try listener.accept() otherwise 'refused4x27'
 		reader.cancel()
 		return 4
 	end 'refused4x27'
 	let argv = StringArray.create(0)
 	argv.push("child")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: argv) otherwise 'refused5x31'
 		reader.cancel()
 		return 5
@@ -86,7 +83,6 @@ ended=true child=0
 <!-- test: socket-inheritance.a-connected-socket-closes-while-a-spawned-child-lives -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 The mirror of the case above, for the socket `TcpClient.connect` creates rather than the one `accept`
 answers. The server spawns a child that lives until the server closes the child's standard input and signals
@@ -126,19 +122,16 @@ function main() returns ExitCode
 	let listener = try TcpListener.bind("127.0.0.1", port: 0) otherwise return 3
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let closer = async closesOnSignal(listener.port())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let conn = try listener.accept() otherwise 'refused4x34'
 		closer.cancel()
 		return 4
 	end 'refused4x34'
 	let argv = StringArray.create(0)
 	argv.push("child")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let child = try StreamingSubprocess.spawn(Executable.path(me), arguments: argv) otherwise 'refused5x38'
 		closer.cancel()
 		return 5
 	end 'refused5x38'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try conn.send("!") otherwise 'refused6x39'
 		closer.cancel()
 		return 6

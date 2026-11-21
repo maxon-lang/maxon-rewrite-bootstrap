@@ -432,7 +432,7 @@ end 'main'
 ```
 
 <!-- test: a-let-is-stored-into-an-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Count = int(0 to 1000)
 
@@ -449,7 +449,6 @@ end 'Box'
 function main() returns ExitCode
 	let a = Box.create(1)
 	let b = Box.create(2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pair = Boxes from [a, b]
 	let first = try pair.get(0) otherwise return 1
 	first.n = first.n + 1
@@ -490,12 +489,10 @@ error E2013: <fragment>:14:2: 'report' is a let and cannot be reassigned
 ```
 
 <!-- test: error.reassigning-a-for-variable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
@@ -605,10 +602,7 @@ error E2013: <fragment>:10:2: 'n' is a let and cannot be passed to the `mutable`
 ```
 
 <!-- test: error.a-module-let-array-is-still-read-only -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let fixed = [4, 5, 6]
 
 function main() returns ExitCode

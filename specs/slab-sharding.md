@@ -665,7 +665,6 @@ remote-after-drop=0 before=0
 
 <!-- test: slab-sharding.services-churning-different-size-classes-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -823,13 +822,9 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 end 'landsIn'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pads = TallyArray from [3, 185, 1000, 3700, 9900, 30000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let populations = TallyArray from [1600, 800, 360, 120, 48, 16]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let classes = TallyArray from [8, 19, 33, 44, 54, 67]
 	let handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'
@@ -895,7 +890,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800
 
 <!-- test: slab-sharding.the-same-churn-keeps-its-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -1035,11 +1029,8 @@ end 'Scavenger'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let scavenger = spawn Scavenger.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pads = TallyArray from [3, 185, 1000, 3700, 9900, 30000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let populations = TallyArray from [1600, 800, 360, 120, 48, 16]
 	let handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'
@@ -1105,7 +1096,6 @@ total built=232972800 absorbed=116486400 wrong=0 rounds=232972800 sweeps=360
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -1242,11 +1232,8 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 end 'landsIn'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pads = TallyArray from [1000, 1000, 1000, 1000, 1000, 1000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let populations = TallyArray from [360, 360, 360, 360, 360, 360]
 	let handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'
@@ -1311,7 +1298,6 @@ total built=261792000 absorbed=130896000 wrong=0 rounds=261792000
 
 <!-- test: slab-sharding.services-churning-one-size-class-keep-their-sums-while-another-service-scavenges -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -1477,11 +1463,8 @@ function landsIn(fill String, length Tally, sizeClass HeapBucketIndex) returns b
 end 'landsIn'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pads = TallyArray from [1000, 1000, 1000, 1000, 1000, 1000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let populations = TallyArray from [360, 360, 360, 360, 360, 360]
 	let handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'

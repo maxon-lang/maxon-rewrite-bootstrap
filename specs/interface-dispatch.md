@@ -3906,7 +3906,6 @@ shwmae closing 3
 
 
 <!-- test: interface-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 enum ProbeError implements Error
@@ -3978,7 +3977,6 @@ function show(bytes ByteArray)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let data = ByteArray from [1, 2, 3]
 	let doubled = try apply(Doubler.create(8), data: data) otherwise ByteArray.create(0)
 	show(doubled)
@@ -4073,7 +4071,7 @@ end 'main'
 ```
 
 <!-- test: interface-requirements-returning-byte-array-and-a-map-alias-through-two-conformers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A requirement returning the stdlib `ByteArray` without `throws`, and one returning a user alias of a `Map`,
 called through an interface-typed parameter: each result is the container its requirement declares, so its
 `count()` and its element reads work for either conformer.
@@ -4095,7 +4093,6 @@ type Small implements Survey
 	end 'create'
 
 	function packed() returns ByteArray
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return ByteArray from [9, 8, 7]
 	end 'packed'
 

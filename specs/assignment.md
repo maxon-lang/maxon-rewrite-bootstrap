@@ -563,7 +563,6 @@ end 'main'
 ```
 
 <!-- test: assign-self-field-and-iterator -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `self` field assignment and a `for`-loop iterator binding are assignments too, and are governed
 by the same rule.
@@ -591,7 +590,6 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	return c.addAll(nums) as ExitCode
 end 'main'

@@ -70,12 +70,10 @@ through either.
 ## Tests
 
 <!-- test: multiply-by-one-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x * 1`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x * 1) as ExitCode
@@ -86,12 +84,10 @@ end 'main'
 ```
 
 <!-- test: add-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x + 0`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x + 0) as ExitCode
@@ -102,13 +98,11 @@ end 'main'
 ```
 
 <!-- test: subtract-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x - 0` — the one identity in this file that is NOT reachable through the commutative swap, because
 `sub` does not commute. `0 - x` is a negation and is left exactly where it is.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x - 0) as ExitCode
@@ -119,7 +113,6 @@ end 'main'
 ```
 
 <!-- test: and-all-bits-set-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x and -1`. The immediate field is SIGNED and every target sign-extends it to the machine word, so
 `-1` is an all-ones mask and this is the identity. A `4294967295` written here would be a 32-bit
 TRUNCATION and a different question — and it never reaches the rule, because a value outside the
@@ -127,10 +120,9 @@ signed 32-bit immediate range keeps its register operand.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
-	return (x and -1) as ExitCode
+	return try (x and -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -138,13 +130,11 @@ end 'main'
 ```
 
 <!-- test: or-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x or 0` — an all-zero operand sets no bit, which is the same statement about a bit that `+ 0` is
 about a sum.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x or 0) as ExitCode
@@ -155,12 +145,10 @@ end 'main'
 ```
 
 <!-- test: xor-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x xor 0` — and an all-zero operand flips none.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x xor 0) as ExitCode
@@ -171,13 +159,11 @@ end 'main'
 ```
 
 <!-- test: shift-left-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x shl 0`. A count of zero moves no bit, and it is the one shift count on which the imm8 form and
 the `cl` form can never disagree — the hardware's mask is a no-op on it.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x shl 0) as ExitCode
@@ -188,14 +174,12 @@ end 'main'
 ```
 
 <!-- test: shift-right-zero-is-the-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `x shr 0` — the arithmetic, sign-filling direction. Zero bits shifted out is zero sign bits shifted
 in, so the identity holds on a negative value too; the case returns a non-negative one only because
 `ExitCode` cannot carry the other.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return (x shr 0) as ExitCode
@@ -206,14 +190,12 @@ end 'main'
 ```
 
 <!-- test: an-identity-chain-folds-in-one-pass -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `(x * 1) + 0` — the shape an enum ordinal's accumulator actually produces, and the one that needs
 the fold to see through ITSELF: the `add`'s operand is the `mul`'s result, which is being removed in
 the same walk. Both go, and the emitted code is where that shows.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37]
 	let x = try cell.get(0) otherwise 0
 	return ((x * 1) + 0) as ExitCode
@@ -224,14 +206,12 @@ end 'main'
 ```
 
 <!-- test: a-non-identity-immediate-is-untouched -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The control. `x * 2` and `x + 1` are not identities, so both keep their immediate form — this is
 what makes the eight cases above evidence that the IDENTITY is what was recognised, rather than that
 immediates are being dropped.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [18]
 	let x = try cell.get(0) otherwise 0
 	return ((x * 2) + 1) as ExitCode

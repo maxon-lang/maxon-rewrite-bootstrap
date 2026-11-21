@@ -51,8 +51,6 @@ has no process spawning (E3074) and is excluded.
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls13 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -137,7 +135,6 @@ end 'suiteName'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -202,7 +199,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -243,21 +239,18 @@ type OpensslServer
 	export var port as NetworkPort
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
 		let child = try StreamingSubprocess.spawn(opensslExecutable(), arguments: arguments) otherwise throw InteropError.spawnFailed
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let taken = try child.takeStdout() otherwise 'untaken'
 			child.release()
 			throw InteropError.spawnFailed
 		end 'untaken'
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let output = merge taken
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let port = try acceptedPort(output) otherwise (error) 'unlistening'
 			child.release()
 			throw error
@@ -277,13 +270,11 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let taken = try server.child.takeStderr() otherwise (error) 'untaken'
 		server.child.release()
 		return "takeStderr: {error.displayReason()}"
@@ -332,27 +323,21 @@ function bound(stream TlsStream) throws TlsError
 end 'bound'
 
 function talk(server OpensslServer, options TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: server.port, options: options, dialDeadlineMs: probeTimeoutMs) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bound(stream) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping\n") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reply = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
@@ -360,11 +345,9 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 	if drops 'dropped'
 		return "{summary} dropped"
 	end 'dropped'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {peerEnd(error)}"
 	end 'failed'
@@ -375,7 +358,6 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 end 'talk'
 
 function run(label String, serverOptions StringArray, clientOptions TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(serverOptions) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -386,10 +368,8 @@ end 'run'
 function main() returns ExitCode
 	let directory = workspace()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for suite in ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] 'eachSuite'
 		let client = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 1
 		print("{run(suite, serverOptions: ["-cert", "{directory}/server.pem", "-key", "{directory}/server.key", "-tls1_3", "-ciphersuites", suite], clientOptions: client, drops: false)}\n")
 	end 'eachSuite'
@@ -408,8 +388,6 @@ TLS_CHACHA20_POLY1305_SHA256: reply=gnip protocol=tls13 suite=tls13/chaCha20Poly
 
 <!-- test: tls-interop.client-against-openssl-s_server-tls12 -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -494,7 +472,6 @@ end 'suiteName'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -559,7 +536,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -600,21 +576,18 @@ type OpensslServer
 	export var port as NetworkPort
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
 		let child = try StreamingSubprocess.spawn(opensslExecutable(), arguments: arguments) otherwise throw InteropError.spawnFailed
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let taken = try child.takeStdout() otherwise 'untaken'
 			child.release()
 			throw InteropError.spawnFailed
 		end 'untaken'
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let output = merge taken
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let port = try acceptedPort(output) otherwise (error) 'unlistening'
 			child.release()
 			throw error
@@ -634,13 +607,11 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let taken = try server.child.takeStderr() otherwise (error) 'untaken'
 		server.child.release()
 		return "takeStderr: {error.displayReason()}"
@@ -689,27 +660,21 @@ function bound(stream TlsStream) throws TlsError
 end 'bound'
 
 function talk(server OpensslServer, options TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: server.port, options: options, dialDeadlineMs: probeTimeoutMs) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bound(stream) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping\n") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reply = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
@@ -717,11 +682,9 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 	if drops 'dropped'
 		return "{summary} dropped"
 	end 'dropped'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {peerEnd(error)}"
 	end 'failed'
@@ -732,7 +695,6 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 end 'talk'
 
 function run(label String, serverOptions StringArray, clientOptions TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(serverOptions) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -742,25 +704,20 @@ end 'run'
 
 function line(directory String, name String, rsa bool) returns String
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return "protocols refused"
 	if rsa 'rsaCertificate'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return run(name, serverOptions: ["-cert", "{directory}/server-rsa.pem", "-key", "{directory}/server-rsa.key", "-tls1_2", "-cipher", name], clientOptions: client, drops: false)
 	end 'rsaCertificate'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return run(name, serverOptions: ["-cert", "{directory}/server.pem", "-key", "{directory}/server.key", "-tls1_2", "-cipher", name], clientOptions: client, drops: false)
 end 'line'
 
 function main() returns ExitCode
 	let directory = workspace()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305"] 'eachEcdsa'
 		print("{line(directory, name: name, rsa: false)}\n")
 	end 'eachEcdsa'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305"] 'eachRsa'
 		print("{line(directory, name: name, rsa: true)}\n")
 	end 'eachRsa'
@@ -782,8 +739,6 @@ ECDHE-RSA-CHACHA20-POLY1305: reply=gnip protocol=tls12 suite=tls12/ecdheRsaChaCh
 
 <!-- test: tls-interop.client-against-openssl-s_server-mutual-tls -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -867,13 +822,11 @@ function suiteName(suite TlsCipherSuite) returns String
 end 'suiteName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -940,7 +893,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -981,21 +933,18 @@ type OpensslServer
 	export var port as NetworkPort
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
 		let child = try StreamingSubprocess.spawn(opensslExecutable(), arguments: arguments) otherwise throw InteropError.spawnFailed
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let taken = try child.takeStdout() otherwise 'untaken'
 			child.release()
 			throw InteropError.spawnFailed
 		end 'untaken'
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let output = merge taken
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let port = try acceptedPort(output) otherwise (error) 'unlistening'
 			child.release()
 			throw error
@@ -1015,13 +964,11 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let taken = try server.child.takeStderr() otherwise (error) 'untaken'
 		server.child.release()
 		return "takeStderr: {error.displayReason()}"
@@ -1070,27 +1017,21 @@ function bound(stream TlsStream) throws TlsError
 end 'bound'
 
 function talk(server OpensslServer, options TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: server.port, options: options, dialDeadlineMs: probeTimeoutMs) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bound(stream) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping\n") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reply = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
@@ -1098,11 +1039,9 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 	if drops 'dropped'
 		return "{summary} dropped"
 	end 'dropped'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {peerEnd(error)}"
 	end 'failed'
@@ -1113,7 +1052,6 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 end 'talk'
 
 function run(label String, serverOptions StringArray, clientOptions TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(serverOptions) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -1126,7 +1064,6 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let client = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
 		client.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
 		print("{run(protocol.name, serverOptions: ["-cert", "{directory}/server.pem", "-key", "{directory}/server.key", "-Verify", "1", "-CAfile", "{directory}/client-root.pem", "-verify_return_error", "-attime", "{verificationTime}"], clientOptions: client, drops: false)}\n")
@@ -1145,8 +1082,6 @@ tls12: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sha256 th
 
 <!-- test: tls-interop.openssl-s_server-sees-close-notify-only-from-close -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1231,7 +1166,6 @@ end 'suiteName'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1296,7 +1230,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -1337,21 +1270,18 @@ type OpensslServer
 	export var port as NetworkPort
 
 	static function start(options StringArray) returns OpensslServer throws InteropError
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-rev", "-msg"]
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
 		let child = try StreamingSubprocess.spawn(opensslExecutable(), arguments: arguments) otherwise throw InteropError.spawnFailed
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let taken = try child.takeStdout() otherwise 'untaken'
 			child.release()
 			throw InteropError.spawnFailed
 		end 'untaken'
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let output = merge taken
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let port = try acceptedPort(output) otherwise (error) 'unlistening'
 			child.release()
 			throw error
@@ -1371,13 +1301,11 @@ function drainLines(lines StringArray, reader ChildOutputReader)
 end 'drainLines'
 
 function finish(server OpensslServer) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let code = try server.child.wait(WaitDeadline.within(probeTimeoutMs)) otherwise (error) 'stuck'
 		return "wait: {error.displayReason()}"
 	end 'stuck'
 	let lines = StringArray.create(0)
 	drainLines(lines, reader: server.output)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let taken = try server.child.takeStderr() otherwise (error) 'untaken'
 		server.child.release()
 		return "takeStderr: {error.displayReason()}"
@@ -1426,27 +1354,21 @@ function bound(stream TlsStream) throws TlsError
 end 'bound'
 
 function talk(server OpensslServer, options TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: server.port, options: options, dialDeadlineMs: probeTimeoutMs) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bound(stream) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping\n") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reply = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
@@ -1454,11 +1376,9 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 	if drops 'dropped'
 		return "{summary} dropped"
 	end 'dropped'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {peerEnd(error)}"
 	end 'failed'
@@ -1469,7 +1389,6 @@ function talk(server OpensslServer, options TlsClientOptions, drops bool) return
 end 'talk'
 
 function run(label String, serverOptions StringArray, clientOptions TlsClientOptions, drops bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(serverOptions) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -1482,12 +1401,10 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let closing = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try closing.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
 		let closingLabel = "{protocol.name} shutdownWrite"
 		print("{run(closingLabel, serverOptions: ["-cert", "{directory}/server.pem", "-key", "{directory}/server.key"], clientOptions: closing, drops: false)}\n")
 		let dropping = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try dropping.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		let droppingLabel = "{protocol.name} dropped"
 		print("{run(droppingLabel, serverOptions: ["-cert", "{directory}/server.pem", "-key", "{directory}/server.key"], clientOptions: dropping, drops: true)}\n")
@@ -1509,8 +1426,6 @@ tls12 dropped: reply=gnip protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305S
 <!-- test: tls-interop.listener-against-openssl-s_client-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1594,7 +1509,6 @@ function suiteName(suite TlsCipherSuite) returns String
 end 'suiteName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1663,7 +1577,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -1695,40 +1608,31 @@ function readLine(stream TlsStream) returns String throws StreamError
 end 'readLine'
 
 function serveOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setReadDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let line = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{line}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let chain = try stream.peerCertificates() otherwise (error) 'unpresented'
 		return "peers: {describe(error)}"
 	end 'unpresented'
 	let summary = "heard={line.trim()} protocol={protocol.name} suite={suiteName(suite)} peers={chain.count()}"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {readFault(error)}"
 	end 'failed'
@@ -1744,7 +1648,6 @@ union ClientOutcome
 end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
@@ -1754,7 +1657,6 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
 	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -1772,11 +1674,9 @@ end 'attemptClient'
 
 function exchange(label String, directory String, serverOptions TlsServerOptions, clientOptions StringArray) returns String
 	for _ in 0 upto maxClientAttempts 'attempts'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 			return "{label}: bind: {describe(error)}"
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try listener.setAcceptDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
@@ -1797,10 +1697,8 @@ end 'exchange'
 function main() returns ExitCode
 	let directory = workspace()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for suite in ["TLS_AES_128_GCM_SHA256", "TLS_AES_256_GCM_SHA384", "TLS_CHACHA20_POLY1305_SHA256"] 'eachSuite'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try server.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 1
 		print("{exchange(suite, directory: directory, serverOptions: server, clientOptions: ["-tls1_3", "-ciphersuites", suite])}\n")
 	end 'eachSuite'
@@ -1820,8 +1718,6 @@ TLS_CHACHA20_POLY1305_SHA256: server[heard=ping protocol=tls13 suite=tls13/chaCh
 <!-- test: tls-interop.listener-against-openssl-s_client-tls12 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1905,7 +1801,6 @@ function suiteName(suite TlsCipherSuite) returns String
 end 'suiteName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -1974,7 +1869,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -2006,40 +1900,31 @@ function readLine(stream TlsStream) returns String throws StreamError
 end 'readLine'
 
 function serveOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setReadDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let line = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{line}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let chain = try stream.peerCertificates() otherwise (error) 'unpresented'
 		return "peers: {describe(error)}"
 	end 'unpresented'
 	let summary = "heard={line.trim()} protocol={protocol.name} suite={suiteName(suite)} peers={chain.count()}"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {readFault(error)}"
 	end 'failed'
@@ -2055,7 +1940,6 @@ union ClientOutcome
 end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
@@ -2065,7 +1949,6 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
 	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -2083,11 +1966,9 @@ end 'attemptClient'
 
 function exchange(label String, directory String, serverOptions TlsServerOptions, clientOptions StringArray) returns String
 	for _ in 0 upto maxClientAttempts 'attempts'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 			return "{label}: bind: {describe(error)}"
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try listener.setAcceptDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
@@ -2110,21 +1991,17 @@ function line(directory String, name String, rsa bool) returns String
 	if rsa 'rsaCertificate'
 		server = trustedServer(identityOf(leafRsaHex, keyHex: keyRsaHex))
 	end 'rsaCertificate'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return "protocols refused"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return exchange(name, directory: directory, serverOptions: server, clientOptions: ["-tls1_2", "-cipher", name])
 end 'line'
 
 function main() returns ExitCode
 	let directory = workspace()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["ECDHE-ECDSA-AES128-GCM-SHA256", "ECDHE-ECDSA-AES256-GCM-SHA384", "ECDHE-ECDSA-CHACHA20-POLY1305"] 'eachEcdsa'
 		print("{line(directory, name: name, rsa: false)}\n")
 	end 'eachEcdsa'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["ECDHE-RSA-AES128-GCM-SHA256", "ECDHE-RSA-AES256-GCM-SHA384", "ECDHE-RSA-CHACHA20-POLY1305"] 'eachRsa'
 		print("{line(directory, name: name, rsa: true)}\n")
 	end 'eachRsa'
@@ -2147,8 +2024,6 @@ ECDHE-RSA-CHACHA20-POLY1305: server[heard=ping protocol=tls12 suite=tls12/ecdheR
 <!-- test: tls-interop.listener-against-openssl-s_client-mutual-tls -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2232,7 +2107,6 @@ function suiteName(suite TlsCipherSuite) returns String
 end 'suiteName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -2301,7 +2175,6 @@ end 'workspace'
 
 function unstage(directory String)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for name in ["root.pem", "server.pem", "server.key", "server-rsa.pem", "server-rsa.key", "client-root.pem", "client.pem", "client.key"] 'eachFile'
 		let path = try FilePath.from("{directory}/{name}") otherwise panic("not a path")
 		try File.delete(path) otherwise ignore
@@ -2333,40 +2206,31 @@ function readLine(stream TlsStream) returns String throws StreamError
 end 'readLine'
 
 function serveOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setReadDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 		return "deadline: {describe(error)}"
 	end 'unbounded'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let line = try readLine(stream) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{line}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let protocol = try stream.protocol() otherwise (error) 'unestablished'
 		return "protocol: {describe(error)}"
 	end 'unestablished'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let suite = try stream.cipherSuite() otherwise (error) 'unnegotiated'
 		return "suite: {describe(error)}"
 	end 'unnegotiated'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let chain = try stream.peerCertificates() otherwise (error) 'unpresented'
 		return "peers: {describe(error)}"
 	end 'unpresented'
 	let summary = "heard={line.trim()} protocol={protocol.name} suite={suiteName(suite)} peers={chain.count()}"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'unshut'
 		return "{summary} shutdownWrite: {describe(error)}"
 	end 'unshut'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(16) otherwise (error) 'failed'
 		return "{summary} then {readFault(error)}"
 	end 'failed'
@@ -2382,7 +2246,6 @@ union ClientOutcome
 end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, options StringArray) returns ClientOutcome
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "example.com", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "example.com", "-attime", "{verificationTime}", "-ign_eof"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
@@ -2392,7 +2255,6 @@ function attemptClient(directory String, port NetworkPort, options StringArray) 
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes("ping\n")
 	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -2410,11 +2272,9 @@ end 'attemptClient'
 
 function exchange(label String, directory String, serverOptions TlsServerOptions, clientOptions StringArray) returns String
 	for _ in 0 upto maxClientAttempts 'attempts'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 			return "{label}: bind: {describe(error)}"
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try listener.setAcceptDeadline(probeTimeoutMs) otherwise (error) 'unbounded'
 			return "{label}: deadline: {describe(error)}"
 		end 'unbounded'
@@ -2437,11 +2297,8 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try server.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let version = ["-tls1_3"] if protocol == TlsProtocol.tls13 else ["-tls1_2"]
 		let options = version.clone()
 		options.push("-cert")
@@ -2464,8 +2321,6 @@ tls12: server[heard=ping protocol=tls12 suite=tls12/ecdheEcdsaChaCha20Poly1305Sh
 
 <!-- test: tls-interop.http-client-against-openssl-s_server -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2549,7 +2404,6 @@ end 'describeHttp'
 
 function clientOptions() returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(httpRootHex)]) otherwise panic("the case's root was refused")
 	options.setVerificationTime(verificationTime)
 	return options
@@ -2605,7 +2459,6 @@ function servedFile() returns String
 	return text.build()
 end 'servedFile'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let stagedNames = ["root.pem", "server.pem", "server.key", "client-root.pem", "client.pem", "client.key", "served.txt"]
 
 function workspace() returns String
@@ -2667,21 +2520,18 @@ type OpensslServer
 	export var port as NetworkPort
 
 	static function start(directory String, options StringArray) returns OpensslServer throws InteropError
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arguments = ["s_server", "-accept", "127.0.0.1:0", "-naccept", "1", "-msg", "-cert", "{directory}/server.pem", "-key", "{directory}/server.key"]
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 		for option in options 'eachOption'
 			arguments.push(option)
 		end 'eachOption'
 		let child = try StreamingSubprocess.spawn(opensslExecutable(), arguments: arguments) otherwise throw InteropError.spawnFailed
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let taken = try child.takeStdout() otherwise 'untaken'
 			child.release()
 			throw InteropError.spawnFailed
 		end 'untaken'
 		// TODO: 'merge' region expressions are not supported in minimaxon
 		let output = merge taken
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let port = try acceptedPort(output) otherwise (error) 'unlistening'
 			child.release()
 			throw error
@@ -2726,7 +2576,6 @@ end 'negotiatedProtocol'
 
 function pageFetched(server OpensslServer) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: "https://localhost:{server.port}/") otherwise return "bad url"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: clientOptions()) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -2736,7 +2585,6 @@ end 'pageFetched'
 
 function fileFetched(server OpensslServer, directory String) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: "https://localhost:{server.port}/{directory}/served.txt") otherwise return "bad url"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: clientOptions()) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -2746,11 +2594,9 @@ end 'fileFetched'
 
 function untrustedFetched(server OpensslServer) returns String
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(otherRootHex)]) otherwise return "the root was refused"
 	options.setVerificationTime(verificationTime)
 	let request = try HttpRequest.create(HttpMethod.get, url: "https://localhost:{server.port}/") otherwise return "bad url"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, tls: options) otherwise (error) 'failed'
 		return "error {describeHttp(error)}"
 	end 'failed'
@@ -2764,7 +2610,6 @@ function verdict(label String, fetched String, success String, server OpensslSer
 end 'verdict'
 
 function statusPage(label String, directory String, flags StringArray, success String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(directory, options: flags) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -2772,7 +2617,6 @@ function statusPage(label String, directory String, flags StringArray, success S
 end 'statusPage'
 
 function stagedFile(label String, directory String, flags StringArray) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(directory, options: flags) otherwise (error) 'unstarted'
 		return "{label}: openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -2780,8 +2624,6 @@ function stagedFile(label String, directory String, flags StringArray) returns S
 end 'stagedFile'
 
 function untrustedChain(directory String) returns String
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try OpensslServer.start(directory, options: ["-www"]) otherwise (error) 'unstarted'
 		return "openssl s_server did not start: {error.name}"
 	end 'unstarted'
@@ -2814,8 +2656,6 @@ untrusted root: error tlsFailed(certificateRejected(unknownAuthority))
 
 <!-- test: tls-interop.http-server-against-openssl-s_client -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -2891,7 +2731,6 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -2947,7 +2786,6 @@ function servedFile() returns String
 	return text.build()
 end 'servedFile'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let stagedNames = ["root.pem", "server.pem", "server.key", "client-root.pem", "client.pem", "client.key", "served.txt"]
 
 function workspace() returns String
@@ -2988,7 +2826,6 @@ function valueAfter(lines StringArray, prefix String) returns String
 end 'valueAfter'
 
 function chainSummary(chain ByteArrays) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let leaf = try chain.first() otherwise 'anonymous'
 		return "no client certificate"
 	end 'anonymous'
@@ -3051,7 +2888,6 @@ union ClientOutcome
 end 'ClientOutcome'
 
 function attemptClient(directory String, port NetworkPort, request String, options StringArray) returns ClientOutcome
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arguments = ["s_client", "-connect", "127.0.0.1:{port}", "-servername", "localhost", "-CAfile", "{directory}/root.pem", "-verify_return_error", "-verify_hostname", "localhost", "-attime", "{verificationTime}", "-ign_eof"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for option in options 'eachOption'
@@ -3061,7 +2897,6 @@ function attemptClient(directory String, port NetworkPort, request String, optio
 	configuration.arguments = arguments
 	configuration.standardInput = InputSource.bytes(request)
 	configuration.deadline = WaitDeadline.within(probeTimeoutMs)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try configuration.run() otherwise (error) 'failed'
 		return ClientOutcome.observed("s_client: {error.displayReason()}")
 	end 'failed'
@@ -3123,7 +2958,6 @@ function runAll(server HttpServer, label String, directory String, runs ClientRu
 end 'runAll'
 
 function scenario(label String, directory String, serverOptions TlsServerOptions, runs ClientRunArray) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let server = try HttpServer.bindTls("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "{label}: bind: {describe(error)}"
 	end 'refused'
@@ -3133,25 +2967,17 @@ end 'scenario'
 function main() returns ExitCode
 	let directory = workspace()
 	let post = "POST /submit HTTP/1.1\r\nHost: localhost\r\nContent-Length: 10\r\nConnection: close\r\n\r\nname=maxon"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let clientCertificate = ["-tls1_3", "-cert", "{directory}/client.pem", "-key", "{directory}/client.key"]
 	let mutual = serverOptions()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try mutual.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
 	let plainRuns = ClientRunArray.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	plainRuns.push(ClientRun.create("tls1.3 GET", request: getRequest("/hello?x=1"), flags: ["-tls1_3"]))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	plainRuns.push(ClientRun.create("tls1.2 GET with ALPN", request: getRequest("/old"), flags: ["-tls1_2", "-alpn", "http/1.1"]))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	plainRuns.push(ClientRun.create("tls1.3 POST", request: post, flags: ["-tls1_3"]))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	plainRuns.push(ClientRun.create("ALPN h2 only", request: getRequest("/never"), flags: ["-alpn", "h2"]))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	plainRuns.push(ClientRun.create("a good one after", request: getRequest("/last"), flags: ["-tls1_3"]))
 	let mutualRuns = ClientRunArray.create(0)
 	mutualRuns.push(ClientRun.create("with a certificate", request: getRequest("/who"), flags: clientCertificate))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	mutualRuns.push(ClientRun.create("without one", request: getRequest("/nobody"), flags: ["-tls1_3"]))
 	mutualRuns.push(ClientRun.create("with a certificate again", request: getRequest("/who"), flags: clientCertificate))
 	print(scenario("plain server", directory: directory, serverOptions: serverOptions(), runs: plainRuns))

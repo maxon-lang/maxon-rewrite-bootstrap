@@ -884,7 +884,6 @@ end 'main'
 ```
 
 <!-- test: multi-line-call-handler-block-argument-holding-nested-blocks -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A labelled `otherwise` handler written as an argument keeps its own line structure through every block nested inside it: an `if`, a `for`, a `while`, a `match` statement and a `try` block each end at their own `end`, and the statements after them stay separate statements.
 ```maxon
@@ -905,7 +904,6 @@ function main() returns ExitCode
 	let xs = IntArray.create(0)
 	xs.push(4)
 	let mode = Mode.loud
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = pair(try xs.get(5) otherwise 'missing'
 		if xs.count() > 0 'some'
 			print("some\n")

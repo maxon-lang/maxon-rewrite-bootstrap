@@ -5211,7 +5211,6 @@ error E3223: <fragment>:53:2: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-w-acq-handback-send-in-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -5277,7 +5276,6 @@ function main() returns ExitCode
 	acquire a 'a1'
 		// TODO: region capability 'isolated' is not supported in minimaxon
 		let r = Resp.create(0) as isolated Resp
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try bV.take(r) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
 				mailboxFull(q) then q.fin(1)
@@ -5767,7 +5765,6 @@ error E3223: <fragment>:55:3: the linear value 'r' is live across this wait: a w
 ```
 
 <!-- test: model-hand-ab-s-state-method-mk-drop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -5830,7 +5827,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -5870,7 +5866,6 @@ error E3202: <fragment>:84:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -5933,7 +5928,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -5974,7 +5968,6 @@ error E3202: <fragment>:84:11: 'a.mk()' is mutable and cannot leave the statemen
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-eat-fresh -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `s-acquire-state-eat-fresh` of redteamAB.hand_ab5, in capmodel `reggio/REPORTRTAB.txt`.
@@ -6036,7 +6029,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -6076,7 +6068,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-leaves -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -6139,7 +6130,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -6182,7 +6172,6 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-leaves-drop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -6245,7 +6234,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -6287,7 +6275,6 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ab-s-acquire-state-mk-in-otherwise -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -6350,7 +6337,6 @@ type Sv
 	end 'touch'
 
 	export function viaSelf(me Sv.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.one(Resp.create(0)) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull(b) then b.fin(9)
@@ -6393,7 +6379,6 @@ error E3204: <fragment>:86:3: 'keep' holds a linear value from outside 'a1' and 
 ```
 
 <!-- test: model-hand-ac-hb-send-in-acquire-body -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hb-send-in-acquire-body` of redteamAC.hand_ac1, in capmodel `reggio/REPORTRTAC.txt`.
@@ -6444,7 +6429,6 @@ function main() returns ExitCode
 	let k = spawn Kq.create(0)
 	// TODO: acquire blocks are not supported in minimaxon; use when with cowns
 	acquire k 'a1'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try a.take(Resp.create(0)) otherwise (sendFailure) 'h3'
 			match sendFailure 'x4'
 				mailboxFull(q) then q.fin(1)
@@ -9972,7 +9956,6 @@ error E3197: <fragment>:87:16: cannot write 'hq' through 's', which is read-only
 
 <!-- test: model-hand-ag-bm-acquire-other -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: acquire blocks are not supported in minimaxon; use when with cowns -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -10098,7 +10081,6 @@ function main() returns ExitCode
 	let t = spawn Ab.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bn.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2))), t: t.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMr(z)

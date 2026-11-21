@@ -811,7 +811,6 @@ end 'main'
 ```
 
 <!-- test: let-record-laundered-through-an-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 An array literal stores its elements, so an element read back is the record that went in.
 
 ```maxon
@@ -827,16 +826,15 @@ type Point
 end 'Point'
 
 function launder(p Point) returns Point
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let arr = [p]
+	let arr = [p.clone()]
 	return try arr.get(0) otherwise panic("the literal has one element")
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = launder(a)
+	var b = launder(a)
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

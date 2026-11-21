@@ -1019,8 +1019,6 @@ error E3207: <fragment>:6:15: 'insert' takes `immutable` 'element'; a fresh valu
 ```
 
 <!-- test: error.a-map-literal-key-built-by-a-call-is-refused-until-it-is-frozen -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 `pick` hands back the array it was given, so the key of the literal is mutable, as it is for `upsert`.
 
 ```maxon
@@ -1030,7 +1028,6 @@ end 'pick'
 
 function main() returns ExitCode
 	let buf = ByteArray.create(3)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let counts = [pick(buf): 1 as Count]
 	print("{counts.count()}\n")
 	return 0
@@ -1041,10 +1038,8 @@ error E3207: <fragment>:8:15: 'upsert' takes `immutable` 'key'; the argument is 
 ```
 
 <!-- test: a-map-literal-key-is-accepted-once-it-is-frozen -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let counts = [freeze(ByteArray.create(3)): 1 as Count]
 	print("{counts.count()}\n")
 	return 0
@@ -1398,7 +1393,6 @@ error E3207: <fragment>:11:25: 'push' needs a writable receiver; 'text' is immut
 
 <!-- test: a-set-and-a-map-of-values-are-built-from-a-plain-mutable-array -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `immutable` over a value type means the type itself: a `Set` or `Map` of numbers takes any array of them, with no
 `freeze` and no copy.
@@ -1411,7 +1405,6 @@ typealias CodeSet = Set with Code
 typealias CodeMap = Map with (Code, Count)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let codes = [1 as Code, 2 as Code, 3 as Code].clone()
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let members = CodeSet from codes
@@ -2066,14 +2059,13 @@ error E3207: <fragment>:15:16: 'insert' takes `immutable` 'element'; 'func' is m
 ```
 
 <!-- test: a-set-of-values-is-built-from-an-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Code = int(0 to 1000)
 
 typealias CodeSet = Set with Code
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let members = CodeSet from [1 as Code, 2 as Code, 2 as Code]
 	print("{members.count()}\n")
 	return 0
@@ -2087,13 +2079,11 @@ end 'main'
 ```
 
 <!-- test: a-set-of-names-is-built-from-an-array-literal-of-names -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 ```maxon
 typealias NameSet = Set with ByteArray
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: byte string literals are not supported in minimaxon
 	let members = NameSet from [b"ab", b"cd", b"ab"]
 	print("{members.count()}\n")
@@ -2136,10 +2126,8 @@ error E3207: <fragment>:8:29: 'init' needs 'arr' frozen (it calls 'insert', whic
 ```
 
 <!-- test: a-map-of-text-keys-is-built-from-a-dictionary-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let ranks = ["ab": 1 as Count, "cd": 2 as Count]
 	print("{ranks.count()}\n")
 	return 0
@@ -2153,12 +2141,10 @@ end 'main'
 ```
 
 <!-- test: a-map-of-values-is-built-from-a-dictionary-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Code = int(0 to 1000)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let ranks = [1 as Code: 1 as Count, 2 as Code: 2 as Count]
 	print("{ranks.count()}\n")
 	return 0

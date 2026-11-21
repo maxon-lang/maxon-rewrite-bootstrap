@@ -2668,7 +2668,6 @@ error E3004: <fragment>:10:22: call to undefined function 'nowhere'
 ```
 
 <!-- test: a-throwing-generic-factory-releases-a-consumed-managed-argument -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A throwing generic factory that fails before it builds `Self` releases the `T`-typed argument it consumed. The
 argument is a heap string, so the call leaks it (**exit 101**) unless the shared generic body drops the parameter
 on its throw edge.
@@ -2683,7 +2682,7 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(item T, extra Whole) returns Self throws StartError
+	static function create(consumes item T, extra Whole) returns Self throws StartError
 		if extra < 0 'negative'
 			throw StartError.refused
 		end 'negative'
@@ -2692,7 +2691,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -2710,7 +2708,6 @@ refused
 ```
 
 <!-- test: a-throwing-generic-factory-with-a-scalar-argument-is-unchanged -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The scalar control of the case above: a `T` bound to an integer has nothing to release on the throw edge, and the
 failing call still reaches its handler.
 ```maxon
@@ -2733,7 +2730,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Box.create(5, extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -2751,7 +2747,6 @@ refused
 ```
 
 <!-- test: a-throwing-generic-factory-releases-an-argument-it-already-handed-to-a-local -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A generic factory that moves its `T` argument into a local holder on one branch and then throws releases it
 exactly once: the holder owns it from the move on, and it dies with the frame. The other branch still builds `Self`
 from the argument.
@@ -2765,7 +2760,7 @@ end 'StartError'
 type Holder uses T
 	var item as T
 
-	static function wrap(item T) returns Self
+	static function wrap(consumes item T) returns Self
 		return Self{item: item}
 	end 'wrap'
 
@@ -2778,7 +2773,7 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(item T, extra Whole) returns Self throws StartError
+	static function create(consumes item T, extra Whole) returns Self throws StartError
 		if extra < 0 'negative'
 			let holder = Holder.wrap(item)
 			if holder.held() > 0 'held'
@@ -2791,7 +2786,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Box.create("another label long enough to be a heap string", extra: -5) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -4529,7 +4523,6 @@ end 'main'
 ```
 
 <!-- test: error.a-field-chain-through-a-builtin-instance-field-is-still-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 ⛔⛔ **THE MEMORY-SAFETY GATE, CARRIED ACROSS TO THE HOP DOOR.** `structLayoutOfType` does not ask `structOf`
 for an instance — it asks `genericInstanceHasBaseLayout` first, and its header records what happens without
@@ -4565,7 +4558,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let h = Holder.create([1, 2, 3])
 	print("{h.a.value}\n")
 	return 0
@@ -6366,7 +6358,6 @@ end 'main'
 ```
 
 <!-- test: an-array-literal-takes-its-element-type-from-a-static-call-through-a-generic-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Octet = int(0 to 255)
@@ -6383,7 +6374,6 @@ end 'Bag'
 typealias OctetBag = Bag with Octet
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let head = OctetBag.first([7, 8, 9])
 	return head as ExitCode
 end 'main'
@@ -6677,7 +6667,6 @@ another label long enough to be a heap string
 ```
 
 <!-- test: a-throwing-generic-factory-releases-what-it-stored-before-it-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A generic factory that stores its `T` argument in a record and then throws releases the record's reference and its
 own: nothing is left owned.
 ```maxon
@@ -6691,7 +6680,7 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(item T, extra Whole) returns Self throws StartError
+	static function create(consumes item T, extra Whole) returns Self throws StartError
 		let built = Self{item: item, extra: extra}
 		if built.extra < 0 'negative'
 			throw StartError.refused
@@ -6701,7 +6690,6 @@ type Box uses T
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")

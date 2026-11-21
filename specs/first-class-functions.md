@@ -1722,7 +1722,6 @@ end 'main'
 ```
 
 <!-- test: first-class-function.capturing-closure-in-container -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A capturing closure in an array literal is owned by the array, beside a plain function reference.
@@ -1736,7 +1735,6 @@ end 'double'
 
 function main() returns ExitCode
 	let bump = 20
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	let ops = [double, function(n Integer) gives n + bump]
 	var total = 0 as Integer
@@ -3970,13 +3968,12 @@ end 'main'
 ```
 
 <!-- test: a-module-binding-named-like-a-primitive-calls-the-binding -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Integers = Array with Integer
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let byte = Integers from [6]
 
 function main() returns ExitCode
@@ -7691,7 +7688,6 @@ error E3005: <fragment>:17:9: function type mismatch in a container element: exp
 ```
 
 <!-- test: error.a-function-of-the-wrong-shape-in-an-array-literal-of-functions-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal naming its element type judges every element against it.
@@ -7712,7 +7708,6 @@ function add(a Integer) returns Integer
 end 'add'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ThunkArray from [seven, add]
 	return xs.count() as ExitCode
 end 'main'
@@ -7779,7 +7774,6 @@ error E3005: <fragment>:12:4: argument type mismatch for 'value': expected 'fn()
 ```
 
 <!-- test: a-function-of-the-declared-shape-is-accepted-by-every-store-into-a-function-typed-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -7815,7 +7809,6 @@ function main() returns ExitCode
 	let t = (seven as Thunk, 1 as Integer)
 	// TODO: tuple element access is not supported in minimaxon
 	t.0 = nine
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ThunkArray from [seven, seven]
 	xs.push(nine)
 	try xs.set(0, value: nine) otherwise panic("set")

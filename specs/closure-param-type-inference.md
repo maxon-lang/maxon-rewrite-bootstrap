@@ -74,7 +74,6 @@ takes every time: the bespoke sentence existed because there was no declaration 
 ## Tests
 
 <!-- test: the-transform-parameter-takes-the-container-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The positive half. One untyped parameter, typed from the array's element, and the transform is actually
@@ -82,7 +81,6 @@ applied — so this fails on its VALUE if the refusal below ever over-reaches.
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a) gives a * 10)
@@ -100,7 +98,6 @@ sum=60
 ```
 
 <!-- test: error-a-fully-typed-transform-of-the-wrong-arity-is-still-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
@@ -113,7 +110,6 @@ parameter: the value is what disagrees with the position.
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b Integer) gives a + b)
@@ -131,7 +127,6 @@ error E3005: <fragment>:6:17: argument type mismatch for 'transform': expected '
 ```
 
 <!-- test: error-a-transform-that-declares-no-parameter-is-refused-too -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 The UNDER-arity half, and the reason the rule is stated as an equality rather than a ceiling. A
@@ -140,7 +135,6 @@ the same undefined call: `wasm32-wasi` traps on it exactly as it traps on the ov
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function() gives 7)
@@ -152,8 +146,6 @@ error E3005: <fragment>:5:17: argument type mismatch for 'transform': expected '
 ```
 
 <!-- test: error-a-named-function-of-the-wrong-arity-is-refused-at-the-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ⭐ **The shape a closure-literal check structurally cannot see.** There is no closure here at all — a bare
 reference to a function declared elsewhere — so the arity is not a fact the parse of this line holds. It is
 pinned so a later refactor cannot quietly narrow the rule back to closure literals and keep the suite
@@ -166,7 +158,6 @@ function twoArg(a Integer, b Integer) returns Integer
 end 'twoArg'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	let out = nums.map(twoArg)
 	return 0
@@ -177,7 +168,6 @@ error E3005: <fragment>:10:17: argument type mismatch for 'transform': expected 
 ```
 
 <!-- test: error-a-second-untyped-closure-parameter-is-uninferrable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
@@ -185,7 +175,6 @@ The blocker. `b` is past the one parameter the transform's declared function typ
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a, b) gives a + b)
@@ -203,7 +192,6 @@ error E2003: <fragment>:5:33: Cannot infer type for closure parameter 'b'. Add a
 ```
 
 <!-- test: error-the-offer-is-spent-even-when-the-first-parameter-declined-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
@@ -214,7 +202,6 @@ the same reason and with the same sentence as above, anchored at the parameter n
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a Integer, b) gives a + b)

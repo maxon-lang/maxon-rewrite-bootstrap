@@ -489,7 +489,6 @@ error E3202: <fragment>:11:10: the closure at <fragment>:11:10 is mutable and ca
 ```
 
 <!-- test: thrown-region-contents-leaving-window-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -534,7 +533,6 @@ end 'run'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let bag = Bag.create("alpha") as isolated Bag
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try run(bag) otherwise (fault) 'failed'
 		match fault 'which'
 			named(names) then print("{names.count()}\n")
@@ -548,7 +546,6 @@ error E3202: <fragment>:29:9: 'BagFault.named(bag.names)' is mutable and cannot 
 ```
 
 <!-- test: thrown-record-read-inside-window-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -603,7 +600,6 @@ end 'run'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let table = Table.create("alpha") as isolated Table
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try run(table) otherwise (fault) 'failed'
 		match fault 'which'
 			named(row) then print("{row.text}\n")
@@ -618,7 +614,6 @@ error E3202: <fragment>:40:9: 'RowFault.named(first)' is mutable and cannot leav
 ```
 
 <!-- test: thrown-values-read-inside-window-run -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -676,14 +671,12 @@ function main() returns ExitCode
 	let first = Bag.create("alpha") as isolated Bag
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Bag.create("alpha") as isolated Bag
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try fromName(first) otherwise (fault) 'nameFailed'
 		match fault 'nameWhich'
 			named(text) then print("{text}\n")
 			empty then print("empty\n")
 		end 'nameWhich'
 	end 'nameFailed'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try fromElement(second) otherwise (fault) 'elementFailed'
 		match fault 'elementWhich'
 			named(text) then print("{text}\n")
@@ -816,7 +809,6 @@ end 'main'
 ```
 
 <!-- test: thrown-region-contents-leaving-the-statement-that-opens-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 <!-- positions: moved -->
@@ -853,7 +845,6 @@ end 'check'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try check(holder) otherwise (fault) 'failed'
 		match fault 'which'
 			named(lines) then print("{lines.count()}\n")
@@ -2451,7 +2442,6 @@ error E3196: <fragment>:16:13: cannot store an isolated 'Box' into 'an element o
 ```
 
 <!-- test: array-literal-element-of-isolated-data-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 The literal's elements are mutable `Box` slots of the new array, so an isolated region written into one would be shared with `a`.
@@ -2472,7 +2462,6 @@ end 'Box'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	var a = Box.create(1) as isolated Box
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var boxes = BoxArray from [a]
 	print("{a.n} {boxes.count()}\n")
 	return 0

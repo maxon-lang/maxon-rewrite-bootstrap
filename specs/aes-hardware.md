@@ -618,7 +618,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.ctr-counter-wraps-inside-its-word -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -663,7 +662,6 @@ function mismatches(keyBytes Count) returns Count
 	schedule.resize((keyBytes + 28) * 8)
 	__Builtins.aesExpandKey(schedule, key)
 	let nonce = bytesFor(keyBytes + 7, count: 12)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let offsets = [0, 3, 4294967298]
 	for groupIndex in 0 upto 4 'eachGroup'
 		let group = 1 shl groupIndex
@@ -703,7 +701,6 @@ end 'main'
 ```
 
 <!-- test: aes-hardware.xor-key-stream-matches-the-bitsliced-cipher -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -741,7 +738,6 @@ end 'refusal'
 
 function streamed(cipher Aes, nonce ByteArray, counter Count, data ByteArray) returns String
 	let first = counter as AesCounter
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let output = try cipher.xorKeyStream(nonce, counter: first, data: data) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -750,7 +746,6 @@ end 'streamed'
 
 function streamedBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count, data ByteArray) returns String
 	let first = counter as AesCounter
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let output = try cipher.xorKeyStream(nonce, counter: first, data: data) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -764,7 +759,6 @@ function pastMask(cipher Aes, nonce ByteArray, counter Count, data ByteArray) re
 	output.push(8)
 	output.push(7)
 	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -779,7 +773,6 @@ function pastMaskBySoftware(cipher AesBitsliced, nonce ByteArray, counter Count,
 	output.push(8)
 	output.push(7)
 	// TODO: tuple destructuring declarations are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let (low, high) = try cipher.xorKeyStreamPastFirstBlock(nonce, counter: first, data: data, output: output) otherwise (failure) 'refused'
 		return refusal(failure)
 	end 'refused'
@@ -1098,7 +1091,6 @@ seal-012 [522dc1f099567d07f47f37a32a84427d643a8cdcbfe5c0c97598a2bd2555d1aa8cb08e
 ```
 
 <!-- test: aes-hardware.gcm-seal-and-open-match-the-software-backing -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -1137,7 +1129,6 @@ function mismatches(keyBytes Count) returns (Count, Count, Count)
 	let hardware = try AesGcm.create(key) otherwise panic("the key is valid")
 	let software = try AesGcm.build(key, bitsliced: true) otherwise panic("the key is valid")
 	let nonce = bytesFor(keyBytes + 7, count: 12)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let additionalLengths = [0, 1, 13, 16, 17, 31, 32, 33, 127, 128, 129]
 	var wrong = 0 as Count
 	var forgeries = 0 as Count
@@ -1194,7 +1185,6 @@ function main() returns ExitCode
 	let probe = try AesGcm.create(bytesFor(1, count: 16)) otherwise panic("the key is valid")
 	print("{probe.usesHardware() == hardwareExpected()}\n")
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for keyBytes in [16, 24, 32] 'eachKey'
 		// TODO: tuple destructuring declarations are not supported in minimaxon
 		let (wrong, forgeries, refused) = mismatches(keyBytes)
@@ -1698,7 +1688,6 @@ error E3005: <fragment>:7:20: '__Builtins.aesGcmOpen' requires an argument of ty
 ```
 
 <!-- test: aes-hardware.gcm-large-messages-match-the-software-backing -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 Messages of 1000, 4096, 16384, 16385 and 65553 bytes under 3000 bytes of associated data, for each key size, cross the
@@ -1719,7 +1708,6 @@ function mismatches(keyBytes Count) returns Count
 	let software = try AesGcm.build(key, bitsliced: true) otherwise panic("the key is valid")
 	let nonce = bytesFor(keyBytes + 7, count: 12)
 	let additional = bytesFor(5, count: 3000)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = [1000, 4096, 16384, 16385, 65553]
 	var wrong = 0 as Count
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'

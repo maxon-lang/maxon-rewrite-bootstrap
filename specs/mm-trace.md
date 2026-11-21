@@ -218,7 +218,6 @@ end 'main'
 ```
 
 <!-- test: module-let-array-globals-cost-no-allocation-at-all -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A module-scope `let` holding an array LITERAL, and one holding an empty container, are both constants: their
 bytes are decided when the program is compiled and nothing about them can change while it runs. So neither
 may cost a memory-manager event, and the block is EMPTY.
@@ -245,7 +244,6 @@ typealias Num = int(0 to 1000)
 
 typealias NumArray = Array with Num
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Literal = [7, 9, 11]
 
 let Empty = NumArray.create(0)
@@ -264,7 +262,6 @@ end 'main'
 ```
 
 <!-- test: module-let-string-array-costs-no-allocation -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A module-scope `let` holding an array of string LITERALS is a constant twice over: the array never changes,
 and neither does any element. So it must cost nothing, and the block is EMPTY.
 
@@ -292,7 +289,6 @@ Imaging the table removes the copies with it: the slots address the literals' ow
 addressed from a constant needs no copy because neither can be written.
 <!-- MmTrace -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Headings = ["## Deferred", "## Notes"]
 
 function main() returns ExitCode

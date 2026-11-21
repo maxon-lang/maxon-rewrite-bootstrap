@@ -177,7 +177,6 @@ end 'main'
 <!-- test: async-try-await.otherwise-bind -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `otherwise (e)` binds the error the awaited thunk THREW, typed at the thunk's declared `throws` enum — the
 promise carries its callee's error type — so `match e` dispatches on the thrown case.
 ```maxon
@@ -201,7 +200,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(2)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
@@ -220,7 +218,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-try-await.otherwise-bind-assoc-value -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The thrown error is an associated-value union, so the error flag IS a heap pointer to the payload. The
 `(e)` binding takes ownership and scope-end releases it exactly once — a leak (the payload never decref'd)
@@ -243,7 +240,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(true)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			refused(code) then return code as ExitCode
@@ -262,7 +258,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-try-await.otherwise-bind-cross-block -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The `async` and its `try await` sit in different basic blocks — an intervening `if` separates them — so the
 promise (and its error type) must reach the await across the block boundary. In the compiler the promise is the
 same SSA value throughout, so its error type is carried with no rebuild.
@@ -287,7 +282,6 @@ function main() returns ExitCode
 		guard = 2
 	end 'sep'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		return match e 'which'
 			failed gives 0
@@ -305,7 +299,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: async-try-await.otherwise-bind-void -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A void-returning throwing async awaited with `try await … otherwise (e)`: there is no result, only the error
 flag, and the `(e)` binding is still typed at the thunk's `throws` enum.
 ```maxon
@@ -328,7 +321,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(false, flag: flag)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await p otherwise (e) 'failed'
 		flag = match e 'which'
 			timedOut gives 7

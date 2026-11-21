@@ -22,14 +22,12 @@ closed is released when its last reference drops.
 ## Tests
 
 <!-- test: a-let-segment-is-closed-by-its-owner -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A `let` segment is never reassigned, and the call that unmaps it writes the resource it names, so it is accepted;
 every accessor then throws `closed`.
 ```maxon
 function main() returns ExitCode
 	let segment = try SharedSegment.create("maxon-spec-raw-let", bytes: 4096) otherwise return 1
 	segment.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let refused = try segment.copyOut(0, byteCount: 8) otherwise 'closed'
 		return 0
 	end 'closed'
@@ -73,14 +71,12 @@ end 'main'
 ```
 
 <!-- test: a-var-segment-is-closed-by-its-owner -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The accepted twin: the owner holds the segment in a `var`, closes it, and every accessor then throws `closed`.
 
 ```maxon
 function main() returns ExitCode
 	let segment = try SharedSegment.create("maxon-spec-raw-var", bytes: 4096) otherwise return 1
 	segment.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let refused = try segment.copyOut(0, byteCount: 8) otherwise 'closed'
 		return 0
 	end 'closed'

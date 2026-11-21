@@ -16,7 +16,6 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 ### Generic module merge with ops and list iteration
 
 <!-- test: generic-module-merge -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
@@ -108,7 +107,6 @@ type GenModule uses Op implements Mergeable with Item
 	end 'funcCount'
 
 	function getFunc(index Count) returns Item
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		return try self.functions.get(index) otherwise 'unreachable'
 			panic("getFunc: out of bounds")
 		end 'unreachable'

@@ -158,7 +158,6 @@ runningSeen=5 exitedSeen=-1
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -192,7 +191,6 @@ type LineService
 	end 'create'
 
 	export function next() returns String
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try self.reader.readLine() otherwise (e) 'unread'
 			return "threw {e.name}"
 		end 'unread'
@@ -258,7 +256,6 @@ first=timer line=latehello code=0
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
@@ -295,7 +292,6 @@ type LineService
 	end 'create'
 
 	export function next() returns String
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try self.reader.readLine() otherwise (e) 'unread'
 			return "threw {e.name}"
 		end 'unread'
@@ -409,7 +405,6 @@ out=outline err=errline extra=ended code=0
 ```
 
 <!-- test: streaming-subprocess-nonblocking.after-release-poll-exit-answers-running-and-a-read-answers-closed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A handle `release()` has given back is answered, not faulted on: `pollExit` answers `running`, because there
 is no child left to report an exit for, and a read through either reader taken before the release throws
@@ -435,7 +430,6 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function afterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -524,7 +518,6 @@ line[first] line[] line[last] ended code=0
 ```
 
 <!-- test: streaming-subprocess-nonblocking.the-ends-of-both-streams-are-latched-by-the-readers -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 ⭐ **`streamHasEnded` ANSWERS WITHOUT A READ ONCE A READ HAS MET THE END.** `streamHasEnded(StdioStream.stdout)`
 and `streamHasEnded(StdioStream.stderr)` answer `false` while a read of that stream may still produce bytes and
@@ -554,7 +547,6 @@ end 'bothEnded'
 function drained(reader ChildOutputReader, marker String) returns String
 	var seen = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try reader.readLine() otherwise (e) 'failed'
 			return "{seen}threw {e.name}|"
 		end 'failed'
@@ -588,7 +580,6 @@ openAtStart=true seen=first|second|tail| endedAfter=true
 ```
 
 <!-- test: streaming-subprocess-nonblocking.posix-the-ends-of-both-streams-are-latched-by-the-readers -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 `the-ends-of-both-streams-are-latched-by-the-readers` on a POSIX lane, with the child a shell that writes
 `first`, `second` and an unterminated `tail`.
@@ -607,7 +598,6 @@ end 'bothEnded'
 function drained(reader ChildOutputReader, marker String) returns String
 	var seen = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try reader.readLine() otherwise (e) 'failed'
 			return "{seen}threw {e.name}|"
 		end 'failed'

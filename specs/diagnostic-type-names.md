@@ -306,7 +306,6 @@ error E2004: <fragment>:16:12: Cannot operate on CoordBox and int
 ```
 
 <!-- test: error.an-instance-over-a-float-range-names-the-range-in-decimal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -320,7 +319,6 @@ function half() returns Ratio
 end 'half'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let ratios = [half()]
 	let bumped = ratios + 1
 	print("bumped {bumped}")
@@ -857,8 +855,6 @@ error E2015: <fragment>:11:11: Unsupported: a counted `for … in <lo> to|upto <
 ```
 
 <!-- test: error.a-union-as-an-array-index-names-the-union -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 typealias Coord = int(0 to 1000)
 
@@ -869,7 +865,6 @@ end 'Shape'
 
 function main() returns ExitCode
 	let s = Shape.circle(5)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2, 3]
 	let x = try xs.get(s) otherwise 0
 	return x as ExitCode

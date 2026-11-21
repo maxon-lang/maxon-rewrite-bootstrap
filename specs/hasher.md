@@ -144,7 +144,6 @@ the pure face agrees: true
 ```
 
 <!-- test: two-seeds-give-two-digests -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Two seeds drawn with `HashSeed.random()` give two different empty states and two different digests of every
 message, the empty one included. Two 64-bit draws make an equal pair a chance of about 2^-64, so an equal
@@ -157,7 +156,6 @@ function main() returns ExitCode
 	let other = HashSeed.random()
 	print("the seeds differ: {not one.toBytes().equals(other.toBytes())}\n")
 	print("the empty states differ: {KeyedHasher.empty(one) != KeyedHasher.empty(other)}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let messages = MessageList from ["", "a", "hello", "a message longer than one sixteen-byte block"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for message in messages 'eachMessage'
@@ -224,7 +222,6 @@ same digest: true
 ```
 
 <!-- test: the-fold-separates-the-parts -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Each step's state is the seed of the next, so the boundary between two steps is part of what is hashed:
 `"ab"` then `"c"`, `"a"` then `"bc"` and `"abc"` are three different folds under one `HashSeed`, through
@@ -252,11 +249,8 @@ end 'pureFold'
 
 function main() returns ExitCode
 	let seed = HashSeed.random()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let whole = PartArray from ["abc"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let abThenC = PartArray from ["ab", "c"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let aThenBc = PartArray from ["a", "bc"]
 	print("object whole/ab-c: {objectFold(whole, seed: seed) != objectFold(abThenC, seed: seed)}\n")
 	print("object whole/a-bc: {objectFold(whole, seed: seed) != objectFold(aThenBc, seed: seed)}\n")
@@ -280,7 +274,6 @@ pure ab-c/a-bc: true
 ```
 
 <!-- test: one-bit-avalanches -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Flipping one bit of the input moves about half of the 64 output bits of a `KeyedHasher` fold under one
 `HashSeed.random()`. For every length on either side of
@@ -311,9 +304,7 @@ function bitsSet(pattern HashDigest) returns Count
 end 'bitsSet'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = LengthList from [1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let masks = ByteArray from [1, 2, 4, 8, 16, 32, 64, 128]
 	let seed = HashSeed.random()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -363,7 +354,6 @@ end 'main'
 ```
 
 <!-- test: the-process-seed-differs-between-processes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 Each process draws its own seed at startup, so the digest of one message differs from one process to the
@@ -392,7 +382,6 @@ function spawnChild(me FilePath) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": ""])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnChild'
@@ -421,7 +410,6 @@ not all equal: true
 ```
 
 <!-- test: each-tier-is-its-own-hash -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -499,7 +487,6 @@ function runUnder(me FilePath, tier String, seedHex String) returns CollectedOut
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier, "SEED": seedHex])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
@@ -517,7 +504,6 @@ function main() returns ExitCode
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
 	let seedHex = toHex(HashSeed.random().toBytes())
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let tiers = TierList from ["aes", "software"]
 	let digests = StringArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -562,7 +548,6 @@ an empty tier is the best tier: true
 ```
 
 <!-- test: an-unknown-tier-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `MAXON_HASH_TIER` that names no tier is refused before `main`: the child writes nothing to stdout, one
@@ -584,7 +569,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": "fast"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child stdout=[{run.stdout}]\n")
@@ -604,7 +588,6 @@ child exit=1
 ```
 
 <!-- test: a-pinned-seed-is-the-process-seed-in-every-process -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 `MAXON_HASH_SEED` set to 16 hexadecimal digits is the process seed instead of a random draw: the digits are
@@ -630,7 +613,6 @@ function spawnPinned(me FilePath, seed String) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
@@ -665,7 +647,6 @@ another seed, another hash: true
 ```
 
 <!-- test: a-malformed-seed-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
 A `MAXON_HASH_SEED` that is not exactly 16 hexadecimal digits is refused before `main`: the child writes
@@ -687,7 +668,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child stdout=[{run.stdout}]\n")
@@ -778,7 +758,7 @@ created is not the seed's high half: true
 ```
 
 <!-- test: a-fold-with-no-steps-is-not-its-seed -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A seed is not recoverable from the fold that starts at it. For the seed 8 fixed bytes spell, the empty
 state `KeyedHasher.empty(seed)` and the state of a hasher that has folded nothing, `KeyedHasher.create(seed).finalize()`,
 are both different from the little-endian word those bytes spell, which is what a fold that returned
@@ -787,7 +767,6 @@ boundary with `finalize()` and `resume()` still continues the fold exactly: the 
 state the pure face reaches from the carried value.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spelled = ByteArray from [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF]
 	let seed = try HashSeed.fromBytes(spelled) otherwise panic("8 bytes are a seed")
 	let word = 0xefcdab8967452301 as HashDigest
@@ -830,7 +809,6 @@ error E3004: <fragment>:3:22: call to undefined function 'HashSeed.process'
 ```
 
 <!-- test: the-software-tier-is-one-function-on-every-target -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 <!-- env: MAXON_HASH_TIER=software -->
@@ -848,9 +826,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerList = Array with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let message = ByteArray from [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12, 0x13, 0x14]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spelled = ByteArray from [0xF0, 0xDE, 0xBC, 0x9A, 0x78, 0x56, 0x34, 0x12]
 	let explicit = try HashSeed.fromBytes(spelled) otherwise panic("8 bytes are a seed")
 	let processFold = Hasher.create()
@@ -1018,7 +994,6 @@ folds agree: true
 ```
 
 <!-- test: a-caller-added-length-tag-separates-them -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A caller can tag each part with its length — fold the bytes, then fold the count — as
 `ContentHash.mixBytes` does, over a `KeyedHasher` under one seed. Under that policy the three groupings of the
@@ -1045,11 +1020,8 @@ end 'foldParts'
 
 function main() returns ExitCode
 	let seed = HashSeed.random()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let whole = foldParts(["abc"], seed: seed)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let abThenC = foldParts(["ab", "c"], seed: seed)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let aThenBc = foldParts(["a", "bc"], seed: seed)
 	print("whole/ab-c: {whole != abThenC}\n")
 	print("whole/a-bc: {whole != aThenBc}\n")
@@ -1115,7 +1087,6 @@ a-bc=true
 ```
 
 <!-- test: a-folded-word-never-forgets-the-state -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -1153,7 +1124,6 @@ function allDistinct(digests DigestList) returns bool
 end 'allDistinct'
 
 function words() returns DigestList
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return DigestList from [0, 1, 0xFFFFFFFFFFFFFFFF, 0xa0761d6478bd642f, 0xe7037ed1a0b428db, 0x8ebc6af09c88c6e3, 0x589965cc75374cc3, 0x9E3779B97F4A7C15, 0xC2B2AE3D27D4EB4F, 0xD6E8FEB86659FD93]
 end 'words'
 
@@ -1206,7 +1176,6 @@ function runUnder(me FilePath, tier String) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": tier])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
@@ -1216,7 +1185,6 @@ function main() returns ExitCode
 		return child()
 	end 'iAmTheChild'
 	let me = try Process.executablePath() otherwise return 2
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let tiers = TierList from ["aes", "software"]
 	var kept = true
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1242,7 +1210,6 @@ all tiers keep the state: true
 ```
 
 <!-- test: the-software-tier-has-no-seed-independent-collision -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: wasm32-wasi -->
 No message may cancel the state the software tier has folded so far. The software tier keys each 16-byte
@@ -1304,9 +1271,7 @@ function collides(lanes WordList, seed HashSeed) returns bool
 end 'collides'
 
 function child() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let short = WordList from [ShortLaneKey]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let long = WordList from [ShortLaneKey, SecondLaneKey, ThirdLaneKey]
 	for draw in 1 to 2 'eachSeed'
 		let seed = HashSeed.random()
@@ -1325,7 +1290,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_TIER": "software"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child exit={run.exitCode()} stderr=[{run.stderr}]\n{run.stdout}")
@@ -1558,7 +1522,6 @@ error E3036: <fragment>:3:26: 'KeyedHasher.empty' expects 1 argument(s) but 0 we
 ```
 
 <!-- test: a-pinned-process-draws-the-same-random-seeds-on-every-run -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1594,7 +1557,6 @@ function spawnPinned(me FilePath) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef"])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
@@ -1622,7 +1584,6 @@ the two runs drew one sequence: true
 ```
 
 <!-- test: one-pin-draws-the-same-random-seeds-on-every-tier -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -1665,7 +1626,6 @@ function runUnder(me FilePath, tier String) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": "0123456789abcdef", "MAXON_HASH_TIER": tier])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'runUnder'
@@ -1698,7 +1658,6 @@ the tiers drew one sequence: true
 ```
 
 <!-- test: two-pins-draw-different-random-seeds -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1733,7 +1692,6 @@ function spawnPinned(me FilePath, seed String) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnPinned'
@@ -1767,7 +1725,6 @@ the sequences differ: true
 ```
 
 <!-- test: every-random-seed-call-is-a-draw -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1814,7 +1771,6 @@ function spawnUnder(me FilePath, mode String, seed String) returns CollectedOutp
 	argv.push(mode)
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": seed])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnUnder'
@@ -1998,7 +1954,7 @@ no two draws repeat a seed: true
 ```
 
 <!-- test: a-pinned-draw-is-not-the-pin -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
 A pin fixes the sequence of draws, and no draw is the pin itself, on every lane, `wasm32-wasi` included. Under the
 pin `0123456789abcdef`, whose 8 bytes `01 23 45 67 89 AB CD EF` are the process seed, two draws differ from each
@@ -2013,7 +1969,6 @@ function keysTheProcessFold(seed HashSeed) returns bool
 end 'keysTheProcessFold'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spelled = ByteArray from [0x01, 0x23, 0x45, 0x67, 0x89, 0xAB, 0xCD, 0xEF]
 	let pinned = try HashSeed.fromBytes(spelled) otherwise panic("8 bytes are a seed")
 	let first = HashSeed.random()

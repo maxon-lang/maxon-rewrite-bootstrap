@@ -14,12 +14,11 @@ growing arrays, ensuring elements are stored and retrieved at the correct positi
 ## Tests
 
 <!-- test: element-size-respected-in-create -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Test that element sizes are respected when creating arrays.
 Array elements should be stored and retrieved correctly at their positions.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [0]
 	arr.push(65)
 	arr.push(66)
@@ -44,11 +43,10 @@ end 'main'
 ```
 
 <!-- test: element-size-in-grow -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Test that growing an array preserves existing elements and allows new ones.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [0]
 	arr.push(10)
 	arr.push(20)

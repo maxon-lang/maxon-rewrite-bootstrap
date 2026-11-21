@@ -716,15 +716,13 @@ end 'main'
 ```
 
 <!-- test: shr-in-method-call-arg -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let buf = [0 as FullRangeInt, 0].clone()
+	var buf = [0 as FullRangeInt, 0].clone()
 	buf.push(42)
 	let x = 0xABCD
 	buf.push(x shr 9)
-	return try buf.get(3) otherwise 0
+	return try (try buf.get(3) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -732,11 +730,9 @@ end 'main'
 ```
 
 <!-- test: shr-consecutive-method-calls -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let buf = [0 as FullRangeInt].clone()
+	var buf = [0 as FullRangeInt].clone()
 	let value = 0xAABBCCDD
 	buf.push(value and 0xFF)
 	buf.push((value shr 8) and 0xFF)

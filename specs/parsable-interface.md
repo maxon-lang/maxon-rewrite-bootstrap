@@ -107,7 +107,6 @@ end 'main'
 ```
 
 <!-- test: parsable.successful-parse -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -126,7 +125,6 @@ type Value implements Parsable
 end 'Value'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try Value.fromString("hello") otherwise 'err'
 		return 0
 	end 'err'
@@ -138,7 +136,6 @@ end 'main'
 ```
 
 <!-- test: parsable.throws-on-invalid-input -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -160,7 +157,6 @@ type Value implements Parsable
 end 'Value'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try Value.fromString("") otherwise 'err'
 		return 42
 	end 'err'
@@ -172,7 +168,6 @@ end 'main'
 ```
 
 <!-- test: parsable.multiple-error-conditions -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -198,7 +193,6 @@ type Money implements Parsable
 end 'Money'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let price = try Money.fromString("-50") otherwise 'err'
 		return 99
 	end 'err'
@@ -748,12 +742,11 @@ error E3005: <fragment>:9:2: argument type mismatch for 'v': expected 'Score', g
 ```
 
 <!-- test: parsable.int-fromstring-refuses-a-value-past-the-int-range -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
 A digit string whose value does not fit a 64-bit `int` is not a number: it is refused instead of wrapping around to a small one, and both ends of the range still read.
 
 ```maxon
 function show(text String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try int.fromString(text) otherwise 'refused'
 		print("{text}: refused\n")
 		return
@@ -784,12 +777,11 @@ end 'main'
 ```
 
 <!-- test: parsable.int-fromstring-refuses-a-second-or-a-trailing-minus -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'int' -->
 `int.fromString` takes one optional leading `-` and then digits; a second minus, a minus after a digit, and a lone minus are all refused rather than read as a number.
 
 ```maxon
 function show(text String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try int.fromString(text) otherwise 'refused'
 		print("{text}: refused\n")
 		return

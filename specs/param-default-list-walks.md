@@ -515,7 +515,6 @@ kept
 
 <!-- test: error.a-message-whose-handler-writes-its-parameter-after-a-discard-refuses-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -540,7 +539,6 @@ type Store
 	end 'bump'
 end 'Store'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Shared = [7 as Integer]
 
 function main() returns ExitCode
@@ -558,7 +556,6 @@ error E3200: <fragment>:22:30: 'Shared' is not isolated: only a clean call, a `s
 
 <!-- test: a-message-whose-handler-only-reads-its-parameter-after-a-discard-accepts-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -581,7 +578,6 @@ type Store
 	end 'keep'
 end 'Store'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Shared = [7 as Integer]
 
 function main() returns ExitCode
@@ -604,7 +600,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: error.a-message-with-an-interface-parameter-before-a-discard-refuses-a-shared-value -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -645,7 +640,6 @@ type Store
 	end 'bump'
 end 'Store'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Shared = [7 as Integer]
 
 function main() returns ExitCode

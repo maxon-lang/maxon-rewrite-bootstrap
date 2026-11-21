@@ -113,7 +113,6 @@ end 'main'
 ```
 
 <!-- test: advancing-past-the-last-element-throws-and-does-not-move -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 The cursor is refused rather than moved, so `index()` still reports the last valid
 position afterwards.
@@ -128,7 +127,6 @@ function main() returns ExitCode
 	arr.push(20)
 	let cursor = try arr.managed.createCursor() otherwise return 99
 	try cursor.advance() otherwise return 98
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.advance() otherwise 'atEnd'
 		return cursor.index() + cursor.current()
 	end 'atEnd'
@@ -284,7 +282,6 @@ end 'main'
 ```
 
 <!-- test: the-refused-cursor-strands-nothing -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 The empty question is asked BEFORE anything is allocated, so the refused path allocates
 nothing and owes nothing: building the record, stamping every field and only then raising
@@ -300,7 +297,6 @@ function main() returns ExitCode
 	var refusals = 0 as Count
 	for _ in 0 upto 100 'many'
 		let arr = ByteArray.create(0)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let cursor = try arr.managed.createCursor() otherwise 'empty'
 			refusals = refusals + 1
 			continue

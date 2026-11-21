@@ -1656,7 +1656,6 @@ end 'main'
 
 
 <!-- test: array-literal-instance-onto-declared-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The shape that makes this a defect rather than a corner. Nothing here writes a generic instantiation at
 all: `[Foo.create(1), Foo.create(2)]` is an array literal, and the declaration sweep interns
 `Array with Foo` behind it because that is the only way the parser can name the literal's type. So
@@ -1683,10 +1682,9 @@ type Array_Foo
 end 'Array_Foo'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Foo.create(1), Foo.create(2)]
 	let m = Array_Foo.create(7)
-	return ((xs.count() as Num) + m.tag) as ExitCode
+	return try ((xs.count() as Num) + m.tag) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1695,7 +1693,6 @@ end 'main'
 
 
 <!-- test: array-literal-managed-element-instance-onto-declared-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same shape with a MANAGED element, which is what reaches the destructor machinery: `Foo` owns a
 `String`, so the array's elements are released through a real per-element walk rather than freed
 wholesale. The declared `Array_Foo` is dropped in the same scope. If the two ever shared a symbol the
@@ -1707,7 +1704,7 @@ type Foo
 	export var s as String
 
 	static function create(v String) returns Self
-		return Self{s: v}
+		return Self{s: v.clone()}
 	end 'create'
 end 'Foo'
 
@@ -1720,10 +1717,9 @@ type Array_Foo
 end 'Array_Foo'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Foo.create("a"), Foo.create("b")]
 	let m = Array_Foo.create(7)
-	return ((xs.count() as Num) + m.tag) as ExitCode
+	return try ((xs.count() as Num) + m.tag) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1732,7 +1728,6 @@ end 'main'
 
 
 <!-- test: array-literal-of-unrelated-type-onto-declared-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The sharpest one: the literal is of `Bar`, and `Array with Foo` is interned anyway. A local's type is
 invisible to the token sweep, so a `[<identifier>…]` literal anywhere in a file over-interns
@@ -1771,7 +1766,6 @@ end 'Array_Foo'
 function main() returns ExitCode
 	// TODO: sizeof(...) is not supported in minimaxon
 	_ = sizeof(Foo)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Bar.create(1), Bar.create(2)]
 	let m = Array_Foo.create(7)
 	return ((xs.count() as Num) + m.tag) as ExitCode
@@ -1783,7 +1777,6 @@ end 'main'
 
 
 <!-- test: declared-type-owning-a-string-named-like-an-array-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The declared type is the one that OWNS the `String` here, and that is a different question from the
 case above: a managed struct puts `__destruct_Array_Foo` into the needed-destructor set, and that set is
 keyed by NAME, so the name can pull the base-less `Array with Foo` instance in behind it and kill the
@@ -1818,10 +1811,9 @@ type Array_Foo
 end 'Array_Foo'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Foo.create(1), Foo.create(2)]
 	let m = Array_Foo.create(7)
-	return ((xs.count() as Num) + m.tag) as ExitCode
+	return try ((xs.count() as Num) + m.tag) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3264,7 +3256,6 @@ end 'main'
 ```
 
 <!-- test: error.an-unused-alias-beside-an-enum-used-through-a-field-is-reported -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The same audit when the only use is the element type of a field. `levels/` exports `enum Level` and `tags/`
@@ -3283,7 +3274,6 @@ export type Journal
 	export let entries as Levels
 
 	export static function make() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{entries: [levels.Level.high, levels.Level.low]}
 	end 'make'
 end 'Journal'
@@ -3344,8 +3334,6 @@ error E3092: b/<fragment>:14:18: exported typealias 'Handler' is never reference
 ```
 
 <!-- test: error.an-unused-generic-alias-export-beside-another-directorys-is-reported -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The same audit over two GENERIC-INSTANCE aliases of one instance: `a/use.maxon` names `a.Rows`, nobody names
 `b.Rows`, so `b/`'s export earns E3092.
 ```maxon
@@ -3365,7 +3353,6 @@ export typealias Rows = Array with Integer
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return total([1, 2, 3])
 end 'main'
 ```
@@ -3912,7 +3899,6 @@ end 'fromOther'
 ```
 
 <!-- test: two-directories-error-enums-of-one-name-render-as-their-own -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Each of `a/` and `b/` exports a `Fault` error enum with a case of the same name. A caught error renders as the
 case of the enum that was thrown, and the program prints one line for each.
 ```maxon
@@ -3938,11 +3924,9 @@ end 'failB'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try failA() otherwise (e) 'caughtA'
 		print("a {e}\n")
 	end 'caughtA'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try failB() otherwise (e) 'caughtB'
 		print("b {e}\n")
 	end 'caughtB'
@@ -4212,7 +4196,7 @@ end 'main'
 ```
 
 <!-- test: an-authors-comparable-leaves-the-library-sort-on-ints -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An author `Comparable` names the author's interface, and the library's `where Element is Comparable`
 still names the library's, which `int` meets.
 ```maxon
@@ -4221,7 +4205,6 @@ public interface Comparable
 end 'Comparable'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = FullRangeIntArray from [3, 1, 2]
 	values.sort()
 	let first = try values.get(0) otherwise return 3
@@ -4237,7 +4220,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-comparable-leaves-the-library-sort-on-strings -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same for `String`, which meets the library's `Comparable` as `int` does.
 ```maxon
 public interface Comparable
@@ -4245,7 +4227,6 @@ public interface Comparable
 end 'Comparable'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = ["b", "a"]
 	words.sort()
 	let first = try words.get(0) otherwise return 3
@@ -4261,7 +4242,6 @@ a
 ```
 
 <!-- test: an-authors-equatable-leaves-the-library-contains-on-ints -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 An author `Equatable` beside the library's `where Element is Equatable`.
 ```maxon
 public interface Equatable
@@ -4269,7 +4249,6 @@ public interface Equatable
 end 'Equatable'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = [3, 1, 2]
 	print("{values.contains(2)}\n")
 	return 0
@@ -4462,7 +4441,7 @@ true
 ```
 
 <!-- test: an-authors-type-named-comparable-leaves-the-library-sort -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An author TYPE named `Comparable`, not an interface, beside the library's `sort`.
 ```maxon
 type Comparable
@@ -4475,7 +4454,6 @@ end 'Comparable'
 
 function main() returns ExitCode
 	let held = Comparable.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = FullRangeIntArray from [3, 1, 2]
 	values.sort()
 	let first = try values.get(0) otherwise return 3
@@ -4590,22 +4568,19 @@ error E3008: <fragment>:7:52: type 'OverlayModuleProtocol' is not exported
 ```
 
 <!-- test: error.a-hidden-qualified-construction-head-is-refused-at-top-level -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An unmarked typealias named through its directory as the head of a top-level `from` construction: the qualified spelling reaches the declaration without making it visible.
 ```maxon
 // --- file: lib/codes.maxon
 typealias Codes = Array with Byte
 
 export function probeCodes() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let held = Codes from [1]
 	return 0 if held.isEmpty() else 1
 end 'probeCodes'
 
 // --- file: app/main.maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let C = lib.Codes from [1, 2]
 
 function main() returns ExitCode
@@ -5223,7 +5198,7 @@ error E3004: app/<fragment>:7:18: call to undefined function 'Console.stdin'
 ```
 
 <!-- test: an-interface-requirement-returning-byte-array-beside-a-type-named-its-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A program declares a struct `Array_Byte` beside an interface requirement returning `ByteArray`. The
 requirement's return type is the byte array its alias names, not the author's struct that shares the
 instance's name, so `p.packed()` through the interface is a byte array and its count is 3.
@@ -5244,7 +5219,6 @@ type Bytes implements Packer
 	end 'create'
 
 	function packed() returns ByteArray
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return ByteArray from [1, 2, 3]
 	end 'packed'
 end 'Bytes'
@@ -5262,8 +5236,7 @@ end 'main'
 ```
 
 <!-- test: error.a-requirement-returning-the-declared-type-is-not-met-by-the-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A requirement returning the author's struct `Array_Byte` names that struct, not the byte array whose
 instance shares its name, so a `packed()` returning `ByteArray` does not meet it.
 ```maxon
@@ -5277,7 +5250,6 @@ end 'Packer'
 
 type Bytes implements Packer
 	function packed() returns ByteArray
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return ByteArray from [1, 2, 3]
 	end 'packed'
 end 'Bytes'

@@ -1502,7 +1502,6 @@ end 'main'
 ```
 
 <!-- test: a-twice-spilled-value-reloads-after-its-own-store -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A SPILL STORE IS A USE OF THE VALUE IT STORES, AND IT MUST NEVER ANCHOR A RELOAD.
 
@@ -1528,7 +1527,6 @@ misses below): a `let`-bound array, TWO `for..in` loops, self-referencing accumu
 each, and both accumulators read in ONE interpolation.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [72]
 	var one = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1552,13 +1550,11 @@ end 'main'
 ```
 
 <!-- test: one-loop-does-not-raise-the-second-peak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 2 (two loops). One loop spills the array at most once, so no split
 ever reaches a store's use record.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [72]
 	var one = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1577,13 +1573,11 @@ end 'main'
 ```
 
 <!-- test: two-accumulators-printed-separately -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 4 (both accumulators read in ONE interpolation). Two separate
 `print`s never make both accumulators live at once, so the second peak stays below the pool.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [72]
 	var one = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1609,13 +1603,11 @@ end 'main'
 ```
 
 <!-- test: two-loops-without-self-referencing-accumulation -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 NEAR MISS — drops condition 3 (self-referencing accumulation). Without reading the accumulator
 back, each loop body holds one fewer live String across its own peak.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [72]
 	var one = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1639,13 +1631,11 @@ end 'main'
 ```
 
 <!-- test: a-twice-spilled-value-read-on-every-iteration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same four conditions with a two-element array, so each loop iterates more than once and the
 reload-before-store is read on every iteration rather than only on the first.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [72, 73]
 	var one = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'

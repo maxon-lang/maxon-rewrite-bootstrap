@@ -193,7 +193,6 @@ tls13-open-gen-2-1 23 474554202f20485454502f312e310d0a0d0a
 ```
 
 <!-- test: tls-record.open-tls13-2 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -291,7 +290,6 @@ function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 end 'xorNonce'
 
 function header(typeByte Byte, length Count) returns ByteArray
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytes = ByteArray from [typeByte, 3, 3]
 	bytes.push((length shr 8) as Byte)
 	bytes.push((length and 255) as Byte)
@@ -391,7 +389,6 @@ record-err-019 invalidIvLength
 ```
 
 <!-- test: tls-record.open-tls12 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -489,7 +486,6 @@ function xorNonce(iv ByteArray, sequenceNumber Sequence) returns ByteArray
 end 'xorNonce'
 
 function header(typeByte Byte, length Count) returns ByteArray
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytes = ByteArray from [typeByte, 3, 3]
 	bytes.push((length shr 8) as Byte)
 	bytes.push((length and 255) as Byte)

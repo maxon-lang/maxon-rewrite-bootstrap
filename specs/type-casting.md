@@ -1240,13 +1240,11 @@ error E3010: specs/type-casting/error.unneeded.call-result-same-alias.maxon:10:2
 ```
 
 <!-- test: error.a-redundant-cast-in-an-argument-is-unneeded -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A rebound `var` keeps its alias, so casting it to that alias in an argument is unneeded, as it is
 everywhere else.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = FullRangeIntArray from [4, 5, 6]
 	var i = 0 as ElementIndex
 	var sum = 0 as FullRangeInt
@@ -1626,7 +1624,7 @@ n=5 back=5
 ```
 
 <!-- test: a-widening-cast-names-the-wider-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A widening cast gives its value the wider alias: `hi` is an `ElementIndex`, not the `Count` that `count()`
 returns, so an `ElementIndex` stores into it.
 ```maxon
@@ -1652,7 +1650,6 @@ function firstAtLeast(xs Values, target FullRangeInt) returns ElementIndex
 end 'firstAtLeast'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Values from [1, 3, 5, 7, 9]
 	print("{firstAtLeast(xs, target: 6)}\n")
 	return 0

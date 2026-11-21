@@ -155,7 +155,6 @@ error E3005: <fragment>:11:2: cannot assign a value of type 'Xs' to variable 'ys
 ```
 
 <!-- test: error.an-unbranded-var-adopts-the-brand-of-its-first-branded-store -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A `var` initialized from a literal carries no brand until the first branded value is stored into it; from that store it is a variable of that brand for its whole life, and a store of another brand is refused.
 ```maxon
@@ -170,7 +169,6 @@ function main() returns ExitCode
 	xs.push(1)
 	var ys = Ys.create(0)
 	ys.push(2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = [3 as Integer]
 	a = xs
 	a = ys
@@ -183,7 +181,6 @@ error E3005: <fragment>:13:2: cannot assign a value of type 'Ys' to variable 'a'
 ```
 
 <!-- test: an-unbranded-var-that-adopted-a-brand-reaches-that-brands-parameter -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -202,7 +199,6 @@ end 'sumXs'
 function main() returns ExitCode
 	let xs = Xs.create(0)
 	xs.push(4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = [3 as Integer]
 	a = xs
 	print("{sumXs(a)}")
@@ -217,7 +213,6 @@ end 'main'
 ```
 
 <!-- test: error.an-adopted-brand-is-the-brand-every-later-read-has -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
@@ -239,7 +234,6 @@ end 'sumYs'
 function main() returns ExitCode
 	var xs = Xs.create(0)
 	xs.push(4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = [3 as Integer]
 	a = xs
 	print("{sumYs(a)}")
@@ -251,7 +245,6 @@ error E3005: <fragment>:21:10: argument type mismatch for 'ys': expected 'Ys', g
 ```
 
 <!-- test: error.branches-storing-different-brands-are-refused-at-the-second -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 The first branded store in source order fixes the brand, whichever branch it sits in.
 ```maxon
@@ -267,7 +260,6 @@ function main() returns ExitCode
 	xs.push(1)
 	var ys = Ys.create(0)
 	ys.push(2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = [3 as Integer]
 	if k > 2 'first'
 		a = xs
@@ -354,7 +346,6 @@ error E3005: <fragment>:22:12: argument type mismatch for 'other': expected 'Cou
 ```
 
 <!-- test: an-unbranded-argument-fits-a-self-parameter -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '[' -->
 ```maxon
 typealias Xs = Array with String
 
@@ -431,7 +422,6 @@ error E3059: <fragment>:17:11: type mismatch: 'otherwise type 'Xs' does not matc
 ```
 
 <!-- test: error.match-arms-across-brands -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -449,7 +439,6 @@ function pick(k Integer, xs Xs, ys Ys) returns Ys
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let r = pick(0, xs: [1], ys: [2])
 	print("{r.count()}")
 	return 0
@@ -460,7 +449,6 @@ error E3005: <fragment>:7:10: match arms give incompatible types: 'Xs' vs 'Ys'
 ```
 
 <!-- test: error.struct-literal-field-store-across-brands -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -478,7 +466,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let h = Holder.create([1])
 	print("{h.xs.count()}")
 	return 0
@@ -489,7 +476,6 @@ error E3005: <fragment>:10:15: cannot assign a value of type 'Ys' to field 'xs' 
 ```
 
 <!-- test: error.a-trailing-doc-comment-keeps-a-fields-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A trailing doc comment on a field's line does not change the field's declared type.
 ```maxon
@@ -508,7 +494,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let h = Holder.create([1])
 	print("{h.xs.count()}")
 	return 0
@@ -682,7 +667,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-element-keeps-its-declaration-beside-a-contested-name -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `alpha/` and `beta/` each export an `Integer`, `alpha/`'s over `int(0 to 1000)` and `beta/`'s over
 `int(0 to 5)`: two declarations of one name. `main.maxon` sees both, so it names the one it means through its
 directory, and `Wide`'s element is `alpha/`'s declaration, at a pushed element and at a literal adopted by a
@@ -702,18 +686,17 @@ type Holder
 	var seeds as Wide
 
 	static function create() returns Self
-		let xs = Wide.create(0)
+		var xs = Wide.create(0)
 		xs.push(7)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{xs: xs, seeds: [8]}
 	end 'create'
 
 	function first() returns alpha.Integer
-		return (try xs.get(0) otherwise 0) + (try seeds.get(0) otherwise 0)
+		return try (try xs.get(0) otherwise 0) + (try seeds.get(0) otherwise 0) otherwise panic("out of range")
 	end 'first'
 
 	function count() returns ExitCode
-		return xs.count() as ExitCode
+		return try xs.count() as ExitCode otherwise panic("out of range")
 	end 'count'
 end 'Holder'
 
@@ -784,7 +767,6 @@ end 'main'
 ### Where a brand comes from
 
 <!-- test: error.a-loop-over-rows-carries-the-element-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 `Rows = Array with Row` is spelled through the alias `Row`, so `for row in rows` binds a `Row` — and a
@@ -809,7 +791,6 @@ end 'sumCol'
 
 function main() returns ExitCode
 	var rows = Rows.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	rows.push([1, 2])
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -825,7 +806,6 @@ error E3005: <fragment>:20:19: argument type mismatch for 'c': expected 'Col', g
 ```
 
 <!-- test: an-inline-spelled-element-carries-no-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The shallow half: `Array with (Array with Integer)` names its element INLINE, so a row read out of it is
 unbranded and fits both `Xs` and `Ys`.
@@ -853,9 +833,7 @@ end 'total'
 
 function main() returns ExitCode
 	let rows = Inline.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	rows.push([1, 2])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	rows.push([3])
 	var acc = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -911,7 +889,6 @@ error E3005: <fragment>:25:10: argument type mismatch for 'b': expected 'B', got
 ```
 
 <!-- test: error.a-field-read-carries-the-fields-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
@@ -925,7 +902,6 @@ type Holder
 	export var xs as Xs
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{xs: [5, 6]}
 	end 'create'
 end 'Holder'
@@ -951,7 +927,6 @@ error E3005: <fragment>:24:10: argument type mismatch for 'ys': expected 'Ys', g
 ```
 
 <!-- test: an-unbranded-merge-adopts-nothing -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A conditional over two literals merges two unbranded arms; the result is unbranded and fits either slot.
 ```maxon
@@ -981,7 +956,6 @@ end 'sumYs'
 
 function main() returns ExitCode
 	let k = 3 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let picked = [7] if k > 2 else [8, 9]
 	print("{sumXs(picked)} {sumYs(picked)}")
 	return 0
@@ -1083,7 +1057,6 @@ end 'main'
 ```
 
 <!-- test: a-cast-between-nested-instances-over-one-declaration-is-a-rebrand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `alpha/` writes its nested element `Integer` bare and `main.maxon` writes the same declaration as
 `alpha.Integer`, one level down. Both spellings name one declaration at every level, so `Grid` and `Mine` are
 two aliases of one instance and the `as` is a re-brand.
@@ -1095,7 +1068,6 @@ export typealias Grid = Array with (Array with Integer)
 
 export function makeGrid() returns Grid
 	let grid = Grid.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	grid.push([7])
 	return grid
 end 'makeGrid'
@@ -1322,7 +1294,6 @@ error E3005: <fragment>:11:2: cannot assign a value of type '__ManagedMemory wit
 ```
 
 <!-- test: error.a-view-join-does-not-merge-two-aliases-views -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The same crossing at a join: the two arms of the `match` give views under two brands.
@@ -1342,7 +1313,6 @@ function pick(k Integer, bytes Bytes, other Other) returns ExitCode
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return pick(0, bytes: [7], other: [9])
 end 'main'
 ```
@@ -1351,7 +1321,6 @@ error E3005: <fragment>:7:10: match arms give incompatible types: '__ManagedMemo
 ```
 
 <!-- test: an-unbranded-view-reaches-a-branded-parameter-of-its-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- tier: stdlib -->
 A row read out of `Rows` is unbranded, because `Rows` spells its element inline, so its view carries no
 brand either and decays into `Bytes`, a brand of the same instance.
@@ -1366,7 +1335,6 @@ end 'first'
 
 function main() returns ExitCode
 	let rows = Rows.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	rows.push([7, 9])
 	let row = try rows.get(0) otherwise panic("no row")
 	print("{first(row.managed)}\n")
@@ -1381,7 +1349,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-decays-into-a-narrow-ranged-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE DECAY CONTROL ABOVE USES A FULL-RANGE ELEMENT, AND THAT IS THE ONE CASE THE RULE CANNOT FAIL IN.**
 `a-literal-decays-into-any-brand` declares `Integer = int(i64.min to i64.max)`, so its literal's own inferred
@@ -1435,9 +1402,7 @@ function one(n Count) returns Count
 end 'one'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let viaLiteral = totalXs([1, 2, 3])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let viaOtherBrand = totalYs([1, 2, 3])
 	let viaScalar = one(3)
 	let built = Xs.create(0)
@@ -1452,7 +1417,6 @@ end 'main'
 ```
 
 <!-- test: an-eight-byte-ranged-element-is-adopted-too -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### The element does not have to be NARROWER — it has to be a different TYPE
 ⛔⛔ **`int(0 to i64.max)` AND `int(0 to u64.max)` OCCUPY A MACHINE WORD, EXACTLY AS A BARE `int` DOES, AND
@@ -1486,9 +1450,7 @@ function size(ys UnsignedArray) returns Unsigned
 end 'size'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let viaArgument = total([1, 2, 3]) as ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let viaHead = size(UnsignedArray from [1, 2, 3]) as ExitCode
 	return viaArgument + viaHead
 end 'main'
@@ -1498,7 +1460,6 @@ end 'main'
 ```
 
 <!-- test: error.an-adopted-element-is-still-range-checked -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ### Adoption CHECKS the elements; it does not assume them
@@ -1521,7 +1482,6 @@ function total(xs UnsignedArray) returns Unsigned
 end 'total'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return total([-1]) as ExitCode
 end 'main'
 ```
@@ -1530,7 +1490,6 @@ error E3005: <fragment>:14:16: Value -1 is outside the range of 'Unsigned' (int(
 ```
 
 <!-- test: a-conditional-hands-the-slot-to-both-arms -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A `… if … else …` is ONE value in the slot, so both arms are built at the slot's element type
 ⛔ **THE ARM THAT PARSES FIRST MUST NOT TAKE THE ANSWER AWAY FROM THE OTHER.** The true arm is parsed before
@@ -1552,9 +1511,7 @@ function total(xs Xs) returns Count
 end 'total'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let taken = total([1, 2] if true else [30, 40])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let skipped = total([1, 2] if false else [30, 40])
 	return (taken + skipped) as ExitCode
 end 'main'
@@ -1564,7 +1521,6 @@ end 'main'
 ```
 
 <!-- test: a-type-parameter-slot-of-a-concrete-instance-adopts-a-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A method of a concrete instance names the slot its type parameter stands for
 `Map.upsert`'s `value` is declared `Value`, which `ItemIndex` fixes to `Items`, so a literal written there is
 built as an `Items`; and an `otherwise` literal is built as the `Items` the lookup it falls back from hands
@@ -1578,9 +1534,7 @@ typealias ItemIndex = Map with (Key, Items)
 
 function main() returns ExitCode
 	let index = ItemIndex.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	index.upsert(500, value: [1, 2])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let found = try index.get(500) otherwise [0]
 	print("{index.count()} {found.count()}\n")
 	return 0
@@ -1659,7 +1613,6 @@ end 'main'
 ```
 
 <!-- test: error.two-vars-each-first-storing-the-other-resolve-from-the-first-store-and-the-later-direct-store-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 `b = a` and `a = b` each store a value whose brand is settled later. Resolution starts at the first store, `b = a`, which needs `a`'s brand. `a`'s first store, `a = b`, needs `b`'s brand, which is the one being resolved, so it carries nothing and `a` adopts the `Xs` of its direct store. `b = a` then carries `Xs`, `b` is an `Xs`, and the direct `Ys` store into it is the one refused.
 ```maxon
@@ -1668,9 +1621,7 @@ typealias Xs = Array with String
 typealias Ys = Array with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = ["a"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var b = ["b"]
 	b = a
 	a = b

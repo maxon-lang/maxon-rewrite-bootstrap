@@ -40,8 +40,6 @@ error E3005: <fragment>:16:9: argument type mismatch for 'value': expected 'Reg'
 ```
 
 <!-- test: error.a-literal-of-two-enums -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 enum Reg
 	rcx
@@ -54,7 +52,6 @@ enum CharClass
 end 'CharClass'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let mixed = [Reg.rcx, CharClass.tab]
 	return mixed.count() as ExitCode
 end 'main'
@@ -64,7 +61,6 @@ error E3005: <fragment>:13:24: argument type mismatch for 'value': expected 'Reg
 ```
 
 <!-- test: a-literal-of-one-enum -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 enum Reg
 	rcx
@@ -72,7 +68,6 @@ enum Reg
 end 'Reg'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let regs = [Reg.rcx, Reg.rdx, Reg.rcx]
 	print("{regs.count()}\n")
 	return 0
@@ -86,12 +81,9 @@ end 'main'
 ```
 
 <!-- test: error.a-body-literal-of-a-string-then-an-int -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A literal inside a function and a literal at top level give one code and one sentence for the same mistake.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["a", 1]
 	return xs.count() as ExitCode
 end 'main'
@@ -101,10 +93,7 @@ error E3005: <fragment>:3:17: argument type mismatch for 'value': expected 'Stri
 ```
 
 <!-- test: error.a-top-level-literal-of-a-string-then-an-int -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = ["a", 1]
 
 function main() returns ExitCode
@@ -116,8 +105,6 @@ error E3005: <fragment>:2:16: argument type mismatch for 'value': expected 'Stri
 ```
 
 <!-- test: error.a-top-level-literal-of-two-unions -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A top-level literal of records is judged by the same door as one of scalars.
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -132,7 +119,6 @@ union Other
 	skip
 end 'Other'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let globalOps = [Op.add(7), Other.skip]
 
 function main() returns ExitCode

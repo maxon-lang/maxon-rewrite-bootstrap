@@ -394,7 +394,6 @@ end 'main'
 ```
 
 <!-- test: a-throwing-tiny-function-is-inlined -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A throwing body leaves through `errorReturn` and its sites are `tryCall`s; the splice carries the result
 and the error flag to the continuation, so the caller's `otherwise` still sees the success value or the
 thrown case, whichever way the copied body left.
@@ -418,7 +417,6 @@ function halve(n Integer) returns Integer throws HalveError
 end 'halve'
 
 function classify(n Integer) returns Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let half = try halve(n) otherwise (e) 'refused'
 		match e 'which'
 			negative then return 1000
@@ -622,7 +620,6 @@ end 'main'
 ```
 
 <!-- test: the-panic-rule-holds-when-the-argument-is-an-inlined-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ **THE PANIC RULE, UNDER THAT ORDER.** The value the inlined guard tests is an ELEMENT, produced
 by the access `inlineManagedPrimitives` has already expanded into this loop — so the splice reads a
@@ -640,7 +637,6 @@ function clampPct(x Percent) returns Percent
 end 'clampPct'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [60 as Percent, 50 as Percent]
 	var last = 0 as Percent
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -662,7 +658,6 @@ Stack trace:
 ```
 
 <!-- test: a-panic-inside-a-body-spliced-twice-names-every-frame -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `clampPct` is a leaf spliced into `doubled`; `doubled` then holds no call, is taken for a leaf in the next round and is spliced into `main`'s two sites. The `Percent` guard of `clampPct` fires in the twice-spliced copy, and the trace still names `clampPct`, `doubled` and `main`, exactly as the calls did.
 
@@ -678,7 +673,6 @@ function doubled(x Percent) returns Percent
 end 'doubled'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = [20 as Percent, 30 as Percent, 60 as Percent]
 	var last = 0 as Percent
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -741,7 +735,6 @@ end 'main'
 ```
 
 <!-- test: error.an-inlined-element-of-a-let-literal-outside-the-callee-range-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The element of a `let` literal is checked at each use like the literal it was written as, whichever way the loop over it is expanded: `101` reaches `clampPct`'s `Percent` slot and is refused where it is written.
@@ -753,7 +746,6 @@ function clampPct(x Percent) returns Percent
 end 'clampPct'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [101]
 	var last = 0 as Percent
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'

@@ -289,7 +289,6 @@ error E3102: <fragment>:12:21: use of moved value 'parked': it was moved in an e
 
 <!-- test: a-reply-dropped-with-its-holder-fails-the-await-with-service-stopped -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Parker` keeps its `Reply` in its state and `main` shuts the service down without anything answering it. The service's
@@ -323,7 +322,6 @@ function main() returns ExitCode
 	let parked = try parker.park() otherwise panic("a running service with room takes the send")
 	parker.shutdown()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await parked otherwise (e) 'dropped'
 		match e 'why'
 			serviceStopped then return 3
@@ -338,7 +336,6 @@ end 'main'
 
 <!-- test: a-reply-dropped-at-the-end-of-its-own-message-fails-the-await -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: reply.later() is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `ask(wake)` answers at once when told to and otherwise lets the `Reply` go out of scope with the message. The first
@@ -369,7 +366,6 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let seven = try await answered otherwise panic("the first message answered itself")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await dropped otherwise (e) 'stopped'
 		match e 'why'
 			serviceStopped then return (seven + 1) as ExitCode

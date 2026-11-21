@@ -33,7 +33,6 @@ reader parks its green thread until the Windows I/O completion port answers, and
 ## Tests
 
 <!-- test: streaming-subprocess-env.inherit-updating-reaches-the-streaming-child -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 A streaming child is spawned with `Environment.inheritUpdating` naming ONE variable that does not
 exist in this process. The child is `cmd /c echo %MAXON_STREAM_ENV_PROBE%`, which expands the name
@@ -48,7 +47,6 @@ function main() returns ExitCode
 	argv.push("/c")
 	argv.push("echo")
 	argv.push("%MAXON_STREAM_ENV_PROBE%")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let childEnvironment = Environment.inheritUpdating(["MAXON_STREAM_ENV_PROBE": "seen"])
 	let child = try StreamingSubprocess.spawnWithEnvironment(Executable.name("cmd"), arguments: argv, workingDirectory: WorkingDirectory.inherit, environment: childEnvironment) otherwise return 4
 	let output = try child.takeStdout() otherwise return 5

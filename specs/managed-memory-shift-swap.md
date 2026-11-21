@@ -189,7 +189,6 @@ end 'main'
 ```
 
 <!-- test: shift-right-into-reserved-capacity-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 `index + count >= length` is refused even with capacity to spare, and the complaint is
 `shiftOutOfBounds` rather than `indexOutOfBounds`: a shift blames the RANGE it was handed, not one
@@ -205,7 +204,6 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.reserve(16)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.managed.shiftRight(1, 1) otherwise (e) 'refused'
 		print("{e.name}\n")
 		return 5
@@ -283,7 +281,6 @@ beta heap string long enough to require an allocation
 ```
 
 <!-- test: shift-right-whose-range-end-overflows-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ⭐ **THE RANGE CHECK CANNOT BE WRAPPED.** `index + count` here is past `i64.max`, so a check that adds
 the two in signed arithmetic sees a negative end, passes it, and slides memory far outside the buffer. The
@@ -300,7 +297,6 @@ function main() returns ExitCode
 	xs.push(2)
 	xs.push(3)
 	xs.push(4)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftRight(9223372036854775804, 4) otherwise (e) 'refused'
 		match e 'why'
 			shiftOutOfBounds then print("shiftOutOfBounds\n")
@@ -320,7 +316,6 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-left-over-strings-releases-the-overwritten-slot-and-zeroes-the-tail -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- tier: stdlib -->
 ⭐⭐ **A LEFT SLIDE OVERWRITES ONE OCCUPANT AND DUPLICATES ANOTHER, AND THE MEMBER OWNS BOTH.**
 `shiftLeft(1, 2)` slides `[1, 3)` down onto `[0, 2)`: slot 0's `alpha` is released before it is
@@ -329,7 +324,6 @@ stays 3, so slot 2 reads as an empty slot, and teardown releases `beta` and `gam
 release `alpha` leaks (exit 101); without the zeroing `gamma` is released twice.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["alpha {40 + 2} heap string one", "beta {40 + 2} heap string two", "gamma {40 + 2} heap string three"]
 	try xs.managed.shiftLeft(1, 2) otherwise return 3
 	let first = try xs.get(0) otherwise "missing"
@@ -353,7 +347,6 @@ the tail is empty
 ```
 
 <!-- test: shift-right-to-the-live-end-over-strings-does-not-leak -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 `index + count == length` would slide the last live element into the first slot past the live range,
 where no length owns it. It is refused with `shiftOutOfBounds` even with capacity reserved, and the
@@ -368,7 +361,6 @@ function main() returns ExitCode
 	xs.push("beta {40 + 2} heap string two")
 	xs.push("gamma {40 + 2} heap string three")
 	xs.reserve(4)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftRight(1, 2) otherwise (e) 'refused'
 		match e 'why'
 			shiftOutOfBounds then print("shiftOutOfBounds\n")
@@ -397,7 +389,6 @@ gamma 42 heap string three
 ```
 
 <!-- test: shift-right-whose-count-overflows-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The overflow on the COUNT side: `1 + i64.max` wraps just as `(i64.max - 3) + 4` does above, and the check
@@ -413,7 +404,6 @@ function main() returns ExitCode
 	xs.push(2)
 	xs.push(3)
 	xs.push(4)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftRight(1, 9223372036854775807) otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'
@@ -436,7 +426,6 @@ shiftOutOfBounds
 ```
 
 <!-- test: shift-right-with-a-negative-argument-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A negative `index` or `count` read as unsigned is past every length, so both are `shiftOutOfBounds`. Read as
@@ -452,11 +441,9 @@ function main() returns ExitCode
 	xs.push(1)
 	xs.push(2)
 	xs.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftRight(-1, 1) otherwise (e) 'negativeIndex'
 		print("index: {e.name}\n")
 	end 'negativeIndex'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftRight(0, -1) otherwise (e) 'negativeCount'
 		print("count: {e.name}\n")
 	end 'negativeCount'
@@ -479,7 +466,6 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-with-a-negative-argument-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same unsigned reading on the left slide: `-1` as an index is past every length, not one below slot 0, and
@@ -494,11 +480,9 @@ function main() returns ExitCode
 	xs.push(1)
 	xs.push(2)
 	xs.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftLeft(-1, 1) otherwise (e) 'negativeIndex'
 		print("index: {e.name}\n")
 	end 'negativeIndex'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftLeft(1, -1) otherwise (e) 'negativeCount'
 		print("count: {e.name}\n")
 	end 'negativeCount'
@@ -521,7 +505,6 @@ count: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-past-the-live-length-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⭐ **`shiftLeft` IS BOUNDED BY LENGTH, NOT CAPACITY.** `shiftLeft(1, 3)` over three live bytes asks to slide
@@ -540,12 +523,10 @@ function main() returns ExitCode
 	arr.push(20)
 	arr.push(30)
 	arr.reserve(16)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.managed.shiftLeft(1, 3) otherwise (e) 'pastLength'
 		print("past the length: {e.name}\n")
 	end 'pastLength'
 	let capacity = arr.managed.capacity()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.managed.shiftLeft(1, capacity) otherwise (e) 'wholeCapacity'
 		print("the whole capacity: {e.name}\n")
 	end 'wholeCapacity'
@@ -568,7 +549,6 @@ the whole capacity: shiftOutOfBounds
 ```
 
 <!-- test: shift-left-whose-range-end-overflows-is-shift-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `i64.max + 2` wraps negative, below every length; the check refuses it without forming the sum.
@@ -582,7 +562,6 @@ function main() returns ExitCode
 	xs.push(1)
 	xs.push(2)
 	xs.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.managed.shiftLeft(9223372036854775807, 2) otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'

@@ -440,7 +440,6 @@ end 'main'
 
 
 <!-- test: a-value-outside-a-narrowed-alias-never-reaches-a-comparison -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The other half of the sentinel rule: a value that would contradict a non-negative declaration cannot
 ARRIVE. `stdlib`'s
 `ElementIndex = int(0 to i64.max)` is narrow enough to be guarded, so a laundered `-1` is refused at
@@ -459,7 +458,6 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val = try arr.get(launder(-1) as ElementIndex) otherwise 99
 	return val

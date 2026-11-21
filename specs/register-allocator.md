@@ -978,7 +978,6 @@ end 'main'
 42
 ```
 <!-- test: error-otherwise-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -993,7 +992,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var result = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail() otherwise 'err'
 		result = 42
 	end 'err'

@@ -214,7 +214,6 @@ fin 2
 ```
 
 <!-- test: operands-bound-before-the-try-let-a-send-hand-the-value-back -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The throwing operand is bound before the `Resp` exists and before the `try`, so no linear value is live at a throw point.
 ```maxon
@@ -263,7 +262,6 @@ end 'Sink'
 function send(s Sink.handle) throws Oops
 	let extra = try thrv(1)
 	let r = Resp.create(extra)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r, extra: extra) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back, _) then back.fin()
@@ -287,7 +285,6 @@ fin 1
 ```
 
 <!-- test: a-failed-send-hands-a-linear-argument-back-to-the-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The send queues `r`, which the service consumes. A failed send would carry it back in `mailboxFull` or `serviceStopped`, and each arm of the handler consumes it.
 ```maxon
@@ -326,7 +323,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then back.fin()
@@ -344,7 +340,6 @@ fin 1
 ```
 
 <!-- test: a-linear-error-carries-its-value-to-the-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A union that carries a linear value is linear and may implement `Error`. `throw` and a propagating `try` move the value on, and the handler's `match` binds and consumes it.
 ```maxon
@@ -384,20 +379,17 @@ end 'viaPropagate'
 
 function main() returns ExitCode
 	let r = Resp.create(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try trySend(r, flag: true) otherwise (e) 'h'
 		match e 'k'
 			refused(back) then back.fin()
 		end 'k'
 	end 'h'
 	let q = Resp.create(2)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try viaPropagate(q, flag: true) otherwise (e) 'h2'
 		match e 'k2'
 			refused(back) then back.fin()
 		end 'k2'
 	end 'h2'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try viaPropagate(Resp.create(3), flag: false) otherwise (e) 'h3'
 		match e 'k3'
 			refused(back) then back.fin()
@@ -1913,7 +1905,6 @@ error E3223: <fragment>:22:2: this drops a linear value that was never consumed:
 ```
 
 <!-- test: a-send-with-a-throwing-operand-while-a-linear-value-is-live-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1962,7 +1953,6 @@ type Sink
 end 'Sink'
 
 function send(s Sink.handle, r Resp) throws Oops
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r, extra: try thrv(1)) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back, _) then back.fin()
@@ -2264,7 +2254,6 @@ error E3102: <fragment>:37:3: use of moved value 'pending': its ownership moved 
 ```
 
 <!-- test: a-finalizer-that-throws-after-destruct-is-caught-without-the-value-live -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A finalizer may throw once it has ended the value: the receiver moved into the call, so the handler of the `try` holds nothing live.
 ```maxon
 typealias Code = int(0 to 999)
@@ -2310,7 +2299,6 @@ function main() returns ExitCode
 	let g = Gate.create(1)
 	try g.close() otherwise ignore
 	let h = Gate.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.close() otherwise (e) 'failed'
 		print("closed with {e.name}\n")
 	end 'failed'
@@ -2827,7 +2815,6 @@ fin 2
 
 <!-- test: an-outer-isolated-linear-value-handed-back-by-a-failed-send-cannot-enter-a-modify-block-through-a-keeping-parameter -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -2894,7 +2881,6 @@ function main() returns ExitCode
 	let bx = Bag.create() as isolated Bag
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try s.take(v) otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull(back) then useS(giveS(back))
@@ -3094,7 +3080,6 @@ error E2015: <fragment>:69:3: Unsupported: a block-form `try` whose body MOVES a
 <!-- test: an-await-of-a-send-that-hands-an-outer-isolated-value-back-cannot-run-inside-a-modify-block -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -3163,7 +3148,6 @@ function main() returns ExitCode
 	// TODO: modify blocks are not supported in minimaxon
 	modify bx 'w'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try await s.take(v) otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull(back) then useS(giveS(back))
@@ -3348,7 +3332,7 @@ error E3201: <fragment>:46:8: an isolated value from outside 'w' cannot be moved
 ```
 
 <!-- test: a-linear-value-is-refused-in-an-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A bare array literal infers `Array with Resp`, an instance whose drop frees its records with no finalizer, so the literal is refused like the written type argument is.
 ```maxon
@@ -3371,7 +3355,6 @@ type Resp
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Resp.create(1), Resp.create(2)]
 	print("{xs.count()}\n")
 	return 0
@@ -3382,7 +3365,7 @@ error E3224: <fragment>:22:12: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-linear-value-is-refused-in-a-map-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 
 ```maxon
@@ -3405,7 +3388,6 @@ type Resp
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": Resp.create(1)]
 	print("{m.count()}\n")
 	return 0
@@ -3461,7 +3443,6 @@ error E3224: <fragment>:34:15: 'Resp' is a linear value and cannot be a type arg
 ```
 
 <!-- test: a-closure-that-builds-a-linear-value-cannot-fill-a-mapped-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 `map` answers an array of its own element type, so a closure returning a linear value for an integer array is a type mismatch and no `Array with Resp` is ever built.
@@ -3487,7 +3468,6 @@ type Resp
 end 'Resp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let codes = CodeArray from [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let made = codes.map(function(n) gives Resp.create(n))
@@ -3802,7 +3782,6 @@ error E3210: <fragment>:44:11: 'Waiting.ask' may wait (it awaits a reply from 'D
 ```
 
 <!-- test: a-timed-send-takes-no-linear-argument -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 
@@ -3842,7 +3821,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sink.create()
 	let r = Resp.create(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r, sendTimeout: 5) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then back.fin()
@@ -4595,7 +4573,6 @@ error E3223: <fragment>:20:11: this drops 'self', a linear value that was never 
 ```
 
 <!-- test: a-linear-message-queued-when-the-service-shuts-down-is-consumed-by-the-service -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 One processor and no yield in `main` keep the service from running while two sends queue behind its start. `shutdown()` closes the mailbox once it has drained, so both queued messages still reach `take`, which consumes each, and a send after the shutdown hands its value back in `serviceStopped`. The refused send is consumed first because the service has not run yet.
@@ -4633,7 +4610,6 @@ end 'Sink'
 
 function sendOne(s Sink.handle, code Code)
 	let r = Resp.create(code)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then back.fin()
@@ -7034,7 +7010,6 @@ fin 4
 ```
 
 <!-- test: a-behaviour-matches-its-own-linear-union-parameter-in-both-branches -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The message parameter `m` is owned by the behaviour, which consumes it on whichever branch runs.
@@ -7089,7 +7064,6 @@ end 'Desk'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let desk = spawn Desk.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try desk.serve(Maybe.some(Resp.create(5)), direct: true) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back, _) then settle(back)
@@ -8035,7 +8009,6 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-is-copied-into-a-callee-that-sends-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `s` holds the payload-free case on every path, so it owes nothing: each call takes a copy, and `relay` sends its parameter, whose type is closed.
@@ -8075,7 +8048,6 @@ type Hq
 end 'Hq'
 
 function relay(a Hq.handle, s Sn)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.takeS(s) otherwise (q) 'h'
 		match q 'x'
 			mailboxFull(z) then drain(z)
@@ -8107,7 +8079,6 @@ end 'main'
 ```
 
 <!-- test: a-vacant-linear-union-local-is-passed-twice-to-a-callee-that-sends-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same with an unmarked `let`.
 ```maxon
@@ -8146,7 +8117,6 @@ type Hq
 end 'Hq'
 
 function relay(a Hq.handle, s Sn)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.takeS(s) otherwise (q) 'h'
 		match q 'x'
 			mailboxFull(z) then drain(z)
@@ -8177,7 +8147,6 @@ end 'main'
 ```
 
 <!-- test: a-failed-sends-hand-back-goes-to-an-isolated-parameter-whatever-its-closure -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Reply` holds a plain `Box`, so its type is not closed, yet the binding a failed send hands back is an `isolated` one (ruling 45) and goes to an `isolated` parameter.
@@ -8224,7 +8193,6 @@ end 'settle'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let t = spawn Taker.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try t.take(Reply.create(Box.create(1), code: 1)) otherwise (sendFailure) 'failed'
 		match sendFailure 'why'
 			mailboxFull(r) then settle(r)

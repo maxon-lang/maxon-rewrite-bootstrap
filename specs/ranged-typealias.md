@@ -2473,7 +2473,6 @@ guarded at the store, an `as Percent` value at its cast, and a value of another 
 and `set` its runtime panic below; this is `set`'s literal refusal, the sixth of the six halves.
 
 <!-- test: error.array-set-out-of-range -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 ```maxon
 typealias Percent = int(0 to 100)
@@ -2483,7 +2482,6 @@ typealias PA = Array with Percent
 function main() returns ExitCode
 	var a = PA.create(0)
 	a.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.set(0, value: 500) otherwise 'oob'
 		return 9
 	end 'oob'
@@ -2495,7 +2493,7 @@ error E3005: <fragment>:8:8: Value 500 is outside the range of 'Percent' (int(0 
 ```
 
 <!-- test: array-set-runtime-panic -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Wide = int(0 to 1000)
 
@@ -2510,7 +2508,6 @@ end 'grow'
 function main() returns ExitCode
 	let a = PA.create(0)
 	a.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.set(0, value: -grow(5)) otherwise 'oob'
 		return 9
 	end 'oob'
@@ -2528,7 +2525,7 @@ Stack trace:
 ```
 
 <!-- test: array-set-cast-runtime-panic -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Wide = int(0 to 1000)
 
@@ -2543,7 +2540,6 @@ end 'grow'
 function main() returns ExitCode
 	let a = PA.create(0)
 	a.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.set(0, value: grow(5) as Percent) otherwise 'oob'
 		return 9
 	end 'oob'

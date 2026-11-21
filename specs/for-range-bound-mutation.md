@@ -134,7 +134,6 @@ count=3
 ```
 
 <!-- test: array-shared-through-a-field-cleared-in-body-ends-the-iteration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `Holder` stores the same record the loop walks, and grows then clears it from inside the body.
 The element read before the call stays valid, and the next step sees the cleared count and ends.
@@ -159,7 +158,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["first-{1}", "second-{2}", "third-{3}"]
 	let h = Holder.create(arr)
 	var seen = 0 as Tally

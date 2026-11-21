@@ -3290,7 +3290,7 @@ end 'main'
 ```
 
 <!-- test: a-global-named-like-a-qualified-type-segment-leaves-a-static-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A managed top-level binding named like the chain's second segment binds nothing the chain reads:
 `sub.Calc.n` is the directory type's static field, and the global is read only as a whole value
@@ -3303,7 +3303,6 @@ export type Calc
 end 'Calc'
 
 // --- file: main.maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Calc = FullRangeIntArray from [1]
 
 function size(xs FullRangeIntArray) returns ExitCode
@@ -3319,7 +3318,6 @@ end 'main'
 ```
 
 <!-- test: a-local-array-named-like-a-qualified-type-segment-leaves-a-managed-static -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A method call through a managed static reads the directory type's array past a local array named `Calc`, and
 the bare `Calc.count()` counts the local (3 + 2).
@@ -3327,13 +3325,11 @@ the bare `Calc.count()` counts the local (3 + 2).
 // --- file: sub/calc.maxon
 export type Calc
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	export static let managed = FullRangeIntArray from [4, 5, 6]
 end 'Calc'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let Calc = [1, 2]
 	return (sub.Calc.managed.count() + Calc.count()) as ExitCode
 end 'main'
@@ -3513,7 +3509,6 @@ end 'main'
 ```
 
 <!-- test: an-authors-enum-beside-the-librarys-element-index-leaves-the-alias-one-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 `ElementIndex` is the library's typealias, and an author's directory declares an enum of that name. The
 alias keeps one identity: `xs.count()` returns it and `stdlib.ElementIndex` names it, so the two add,
@@ -3531,7 +3526,6 @@ end 'pick'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	let b = a.pick(false)
 	let c = a.ElementIndex.above

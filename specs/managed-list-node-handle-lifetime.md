@@ -669,8 +669,6 @@ end 'main'
 ```
 
 <!-- test: removing-a-handle-a-navigator-hands-back-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⭐⭐ **THE ROSTER AGAINST ALL EIGHT MINT DOORS.** *"An insertion on this same chain, handed in inline"*
 names only the doors that mint from a chain value. `n.next()` mints from a NODE — no chain value is in
 scope at that door to stamp — so the identity test cannot admit it and it is refused. That is the SAFE
@@ -684,7 +682,6 @@ function main() returns ExitCode
 	var chain = StrChain.create()
 	let a = chain.insertLast("first element, long enough to be a real heap allocation")
 	let b = chain.insertLast("second element, long enough to be a real heap allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = chain.remove(try a.next() otherwise 'atEnd'
 		return 1
 	end 'atEnd')
@@ -697,7 +694,7 @@ error E2015: <fragment>:8:18: Unsupported: `__ManagedList.remove` takes the elem
 ```
 
 <!-- test: removing-a-handle-this-chains-own-navigator-hands-back-inline -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 The other half of the row above, and the reason the test is IDENTITY rather than "which door minted it".
 `chain.tail()` and `chain.insertAfter(…)` both mint from THIS chain, so both carry its stamp and both are
 admitted — the handle exists only as this argument and no second expression can name it. Two more mint
@@ -710,7 +707,6 @@ function main() returns ExitCode
 	let a = chain.insertLast("the element that stays behind, on the heap")
 	let spliced = chain.remove(chain.insertAfter(a, value: "an element spliced in and taken straight out"))
 	print("[{spliced}]\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let last = chain.remove(try chain.tail() otherwise 'empty'
 		return 1
 	end 'empty')
@@ -727,7 +723,7 @@ end 'main'
 ```
 
 <!-- test: the-four-node-argument-doors-admit-every-arrival -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ⭐⭐ **THE ROSTER'S ANSWER FOR THE FOUR NEW NODE-ARGUMENT DOORS, AND IT IS "ALL OF THEM" — DERIVED, NOT
 PROBED.** `remove` needs a roster because it EMPTIES `value@16`, so a handle that survives the call would
 read an emptied slot. `insertAfter`, `insertBefore`, `reinsertFirst` and `reinsertLast` change LINKS and
@@ -764,7 +760,6 @@ function moveToBack(c StrChain, n StrNode)
 end 'moveToBack'
 
 function headOf(c StrChain) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try c.head() otherwise 'empty'
 		return "<empty>"
 	end 'empty'
@@ -782,7 +777,6 @@ function main() returns ExitCode
 	print("call result: {headOf(chain)} / {k.read()}\n")
 	moveToBack(chain, n: n1)
 	print("parameter: {headOf(chain)} / {n1.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	chain.reinsertFirst(try chain.tail() otherwise 'empty'
 		return 1
 	end 'empty')
@@ -804,7 +798,6 @@ insertion: one, long enough to be a real heap allocation 3
 ```
 
 <!-- test: a-navigators-handle-outlives-the-chain-it-came-from -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `head()` mints a handle exactly as an insertion does, and it hands back a node that ALREADY has owners —
 so its `+1` is taken inside the runtime entry, on the ok path, where the parser structurally cannot emit
 one: an incref at the mint door would sit before the `try` fork and run on the ERROR edge too. This is
@@ -824,7 +817,6 @@ end 'headOfAFreshChain'
 
 function main() returns ExitCode
 	for _ in 0 upto 8 'each'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let node = try headOfAFreshChain() otherwise 'empty'
 			return 1
 		end 'empty'
@@ -848,7 +840,7 @@ the element the handle keeps alive, on the heap
 ```
 
 <!-- test: a-navigators-handle-in-a-field-walks-the-chain -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ⭐ **`stdlib/List.maxon`'s `ListIterator`, whole.** A handle from `head()` stored in a FIELD, a
 `next()` handle REASSIGNED over it on every step, and a read through the field after the chain has been
 cleared. Each of the three is a separate obligation — the mint's reference, the reassignment releasing the
@@ -876,17 +868,14 @@ function main() returns ExitCode
 	chain.insertLast("one, long enough to be a real heap allocation")
 	chain.insertLast("two, long enough to be a real heap allocation")
 	chain.insertLast("three, long enough to be a real heap allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = Cursor.create(try chain.head() otherwise 'empty'
 		return 1
 	end 'empty')
 	print("{cursor.at.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.step() otherwise 'atEnd'
 		return 2
 	end 'atEnd'
 	print("{cursor.at.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.step() otherwise 'atEnd2'
 		return 3
 	end 'atEnd2'
@@ -907,7 +896,6 @@ three, long enough to be a real heap allocation 0
 ```
 
 <!-- test: a-navigator-that-throws-mints-nothing -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The error edge of all four navigators, two hundred times over. A mint whose `+1` sat BEFORE the `try`
 fork would incref a result that is not a node on every one of these trips — and would also displace the
 call as the op the `try` rewrite targets, which is a compile-time E3055 rather than a wrong answer. Once
@@ -919,7 +907,6 @@ function main() returns ExitCode
 	let empty = StrChain.create()
 	var caught = 0 as Count
 	for _ in 0 upto 50 'headSpin'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let n = try empty.head() otherwise 'noHead'
 			caught = caught + 1
 			continue
@@ -927,7 +914,6 @@ function main() returns ExitCode
 		print("{n.value()}\n")
 	end 'headSpin'
 	for _ in 0 upto 50 'tailSpin'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let n = try empty.tail() otherwise 'noTail'
 			caught = caught + 1
 			continue
@@ -937,7 +923,6 @@ function main() returns ExitCode
 	let one = StrChain.create()
 	let solo = one.insertFirst("the only node there is, on the heap")
 	for _ in 0 upto 50 'nextSpin'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let n = try solo.next() otherwise 'atEnd'
 			caught = caught + 1
 			continue
@@ -945,7 +930,6 @@ function main() returns ExitCode
 		print("{n.value()}\n")
 	end 'nextSpin'
 	for _ in 0 upto 50 'prevSpin'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let n = try solo.prev() otherwise 'atStart'
 			caught = caught + 1
 			continue
@@ -1128,7 +1112,6 @@ error E4014: <fragment>:22:6: type 'Holder' contains a reference cycle (via Hold
 ```
 
 <!-- test: reading-a-node-a-remove-emptied-aborts -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐⭐ **THE ROSTER ROW ON THE READ SIDE RATHER THAN THE ARGUMENT SIDE.** Every row above asks *"which handles may ARRIVE at `remove`"*; this one asks *"which handles
 SURVIVE it"*, and the answer is *"all of them but the one it marked"*. `remove` empties `value@16` so the
 element it hands out is not dropped twice, and it defends that hole with a per-BINDING move mark on its
@@ -1146,7 +1129,6 @@ typealias StrChain = __ManagedList with String
 function main() returns ExitCode
 	let chain = StrChain.create()
 	let a = chain.insertLast("the only element, long enough to be a real heap allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
@@ -1167,7 +1149,6 @@ removed [the only element, long enough to be a real heap allocation] count=0
 ```
 
 <!-- test: reinserting-an-emptied-node-puts-it-back-where-the-chain-itself-reads-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐⭐ **AND THE REINSERTIONS CARRY IT INTO THE CHAIN, WHICH IS WHY A STALE HANDLE IS NOT THE WHOLE OF IT.**
 `the-four-node-argument-doors-admit-every-arrival` derives its *"admit everything"* from *"they change
 LINKS and leave `value@16` alone"* — true of what the member DOES, and silent about the STATE the node
@@ -1180,7 +1161,6 @@ typealias StrChain = __ManagedList with String
 function main() returns ExitCode
 	let chain = StrChain.create()
 	let a = chain.insertLast("the only element, long enough to be a real heap allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
@@ -1188,7 +1168,6 @@ function main() returns ExitCode
 	print("removed [{got}] count={chain.count()}\n")
 	chain.reinsertFirst(h)
 	print("relinked count={chain.count()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let back = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'

@@ -1929,7 +1929,7 @@ end 'main'
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-statement-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a read in a statement nested in the TRUE arm
 The true arm is a `try` whose handler block holds a `print`. The statement runs inside the arm, after the condition's call kept `u`, so its read of `u` is the use after the move that the hoisted control earns for the same condition made before the conditional.
@@ -1977,7 +1977,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		print("{peekUT(u)}\n")
 		return 0
@@ -1995,7 +1994,7 @@ error E3102: <fragment>:47:18: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-statement-reads-hoisted -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### The hoisted control: the keep is made before the conditional
 ```maxon
@@ -2043,7 +2042,6 @@ end 'mayFail'
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
 	let t = lg(peekUT(idUT(u)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		print("{peekUT(u)}\n")
 		return 0
@@ -2061,7 +2059,7 @@ error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-return-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a `return` nested in the TRUE arm
 The read is inside the nested statement itself, and the statement is a `return`.
@@ -2109,7 +2107,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		return peekUT(u)
 	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
@@ -2126,7 +2123,7 @@ error E3102: <fragment>:47:17: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-read-before-nested-statement -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a read that precedes the TRUE arm's nested statement
 The `try`'s call reads `u` before the handler block's statement is entered.
@@ -2174,7 +2171,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(peekUT(u)) otherwise 'h'
 		return 0
 	end 'h') if lg(peekUT(idUT(u))) != 0 else 0
@@ -2191,7 +2187,7 @@ error E3102: <fragment>:46:30: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-if-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a read in an `if` nested in the TRUE arm
 The handler block holds an `if` whose body reads `u`.
@@ -2239,7 +2235,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		if k > 0 'positive'
 			return peekUT(u)
@@ -2258,7 +2253,7 @@ error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-then-arm-while-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the CONDITION is seen by a read in a `while` nested in the TRUE arm
 The handler block holds a `while` whose body reads `u`.
@@ -2306,7 +2301,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		while k > 0 'spin'
 			return peekUT(u)
@@ -2325,7 +2319,7 @@ error E3102: <fragment>:48:18: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.error.condition-keeps-nested-then-arm-statement-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 ### A keep made in the OUTER condition is seen by a statement nested in a nested conditional's TRUE arm
 The inner conditional's true arm is the `try` whose handler block reads `u`; the outer condition keeps it.
@@ -2373,7 +2367,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = ((try mayFail(k) otherwise 'h'
 		print("{peekUT(u)}\n")
 		return 0
@@ -2391,7 +2384,7 @@ error E3102: <fragment>:47:18: use of moved value 'u': its ownership moved to th
 ```
 
 <!-- test: ternary-expression.arm-local-binding-read-in-nested-statement -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 ### A binding the TRUE arm's nested statements declare is not the conditional's to re-check
 The handler block binds `local` and reads it inside an `if`; the condition that runs first keeps `u`, and has nothing to say about `local`.
 ```maxon
@@ -2438,7 +2431,6 @@ end 'mayFail'
 
 function probe(k Num) returns Num
 	let u = UT.have(Tk.create(k))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		let local = UT.have(Tk.create(2))
 		if k > 0 'positive'
@@ -2460,7 +2452,6 @@ end 'main'
 <!-- test: ternary-expression.error.condition-lends-then-arm-statement-reads -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 ### A lend made in the CONDITION is seen by a read in a statement nested in the TRUE arm
@@ -2495,7 +2486,6 @@ end 'started'
 
 function probe(k Tally) returns Tally
 	var n = 5 as Tally
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let c = (try mayFail(k) otherwise 'h'
 		print("{n}\n")
 		return 0

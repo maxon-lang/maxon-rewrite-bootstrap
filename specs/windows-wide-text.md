@@ -213,7 +213,6 @@ end 'main'
 ```
 
 <!-- test: an-environment-variable-handed-to-a-child-reaches-it-in-utf16 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
 A subprocess is refused on wasm32-wasi with E3074, ahead of E3104, which the harness does not count as a SKIP.
@@ -239,7 +238,6 @@ function main() returns ExitCode
 	argv.push("([int[]][char[]]$env:MAXON_WIDE_TEXT) -join ','")
 	let config = Configuration.create(Executable.name("powershell"))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_WIDE_TEXT": "日本"])
 	let result = try config.run() otherwise return 2
 	printLines(result.stdout)
@@ -254,7 +252,6 @@ end 'main'
 ```
 
 <!-- test: a-file-maxon-names-is-so-named-on-disk -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
@@ -297,7 +294,6 @@ function main() returns ExitCode
 	let base = Directory.currentPath().join("wide_text_maxon_names_a_file")
 	removeTree(base)
 	_ = Directory.create(base)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(base.join("日本.txt"), content: "ok") otherwise 'writeFailed'
 		print("write failed\n")
 	end 'writeFailed'
@@ -314,7 +310,6 @@ end 'main'
 ```
 
 <!-- test: a-file-named-on-disk-is-listed-and-opened-in-utf8 -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
@@ -371,11 +366,9 @@ function main() returns ExitCode
 	print("directory exists {Directory.exists(directory)}\n")
 	let content = try File.readText(file) otherwise "read failed"
 	print("content {content}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(file) otherwise 'fileDeleteFailed'
 		print("file delete failed\n")
 	end 'fileDeleteFailed'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(directory) otherwise 'directoryDeleteFailed'
 		print("directory delete failed\n")
 	end 'directoryDeleteFailed'
@@ -397,7 +390,6 @@ content ok
 ```
 
 <!-- test: a-directory-maxon-creates-renames-and-removes-is-named-so-on-disk -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- unsupported-targets: x64-linux, arm64-linux, arm64-macos, wasm32-wasi -->
@@ -445,20 +437,16 @@ function main() returns ExitCode
 	_ = Directory.create(directory)
 	let original = directory.join("日本.txt")
 	let renamed = directory.join("本日.txt")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(original, content: "ok") otherwise 'writeFailed'
 		print("write failed\n")
 	end 'writeFailed'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.rename(original, to: renamed) otherwise 'renameFailed'
 		print("rename failed\n")
 	end 'renameFailed'
 	printLines(powershell("Get-ChildItem -LiteralPath '{base.path}' -Recurse | ForEach-Object \{ ([int[]][char[]]$_.Name) -join ',' \}"))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(renamed) otherwise 'fileDeleteFailed'
 		print("file delete failed\n")
 	end 'fileDeleteFailed'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(directory) otherwise 'directoryDeleteFailed'
 		print("directory delete failed\n")
 	end 'directoryDeleteFailed'

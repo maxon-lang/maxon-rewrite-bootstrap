@@ -158,8 +158,6 @@ error E3012: specs/unused-variables/multiple-unused-each-reported.maxon:5:6: unu
 ```
 
 <!-- test: every-unused-kind-in-one-function-is-reported -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 An unused parameter, body `let`, body `var`, loop variable, caught `(e)` and match-arm payload binder in one
 function are each reported, in source order.
 ```maxon
@@ -186,7 +184,6 @@ function tally(limit Integer) returns Integer
 	for i in 0 upto 3 'loop'
 		count = count + 1
 	end 'loop'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail() otherwise (e) 'handler'
 		count = count + 10
 	end 'handler'
@@ -238,13 +235,11 @@ error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-l
 ```
 
 <!-- test: unused-for-in-variable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	var count = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -259,12 +254,10 @@ error E3012: specs/unused-variables/unused-for-in-variable.maxon:6:6: unused var
 ```
 
 <!-- test: used-for-in-variable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	var total = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -279,12 +272,10 @@ end 'main'
 ```
 
 <!-- test: discard-for-in-variable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	var count = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -453,8 +444,6 @@ end 'main'
 ```
 
 <!-- test: unused-otherwise-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 The `(e)` binding on `try expr otherwise (e) 'h' ... end 'h'` is a local variable.
 Declaring it without referencing it inside the handler body is a compile error.
 ```maxon
@@ -471,7 +460,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var x = 0 as Score
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail() otherwise (e) 'handler'
 		x = 42
 	end 'handler'
@@ -483,7 +471,6 @@ error E3012: specs/unused-variables/unused-otherwise-binding.maxon:15:27: unused
 ```
 
 <!-- test: used-otherwise-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A `try expr otherwise (e) 'h' ... end 'h'` handler that matches on the binding is allowed.
 ```maxon
 
@@ -499,7 +486,6 @@ end 'mayFail'
 
 function main() returns ExitCode
 	var x = 0 as Score
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail() otherwise (e) 'handler'
 		match e 'kind'
 			failed then x = 42

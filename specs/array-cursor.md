@@ -16,7 +16,6 @@ A cursor holds its own reference to the array, and the array stays writable whil
 ## Tests
 
 <!-- test: cursor-basic-traversal -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Create a cursor and traverse all elements using advance/current.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -28,7 +27,6 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -45,7 +43,6 @@ end 'main'
 ```
 
 <!-- test: cursor-index -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify that index() returns the current position.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -57,7 +54,6 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -80,7 +76,6 @@ end 'main'
 ```
 
 <!-- test: cursor-peek -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Peek ahead without moving the cursor.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -92,7 +87,6 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -107,7 +101,6 @@ end 'main'
 ```
 
 <!-- test: cursor-retreat -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Advance then retreat and verify position.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -119,7 +112,6 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -135,7 +127,6 @@ end 'main'
 ```
 
 <!-- test: cursor-advance-by -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Skip multiple positions with advanceBy(n).
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -149,7 +140,6 @@ function main() returns ExitCode
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -162,7 +152,6 @@ end 'main'
 ```
 
 <!-- test: cursor-seek -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Seek jumps to an arbitrary valid position.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -175,7 +164,6 @@ function main() returns ExitCode
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -188,7 +176,6 @@ end 'main'
 ```
 
 <!-- test: cursor-seek-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Seek to an out-of-bounds index throws and leaves position unchanged.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -199,11 +186,9 @@ function main() returns ExitCode
 	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.seek(5) otherwise 'caught'
 		// position should still be 0
 		return cursor.current()
@@ -216,7 +201,6 @@ end 'main'
 ```
 
 <!-- test: cursor-advance-throws-at-end -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify advance throws IterationError.exhausted at end.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -227,17 +211,14 @@ function main() returns ExitCode
 	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	// Advance to last element
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.advance() otherwise 'done'
 		return 88
 	end 'done'
 	// Try to advance past end — should throw
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.advance() otherwise 'caught'
 		return 1
 	end 'caught'
@@ -250,7 +231,6 @@ end 'main'
 ```
 
 <!-- test: cursor-retreat-throws-at-start -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify retreat throws IterationError.atStart at position 0.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -260,12 +240,10 @@ typealias ByteArray = Array with Byte
 function main() returns ExitCode
 	let arr = ByteArray.create(0)
 	arr.push(10)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	// Try to retreat at position 0 — should throw
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.retreat() otherwise 'caught'
 		return 1
 	end 'caught'
@@ -278,7 +256,6 @@ end 'main'
 ```
 
 <!-- test: cursor-retreat-by -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Rewind the cursor multiple positions with retreatBy.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -292,7 +269,6 @@ function main() returns ExitCode
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -306,7 +282,6 @@ end 'main'
 ```
 
 <!-- test: cursor-retreat-by-throws-at-start -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify retreatBy throws IterationError.atStart when asked to move past position 0.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -318,13 +293,11 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	try cursor.advance() otherwise ignore
 	// Retreating by 2 from position 1 should throw — only 1 step is possible.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.retreatBy(2) otherwise 'caught'
 		return 1
 	end 'caught'
@@ -336,7 +309,6 @@ end 'main'
 ```
 
 <!-- test: cursor-empty-array-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify cursor() throws IterationError.exhausted on empty array.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -345,7 +317,6 @@ typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
 	let arr = ByteArray.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.cursor() otherwise 'caught'
 		return 1
 	end 'caught'
@@ -357,7 +328,6 @@ end 'main'
 ```
 
 <!-- test: cursor-peek-throws-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Verify peek throws when looking past the end.
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -368,14 +338,12 @@ function main() returns ExitCode
 	let arr = ByteArray.create(0)
 	arr.push(10)
 	arr.push(20)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
 	// peek(1) should work (element at index 1 exists)
 	let p1 = try cursor.peek(1) otherwise 0
 	// peek(2) should throw (only 2 elements, index 2 is out of bounds)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.peek(2) otherwise 'caught'
 		return p1
 	end 'caught'
@@ -387,7 +355,6 @@ end 'main'
 ```
 
 <!-- test: cursor-bool-array -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Cursor over a bit-packed `Array with bool` must extract individual bits rather than loading whole bytes. Using a pattern that differs at every bit position catches the bug where `current()` and `peek()` read a byte instead of a single bit.
 ```maxon
 typealias BoolArray = Array with bool
@@ -399,7 +366,6 @@ function main() returns ExitCode
 	arr.push(true)
 	arr.push(true)
 	arr.push(false)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -437,14 +403,12 @@ end 'main'
 ```
 
 <!-- test: cursor-peek-packed-byte-elements -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 Peek over a byte-string-backed array, whose buffer is genuinely byte-packed (element size 1, unlike a pushed `Array with Byte`, which stores 8-byte slots). A fixed-width qword load in peek's lowering read 7 bytes of adjacent buffer state past the element, so the peeked values carried garbage high bytes — the self-hosted compiler's own lexer tripped over this when `peek(1)` for the `0x` hex prefix returned a huge value that matched neither `x` nor `0`, splitting every hex literal into `0` + identifier.
 ```maxon
 function main() returns ExitCode
 	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"0xFF"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let it = try bytes.createIterator() otherwise 'fail'
 		return 99
 	end 'fail'
@@ -465,12 +429,10 @@ end 'main'
 ```
 
 <!-- test: a-cursor-sees-a-push-to-its-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A push under a live cursor may reallocate the buffer; the cursor still reads the element it
 names, and can seek onto the element the push added.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = ["x {40 + 2} long enough heap string", "y {40 + 2} long enough heap string", "z {40 + 2} long enough heap string", "w {40 + 2} long enough heap string"]
 	let c = try a.cursor() otherwise panic("cursor")
 	try c.seek(1) otherwise panic("seek")
@@ -490,12 +452,10 @@ v 42 long enough heap string
 ```
 
 <!-- test: current-past-the-end-after-the-source-is-cleared-panics -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `clear` shortens the array to nothing under a cursor parked at index 3. `current()` finds its position
 past the live length and panics with an index out of range rather than reading the released slot.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = ["x {40 + 2} long enough heap string", "y {40 + 2} long enough heap string", "z {40 + 2} long enough heap string", "w {40 + 2} long enough heap string"]
 	let c = try a.cursor() otherwise panic("cursor")
 	try c.seek(3) otherwise panic("seek")
@@ -537,7 +497,6 @@ A written negative is therefore refused where it is WRITTEN, by the ordinary ran
 `while i < n` loop that is false on its first test and returns having moved nothing.
 
 <!-- test: error.cursor-advance-by-a-written-negative-step-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -549,11 +508,9 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.advanceBy(-2) otherwise 'moved'
 		return 98
 	end 'moved'
@@ -570,7 +527,6 @@ error E3005: specs/array-cursor/error.cursor-advance-by-a-written-negative-step-
 property of the ALIAS rather than of one call site: a step count is unsigned wherever it is spelled.
 
 <!-- test: error.cursor-retreat-by-a-written-negative-step-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 ```maxon
 typealias Byte = int(0 to u8.max)
@@ -582,11 +538,9 @@ function main() returns ExitCode
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.retreatBy(-2) otherwise 'moved'
 		return 98
 	end 'moved'
@@ -604,7 +558,6 @@ reads a POSITION back. Four forward then three back from element 0 lands on elem
 `20` only if `advanceBy` counted four forward moves and `retreatBy` counted three backward ones.
 
 <!-- test: cursor-advance-by-and-retreat-by-still-move-in-their-own-directions -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Byte = int(0 to u8.max)
 
@@ -617,15 +570,12 @@ function main() returns ExitCode
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try arr.cursor() otherwise 'fail'
 		return 99
 	end 'fail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.advanceBy(4) otherwise 'forward'
 		return 98
 	end 'forward'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try cursor.retreatBy(3) otherwise 'backward'
 		return 97
 	end 'backward'

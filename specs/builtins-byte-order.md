@@ -38,7 +38,6 @@ function that hands one of them its parameter writes that parameter. A frozen or
 ## Tests
 
 <!-- test: builtins-byte-order.read-little-endian-at-an-unaligned-index -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A read from a non-zero, unaligned index at each width. Bytes 1..2 are `11 22`, bytes 1..4 are `11 22 33 44`
@@ -47,7 +46,6 @@ and bytes 3..10 are `33 44 55 66 77 88 99 AA`; the least significant byte comes 
 function main() returns ExitCode
 	let data = ByteArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -66,7 +64,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-big-endian-at-an-unaligned-index -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same three reads, most significant byte first.
@@ -74,7 +71,6 @@ The same three reads, most significant byte first.
 function main() returns ExitCode
 	let data = ByteArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [0x10, 0x11, 0x22, 0x33, 0x44, 0x55, 0x66, 0x77, 0x88, 0x99, 0xAA] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -93,7 +89,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-whose-last-byte-is-the-last-byte-of-the-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The bound is inclusive of the array's final byte: a four-byte read at 4 and an eight-byte read at 0 of an
@@ -102,7 +97,6 @@ eight-byte array both succeed.
 function main() returns ExitCode
 	let data = ByteArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -120,15 +114,12 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.read-one-byte-past-the-end-fails-the-way-get-fails -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A read whose last byte is one past the array's end fails with the error a checked `get` of that index
 throws, so a caller writes the same `try … otherwise …`. The error is named from each side and the two agree.
 ```maxon
 function readFailure(data ByteArray, at Count) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __Builtins.readLittleEndian(data, at, 4) otherwise (e) 'caught'
 		return "{e.name}"
 	end 'caught'
@@ -136,7 +127,6 @@ function readFailure(data ByteArray, at Count) returns String
 end 'readFailure'
 
 function getFailure(data ByteArray, at Count) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try data.get(at) otherwise (e) 'caught'
 		return "{e.name}"
 	end 'caught'
@@ -146,7 +136,6 @@ end 'getFailure'
 function main() returns ExitCode
 	let data = ByteArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -164,8 +153,6 @@ none indexOutOfBounds
 ```
 
 <!-- test: builtins-byte-order.read-with-an-index-near-u64-max-does-not-wrap -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 `at + width` wraps to a small number for an `at` within `width` of `u64.max`, which a naive
@@ -173,12 +160,10 @@ none indexOutOfBounds
 ```maxon
 function readFailure(data ByteArray, at Count, wide bool) returns String
 	if wide 'eight'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try __Builtins.readBigEndian(data, at, 8) otherwise (e) 'caught'
 			return "{e.name}"
 		end 'caught'
 	end 'eight' else 'two'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try __Builtins.readBigEndian(data, at, 2) otherwise (e) 'caught'
 			return "{e.name}"
 		end 'caught'
@@ -189,7 +174,6 @@ end 'readFailure'
 function main() returns ExitCode
 	let data = ByteArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16] 'fill'
 		data.push(byte)
 	end 'fill'
@@ -319,7 +303,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-to-a-copy-leaves-the-original-unchanged -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 A `clone` shares its source's buffer until either side writes. The append must detach the copy's buffer first,
@@ -329,7 +312,6 @@ function main() returns ExitCode
 	let original = ByteArray.create(0)
 	original.reserve(64)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4] 'fill'
 		original.push(byte)
 	end 'fill'
@@ -357,7 +339,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.append-to-the-owner-of-a-viewed-buffer-leaves-the-view-unchanged -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The same sharing seen from the other side: the append goes to the array whose buffer a `clone` is still reading.
@@ -366,7 +347,6 @@ function main() returns ExitCode
 	let original = ByteArray.create(0)
 	original.reserve(64)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4] 'fill'
 		original.push(byte)
 	end 'fill'
@@ -426,7 +406,6 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-generic-born-byte-array-reads-and-appends-as-bytes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -453,7 +432,6 @@ typealias ByteBag = Bag with Byte
 function main() returns ExitCode
 	let bag = ByteBag.create()
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for byte in [1, 2, 3, 4, 5, 6, 7, 8] 'fill'
 		bag.add(byte)
 	end 'fill'

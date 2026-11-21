@@ -3434,7 +3434,6 @@ end 'main'
 ```
 
 <!-- test: moving-a-node-out-of-an-argument-chain-keeps-its-result-droppable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Reinserting a node moves it out of the chain it was in, which is the argument's chain, not the receiver's.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3443,7 +3442,6 @@ typealias IntChain = __ManagedList with Integer
 
 function steal(source IntChain) returns Integer
 	let mine = IntChain.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let node = try source.head() otherwise 'empty'
 		return 0
 	end 'empty'
@@ -3463,7 +3461,6 @@ end 'main'
 ```
 
 <!-- test: moving-a-node-out-of-a-global-chain-keeps-its-result-droppable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The same move out of a module-level chain.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3472,7 +3469,6 @@ typealias IntChain = __ManagedList with Integer
 
 function takeFromShelf(mutates shelf IntChain) returns Integer
 	let mine = IntChain.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let node = try shelf.head() otherwise 'empty'
 		return 0
 	end 'empty'
@@ -3566,7 +3562,6 @@ error E3064: specs/discarded-results/error.a-static-returning-another-instance-o
 ```
 
 <!-- test: moving-a-node-out-of-a-field-chain-keeps-its-result-droppable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The same move out of a chain a record holds, where the method that moves it is the only thing that touches the chain.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3590,7 +3585,6 @@ type Shelf
 
 	function steal() returns Integer
 		let mine = IntChain.create()
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let node = try self.chain.head() otherwise 'empty'
 			return 0
 		end 'empty'

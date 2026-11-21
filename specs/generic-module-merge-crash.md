@@ -12,7 +12,6 @@ category: type-system
 ### Generic module with merge extension
 
 <!-- test: generic-module-merge -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
@@ -78,7 +77,6 @@ type Container uses Op implements Mergeable with Wrapper
 	end 'itemCount'
 
 	function getItem(index Count) returns Wrapper
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		return try self.items.get(index) otherwise 'unreachable'
 			panic("getItem: index out of bounds")
 		end 'unreachable'

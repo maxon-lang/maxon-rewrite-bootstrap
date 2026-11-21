@@ -81,7 +81,6 @@ missing-return gate (E3013) alike.
 ## Tests
 
 <!-- test: handler-tail-diverging-call -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 An `otherwise` handler used for its VALUE whose last statement calls a diverging function.
 The success path is taken, so the handler never runs.
 ```maxon
@@ -104,7 +103,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(false) otherwise 'workerDied'
 		abortOnDeadWorker(7)
 	end 'workerDied'
@@ -116,7 +114,6 @@ end 'main'
 ```
 
 <!-- test: handler-tail-diverging-call.error-path -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The same shape with the error path taken: the handler runs, and the diverging call takes the
 process down from inside its own frame.
 ```maxon
@@ -139,7 +136,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(true) otherwise 'workerDied'
 		abortOnDeadWorker(7)
 	end 'workerDied'
@@ -161,7 +157,6 @@ Stack trace:
 ```
 
 <!-- test: handler-binding-read-by-the-diverging-call -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The caught error is BOUND and read by the diverging call's argument — the shape
 `maxon-bin/Testing/SpecWorkerPool.maxon` writes, where the handler interpolates
 `e.displayReason()` into the abort message (spelled `{e}` here — the same rendering rule, on an error type this
@@ -187,7 +182,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(true) otherwise (e) 'workerDied'
 		abortOnDeadWorker("its stdout died: {e}")
 	end 'workerDied'
@@ -315,8 +309,6 @@ back in main
 ```
 
 <!-- test: error.a-handler-tail-that-is-not-a-diverging-call-is-still-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⛔ **THE WIDENING'S BOUNDARY.** The handler's last statement is a call to a function that RETURNS,
 so the error path reaches the merge with no value and the `try` cannot stand in a value position.
 Unchanged by this feature.
@@ -339,7 +331,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(false) otherwise (e) 'workerDied'
 		note(7)
 	end 'workerDied'
@@ -351,8 +342,6 @@ error E3059: <fragment>:20:14: type mismatch: 'a `try` used for its value needs 
 ```
 
 <!-- test: error.a-one-path-panic-in-a-handler-tail-is-still-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⛔ **THE OVER-MARKING GUARD, in the position the feature exists for.** The handler's last statement
 calls a function that panics on ONE path only, so the error edge can still reach the merge.
 ```maxon
@@ -377,7 +366,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(false) otherwise (e) 'workerDied'
 		notFatal(false)
 	end 'workerDied'
@@ -424,7 +412,6 @@ Stack trace:
 ```
 
 <!-- test: handler-tail-always-throwing-call -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 An `otherwise` handler used for its VALUE whose last statement is a PROPAGATING `try` on a function
 that can only ever throw. The success path is taken, so the handler never runs. This is the shape
 `maxon-bin/Compiler/Compiler.maxon` writes at every `refuseCompile` gate.
@@ -452,7 +439,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function collect(fail bool) returns Integer throws FatalError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(fail) otherwise 'workerDied'
 		try abandon(7)
 	end 'workerDied'
@@ -468,7 +454,6 @@ end 'main'
 ```
 
 <!-- test: handler-tail-always-throwing-call.error-path -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The same shape with the error path taken: the handler runs, and the always-throwing call leaves
 `collect` by its own error edge, which `main` then catches.
 ```maxon
@@ -495,7 +480,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function collect(fail bool) returns Integer throws FatalError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(fail) otherwise 'workerDied'
 		try abandon(7)
 	end 'workerDied'
@@ -514,7 +498,6 @@ worker 7 died
 ```
 
 <!-- test: handler-tail-always-throwing-sibling-method -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The always-throwing declaration is a METHOD, called bare from a sibling method's handler tail — the
 shape `maxon-bin/Compiler/Lexer.maxon` writes, where `failInterp` stashes the real lexer error and
 unwinds through the shared `CursorError` channel. The `try` target carries the callee's RESOLVED
@@ -550,7 +533,6 @@ type Worker
 	end 'drain'
 
 	function collect(fail bool) returns Integer throws FatalError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let lines = try self.drain(fail) otherwise 'workerDied'
 			try abandon()
 		end 'workerDied'
@@ -663,8 +645,6 @@ still here
 ```
 
 <!-- test: error.a-handler-tail-try-on-a-callee-that-can-return-is-still-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⛔ **THE CONTROL FOR THIS WIDENING, AND THE ONE THAT MATTERS.** `maybeAbandon` declares `throws` and
 its last statement is NOT a `throw` — it falls off its end on the non-fatal path — so the handler's
 `try` really can come back, the error edge really does reach the merge with no value, and the `try`
@@ -695,7 +675,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function collect(fail bool) returns Integer throws FatalError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(fail) otherwise 'workerDied'
 		try maybeAbandon(7, fatal: false)
 	end 'workerDied'
@@ -711,8 +690,6 @@ error E3059: <fragment>:27:14: type mismatch: 'a `try` used for its value needs 
 ```
 
 <!-- test: error.a-body-with-a-return-beside-its-throw-tail-does-not-always-throw -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ⛔ **THE OVER-MARKING GUARD, second condition.** `abandonOrNot` ends in `throw` but spells a `return`
 above it, so it comes back on that path and its call cannot end the handler's block.
 ```maxon
@@ -742,7 +719,6 @@ function drain(fail bool) returns Integer throws DrainError
 end 'drain'
 
 function collect(fail bool) returns Integer throws FatalError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try drain(fail) otherwise 'workerDied'
 		try abandonOrNot(7, fatal: false)
 	end 'workerDied'

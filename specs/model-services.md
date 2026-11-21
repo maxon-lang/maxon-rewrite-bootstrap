@@ -714,7 +714,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ac-hx-handle-in-mailbox -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `hx-handle-in-mailbox` of redteamAC.hand_ac12, in capmodel `reggio/REPORTRTAC.txt`.
 
@@ -729,7 +728,6 @@ type Sf
 	end 'create'
 
 	export function go(me Sf.handle)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try me.again(me.clone()) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull then break
@@ -756,7 +754,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ad-k-send-iso-via-fn -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -792,7 +789,6 @@ end 'Hr2'
 
 // TODO: parameter capability 'isolated' is not supported in minimaxon
 function give(h Hr2.handle, tV isolated Tok)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.take(tV) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -816,7 +812,6 @@ error E3102: <fragment>:38:14: use of moved value 'tV': its ownership moved to a
 ```
 
 <!-- test: model-hand-ad-k-behaviour-param -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `k-behaviour-param` of redteamAD.hand_ad3, in capmodel `reggio/REPORTRTAD.txt`.
 
@@ -851,7 +846,6 @@ end 'keepLocal'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kq.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.go(Tok.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -3277,7 +3271,6 @@ error E3207: <fragment>:46:10: 'eatArr' needs a writable parameter 'xsV' at line
 ```
 
 <!-- test: model-hand-ag-f1-send -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3318,7 +3311,6 @@ function main() returns ExitCode
 	xs.push(Tk.create(1))
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in xs 'f1'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try su.takeA(xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
 				mailboxFull then break
@@ -3335,7 +3327,6 @@ error E3102: <fragment>:32:16: use of moved value 'xs': it was moved in an earli
 ```
 
 <!-- test: model-hand-ag-f2-send -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -3384,7 +3375,6 @@ function main() returns ExitCode
 	h.xs.push(Tk.create(1))
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for t in h.xs 'f1'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try su.takeA(h.xs) otherwise (sendFailure) 'h2'
 			match sendFailure 'x3'
 				mailboxFull then break
@@ -3628,7 +3618,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ah-plain-try-full-mailbox-handle-in-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The model (`core-m3w-fa25`) accepts it and its oracle runs it clean; the compiler accepts it and the program exits 0. Model program `plain-try-full-mailbox-handle-in-handler` of redteamAH.hand_ah9, in capmodel `reggio/REPORTRTAH.txt`.
 
@@ -3682,21 +3671,18 @@ function main() returns ExitCode
 	let k = spawn (capacity: 1) Cap1.create(0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sc.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.busy() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.poke() otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
 			mailboxFull then break
 			serviceStopped then break
 		end 'x4'
 	end 'h3'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.takeH(s.clone()) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
 			mailboxFull then try s.poke() otherwise ignore
@@ -11302,7 +11288,6 @@ error E3196: <fragment>:20:12: cannot store an isolated 'Bx' into 'b', which hol
 
 <!-- test: model-hand-fa15-d8-message-param -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -11388,7 +11373,6 @@ end 'takeB'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kz.create(0, b: Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -11403,7 +11387,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-fa15-e10-message-twice -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -11455,7 +11438,6 @@ end 'takeB'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kt.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eatTwice(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -11471,7 +11453,6 @@ error E3102: <fragment>:29:9: use of moved value 'u': its ownership moved to ano
 
 <!-- test: model-hand-fa15-e12-send-after -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -11565,7 +11546,6 @@ function main() returns ExitCode
 		u0 then break
 		u1(o) then takeB(o)
 	end 'x1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(u) otherwise (sendFailure) 'h2'
 		match sendFailure 'x3'
 			mailboxFull then break
@@ -22501,7 +22481,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-ub-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -22585,7 +22564,6 @@ end 'Kw'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eatUb(Ub.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -22601,7 +22579,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-pc-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -22685,7 +22662,6 @@ end 'Kw'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eatPc(Pc.u1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
@@ -22701,7 +22677,6 @@ end 'main'
 
 <!-- test: model-hand-fa15-b-mq-state -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -22785,14 +22760,12 @@ end 'Kw'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Kw.create(0, keep: Bx.create(0), item: Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eatMq(Mq.q1(Bx.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eatMq(Mq.q0(Bx.create(2))) otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
 			mailboxFull then break
@@ -28021,7 +27994,6 @@ error E3102: <fragment>:46:17: use of moved value 'u': its ownership moved to an
 ```
 
 <!-- test: model-hand-fa25-a-try-body-then-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The model (`core-m3w-fa25`) refuses it by `E3102`; the compiler refuses it with E3102. Model program `a-try-body-then-handler` of redteamFA25.hand_fa25, in capmodel `reggio/REPORTFA25.txt`.
@@ -28067,7 +28039,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Sy.create(0)
 	_ = peekUT(u)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(u) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then _ = peekUT(u)

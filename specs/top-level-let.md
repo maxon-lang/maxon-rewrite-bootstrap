@@ -421,7 +421,6 @@ end 'main'
 ```
 
 <!-- test: error.file-private-same-name-three-directories-every-kind -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Tag.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -436,7 +435,6 @@ let name = "first"
 // TODO: byte string literals are not supported in minimaxon
 let label = b"alpha"
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let table = [base, derived, 3]
 
 let anchor = Tag.create(base)
@@ -467,7 +465,6 @@ let name = "second"
 // TODO: byte string literals are not supported in minimaxon
 let label = b"beta"
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let table = [base, derived, 3, 4]
 
 let anchor = Pin.create(base)
@@ -520,7 +517,6 @@ test.txt
 ```
 
 <!-- test: a-top-level-array-literal-of-tuples -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -536,7 +532,6 @@ typealias Step = (Word, Word)
 
 typealias Steps = Array with Step
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let steps = Steps from [(0, 1), (2, 3)]
 
@@ -558,7 +553,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-literal-of-three-tuples -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -571,7 +565,6 @@ typealias Entry = (Index, String, bool)
 
 typealias Entries = Array with Entry
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let entries = Entries from [(1, "one", true), (2, "two", false)]
 
@@ -593,7 +586,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-literal-of-nested-tuples -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -611,7 +603,6 @@ typealias Outer = (Inner, Word)
 
 typealias Outers = Array with Outer
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let outers = Outers from [((1, 2), 3), ((4, 5), 6)]
 
@@ -743,7 +734,6 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-of-an-unstated-tuple-holding-a-construction-by-its-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A column built by its alias's `from` keeps the alias in the tuple's identity, as it does in a body, so the constant and
@@ -754,14 +744,11 @@ typealias Item = int(0 to 1000)
 typealias Items = Array with Item
 
 // TODO: tuple values and types are not supported in minimaxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let held = (Items from [7], "held")
 
 function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fresh = (Items from [7, 8], "fresh")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let both = [fresh, held.clone()]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for pair in both 'eachPair'
@@ -894,11 +881,9 @@ end 'main'
 ```
 
 <!-- test: a-tuple-column-of-a-top-level-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A map literal whose value column is a tuple fixes its columns from the first pair's tuple.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let table = [1: (2, "two"), 3: (4, "four")]
 
@@ -917,12 +902,10 @@ end 'main'
 ```
 
 <!-- test: an-untyped-top-level-array-literal-of-tuples -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 An array literal of tuple literals with no stated alias is an `Array` of the tuple type its first element states.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let pairs = [(1, "one"), (2, "two")]
 
@@ -944,7 +927,6 @@ end 'main'
 ```
 
 <!-- test: a-parenthesised-tuple-element-of-a-typed-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -959,7 +941,6 @@ typealias Step = (Word, Word)
 
 typealias Steps = Array with Step
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let steps = Steps from [((0, 1)), (((2, 3)))]
 
@@ -1041,7 +1022,6 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-tuple-literal-in-an-array-of-scalars -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1053,7 +1033,6 @@ typealias Word = bits(64)
 
 typealias Words = Array with Word
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: tuple values and types are not supported in minimaxon
 let words = Words from [(0, 1)]
 
@@ -1066,7 +1045,6 @@ error E3009: <fragment>:5:25: Cannot cast from (int, int) to int
 ```
 
 <!-- test: error.a-tuple-literal-in-an-array-of-scalars-in-a-body -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1077,7 +1055,6 @@ typealias Word = bits(64)
 typealias Words = Array with Word
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: tuple values and types are not supported in minimaxon
 	let words = Words from [(0, 1)]
 	return words.count() as ExitCode
@@ -1088,7 +1065,7 @@ error E3009: <fragment>:6:26: Cannot cast from (int, int) to int
 ```
 
 <!-- test: an-array-of-element-alias-casts-in-a-body -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An element cast to the array's own element alias is an element of that type, so `Items from [7 as Item]` builds the array.
 ```maxon
 typealias Item = int(0 to 1000)
@@ -1096,7 +1073,6 @@ typealias Item = int(0 to 1000)
 typealias Items = Array with Item
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Items from [7 as Item]
 	return (try xs.get(0) otherwise 0) as ExitCode
 end 'main'
@@ -1106,14 +1082,13 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-of-element-alias-casts -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same literal at file scope is the same array, read back after `main` starts.
 ```maxon
 typealias Item = int(0 to 1000)
 
 typealias Items = Array with Item
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = Items from [7 as Item]
 
 function main() returns ExitCode
@@ -1479,12 +1454,9 @@ error E3220: <fragment>:12:9: the initializer of 'r' calls 'Calc.create': a modu
 ```
 
 <!-- test: error.a-module-let-cloning-an-array-literal-is-a-call -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 `clone` is a call, and a call on a literal is still a call: the initializer of a module-level `let` calls
 nothing, so the program is refused (E3220).
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let numbers = [1, 2].clone()
 
 function main() returns ExitCode
@@ -1496,14 +1468,11 @@ error E3220: <fragment>:2:15: the initializer of 'numbers' calls 'Array.clone': 
 ```
 
 <!-- test: error.a-module-let-cloning-a-map-literal-is-a-call -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The `clone` of a map is the compiler's own copy of the container rather than a function a file declares, and it
 is a call all the same: the program is refused (E3220).
 ```maxon
 typealias Tally = int(0 to 1000)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let ledger = ["a": 1 as Tally].clone()
 
 function main() returns ExitCode
@@ -1515,10 +1484,7 @@ error E3220: <fragment>:4:14: the initializer of 'ledger' calls 'Map.clone': a m
 ```
 
 <!-- test: error.a-module-let-slicing-an-array-literal-is-a-call -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let head = [1, 2, 3].slice(0, endIndex: 1)
 
 function main() returns ExitCode
@@ -3389,10 +3355,7 @@ error E2004: <fragment>:2:13: Undefined variable 'Nope'
 ```
 
 <!-- test: error.an-undeclared-base-inside-a-top-level-array-is-an-undefined-variable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let table = [Nope.first, Nope.second]
 
 function main() returns ExitCode
@@ -3539,7 +3502,6 @@ loud next
 ```
 
 <!-- test: a-match-expression-in-an-array-element-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 enum Mode
@@ -3547,7 +3509,6 @@ enum Mode
 	loud
 end 'Mode'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let LABELS = [match Mode.loud 'm'
 	quiet gives "quiet"
 	loud gives "loud"
@@ -3574,7 +3535,7 @@ next
 ```
 
 <!-- test: error.a-handler-block-otherwise-in-a-call-argument-ends-a-top-level-let-at-its-own-line -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: a line breaks inside parentheses; keep what they hold on one line -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `parse`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -3593,7 +3554,6 @@ function tag(n Count, tail String) returns String
 	return "{n}{tail}"
 end 'tag'
 
-// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 let LABEL = tag(try parse(3) otherwise 'bad'
 	print("recovering\n")
 	panic("unreachable")
@@ -3611,8 +3571,6 @@ error E3220: <fragment>:17:13: the initializer of 'LABEL' calls 'parse': a modul
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-top-level-let-names-the-initializer -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ```maxon
 enum ParseError implements Error
 	bad
@@ -3625,7 +3583,6 @@ function parse(n Count) returns Count throws ParseError
 	return n
 end 'parse'
 
-// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 let LEVEL = try parse(3) otherwise (e) 'h'
 	return 3
 end 'h'
@@ -3640,8 +3597,6 @@ error E2080: <fragment>:14:2: `return` has no function to leave in the initializ
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-top-level-record-let-names-the-initializer -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ```maxon
 enum ParseError implements Error
 	bad
@@ -3662,7 +3617,6 @@ function makeConfig(n Count) returns Config throws ParseError
 	return Config.create(n)
 end 'makeConfig'
 
-// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 let CONFIG = try makeConfig(3) otherwise (e) 'h'
 	return Config.create(4)
 end 'h'

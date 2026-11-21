@@ -77,12 +77,10 @@ end 'main'
 ```
 
 <!-- test: array-literal-works -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

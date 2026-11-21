@@ -688,7 +688,6 @@ from a call
 ```
 
 <!-- test: a-generic-alias-binding-agrees-with-the-conformers-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 ```maxon
 typealias Measure = int(0 to 1000)
@@ -715,7 +714,6 @@ end 'Cell'
 typealias ItemsSource = Source with Items
 
 function makeSource() returns ItemsSource
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return Cell.of([500, 7])
 end 'makeSource'
 

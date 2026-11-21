@@ -86,7 +86,7 @@ end 'main'
 ```
 
 <!-- test: doc-comments.not-an-array-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array -->
 <!-- positions: moved -->
 A doc comment inside `[ … ]` is not an element, so the literal is still EMPTY and still refused. A
 counter that treated it as content would report a non-empty literal for a program the real parse
@@ -94,7 +94,7 @@ reads as empty.
 ```maxon
 function main() returns ExitCode
 /// a doc comment is not an element
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array
 let xs = []
 	return 0
 end 'main'

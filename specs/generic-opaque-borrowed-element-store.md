@@ -50,7 +50,6 @@ end of `main` and the record is freed exactly once, which a missing retain turns
 and a missing release turns into exit 101.
 
 <!-- test: a-borrowed-element-read-from-another-container-is-stored -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -73,7 +72,6 @@ type Bag uses Element
 	end 'count'
 
 	function takeFirstOf(other Items)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.takeFirstOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'
@@ -113,7 +111,6 @@ a borrowed string long enough to force a heap allocation
 does not own, and push it. Each iteration takes its own reference and each slot releases one.
 
 <!-- test: the-loop-form-copies-every-borrowed-element -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -138,7 +135,6 @@ type Bag uses Element
 	function copyFrom(other Items)
 		let n = other.count()
 		for i in 0 upto n 'copy'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let value = try other.get(i) otherwise 'getErr'
 				panic("Bag.copyFrom: get OOB — i < the count just read")
 			end 'getErr'
@@ -182,7 +178,6 @@ any N; one taken and never released is a hundred leaked records and exit 101, an
 faults on the poison byte.
 
 <!-- test: a-hundred-borrowed-stores-balance -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -207,7 +202,6 @@ type Bag uses Element
 	function fillFrom(other Items, times Idx)
 		var n = 0 as Idx
 		while n < times 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let value = try other.get(0) otherwise 'getErr'
 				panic("Bag.fillFrom: get(0) OOB — the caller passed a non-empty container")
 			end 'getErr'
@@ -247,7 +241,6 @@ does. The reference it took is released by its own element walk there — so the
 afterwards, and the record is freed once when the source itself goes.
 
 <!-- test: a-container-dropped-after-the-store-releases-what-it-took -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Idx = int(0 to u64.max)
@@ -267,7 +260,6 @@ type Bag uses Element
 	// at the method's exit, so the count it reports is the only thing that survives.
 	function scratchCountOf(other Items) returns Idx
 		let scratch = Items.create(0)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.scratchCountOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'
@@ -355,7 +347,6 @@ an argument that owns no record, so the store costs a load and the container's w
 — and the answer is the element that was copied across.
 
 <!-- test: a-trivial-elements-borrowed-store-is-inert -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -382,7 +373,6 @@ type Bag uses Element
 	function copyFrom(other Items)
 		let n = other.count()
 		for i in 0 upto n 'copy'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let value = try other.get(i) otherwise 'getErr'
 				panic("Bag.copyFrom: get OOB — i < the count just read")
 			end 'getErr'
@@ -417,7 +407,6 @@ The source container is dropped before the bag is. The reference the store took 
 the element survives its original owner and prints after it is gone.
 
 <!-- test: the-borrows-owner-may-be-destroyed-first -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -440,7 +429,6 @@ type Bag uses Element
 	end 'count'
 
 	function takeFirstOf(other Items)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.takeFirstOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'

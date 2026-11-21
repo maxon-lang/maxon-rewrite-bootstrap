@@ -458,13 +458,12 @@ error E2062: <fragment>:8:31: Cannot use 'float' as a type argument: a float typ
 ```
 
 <!-- test: bool.equatable-and-comparable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `bool` meets the library's `Equatable` and `Comparable`, so `contains` and `sort` serve an array of them.
 ```maxon
 typealias Flags = Array with bool
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let flags = Flags from [true, false, true]
 	let found = flags.contains(false)
 	flags.sort()

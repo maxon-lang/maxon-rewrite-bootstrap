@@ -711,7 +711,6 @@ error E3186: <fragment>:16:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: a-ternary-condition-wrapping-an-array-literal-that-holds-the-call-reads-the-local-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 The ternary wraps the array literal that holds `put(label)`, and its condition reads `label` before the write.
 
@@ -729,7 +728,6 @@ end 'sum'
 
 function main() returns ExitCode
 	var label = "original"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let result = [put(label), 1 as Tally] if label.byteLength() > 3 else [0 as Tally, 1 as Tally]
 	print("{result.count()} {label}\n")
 	return 0

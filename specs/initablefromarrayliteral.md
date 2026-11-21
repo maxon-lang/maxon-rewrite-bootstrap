@@ -22,12 +22,10 @@ This creates an Array containing the elements 1, 2, and 3.
 ## Tests
 
 <!-- test: array-from-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -35,10 +33,8 @@ end 'main'
 ```
 
 <!-- test: array-from-literal-access -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val = try arr.get(1) otherwise 0
 	return val
@@ -49,10 +45,8 @@ end 'main'
 ```
 
 <!-- test: array-from-literal-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [42, 2, 3]
 	let val = try arr.first() otherwise 0
 	return val
@@ -63,10 +57,8 @@ end 'main'
 ```
 
 <!-- test: array-from-literal-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 99]
 	let val = try arr.last() otherwise 0
 	return val

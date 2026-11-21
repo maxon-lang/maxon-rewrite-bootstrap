@@ -823,7 +823,6 @@ error E3153: <fragment>:5:6: 'bump' has managed type 'function': a runtime sourc
 ```
 
 <!-- test: runtime-file-may-catch-an-unmanaged-error -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐⭐ **THE SECOND CONTROL, OVER THE TWO DOORS A REFUSAL KEYED ON SYNTAX WOULD HAVE SHUT NEXT.** A caught
 error and a `match` payload are the other two bindings no spelled type and no `let` reaches, and the rule
 must admit both whenever what they bind owns no heap. The divide's error enum carries no payload and is
@@ -840,7 +839,6 @@ would need its own file, and the refusal above already states the line between t
 function probeCaught() returns MachineWord
 	let ticks = __Raw.osTickCountMs()
 	var answer = 0 as MachineWord
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try (100 / ticks) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then answer = 1 as MachineWord

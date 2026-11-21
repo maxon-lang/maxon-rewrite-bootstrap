@@ -176,7 +176,6 @@ end 'main'
 ```
 
 <!-- test: default-values.array-default-provided -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
@@ -195,7 +194,6 @@ function sum(items IntArray = [10, 20, 12]) returns Integer
 end 'sum'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return sum([1, 2, 3])
 end 'main'
 ```

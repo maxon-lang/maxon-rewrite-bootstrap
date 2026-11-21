@@ -1152,7 +1152,6 @@ aes-gcm-err-124 invalidNonceLength
 ```
 
 <!-- test: aes-gcm.seal-into-writes-at-an-offset -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `sealInto` writes what `seal` answers into an array the caller owns, from an offset, and makes the array end there: the bytes
 before the offset stay, the bytes after the sealed message are dropped, and an array that ends before the offset is
 zero-filled up to it. For plaintexts of 0 to 1024 bytes, the written bytes equal `seal`'s and `open` takes them back; a
@@ -1214,7 +1213,6 @@ function main() returns ExitCode
 	end 'eachLength'
 	let untouched = bytesFor(9, count: 20)
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try aead.sealInto(untouched, at: 4, nonce: bytesFor(2, count: 11), plaintext: bytesFor(5, count: 8), additionalData: additional) otherwise (failure) 'nonceRefused'
 		match failure 'reason'
 			invalidNonceLength then refused = true
@@ -1235,7 +1233,6 @@ end 'main'
 ```
 
 <!-- test: aes-gcm.seal-into-the-plaintext-array-itself -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `sealInto` reads its plaintext, nonce and additional data as they were when the call began even when `output` is one of
 those arrays: the array ends up holding that input's first `at` bytes followed by what `seal` answers for the whole
@@ -1321,7 +1318,6 @@ function main() returns ExitCode
 	var wrong = 0 as Count
 	for dataBytes in 0 to 300 'eachLength'
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		for at in [0, 5, 40] 'eachOffset'
 			// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 			for aliased in Aliased.allCases 'eachAlias'

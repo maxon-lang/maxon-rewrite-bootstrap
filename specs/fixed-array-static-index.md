@@ -667,7 +667,6 @@ error E3005: <fragment>:7:8: Value 9 is outside the range of the indices of 'Fix
 ```
 
 <!-- test: an-out-of-range-runtime-set-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A write at an index known only at run time throws when it is out of range, and the rejected write
 leaves the fixed array untouched.
@@ -684,7 +683,6 @@ end 'runtimeIndex'
 function main() returns ExitCode
 	let v = Vec2.create()
 	v.set(0, value: 5)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try v.set(runtimeIndex(9), value: 99) otherwise 'oob'
 		return v.get(0) + 60
 	end 'oob'

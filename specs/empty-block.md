@@ -64,12 +64,10 @@ error E3082: specs/empty-block/empty-while.maxon:5:2: empty block: 'loop'
 ```
 
 <!-- test: empty-for-in -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in arr 'loop'
@@ -95,7 +93,7 @@ error E3082: specs/empty-block/empty-for-range.maxon:4:2: empty block: 'loop'
 ```
 
 <!-- test: empty-otherwise -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 The block-form `try … otherwise` handler is parsed by the same `parseBlockBody` as the four above, so
 it is refused by the same check. Pinned because it is the one construct the check reaches that no
@@ -109,7 +107,6 @@ function main() returns ExitCode
 	var a = IntArray.create(0)
 	a.push(1)
 	var n = 0 as Int
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	n = try a.get(0) otherwise 'oops'
 	end 'oops'
 	return n as ExitCode

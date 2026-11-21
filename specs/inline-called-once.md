@@ -451,7 +451,6 @@ Stack trace:
 ```
 
 <!-- test: a-throwing-called-once-function-is-spliced -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A throwing body leaves through `errorReturn` and its one site is a `tryCall`; the splice carries the
 result and the error flag to the continuation. The loop and its stores are there so the size rule is not
 what admits it, and the second call, on a short array, proves the thrown case still reaches the caller's
@@ -483,7 +482,6 @@ function fillChecked(a IntArray, n Integer) returns Integer throws FillError
 end 'fillChecked'
 
 function report(a IntArray, n Integer) returns Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let total = try fillChecked(a, n: n) otherwise (e) 'refused'
 		match e 'which'
 			tooShort then return 1000

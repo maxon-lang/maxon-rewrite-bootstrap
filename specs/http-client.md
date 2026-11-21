@@ -83,13 +83,11 @@ end 'main'
 ### A scheme other than http and https is refused
 
 <!-- test: http-client.an-ftp-url-is-refused-before-connecting -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⛔ **ONLY `http` AND `https` ARE FETCHED.** Nothing listens on port 1, so a client that ignored the scheme would
 dial and answer `connectFailed`; only a refusal decided before the connect answers `unsupportedScheme`, which is the
 one arm that exits 7. An `https` URL to the same port is dialled, and is a `connectFailed` (exit 3).
 ```maxon
 function exitOf(url String) returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.get(url) otherwise (e) 'refused'
 		return match e 'why'
 			unsupportedScheme gives 7
@@ -122,10 +120,8 @@ ftp=7 https=3
 ### Request Building
 
 <!-- test: http-client.build-request -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://example.com/path?q=1") otherwise 'err'
 		return 1
 	end 'err'
@@ -259,7 +255,6 @@ v1.fe 81 [Host: [v1.fe]:81]
 <!-- test: http-client.an-ipv6-loopback-server-is-reached-by-its-bracketed-url -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 `http://[::1]:<port>/` reaches a server listening on the IPv6 loopback: the client connects to `::1` and sends the
@@ -286,7 +281,6 @@ function main() returns ExitCode
 	let port = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answer(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.get("http://[::1]:{port}/x") otherwise (e) 'failed'
 		print("failed {e.name}\n")
 		peer.cancel()
@@ -308,7 +302,6 @@ status=200 body=hi host-line-ok=true
 <!-- test: http-client.a-kept-alive-response-ends-at-its-declared-length -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A RESPONSE WITH A `Content-Length` ENDS AT THAT LENGTH, NOT AT THE CLOSE.** A caller that asks for
 `Connection: keep-alive` gets a server that keeps the connection open after answering, so a client reading to
@@ -328,7 +321,6 @@ function answerAndHold(listener TcpListener, answer String) returns String
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send(answer) otherwise return "send-failed"
 	while true 'held'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
 			return e.name
 		end 'left'
@@ -341,7 +333,6 @@ end 'answerAndHold'
 function fetch(port NetworkPort, method HttpMethod) returns String
 	let request = try HttpRequest.create(method, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
 	request.setHeader("Connection", value: "keep-alive")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request) otherwise (e) 'failed'
 		return e.name
 	end 'failed'
@@ -375,7 +366,6 @@ head=200 [] peer=connectionClosed
 
 <!-- test: http-client.an-unlisted-status-is-carried-by-its-number -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A FINAL STATUS THE CLIENT HAS NO NAME FOR IS STILL A RESPONSE.** Any three-digit status is valid HTTP, so a
 `299` is carried in `StatusCode.other` with its number, and has an empty reason phrase, as Go's
@@ -395,7 +385,6 @@ function exchange(listener TcpListener, reply String) returns String
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answer(listener, reply: reply)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
 		return "{e.name} peer={await peer}"
 	end 'failed'
@@ -481,7 +470,6 @@ end 'main'
 <!-- test: http-client.the-client-deadline-covers-the-whole-exchange -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **`HttpClientLimits.timeoutMs` BOUNDS THE WHOLE EXCHANGE, SO A PEER THAT NEVER ANSWERS ENDS IT WITH
 `timedOut`.** The peer accepts and then answers nothing, with no deadline of its own, so only the client's
@@ -503,7 +491,6 @@ let RequestBytes = 4096
 function staySilent(listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "unaccepted"
 	while true 'held'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
 			return e.name
 		end 'left'
@@ -514,7 +501,6 @@ function staySilent(listener TcpListener) returns String
 end 'staySilent'
 
 function clientOutcome(request HttpRequest, limits HttpClientLimits) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, limits: limits) otherwise (e) 'failed'
 		return "client={e.name}"
 	end 'failed'
@@ -525,7 +511,6 @@ function exchangeOver(listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async staySilent(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled23'
 		peer.cancel()
 		return 2
@@ -553,7 +538,6 @@ client=timedOut peer-released=true
 
 <!-- test: http-client.a-body-over-the-callers-cap-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A BODY LONGER THAN `HttpClientLimits.maxBodyBytes` IS REFUSED WITH `bodyTooLarge`, HOWEVER IT IS FRAMED.**
 A declared length over the cap is refused before its bytes are read; a chunked or close-delimited body is refused
@@ -576,12 +560,10 @@ function exchange(listener TcpListener, reply String, limits HttpClientLimits) r
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answer(listener, reply: reply)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled14'
 		peer.cancel()
 		return "bad-url"
 	end 'cancelled14'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request, limits: limits) otherwise (e) 'failed'
 		return "{e.name} peer={await peer}"
 	end 'failed'
@@ -624,7 +606,6 @@ close-delimited-at-the-cap=[0123456789] peer=answered
 <!-- test: http-client.a-chunked-response-is-decoded -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A `Transfer-Encoding: chunked` BODY IS DECODED, AND IT ENDS AT THE LAST CHUNK.** Each chunk is a hex size, any
 extensions after a `;` ignored, the data and a CRLF; a zero size ends the body, and the trailer fields after it
@@ -645,7 +626,6 @@ function answer(listener TcpListener, reply String, hold bool) returns String
 		return "closed"
 	end 'closing'
 	while true 'held'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
 			return e.name
 		end 'left'
@@ -658,7 +638,6 @@ end 'answer'
 function fetch(port NetworkPort) returns String
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{port}/") otherwise return "bad-url"
 	request.setHeader("Connection", value: "keep-alive")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.send(request) otherwise (e) 'failed'
 		return e.name
 	end 'failed'
@@ -703,7 +682,6 @@ text-after-the-size=invalidResponse peer=connectionClosed
 
 <!-- test: http-client.an-interim-response-is-skipped -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A 1xx RESPONSE IS INTERIM, AND THE CLIENT READS PAST IT TO THE FINAL ONE** (RFC 9110 section 15.2). A `103 Early
 Hints` carries header fields and no body, and the response the request is answered with follows it on the same
@@ -732,7 +710,6 @@ function exchange(listener TcpListener, interimCount InterimCount) returns Strin
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async answer(listener, interimCount: interimCount)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
 		return "{e.name} peer={await peer}"
 	end 'failed'
@@ -758,7 +735,6 @@ nine=invalidResponse peer=answered
 
 <!-- test: http-client.a-switching-protocols-response-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A `101 Switching Protocols` IS NOT AN INTERIM RESPONSE TO THIS CLIENT, AND IT IS REFUSED.** After a 101 the
 connection speaks another protocol, which this client does not, so reading on for a final HTTP response would
@@ -773,7 +749,6 @@ function switchAndHold(listener TcpListener) returns String
 	_ = try conn.readSome(RequestBytes) otherwise return "recv-failed"
 	_ = try conn.send("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: websocket\r\n\r\n") otherwise return "send-failed"
 	while true 'held'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try conn.readSome(RequestBytes) otherwise (e) 'left'
 			return e.name
 		end 'left'
@@ -787,14 +762,12 @@ function exchangeOver(listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async switchAndHold(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try HttpRequest.create(HttpMethod.get, url: "http://127.0.0.1:{boundPort}/") otherwise 'cancelled16'
 		peer.cancel()
 		return 2
 	end 'cancelled16'
 	request.setHeader("Connection", value: "Upgrade")
 	request.setHeader("Upgrade", value: "websocket")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let outcome = try HttpClient.send(request) otherwise (e) 'refused'
 		print("client={e.name} peer={await peer}\n")
 		return 0
@@ -817,7 +790,6 @@ client=invalidResponse peer=connectionClosed
 
 <!-- test: http-client.an-endless-response-head-is-refused-at-its-cap -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 **A RESPONSE HEAD THAT NEVER ENDS IS REFUSED, NOT BUFFERED.** The peer streams header fields with no blank line
 after them. The client stops at its head cap and answers `invalidResponse`, and the peer's sends fail when the
@@ -851,7 +823,6 @@ function exchangeOver(listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async streamAHead(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let outcome = try HttpClient.get("http://127.0.0.1:{boundPort}/") otherwise (e) 'failed'
 		print("client={e.name} peer={await peer}\n")
 		return 0
@@ -909,10 +880,8 @@ length=2
 ```
 
 <!-- test: http-client.conflicting-repeated-singleton-headers-are-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function verdict(head String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try httpParseRequestHead(head, scheme: HttpUrlScheme.http) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -936,7 +905,6 @@ length-conflicting=malformedRequest
 ```
 
 <!-- test: http-client.a-response-header-name-is-a-token-and-host-is-a-request-rule -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function finalResponseOf(head String) returns HttpResponse throws HttpError
 	match try httpResponseStatusOf(head) 'status'
@@ -946,7 +914,6 @@ function finalResponseOf(head String) returns HttpResponse throws HttpError
 end 'finalResponseOf'
 
 function verdict(raw String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try finalResponseOf(raw) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -955,7 +922,6 @@ function verdict(raw String) returns String
 end 'verdict'
 
 function unfolded(raw String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let response = try finalResponseOf(raw) otherwise (e) 'refused'
 		return e.name
 	end 'refused'

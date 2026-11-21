@@ -313,7 +313,6 @@ end 'main'
 ```
 
 <!-- test: witness-throws.boxed-error-caught-at-witness-edge -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A PAYLOAD-CARRYING (heap-boxed) union error caught at the witness dispatch's own error edge, inside the
 shared generic body. The box is handed to the caller owned, so the `(e)` binding must release it exactly
@@ -354,7 +353,6 @@ type Box uses T where T implements Checked
 
 	function itemCheck() returns Code
 		var out = 1 as Code
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.item.check() otherwise (e) 'caught'
 			match e 'k'
 				tooSmall(limit) then out = limit + 1

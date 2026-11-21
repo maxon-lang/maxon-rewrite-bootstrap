@@ -311,14 +311,12 @@ end 'main'
 
 
 <!-- test: stdlib-map-on-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3, 4, 5]
 	// TODO: closures are not supported in minimaxon
 	let doubled = nums.map(function(x Integer) gives x * 2)
@@ -337,14 +335,12 @@ end 'main'
 
 
 <!-- test: stdlib-map-on-set -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [10, 20, 30]
 	// TODO: closures are not supported in minimaxon
 	let mapped = s.map(function(x Integer) gives x + 1)
@@ -362,12 +358,10 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2, "c": 3]
 	var sum = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -384,13 +378,11 @@ end 'main'
 ```
 
 <!-- test: stdlib-map-on-map-with-function -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2, "c": 3]
 	// TODO: closures are not supported in minimaxon
 	let mapped = m.map(function(p) gives p)
@@ -884,16 +876,13 @@ end 'main'
 The extension bodies walk an iterator instance over the collection's own parameters, and `map` and `filter` forward the descriptor they are handed to that iterator.
 
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2]
 	var total = 0 as Count
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
@@ -985,7 +974,6 @@ end 'main'
 ### A conformer's unmarked cursor does not refuse an `Iterable` extension call
 
 <!-- test: a-file-private-cursor-conformer-and-an-iterable-extension-call -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
@@ -1040,7 +1028,6 @@ end 'Bag'
 typealias IntBag = Bag with Int
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let b = IntBag.create()
@@ -1052,7 +1039,6 @@ end 'main'
 ```
 
 <!-- test: error.another-file-naming-a-file-private-cursor-is-still-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
@@ -1106,7 +1092,6 @@ end 'bagTotal'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	let doubled = [1, 2, 3].map(function(x) gives x + x)
 	let c = BagIter.create()

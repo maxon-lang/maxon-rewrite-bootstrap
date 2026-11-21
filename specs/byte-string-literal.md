@@ -151,13 +151,11 @@ end 'main'
 ```
 
 <!-- test: byte-string-literal.map-key -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: byte string literals are not supported in minimaxon
 	let m = [b"hello": 1, b"world": 2]
 	// TODO: byte string literals are not supported in minimaxon
@@ -176,12 +174,10 @@ end 'main'
 ```
 
 <!-- test: byte-string-literal.local-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: byte string literals are not supported in minimaxon
 	let m = [b"hello": 1 as Count, b"world": 2 as Count]
 	// TODO: byte string literals are not supported in minimaxon
@@ -200,7 +196,6 @@ end 'main'
 ```
 
 <!-- test: byte-string-literal.local-map-struct -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 
 ```maxon
@@ -215,7 +210,6 @@ type Info
 end 'Info'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: byte string literals are not supported in minimaxon
 	let m = [b"hello": Info.create(10), b"world": Info.create(20)]
 	// TODO: byte string literals are not supported in minimaxon

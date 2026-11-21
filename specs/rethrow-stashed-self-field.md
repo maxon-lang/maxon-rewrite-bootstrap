@@ -25,7 +25,6 @@ are stored as heap pointers and have the same dangling-alias hazard.
 ## Tests
 
 <!-- test: rethrow-stashed-self-union-field -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Re-throwing a union-typed self field that was rewritten by an inner call
 
@@ -61,7 +60,6 @@ type Holder
 	end 'inner'
 
 	function outer() throws Outer
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try inner() otherwise 'innerErr'
 			throw pending
 		end 'innerErr'
@@ -70,7 +68,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.outer() otherwise (e) 'fail'
 		match e 'kind'
 			first then return 1

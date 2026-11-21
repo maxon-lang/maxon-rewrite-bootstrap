@@ -158,12 +158,10 @@ the most on every lane, because Win32 takes a GLOB where POSIX takes a directory
 
 <!-- test: list-directory -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let files = try Directory.list(FilePath from "../stdlib") otherwise 'err'
 		return 0
 	end 'err'
@@ -188,11 +186,9 @@ end 'main'
 
 <!-- test: list-directory-count -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let files = try Directory.list(FilePath from "../stdlib") otherwise 'err'
 		return 99
 	end 'err'
@@ -263,11 +259,9 @@ end 'main'
 
 <!-- test: list-nonexistent-directory -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let files = try Directory.list(FilePath from "nonexistent_dir_12345") otherwise 'err'
 		print("Directory not found")
 		return 0
@@ -534,7 +528,6 @@ end 'main'
 
 <!-- test: delete-refuses-a-directory-that-is-not-empty -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -545,7 +538,6 @@ function main() returns ExitCode
 	let occupant = dir.join("occupant.txt")
 	try File.writeText(occupant, content: "x") otherwise return 2
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(dir) otherwise 'refusedNonEmpty'
 		refused = true
 	end 'refusedNonEmpty'
@@ -585,14 +577,12 @@ end 'main'
 
 <!-- test: delete-refuses-an-existing-file-as-failed-and-leaves-it -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let file = FilePath from "test_delete_file_8a4f.txt"
 	try File.writeText(file, content: "x") otherwise return 1
 	var answeredAsExpected = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(file) otherwise (refusal) 'refused'
 		if refusal == DirectoryDeleteError.deleteFailed 'asFailed'
 			answeredAsExpected = true
@@ -615,14 +605,12 @@ end 'main'
 
 <!-- test: delete-answers-not-found-for-a-path-through-a-file -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let file = FilePath from "test_delete_through_file_c93b.txt"
 	try File.writeText(file, content: "x") otherwise return 1
 	var answeredAsExpected = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(file.join("below")) otherwise (refusal) 'refused'
 		if refusal == DirectoryDeleteError.notFound 'asNotFound'
 			answeredAsExpected = true
@@ -640,7 +628,6 @@ end 'main'
 ```
 
 <!-- test: delete-refuses-a-dangling-link-as-failed-and-leaves-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A symbolic link whose target is gone is still an entry at its path, so `Directory.delete` of it is `deleteFailed`
 and the link stays: nothing resolves through it, and only a lookup that does not follow links finds it.
@@ -666,7 +653,6 @@ function main() returns ExitCode
 		return 2
 	end 'couldNotLink'
 	var answeredAsExpected = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(link) otherwise (refusal) 'refused'
 		if refusal == DirectoryDeleteError.deleteFailed 'asFailed'
 			answeredAsExpected = true
@@ -690,7 +676,6 @@ end 'main'
 ```
 
 <!-- test: delete-refuses-a-differently-cased-spelling-of-an-existing-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 Whether a path names an entry is the file system's answer, not a comparison of spellings: on a volume that
 folds case, a spelling of an existing file in other letters names that file, so `Directory.delete` of it is
@@ -724,7 +709,6 @@ function main() returns ExitCode
 	let foldsCase = hostFindsAnEntryAt(otherCase)
 	let expected = DirectoryDeleteError.deleteFailed if foldsCase else DirectoryDeleteError.notFound
 	var answeredAsExpected = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Directory.delete(otherCase) otherwise (refusal) 'refused'
 		answeredAsExpected = refusal == expected
 	end 'refused'
@@ -1652,7 +1636,6 @@ it, so a valid layout never fails by length. Every spelling of an entry the OS r
 repeated and trailing separators included, names that entry at every length.
 
 <!-- test: an-absolute-path-past-the-legacy-windows-limit-names-the-same-entries-as-a-short-one -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	let rootName = "long-path-root"
@@ -1665,7 +1648,6 @@ function main() returns ExitCode
 	print("create {Directory.create(deep)}\n")
 	print("exists {Directory.exists(deep)}\n")
 	let file = deep.join("file.txt")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(file, content: "hello") otherwise (e) 'noWrite'
 		print("write refused {e.name}\n")
 		return 4
@@ -1711,7 +1693,6 @@ root exists false
 ```
 
 <!-- test: a-relative-path-past-the-legacy-windows-limit-names-the-same-entries-as-a-short-one -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A relative path names its entries against the working directory, so its length is the working directory's plus its own.
 ```maxon
 function main() returns ExitCode
@@ -1724,7 +1705,6 @@ function main() returns ExitCode
 	print("past the limit {deep.toString().byteLength() > 260}\n")
 	print("create {Directory.create(deep)}\n")
 	let file = deep.join("file.txt")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(file, content: "hello") otherwise (e) 'noWrite'
 		print("write refused {e.name}\n")
 		return 4

@@ -139,7 +139,6 @@ end 'main'
 ```
 
 <!-- test: a-block-handler-runs-on-a-real-failure -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The block-form handler is a block of its own reached from the duplicated test; it returns through the
 function's exit, so a test that fell into the continuation instead would print 5 where 7 is right.
@@ -152,7 +151,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias WordArray = Array with Word
 
 function probe(a WordArray, i Idx) returns Word
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try a.get(i) otherwise 'missing'
 		return 7
 	end 'missing'
@@ -252,7 +250,6 @@ end 'main'
 ```
 
 <!-- test: a-binding-handler-reads-the-flag-and-is-left-alone -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 The flag is read in the handler to decode `e`, so the rule refuses the site and the site behaves as
 it always did: `indexOutOfBounds` is what an index past the end reports.
@@ -265,7 +262,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias WordArray = Array with Word
 
 function classify(a WordArray, i Idx) returns Word
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try a.get(i) otherwise (e) 'handler'
 		match e 'which'
 			indexOutOfBounds then return 3

@@ -147,10 +147,8 @@ end 'main'
 ## Tests
 
 <!-- test: count-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
 	print("{arr.count()}\n")
 	return 0
@@ -183,10 +181,8 @@ end 'main'
 ```
 
 <!-- test: get-valid -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val0 = try arr.get(0) otherwise 0
 	let val2 = try arr.get(2) otherwise 0
@@ -198,10 +194,8 @@ end 'main'
 ```
 
 <!-- test: get-out-of-bounds -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	let val = try arr.get(10) otherwise 6
 	return val
@@ -212,10 +206,9 @@ end 'main'
 ```
 
 <!-- test: set-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [1, 2, 3]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
 	try arr.set(2, value: 300) otherwise panic("test invariant: set OOB")
@@ -238,7 +231,6 @@ end 'main'
 ```
 
 <!-- test: map-basic-transform -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -247,7 +239,6 @@ function double(x Integer) returns Integer
 end 'double'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
 	let result = arr.map(double)
 	let val0 = (try result.get(0) otherwise 0) as Integer
@@ -275,13 +266,11 @@ end 'main'
 ```
 
 <!-- test: map-closure-multiply -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [2, 3, 4]
 	// TODO: closures are not supported in minimaxon
 	let result = arr.map(function(x Integer) gives x * 3)
@@ -304,13 +293,11 @@ end 'main'
 ```
 
 <!-- test: map-closure-square -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4]
 	// TODO: closures are not supported in minimaxon
 	let squared = arr.map(function(n Integer) gives n * n)
@@ -336,7 +323,6 @@ end 'main'
 ```
 
 <!-- test: map-identity-function -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -345,7 +331,6 @@ function identity(x Integer) returns Integer
 end 'identity'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let result = arr.map(identity)
 	let val0 = (try result.get(0) otherwise 0) as Integer
@@ -367,7 +352,6 @@ end 'main'
 ```
 
 <!-- test: map-negate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -376,7 +360,6 @@ function negate(x Integer) returns Integer
 end 'negate'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	let result = arr.map(negate)
 	let val0 = (try result.get(0) otherwise 0) as Integer
@@ -398,13 +381,11 @@ end 'main'
 ```
 
 <!-- test: map-single-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [42]
 	// TODO: closures are not supported in minimaxon
 	let result = arr.map(function(x Integer) gives x + 8)
@@ -479,7 +460,6 @@ end 'main'
 ```
 
 <!-- test: error-map-transform-param-type-mismatch -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **The transform's PARAMETER is the container's element, by the declaration `map` is read from.** A
@@ -496,7 +476,6 @@ own sentence — see `closure-param-type-inference.md`, which carries the whole 
 ```maxon
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(a String) gives a.count())
@@ -629,7 +608,6 @@ error E3005: <fragment>:27:12: argument type mismatch for 'transform': expected 
 ```
 
 <!-- test: error-map-transform-param-enum-at-an-int-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE SAME DEFECT WITH THE SIDES SWAPPED, and the reason the verdict cannot let the ELEMENT decide which
@@ -657,7 +635,6 @@ function show(c Color) returns Integer
 end 'show'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let out = nums.map(function(c Color) gives show(c))

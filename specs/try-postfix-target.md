@@ -149,10 +149,8 @@ end 'main'
 ```
 
 <!-- test: chained-on-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = try [10, 20, 30, 40].clone().get(1) otherwise return 9
 	return v
 end 'main'

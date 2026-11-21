@@ -36,7 +36,6 @@ CONTROL for these. The `for` spelling of either, the
 ## Tests
 
 <!-- test: non-tuple-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -45,7 +44,6 @@ the pattern and the source's ELEMENT — no binding, no initializer, no right-ha
 positioned on the `for` keyword, where the author decided how many names to write.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2, 3]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -60,7 +58,6 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring `for` pattern of a 'in
 ```
 
 <!-- test: arity-mismatch -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -68,7 +65,6 @@ A map's element is a `(key, value)` pair, so three names have nothing to bind. S
 noun, same anchor; only the count clause differs, and that half is shared with `let` verbatim.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [1: 10, 2: 20]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -83,7 +79,6 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring `for` pattern of 3 nam
 ```
 
 <!-- test: one-name-in-parens -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -95,7 +90,6 @@ pinned here so that staying `let`-worded is a recorded decision rather than the 
 someone "fixes" for consistency.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2, 3]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -110,7 +104,6 @@ error E2015: <fragment>:4:2: Unsupported: a destructuring binding of 1 name(s) (
 ```
 
 <!-- test: discard-a-position -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 `_` discards a position in a `for` header exactly as it does in a `let`, and a discarded position
@@ -118,7 +111,6 @@ binds no name at all — so it is exempt from the unused-binding check that `v` 
 sum proves the surviving position still reads the pair's VALUE and not its key.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [1: 10, 2: 20]
 	var total = 0 as ExitCode
 	// TODO: tuple loop variables in for loops are not supported in minimaxon

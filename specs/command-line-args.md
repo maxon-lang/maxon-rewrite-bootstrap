@@ -372,11 +372,9 @@ end 'main'
 ```
 
 <!-- test: optional-int-argument-negative-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- Args: -5 -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise (e) 'bad'
 		match e 'kind'
 			invalidFormat then print("invalidFormat\n")
@@ -394,11 +392,9 @@ invalidFormat
 ```
 
 <!-- test: optional-int-argument-non-numeric-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- Args: twelve -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try CommandLine.readOptionalIntArgument(1, otherwise: 1000) otherwise (e) 'bad'
 		match e 'kind'
 			invalidFormat then print("invalidFormat\n")

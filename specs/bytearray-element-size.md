@@ -342,7 +342,6 @@ error E2015: specs/bytearray-element-size/byte-string-global-refused-when-byte-i
 ```
 
 <!-- test: byte-string-key-of-a-top-level-map-is-refused-when-byte-is-wider-than-one-byte -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### The refusal reaches a byte-string KEY of a top-level map literal, which is a THIRD doorway
@@ -356,7 +355,6 @@ typealias Byte = int(0 to u64.max)
 
 typealias Bytes = Array with Byte
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let KEYWORDS = [b"hi": 1]
 
@@ -768,7 +766,6 @@ end 'main'
 
 <!-- test: wide-byte-program-still-round-trips-a-file -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### The stdlib's own byte buffer stays byte-PACKED while the program's `Byte` is two bytes wide
 x64-windows only, and it is the ONE case here that genuinely needs a file: it is the RUNTIME proof
 that `stdlib/File.maxon`'s own read buffer strides 1 while the caller's `Byte` strides 2, so it has
@@ -785,15 +782,12 @@ function main() returns ExitCode
 	made.push(300)
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_widebyte_roundtrip.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path, content: "Hello") otherwise 'writeErr'
 		return 1
 	end 'writeErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readText(path) otherwise 'readErr'
 		return 2
 	end 'readErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(path) otherwise 'delErr'
 		return 3
 	end 'delErr'

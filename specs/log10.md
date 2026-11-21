@@ -162,7 +162,6 @@ end 'main'
 ```
 
 <!-- test: log10.powers-of-ten-are-exact -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -173,7 +172,6 @@ between the input and the power it names. Each way of missing has its own exit: 
 it, 3 neither (a NaN), 4 a table that lost an entry.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let powers = [1.0, 10.0, 100.0, 1000.0, 10000.0, 100000.0, 1.0e6, 1.0e7, 1.0e8, 1.0e9, 1.0e10, 1.0e11, 1.0e12, 1.0e13, 1.0e14, 1.0e15, 1.0e16, 1.0e17, 1.0e18, 1.0e19, 1.0e20, 1.0e21, 1.0e22]
 	if powers.count() != 23 'everyPower'

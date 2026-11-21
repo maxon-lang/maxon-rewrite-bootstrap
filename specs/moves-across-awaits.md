@@ -201,7 +201,6 @@ end 'main'
 ```
 
 <!-- test: a-borrowed-send-error-is-rethrown-without-a-double-drop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -244,7 +243,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Box.create(2) as isolated Box
 	try h.keep(first) otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(second) otherwise (e) 'refused'
 		try again(e) otherwise ignore
 	end 'refused'
@@ -409,16 +407,14 @@ end 'main'
 ```
 
 <!-- test: a-literal-construction-is-not-a-call-in-a-module-let -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Names from [...]` and `[...]` build data, not a call, so a module `let` may hold them.
 
 ```maxon
 typealias Names = Set with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let known = Names from ["alpha", "beta"]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let listed = [1, 2, 3]
 
 function main() returns ExitCode

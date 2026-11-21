@@ -616,7 +616,6 @@ error E3220: <fragment>:13:20: the initializer of 'Cache.head' calls 'Row.create
 ```
 
 <!-- test: static-managed-members -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A `String` static and an array static in one type: both materialize once before `main`, both are read
 through their qualified names, and both are freed at exit.
@@ -625,7 +624,6 @@ type Names
 	// TODO: static fields (static let) are not supported in minimaxon
 	static let GREETING = "hi"
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let items = FullRangeIntArray from [1, 2, 3]
 end 'Names'
 
@@ -642,7 +640,6 @@ hi3
 ```
 
 <!-- test: error.static-let-array-mutate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE WRITE-THROUGH-AN-IMMUTABLE-STATIC GUARD.** A receiver-writing method
@@ -656,7 +653,6 @@ binding declared `let`, with no diagnostic anywhere.
 ```maxon
 type Cache
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let xs = [1, 2, 3]
 end 'Cache'
 
@@ -709,9 +705,7 @@ real COPY promotion for `var b = <borrowed array>`, neither of which exists. Hea
 stated truthfully.
 
 <!-- test: top-level-let-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let NUMS = [10, 20, 30]
 
 function main() returns ExitCode
@@ -725,13 +719,12 @@ end 'main'
 ```
 
 <!-- test: top-level-array-const-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An array literal's elements are body expressions, so a reference to another top-level *scalar* constant —
 and arithmetic on it — is an element.
 ```maxon
 let BASE = 20
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = FullRangeIntArray from [BASE, BASE + 2]
 
 function main() returns ExitCode
@@ -745,12 +738,10 @@ end 'main'
 ```
 
 <!-- test: top-level-let-array-string-elements -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A String-element array global owns its elements: each literal is CLONED into the record, and
 `__managed_decref`'s walk `__str_decref`s every live slot at exit. Leak-gated — a missed clone double-frees
 the immortal `.rdata` record and a missed stamp leaks all of them.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let names = ["ab", "cde"]
 
 function main() returns ExitCode
@@ -768,13 +759,10 @@ abcde
 ```
 
 <!-- test: error.top-level-let-array-mutate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A receiver-writing method on a `let`-bound array is E3207 — the SAME rule a `let`-bound String or Set
 receiver gets, because the array is immutable data. Without it a `let` array would be writable, since
 it has a real slot.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let fixed = [4, 5, 6]
 
 function main() returns ExitCode
@@ -787,16 +775,12 @@ error E3207: <fragment>:5:8: 'push' needs a writable receiver; 'fixed' is immuta
 ```
 
 <!-- test: error.top-level-let-array-reassign -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 Reassigning a `let` array is E2013, not "undefined variable": having a `.data` slot is not permission to
 write one, and the name is very much defined.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = [1, 2]
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	xs = [3, 4]
 	return 0
 end 'main'
@@ -806,11 +790,9 @@ error E2013: <fragment>:5:2: 'xs' is a let and cannot be reassigned
 ```
 
 <!-- test: a-top-level-array-let-names-another-global -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A `let` initializer may name another `let` global, as a body's `let b = A` does: `B` reads the same
 array.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = [1, 2]
 
 let B = A
@@ -824,12 +806,10 @@ end 'main'
 ```
 
 <!-- test: a-top-level-array-let-names-another-global-forward -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same, written the other way round: declaration order does not matter.
 ```maxon
 let B = A
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = [1, 2]
 
 function main() returns ExitCode
@@ -841,8 +821,7 @@ end 'main'
 ```
 
 <!-- test: error.top-level-let-array-var-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `let` array's record cannot be laundered into a mutable ALIAS. A borrowed managed aggregate bound to a
 `var` is promoted to owned by an INCREF of the same box — reference semantics, deliberately, because the
 alias is observable — so without this refusal `var b = A` then `b.push(9)` would grow `A`. A `var` is a
@@ -861,7 +840,6 @@ value in a fresh space, so the mark does not enter it; what crosses is what the 
 `var c = idBox(G)` where `idBox(x Box)` is `return x`, followed by a write through `c`, is refused, because the result may share storage with
 `G`. `Holder.of(G)` followed by `h.inner.n = 99` is refused at the write, because the record `h` holds is `G`'s.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = FullRangeIntArray from [1, 2]
 
 function main() returns ExitCode
@@ -875,17 +853,14 @@ error E3207: <fragment>:6:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-array-var-reassign-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same refusal through the other door — a REASSIGNMENT of an already-owned `var`, which promotes a
 borrowed value through the identical single-sourced path and so CARRIES the mark through the identical
 one. `b = A` is refused at the reassignment, as `var b = A` is at the binding.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = FullRangeIntArray from [1, 2]
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var b = FullRangeIntArray from [0]
 	b = A
 	b.push(9)
@@ -897,7 +872,6 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.top-level-let-field-map-var-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
 ```maxon
@@ -912,7 +886,6 @@ type Holder
 
 	static function create() returns Self
 		var index = ItemIndex.create()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		index.upsert(1, value: [7])
 		return Self{index: index.clone()}
 	end 'create'
@@ -922,7 +895,6 @@ let H = Holder.create()
 
 function main() returns ExitCode
 	var m = H.index
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	m.upsert(2, value: [9])
 	return H.index.count() as ExitCode
 end 'main'
@@ -932,7 +904,6 @@ error E3220: <fragment>:16:9: the initializer of 'H' calls 'Holder.create': a mo
 ```
 
 <!-- test: error.top-level-let-field-accessor-read-only -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -948,7 +919,6 @@ type Holder
 
 	static function create() returns Self
 		var index = ItemIndex.create()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		index.upsert(1, value: [7])
 		return Self{index: index}
 	end 'create'
@@ -972,7 +942,6 @@ error E3209: <fragment>:19:2: a return does not fit the declared result: the ret
 ```
 
 <!-- test: error.top-level-let-field-accessor-result-write -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `Holder.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -988,7 +957,6 @@ type Holder
 
 	static function create() returns Self
 		var index = ItemIndex.create()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		index.upsert(1, value: [7])
 		return Self{index: index}
 	end 'create'
@@ -1003,7 +971,6 @@ end 'index'
 
 function main() returns ExitCode
 	var m = index()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	m.upsert(2, value: [9])
 	return H.index.count() as ExitCode
 end 'main'
@@ -1015,17 +982,15 @@ error E3207: <fragment>:24:2: 'upsert' writes its receiver (line 170: `try value
 ```
 
 <!-- test: error.top-level-let-array-ternary-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 And through a value MERGE, which is the door that costs one extra keyword. The mark that refuses the two
 above rides the VALUE, and a merge mints a NEW value — so the phi has to inherit it, or `var pick = A if c
 else M` launders exactly what `var pick = A` is refused for. Without that inheritance this program would
 compile and return 3.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = FullRangeIntArray from [1, 2]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let M = FullRangeIntArray from [5, 5]
 
 function main() returns ExitCode
@@ -1039,15 +1004,13 @@ error E3207: <fragment>:7:7: 'push' needs a writable receiver; 'pick' is immutab
 ```
 
 <!-- test: error.top-level-let-array-match-arm-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 The same merge, through the `match`-expression door rather than the ternary — one `finalizeMatchMerge`
 serves both, so a phi that inherits the mark for one inherits it for the other by construction.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = FullRangeIntArray from [1, 2]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let M = FullRangeIntArray from [5, 5]
 
 enum Which
@@ -1101,17 +1064,15 @@ error E3197: <fragment>:18:7: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: top-level-let-array-let-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A `let` binding of a `let` array is fine and stays fine: it can only read, so there is nothing to
 launder. This is the remedy the refusal above names, so it has to work. A `let` binding of a MERGE that
 includes one is legal for the same reason — it can only read.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = [1, 2]
 
 function main() returns ExitCode
 	let b = A
-	return b.count()
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1524,13 +1485,11 @@ error E3220: <fragment>:12:9: the initializer of 'G' calls 'Box.make': a module-
 ```
 
 <!-- test: error.let-global-given-out-of-a-closure -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure hands out a read of a module-level `let`, and a write through the name bound to what the closure returns is
 refused as a write through immutable data, as it is for a named function.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["a", "b"]
 
 function main() returns ExitCode
@@ -1546,7 +1505,6 @@ error E3207: <fragment>:7:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: error.let-global-alias-captured-by-a-closure -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
@@ -1563,7 +1521,6 @@ typealias Names = Array with String
 // TODO: function typealiases are not supported in minimaxon
 typealias IntThunk = function() returns Integer
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["a", "b"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1593,7 +1550,6 @@ error E3207: <fragment>:21:42: 'grow' writes 'xs' (line 12: `xs.push("zz")`); 'e
 ```
 
 <!-- test: error.let-global-alias-across-an-if-merge -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **A MERGE THAT REBINDS A NAME MUST CARRY THE MARK, NOT ONLY THE MERGES THAT PRODUCE A VALUE.**
@@ -1605,7 +1561,6 @@ refused door.
 ```maxon
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["a", "b"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1619,7 +1574,6 @@ function grow(xs Names) returns Integer
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var b = ["q"]
 	if A.count() > 1 'sometimes'
 		b = expose()
@@ -1635,7 +1589,6 @@ error E3207: <fragment>:20:15: 'grow' writes 'xs' (line 11: `xs.push("zz")`); 'b
 ```
 
 <!-- test: error.let-global-alias-carried-by-a-loop -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔ **AND A LOOP IS THE SAME MERGE WITH THE EDGE PUSHED BEFORE THE PHI IS NAMED.** On a back edge the binding's own value IS the pushed value, so
@@ -1649,7 +1602,6 @@ that, because "may alias" is the whole question. The rebinding inside the loop i
 ```maxon
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["a", "b"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1663,7 +1615,6 @@ function grow(xs Names) returns Integer
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var b = ["q"]
 	for _ in 0 upto 2 'each'
 		b = expose()
@@ -1679,12 +1630,12 @@ error E3207: <fragment>:20:15: 'grow' writes 'xs' (line 11: `xs.push("zz")`); 'b
 ```
 
 <!-- test: error.top-level-array-empty -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array -->
 <!-- positions: moved -->
 An empty array literal has no element to infer a type from, so it is refused with the diagnostic a
 function body's `[]` gets (`arrays/multi-line-literal-empty-still-rejected`).
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+// TODO: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array
 let items = []
 
 function main() returns ExitCode
@@ -1696,12 +1647,9 @@ error E2015: <fragment>:2:13: Unsupported: an empty array literal `[]` — its e
 ```
 
 <!-- test: error.top-level-array-mixed-elements -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 Every element must have the first element's type — the same rule, in the same words, a literal in a
 function body gets.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = [1, "a"]
 
 function main() returns ExitCode
@@ -1713,13 +1661,11 @@ error E3005: <fragment>:2:14: argument type mismatch for 'value': expected 'int'
 ```
 
 <!-- test: a-body-array-bool-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let flags = [true, false].clone()
+	var flags = [true, false].clone()
 	flags.push(true)
-	return flags.count()
+	return try flags.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1727,14 +1673,12 @@ end 'main'
 ```
 
 <!-- test: top-level-array-bool-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A top-level array literal of `bool` elements is what a body's is.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let flags = [true, false, true]
 
 function main() returns ExitCode
-	return flags.count()
+	return try flags.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2123,8 +2067,6 @@ error E3006: <fragment>:3:5: duplicate definition of 'A' — already declared as
 ```
 
 <!-- test: error.top-level-let-array-owned-merge-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The FOURTH door onto the same guard. The three above all reach it as a `var`
 BINDING; this one reaches it as a MERGE that must be OWNED because its other arm gives a fresh record —
 so the borrowed arm is promoted, and for an aggregate a promotion is an INCREF of the same box. That is
@@ -2134,7 +2076,6 @@ too and the `var pick` binding is refused where it happens.
 ```maxon
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["ab", "cde"]
 
 function fresh() returns Names
@@ -2874,7 +2815,6 @@ edited from one to the other is answered from the other's parse. Its two neighbo
 because their kind IS their element type; `enumCase` is a family.
 
 <!-- test: an-array-literal-of-enum-cases-is-a-top-level-constant -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Read three ways — iterated, counted, and indexed — because the instance is what the element name decides and each
 reads it differently.
@@ -2888,7 +2828,6 @@ enum Reg
 	r10
 end 'Reg'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let calleeSaved = [Reg.rcx, Reg.rdx, Reg.r10]
 
 function ordinalOf(r Reg) returns Integer
@@ -2914,8 +2853,6 @@ count=3 total=4 first=0
 ```
 
 <!-- test: error.an-array-literal-may-not-mix-two-enums -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ⭐ **THE CASE A KIND-ONLY COMPARISON WOULD LET THROUGH.** Two enums, one kind. Accepted, this array
 would be typed `Array with Reg` and hold a `CharClass` in its second slot.
 ```maxon
@@ -2929,7 +2866,6 @@ enum CharClass
 	tab
 end 'CharClass'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let mixed = [Reg.rcx, CharClass.tab]
 
 function main() returns ExitCode
@@ -2995,7 +2931,6 @@ error E2073: <fragment>:9:13: type 'Box' has no static member named 'min'
 ```
 
 <!-- test: global-union-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A union case's payload operand is read only by the enum-construct op, so a dead-op scan that
 cannot see that read deletes the literal the case was built from.
 ```maxon
@@ -3006,7 +2941,6 @@ union Op
 	nop
 end 'Op'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let globalOps = [Op.add(7), Op.nop]
 
 function main() returns ExitCode
@@ -3022,7 +2956,6 @@ end 'main'
 ```
 
 <!-- test: error.global-bytestring-map-with-union-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `KeywordInfo.create`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -3047,7 +2980,6 @@ end 'Op'
 
 typealias OpArray = Array with Op
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let keywordMap = [b"if": KeywordInfo.create(1, helpText: "Conditional statement."), b"else": KeywordInfo.create(2, helpText: "Alternative branch.")]
 
@@ -3068,7 +3000,6 @@ error E3220: <fragment>:21:18: the initializer of 'keywordMap' calls 'KeywordInf
 ```
 
 <!-- test: global-map-with-union-values -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 The enum-construct sits directly inside the map literal's value buffer, so the payload read and
 the map's element-assign chain are pruned by one and the same pass.
@@ -3080,7 +3011,6 @@ union Op
 	nop
 end 'Op'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let opMap = [b"add": Op.add(5), b"nop": Op.nop]
 
@@ -3098,7 +3028,6 @@ end 'main'
 ```
 
 <!-- test: error.live-global-survives-dead-global-pruning -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The initializer of a module-level or `static` `let` calls `describe`, and a module-level initializer calls nothing, so the program is refused (E3220).
@@ -3118,7 +3047,6 @@ function describe(n Kind) returns String
 	return "kind {n}"
 end 'describe'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let keywordMap = [b"if": KeywordInfo.create(1, helpText: describe(1)), b"else": KeywordInfo.create(2, helpText: describe(2))]
 
@@ -3651,11 +3579,9 @@ error E3220: <fragment>:20:9: the initializer of 'G' calls 'Config.make': a modu
 ```
 
 <!-- test: a-top-level-let-map-with-cast-values-reads-back-typed -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 A cast names its type at file scope too, so a top-level `let` map built from `as Count` values is a typed map that reads back as `Count`.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let Tally = [b"one": 1 as Count, b"two": 2 as Count, b"three": 3 as Count]
 
@@ -3680,14 +3606,12 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-let-map-values-keep-their-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- positions: moved -->
 The alias a file-scope cast names is the column's type, so a read of it does not pass where another alias is declared.
 ```maxon
 typealias Score = int(0 to 100)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: byte string literals are not supported in minimaxon
 let Tally = [b"one": 1 as Count]
 
@@ -3765,7 +3689,6 @@ error E3220: <fragment>:12:21: the initializer of 'Holder.LABEL' calls 'tag': a 
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-static-let-names-the-initializer -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -3782,7 +3705,6 @@ end 'parse'
 
 type Config
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	static let LEVEL = try parse(3) otherwise (e) 'h'
 		return 3
 	end 'h'
@@ -3798,7 +3720,6 @@ error E2080: <fragment>:15:3: `return` has no function to leave in the initializ
 ```
 
 <!-- test: error.a-return-in-a-handler-block-of-a-static-record-let-names-the-initializer -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -3823,7 +3744,6 @@ end 'makeConfig'
 
 type Settings
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	static let CONFIG = try makeConfig(3) otherwise (e) 'h'
 		return Config.create(4)
 	end 'h'

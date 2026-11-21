@@ -621,7 +621,6 @@ crumb after remove count 2 has three false has one true
 ```
 
 <!-- test: a-generic-born-array-of-a-narrow-signed-enum-strides-its-slot-and-keeps-its-sign -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
@@ -773,12 +772,10 @@ function probeSignal()
 	print("signal grown first {bag.firstOne().rawValue as Integer} second {bag.at(1).rawValue as Integer} last {bag.lastOne().rawValue as Integer} sum {sumSignal(bag)}\n")
 	bag.refilled(2, value: Signal.minus)
 	print("signal refilled count {bag.items.count()} sum {sumSignal(bag)}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	bag.addAll(SignalBag.wrapping([Signal.minus, Signal.plus]))
 	print("signal appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumSignal(bag)}\n")
 	let concrete = SignalArray.create(0)
 	concrete.push(Signal.plus)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	concrete.append([Signal.minus, Signal.plus])
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -805,12 +802,10 @@ function probeMid()
 	print("mid grown first {bag.firstOne().rawValue as Integer} second {bag.at(1).rawValue as Integer} last {bag.lastOne().rawValue as Integer} sum {sumMid(bag)}\n")
 	bag.refilled(2, value: Mid.low)
 	print("mid refilled count {bag.items.count()} sum {sumMid(bag)}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	bag.addAll(MidBag.wrapping([Mid.low, Mid.high]))
 	print("mid appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumMid(bag)}\n")
 	let concrete = MidArray.create(0)
 	concrete.push(Mid.high)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	concrete.append([Mid.low, Mid.high])
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -837,12 +832,10 @@ function probeBig()
 	print("big grown first {bag.firstOne().rawValue as Integer} second {bag.at(1).rawValue as Integer} last {bag.lastOne().rawValue as Integer} sum {sumBig(bag)}\n")
 	bag.refilled(2, value: Big.low)
 	print("big refilled count {bag.items.count()} sum {sumBig(bag)}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	bag.addAll(BigBag.wrapping([Big.low, Big.high]))
 	print("big appended literal count {bag.items.count()} third {bag.at(2).rawValue as Integer} sum {sumBig(bag)}\n")
 	let concrete = BigArray.create(0)
 	concrete.push(Big.high)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	concrete.append([Big.low, Big.high])
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -868,7 +861,6 @@ function main() returns ExitCode
 	concrete.push(Signal.plus)
 	try bag.items.set(2, value: Signal.minus) otherwise return 3
 	print("direct {sumOfArray(bag.items)} {sumOfArray(concrete)} {concrete.managed.elementSize()}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = [Signal.minus, Signal.zero, Signal.minus]
 	let wrapped = SignalBag.wrapping(literal)
 	print("literal {wrapped.at(0).rawValue as Integer} {wrapped.lastOne().rawValue as Integer} {sumOf(wrapped)}\n")

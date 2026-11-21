@@ -18,7 +18,6 @@ window, and a range check in one of them still stands in front of the operation 
 ## Tests
 
 <!-- test: a-clear-inside-a-short-circuit-arm-of-a-ternary-ends-the-hold -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `clearsAndAnswers` runs only in the right operand of the `and` that is the ternary's true arm. The element `s`
 was read before the ternary and is printed after it, so the read has to be counted: a window that never saw
 the arm's block would leave it uncounted and print a freed string.
@@ -41,7 +40,6 @@ function pick(arr StringArray, flag bool) returns String
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = pick(arr, flag: arr.count() == 1)
 	print("[{s}] {arr.count()}\n")
@@ -56,7 +54,6 @@ end 'main'
 ```
 
 <!-- test: a-ternary-arm-that-releases-nothing-leaves-the-read-uncounted-and-correct -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The control: the arm's right operand reads the array and releases nothing, so the window ends clean and the
 program prints the same element.
 
@@ -77,7 +74,6 @@ function pick(arr StringArray, flag bool) returns String
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = pick(arr, flag: arr.count() == 1)
 	print("[{s}] {arr.count()}\n")

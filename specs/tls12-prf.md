@@ -502,7 +502,6 @@ prf-err-011 invalidHandshakeHashLength
 ```
 
 <!-- test: tls12-prf.handshake-hash -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `Tls12Prf.handshakeHash` with each PRF hash, over several messages and over none. Vectors handshake-hash-gen-1 to handshake-hash-gen-3 (3).
@@ -546,11 +545,8 @@ function report(id String, suite Tls12CipherSuite, messages ByteArrays)
 end 'report'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("handshake-hash-gen-1", suite: Tls12CipherSuite.ecdheEcdsaAes128GcmSha256, messages: ByteArrays from [fromHex("0100000100"), fromHex("0e000000")])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("handshake-hash-gen-2", suite: Tls12CipherSuite.ecdheRsaAes256GcmSha384, messages: ByteArrays from [fromHex("0100000100"), fromHex("0e000000")])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("handshake-hash-gen-3", suite: Tls12CipherSuite.ecdheRsaChaCha20Poly1305Sha256, messages: ByteArrays from [fromHex("0100000100"), fromHex("0e000000")])
 	return 0
 end 'main'

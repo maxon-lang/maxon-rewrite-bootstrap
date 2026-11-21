@@ -22,7 +22,6 @@ look up throws `accessDenied`; any other refusal (a link loop, a name too long f
 
 <!-- test: filepath-resolved-physically-follows-links-and-dotdot -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 A link, a link whose target runs through another link, and a `..` taken after a link all resolve to the one
 physical file. The directory holding the case is resolved first, so a working directory that is itself reached
@@ -38,7 +37,6 @@ function main() returns ExitCode
 	try File.writeText(inner.join("f.txt"), content: "x") otherwise return 2
 	let shell = try FilePath.from("/bin/sh") otherwise return 3
 	let script = "cd '{base.toString()}' && rm -f link nested && ln -s real link && ln -s link/inner nested"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let made = try Subprocess.run(Executable.path(shell), arguments: ["-c", script]) otherwise return 4
 	if not made.succeeded() 'noLinks'
 		return 5
@@ -53,7 +51,6 @@ function main() returns ExitCode
 	print("{viaNested.equals(file)}\n")
 	print("{viaDotDot.equals(file)}\n")
 	print("{aLinkItself.equals(root.join("real"))}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cleaned = try Subprocess.run(Executable.path(shell), arguments: ["-c", "rm -rf '{base.toString()}'"]) otherwise return 11
 	if not cleaned.succeeded() 'notCleaned'
 		return 12
@@ -73,8 +70,6 @@ true
 
 <!-- test: filepath-resolved-physically-follows-a-junction -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: arm64-macos, arm64-linux, x64-linux, wasm32-wasi -->
 A Windows directory junction, and a file reached through one, resolve to the one physical file, spelled with
 a drive letter and no `\\?\` prefix. The junction is made with `mklink /J`, which needs no elevation.
@@ -91,8 +86,6 @@ function main() returns ExitCode
 	if Directory.exists(link) 'stale'
 		try Directory.delete(link) otherwise return 3
 	end 'stale'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let made = try Subprocess.run(Executable.name("cmd"), arguments: ["/c", "mklink", "/J", link.toString(), base.join("real").toString()]) otherwise (e) 'notRun'
 		print("mklink was not run: {e.displayReason()}\n")
 		return 4
@@ -157,18 +150,15 @@ true
 ```
 
 <!-- test: filepath-resolved-physically-throws-for-a-missing-path -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A path that names nothing throws `notFound`, whether its last component or an earlier one is missing.
 ```maxon
 function main() returns ExitCode
 	let here = Directory.currentPath()
 	let missing = here.join("resolved-physically-no-such-entry")
 	let beneath = missing.join("deeper")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try missing.resolvedPhysically() otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try beneath.resolvedPhysically() otherwise (e) 'beneathRefused'
 		print("{e.name}\n")
 	end 'beneathRefused'
@@ -184,14 +174,12 @@ notFound
 ```
 
 <!-- test: filepath-resolved-physically-throws-not-found-below-a-regular-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A path that runs through a regular file, as if it were a directory, names nothing: `notFound`, the same as a
 missing name, so a walk that ascends on `notFound` alone treats both as absence.
 ```maxon
 function main() returns ExitCode
 	let file = Directory.currentPath().join("resolved-physically-a-regular-file.txt")
 	try File.writeText(file, content: "x") otherwise return 1
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try file.join("beneath").resolvedPhysically() otherwise (e) 'refused'
 		print("{e.name}\n")
 	end 'refused'

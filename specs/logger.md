@@ -125,7 +125,6 @@ level=WARN+2 msg=six
 ```
 
 <!-- test: typed-attrs-in-text -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A text value is quoted when it holds a space, an `=`, a `"` or a control byte, with `Json.quote`'s escapes; a
@@ -136,7 +135,6 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
@@ -150,7 +148,6 @@ level=INFO msg=request path="/a b" status=200 delta=-3 ratio=0.5 ok=true req.met
 ```
 
 <!-- test: typed-attrs-in-json -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same record through `JsonLogHandler`: one object per line, a group nested as an object.
@@ -160,7 +157,6 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(options), levels: levels))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	Log.info("request", attrs: [LogAttr.string("path", value: "/a b"), LogAttr.int("status", value: 200), LogAttr.int("delta", value: -3), LogAttr.float("ratio", value: 0.5), LogAttr.bool("ok", value: true), LogAttr.group("req", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("bytes", value: 12)]), LogAttr.string("eq", value: "a=b"), LogAttr.string("said", value: "say \"hi\""), LogAttr.string("tabbed", value: "a\tb"), LogAttr.string("plain", value: "word")])
 	return 0
@@ -174,7 +170,6 @@ end 'main'
 ```
 
 <!-- test: with-attrs-and-with-group -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `withAttrs` binds attrs before the record's own; after `withGroup("req")` every following attr, bound or
 passed, is qualified by `req`.
@@ -184,11 +179,8 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let base = Log.default().withAttrs([LogAttr.string("service", value: "api")]).withGroup("req")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	base.info("served", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("status", value: 200)])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	base.withAttrs([LogAttr.int("id", value: 7)]).info("again")
 	return 0
 end 'main'
@@ -202,7 +194,6 @@ level=INFO msg=again service=api req.id=7
 ```
 
 <!-- test: with-attrs-and-with-group-in-json -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The same loggers through `JsonLogHandler`: the group nests the attrs that follow it.
 ```maxon
@@ -211,11 +202,8 @@ function main() returns ExitCode
 	let levels = LogLevelVar.create(LogLevels.minimum(LogLevel.info))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn JsonLogHandler.create(options), levels: levels))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let base = Log.default().withAttrs([LogAttr.string("service", value: "api")]).withGroup("req")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	base.info("served", attrs: [LogAttr.string("method", value: "GET"), LogAttr.int("status", value: 200)])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	base.withAttrs([LogAttr.int("id", value: 7)]).info("again")
 	return 0
 end 'main'
@@ -423,7 +411,6 @@ g7=WARN
 ```
 
 <!-- test: levels-belong-to-the-handler -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Each sink carries its own `LogLevelVar`, so `setLevel` through a logger on one sink changes nothing a logger
 on the other writes. `Scheduler.quiesce()` waits for `la`'s line, which orders the two handlers' output.
@@ -432,12 +419,10 @@ function main() returns ExitCode
 	let optionsA = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(optionsA), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let la = Log.default().withAttrs([LogAttr.string("via", value: "a")])
 	let optionsB = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(optionsB), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lb = Log.default().withAttrs([LogAttr.string("via", value: "b")])
 	lb.setLevel(LogLevel.debug)
 	la.debug("hidden")
@@ -481,7 +466,6 @@ level=DEBUG msg=after
 ```
 
 <!-- test: a-new-default-brings-its-own-levels -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The new sink writes to stderr at DEBUG; a logger built on the old one keeps writing to stdout at INFO.
 ```maxon
@@ -489,7 +473,6 @@ function main() returns ExitCode
 	let toStdout = LogHandlerOptions.create(LogStream.standardOutput, addTime: false, addSource: false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(toStdout), levels: LogLevelVar.create(LogLevels.minimum(LogLevel.info))))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let old = Log.default().withAttrs([LogAttr.string("via", value: "old")])
 	let toStderr = LogHandlerOptions.create(LogStream.standardError, addTime: false, addSource: false)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
@@ -512,7 +495,6 @@ level=DEBUG msg=fresh
 
 <!-- test: handlers-log-without-a-handle -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A handler logs through `Log` with no handle passed to it. Worker `a` is awaited before `b` starts, so `a`'s
 record is queued first.
@@ -525,7 +507,6 @@ type Worker
 	end 'create'
 
 	export function work() returns Integer
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		Log.info("working", attrs: [LogAttr.string("worker", value: self.name)])
 		return 1
 	end 'work'
@@ -615,8 +596,6 @@ collected 2: INFO fromWorker
 ```
 
 <!-- test: an-error-logged-before-the-program-exits-is-written -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -646,13 +625,11 @@ function main() returns ExitCode
 		print("child exited {run.exitCode()}\n")
 		return 1
 	end 'wrongExit'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let line = try lines.get(iter.index()) otherwise 'short'
 			print("stderr ended early: {run.stderr}")
 			return 1
@@ -674,8 +651,6 @@ ok
 ```
 
 <!-- test: an-error-logged-before-a-panic-is-written -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -701,13 +676,11 @@ function main() returns ExitCode
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
 	let run = try Subprocess.runConfiguration(config) otherwise return 3
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for (iter, suffix) in expected.withIterator() 'eachExpected'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let line = try lines.get(iter.index()) otherwise 'short'
 			print("stderr ended early: {run.stderr}")
 			return 1
@@ -729,7 +702,6 @@ ok
 ```
 
 <!-- test: an-extension-adds-a-custom-level-helper -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -763,9 +735,7 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	Log.setDefault(LogSink.create(spawn TextLogHandler.create(options), levels: levels))
 	Log.audit("static")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let logger = Log.default().withAttrs([LogAttr.string("via", value: "logger")])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	logger.audit("instance", attrs: [LogAttr.int("n", value: 1)])
 	Log.setLevel(LogLevel.warn)
 	Log.audit("dropped")

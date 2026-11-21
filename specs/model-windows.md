@@ -1210,7 +1210,6 @@ error E3199: <fragment>:25:16: 'v' cannot be opened: the value that holds it is 
 ```
 
 <!-- test: model-finding-ad-v-state-modify-ok -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -1278,7 +1277,6 @@ end 'useS'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn S.create(0, b: Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.go(Rl.create(0)) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(q) then q.fin(1)
@@ -6148,7 +6146,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ae-recv-two-arg-sends -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -6174,7 +6171,6 @@ type Rz
 	end 'create'
 
 	function fin(destructs self, c Num)
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try self.k.go(c) otherwise (sendFailure) 'h1'
 			match sendFailure 'x2'
 				mailboxFull then break
@@ -8203,7 +8199,6 @@ error E3207: <fragment>:61:3: this linear value comes from outside 'm1', where i
 
 <!-- test: model-hand-ag-bm-modify-keep -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -8314,7 +8309,6 @@ end 'eatMr'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMr(z)
@@ -8331,7 +8325,6 @@ error E3207: <fragment>:81:4: this linear value comes from outside 'm1', where i
 
 <!-- test: model-hand-ag-bm-modify-keep-p -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -8442,7 +8435,6 @@ end 'eatMr'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMr(z)
@@ -8459,7 +8451,6 @@ error E3207: <fragment>:81:4: this linear value comes from outside 'm1', where i
 
 <!-- test: model-hand-ag-bm-modify-plain -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -8570,7 +8561,6 @@ end 'eatMr'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMr(z)
@@ -8587,7 +8577,6 @@ error E3207: <fragment>:81:4: this linear value comes from outside 'm1', where i
 
 <!-- test: model-hand-ag-bm-modify-hq -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -8698,7 +8687,6 @@ end 'eatMr'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, item: Wo.create(Bx.create(0), item: Bx.create(1)), plain: Bx.create(2), hq: Hq.create(Bx.create(3), q: Bx.create(4)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMr(z)
@@ -8831,7 +8819,6 @@ end 'main'
 
 <!-- test: model-hand-ag-mi-beh-merge-keep -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
@@ -8963,7 +8950,6 @@ function main() returns ExitCode
 	let sk = spawn Sk.create(0)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mi.m1(Bx.create(1)), sk: sk.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMi(z)
@@ -11225,7 +11211,6 @@ error E3199: <fragment>:72:10: 'h' cannot be opened: the value that holds it is 
 
 <!-- test: model-hand-ag-beh-win-mr-modify-item-store -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -11331,7 +11316,6 @@ end 'eatMr'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn Bm.create(0, hq: Hq.create(Bx.create(1), q: Bx.create(1)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.eat(Mr.m1(Hq.create(Bx.create(1), q: Bx.create(2)))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMr(z)
@@ -12269,7 +12253,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-hb-fn-keepfn -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -12403,14 +12386,12 @@ end 'inWin'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn (capacity: 1) Cap1.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.busy() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.poke() otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
 			mailboxFull then break
@@ -12419,7 +12400,6 @@ function main() returns ExitCode
 	end 'h3'
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = Mp.m1(Bx.create(1)) as isolated Mp
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.takeMp(u) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
 			mailboxFull(z) then inWin(z, h: Wo.create(Bx.create(0), item: Bx.create(1)))
@@ -12434,7 +12414,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-hb-fn-none -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -12564,14 +12543,12 @@ end 'inWin'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let k = spawn (capacity: 1) Cap1.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.busy() otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull then break
 			serviceStopped then break
 		end 'x2'
 	end 'h1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.poke() otherwise (sendFailure) 'h3'
 		match sendFailure 'x4'
 			mailboxFull then break
@@ -12580,7 +12557,6 @@ function main() returns ExitCode
 	end 'h3'
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let u = Mp.m1(Bx.create(1)) as isolated Mp
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.takeMp(u) otherwise (sendFailure) 'h5'
 		match sendFailure 'x6'
 			mailboxFull(z) then inWin(z, h: Wo.create(Bx.create(0), item: Bx.create(1)))
@@ -13059,7 +13035,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-l7-wrap-behaviour-param-in-modify -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
@@ -13163,7 +13138,6 @@ end 'eatMx'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let q = spawn Bm.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try q.eat(Mx.m0(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMx(z)
@@ -13178,7 +13152,6 @@ end 'main'
 ```
 
 <!-- test: model-hand-ag-l8-wrap-in-modify-state-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
@@ -13283,7 +13256,6 @@ end 'eatMx'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let q = spawn Bm.create(0, h: Hx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try q.eat(Mx.m0(Rl.create(1))) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z) then eatMx(z)
@@ -14615,7 +14587,6 @@ end 'main'
 
 <!-- test: model-hand-ah-m-svc-wk -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -14739,7 +14710,6 @@ function main() returns ExitCode
 	let k = spawn HldW.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sk = spawn Sk.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.go(Mp.m1(Bx.create(1)), k2: sk.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMp(z)
@@ -14755,7 +14725,6 @@ error E3207: <fragment>:89:4: this linear value comes from outside 'm1', where i
 
 <!-- test: model-hand-ah-m-svc-wi -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -14879,7 +14848,6 @@ function main() returns ExitCode
 	let k = spawn HldW.create(0, plain: Bx.create(0), item: Bx.create(1), w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sk = spawn Sk.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try k.go(Mp.m1(Bx.create(1)), k2: sk.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMp(z)
@@ -16492,7 +16460,6 @@ error E3199: <fragment>:82:10: 'h' cannot be opened: the value that holds it is 
 ```
 
 <!-- test: model-hand-ah-w-beh-store-iso-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -16608,7 +16575,6 @@ function main() returns ExitCode
 	let b = spawn Bw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sk = spawn Sk.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try b.go(Mp.m1(Bx.create(1)), k: sk.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMp(z)
@@ -16623,7 +16589,6 @@ error E3207: <fragment>:83:4: this linear value comes from outside 'm1', where i
 ```
 
 <!-- test: model-hand-ah-w-beh-take -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -16744,7 +16709,6 @@ function main() returns ExitCode
 	let b = spawn Bw.create(0, w: Wo.create(Bx.create(0), item: Bx.create(1)))
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let sk = spawn Sk.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try b.go(Mp.m1(Bx.create(1)), k: sk.clone()) otherwise (sendFailure) 'h1'
 		match sendFailure 'x2'
 			mailboxFull(z, _) then eatMp(z)

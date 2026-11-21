@@ -236,7 +236,6 @@ end 'main'
 ```
 
 <!-- test: return-container-element-remove -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Removing and returning an element transfers its refcount to the caller.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -251,15 +250,14 @@ end 'Item'
 
 typealias ItemArray = Array with Item
 
-function popFirst(arr ItemArray) returns Item throws ArrayError
+function popFirst(mutates arr ItemArray) returns Item throws ArrayError
 	return try arr.remove(0)
 end 'popFirst'
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(77))
 	arr.push(Item.create(88))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try popFirst(arr) otherwise 'err'
 		return 99
 	end 'err'
@@ -394,7 +392,6 @@ end 'main'
 ```
 
 <!-- test: container-remove-decref -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Removing an element and assigning it to a var; var owns it and frees it at scope exit.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -410,11 +407,10 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(1))
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(1) otherwise 'err'
 		return 99
 	end 'err'
@@ -432,7 +428,6 @@ end 'main'
 ```
 
 <!-- test: container-push-remove-cycle -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Many push/remove cycles with no leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -448,7 +443,7 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	var i = 0 as Integer
 	while i < 10 'push'
 		arr.push(Item.create(i))
@@ -456,11 +451,10 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while arr.count() > 0 'remove'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let elem = try arr.remove(0) otherwise 'err'
 			return 99
 		end 'err'
-		total = total + elem.value
+		total = try total + elem.value otherwise panic("out of range")
 	end 'remove'
 	print("{total}\n")
 	return 0
@@ -745,7 +739,6 @@ end 'main'
 ```
 
 <!-- test: container-remove-frees -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Removing from a container transfers ownership; element freed at scope exit.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -761,10 +754,9 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let globalArr = ItemArray.create(0)
+	var globalArr = ItemArray.create(0)
 	globalArr.push(Item.create(10))
 	globalArr.push(Item.create(20))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try globalArr.remove(0) otherwise 'err'
 		return 99
 	end 'err'
@@ -782,7 +774,6 @@ end 'main'
 ```
 
 <!-- test: container-many-push-remove -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Many push/remove cycles on a container leave no leaks.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -798,7 +789,7 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let globalArr = ItemArray.create(0)
+	var globalArr = ItemArray.create(0)
 	var i = 0 as Integer
 	while i < 20 'push'
 		globalArr.push(Item.create(i))
@@ -806,11 +797,10 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while globalArr.count() > 0 'remove'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let elem = try globalArr.remove(0) otherwise 'err'
 			return 99
 		end 'err'
-		total = total + elem.value
+		total = try total + elem.value otherwise panic("out of range")
 	end 'remove'
 	print("{total}\n")
 	return 0
@@ -1571,7 +1561,6 @@ end 'main'
 ```
 
 <!-- test: a-handler-binder-takes-a-parameters-name -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A `try … otherwise (e)` handler binder is the fourth keyword that can stand in front of a binder list's
 `(`, and it shadows for its handler BLOCK. `boom` always throws, so the store that runs is the handler's:
 it moves the caught error into `why` and the parameter reaches no consume door at all.
@@ -1589,7 +1578,6 @@ type Wrap
 	export var why as Fail
 
 	static function make(p String) returns Wrap
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try boom() otherwise (p) 'caught'
 			return Wrap{v: "handled", why: p}
 		end 'caught'

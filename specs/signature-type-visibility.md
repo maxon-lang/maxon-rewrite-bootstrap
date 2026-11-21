@@ -890,7 +890,6 @@ error E3167: api/<fragment>:10:18: exported function 'api.Wrapper.at' names unex
 ```
 
 <!-- test: error.an-extension-in-another-file-naming-a-file-private-inner-alias-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
@@ -919,7 +918,6 @@ end 'Wrapper'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return Wrapper.make().f([4])
 end 'main'
 ```
@@ -1175,7 +1173,6 @@ error E3167: pkg/<fragment>:14:17: exported function 'pkg.apply' names unexporte
 ```
 
 <!-- test: error.an-alias-walked-from-another-file-judges-its-components-in-its-own-file -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
@@ -1194,7 +1191,6 @@ export typealias Handler = function(StringArray) returns ExitCode
 
 // --- file: pkg/use.maxon
 export function apply(h Handler) returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return h([7])
 end 'apply'
 
@@ -1618,7 +1614,6 @@ end 'main'
 ```
 
 <!-- test: exported-lets-of-scalar-string-and-array-types-are-legal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Primitives, `String` and a library container name no declaration an author wrote, so no tier is asked of them.
 ```maxon
@@ -1627,7 +1622,6 @@ export let LIMIT = 7
 
 export let GREETING = "hi"
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 export let PRIMES = [2, 3, 5]
 
 // --- file: app/main.maxon

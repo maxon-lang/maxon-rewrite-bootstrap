@@ -321,7 +321,6 @@ end 'main'
 
 <!-- test: enum-exhaustive.default-throws -->
 <!-- skip: 'default throws' in a match is not supported in minimaxon; name the remaining cases -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 enum Color
 	red
@@ -344,7 +343,6 @@ function checkColor(c Color) returns ColorCode throws AppError
 end 'checkColor'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try checkColor(Color.red) otherwise 'err'
 		return 99
 	end 'err'

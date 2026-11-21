@@ -50,7 +50,6 @@ so a store that took no reference double-frees and a store that took one too man
 gate reports the second as exit 101 while the program still prints the right answer.
 
 <!-- test: one-opaque-value-written-into-three-slots -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -75,7 +74,6 @@ type Bag uses Element
 		items.resize(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
 			end 'setErr'
@@ -116,7 +114,6 @@ still owes exactly one release — the half a parse-time move gets wrong by deci
 TEXT that the store happened.
 
 <!-- test: a-loop-that-never-runs-still-releases-the-value -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -141,7 +138,6 @@ type Bag uses Element
 		items.resize(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
 			end 'setErr'
@@ -174,7 +170,6 @@ any N; one taken and never released is a hundred leaked records, and one release
 the poison byte.
 
 <!-- test: one-opaque-value-written-into-a-hundred-slots -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -199,7 +194,6 @@ type Bag uses Element
 		items.resize(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
 			end 'setErr'
@@ -236,7 +230,6 @@ record, so the reference the managed case takes costs a load and nothing else he
 is the one every slot was filled with.
 
 <!-- test: a-trivial-element-loop-store-is-inert -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
@@ -262,7 +255,6 @@ type Bag uses Element
 		items.resize(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
 			end 'setErr'
@@ -294,7 +286,6 @@ The binding was never moved, so reading it after the fill is legal — the prope
 takes away, and the one a body that fills a column and then reports what it filled with needs.
 
 <!-- test: the-filled-value-is-still-readable-after-the-loop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -319,7 +310,6 @@ type Bag uses Element
 		items.resize(newLength)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just resized to newLength")
 			end 'setErr'
@@ -354,7 +344,6 @@ containers are destroyed at the end of `main`, so a missing retain is a double f
 release is exit 101.
 
 <!-- test: a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -377,11 +366,9 @@ type Bag uses Element
 		items.resize(upTo)
 		var n = 0 as Idx
 		while n < upTo 'copy'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let borrowed = try other.get(n) otherwise 'getErr'
 				break
 			end 'getErr'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: borrowed) otherwise 'setErr'
 				panic("Bag.copyFrom: set OOB — the length was just resized")
 			end 'setErr'
@@ -555,7 +542,6 @@ with a seed and then `set` each slot. Each case below is the user-tier twin of t
 beside it.
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-three-slots -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-three-slots`.
@@ -580,7 +566,6 @@ type Bag uses Element
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
@@ -615,7 +600,6 @@ a filled string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-that-never-runs-still-releases-the-value -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `a-loop-that-never-runs-still-releases-the-value`.
@@ -640,7 +624,6 @@ type Bag uses Element
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
@@ -667,7 +650,6 @@ an unstored string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-a-hundred-slots -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-a-hundred-slots`.
@@ -692,7 +674,6 @@ type Bag uses Element
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
@@ -723,7 +704,6 @@ a repeated string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-fill-leaves-the-value-readable-after-the-loop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `the-filled-value-is-still-readable-after-the-loop`.
@@ -748,7 +728,6 @@ type Bag uses Element
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: value) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
@@ -775,7 +754,6 @@ a re-read string long enough to force a heap allocation
 ```
 
 <!-- test: a-user-written-copy-stores-a-borrowed-element-with-a-reference-per-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot`.
@@ -798,11 +776,9 @@ type Bag uses Element
 		items.growFilled(upTo, value: seed)
 		var n = 0 as Idx
 		while n < upTo 'copy'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let borrowed = try other.get(n) otherwise 'getErr'
 				break
 			end 'getErr'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try items.set(n, value: borrowed) otherwise 'setErr'
 				panic("Bag.copyFrom: set OOB — the length was just grown")
 			end 'setErr'

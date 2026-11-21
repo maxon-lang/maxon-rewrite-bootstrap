@@ -1344,7 +1344,6 @@ against an inert entry and neither can pass by merely NAMING the type: each driv
 logic end to end and checks a value only that logic can produce.
 
 <!-- test: stdlib-loading.json-parse-and-read-from-stdlib -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `Json.parse` over a document holding a number, a string, a bool and an array, then five accessors
 reading back out. What it exercises is the parse machinery: `JsonParser`'s whitespace skipping, its object and
 array recursion, its string and number scanners, `findKeyInNode`'s linear key walk, and `JsonDoc`'s
@@ -1354,37 +1353,29 @@ returned has to name the right arena slot. The last read is NEGATIVE and is the 
 that answered with any id at all would fail here rather than pass quietly.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let doc = try Json.parse("\{\"count\": 7, \"name\": \"maxon\", \"ok\": true, \"tags\": [10, 20, 30]\}") otherwise 'parseErr'
 		panic("Json.parse rejected a valid document")
 	end 'parseErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let count = try doc.getInt(doc.root, key: "count") otherwise 'countErr'
 		panic("count missing")
 	end 'countErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let name = try doc.getString(doc.root, key: "name") otherwise 'nameErr'
 		panic("name missing")
 	end 'nameErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let ok = try doc.getBool(doc.root, key: "ok") otherwise 'okErr'
 		panic("ok missing")
 	end 'okErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let tags = try doc.getChild(doc.root, key: "tags") otherwise 'tagsErr'
 		panic("tags missing")
 	end 'tagsErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try doc.arrayLength(tags) otherwise 'lenErr'
 		panic("tags is not an array")
 	end 'lenErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let secondId = try doc.arrayAt(tags, index: 1) otherwise 'atErr'
 		panic("tags[1] missing")
 	end 'atErr'
 	let second = trunc(doc.get(secondId).numberValue)
 	print("{name} count={count} tags={n} second={second} ok={ok}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let absent = try doc.getInt(doc.root, key: "missing") otherwise 'absent'
 		print("absent key refused\n")
 		return (count + (n as JsonInt) + second as JsonInt) as ExitCode
@@ -1402,16 +1393,13 @@ absent key refused
 ```
 
 <!-- test: stdlib-loading.json-has-child-answers-for-an-object-member-only -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `hasChild` asks whether an object holds a key without reading its value: true for a member that is there, false for a
 missing key, and false for a node that is not an object at all, where `getChild` would throw.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let doc = try Json.parse("\{\"name\": \"maxon\", \"tags\": [1]\}") otherwise 'parseErr'
 		panic("Json.parse rejected a valid document")
 	end 'parseErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let tags = try doc.getChild(doc.root, key: "tags") otherwise 'tagsErr'
 		panic("tags missing")
 	end 'tagsErr'
@@ -1430,7 +1418,6 @@ true false false
 ```
 
 <!-- test: stdlib-loading.json-stringify-round-trips-through-stdlib -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: float literals are not supported in minimaxon -->
 The other half of the module, which the parse case cannot reach: the 22 free emitter functions, driven
 by building an arena BY HAND through `JsonNode`'s exported constructors and serializing it. The emitted
@@ -1459,15 +1446,12 @@ function main() returns ExitCode
 	doc.root = doc.add(JsonNode.objectNode(keys, children: children))
 	let text = Json.stringify(doc)
 	print("{text}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let round = try Json.parse(text) otherwise 'reparse'
 		panic("stringify emitted something parse rejects")
 	end 'reparse'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let size = try round.getInt(round.root, key: "size") otherwise 'sizeErr'
 		panic("size missing after round trip")
 	end 'sizeErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let name = try round.getString(round.root, key: "name") otherwise 'nameErr'
 		panic("name missing after round trip")
 	end 'nameErr'
@@ -1484,7 +1468,6 @@ a"b 2
 ```
 
 <!-- test: stdlib-loading.json-negative-zero-round-trips -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `-0` is a legal JSON number (`[ minus ] int`) and a distinct double from `0`, so it must survive a
 round trip in BOTH directions. The parse half is `numberFromBytes`'s `result = -result`, which
 must not compile as `0.0 - result` (that answers `+0.0`); the serialize half is `writeNumber`'s
@@ -1492,7 +1475,6 @@ integral shortcut, which cannot see the sign through `==` and has to ask `Math.h
 `0` and `-0.5` ride along as the controls on either side of the shortcut.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let negativeZero = try Json.parse("-0") otherwise 'parseNegativeZero'
 		panic("Json.parse rejected -0")
 	end 'parseNegativeZero'
@@ -1500,12 +1482,10 @@ function main() returns ExitCode
 		return 1
 	end 'signLost'
 	print("{Json.stringify(negativeZero)}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let positiveZero = try Json.parse("0") otherwise 'parsePositiveZero'
 		panic("Json.parse rejected 0")
 	end 'parsePositiveZero'
 	print("{Json.stringify(positiveZero)}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let negativeHalf = try Json.parse("-0.5") otherwise 'parseNegativeHalf'
 		panic("Json.parse rejected -0.5")
 	end 'parseNegativeHalf'

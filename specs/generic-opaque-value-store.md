@@ -1390,7 +1390,6 @@ end 'main'
 ```
 
 <!-- test: a-container-literal-over-the-parameter-in-an-instance-method-is-served -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A container literal of records over the enclosing parameter is built in an instance method, which takes the descriptor from `self`.
 ```maxon
@@ -1425,7 +1424,6 @@ type Bag uses Element
 	end 'copy'
 
 	function wrap(b EBox) returns EBoxArray
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return [b]
 	end 'wrap'
 end 'Bag'
@@ -3420,7 +3418,6 @@ error E2015: <fragment>:16:40: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.an-interface-array-literal-typed-as-the-refused-alias-is-reported-once -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A literal typed as the refused alias adds no error of its own.
 ```maxon
@@ -3441,7 +3438,6 @@ end 'Thing'
 typealias NamedArray = Array with Named
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = NamedArray from [Thing.create(), Thing.create()]
 	if items.count() != 2 'wrongCount'
 		return 1
@@ -3600,7 +3596,6 @@ error E2015: <fragment>:33:22: Unsupported: a type argument inferred from a fact
 ```
 
 <!-- test: error.a-generic-function-building-an-array-of-its-parameter-is-refused-at-an-interface-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A generic function that builds an array of its parameter's type refuses a call whose argument is held at an interface type, so no array of interfaces is built.
 ```maxon
@@ -3619,7 +3614,6 @@ type Thing implements Named
 end 'Thing'
 
 function wrapped(item T) uses T returns Count
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var xs = [item]
 	xs.push(item)
 	return xs.count()
@@ -4519,7 +4513,6 @@ element's per-instantiation destructor, so the stored `String` stays alive while
 is released with it.
 
 <!-- test: a-container-of-records-over-the-enclosing-parameter-is-created -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4549,7 +4542,6 @@ type Bag uses Element
 	end 'add'
 
 	function first() returns Element throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4574,7 +4566,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = StrBag.create()
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
@@ -4597,7 +4588,6 @@ The byte-identical program with `Box with String` written at top level and a NON
 It answers what the generic spelling above answers.
 
 <!-- test: the-concrete-spelling-of-the-same-constructor-feed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4631,7 +4621,6 @@ type Bag
 	end 'add'
 
 	function first() returns String throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4650,7 +4639,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = Bag.create()
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
@@ -4672,7 +4660,6 @@ Here `Box` holds an `Inner with T`, and `Inner` holds the bare parameter, while 
 view's per-instantiation destructor, so the stored `inner` field is released at every instantiation.
 
 <!-- test: a-nested-instance-two-levels-over-the-enclosing-parameter-is-stored-and-read -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4716,7 +4703,6 @@ type Bag uses Element
 	end 'add'
 
 	function first() returns Element throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4741,7 +4727,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = StrBag.create()
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
@@ -4762,7 +4747,6 @@ Byte-identical to the program above with `String` replaced by a ranged `int`: `I
 the program writes, so the column's `__mm_decref` IS the correct element destructor and the program is whole.
 
 <!-- test: a-trivial-instantiation-of-the-two-level-shape-still-runs -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4808,7 +4792,6 @@ type Bag uses Element
 	end 'add'
 
 	function first() returns Element throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4829,7 +4812,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = SmallBag.create()
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
@@ -4916,7 +4898,6 @@ whole. The refusal therefore asks the INSTANTIATION and not merely the shape —
 container of records over the enclosing parameter would reject this one, which owes nothing to anybody.
 
 <!-- test: a-trivial-instantiation-forwards-and-takes-nothing -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4946,7 +4927,6 @@ type Bag uses Element
 	end 'add'
 
 	function first() returns Element throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -4967,7 +4947,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = IntBag.create()
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'
@@ -6206,7 +6185,6 @@ instantiates `Map` by a declaration beside the literal. `Map.map` carries a desc
 its `ElementArray{}` is composed over `Map`'s parameters, and forwards it into the iterator chain.
 
 <!-- test: mapping-a-map-releases-the-entry-tuples-it-built -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias EnvMap = Map with String, String
@@ -6218,7 +6196,6 @@ function envSize(e EnvMap) returns Cnt
 end 'envSize'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2, "c": 3]
 	// TODO: closures are not supported in minimaxon
 	let mapped = m.map(function(p) gives p)
@@ -7060,7 +7037,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-main-returns-the-parameter-a-generic-static-picks-over-a-scalar-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 A closure written in a plain function calls an equality-guarded static of a generic type through its instance alias, and the static hands back one of its parameters.
 ```maxon
@@ -7084,7 +7060,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives IntHolder.pick(n, b: 1))
@@ -7100,7 +7075,6 @@ end 'main'
 ```
 
 <!-- test: a-closure-in-main-returns-the-parameter-a-generic-static-picks-over-a-string-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 The same closure over a managed type argument hands back a heap string, and every string is released exactly once.
 ```maxon
@@ -7122,7 +7096,6 @@ end 'Holder'
 typealias StrHolder = Holder with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["first {40 + 2} value long enough for a heap record", "second {40 + 3} value long enough for a heap record"]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(s) gives StrHolder.pick(s, b: "first {40 + 2} value long enough for a heap record"))
@@ -7283,7 +7256,6 @@ first 42 value long enough for a heap record
 ```
 
 <!-- test: a-bare-static-infers-its-instance-from-its-declaration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 The instance is inferred from the declaration of the static the call names, so the result is an `Integer` in a closure and outside it.
 ```maxon
@@ -7307,7 +7279,6 @@ type Holder uses T where T implements Equatable
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives Holder.pick(n, b: 1))
@@ -7361,7 +7332,6 @@ x 42 value long enough for a heap record
 ```
 
 <!-- test: a-bare-generic-static-call-in-a-closure-infers-its-instance-from-the-arguments -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 `Holder.pick(n, b: 1)` names the generic type outright, so the arguments fix `T` and the closure's result is an `Integer`.
 ```maxon
@@ -7381,7 +7351,6 @@ type Holder uses T where T implements Equatable
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives Holder.pick(n, b: 1))
@@ -7955,7 +7924,6 @@ error E2015: <fragment>:21:24: Unsupported: a tuple element declared at the inte
 ```
 
 <!-- test: error.an-iterable-conformer-binding-its-element-to-an-interface-is-refused-at-the-binding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 `extension Iterable` in the library stores `Element` as a container element, so every `Iterable` conformer that binds it to an interface is refused at that binding.
 ```maxon
@@ -8004,7 +7972,6 @@ end 'Things'
 
 function main() returns ExitCode
 	let things = Things.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cursor = try things.createIterator() otherwise 'e'
 		return 1
 	end 'e'

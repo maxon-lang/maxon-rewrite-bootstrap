@@ -13,12 +13,10 @@ When an array grows, its backing buffer may be reallocated to a new address. A v
 ## Tests
 
 <!-- test: string-ref-survives-array-growth -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A string read survives growth and clear
 Get a string from an array, push enough elements to reallocate the buffer several times, then clear the array. The string read first is still intact.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.get(0) otherwise ""
 	// Push enough elements to force multiple growths (capacity: 4 -> 8 -> 16 -> 32)
@@ -93,12 +91,10 @@ first item 42 with a long name for heap allocation 42
 ```
 
 <!-- test: multiple-refs-survive-array-growth -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Several reads survive growth and clear
 Get several elements, grow the array, then clear it. Every value read first is still intact.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["alpha {40 + 2} string that is long enough for heap allocation purposes", "beta {40 + 2} string that is long enough for heap allocation purposes", "gamma {40 + 2} string that is long enough for heap allocation purposes"]
 	let a = try arr.get(0) otherwise ""
 	let b = try arr.get(1) otherwise ""

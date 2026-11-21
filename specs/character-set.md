@@ -228,7 +228,6 @@ false
 ```
 
 <!-- test: member-set-co-owned-by-from -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### `CharacterSet.from` CO-OWNS its member set
 `from` consumes its argument, and a consuming position is a DURABLE SINK: the set takes its own reference
@@ -237,7 +236,6 @@ releases its own reference at scope exit, so the box is freed once — exactly t
 two drops.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let members = CharSet from ['x']
 	let adopted = CharacterSet.from(members)
@@ -254,7 +252,6 @@ end 'main'
 ```
 
 <!-- test: one-member-set-fills-two-character-sets -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### One member set can fill two CharacterSets
 The refcount consequence of the case above, and the reason it is not merely a relaxation: EACH `from`
@@ -263,7 +260,6 @@ A move rule — one transferred `+1` — would make the second `from` E3102, bec
 answer for two owners.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let members = CharSet from ['x']
 	let first = CharacterSet.from(members)
@@ -280,12 +276,10 @@ truetrue
 ```
 
 <!-- test: member-set-dropped-unused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### A member set that never reaches a box is still dropped
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let orphan = CharSet from ['q', 'r']
 	print("{orphan.count()}")
@@ -387,7 +381,6 @@ end 'main'
 ```
 
 <!-- test: trim-crlf-is-one-cluster -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### CR+LF is ONE grapheme, so a set holding CR but not LF trims neither
 UAX#29 GB3 joins CR+LF into a single cluster, which is why the trim walks clusters rather than bytes:
@@ -395,7 +388,6 @@ the cluster `"\r\n"` is not a member of a set seeded with a bare CR, so nothing 
 ```maxon
 function main() returns ExitCode
 	let s = "\r\nx\r\n"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let cr = CharacterSet.from(CharSet from ['\r'])
 	let r = s.trim(cr)
@@ -617,13 +609,11 @@ error E2073: <fragment>:2:26: 'CharacterSet' has no static method named 'inverte
 ```
 
 <!-- test: characterset-from-in-a-body -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ### `CharacterSet.from` — a KEYWORD-named static — in a body
 After a `.`, a keyword is a name, so `CharacterSet.from` is an ordinary static call wherever an expression stands.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let custom = CharacterSet.from(CharSet from ['a', 'e'])
 	let r = "aaxyzee".trim(custom)
@@ -639,13 +629,11 @@ xyz
 ```
 
 <!-- test: error.characterset-from-at-a-top-level-initializer-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### Error: `CharacterSet.from` at a TOP-LEVEL initializer
 A top-level initializer calls nothing, and `CharacterSet.from` is a call.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: character literals are not supported in minimaxon
 let custom = CharacterSet.from(CharSet from ['a', 'e'])
 

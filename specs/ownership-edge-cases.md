@@ -431,7 +431,6 @@ end 'main'
 ```
 
 <!-- test: rc-container-pop-decrefs -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Popping the last element and discarding the result frees the element at scope exit.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -447,14 +446,13 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	let arr = NodeArray.create(0)
+	var arr = NodeArray.create(0)
 	arr.push(Node.create(1))
 	arr.push(Node.create(2))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let popped = try arr.remove(arr.count() - 1) otherwise 'err'
 		return 99
 	end 'err'
-	return (arr.count() as Integer) + popped.id - popped.id
+	return try (arr.count() as Integer) + popped.id - popped.id otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -549,7 +547,6 @@ end 'main'
 ```
 
 <!-- test: rc-insert-then-remove-no-leak -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Insert many structs then remove them all; zero elements remain in memory.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -565,7 +562,7 @@ end 'Entry'
 typealias EntryArray = Array with Entry
 
 function main() returns ExitCode
-	let arr = EntryArray.create(0)
+	var arr = EntryArray.create(0)
 	var i = 0 as Integer
 	while i < 5 'push'
 		arr.push(Entry.create(i))
@@ -573,13 +570,12 @@ function main() returns ExitCode
 	end 'push'
 	var total = 0 as Integer
 	while arr.count() > 0 'pop'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let e = try arr.remove(0) otherwise 'err'
 			return 99
 		end 'err'
-		total = total + e.key
+		total = try total + e.key otherwise panic("out of range")
 	end 'pop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -617,7 +613,6 @@ end 'main'
 ```
 
 <!-- test: rc-remove-middle-no-double-free -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Removing the middle element from an array; shiftLeft zeroes the trailing slot so setLength does not double-decref.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -633,15 +628,14 @@ end 'Val'
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let arr = ValArray.create(0)
+	var arr = ValArray.create(0)
 	arr.push(Val.create(1))
 	arr.push(Val.create(2))
 	arr.push(Val.create(3))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(1) otherwise 'err'
 		return 99
 	end 'err'
-	return removed.n + (arr.count() as Integer)
+	return try removed.n + (arr.count() as Integer) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1920,7 +1914,6 @@ done
 ```
 
 <!-- test: rc-array-of-structs-get-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Getting a struct from an array via try/otherwise must not leak. When the array is freed, its element destructors must decref all contained structs.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1936,10 +1929,9 @@ end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(10, second: 20)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [p]
 	let elem = try arr.get(0) otherwise Pair.create(0, second: 0)
-	return elem.first + elem.second
+	return try elem.first + elem.second otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1947,7 +1939,6 @@ end 'main'
 ```
 
 <!-- test: rc-array-of-structs-literal-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Creating an array literal of structs must not leak. All struct elements must be decreffed when the array is freed.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1964,11 +1955,10 @@ end 'Point'
 function main() returns ExitCode
 	let p1 = Point.create(1, y: 2)
 	let p2 = Point.create(3, y: 4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let points = [p1, p2]
 	let pt0 = try points.get(0) otherwise Point.create(0, y: 0)
 	let pt1 = try points.get(1) otherwise Point.create(0, y: 0)
-	return pt0.x + pt1.y
+	return try pt0.x + pt1.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2021,11 +2011,9 @@ end 'main'
 ```
 
 <!-- test: rc-map-string-keys-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A map with string keys must free all string key allocations when the map is destroyed. The string used as a key is increffed into the map's key array; when the map is freed, these strings must be decreffed.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["hello": 42]
 	return try m.get("hello") otherwise 0
 end 'main'
@@ -2035,11 +2023,9 @@ end 'main'
 ```
 
 <!-- test: rc-map-string-keys-multiple-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A map with multiple string keys must free all key and value allocations. Each insert increfs the key string; the map destructor must decref all of them.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 1, "b": 2, "c": 3]
 	let a = try m.get("a") otherwise 0
 	let b = try m.get("b") otherwise 0
@@ -2107,10 +2093,9 @@ end 'main'
 ```
 
 <!-- test: rc-top-level-array-literal-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A module-level array literal must not leak. The array and its element storage must be freed during global cleanup.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let items = FullRangeIntArray from [10, 20, 30]
 
 function main() returns ExitCode
@@ -2125,13 +2110,11 @@ end 'main'
 ```
 
 <!-- test: rc-array-append-no-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Array.append must not leak. Appending one array to another must properly manage the element storage and not leak the source array's data.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [4, 5, 6]
 	a.append(b)
 	var sum = 0 as FullRangeInt
@@ -2814,7 +2797,6 @@ end 'main'
 ```
 
 <!-- test: rc-release-break-for-in -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A for-in body is a scope like any loop body's, so a break out of it must release the iteration's
 allocation rather than relying on the normal end-of-body edge.
@@ -2830,7 +2812,6 @@ type Item
 end 'Item'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = [10, 20, 30, 40, 50]
 	var result = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -2850,7 +2831,6 @@ end 'main'
 
 <!-- test: rc-release-on-error-propagation -->
 <!-- skip: @heap annotations are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Propagating an error out of a frame exits that frame's scope, so allocations made before the
 throwing call are freed on the way out.
 ```maxon
@@ -2880,7 +2860,6 @@ function process() returns Integer throws ResourceError
 end 'process'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try process() otherwise 'err'
 		return 99
 	end 'err'
@@ -2892,7 +2871,7 @@ end 'main'
 ```
 
 <!-- test: rc-release-on-error-propagation-in-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'missing' -->
 The throwing call sits inside a nested block, so the error edge must unwind every intermediate
 scope as well as the function's own.
 ```maxon
@@ -2925,7 +2904,6 @@ function compute(flag Integer) returns Integer throws LookupError
 end 'compute'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let result = try compute(5) otherwise 'err'
 		return 77
 	end 'err'

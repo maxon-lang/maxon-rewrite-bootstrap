@@ -1071,8 +1071,6 @@ error E2049: specs/match-statements/error.match-try-block-form.maxon:12:10: bloc
 ```
 
 <!-- test: error.match-otherwise-block-form -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 ```maxon
 enum Err implements Error
 	bad
@@ -1084,7 +1082,6 @@ end 'leaf'
 
 function dispatch(kind Tally)
 	match kind 'k'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		1 then try leaf() otherwise (e) 'h'
 			match e 'eh'
 				bad then return
@@ -2005,12 +2002,10 @@ real `matchnext` test blocks the plan never mints. The break enrols its block as
 reaching arm the same way on both paths, and nothing else pins that.
 
 <!-- test: match-break.string-scrutinee-chain-dispatch -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	var total = 0 as ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = ["red", "green", "blue"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for w in words 'each'

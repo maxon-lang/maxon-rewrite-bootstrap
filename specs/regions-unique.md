@@ -457,7 +457,6 @@ end 'main'
 ```
 
 <!-- test: a-unique-parameter-handed-to-a-mutable-parameter-stays-readable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Handing a unique parameter to a `mutable` parameter lends it for the call, so the parameter is read again afterwards, including in the handler of the `try` that made the call.
 
 ```maxon
@@ -499,7 +498,6 @@ function report(token Token, fault Fault) returns Tally
 end 'report'
 
 function dispatch(token Token, handler Handler) returns Tally
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try handler.handle(token) otherwise (fault) 'threw'
 		return report(token, fault: fault)
 	end 'threw'

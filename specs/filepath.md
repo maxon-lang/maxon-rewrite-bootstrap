@@ -285,12 +285,10 @@ C:/Users
 
 <!-- test: filepath-parent-none -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = FilePath from "file.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try p.parent() otherwise 'noParent'
 		print("caught noParent\n")
 		return 0
@@ -328,12 +326,10 @@ end 'main'
 
 <!-- test: filepath-parent-of-root-throws -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = FilePath from "/"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try p.parent() otherwise 'noParent'
 		print("caught noParent\n")
 		return 0
@@ -418,12 +414,10 @@ end 'main'
 
 <!-- test: filepath-parent-drive-relative-throws -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = FilePath from "C:foo"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try p.parent() otherwise 'noParent'
 		print("caught noParent\n")
 		return 0
@@ -440,14 +434,12 @@ caught noParent
 
 <!-- test: filepath-parent-walk-up-terminates -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	var level = FilePath from "/a/b/c"
 	var steps = 0 as Count
 	while steps < 10 'upwards'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let above = try level.parent() otherwise 'atTheTop'
 			print("top after {steps}\n")
 			return 0
@@ -679,12 +671,10 @@ C:/Users/test
 ```
 
 <!-- test: filepath-normalize-folds-dot-segments -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spelled in ["a/./b/../c", "a//b/", "../a/../../b", "a/..", "./", ""] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.normalize()}]\n")
@@ -713,18 +703,15 @@ end 'main'
 ```
 
 <!-- test: filepath-normalize-stops-at-the-root -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#if os(Windows)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let spellings = ["C:/x/../../y", "C:/..", "//server/share/x/../..", "C:a/../..", "/x/.."]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let spellings = ["/x/../../y", "/..", "//a/./b", "/x/..", "/"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -897,7 +884,6 @@ C:/Other/C:/Users/file.txt
 
 <!-- test: filepath-resolve-folds-dot-segments -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
@@ -917,7 +903,6 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "../../runtime/Clock.maxon", "."] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.resolve(base)}]\n")
@@ -946,7 +931,6 @@ end 'main'
 
 <!-- test: filepath-resolve-drive-relative -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
@@ -966,7 +950,6 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:"] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		let elsewhere = p.resolve(otherDrive)
@@ -991,7 +974,6 @@ end 'main'
 
 <!-- test: filepath-anchored-at-keeps-parent-components -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
@@ -1011,7 +993,6 @@ function main() returns ExitCode
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spelled in ["./runtime/Clock.maxon", "runtime/./Clock.maxon", "a//b/", "../../runtime/Clock.maxon", "a/../b", ".", ""] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		print("[{p.anchoredAt(base)}]\n")
@@ -1046,7 +1027,6 @@ end 'main'
 
 <!-- test: filepath-anchored-at-roots-and-drives -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
@@ -1057,7 +1037,6 @@ function main() returns ExitCode
 		let sameDrive = FilePath from "C:/work/project"
 		// TODO: 'Type from value' conversions are not supported in minimaxon
 		let otherDrive = FilePath from "D:/elsewhere"
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let roots = ["C:/..", "C:/", "//server/share", "//server/share/x/..", "/x/./"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#else
@@ -1065,7 +1044,6 @@ function main() returns ExitCode
 		let sameDrive = FilePath from "/work/project"
 		// TODO: 'Type from value' conversions are not supported in minimaxon
 		let otherDrive = FilePath from "/elsewhere"
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let roots = ["/..", "/", "//a/./b", "/x/./"]
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
@@ -1075,7 +1053,6 @@ function main() returns ExitCode
 		print("[{p.anchoredAt(sameDrive)}]\n")
 	end 'eachRoot'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spelled in ["C:src/main.maxon", "c:src/../lib", "C:", "C:./x"] 'eachPath'
 		let p = try FilePath.from(spelled) otherwise panic("unspellable path '{spelled}'")
 		let elsewhere = p.anchoredAt(otherDrive)
@@ -1168,10 +1145,8 @@ test.txt
 ```
 
 <!-- test: filepath-from-throws-invalid -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let p = try FilePath.from("https://example.com/path") otherwise 'err'
 		print("caught error\n")
 		return 0
@@ -1302,10 +1277,8 @@ c:\Users\file.txt
 ```
 
 <!-- test: filepath-not-file-url -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try FilePath.from("https://example.com/path") otherwise 'err'
 		print("caught notFileURL\n")
 		return 0
@@ -1321,10 +1294,8 @@ caught notFileURL
 ```
 
 <!-- test: filepath-malformed-url -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try FilePath.from("file://[unclosed/path.txt") otherwise (e) 'err'
 		print("caught {e.name}\n")
 		return 0
@@ -1444,7 +1415,6 @@ true
 
 <!-- test: filepath-relative-to-follows-the-hosts-case-rule -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
@@ -1462,7 +1432,6 @@ function main() returns ExitCode
 		let base = FilePath from "/work/proj/"
 	// TODO: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon
 	#endif
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let relative = try path.relativeTo(base) otherwise 'outside'
 		print("outside\n")
 		return 0

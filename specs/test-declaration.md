@@ -279,7 +279,6 @@ error E2059: specs/test-declaration/error.empty-name.maxon:3:6: a 'test' declara
 ```
 
 <!-- test: test-stays-an-ordinary-identifier -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The regression guard for the contextual keyword. Every shape here uses `test` as a plain
 identifier, including `match test 'check'` — an identifier followed by a character literal,
@@ -301,7 +300,6 @@ end 'classify'
 
 function main() returns ExitCode
 	var total = 0 as Count
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let tests = [1, 2, 3]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for test in tests 'loop'

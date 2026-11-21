@@ -181,11 +181,9 @@ end 'main'
 ```
 
 <!-- test: iterate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [true, false, true, true, false]
 	var count = 0 as ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -331,10 +329,8 @@ end 'main'
 ```
 
 <!-- test: literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [true, false, true, false]
 	let v0 = try arr.get(0) otherwise false
 	let v2 = try arr.get(2) otherwise false
@@ -353,11 +349,9 @@ end 'main'
 ```
 
 <!-- test: mutable-literal-cow -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let arr = [true, false, true].clone()
+	var arr = [true, false, true].clone()
 	try arr.set(1, value: true) otherwise panic("test invariant: set OOB")
 	let v1 = try arr.get(1) otherwise false
 	if v1 'check'
@@ -403,7 +397,6 @@ end 'main'
 ```
 
 <!-- test: literal-remove -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Structurally mutate a CONSTANT bool-array literal (bit-packed rdata,
@@ -421,7 +414,6 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [true, false, true, false, true].clone()
 	_ = try a.remove(1) otherwise panic("test invariant: remove OOB")
 	printBits(a)
@@ -436,7 +428,6 @@ end 'main'
 ```
 
 <!-- test: literal-slice -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Slice a CONSTANT bool-array literal. The new record must stay bit-packed
@@ -454,7 +445,6 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let c = [true, false, true, false, true]
 	let s = try c.slice(1, endIndex: 4) otherwise panic("test invariant: slice OOB")
 	printBits(s)
@@ -469,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: literal-insert -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // insert into a CONSTANT bool-array literal exercises the bit-packed grow (buffer
@@ -485,7 +474,6 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let d = [true, true, true].clone()
 	d.insert(1, value: false)
 	printBits(d)
@@ -500,7 +488,6 @@ end 'main'
 ```
 
 <!-- test: literal-append -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // append onto a CONSTANT bool-array literal grows the bit-packed buffer (sized in
@@ -516,9 +503,7 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let e = [true, false].clone()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let f = [true, true]
 	e.append(f)
 	printBits(e)
@@ -533,7 +518,6 @@ end 'main'
 ```
 
 <!-- test: literal-remove-crossbyte -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 // Edge cases for the bit-packed remove shift-down loop: removing index 0 starts
@@ -551,11 +535,9 @@ function printBits(a BoolArray)
 end 'printBits'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let front = [false, true, true].clone()
 	_ = try front.remove(0) otherwise panic("test invariant: remove OOB")
 	printBits(front)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = [true, false, true, false, true, false, true, false, true].clone()
 	_ = try wide.remove(4) otherwise panic("test invariant: remove OOB")
 	printBits(wide)

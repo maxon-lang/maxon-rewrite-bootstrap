@@ -237,7 +237,6 @@ end 'main'
 ```
 
 <!-- test: core.insert-after -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -250,17 +249,14 @@ function main() returns ExitCode
 	// Insert 20 after n1
 	let n2 = list.insertAfter(n1, value: 20)
 	// Verify order via traversal
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur = try list.head() otherwise 'err'
 		return 1
 	end 'err'
 	print("{cur.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur2 = try cur.next() otherwise 'err2'
 		return 1
 	end 'err2'
 	print("{cur2.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur3 = try cur2.next() otherwise 'err3'
 		return 1
 	end 'err3'
@@ -283,7 +279,6 @@ end 'main'
 ```
 
 <!-- test: core.insert-before -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -296,17 +291,14 @@ function main() returns ExitCode
 	// Insert 20 before n3
 	let n2 = list.insertBefore(n3, value: 20)
 	// Verify order via traversal
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur = try list.head() otherwise 'err'
 		return 1
 	end 'err'
 	print("{cur.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur2 = try cur.next() otherwise 'err2'
 		return 1
 	end 'err2'
 	print("{cur2.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur3 = try cur2.next() otherwise 'err3'
 		return 1
 	end 'err3'
@@ -447,7 +439,6 @@ end 'main'
 ```
 
 <!-- test: node.next-prev -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -459,23 +450,19 @@ function main() returns ExitCode
 	let n2 = list.insertLast(20)
 	let n3 = list.insertLast(30)
 	// Forward traversal from n1
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let fwd = try n1.next() otherwise 'err'
 		return 1
 	end 'err'
 	print("{fwd.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let fwd2 = try fwd.next() otherwise 'err2'
 		return 1
 	end 'err2'
 	print("{fwd2.value()}\n")
 	// Backward traversal from n3
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let back = try n3.prev() otherwise 'err3'
 		return 1
 	end 'err3'
 	print("{back.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let back2 = try back.prev() otherwise 'err4'
 		return 1
 	end 'err4'
@@ -497,7 +484,6 @@ end 'main'
 ```
 
 <!-- test: node.set-value -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -510,7 +496,6 @@ function main() returns ExitCode
 	node.setValue(99)
 	print("{node.value()}\n")
 	// Verify through list head too
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try list.head() otherwise 'err'
 		return 1
 	end 'err'
@@ -635,7 +620,6 @@ caught
 ```
 
 <!-- test: node.next-end-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -647,7 +631,6 @@ function main() returns ExitCode
 	let node = list.insertFirst(42)
 	// Use the node handle
 	print("{node.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try list.head() otherwise 'err'
 		return 1
 	end 'err'
@@ -671,7 +654,6 @@ caught
 ```
 
 <!-- test: node.prev-begin-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -683,7 +665,6 @@ function main() returns ExitCode
 	let node = list.insertFirst(42)
 	// Use the node handle
 	print("{node.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try list.head() otherwise 'err'
 		return 1
 	end 'err'
@@ -707,7 +688,6 @@ caught
 ```
 
 <!-- test: core.reinsert-first -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -720,17 +700,14 @@ function main() returns ExitCode
 	let n3 = list.insertLast(30)
 	// Move n3 to front: 30, 10, 20
 	list.reinsertFirst(n3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur = try list.head() otherwise 'err'
 		return 1
 	end 'err'
 	print("{cur.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur2 = try cur.next() otherwise 'err2'
 		return 1
 	end 'err2'
 	print("{cur2.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur3 = try cur2.next() otherwise 'err3'
 		return 1
 	end 'err3'
@@ -753,7 +730,6 @@ end 'main'
 ```
 
 <!-- test: core.reinsert-last -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -766,17 +742,14 @@ function main() returns ExitCode
 	let n3 = list.insertLast(30)
 	// Move n1 to back: 20, 30, 10
 	list.reinsertLast(n1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur = try list.head() otherwise 'err'
 		return 1
 	end 'err'
 	print("{cur.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur2 = try cur.next() otherwise 'err2'
 		return 1
 	end 'err2'
 	print("{cur2.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let cur3 = try cur2.next() otherwise 'err3'
 		return 1
 	end 'err3'
@@ -799,7 +772,6 @@ end 'main'
 ```
 
 <!-- test: core.remove-head -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -814,7 +786,6 @@ function main() returns ExitCode
 	let removed = list.remove(n1)
 	print("{removed}\n")
 	print("{list.count()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try list.head() otherwise 'err'
 		return 1
 	end 'err'
@@ -837,7 +808,6 @@ end 'main'
 ```
 
 <!-- test: core.remove-tail -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -852,7 +822,6 @@ function main() returns ExitCode
 	let removed = list.remove(n3)
 	print("{removed}\n")
 	print("{list.count()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let t = try list.tail() otherwise 'err'
 		return 1
 	end 'err'

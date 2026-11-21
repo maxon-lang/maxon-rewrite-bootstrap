@@ -507,7 +507,7 @@ end 'main'
 ```
 
 <!-- test: a-module-constant-array-passed-through-a-returning-function-leaves-the-constant-alone -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The module-level array is an image record. Passing it through `touch` into a `var`, writing through the
 `var` and rebinding it repeatedly must leave the constant at three elements.
 ```maxon
@@ -515,7 +515,6 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Seed = TallyArray from [1, 2, 3]
 
 function touch(cells TallyArray) returns TallyArray

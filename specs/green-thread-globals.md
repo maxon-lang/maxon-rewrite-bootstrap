@@ -197,7 +197,6 @@ scaled=42
 
 <!-- test: every-handler-may-co-own-a-module-let -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -205,7 +204,6 @@ scaled=42
 somewhere that outlives a statement keeps a reference to image data and gives it back. Eight handlers doing that at
 once on different OS threads read one array, so the program ends with every round counted and nothing leaked.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let roster = NameArray from ["member 0", "member 1", "member 2", "member 3"]
 
 type Churner
@@ -265,16 +263,13 @@ held=1600000 names=4
 
 <!-- test: lets-reaching-one-array-are-read-through-one-table -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 **ONE ARRAY BEHIND SEVERAL `let`s.** `table` holds `names` twice and `names`'s own slot holds it too, so the
 array is reached through three `let`s, and the handler reads it through each of them.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let names = NameArray from ["name 0", "name 1", "name 2"]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let table = NameTable from [names, names]
 
 type Reader
@@ -316,13 +311,11 @@ n=8
 
 <!-- test: error.a-global-initializer-may-not-start-a-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 **A GLOBAL INITIALIZER MAY NOT START A SERVICE.** `Box.start` spawns `Reader`, and a spawn is a call: no initializer
 makes one, so a service starts in `main`, or in a function `main` calls.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let roster = NameArray from ["member 0", "member 1", "member 2", "member 3"]
 
 type Reader
@@ -430,13 +423,11 @@ n=10 keys=0
 ```
 
 <!-- test: a-handler-reads-a-module-let-during-the-exit-drain -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 **THE EXIT DRAIN RUNS HANDLERS, SO EVERY MODULE `let` A HANDLER READS MUST OUTLIVE IT.** `main` sends three
 messages and returns without awaiting any; the drain that runs them comes after `main`, and each handler reads
 module `let`s. The globals are released only once the drain has finished.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let labels = NameArray from ["a label held as image data"]
 
 let weight = 40

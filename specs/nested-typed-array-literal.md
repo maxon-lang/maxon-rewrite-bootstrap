@@ -18,7 +18,6 @@ Each element is judged exactly as `push` judges it, so an element of a different
 ## Tests
 
 <!-- test: nested-typed-array-literal-over-ints -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Each inner `Ints from [...]` is an element of `Rows`.
 ```maxon
@@ -29,7 +28,6 @@ typealias Ints = Array with Integer
 typealias Rows = Array with Ints
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let rows = Rows from [Ints from [1, 2], Ints from [3]]
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -51,7 +49,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-a-local -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An element held in a local is an element of the declared instance as well.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -61,9 +59,7 @@ typealias Ints = Array with Integer
 typealias Rows = Array with Ints
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let first = Ints from [4, 5, 6]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let rows = Rows from [first, Ints from [7]]
 	print("{rows.count()}\n")
 	return 0
@@ -77,7 +73,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-records -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The inner elements are records.
 ```maxon
@@ -97,7 +92,6 @@ typealias Points = Array with Point
 typealias Paths = Array with Points
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let paths = Paths from [Points from [Point.create(1, y: 2), Point.create(3, y: 4)], Points from [Point.create(5, y: 6)]]
 	var sum = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -119,7 +113,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-over-closures -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -136,7 +129,6 @@ typealias Groups = Array with Thunks
 
 function main() returns ExitCode
 	let base = 10 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	let groups = Groups from [Thunks from [function() gives base + 1, function() gives base + 2], Thunks from [function() gives base + 3]]
 	var total = 0 as Integer
@@ -159,7 +151,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-three-levels -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Three levels of `from` each take their element type from the alias beside them.
 ```maxon
@@ -172,7 +163,6 @@ typealias Rows = Array with Ints
 typealias Cube = Array with Rows
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cube = Cube from [Rows from [Ints from [1, 2], Ints from [3]], Rows from [Ints from [4]]]
 	var total = 0 as Integer
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -197,7 +187,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-in-a-field-assignment -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -217,14 +206,12 @@ type Holder
 	export var groups as Groups
 
 	static function create(n Integer) returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		// TODO: closures are not supported in minimaxon
 		return Self{n: n, groups: Groups from [Thunks from [function() gives n]]}
 	end 'create'
 
 	export function refill()
 		let current = self.n
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		// TODO: closures are not supported in minimaxon
 		self.groups = Groups from [Thunks from [function() gives current + 1, function() gives current + 2]]
 	end 'refill'
@@ -260,7 +247,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-bare-inner-literals -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An inner `[...]` with no head of its own takes the element type the outer alias states.
 ```maxon
@@ -273,7 +259,6 @@ typealias Smalls = Array with Small
 typealias Table = Array with Smalls
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let table = Table from [[1, 2], [3]]
 	var total = 0 as Total
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -295,7 +280,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-at-module-level -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A module-level initializer takes the same nested form.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -304,7 +289,6 @@ typealias Ints = Array with Integer
 
 typealias Rows = Array with Ints
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let table = Rows from [Ints from [1, 2], Ints from [3]]
 
 function main() returns ExitCode
@@ -320,7 +304,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal.error.an-element-of-another-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 An inner literal whose instance is not the declared element is still refused.
 ```maxon
@@ -333,7 +317,6 @@ typealias Words = Array with String
 typealias Rows = Array with Ints
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let rows = Rows from [Words from ["a"]]
 	return rows.count() as ExitCode
 end 'main'
@@ -343,7 +326,7 @@ error E3005: <fragment>:8:24: argument type mismatch for 'value': expected 'Ints
 ```
 
 <!-- test: nested-typed-array-literal.error.a-value-of-another-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Two aliases over one instance are two brands, and a literal element is judged exactly as `push` judges it: a `B` does not fit an `Array with A`.
 ```maxon
@@ -358,7 +341,6 @@ typealias Rows = Array with A
 function main() returns ExitCode
 	var b = B.create(0)
 	b.push(1)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let rows = Rows from [b]
 	return rows.count() as ExitCode
 end 'main'
@@ -392,7 +374,6 @@ error E3005: <fragment>:11:7: argument type mismatch for 'value': expected 'A', 
 ```
 
 <!-- test: nested-typed-array-literal.error.an-outer-literal-of-another-brand-at-a-declared-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 An outer literal with no head takes the declared slot's instance, so its elements are judged against the slot's brand.
 ```maxon
@@ -413,7 +394,6 @@ function main() returns ExitCode
 	first.push(1)
 	var second = B.create(0)
 	second.push(2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return width([first, second]) as ExitCode
 end 'main'
 ```
@@ -422,7 +402,7 @@ error E3005: <fragment>:16:16: argument type mismatch for 'value': expected 'A',
 ```
 
 <!-- test: nested-typed-array-literal-an-unbranded-literal-fits-either-brand -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A literal carries no brand, so the same inner literal fits a slot of either brand.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -436,9 +416,7 @@ typealias RowsOfA = Array with A
 typealias RowsOfB = Array with B
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let first = RowsOfA from [B from [1], A from [2], [3]]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let second = RowsOfB from [B from [1], A from [2], [3]]
 	print("{first.count()} {second.count()}\n")
 	return 0
@@ -452,7 +430,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-the-same-brand-fits -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A value of the slot's own brand fits, whether the outer literal states its head or takes the slot's instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -472,7 +450,6 @@ function main() returns ExitCode
 	second.push(2)
 	let third = A.create(0)
 	third.push(3)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let headed = Rows from [first]
 	print("{headed.count()} {width([second, third])}\n")
 	return 0
@@ -486,7 +463,6 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-at-a-declared-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A bare outer literal of bare inner literals takes the element types the declared slot states: a parameter, a field and a return.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -501,17 +477,15 @@ type Holder
 	export var table as Table
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{table: [[1, 2], [3]]}
 	end 'create'
 end 'Holder'
 
 function width(table Table) returns Integer
-	return table.count() as Integer
+	return try table.count() as Integer otherwise panic("out of range")
 end 'width'
 
 function make() returns Table
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [[4, 5], [6], [7]]
 end 'make'
 
@@ -529,7 +503,7 @@ end 'main'
 ```
 
 <!-- test: nested-typed-array-literal-of-locals-at-a-declared-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A bare outer literal of two array locals takes the declared slot's instance in a parameter, a field and a return.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -542,7 +516,6 @@ type Holder
 	export var rows as Rows
 
 	static function create(first Ints, second Ints) returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{rows: [first, second]}
 	end 'create'
 end 'Holder'
@@ -552,14 +525,12 @@ function width(rows Rows) returns Integer
 end 'width'
 
 function make(first Ints) returns Rows
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [first]
 end 'make'
 
 function main() returns ExitCode
 	let branded = Ints.create(0)
 	branded.push(1)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let plain = Ints from [2]
 	let holder = Holder.create(branded, second: plain)
 	let again = Ints.create(0)

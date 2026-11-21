@@ -836,7 +836,6 @@ end 'main'
 ```
 
 <!-- test: an-enum-extension-may-declare-the-error-conformance -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 `extension Failure implements Error` is the enum's `Error` conformance, so an implementation of an abstract
 `throws Error` requirement may narrow to it, and the error is thrown and caught.
@@ -866,7 +865,6 @@ type Value implements Parsable
 end 'Value'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try Value.fromString("") otherwise 'err'
 		return Failure.empty.code() as ExitCode
 	end 'err'

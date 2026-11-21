@@ -131,7 +131,6 @@ as they stand below.
 ## Tests
 
 <!-- test: a-negative-index-is-still-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ⭐ **THE CONTROL FOR THE WHOLE ROW.** The unsigned rewrite is only equivalent because a negative
 index wraps ABOVE the length; write the compare signed and `-1` reads as in bounds, the guard admits
@@ -162,9 +161,7 @@ function main() returns ExitCode
 	if (try a.managed.remove(-1) otherwise -5) != -5 'negativeRemove'
 		return 2
 	end 'negativeRemove'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.managed.swap(-1, 0) otherwise 'negativeSwap'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try a.managed.set(-1, value: 99) otherwise 'negativeSet'
 			if (try a.managed.get(-2) otherwise -5) != -5 'negativeGetAgain'
 				return 3
@@ -330,7 +327,6 @@ end 'main'
 ```
 
 <!-- test: the-last-element-is-in-and-the-length-is-not -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The half-open end itself: `length - 1` is the last legal index, `length` is the first illegal one and
 `length + 1` is past it. `jae` is what puts the boundary exactly there — `ja` would admit `length`,
 which is the mistake the closed-end twin below exists to make deliberately.
@@ -345,7 +341,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i * 10)
 	end 'seed'
@@ -360,11 +356,9 @@ function main() returns ExitCode
 		return 3
 	end 'pastLengthOut'
 	// The same three through the WRITE entry, which shares the guard.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.set(n - 1, value: 44) otherwise 'lastInWrite'
 		return 4
 	end 'lastInWrite'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.set(n, value: 55) otherwise 'lengthOutWrite'
 		if (try a.get(n - 1) otherwise -1) != 44 'writeLanded'
 			return 5
@@ -434,7 +428,6 @@ Stack trace:
 ```
 
 <!-- test: one-past-the-end-is-a-legal-fill-window-and-one-more-is-not -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 The CLOSED-end twin, `emitBoundaryPositionOutOfRange`, reached through `__managed_fill`'s window end
@@ -451,7 +444,6 @@ function main() returns ExitCode
 		a.push(0)
 	end 'seed'
 	// stop == length: the window reaches the end exactly, and applies.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let whole = try a.managed.fill(0, count: 4, value: 3) otherwise 'wholeErr'
 		return 1
 	end 'wholeErr'
@@ -459,7 +451,6 @@ function main() returns ExitCode
 		return 2
 	end 'wholeDeclined'
 	// stop == length + 1: one element past, refused, and nothing written.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.managed.fill(1, count: 4, value: 9) otherwise 'pastEnd'
 		var sum = 0 as Int
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -480,7 +471,6 @@ end 'main'
 ```
 
 <!-- test: a-fill-window-that-overflows-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ⭐ **THE OVERFLOW GUARD, WHICH THE UNSIGNED READING KEEPS RATHER THAN INHERITS.** `start + count` for
@@ -500,7 +490,6 @@ function main() returns ExitCode
 	a.push(1)
 	a.push(1)
 	let huge = 9223372036854775807
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try a.managed.fill(1, count: huge, value: 5) otherwise 'wrapped'
 		var sum = 0 as Int
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -521,7 +510,6 @@ end 'main'
 ```
 
 <!-- test: a-byte-strided-element-is-guarded-the-same-way -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 The other single-op arm. `InlineManagedPrimitives` emits one fast arm per stride, and both call
 `guardIndexInRange`, so a rewrite that reached only the word arm would leave every `ByteArray` and
@@ -552,7 +540,6 @@ function main() returns ExitCode
 	if (try b.managed.get(2) otherwise 200) != 3 'lastIn'
 		return 3
 	end 'lastIn'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try b.managed.set(-1, value: 9) otherwise 'negativeSet'
 		if (try b.get(0) otherwise 200) != 1 'firstUnchanged'
 			return 4

@@ -81,7 +81,6 @@ end 'main'
 ```
 
 <!-- test: self-nested-field-method -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Call a method on a nested struct field via self.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -92,11 +91,11 @@ type Inner
 	export var values as IntArray
 
 	function total() returns Integer
-		return self.values.count()
+		return try self.values.count() as Integer otherwise panic("out of range")
 	end 'total'
 
 	static function create(values IntArray) returns Self
-		return Self{values: values}
+		return Self{values: values.clone()}
 	end 'create'
 end 'Inner'
 
@@ -104,19 +103,18 @@ type Outer
 	export var inner as Inner
 
 	function getInnerCount() returns Integer
-		return self.inner.values.count()
+		return try self.inner.values.count() as Integer otherwise panic("out of range")
 	end 'getInnerCount'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let inner = Inner.create([1, 2, 3])
 	let outer = Outer.create(inner)
-	return outer.getInnerCount()
+	return try outer.getInnerCount() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

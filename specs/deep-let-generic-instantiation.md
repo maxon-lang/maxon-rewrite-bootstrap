@@ -20,7 +20,7 @@ a field store or a message payload.
 ## Tests
 
 <!-- test: a-set-of-strings-is-built-from-a-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `Set` instantiates bodies that keep a value of its element type in an `immutable` slot; a `String` element
 satisfies them all.
 
@@ -28,7 +28,6 @@ satisfies them all.
 typealias NameSet = Set with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let names = NameSet from ["a", "b", "a"]
 	if names.contains("a") 'has'
 		return names.count() as ExitCode

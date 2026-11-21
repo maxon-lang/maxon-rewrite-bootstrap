@@ -2653,7 +2653,6 @@ error E3167: lib/<fragment>:24:17: exported function 'lib.makeSource' names unex
 ```
 
 <!-- test: error.an-array-literal-stored-into-another-files-field-is-refused-at-the-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- positions: moved -->
 `lib/bag.maxon` and `app/main.maxon` each declare an unmarked `Measure` and `Items`. `Bag.items` is typed by `lib/bag.maxon`'s `Items`, and an exported field cannot be typed by an unmarked alias, so no array literal can be stored into it from another file.
@@ -2685,7 +2684,6 @@ function main() returns ExitCode
 	var local = Items.create(0)
 	local.push(1)
 	var b = Bag.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	b.items = [400, 500]
 	let one = try local.get(0) otherwise 0
 	return b.second() + (one as ExitCode)

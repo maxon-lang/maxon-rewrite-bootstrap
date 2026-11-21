@@ -411,7 +411,6 @@ r=8
 
 
 <!-- test: root-declaration-owns-the-bare-key-throws-clause -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `returnTypes` is not the only table keyed by the bare name. The `throws` clause is what types the
 `(e)` binding of a `try … otherwise`, so a root declaration's clause read from a subdirectory's entry
 would bind `e` to the wrong enum and refuse the root's own case. The `e` here is the root's enum.
@@ -431,7 +430,6 @@ function pick(milliseconds Ms) returns Ms throws RootError
 end 'pick'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try pick(1) otherwise (e) 'failed'
 		match e 'which'
 			rootBad then break

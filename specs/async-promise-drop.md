@@ -2436,7 +2436,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- positions: moved -->
 A library move-out door cannot be redeclared from an `extension`: the name belongs to the container's own member, so the extension's declaration is a duplicate.
@@ -2460,7 +2459,6 @@ function plain() returns Integer
 end 'plain'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var promises = [async plain()]
 	let p = try promises.remove(0) otherwise panic("empty")

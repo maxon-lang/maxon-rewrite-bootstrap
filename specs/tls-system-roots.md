@@ -15,8 +15,6 @@ A client that trusts the system roots reads them from the operating system the f
 
 <!-- test: tls-system-roots.the-system-roots-are-read-once-for-every-connection -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib/helpers/tls -->
 Two connections made with default options, which trust the system roots, read the roots from the operating system once between them: the second connection verifies against the roots the first one loaded. The case settles the program-wide roots from a source that answers the case's root and counts its reads.
@@ -82,7 +80,6 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -111,7 +108,6 @@ type CountingTrust implements TrustSource
 
 	function read() returns RootCertificates throws TrustStoreError
 		reads.publish(reads.current() + 1)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return RootCertificates from [fromHex(rootHex)]
 	end 'read'
 end 'CountingTrust'
@@ -119,12 +115,10 @@ end 'CountingTrust'
 function serveTwice(listener TlsListener) returns String
 	var report = ""
 	for attempt in 1 to 2 'eachAttempt'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let stream = try listener.accept() otherwise (error) 'refused'
 			report.append("[accept {attempt}: {describe(error)}]")
 			continue
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 			report.append("[recv {attempt}: {readFault(error)}]")
 			continue
@@ -140,11 +134,9 @@ function dial(port NetworkPort) returns String
 	let options = TlsClientOptions.create()
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("hello") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -179,8 +171,6 @@ reads: 1
 
 <!-- test: tls-system-roots.connections-that-start-together-each-settle-the-system-roots-without-waiting -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib/helpers/tls -->
 Four connections that start together settle the system roots at once, while the roots source is still answering its first read. None waits for another: each reads the source itself, one result is kept, and all four settle. A later connection verifies against the kept roots without reading the source again.
@@ -246,7 +236,6 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -276,17 +265,14 @@ type SlowTrust implements TrustSource
 	function read() returns RootCertificates throws TrustStoreError
 		reads.publish(reads.current() + 1)
 		sleep(150)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return RootCertificates from [fromHex(rootHex)]
 	end 'read'
 end 'SlowTrust'
 
 function serveOne(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "[accept: {describe(error)}]"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "[recv: {readFault(error)}]"
 	end 'unheard'
@@ -299,11 +285,9 @@ function dial(port NetworkPort) returns String
 	let options = TlsClientOptions.create()
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("hello") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -351,8 +335,6 @@ reads kept: true
 ```
 
 <!-- test: tls-system-roots.a-failed-read-of-the-system-roots-is-kept -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib/helpers/tls -->
 A roots source that cannot be read fails the connection that asked with `trustStoreUnavailable`, and the failure is kept: the next connection fails the same way without the source being read again.
@@ -409,7 +391,6 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -444,7 +425,6 @@ function dial(port NetworkPort) returns String
 	let options = TlsClientOptions.create()
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'

@@ -51,7 +51,6 @@ end 'Container'
 ### Basic conditional extension with Equatable constraint
 
 <!-- test: conditional-extensions.basic-equatable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -104,7 +103,6 @@ type IntList implements HasItems with Integer
 end 'IntList'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = try IntList.create([10, 20, 30]) otherwise return 2
 	if list.has(20) 'yes'
 		return 1
@@ -214,12 +212,9 @@ end 'main'
 The real motivation: Array.contains requiring Element is Equatable.
 
 <!-- test: conditional-extensions.array-contains -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [10, 20, 30, 40]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if nums.containsSequence([20]) 'found'
 		return 1
 	end 'found'
@@ -233,7 +228,6 @@ end 'main'
 ### Conditional extension with multiple constraints using and
 
 <!-- test: conditional-extensions.multiple-constraints -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -302,7 +296,6 @@ type HashBucket implements Bucket with HashItem
 end 'HashBucket'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = try HashBucket.create([HashItem.create(1), HashItem.create(2), HashItem.create(3)]) otherwise return 2
 	if b.lookup(HashItem.create(2)) 'found'
 		return 1
@@ -317,7 +310,6 @@ end 'main'
 ### Conditional extension skipped for non-qualifying type but other extensions still work
 
 <!-- test: conditional-extensions.partial-availability -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -390,7 +382,6 @@ type NotEqSeq implements Seq with NotEq
 end 'NotEqSeq'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = try NotEqSeq.create([NotEq.create(1), NotEq.create(2)]) otherwise return 9
 	return s.countItems()
 end 'main'
@@ -407,9 +398,9 @@ reaches `Packed` and `witnessed()` returns 7. The name `Bag` alone denotes no on
 from the name withholds the method from `Packed`.
 
 <!-- test: conditional-extensions.binding-over-an-alias-two-files-declare -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 // --- file: holder/holder.maxon
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
@@ -435,7 +426,6 @@ type Packed implements Holder with Bag
 	end 'create'
 
 	function get() returns Bag
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Bag from [1, 2, 3]
 	end 'get'
 end 'Packed'
@@ -489,9 +479,9 @@ own local. `weigh(other Item)` takes the conformer's binding, so on `Packed` it 
 type `other` as an array of strings.
 
 <!-- test: conditional-extensions.associated-type-in-an-extension-body-over-an-alias-two-files-declare -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 // --- file: holder/holder.maxon
 typealias Bag = Array with String
@@ -520,13 +510,11 @@ type Packed implements Holder with Bag
 	end 'create'
 
 	function get() returns Bag
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Bag from [1, 2, 3]
 	end 'get'
 end 'Packed'
 
 export function packedWeight() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return Packed.create().weigh(Bag from [1, 2, 3])
 end 'packedWeight'
 

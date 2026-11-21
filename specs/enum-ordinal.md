@@ -436,7 +436,6 @@ enumAccessor=notFound plainField=7
 ```
 
 <!-- test: enum-ordinal.ordinal-is-an-element-index -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `.ordinal` is the position of a case, never negative, and it is typed `ElementIndex`, so it indexes an array with no cast.
 ```maxon
 enum Color
@@ -453,11 +452,10 @@ function colorFor(n Count) returns Color
 end 'colorFor'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let table = [10 as Count, 20 as Count, 30 as Count]
 	let c = colorFor(CommandLine.args().count())
 	let at = try table.get(c.ordinal) otherwise 0
-	return at as ExitCode
+	return try at as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

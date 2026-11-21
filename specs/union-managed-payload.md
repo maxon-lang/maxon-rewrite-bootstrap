@@ -2957,7 +2957,6 @@ first=53 second=53
 ```
 
 <!-- test: a-caught-retained-error-box-is-not-moved-out-of -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐ **AND ACROSS THE ERROR CHANNEL, where the transfer the thrower chose is invisible to the catcher.** `throw
 h.e` out of a BORROWED container retains (`retainBorrowedAggregate`), so the box reaching the handler is
 co-owned with `h.e` — but the flag register carries only a pointer, and the catching frame has no way to ask
@@ -2991,7 +2990,6 @@ end 'whyLen'
 function main() returns ExitCode
 	let h = Holder.create(Err.bad("a caught retained payload, long enough for the heap"))
 	var first = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try boom(h) otherwise (e) 'caught'
 		first = match e 'm'
 			bad(why) gives why.byteLength() as Integer

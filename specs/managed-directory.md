@@ -122,11 +122,9 @@ end 'main'
 ```
 
 <!-- test: managed-directory.open-search-nonexistent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.openSearch("nonexistent_dir_xyz_88888/*".toByteArray().managed) otherwise 'notFound'
 		print("not found")
 		return 42
@@ -142,11 +140,9 @@ not found
 ```
 
 <!-- test: managed-directory.open-search-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.openSearch("nonexistent_dir_xyz_88888_throws/*".toByteArray().managed) otherwise 'err'
 		return 42
 	end 'err'
@@ -158,11 +154,9 @@ end 'main'
 ```
 
 <!-- test: managed-directory.create-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.create("nonexistent_parent_xyz_88888/child".toByteArray().managed) otherwise 'err'
 		return 42
 	end 'err'
@@ -187,7 +181,6 @@ error E3057: specs/managed-directory/managed-directory.next-without-try.maxon:4:
 ```
 
 <!-- test: managed-directory.search-and-list -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -198,7 +191,6 @@ type TestFile
 	export var file as __ManagedFile
 
 	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let wr = try __ManagedFile.openWrite(path) otherwise 'f'
 			throw TestFileError.openFailed
 		end 'f'
@@ -214,7 +206,6 @@ type TestDir
 	export var dir as __ManagedDirectory
 
 	static function search(pattern __ManagedMemory) returns TestDir throws TestDirError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedDirectory.openSearch(pattern) otherwise 'fail'
 			throw TestDirError.searchFailed
 		end 'fail'
@@ -224,7 +215,6 @@ end 'TestDir'
 
 function createFile(path String, content String) throws TestFileError
 	let f = try TestFile.openWrite(path.toByteArray().managed)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.file.write(content.toByteArray().managed) otherwise 'err'
 		f.file.close()
 		panic("write failed")
@@ -234,21 +224,17 @@ end 'createFile'
 
 function main() returns ExitCode
 	let dirPath = "test_managed_dir_search"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise 'createFail'
 		print("create failed")
 		return 1
 	end 'createFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try createFile("{dirPath}/file1.txt", content: "a") otherwise 'c1Err'
 		return 5
 	end 'c1Err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try createFile("{dirPath}/file2.txt", content: "b") otherwise 'c2Err'
 		return 5
 	end 'c2Err'
 	// Search the directory
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let dir = try TestDir.search("{dirPath}/*".toByteArray().managed) otherwise 'searchFail'
 		print("search failed")
 		return 2
@@ -259,15 +245,12 @@ function main() returns ExitCode
 	end 'loop'
 	dir.dir.close()
 	// Clean up
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete("{dirPath}/file1.txt".toByteArray().managed) otherwise 'del1Err'
 		return 4
 	end 'del1Err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete("{dirPath}/file2.txt".toByteArray().managed) otherwise 'del2Err'
 		return 4
 	end 'del2Err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.delete(dirPath.toByteArray().managed) otherwise 'delDirErr'
 		return 4
 	end 'delDirErr'
@@ -283,7 +266,6 @@ end 'main'
 ```
 
 <!-- test: managed-directory.open-search-not-found-variant -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 The errno→variant mapping ensures that opening a search on a path that does
@@ -294,7 +276,6 @@ sync worker (Win32 ERROR_FILE_NOT_FOUND=2 / ERROR_PATH_NOT_FOUND=3, POSIX ENOENT
 ```maxon
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.openSearch("nonexistent_phaseB_search_xyz/*".toByteArray().managed) otherwise (e) 'h'
 		match e 'k'
 			notFound then result = 42
@@ -340,7 +321,6 @@ Each of the nine cases below pins a mechanism the ten cases above do not reach,
 rather than restating a passing one.
 
 <!-- test: managed-directory.next-does-not-skip-the-first-match -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 ⭐ **The advance-first PENDING flag.** `FindFirstFileW` does not merely open a
@@ -356,11 +336,9 @@ enum ProbeError implements Error
 end 'ProbeError'
 
 function writeFile(path String) throws ProbeError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
 		throw ProbeError.failed
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("x".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		throw ProbeError.failed
@@ -393,7 +371,6 @@ end 'main'
 ```
 
 <!-- test: managed-directory.filename-round-trip -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 ⭐ **`filename()` — which no case above reaches.** It answers with a FRESH
@@ -408,11 +385,9 @@ enum ProbeError implements Error
 end 'ProbeError'
 
 function writeFile(path String) throws ProbeError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
 		throw ProbeError.failed
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("x".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		throw ProbeError.failed
@@ -446,7 +421,6 @@ end 'main'
 ```
 
 <!-- test: managed-directory.next-after-close-throws-closed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 ⚠ **`next()` after `close()` throws `closed`.** Without the guard, `close()`
@@ -460,7 +434,6 @@ contract.
 function main() returns ExitCode
 	let dir = try __ManagedDirectory.openSearch("./*".toByteArray().managed) otherwise return 1
 	dir.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try dir.next() otherwise (e) 'handler'
 		match e 'kind'
 			closed then return 42
@@ -475,7 +448,6 @@ end 'main'
 ```
 
 <!-- test: managed-directory.exists-discriminates-file-from-directory -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 `exists()` asks whether the path is a DIRECTORY, so an existing plain file is
@@ -488,11 +460,9 @@ enum ProbeError implements Error
 end 'ProbeError'
 
 function writeFile(path String) throws ProbeError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
 		throw ProbeError.failed
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("x".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		throw ProbeError.failed
@@ -516,7 +486,6 @@ end 'main'
 ```
 
 <!-- test: managed-directory.create-existing-is-create-failed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 `CreateDirectoryW` on a path that already exists reports
@@ -530,7 +499,6 @@ function main() returns ExitCode
 	let dirPath = "test_md_already_there"
 	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise return 1
 	var verdict = 2 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedDirectory.create(dirPath.toByteArray().managed) otherwise (e) 'handler'
 		match e 'kind'
 			createFailed then verdict = 42
@@ -592,7 +560,6 @@ error E2051: <fragment>:2:6: identifier '__ManagedDirectoryError' is reserved: d
 ```
 
 <!-- test: managed-directory.dotfiles-are-entries-not-dot-pseudo-entries -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 ⭐ **THE DOT FILTER IS THREE BYTES, AND ALL SEVENTEEN CASES ABOVE PASS IF IT IS
@@ -613,11 +580,9 @@ enum ProbeError implements Error
 end 'ProbeError'
 
 function writeFile(path String) throws ProbeError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
 		throw ProbeError.failed
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("x".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		throw ProbeError.failed

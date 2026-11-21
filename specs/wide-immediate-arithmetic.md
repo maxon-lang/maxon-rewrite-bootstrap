@@ -82,13 +82,11 @@ all and the adjacency is never tested.
 ## Tests
 
 <!-- test: imm12-boundary -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The plain 12-bit field and the first constant past it, on both `+` and `-`. `4095` is the
 largest immediate that encodes with no shift; `4096` is the first that needs the hi/lo
 split.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [1000]
 	let x = try cell.get(0) otherwise 0
 	let addLo = x + 4095
@@ -115,13 +113,11 @@ end 'main'
 ```
 
 <!-- test: shifted-imm12-boundary -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The top of the SHIFTED field and the top of the hi/lo pair — the last two constants that
 still have an immediate form. `16773120` is `0xFFF000` (a shifted imm12 with an empty low
 half, so one instruction); `16777215` is `0xFFFFFF` (both halves live, so two).
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [1000]
 	let x = try cell.get(0) otherwise 0
 	let addShifted = x + 16773120
@@ -148,13 +144,11 @@ end 'main'
 ```
 
 <!-- test: past-the-24-bit-split -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The first constant with NO arm64 immediate form (`16777216` = `0x1000000`), and one well
 past it (`1000000007`, which needs three halfwords of the `movz`/`movk` ladder). Both must
 go through the scratch and the register form.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [1000]
 	let x = try cell.get(0) otherwise 0
 	let addFirst = x + 16777216
@@ -181,7 +175,6 @@ end 'main'
 ```
 
 <!-- test: negative-wide-immediate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The sign twin. A negative literal on `+` is a SUB of its magnitude and a negative literal
 on `-` is an ADD of it, so both cross the encoding boundary on the MAGNITUDE — and the
 materialised constant must carry its sign into all 64 bits, not just the low 32. The last
@@ -198,7 +191,6 @@ form" and materialises either way. Both halves are checked here precisely so the
 pinned on both sides of a boundary that lives in another file for another target's reason.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [1000]
 	let x = try cell.get(0) otherwise 0
 	let addNeg = x + -1000000007
@@ -233,7 +225,6 @@ end 'main'
 ```
 
 <!-- test: under-register-pressure -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Thirty-four values live across four wide-immediate adds. The arm64 pool offers twenty-six
 GPRs, so this function SPILLS: the allocator is inserting stores and reloads in the same
 straight line the four `movz`/`movk` ladders sit in. Each of those constants has no
@@ -243,45 +234,44 @@ SUM rather than a crash. `p = 0`: `k1`..`k30` are `1`..`30` (sum 465), and the f
 values are `1000000007`, `1000000009`, `2000000011` and `2000000013` (sum 6000000040). Total 6000000505.
 ```maxon
 function pressure(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
-	let k13 = p + 13
-	let k14 = p + 14
-	let k15 = p + 15
-	let k16 = p + 16
-	let k17 = p + 17
-	let k18 = p + 18
-	let k19 = p + 19
-	let k20 = p + 20
-	let k21 = p + 21
-	let k22 = p + 22
-	let k23 = p + 23
-	let k24 = p + 24
-	let k25 = p + 25
-	let k26 = p + 26
-	let k27 = p + 27
-	let k28 = p + 28
-	let k29 = p + 29
-	let k30 = p + 30
-	let w1 = p + 1000000007
-	let w2 = p + 1000000009
-	let w3 = p + 2000000011
-	let w4 = p + 2000000013
-	return k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 + k16 + k17 + k18 + k19 + k20 + k21 + k22 + k23 + k24 + k25 + k26 + k27 + k28 + k29 + k30 + w1 + w2 + w3 + w4
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
+	let k13 = try p + 13 otherwise panic("out of range")
+	let k14 = try p + 14 otherwise panic("out of range")
+	let k15 = try p + 15 otherwise panic("out of range")
+	let k16 = try p + 16 otherwise panic("out of range")
+	let k17 = try p + 17 otherwise panic("out of range")
+	let k18 = try p + 18 otherwise panic("out of range")
+	let k19 = try p + 19 otherwise panic("out of range")
+	let k20 = try p + 20 otherwise panic("out of range")
+	let k21 = try p + 21 otherwise panic("out of range")
+	let k22 = try p + 22 otherwise panic("out of range")
+	let k23 = try p + 23 otherwise panic("out of range")
+	let k24 = try p + 24 otherwise panic("out of range")
+	let k25 = try p + 25 otherwise panic("out of range")
+	let k26 = try p + 26 otherwise panic("out of range")
+	let k27 = try p + 27 otherwise panic("out of range")
+	let k28 = try p + 28 otherwise panic("out of range")
+	let k29 = try p + 29 otherwise panic("out of range")
+	let k30 = try p + 30 otherwise panic("out of range")
+	let w1 = try p + 1000000007 otherwise panic("out of range")
+	let w2 = try p + 1000000009 otherwise panic("out of range")
+	let w3 = try p + 2000000011 otherwise panic("out of range")
+	let w4 = try p + 2000000013 otherwise panic("out of range")
+	return try k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 + k16 + k17 + k18 + k19 + k20 + k21 + k22 + k23 + k24 + k25 + k26 + k27 + k28 + k29 + k30 + w1 + w2 + w3 + w4 otherwise panic("out of range")
 end 'pressure'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [0]
 	let total = pressure(try cell.get(0) otherwise 0)
 	if total != 6000000505 'total'
@@ -297,14 +287,13 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: wide-immediate-in-a-loop -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A wide immediate added inside a loop body, so the materialisation sits between two
 loop-carried values' live ranges rather than in straight-line code. `acc` starts at 0 and
 takes `+ 1000000007` three times, and `i` counts with a small immediate beside it — the two
 bands in one block. `3 * 1000000007 = 3000000021`.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = FullRangeIntArray from [0]
 	var acc = try cell.get(0) otherwise 0
 	var i = 0 as FullRangeInt

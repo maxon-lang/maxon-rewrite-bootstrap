@@ -42,10 +42,9 @@ end 'main'
 ```
 
 <!-- test: basic.creation -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	return s.count()
 end 'main'
@@ -55,10 +54,9 @@ end 'main'
 ```
 
 <!-- test: basic.contains-true -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [10, 20, 30]
 	if s.contains(20) 'check'
 		return 1
@@ -71,10 +69,9 @@ end 'main'
 ```
 
 <!-- test: basic.contains-false -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [10, 20, 30]
 	if s.contains(99) 'check'
 		return 1
@@ -87,10 +84,9 @@ end 'main'
 ```
 
 <!-- test: insert.new-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	s.insert(4)
 	return s.count()
@@ -101,10 +97,9 @@ end 'main'
 ```
 
 <!-- test: insert.duplicate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	s.insert(2)
 	return s.count()
@@ -115,10 +110,9 @@ end 'main'
 ```
 
 <!-- test: insert.then-contains -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	s.insert(5)
 	if s.contains(5) 'check'
@@ -132,10 +126,9 @@ end 'main'
 ```
 
 <!-- test: remove.existing -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	let removed = s.remove(2)
 	if removed 'check'
@@ -149,10 +142,9 @@ end 'main'
 ```
 
 <!-- test: remove.nonexistent -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	let removed = s.remove(99)
 	if removed 'check'
@@ -166,10 +158,9 @@ end 'main'
 ```
 
 <!-- test: remove.then-contains -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	if s.contains(2) 'check'
@@ -183,10 +174,9 @@ end 'main'
 ```
 
 <!-- test: grow.preserves-elements -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
 	var allPresent = 1 as FullRangeInt
 	var i = 1 as FullRangeInt
@@ -204,10 +194,9 @@ end 'main'
 ```
 
 <!-- test: empty.single-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [42]
 	return s.count()
 end 'main'
@@ -217,10 +206,9 @@ end 'main'
 ```
 
 <!-- test: remove-reinsert -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3]
 	_ = s.remove(2)
 	s.insert(2)
@@ -235,10 +223,9 @@ end 'main'
 ```
 
 <!-- test: negative-values -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [-5, -3, -1, 0, 1, 3, 5]
 	if s.contains(-3) 'check'
 		return s.count()
@@ -387,15 +374,13 @@ end 'main'
 ```
 
 <!-- test: error.a-set-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `Set` instance alias at the head of `from […]` is a type name, and another directory's unexported one is refused.
 ```maxon
 // --- file: probe/probe.maxon
 typealias Counts = Set with ExitCode
 
 export function probeCounts() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Counts from [1, 2]
 	print("{s.count()}")
 	return 0
@@ -403,7 +388,6 @@ end 'probeCounts'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Counts from [3]
 	print("{s.count()}")
 	return probeCounts()
@@ -809,7 +793,7 @@ end 'main'
 ```
 
 <!-- test: a-bare-head-literal-of-struct-members-infers-the-key -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A bare `Set` head over a literal of user `Hashable` struct members infers the key from the first member, as it does over an array of them.
 ```maxon
 typealias Coord = int(0 to 1000)
@@ -831,7 +815,6 @@ type Tile implements Hashable, Equatable
 end 'Tile'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [Tile.create(1), Tile.create(1), Tile.create(2)]
 	print("{s.count()} {s.contains(Tile.create(2))}\n")
 	return 0
@@ -845,7 +828,7 @@ end 'main'
 ```
 
 <!-- test: error.an-alias-head-literal-member-of-another-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Every member of an alias-headed literal is held to the alias's key type.
 ```maxon
@@ -854,7 +837,6 @@ typealias Code = int(0 to 100)
 typealias CodeSet = Set with Code
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = CodeSet from [1, "two"]
 	return s.count()
 end 'main'
@@ -864,7 +846,6 @@ error E3005: <fragment>:6:10: argument type mismatch for 'element': expected 'Co
 ```
 
 <!-- test: a-churn-of-inserts-and-removes-makes-the-same-allocations-wherever-the-keys-hash -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 How many allocations a sequence of a set's inserts and removes makes is a function of the sequence, not of where
 the keys' hashes land. The same churn is run four times over keys whose hash multiplies the key by a
@@ -920,7 +901,6 @@ end 'churnAllocations'
 function main() returns ExitCode
 	let tallies = Tallies.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for multiplier in Multipliers from [2654435761, 2246822519, 3266489917, 668265263] 'eachLayout'
 		tallies.push(churnAllocations(multiplier))
 	end 'eachLayout'

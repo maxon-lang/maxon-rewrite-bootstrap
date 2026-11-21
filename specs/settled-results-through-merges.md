@@ -967,7 +967,7 @@ error E3197: <fragment>:28:2: cannot write 'n' through 'picked', which is read-o
 ```
 
 <!-- test: a-result-mixing-a-module-let-array-with-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `get` hands back image data on one path and a fresh array on the other, so its result is read-only for every caller: the call's arguments are all values, and that does not make the result fresh.
 
@@ -976,7 +976,6 @@ typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -998,14 +997,13 @@ error E3197: <fragment>:17:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-ternary-of-a-fresh-array-and-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -1023,14 +1021,13 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-match-arm-giving-a-module-let-array-beside-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 enum Which
@@ -1056,7 +1053,7 @@ error E3197: <fragment>:21:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-map-miss-falling-back-to-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `pick` builds its own map, so every argument it takes is a value; the `otherwise` fallback is the module `let` array, and the result mixes it with the stored one.
 
@@ -1067,7 +1064,6 @@ typealias Items = Array with Count
 
 typealias ItemIndex = Map with (Count, Items)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Empty = Items from [1, 2]
 
 function pick(k Count) returns Items
@@ -1089,7 +1085,6 @@ error E3197: <fragment>:18:7: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-static-let-array-beside-a-fresh-one-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1099,7 +1094,6 @@ typealias Digits = Array with Digit
 
 type Table
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let Primes = Digits from [2, 3, 5, 7]
 
 	static function get(fresh bool) returns Digits
@@ -1121,14 +1115,13 @@ error E3197: <fragment>:19:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-generic-function-handing-back-a-module-let-array-beside-a-fresh-one-is-not-writable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function choose(_ T, fresh bool) uses T returns Digits
@@ -1149,7 +1142,7 @@ error E3197: <fragment>:17:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-function-forwarding-a-mixed-result-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `outer` returns `get`'s result unchanged, so it is as read-only as `get`'s.
 
@@ -1158,7 +1151,6 @@ typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -1183,7 +1175,6 @@ error E3197: <fragment>:21:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-method-forwarding-a-mixed-getter-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1197,7 +1188,6 @@ type Holder
 	var own as Digits
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{shared: freeze(Digits) from [2, 3], own: Digits.create(0)}
 	end 'create'
 
@@ -1225,14 +1215,13 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-passed-straight-to-a-writing-function-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -1253,14 +1242,13 @@ error E3207: <fragment>:16:10: 'writeIt' takes `mutable` 'd' (line 12: `d.push(1
 ```
 
 <!-- test: a-mixed-result-bound-to-a-var-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -1279,7 +1267,6 @@ error E3197: <fragment>:13:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-result-is-not-isolated -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1290,7 +1277,6 @@ typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 type Box
@@ -1321,7 +1307,7 @@ error E3200: <fragment>:25:11: 'get(false)' is not isolated: only a clean call, 
 ```
 
 <!-- test: a-mixed-result-is-read-and-a-copy-of-it-is-written -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The declaration is accepted: a mixed result is read-only for its callers, not refused where it is declared. Reading it, and writing a copy of it, are accepted.
 
 ```maxon
@@ -1329,7 +1315,6 @@ typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 function get(fresh bool) returns Digits
@@ -1435,7 +1420,7 @@ error E3197: <fragment>:24:2: cannot write 'n' through 'b', which is read-only
 ```
 
 <!-- test: a-method-of-a-fresh-receiver-handing-back-a-module-let-array-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 The receiver is a fresh value, so nothing about the call makes its result read-only except what `get` hands back.
 
@@ -1444,7 +1429,6 @@ typealias Digit = int(0 to 9)
 
 typealias Digits = Array with Digit
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Primes = Digits from [2, 3, 5, 7]
 
 type Source
@@ -1706,7 +1690,6 @@ error E3197: <fragment>:32:4: cannot write through a read-only value, as it join
 ```
 
 <!-- test: a-method-relaying-a-mixed-getter-with-fixed-arguments-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `relay` names no flag of its own, so nothing about its call tells the caller that `pick` may hand back the frozen `shared` array.
@@ -1722,7 +1705,6 @@ type Holder
 	var own as Digits
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{shared: freeze(Digits) from [2, 3], own: Digits.create(0)}
 	end 'create'
 
@@ -1750,7 +1732,6 @@ error E3197: <fragment>:29:4: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: a-mixed-getter-called-on-a-fresh-receiver-is-not-writable-for-its-caller -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Holder.create()` is a clean call, so nothing it was handed is read-only, and the result of `pick` is read-only because `pick` itself may return the frozen `shared` array.
@@ -1766,7 +1747,6 @@ type Holder
 	var own as Digits
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{shared: freeze(Digits) from [2, 3], own: Digits.create(0)}
 	end 'create'
 

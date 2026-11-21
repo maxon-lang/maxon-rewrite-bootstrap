@@ -352,7 +352,6 @@ end 'main'
 ```
 
 <!-- test: string-conformance.hash-is-the-hasher-fold-of-its-bytes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### `String.hash` is `Hasher`'s hash of the bytes
 `s.hash()` is the `finalize()` of a `Hasher.create()` that folds `s.toByteArray()` with `combineBytes`: one hash
@@ -377,7 +376,6 @@ function folded(bytes ByteArray) returns HashValue
 end 'folded'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = LengthList from [0, 1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
@@ -412,7 +410,6 @@ utf-8 true
 ```
 
 <!-- test: string-conformance.hash-avalanches -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### One flipped bit moves about half of the 32 hash bits
 For every length on either side of the hash's block boundaries, six bits of each byte are flipped in turn
@@ -442,9 +439,7 @@ function bitsSet(pattern HashValue) returns Count
 end 'bitsSet'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = LengthList from [1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let masks = ByteArray from [1, 2, 4, 8, 16, 32]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
@@ -493,7 +488,6 @@ end 'main'
 ```
 
 <!-- test: string-conformance.hash-differs-between-processes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 ### A String's hash differs from one process to the next
 `String.hash` starts from the process seed, so a String-keyed `Map` or `Set` is laid out differently in every
@@ -513,7 +507,6 @@ function spawnChild(me FilePath) returns CollectedOutput
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_HASH_SEED": ""])
 	return try Subprocess.runConfiguration(config) otherwise panic("the child could not be spawned")
 end 'spawnChild'
@@ -672,15 +665,12 @@ error E2015: <fragment>:2:11: Unsupported: a declaration of the type name 'Built
 ```
 
 <!-- test: error.a-declaration-may-not-bind-the-name-BuiltinArrayLiteral -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### `BuiltinArrayLiteral` is reserved for the array literal's record
 ```maxon
 interface BuiltinArrayLiteral
 end 'BuiltinArrayLiteral'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = [1, 2, 3]
 	print("{values.count()}\n")
 	return 0

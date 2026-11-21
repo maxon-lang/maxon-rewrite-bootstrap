@@ -1360,7 +1360,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-send-error-is-declared-and-nameable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A message's send error is a declared type with a name an author can write: `Store.ping.sendError` in a
 `throws` clause, and its cases in a `match`. The mailbox runtime produces it — here a send after `shutdown()`
@@ -1386,7 +1385,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Store.create()
 	h.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try poke(h) otherwise (e) 'failed'
 		match e 'why'
 			mailboxFull then return 6
@@ -1524,7 +1522,6 @@ acc=123
 
 <!-- test: a-long-backlog-of-string-messages-keeps-fifo-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1571,7 +1568,6 @@ function main() returns ExitCode
 		try h.note("m{i}") otherwise panic("an open mailbox with room takes the send")
 	end 'fill'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let summary = try await h.report() otherwise 'gone'
 		return 9
 	end 'gone'
@@ -1588,7 +1584,6 @@ seen=100 misplaced=0 m0 m1 m2 m97 m98 m99
 
 <!-- test: the-first-message-to-a-service-that-has-never-run-and-the-queue-behind-it-keep-fifo-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1636,7 +1631,6 @@ function main() returns ExitCode
 		try h.note("m{i}") otherwise panic("an open mailbox with room takes the send")
 	end 'fill'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let summary = try await h.report() otherwise 'gone'
 		return 9
 	end 'gone'
@@ -1653,7 +1647,6 @@ seen=19 misplaced=0 m0 m1 m17 m18
 
 <!-- test: a-send-to-a-shut-down-service-hands-every-argument-back -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A BACKLOG SENT AFTER `shutdown()`, EVERY MESSAGE CARRYING A HEAP `String`.** `shutdown()` closes the
 mailbox, so each of 100 `keep` sends is refused with `serviceStopped` and hands its `String` back, in send
@@ -1701,7 +1694,6 @@ function main() returns ExitCode
 	var misplaced = 0 as Tally
 	var valueRefused = 0 as Tally
 	for i in 0 upto backlog 'fill'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try h.keep("s{i}") otherwise (e) 'keepRefused'
 			match e 'keepWhy'
 				mailboxFull(s) then panic("a mailbox with room is never full: {s}")
@@ -1711,7 +1703,6 @@ function main() returns ExitCode
 		end 'keepRefused'
 		if (i + 1) mod replyEvery == 0 'replyHere'
 			// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			let v = try await h.value() otherwise (e) 'valueGone'
 				match e 'valueWhy'
 					mailboxFull then panic("a mailbox with room is never full")
@@ -1735,7 +1726,6 @@ refused=100 misplaced=0 valueRefused=4
 
 <!-- test: a-queue-refilled-after-it-drained-keeps-fifo-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1785,7 +1775,6 @@ function main() returns ExitCode
 		next = next + 1
 	end 'first'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let drained = try await h.sync() otherwise 'syncFailed'
 		return 9
 	end 'syncFailed'
@@ -1794,7 +1783,6 @@ function main() returns ExitCode
 		next = next + 1
 	end 'second'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let summary = try await h.report() otherwise 'reportFailed'
 		return 9
 	end 'reportFailed'
@@ -1813,7 +1801,6 @@ seen=24 misplaced=0
 
 <!-- test: a-long-queue-refilled-after-it-drained-keeps-fifo-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -1860,7 +1847,6 @@ function main() returns ExitCode
 		next = next + 1
 	end 'grow'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let drained = try await h.sync() otherwise 'syncFailed'
 		return 9
 	end 'syncFailed'
@@ -1869,7 +1855,6 @@ function main() returns ExitCode
 		next = next + 1
 	end 'again'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let summary = try await h.report() otherwise 'reportFailed'
 		return 9
 	end 'reportFailed'
@@ -2059,7 +2044,6 @@ acc=3
 ```
 
 <!-- test: a-let-sent-after-shutdown-is-handed-back-and-released -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2088,7 +2072,6 @@ function main() returns ExitCode
 	try h.keep(first) otherwise panic("an open mailbox with room takes the send")
 	h.shutdown()
 	let second = "b{2}"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -2115,7 +2098,6 @@ Every send throws at the send when the mailbox is full or the service has stoppe
 `<Svc>.<msg>.sendError`: `mailboxFull(…)` and `serviceStopped(…)`, each carrying the arguments the send was given.
 
 <!-- test: a-full-mailbox-refuses-a-send-and-hands-its-arguments-back -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2140,7 +2122,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 2) Store.create()
 	for i in 0 upto 3 'fill'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try h.keep("s{i}") otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull(s) then print("full {s}\n")
@@ -2164,7 +2145,6 @@ kept s1
 ```
 
 <!-- test: a-handed-back-argument-can-be-resent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2192,7 +2172,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let other = spawn Store.create(2)
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}") otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then try other.keep(back) otherwise panic("a service with room takes the send")
@@ -2201,7 +2180,6 @@ function main() returns ExitCode
 	end 'refused'
 	var pending = "s{2}"
 	while true 'untilItLands'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try h.keep(pending) otherwise (e) 'refusedAgain'
 			match e 'again'
 				mailboxFull(back) then pending = back
@@ -2229,7 +2207,6 @@ store1 kept s2
 ```
 
 <!-- test: a-send-after-shutdown-fails-stopped-with-its-arguments -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2254,7 +2231,6 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	try h.keep("a{1}") otherwise panic("an open mailbox with room takes the send")
 	h.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("b{2}") otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -2276,7 +2252,6 @@ kept a1
 
 <!-- test: a-reply-bearing-send-to-a-full-mailbox-fails-at-the-send -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2305,7 +2280,6 @@ function main() returns ExitCode
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("a{1}") otherwise panic("a capacity of one takes the first send")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try await h.value() otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull then print("full\n")
@@ -2329,7 +2303,6 @@ kept a1
 
 <!-- test: a-stored-reply-send-needs-its-own-try -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A reply that is stored rather than awaited takes its own `try` for the send, and the promise it yields
 carries only the handler's errors: `Promise with (Integer, StoreError)`, matched exhaustively by `empty`.
@@ -2371,7 +2344,6 @@ function main() returns ExitCode
 	while ps.count() > 0 'drain'
 		let p = try ps.remove(0) otherwise panic("the loop runs while a promise is left")
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let v = try await p otherwise (e) 'failed'
 			match e 'why'
 				empty then print("empty\n")
@@ -2457,7 +2429,6 @@ error E3190: <fragment>:16:2: `Store.value` returns or throws, so a send of it d
 ```
 
 <!-- test: shutdown-of-a-full-mailbox-runs-what-is-queued -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2483,7 +2454,6 @@ function main() returns ExitCode
 	try h.keep("a{1}") otherwise panic("a capacity of two takes the first send")
 	try h.keep("b{2}") otherwise panic("a capacity of two takes the second send")
 	h.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("c{3}") otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -2505,7 +2475,6 @@ kept b2
 ```
 
 <!-- test: the-default-capacity-queues-1024-messages -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2540,7 +2509,6 @@ function main() returns ExitCode
 	let h = spawn Store.create()
 	var queued = 0 as Tally
 	for i in 0 upto attempts 'fill'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try h.keep("s{i}") otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull(s) then print("queued={queued} full {s}\n")
@@ -2563,7 +2531,6 @@ ran 1024 last=s1023
 ```
 
 <!-- test: a-propagated-send-error-carries-its-arguments -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2591,7 +2558,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try stash(h, tag: 1) otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stash(h, tag: 2) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -2613,7 +2579,6 @@ kept s1
 
 <!-- test: a-shared-argument-handed-back-leaves-the-callers-value-intact -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
@@ -2665,7 +2630,6 @@ end 'describe'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 function offer(h Store.handle, other Store.handle, w immutable Wrap)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(w) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then try other.keep(back.clone()) otherwise panic("a service with room takes the send")
@@ -2703,7 +2667,6 @@ still holds first1
 ```
 
 <!-- test: a-propagated-send-error-hands-a-shared-argument-back-to-be-resent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
@@ -2753,7 +2716,6 @@ function main() returns ExitCode
 	let other = spawn Store.create()
 	let first = Wrap.held("first{1}")
 	try offer(h, w: first) otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try offer(h, w: first) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(back) then try other.keep(back.clone()) otherwise panic("a service with room takes the send")
@@ -2776,7 +2738,6 @@ kept first1
 ```
 
 <!-- test: a-shared-value-that-cannot-be-cloned-is-handed-back-retained -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -2844,7 +2805,6 @@ end 'Door'
 
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 function offer(h Door.handle, held immutable Holder)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.look(held) otherwise (e) 'refused'
 		match e 'why'
 			serviceStopped(back) then print("stopped, handed back a holder measuring {back.measure()}\n")
@@ -2874,7 +2834,6 @@ the original measures 1
 ```
 
 <!-- test: a-caught-send-error-can-be-thrown-on -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -2895,7 +2854,6 @@ type Store
 end 'Store'
 
 function relay(h Store.handle, tag Integer) throws Store.keep.sendError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{tag}") otherwise (e) 'refused'
 		throw e
 	end 'refused'
@@ -2905,7 +2863,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try relay(h, tag: 1) otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try relay(h, tag: 2) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -2961,7 +2918,6 @@ error E3168: <fragment>:14:10: 'throws Store.ping.sendError' is declared but not
 ```
 
 <!-- test: a-send-error-may-be-thrown-from-a-value-the-function-was-handed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A send-error a function is handed may be thrown by it: the box the send failed on is counted, so the catcher and
 the function each hold a counted reference to it.
@@ -2986,7 +2942,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("a") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("b") otherwise (e) 'refused'
 		try again(e) otherwise ignore
 	end 'refused'
@@ -3035,7 +2990,6 @@ error E3005: <fragment>:16:26: Value 0 is outside the range of 'MailboxCapacity'
 
 <!-- test: a-capacity-that-is-not-a-power-of-two-fills-drains-and-fills-again-in-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3069,7 +3023,6 @@ end 'Ledger'
 
 function fill(h Ledger.handle, base Tally) returns Tally
 	for i in 0 upto attempts 'innerFill'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try h.take(base + i) otherwise (e) 'refused'
 			match e 'why'
 				mailboxFull then print("refused after {i} sends\n")
@@ -3135,7 +3088,6 @@ keys=1024
 ```
 
 <!-- test: a-send-with-a-timeout-waits-for-room -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3163,7 +3115,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3188,7 +3139,6 @@ sent s1
 
 <!-- test: a-waiting-sender-of-a-capacity-one-mailbox-is-admitted-behind-what-was-queued -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3221,7 +3171,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3233,7 +3182,6 @@ function main() returns ExitCode
 	try h.keep("s{2}") otherwise panic("the service has drained its queue, so a capacity of one takes the send")
 	Scheduler.yield()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try await h.count() otherwise 'gone'
 		return 9
 	end 'gone'
@@ -3256,7 +3204,6 @@ count=3
 
 <!-- test: a-waiting-sender-of-a-capacity-seventeen-mailbox-is-admitted-in-fifo-order -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3296,7 +3243,6 @@ function main() returns ExitCode
 	for i in 0 upto queued 'fill'
 		try h.note("m{i}") otherwise panic("a capacity of 17 takes the first 17 sends")
 	end 'fill'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.note("m{queued}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3305,7 +3251,6 @@ function main() returns ExitCode
 		return 1
 	end 'refused'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let summary = try await h.report() otherwise 'gone'
 		return 9
 	end 'gone'
@@ -3321,7 +3266,6 @@ seen=18 misplaced=0
 ```
 
 <!-- test: shutdown-before-the-service-runs-fails-a-waiting-sender-and-still-runs-the-queued-message -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3365,7 +3309,6 @@ function main() returns ExitCode
 	let closer = spawn Closer.create()
 	try h.keep("s{0}") otherwise panic("the service has never run, so its one slot is free")
 	try closer.close(h.clone()) otherwise panic("an open mailbox with room takes the send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: longTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3389,7 +3332,6 @@ kept s0
 ```
 
 <!-- test: a-parameterless-message-takes-only-a-named-send-timeout -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3415,7 +3357,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.ping() otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.ping(sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull then print("full\n")
@@ -3529,7 +3470,6 @@ total=10
 
 <!-- test: an-awaited-send-with-a-timeout-waits-for-room -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3560,7 +3500,6 @@ function main() returns ExitCode
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try await h.tally("s{1}", sendTimeout: 5000) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3584,7 +3523,6 @@ n=2
 ```
 
 <!-- test: a-send-whose-timeout-expires-fails-mailbox-full -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3630,7 +3568,6 @@ function main() returns ExitCode
 	Scheduler.yield()
 	try h.keep("s{0}") otherwise panic("the service took hold, so its one slot is free")
 	let start = Clock.nowMs()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: timeoutMs) otherwise (e) 'refused'
 		let waited = Clock.elapsedMs(start)
 		match e 'why'
@@ -3658,7 +3595,6 @@ kept s0
 ```
 
 <!-- test: shutdown-wakes-a-sender-waiting-for-room -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3718,7 +3654,6 @@ function main() returns ExitCode
 	Scheduler.yield()
 	try h.keep("s{0}") otherwise panic("the service took hold, so its one slot is free")
 	try closer.close(h.clone()) otherwise panic("an open mailbox with room takes the send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: longTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3745,7 +3680,6 @@ kept s0
 
 <!-- test: a-coroutine-dropped-while-waiting-for-room-gives-up-its-send -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3785,7 +3719,6 @@ type Store
 end 'Store'
 
 function begForRoom(h Store.handle, gaveUp ReleaseCell) returns Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s1", sendTimeout: longTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("gave up {s}\n")
@@ -3835,7 +3768,6 @@ kept s0
 
 <!-- test: a-renounced-coroutine-does-not-wait-for-room -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3875,7 +3807,6 @@ end 'Store'
 
 function napThenBeg(h Store.handle, gaveUp ReleaseCell) returns Integer
 	sleep(ForeverMs)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s1", sendTimeout: longTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("gave up {s}\n")
@@ -3924,7 +3855,6 @@ kept s0
 ```
 
 <!-- test: a-zero-send-timeout-fails-at-once -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -3949,7 +3879,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: 0) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -3972,7 +3901,6 @@ kept s0
 ```
 
 <!-- test: the-largest-send-timeout-waits-for-room-instead-of-failing-at-once -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -4000,7 +3928,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn (capacity: 1) Store.create()
 	try h.keep("s{0}") otherwise panic("a capacity of one takes the first send")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: longestTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -4026,7 +3953,6 @@ sent s1
 <!-- test: an-indefinite-send-waits-past-a-sleeping-handler-and-delivers -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -4081,7 +4007,6 @@ function main() returns ExitCode
 	try h.keep("s{0}") otherwise panic("the service took hold, so its one slot is free")
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let releaser = async publishRelease(released.clone())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep("s{1}", sendTimeout: indefiniteTimeoutMs) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull(s) then print("full {s}\n")
@@ -4345,7 +4270,6 @@ error E3221: <fragment>:27:18: the message 'relay' may wait (it starts 'waitsOnP
 
 <!-- test: a-message-may-send-with-a-literal-zero-timeout -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 <!-- preempt: off -->
@@ -4379,7 +4303,6 @@ type Relay
 
 	export function forward(peer Counter.handle, times Integer) returns Integer
 		for _ in 0 upto times 'each'
-			// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 			try peer.bump(1, sendTimeout: 0) otherwise (e) 'full'
 				match e 'why'
 					mailboxFull then self.refused = self.refused + 1
@@ -10912,7 +10835,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-message-throws-and-the-handler-error-merges-with-the-send-errors -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One `try` covers the send and the handler: the error it binds has the send's two arms, `mailboxFull` and
 `serviceStopped`, beside the handler's own cases.
@@ -10940,7 +10862,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try await h.divide(10, by: 0) otherwise (e) 'oops'
 		match e 'why'
 			mailboxFull then return 69
@@ -10959,7 +10880,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-call-after-shutdown-fails-service-stopped -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A call to a stopped service fails at the send with `serviceStopped`, so the awaiter never has a reply to wait for.
 ```maxon
@@ -10980,7 +10900,6 @@ function main() returns ExitCode
 	let h = spawn Calc.create()
 	h.shutdown()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try await h.total() otherwise (e) 'gone'
 		match e 'why'
 			mailboxFull then return 8
@@ -11413,7 +11332,6 @@ error E3059: <fragment>:22:9: type mismatch: '`try await` of 'Calc.divide' can f
 
 <!-- test: a-split-send-and-await-propagates-the-handlers-error -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE SPLIT THE PREVIOUS CASE'S REFUSAL NAMES.** The send is its own `try` and the await is another: the send
 is handled where it is made, and the bare `try await` of the stored promise propagates the handler's `MathError`
@@ -11447,7 +11365,6 @@ end 'fetch'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Calc.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try fetch(h) otherwise (e) 'oops'
 		match e 'why'
 			divideByZero then return 71
@@ -11464,7 +11381,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: error.an-ambiguous-bare-arm-over-a-merged-reply-error-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 Merging the send's error with the handler's into one dispatch table can collide on a bare case name: `Halt`
@@ -11497,7 +11413,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Guard.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await h.risky() otherwise (e) 'oops'
 		match e 'why'
 			serviceStopped then return 70 as ExitCode
@@ -11516,7 +11431,6 @@ error E3085: <fragment>:26:4: case 'serviceStopped' is shared by multiple union 
 
 <!-- test: shutdown-resolves-pending-replies -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **THE LIVENESS OBLIGATION, ON BOTH OF ITS ROADS.** No awaiter hangs. A message queued before `shutdown()` still
 runs, so its stored reply resolves with the handler's value; a message sent after it fails at the send with
@@ -11544,7 +11458,6 @@ function main() returns ExitCode
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let answer = await queued
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await h.value() otherwise (e) 'second'
 		match e 'w2'
 			mailboxFull then stops = stops + 100
@@ -11562,7 +11475,6 @@ typealias Integer = int(i64.min to i64.max)
 
 <!-- test: a-string-moves-in-and-a-fresh-string-comes-back -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The reply carries a MANAGED value across green threads. It is sound for the reason the send's move is: the
 handler's result is freshly minted in the handler's own frame, so the service gives up its only reference and
@@ -11584,7 +11496,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let h = spawn Echo.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let out = try await h.say("hi") otherwise 'gone'
 		return 9
 	end 'gone'
@@ -12303,7 +12214,6 @@ end 'main'
 
 <!-- test: a-throwing-reply-stores-in-a-promise-naming-its-errors -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ⭐ **A THROWING MESSAGE'S REPLY IS STORED UNDER THE HANDLER'S OWN ERROR.** A message that throws replies with
 `Promise with (T, <what the message throws>)`, an ordinary declared type, because the send's failure surfaces at
@@ -12342,7 +12252,6 @@ function main() returns ExitCode
 	ps.push(try h.divide(10, by: 0) otherwise panic("a running service with room takes the send"))
 	let p = try ps.get(0) otherwise panic("the reply was pushed into slot 0")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await p otherwise (e) 'oops'
 		match e 'why'
 			divideByZero then return 71
@@ -15192,7 +15101,6 @@ end 'main'
 
 <!-- test: services.an-or-arm-matches-a-handler-error-merged-with-the-send-errors -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 An awaited message's error is the handler's own error set merged with the send's `mailboxFull` and
 `serviceStopped`, and a `match` over it takes the same `or` arms a match over any error enum does.
@@ -15223,7 +15131,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let calc = spawn Calc.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let value = try await calc.divide(10, by: 0) otherwise (e) 'failed'
 		match e 'why'
 			divideByZero or
@@ -15804,7 +15711,6 @@ error E3209: <fragment>:25:3: a return does not fit the declared result: the ret
 
 <!-- test: error.reply-a-sibling-returns-a-local-it-keys-a-map-with-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -15846,7 +15752,6 @@ type Worker
 	function summarize(n Tally) returns Report
 		var first = Report.create(n)
 		var report = Report.create(n * 2)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		self.ranks = [first: 1 as Tally, report: 2 as Tally]
 		return report
 	end 'summarize'
@@ -16379,7 +16284,6 @@ error E2015: <fragment>:37:10: Unsupported: a type argument inferred from a fact
 
 <!-- test: services.an-interface-argument-sent-to-a-stopped-service-is-handed-back -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -16435,7 +16339,6 @@ function main() returns ExitCode
 	var stops = 0 as Tally
 	var area = 0 as Tally
 	factory.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try factory.inspect(labelOf(5)) otherwise (e) 'refused'
 		match e 'why'
 			mailboxFull then stops = stops + 100
@@ -16443,7 +16346,6 @@ function main() returns ExitCode
 		end 'why'
 	end 'refused'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await factory.make(1234) otherwise (e) 'gone'
 		match e 'again'
 			mailboxFull then stops = stops + 100
@@ -19722,7 +19624,6 @@ enqueued.
 
 <!-- test: services.a-service-owns-a-moved-tcp-client-and-echoes-on-it -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 The accepted connection is moved into `Echo.create`, so the service is its only owner. The service reads what the
@@ -19752,12 +19653,10 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try out.send("hello") otherwise 'refused5x26'
 		reply.cancel()
 		return 5
 	end 'refused5x26'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heard = try out.readSome(64) otherwise 'refused6x28'
 		reply.cancel()
 		return 6
@@ -19777,8 +19676,6 @@ hello 5
 
 <!-- test: services.a-moved-tcp-client-works-on-another-processor -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
@@ -19815,14 +19712,11 @@ function main() returns ExitCode
 	let echo = spawn Echo.create(accepted)
 	let reply = try echo.serve() otherwise return 4
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for word in ["one", "three", "seven"] 'eachWord'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		_ = try out.send(word) otherwise 'refused5x33'
 			reply.cancel()
 			return 5
 		end 'refused5x33'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let heard = try out.readSome(64) otherwise 'refused6x35'
 			reply.cancel()
 			return 6
@@ -19931,7 +19825,6 @@ error E3102: <fragment>:22:31: use of moved value 'socket': its ownership moved 
 
 <!-- test: services.a-tcp-client-held-at-an-interface-type-crosses-and-echoes -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A connection moves into a service whose state holds a conformer of it at an interface type, and the service reads and
@@ -19979,12 +19872,10 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let stage = spawn Stage.create(accepted)
 	let reply = try stage.perform() otherwise return 4
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try out.send("interface") otherwise 'refused5x49'
 		reply.cancel()
 		return 5
 	end 'refused5x49'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heard = try out.readSome(64) otherwise 'refused6x51'
 		reply.cancel()
 		return 6
@@ -20004,7 +19895,6 @@ interface 9
 
 <!-- test: services.a-service-replies-with-a-connection-it-accepted -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A reply is walked after the handler's locals are released, so a connection the handler accepted and returns has no
@@ -20033,7 +19923,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let acceptor = spawn Acceptor.create(listener)
 	let pending = try acceptor.next() otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
 		pending.cancel()
 		return 3
@@ -20055,7 +19944,6 @@ accepted
 
 <!-- test: services.a-service-replies-with-a-connection-it-dialled -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 `TcpClient.connect` builds the client. A reply of its result is fresh, so the dialled connection has no other
@@ -20082,7 +19970,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let dialer = spawn Dialer.create(listener.port())
 	let pending = try dialer.next() otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let peer = try listener.accept() otherwise 'refused3x22'
 		pending.cancel()
 		return 3
@@ -20588,7 +20475,6 @@ state=1
 ```
 
 <!-- test: services.a-throwing-factory-that-fails-throws-at-the-spawn -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
 A factory that throws starts no service: the spawner receives the factory's error, of the factory's own type, where it
@@ -20621,7 +20507,6 @@ end 'Gate'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Gate.create(2) otherwise (e) 'failed'
 		print("handling\n")
 		match e 'which'
@@ -20644,7 +20529,6 @@ exhausted
 ```
 
 <!-- test: services.a-throwing-factory-with-a-payload-error-reports-the-payload -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A factory that throws a case of an error union carrying a payload, a heap string or an integer, hands that payload to the
@@ -20677,7 +20561,6 @@ end 'Gate'
 
 function attempt(code Whole)
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Gate.create(code) otherwise (e) 'failed'
 		match e 'which'
 			refused(reason) then print("refused: {reason}\n")
@@ -20704,7 +20587,6 @@ exhausted at 42
 
 <!-- test: services.a-throwing-factory-error-propagates-through-a-throwing-function -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A function declared to throw the factory's error propagates it with `try spawn` like any throwing call, and its caller
 handles it.
@@ -20741,7 +20623,6 @@ function main() returns ExitCode
 	let n = try await g.state() otherwise return 1
 	print("state={n}\n")
 	g.shutdown()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try start(false) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20814,7 +20695,6 @@ refused
 
 <!-- test: services.a-throwing-generic-factory-starts-a-generic-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A generic service's throwing factory hands back the handle of the instantiation its arguments fix, and a failing one
 throws its error at the spawn.
@@ -20849,7 +20729,6 @@ function main() returns ExitCode
 	print("{n}\n")
 	h.shutdown()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Box.create(5, extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20868,7 +20747,6 @@ refused
 ```
 
 <!-- test: services.a-throwing-generic-factory-releases-a-managed-argument-when-the-spawn-fails -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 A failing `spawn` of a generic service's throwing factory releases the managed `T` argument it consumed: the
 factory throws before it builds the service, so nothing else owns the heap string.
@@ -20897,7 +20775,6 @@ end 'Box'
 
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Box.create("another label long enough to be a heap string", extra: -1) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")
@@ -20916,7 +20793,6 @@ refused
 
 <!-- test: services.a-throwing-factory-takes-ten-arguments-of-mixed-kinds-on-the-service -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
@@ -20979,7 +20855,6 @@ function main() returns ExitCode
 	p.shutdown()
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	// TODO: float literals are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Plot.create(-1, b: 0.5, shape: Square.create(2.0), c: 2, d: 1.5, e: 3, f: 2.5, g: 4, h: 3.5, i: 5) otherwise (e) 'failed'
 		match e 'which'
 			empty then print("empty\n")
@@ -21116,7 +20991,6 @@ end 'main'
 
 <!-- test: services.a-failed-factory-releases-its-arguments -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -21154,7 +21028,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let ids = WholeArray.create(0) as isolated WholeArray
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try spawn Ledger.create("a label long enough to be a heap string", ids: ids) otherwise (e) 'failed'
 		match e 'which'
 			refused then print("refused\n")

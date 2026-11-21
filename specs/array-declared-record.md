@@ -1421,7 +1421,6 @@ error E2015: <fragment>:22:14: Unsupported: `Array` member 'at' — this value's
 ```
 
 <!-- test: a-compiler-minted-literal-is-the-library-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: byte string literals are not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -1450,7 +1449,6 @@ end 'Array'
 function main() returns ExitCode
 	// TODO: byte string literals are not supported in minimaxon
 	let bytes = b"Hi!"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let nums = [4, 5]
 	print("{bytes.isEmpty()} {nums.isEmpty()}")
 	return (bytes.count() + nums.count()) as ExitCode
@@ -1464,7 +1462,6 @@ false false
 ```
 
 <!-- test: a-minted-managed-element-literal-is-the-library-array-and-balances -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME MINT WITH A MANAGED ELEMENT, WHERE A WRONG RECORD IDENTITY IS A LEAK OR A DOUBLE FREE
@@ -1487,7 +1484,6 @@ public type Array uses Element implements BuiltinArrayLiteral
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = ["a", "bb"]
 	print("{words.contains("bb")}")
 	return words.count() as ExitCode

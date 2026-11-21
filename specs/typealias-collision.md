@@ -563,7 +563,6 @@ error E3063: app/<fragment>:9:18: Ambiguous type name 'Bag': more than one visib
 ```
 
 <!-- test: generic-tuple-and-nominal-names-are-named-by-their-directory -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -612,7 +611,6 @@ function main() returns ExitCode
 	let b = lib.Bag.create(0)
 	b.push(7)
 	let p = lib.Point.make()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let marks = alt.Bag from [true]
 	// TODO: tuple values and types are not supported in minimaxon
 	return first(b) + sum((1, 2)) + p.x + flags((true, false), marks: marks)
@@ -755,8 +753,8 @@ end 'main'
 ```
 
 <!-- test: error.an-ambiguous-array-from-head-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 Two directories export an `Array` instance alias of one name, so a bare `from` head in a third file could build
 either and must be qualified.
@@ -771,7 +769,6 @@ export typealias Smalls = Array with bool
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Smalls from [1, 2]
 	print("{xs.count()}")
 	return 0
@@ -836,8 +833,8 @@ end 'main'
 ```
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The spelling E3063 prescribes for that `Smalls` builds the `Array` instance its directory declares.
 ```maxon
 // --- file: api/types.maxon
@@ -848,9 +845,7 @@ export typealias Smalls = Array with bool
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = api.Smalls from [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let flags = legacy.Smalls from [true]
 	return (xs.count() * flags.count()) as ExitCode
 end 'main'
@@ -860,7 +855,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 A user `CharSet` exported beside the library's: each qualified head builds the set its own declaration states.
@@ -870,10 +864,8 @@ export typealias CharSet = Set with Character
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let mine = api.CharSet from ['a', 'b']
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let theirs = stdlib.CharSet from ['x', 'y', 'z']
 	return (mine.count() * 10 + theirs.count()) as ExitCode
@@ -884,8 +876,8 @@ end 'main'
 ```
 
 <!-- test: a-qualified-array-from-head-names-the-alias-it-qualifies-at-top-level -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A top-level constant's qualified `from` head builds the `Array` instance its directory declares, as a body's does.
 ```maxon
 // --- file: api/types.maxon
@@ -895,10 +887,8 @@ export typealias Smalls = Array with ExitCode
 export typealias Smalls = Array with bool
 
 // --- file: app/main.maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Xs = api.Smalls from [1, 2, 3]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Flags = legacy.Smalls from [true]
 
 function main() returns ExitCode
@@ -910,7 +900,6 @@ end 'main'
 ```
 
 <!-- test: a-qualified-set-from-head-names-the-alias-it-qualifies-at-top-level -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Each qualified `CharSet` head of a top-level constant builds the set its own declaration states.
@@ -919,11 +908,9 @@ Each qualified `CharSet` head of a top-level constant builds the set its own dec
 export typealias CharSet = Set with Character
 
 // --- file: app/main.maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: character literals are not supported in minimaxon
 let Mine = api.CharSet from ['a', 'b']
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 // TODO: character literals are not supported in minimaxon
 let Theirs = stdlib.CharSet from ['x', 'y', 'z']
 

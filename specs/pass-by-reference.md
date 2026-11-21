@@ -1874,7 +1874,6 @@ error E3005: <fragment>:17:2: argument type mismatch for 'f': expected 'fn(mutab
 ```
 
 <!-- test: pass-by-reference.a-narrow-var-at-a-wider-parameter-of-a-callee-that-then-throws-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- positions: moved -->
 The refusal is at the call, so no handler is ever reached with a widened variable.
@@ -1895,7 +1894,6 @@ end 'bumpWide'
 
 function main() returns ExitCode
 	var x = 3 as Narrow
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bumpWide(x) otherwise 'handler'
 		print("caught {x}\n")
 	end 'handler'

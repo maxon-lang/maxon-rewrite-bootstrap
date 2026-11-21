@@ -42,10 +42,8 @@ s.contains("lo wo")                 // true (substring search)
 ### Single Element
 
 <!-- test: array-int-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40, 50]
 	if arr.contains(30) 'check'
 		return 1
@@ -58,10 +56,8 @@ end 'main'
 ```
 
 <!-- test: array-int-not-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	if arr.contains(99) 'check'
 		return 1
@@ -74,10 +70,8 @@ end 'main'
 ```
 
 <!-- test: array-string-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["apple", "banana", "cherry"]
 	if arr.contains("banana") 'check'
 		return 1
@@ -90,10 +84,8 @@ end 'main'
 ```
 
 <!-- test: array-string-not-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["apple", "banana", "cherry"]
 	if arr.contains("grape") 'check'
 		return 1
@@ -156,10 +148,8 @@ end 'main'
 ```
 
 <!-- test: array-first-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [5, 10, 15]
 	if arr.contains(5) 'check'
 		return 1
@@ -172,10 +162,8 @@ end 'main'
 ```
 
 <!-- test: array-last-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [5, 10, 15]
 	if arr.contains(15) 'check'
 		return 1
@@ -188,10 +176,9 @@ end 'main'
 ```
 
 <!-- test: set-contains -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [1, 2, 3, 4, 5]
 	if s.contains(3) 'check'
 		print("found\n")
@@ -212,12 +199,9 @@ found
 ### Subsequence
 
 <!-- test: array-subsequence-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([2, 3, 4]) 'check'
 		return 1
 	end 'check'
@@ -229,12 +213,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-not-found -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1, 3]) 'check'
 		return 1
 	end 'check'
@@ -246,12 +227,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-at-start -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1, 2]) 'check'
 		return 1
 	end 'check'
@@ -263,12 +241,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-at-end -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3, 4, 5]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([4, 5]) 'check'
 		return 1
 	end 'check'
@@ -280,12 +255,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-longer-than-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1, 2, 3]) 'check'
 		return 1
 	end 'check'
@@ -297,7 +269,6 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-empty-array-nonempty-sequence -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -305,7 +276,6 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	let arr = IntArray.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1]) 'check'
 		return 1
 	end 'check'
@@ -317,12 +287,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-equal-length-match -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1, 2, 3]) 'check'
 		return 1
 	end 'check'
@@ -334,12 +301,9 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-equal-length-mismatch -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if arr.containsSequence([1, 2, 4]) 'check'
 		return 1
 	end 'check'
@@ -351,14 +315,13 @@ end 'main'
 ```
 
 <!-- test: array-subsequence-empty-sequence -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = IntArray from [1, 2]
 	let none = IntArray.create(0)
 	if arr.containsSequence(none) 'check'

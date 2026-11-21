@@ -1265,7 +1265,6 @@ end 'main'
 ```
 
 <!-- test: error.function-value-call-with-a-literal-container-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A call through a function VALUE may still not carry a LITERAL container: `a` is a `let` array literal, a
 constant the compiler read its range columns from, and the call may write it.
@@ -1280,7 +1279,6 @@ function grow(d IntArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer]
 	let f = grow
 	f(a)
@@ -1292,7 +1290,6 @@ error E3207: <fragment>:12:3: 'grow' writes 'd' (line 6: `d.push(9)`); 'a' is im
 ```
 
 <!-- test: function-value-call-with-a-let-array-to-a-read-only-callback-is-accepted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same call through a value naming a callback that only reads is accepted.
 
 ```maxon
@@ -1305,7 +1302,6 @@ function size(d IntArray) returns Count
 end 'size'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer, 2 as Integer, 3 as Integer]
 	let f = size
 	return f(a) as ExitCode
@@ -1316,7 +1312,6 @@ end 'main'
 ```
 
 <!-- test: function-value-call-with-a-let-map-to-a-read-only-callback-is-accepted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A `let` map literal is accepted by a read-only callback too.
 
 ```maxon
@@ -1327,7 +1322,6 @@ function size(m CountMap) returns Count
 end 'size'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [1 as Count: 10 as Count]
 	let f = size
 	return f(m) as ExitCode
@@ -1936,7 +1930,6 @@ abXY
 ```
 
 <!-- test: constant-let-array-to-mutating-param-error -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A `let` bound to an array literal is immutable image data, so a callee that pushes onto its parameter is refused.
 
@@ -1950,7 +1943,6 @@ function grow(d IntArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer]
 	grow(a)
 	return a.count() as ExitCode

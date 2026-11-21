@@ -598,7 +598,6 @@ error E3210: <fragment>:23:11: 'Counter.take' takes its parameter 'box' without 
 ```
 
 <!-- test: mutable-function-alias-declared-in-an-extension-is-called-with-two-arguments -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
@@ -615,7 +614,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1 as Count, 2 as Count]
 	// TODO: closures are not supported in minimaxon
 	let order = xs.best(function(a, b) gives a.compare(b))

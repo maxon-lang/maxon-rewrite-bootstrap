@@ -38,8 +38,6 @@ leaves for P-256, P-384, RSA and Ed25519, an expired leaf, a second root, and a 
 <!-- test: tls-stream.echo-tls13 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `TlsListener` and a `TlsClient` in one program: the client trusts the case's root and verifies `example.com`, the server presents the P-256 leaf, and a default configuration negotiates TLS 1.3 with the server's first suite, ChaCha20-Poly1305. The client's `ping` returns as `echo:ping`.
 ```maxon
@@ -118,13 +116,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -144,16 +140,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -164,15 +157,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -185,7 +175,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -214,8 +203,6 @@ client[echo:ping tls13 tls13/chaCha20Poly1305Sha256 alpn=none] server[served pin
 <!-- test: tls-stream.echo-tls12-only-client -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A client that enables only TLS 1.2 against a server that enables both: the handshake is TLS 1.2 with the server's first suite its key fits.
 ```maxon
@@ -294,13 +281,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -320,16 +305,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -340,15 +322,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -361,7 +340,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -377,7 +355,6 @@ end 'exchange'
 function main() returns ExitCode
 	let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 1
 	print("{exchange(server, clientOptions: client)}\n")
 	return 0
@@ -393,8 +370,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 <!-- test: tls-stream.echo-tls12-only-server -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A server that enables only TLS 1.2 against a client that enables both, with the P-384 leaf: the client offers TLS 1.3 and TLS 1.2, and the server answers with TLS 1.2.
 ```maxon
@@ -473,13 +448,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -499,16 +472,13 @@ let leafP384Hex = "308201763082011da00302010202010b300a06082a8648ce3d040302300f3
 let keyP384Hex = "304e020100301006072a8648ce3d020106052b8104002204373035020101043011afb2f77a2dec51c976f3225ec7e0eea79b70dab08e2ee263317047c621cd679b49f41aa42549e4cc3180e6191498a9"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -519,15 +489,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -540,7 +507,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -555,7 +521,6 @@ end 'exchange'
 
 function main() returns ExitCode
 	let server = trustedServer(identityOf(leafP384Hex, keyHex: keyP384Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 1
 	print("{exchange(server, clientOptions: trustedClient(rootHex))}\n")
 	return 0
@@ -571,8 +536,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] server[
 <!-- test: tls-stream.server-key-types -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Every private key type a server presents completes both versions: P-384 and Ed25519 (TLS 1.3 signs with the scheme of the key; TLS 1.2 needs the matching ECDHE_ECDSA suite) and RSA (RSA-PSS in TLS 1.3, TLS 1.2 ECDHE_RSA suites).
 ```maxon
@@ -651,13 +614,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -685,16 +646,13 @@ let leafRsaHex = "30820225308201cba00302010202010c300a06082a8648ce3d040302300f31
 let keyRsaHex = "308204be020100300d06092a864886f70d0101010500048204a8308204a40201000282010100980fb5297c6dbb97057a14a202477630baf871afeb1598873f816217be94c5d5f69db47f1cb38ea433cc6df20a2071d12fce4b12f7c44f357c82bae83573a8240420ec7ff7ed2fdd75c89785d558f68d84663e73aaa4c4d45c4601434916cc3eb576b794e589c15c5c0eefb54852ef17f41ea0321ad585779e5c34df68b88e4a180dfeebf9be95476f6f9015ec0d6b51e2523e78fac0682a5c0f5409d6868c59faddc91135f977108adf4fda4a9b2e4740c8ffece5f66f9468aead8395a76c14962637fbfcfdb9014e75b2b9af07691875b56bb80cb023cd6d4d9a6d4fb7f50b8a0ffcd773cef8d7b7ab41d25748c2f53fe2a710047c4488eb9e30eebca677b302030100010282010024736f7bf865dd98002a19941473c8f3397ea0d208ca6e7bcd4f5892548f1935871e9acbf5b75d34236e97d47374ff93a3a0120303fdbcf71757c7322ece00ba517b0af64a1a436514fcf6c59034f935474db31ecb032063bf92d06eaeb0965959ea916b51f2c9b53824247612563f1640e0ae8a1440a6f3dbb442c0633c0a6f7de7ba71d3e4244b8a7bc1864cda9fc8b12c8e9ddbf99a134e4dd1815700ba34737712ccf781539a9100dad22e10aba85012a56d0104967e14bd5508a287862903a5c84ddfb573a59610a20c8adea62a464d740f62b08163036af3321949e6afc0f430250142f6445c58dfd80c9e93e23d32059656cde2f6763b68788a3d8b2102818100c7604784668dbc3abf35f39f6dd6ea60fdae845e9c91939e9b3ec67335c76bbcccdaf21ab32ce9c484d8a80f482387b6048262c2dc0f98827f8110ef03d8e835787297fd8ae563c6c9bfb20cb4346ba15bb81ebfcfefc05126ec1fb402db7b5ad7d6e3874aeaad1eebebc7a60a0241b684c23df05e6b7724f37a9c1dffe6e3d902818100c33f64247f70fbbb32ecdc24e98d379727c18d05f4dbc9cf0bfbac772b6b4077ef16105ac145484ddf0e93edabf531cfb75af56cf0aee3cd51e6d40cde751b8a3869be1d03fb6722f5c3b8b23e97eb3b6341fef7690b47e39308e34a522c6bb6e4ef64b56569cb8563ed2a924d9faa32c0a9ab8148b8e05a4537d75dcf959c6b028181008ec392726c3cf19bdf6f7293a6c34df145b5c1733e09bffac28fa0eabe879dce03a283da3a92de91a9ceba08b74f39ce4c4c510bd72813bcde303d3fe9315895713a1d3ba049c1b8869e8d902b399e185ce4ea9fcef58e708dbe66b52f969a2de2802d4ca388878eacc098a57c654148c0a796529849bb76ea21d1c869859b8102818100932ce096e67dcb337412b96b15a5fe66717063963ed9c248d116980d886c233f84b8940165388d652da3b67c6ca7ba31825c0d2e5e4ae6aaa9771f16c8456c4a077625f9873be5a5a3ae3236221ab015a71f634b2a2277c122df8b3d45adf84ff8484018c0663c24c38b4e10d4746b7e305e754a52001215d9a15b357ab9a31b0281804264563254965cdc052103249118f22693332397e0a99f0b1a8440cdc21581ed70ebe413945346acd53605a3635fadd427f62e4078236527509c0c6b40e8a2bac85787638bc5864eefa7382f9ce32efd82d0fd3a009d2df06c866f2d18f0775a4c98b6f558c5734aa54570923e544658e0596e40bb52d2618a35e3fe03c0b58e"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -705,15 +663,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -726,7 +681,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -742,7 +696,6 @@ end 'exchange'
 function line(label String, leafHex String, keyHex String, protocol TlsProtocol) returns String
 	let server = trustedServer(identityOf(leafHex, keyHex: keyHex))
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return "protocols refused"
 	return "{label} {protocol.name}: {exchange(server, clientOptions: client)}"
 end 'line'
@@ -772,8 +725,6 @@ rsa tls12: client[echo:ping tls12 tls12/ecdheRsaChaCha20Poly1305Sha256 alpn=none
 <!-- test: tls-stream.mtls-required-accepted -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Mutual TLS in both versions: the server requires a client certificate under the client root, the client presents the leaf that root signed, and the server reports one peer certificate.
 ```maxon
@@ -852,13 +803,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -884,16 +833,13 @@ let clientLeafHex = "3082016b30820111a00302010202016e300a06082a8648ce3d040302301
 let clientKeyHex = "3041020100301306072a8648ce3d020106082a8648ce3d030107042730250201010420fd7e8e00621840dac0226ea921c19c18e46a79d944d6a3308b3f64cf009d82da"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -904,15 +850,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -925,7 +868,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -941,9 +883,7 @@ end 'exchange'
 function line(protocol TlsProtocol) returns String
 	let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return "roots refused"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return "protocols refused"
 	client.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
 	return "{protocol.name}: {exchange(server, clientOptions: client)}"
@@ -968,8 +908,6 @@ tls12: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=none] 
 <!-- test: tls-stream.mtls-requested-accepts-anonymous -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 With client certificates requested rather than required, a client that presents none is accepted and the server sees no peer certificate; a client that presents one is verified like a required one.
 ```maxon
@@ -1048,13 +986,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1080,16 +1016,13 @@ let clientLeafHex = "3082016b30820111a00302010202016e300a06082a8648ce3d040302301
 let clientKeyHex = "3041020100301306072a8648ce3d020106082a8648ce3d030107042730250201010420fd7e8e00621840dac0226ea921c19c18e46a79d944d6a3308b3f64cf009d82da"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -1100,15 +1033,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1121,7 +1051,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1137,9 +1066,7 @@ end 'exchange'
 function line(protocol TlsProtocol, presents bool) returns String
 	let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.requestClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return "roots refused"
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return "protocols refused"
 	if presents 'identity'
 		client.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
@@ -1169,8 +1096,6 @@ tls12 presents=true: client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha2
 <!-- test: tls-stream.mtls-required-refuses-anonymous -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A server that requires client certificates refuses a client that has none with certificate_required (TLS 1.3) or handshake_failure (TLS 1.2), which the client reads as the peer's alert. In TLS 1.3 the client's handshake is complete before the server decides, so the client sees the alert on its first read.
 ```maxon
@@ -1249,13 +1174,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1277,16 +1200,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -1297,15 +1217,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1318,11 +1235,9 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function clientListens(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1331,7 +1246,6 @@ function clientListens(options TlsClientOptions, port NetworkPort) returns Strin
 end 'clientListens'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1345,7 +1259,6 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 end 'exchange'
 
 function silentExchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1360,17 +1273,13 @@ end 'silentExchange'
 
 function main() returns ExitCode
 	let tls13Server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls13Server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
 	let tls13Client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls13Client.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 2
 	print("tls13: {silentExchange(tls13Server, clientOptions: tls13Client)}\n")
 	let tls12Server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls12Server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 3
 	let tls12Client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls12Client.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 4
 	print("tls12: {exchange(tls12Server, clientOptions: tls12Client)}\n")
 	return 0
@@ -1387,8 +1296,6 @@ tls12: client[connect: peerAlert(handshakeFailure)] server[recv: protocolError(h
 <!-- test: tls-stream.mtls-refuses-an-untrusted-client-certificate -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A client certificate that does not chain to the roots the server was given is refused with the verification reason, and the client reads unknown_ca from the peer.
 ```maxon
@@ -1467,13 +1374,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1497,16 +1402,13 @@ let clientLeafHex = "3082016b30820111a00302010202016e300a06082a8648ce3d040302301
 let clientKeyHex = "3041020100301306072a8648ce3d020106082a8648ce3d030107042730250201010420fd7e8e00621840dac0226ea921c19c18e46a79d944d6a3308b3f64cf009d82da"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -1517,15 +1419,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1538,11 +1437,9 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function clientListens(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1551,7 +1448,6 @@ function clientListens(options TlsClientOptions, port NetworkPort) returns Strin
 end 'clientListens'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1565,7 +1461,6 @@ function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions
 end 'exchange'
 
 function silentExchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1580,19 +1475,15 @@ end 'silentExchange'
 
 function main() returns ExitCode
 	let tls13Server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls13Server.requireClientCertificates(RootCertificates from [fromHex(rootHex)]) otherwise return 1
 	let tls13Client = trustedClient(rootHex)
 	tls13Client.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls13Client.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 2
 	print("tls13: {silentExchange(tls13Server, clientOptions: tls13Client)}\n")
 	let tls12Server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls12Server.requireClientCertificates(RootCertificates from [fromHex(rootHex)]) otherwise return 3
 	let tls12Client = trustedClient(rootHex)
 	tls12Client.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try tls12Client.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 4
 	print("tls12: {exchange(tls12Server, clientOptions: tls12Client)}\n")
 	return 0
@@ -1609,8 +1500,6 @@ tls12: client[connect: peerAlert(unknownCa)] server[recv: certificateRejected(un
 <!-- test: tls-stream.hostname-mismatch-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The name the client verifies is the host it dialled unless `setServerName` says otherwise. A certificate for `example.com` is refused for `other.example`, and for the IP literal the client dialled, with `hostnameMismatch`, and the server reads bad_certificate from the client.
 ```maxon
@@ -1689,13 +1578,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1715,16 +1602,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -1735,15 +1619,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1756,7 +1637,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1775,13 +1655,11 @@ function main() returns ExitCode
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		let client = trustedClient(rootHex)
 		try client.setServerName("other.example") otherwise return 1
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		print("{protocol.name} other.example: {exchange(server, clientOptions: client)}\n")
 	end 'eachProtocol'
 	let dialled = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let literal = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try literal.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise return 3
 	literal.setVerificationTime(1767225600)
 	print("dialled 127.0.0.1: {exchange(dialled, clientOptions: literal)}\n")
@@ -1800,8 +1678,6 @@ dialled 127.0.0.1: client[connect: certificateRejected(hostnameMismatch)] server
 <!-- test: tls-stream.untrusted-and-expired-certificates-are-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A client that trusts a different root refuses the server with `unknownAuthority` and the server reads unknown_ca; an expired leaf is refused with `expired` and the server reads certificate_expired.
 ```maxon
@@ -1880,13 +1756,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -1910,16 +1784,13 @@ let leafExpiredHex = "3082015b30820100a00302010202010e300a06082a8648ce3d04030230
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -1930,15 +1801,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -1951,7 +1819,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -1969,12 +1836,10 @@ function main() returns ExitCode
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 		let client = trustedClient(otherRootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 1
 		print("{protocol.name} other root: {exchange(server, clientOptions: client)}\n")
 		let expired = trustedServer(identityOf(leafExpiredHex, keyHex: keyP256Hex))
 		let current = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try current.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		print("{protocol.name} expired: {exchange(expired, clientOptions: current)}\n")
 	end 'eachProtocol'
@@ -1993,8 +1858,6 @@ tls12 expired: client[connect: certificateRejected(expired)] server[recv: peerAl
 
 <!-- test: tls-stream.peer-certificates-are-the-chains-presented -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Each side reports the chain the other presented, as DER in the order sent: the client the server's leaf, the server the client's leaf, and an unauthenticated client leaves the server's list empty.
 ```maxon
@@ -2050,13 +1913,11 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2082,15 +1943,12 @@ let clientLeafHex = "3082016b30820111a00302010202016e300a06082a8648ce3d040302301
 let clientKeyHex = "3041020100301306072a8648ce3d020106082a8648ce3d030107042730250201010420fd7e8e00621840dac0226ea921c19c18e46a79d944d6a3308b3f64cf009d82da"
 
 function serveOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.handshake() otherwise (error) 'unshaken'
 		return "handshake: {describe(error)}"
 	end 'unshaken'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let chain = try stream.peerCertificates() otherwise (error) 'unpresented'
 		return "peers: {describe(error)}"
 	end 'unpresented'
@@ -2104,7 +1962,6 @@ end 'serveOnce'
 
 function main() returns ExitCode
 	let serverOptions = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try serverOptions.requestClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise return 2
 	return exchangeOver(listener)
@@ -2116,17 +1973,14 @@ function exchangeOver(listener TlsListener) returns ExitCode
 	let peer = async serveOnce(listener)
 	let clientOptions = trustedClient(rootHex)
 	clientOptions.setIdentity(identityOf(clientLeafHex, keyHex: clientKeyHex))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: boundPort, options: clientOptions) otherwise 'refused3x225'
 		peer.cancel()
 		return 3
 	end 'refused3x225'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let chain = try stream.peerCertificates() otherwise 'refused4x226'
 		peer.cancel()
 		return 4
 	end 'refused4x226'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try chain.first() otherwise 'refused6x227'
 		peer.cancel()
 		return 6
@@ -2138,7 +1992,6 @@ function exchangeOver(listener TlsListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let second = async serveOnce(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let unauthenticated = try TlsClient.connect("127.0.0.1", port: boundPort, options: anonymous) otherwise 'refused5x236'
 		second.cancel()
 		return 5
@@ -2160,8 +2013,6 @@ server saw 0 client certificate(s)
 
 <!-- test: tls-stream.close-notify-is-observed-by-the-peer -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `close` sends close_notify: the peer reads everything sent before it, then an empty `readSome`, the end of the stream. A client that drops its stream without closing leaves the TCP connection ending with no close_notify, which the peer's read throws as `StreamError.secure(truncated)`.
 ```maxon
@@ -2226,13 +2077,11 @@ function failure(error StreamError) returns String
 end 'failure'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2252,13 +2101,11 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function readToEnd(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
 	var heard = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try stream.readSome(1024) otherwise (error) 'failed'
 			return "heard [{heard}] then {failure(error)}"
 		end 'failed'
@@ -2271,11 +2118,9 @@ function readToEnd(listener TlsListener) returns String
 end 'readToEnd'
 
 function closes(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("goodbye") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -2284,11 +2129,9 @@ function closes(options TlsClientOptions, port NetworkPort) returns String
 end 'closes'
 
 function drops(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("vanished") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -2313,7 +2156,6 @@ function main() returns ExitCode
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let client = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		exchangeOver(listener, client: client, protocol: protocol)
 	end 'eachProtocol'
@@ -2333,8 +2175,6 @@ tls12 dropped: server heard [vanished] then secure(truncated)
 <!-- test: tls-stream.shutdown-write-half-closes -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `shutdownWrite` sends close_notify and half-closes the transport: the peer reads the request and the end of the stream, and still answers on its own half.
 ```maxon
@@ -2399,13 +2239,11 @@ function failure(error StreamError) returns String
 end 'failure'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2425,13 +2263,11 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function answerAfterEnd(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
 	var request = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try stream.readSome(1024) otherwise (error) 'failed'
 			return "read: {failure(error)}"
 		end 'failed'
@@ -2449,29 +2285,24 @@ function exchangeOver(listener TlsListener, options TlsClientOptions, protocol T
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let server = async answerAfterEnd(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: boundPort, options: options) otherwise 'refused3x132'
 		server.cancel()
 		return false
 	end 'refused3x132'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("request") otherwise 'refused4x134'
 		server.cancel()
 		return false
 	end 'refused4x134'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise 'refused5x135'
 		server.cancel()
 		return false
 	end 'refused5x135'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let answer = try stream.readSome(1024) otherwise 'refused6x137'
 		server.cancel()
 		return false
 	end 'refused6x137'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 	let served = await server
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let after = try stream.readSome(1024) otherwise (error) 'failed'
 		print("{protocol.name} client heard [{String.from(answer)}] then {failure(error)}; server {served}\n")
 		return false
@@ -2490,7 +2321,6 @@ function main() returns ExitCode
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let options = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try options.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		if not exchangeOver(listener, options: options, protocol: protocol) 'failed'
 			return 3
@@ -2510,8 +2340,6 @@ tls12 client heard [answer to [request] after ended] then ended; server answered
 <!-- test: tls-stream.alpn-is-negotiated -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The server picks the first of its protocols that the client offered (its own order wins), a server that configures none negotiates none, and a client whose only protocol the server lacks is refused with no_application_protocol.
 ```maxon
@@ -2590,13 +2418,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2616,16 +2442,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -2636,15 +2459,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -2657,7 +2477,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -2701,8 +2520,6 @@ no overlap: client[connect: peerAlert(noApplicationProtocol)] server[recv: proto
 <!-- test: tls-stream.alpn-is-negotiated-in-tls12 -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ALPN in TLS 1.2: the same selection as in TLS 1.3, reported by `applicationProtocol()`.
 ```maxon
@@ -2781,13 +2598,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2807,16 +2622,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -2827,15 +2639,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -2848,7 +2657,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -2864,11 +2672,8 @@ end 'exchange'
 function main() returns ExitCode
 	let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let client = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.setApplicationProtocols(["h2", "http/1.1"]) otherwise return 1
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setApplicationProtocols(["http/1.1", "h2"]) otherwise return 2
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try client.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 3
 	print("{exchange(server, clientOptions: client)}\n")
 	return 0
@@ -2884,8 +2689,6 @@ client[echo:ping tls12 tls12/ecdheEcdsaChaCha20Poly1305Sha256 alpn=h2] server[se
 <!-- test: tls-stream.version-mismatch-is-refused -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A client and a server with no TLS version in common: the server refuses with protocol_version and the client reads it from the peer, whichever side holds TLS 1.3 only.
 ```maxon
@@ -2964,13 +2767,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -2990,16 +2791,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -3010,15 +2808,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -3031,7 +2826,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -3047,16 +2841,12 @@ end 'exchange'
 function main() returns ExitCode
 	let onlyTls12 = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let onlyTls13 = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try onlyTls12.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 1
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try onlyTls13.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 2
 	print("tls12 server, tls13 client: {exchange(onlyTls12, clientOptions: onlyTls13)}\n")
 	let secondServer = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
 	let secondClient = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try secondServer.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 3
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try secondClient.setProtocols(TlsProtocolArray from [TlsProtocol.tls12]) otherwise return 4
 	print("tls13 server, tls12 client: {exchange(secondServer, clientOptions: secondClient)}\n")
 	return 0
@@ -3072,8 +2862,6 @@ tls13 server, tls12 client: client[connect: peerAlert(protocolVersion)] server[r
 
 <!-- test: tls-stream.a-listener-survives-a-failed-handshake -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A handshake that fails ends that `accept` with the error and nothing else: the listener takes the next client, in TLS 1.3 and in TLS 1.2.
 ```maxon
@@ -3138,13 +2926,11 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -3168,12 +2954,10 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 function acceptTwice(listener TlsListener) returns String
 	var report = ""
 	for attempt in 1 to 2 'eachAttempt'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let stream = try listener.accept() otherwise (error) 'refused'
 			report.append("[accept {attempt}: {describe(error)}]")
 			continue
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 			report.append("[recv {attempt}: {readFault(error)}]")
 			continue
@@ -3186,7 +2970,6 @@ function acceptTwice(listener TlsListener) returns String
 end 'acceptTwice'
 
 function failure(options TlsClientOptions, port NetworkPort) returns TlsError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return error
 	end 'refused'
@@ -3201,26 +2984,20 @@ function main() returns ExitCode
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 		let peer = async acceptTwice(listener)
 		let wrongRoot = trustedClient(otherRootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try wrongRoot.setProtocols(TlsProtocolArray from [protocol]) otherwise 'refused2x140'
 			peer.cancel()
 			return 2
 		end 'refused2x140'
 		print("{protocol.name} first: {describe(failure(wrongRoot, port: port))}\n")
 		let good = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try good.setProtocols(TlsProtocolArray from [protocol]) otherwise 'refused3x146'
 			peer.cancel()
 			return 3
 		end 'refused3x146'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let stream = try TlsClient.connect("127.0.0.1", port: port, options: good) otherwise 'refused4x148'
 			peer.cancel()
 			return 4
 		end 'refused4x148'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		_ = try stream.send("second client") otherwise 'refused5x150'
 			peer.cancel()
 			return 5
@@ -3244,8 +3021,6 @@ tls12 server: [recv 1: peerAlert(unknownCa)][served 2: second client]
 <!-- test: tls-stream.large-transfers-fragment-into-many-records -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- runs: alone -->
 A 4 MiB upload in one `send` (256 full records), a 3 MiB download, and 2000 writes of 50 bytes, in both versions: every byte arrives in order, so record framing off the socket, fragmentation and the sequence numbers hold over many records and many reads.
@@ -3311,13 +3086,11 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -3369,19 +3142,15 @@ function receiveAll(stream TlsStream, total Count) returns ByteArray throws Stre
 end 'receiveAll'
 
 function serveBulk(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let upload = try receiveAll(stream, total: uploadBytes) otherwise (error) 'unheard'
 		return "recv upload: {readFault(error)}"
 	end 'unheard'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.sendBytes(pattern(downloadBytes, seed: 7)) otherwise (error) 'unsent'
 		return "send download: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let small = try receiveAll(stream, total: smallWrites * smallWriteBytes) otherwise (error) 'unheardSmall'
 		return "recv small: {readFault(error)}"
 	end 'unheardSmall'
@@ -3390,22 +3159,18 @@ function serveBulk(listener TlsListener) returns String
 end 'serveBulk'
 
 function clientBulk(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.sendBytes(pattern(uploadBytes, seed: 3)) otherwise (error) 'unsent'
 		return "send upload: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let download = try receiveAll(stream, total: downloadBytes) otherwise (error) 'unheard'
 		return "recv download: {readFault(error)}"
 	end 'unheard'
 	let small = pattern(smallWrites * smallWriteBytes, seed: 11)
 	for index in 0 upto smallWrites 'eachWrite'
 		let slice = try small.slice(index * smallWriteBytes, endIndex: (index + 1) * smallWriteBytes) otherwise panic("clientBulk: the slice lies inside the pattern")
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		_ = try stream.sendBytes(slice) otherwise (error) 'unsentSmall'
 			return "send small: {describe(error)}"
 		end 'unsentSmall'
@@ -3419,7 +3184,6 @@ function main() returns ExitCode
 	for protocol in TlsProtocol.allCases 'eachProtocol'
 		let listener = try TlsListener.bind("127.0.0.1", port: 0, options: trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))) otherwise return 1
 		let client = trustedClient(rootHex)
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		try client.setProtocols(TlsProtocolArray from [protocol]) otherwise return 2
 		let listenerPort = listener.port()
 		// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
@@ -3439,7 +3203,6 @@ tls12: client[download 3145728 bytes intact=true] server[upload 4194304 bytes in
 ```
 
 <!-- test: tls-stream.identities-accept-der-and-pem -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `TlsIdentity.fromDer` and `fromPem` take the certificate chain, leaf first, and a private key as PKCS #8, SEC1 (`EC PRIVATE KEY`) or PKCS #1 (`RSA PRIVATE KEY`). They refuse text that is not PEM, a PEM with no key, a key that is not the first certificate's, a damaged key, an empty chain and a chain with a certificate that is not X.509.
 ```maxon
@@ -3521,7 +3284,6 @@ function pemOf(label String, hex String) returns String
 end 'pemOf'
 
 function report(label String, certificates String, key String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsIdentity.fromPem(certificates, key: key) otherwise (error) 'refused'
 		return "{label}: {describe(error)}"
 	end 'refused'
@@ -3529,7 +3291,6 @@ function report(label String, certificates String, key String) returns String
 end 'report'
 
 function reportDer(label String, chain ByteArrays, key ByteArray) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsIdentity.fromDer(chain, key: key) otherwise (error) 'refused'
 		return "{label}: {describe(error)}"
 	end 'refused'
@@ -3595,8 +3356,6 @@ DER: accepted
 ```
 
 <!-- test: tls-stream.identities-refuse-damaged-and-foreign-keys -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `TlsIdentity.fromDer` parses the whole private key before any handshake and compares its public key with the leaf certificate's. It refuses, all as `invalidPrivateKey`, an RSA key whose private-key structure is incomplete or whose modulus is outside 2048 to 4096 bits, an EC scalar that is zero or not below the curve order, an element left after the key in a PKCS #8, SEC1 or Ed25519 encoding, a SEC1 curve that differs from the PKCS #8 algorithm parameters, and a key whose public half is not the leaf's key.
 ```maxon
@@ -3755,8 +3514,6 @@ function parametersOf(curveOid String) returns ByteArray
 end 'parametersOf'
 
 function reportDer(label String, leafHex String, key ByteArray) returns String
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsIdentity.fromDer(ByteArrays from [fromHex(leafHex)], key: key) otherwise (error) 'refused'
 		return "{label}: {describe(error)}"
 	end 'refused'
@@ -3826,7 +3583,6 @@ PKCS8 P-384 whose SEC1 names P-256: invalidPrivateKey
 <!-- test: tls-stream.an-identity-from-pem-serves-a-handshake -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A server built from PEM text (a P-256 key in the SEC1 form, an Ed25519 PKCS #8 key, then an RSA key in the PKCS #1 form) completes a handshake with a client that trusts the root given as PEM.
 ```maxon
@@ -3925,16 +3681,13 @@ let leafRsaHex = "30820225308201cba00302010202010c300a06082a8648ce3d040302300f31
 let keyRsaPkcs1Hex = "308204a40201000282010100980fb5297c6dbb97057a14a202477630baf871afeb1598873f816217be94c5d5f69db47f1cb38ea433cc6df20a2071d12fce4b12f7c44f357c82bae83573a8240420ec7ff7ed2fdd75c89785d558f68d84663e73aaa4c4d45c4601434916cc3eb576b794e589c15c5c0eefb54852ef17f41ea0321ad585779e5c34df68b88e4a180dfeebf9be95476f6f9015ec0d6b51e2523e78fac0682a5c0f5409d6868c59faddc91135f977108adf4fda4a9b2e4740c8ffece5f66f9468aead8395a76c14962637fbfcfdb9014e75b2b9af07691875b56bb80cb023cd6d4d9a6d4fb7f50b8a0ffcd773cef8d7b7ab41d25748c2f53fe2a710047c4488eb9e30eebca677b302030100010282010024736f7bf865dd98002a19941473c8f3397ea0d208ca6e7bcd4f5892548f1935871e9acbf5b75d34236e97d47374ff93a3a0120303fdbcf71757c7322ece00ba517b0af64a1a436514fcf6c59034f935474db31ecb032063bf92d06eaeb0965959ea916b51f2c9b53824247612563f1640e0ae8a1440a6f3dbb442c0633c0a6f7de7ba71d3e4244b8a7bc1864cda9fc8b12c8e9ddbf99a134e4dd1815700ba34737712ccf781539a9100dad22e10aba85012a56d0104967e14bd5508a287862903a5c84ddfb573a59610a20c8adea62a464d740f62b08163036af3321949e6afc0f430250142f6445c58dfd80c9e93e23d32059656cde2f6763b68788a3d8b2102818100c7604784668dbc3abf35f39f6dd6ea60fdae845e9c91939e9b3ec67335c76bbcccdaf21ab32ce9c484d8a80f482387b6048262c2dc0f98827f8110ef03d8e835787297fd8ae563c6c9bfb20cb4346ba15bb81ebfcfefc05126ec1fb402db7b5ad7d6e3874aeaad1eebebc7a60a0241b684c23df05e6b7724f37a9c1dffe6e3d902818100c33f64247f70fbbb32ecdc24e98d379727c18d05f4dbc9cf0bfbac772b6b4077ef16105ac145484ddf0e93edabf531cfb75af56cf0aee3cd51e6d40cde751b8a3869be1d03fb6722f5c3b8b23e97eb3b6341fef7690b47e39308e34a522c6bb6e4ef64b56569cb8563ed2a924d9faa32c0a9ab8148b8e05a4537d75dcf959c6b028181008ec392726c3cf19bdf6f7293a6c34df145b5c1733e09bffac28fa0eabe879dce03a283da3a92de91a9ceba08b74f39ce4c4c510bd72813bcde303d3fe9315895713a1d3ba049c1b8869e8d902b399e185ce4ea9fcef58e708dbe66b52f969a2de2802d4ca388878eacc098a57c654148c0a796529849bb76ea21d1c869859b8102818100932ce096e67dcb337412b96b15a5fe66717063963ed9c248d116980d886c233f84b8940165388d652da3b67c6ca7ba31825c0d2e5e4ae6aaa9771f16c8456c4a077625f9873be5a5a3ae3236221ab015a71f634b2a2277c122df8b3d45adf84ff8484018c0663c24c38b4e10d4746b7e305e754a52001215d9a15b357ab9a31b0281804264563254965cdc052103249118f22693332397e0a99f0b1a8440cdc21581ed70ebe413945346acd53605a3635fadd427f62e4078236527509c0c6b40e8a2bac85787638bc5864eefa7382f9ce32efd82d0fd3a009d2df06c866f2d18f0775a4c98b6f558c5734aa54570923e544658e0596e40bb52d2618a35e3fe03c0b58e"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -3945,15 +3698,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -3966,7 +3716,6 @@ function clientTurn(options TlsClientOptions, port NetworkPort) returns String
 end 'clientTurn'
 
 function exchange(serverOptions TlsServerOptions, clientOptions TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: serverOptions) otherwise (error) 'refused'
 		return "bind: {describe(error)}"
 	end 'refused'
@@ -3984,7 +3733,6 @@ function pemOf(label String, hex String) returns String
 end 'pemOf'
 
 function line(label String, certificates String, key String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let identity = try TlsIdentity.fromPem(certificates, key: key) otherwise (error) 'refused'
 		return "{label}: identity {describe(error)}"
 	end 'refused'
@@ -4018,8 +3766,6 @@ RSA PKCS1: client[echo:ping tls13 tls13/chaCha20Poly1305Sha256 alpn=none] server
 ```
 
 <!-- test: tls-stream.configuration-is-checked -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A setter refuses what no handshake could use with `invalidConfiguration`: no TLS version, an empty or 256-byte protocol name, no roots, an empty server name, and no client roots. Dialling nothing is `connectFailed`, an unresolvable name `resolveFailed`, and binding a port a live listener holds `bindFailed`.
 ```maxon
@@ -4075,7 +3821,6 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -4094,7 +3839,6 @@ function refused(label String, failure TlsError) returns String
 end 'refused'
 
 function connectOutcome(host String, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsClient.connect(host, port: port) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4102,7 +3846,6 @@ function connectOutcome(host String, port NetworkPort) returns String
 end 'connectOutcome'
 
 function bindOutcome(port NetworkPort, options TlsServerOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsListener.bind("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4116,37 +3859,27 @@ function main() returns ExitCode
 	for _ in 0 upto 256 'eachLetter'
 		longName.append("a")
 	end 'eachLetter'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try client.setProtocols(TlsProtocolArray.create(0)) otherwise (error) 'noProtocols'
 		print("{refused("client no protocols", failure: error)}\n")
 	end 'noProtocols'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try client.setApplicationProtocols([""]) otherwise (error) 'emptyName'
 		print("{refused("client empty protocol name", failure: error)}\n")
 	end 'emptyName'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try client.setApplicationProtocols([longName]) otherwise (error) 'longName'
 		print("{refused("client 256-byte protocol name", failure: error)}\n")
 	end 'longName'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try client.setTrustedRoots(RootCertificates.create(0)) otherwise (error) 'noRoots'
 		print("{refused("client no roots", failure: error)}\n")
 	end 'noRoots'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try client.setServerName("") otherwise (error) 'noName'
 		print("{refused("client empty server name", failure: error)}\n")
 	end 'noName'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try server.setProtocols(TlsProtocolArray.create(0)) otherwise (error) 'serverNoProtocols'
 		print("{refused("server no protocols", failure: error)}\n")
 	end 'serverNoProtocols'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try server.requireClientCertificates(RootCertificates.create(0)) otherwise (error) 'requireNone'
 		print("{refused("server require with no roots", failure: error)}\n")
 	end 'requireNone'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try server.requestClientCertificates(RootCertificates.create(0)) otherwise (error) 'requestNone'
 		print("{refused("server request with no roots", failure: error)}\n")
 	end 'requestNone'
@@ -4180,8 +3913,6 @@ bind a port in use: bindFailed
 
 <!-- test: tls-stream.handshakes-are-bounded-by-deadlines -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A client with a deadline gives up on a server that accepts the connection and never answers its ClientHello (`handshakeTimedOut`), and a listener with a handshake deadline gives up on a client that connects and says nothing; neither stalls the program.
 ```maxon
@@ -4237,13 +3968,11 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -4266,7 +3995,6 @@ function holdOpen(silent TcpListener) returns String
 	let connection = try silent.accept() otherwise return "accept failed"
 	let hello = try connection.readSome(4096) otherwise return "no hello"
 	let greeted = hello.count() > 0
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let more = try connection.readSome(4096) otherwise (error) 'failed'
 		return "hello {greeted}, then {error.name}"
 	end 'failed'
@@ -4277,7 +4005,6 @@ function holdOpen(silent TcpListener) returns String
 end 'holdOpen'
 
 function dial(port NetworkPort, options TlsClientOptions) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4285,11 +4012,9 @@ function dial(port NetworkPort, options TlsClientOptions) returns String
 end 'dial'
 
 function acceptOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.handshake() otherwise (error) 'stalled'
 		return "handshake: {describe(error)}"
 	end 'stalled'
@@ -4311,7 +4036,6 @@ function main() returns ExitCode
 	let port = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiting = async acceptOnce(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let mute = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x236'
 		waiting.cancel()
 		return 3
@@ -4331,8 +4055,6 @@ server: handshake: handshakeTimedOut
 
 <!-- test: tls-stream.input-that-is-not-tls-is-refused-before-its-body -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 The server reads the 5-byte record header first and refuses what cannot be a TLS record: an HTTP request, a record of an unknown protocol version, and a record that declares a body past the bound, without waiting for a body that never comes. The peer receives the alert, a plaintext record of type 21.
@@ -4399,7 +4121,6 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -4416,12 +4137,10 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 function refuseThree(listener TlsListener) returns String
 	var report = ""
 	for attempt in 1 to 3 'eachAttempt'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let stream = try listener.accept() otherwise (error) 'refused'
 			report.append("[{attempt}: accept {describe(error)}]")
 			continue
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try stream.handshake() otherwise (error) 'unshaken'
 			report.append("[{attempt}: {describe(error)}]")
 			continue
@@ -4434,7 +4153,6 @@ end 'refuseThree'
 function talk(port NetworkPort, bytes ByteArray) returns String
 	let raw = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect failed"
 	_ = try raw.send(String.from(bytes)) otherwise return "send failed"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reply = try raw.readSome(64) otherwise (error) 'unanswered'
 		return "no reply: {error.name}"
 	end 'unanswered'
@@ -4465,8 +4183,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(protocolVersion)]
 
 <!-- test: tls-stream.a-closed-stream-refuses-further-use -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 After `close`, `send`, `readSome`, `shutdownWrite` and the two deadline setters throw `closed`, and `close` again does nothing.
 ```maxon
@@ -4531,13 +4247,11 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -4557,7 +4271,6 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function sendOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("late") otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4565,7 +4278,6 @@ function sendOutcome(stream TlsStream) returns String
 end 'sendOutcome'
 
 function readOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.readSome(16) otherwise (error) 'refused'
 		return readFault(error)
 	end 'refused'
@@ -4573,7 +4285,6 @@ function readOutcome(stream TlsStream) returns String
 end 'readOutcome'
 
 function shutdownOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4581,7 +4292,6 @@ function shutdownOutcome(stream TlsStream) returns String
 end 'shutdownOutcome'
 
 function readDeadlineOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setReadDeadline(1000) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4589,7 +4299,6 @@ function readDeadlineOutcome(stream TlsStream) returns String
 end 'readDeadlineOutcome'
 
 function writeDeadlineOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setWriteDeadline(1000) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -4597,11 +4306,9 @@ function writeDeadlineOutcome(stream TlsStream) returns String
 end 'writeDeadlineOutcome'
 
 function serveAndClose(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -4615,12 +4322,10 @@ function main() returns ExitCode
 	let listenerPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveAndClose(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: listenerPort, options: trustedClient(rootHex)) otherwise 'refused2x243'
 		peer.cancel()
 		return 2
 	end 'refused2x243'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("last words") otherwise 'refused3x245'
 		peer.cancel()
 		return 3
@@ -4650,8 +4355,6 @@ server: heard last words
 
 <!-- test: tls-stream.a-handshake-that-times-out-is-not-an-accept-that-times-out -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `TlsError.timedOut` is an accept deadline that passed with no connection; `handshakeTimedOut` is a connection that was accepted and did not finish its handshake in time, for the listener and for the client. A listener goes on accepting after a stalled handshake.
 ```maxon
@@ -4730,13 +4433,11 @@ function alpnName(protocol TlsApplicationProtocol) returns String
 end 'alpnName'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -4756,16 +4457,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -4776,15 +4474,12 @@ function serveEcho(listener TlsListener) returns String
 end 'serveEcho'
 
 function clientTurn(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("ping") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -4827,7 +4522,6 @@ end 'describeStall'
 function holdOpen(silent TcpListener) returns String
 	let connection = try silent.accept() otherwise return "accept failed"
 	_ = try connection.readSome(4096) otherwise return "no hello"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let more = try connection.readSome(4096) otherwise (error) 'failed'
 		return "then {error.name}"
 	end 'failed'
@@ -4838,11 +4532,9 @@ function holdOpen(silent TcpListener) returns String
 end 'holdOpen'
 
 function acceptOnce(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describeStall(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.handshake() otherwise (error) 'stalled'
 		return "handshake: {describeStall(error)}"
 	end 'stalled'
@@ -4863,7 +4555,6 @@ function phasesOver(listener TlsListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let waiting = async acceptOnce(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let mute = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'refused4x284'
 		waiting.cancel()
 		return 4
@@ -4887,7 +4578,6 @@ end 'phasesOver'
 function dialOutcome(port NetworkPort) returns String
 	let impatient = trustedClient(rootHex)
 	impatient.setHandshakeDeadline(300)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try TlsClient.connect("127.0.0.1", port: port, options: impatient) otherwise (error) 'refused'
 		return describeStall(error)
 	end 'refused'
@@ -4907,8 +4597,6 @@ a client dialling a server that never answers: handshakeTimedOut then ended
 <!-- test: tls-stream.a-peer-that-sent-more-than-the-header-still-hears-the-alert -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A peer that is not speaking TLS and has sent far more than a record header still receives the alert the listener refused it with: the refusing side shuts down its write side and drains what the peer sent, bounded, before it closes, so the close does not reset the connection ahead of the alert. The peer's whole send completes.
@@ -4975,7 +4663,6 @@ function describe(error TlsError) returns String
 end 'describe'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -4992,12 +4679,10 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 function refuseThree(listener TlsListener) returns String
 	var report = ""
 	for attempt in 1 to 3 'eachAttempt'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let stream = try listener.accept() otherwise (error) 'refused'
 			report.append("[{attempt}: accept {describe(error)}]")
 			continue
 		end 'refused'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try stream.handshake() otherwise (error) 'unshaken'
 			report.append("[{attempt}: {describe(error)}]")
 			continue
@@ -5035,16 +4720,13 @@ function talkMore(port NetworkPort, head String) returns String
 	let raw = try TcpClient.connect("127.0.0.1", port: port) otherwise return "connect failed"
 	let padding = filler()
 	try raw.setReadDeadline(5000) otherwise return "deadline refused"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try raw.send(head) otherwise (error) 'headUnsent'
 		return "send: {error.name}"
 	end 'headUnsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let alert = try raw.readSome(1024) otherwise (error) 'unanswered'
 		return "no alert: {error.name}"
 	end 'unanswered'
 	let alertHex = toHex(alert)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try raw.send(padding) otherwise (error) 'unsent'
 		return "send: {error.name}"
 	end 'unsent'
@@ -5075,8 +4757,6 @@ server: [1: protocolError(unexpectedMessage)][2: protocolError(unexpectedMessage
 <!-- test: tls-stream.a-failed-flush-fails-the-write-side-for-good -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- runs: alone -->
 A write deadline that passes while a peer that does not read holds the send in the kernel throws `timedOut`, and leaves the stream with part of its records written. The write side is then failed for good: a later `send` or `shutdownWrite` throws the same `timedOut` without writing a byte, even with the deadline cleared and the peer reading again, so the peer never reads a record out of step. `close` still closes, and the peer's read throws the end of the connection as `StreamError.secure(truncated)`.
@@ -5143,13 +4823,11 @@ function failure(error StreamError) returns String
 end 'failure'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -5189,7 +4867,6 @@ end 'chunk'
 function sendUntilStalled(stream TlsStream) returns String
 	let block = chunk()
 	for _ in 0 upto MostChunks 'eachChunk'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		_ = try stream.sendBytes(block) otherwise (error) 'stalled'
 			return describe(error)
 		end 'stalled'
@@ -5198,7 +4875,6 @@ function sendUntilStalled(stream TlsStream) returns String
 end 'sendUntilStalled'
 
 function laterSend(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("late") otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5206,7 +4882,6 @@ function laterSend(stream TlsStream) returns String
 end 'laterSend'
 
 function laterShutdown(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5215,7 +4890,6 @@ end 'laterShutdown'
 
 function drain(stream TlsStream) returns String
 	while true 'draining'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let chunk = try stream.readSome(65536) otherwise (error) 'failed'
 			return failure(error)
 		end 'failed'
@@ -5231,7 +4905,6 @@ function main() returns ExitCode
 	let listenerPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let accepted = async acceptOne(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let client = try TlsClient.connect("127.0.0.1", port: listenerPort, options: trustedClient(rootHex)) otherwise 'refused2x247'
 		accepted.cancel()
 		return 2
@@ -5263,8 +4936,6 @@ peer read: secure(truncated)
 
 <!-- test: tls-stream.a-refused-stream-answers-closed-to-every-call -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A server that requires a client certificate answers a client that presented none after the client's handshake is complete, so the client reads the alert from its first `readSome`. That stream refused what its peer sent and is closed: every later call, the deadline setters included, throws `closed`.
 
@@ -5330,13 +5001,11 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -5356,16 +5025,13 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function serveEcho(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -5378,7 +5044,6 @@ end 'serveEcho'
 let clientRootHex = "3082017e30820124a003020102020164300a06082a8648ce3d04030230163114301206035504030c0b436c69656e7420526f6f74301e170d3234303130313030303030305a170d3334303130313030303030305a30163114301206035504030c0b436c69656e7420526f6f743059301306072a8648ce3d020106082a8648ce3d0301070342000440dc1caaaee821a08a60dcb74b34befd018659bdb88f3c7b77e9884ebfb821dd99d3cb7909555d3f0ef6f05a87ec68cff0756403703002efe4607c9b92f86252a3633061300f0603551d130101ff040530030101ff301f0603551d23041830168014b403e63e7c1c8a1890af5fb031868a5afe1d8376301d0603551d0e04160414b403e63e7c1c8a1890af5fb031868a5afe1d8376300e0603551d0f0101ff040403020106300a06082a8648ce3d040302034800304502202b34aae7b62e533d12661be590a736eee7cd71c02124401b1d03f88e0455fa3b022100a9e9fee45aa249f83c6b148e6f1fab78dbfccea918ebcdedf797ec772e634bed"
 
 function readOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.readSome(16) otherwise (error) 'refused'
 		return readFault(error)
 	end 'refused'
@@ -5386,7 +5051,6 @@ function readOutcome(stream TlsStream) returns String
 end 'readOutcome'
 
 function sendOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("late") otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5394,7 +5058,6 @@ function sendOutcome(stream TlsStream) returns String
 end 'sendOutcome'
 
 function shutdownOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.shutdownWrite() otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5402,7 +5065,6 @@ function shutdownOutcome(stream TlsStream) returns String
 end 'shutdownOutcome'
 
 function readDeadlineOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setReadDeadline(1000) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5410,7 +5072,6 @@ function readDeadlineOutcome(stream TlsStream) returns String
 end 'readDeadlineOutcome'
 
 function writeDeadlineOutcome(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try stream.setWriteDeadline(1000) otherwise (error) 'refused'
 		return describe(error)
 	end 'refused'
@@ -5419,16 +5080,13 @@ end 'writeDeadlineOutcome'
 
 function main() returns ExitCode
 	let server = trustedServer(identityOf(leafP256Hex, keyHex: keyP256Hex))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try server.requireClientCertificates(RootCertificates from [fromHex(clientRootHex)]) otherwise return 1
 	let options = trustedClient(rootHex)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setProtocols(TlsProtocolArray from [TlsProtocol.tls13]) otherwise return 2
 	let listener = try TlsListener.bind("127.0.0.1", port: 0, options: server) otherwise return 3
 	let listenerPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serveEcho(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: listenerPort, options: options) otherwise 'refused4x243'
 		peer.cancel()
 		return 4
@@ -5459,8 +5117,6 @@ server: recv: protocolError(certificateRequired)
 <!-- test: tls-stream.a-silent-client-does-not-delay-another-clients-echo -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `accept` returns once the TCP connection is accepted and the handshake runs on the stream's first use, so a server that accepts in a loop and serves each stream on its own green thread is not held up by a client that connects and says nothing: with no handshake deadline, so that nothing but the silent client's own `close()` can end its connection, the second client's echo still completes while the first connection is waiting for its ClientHello, and that connection's handshake then fails on its own when the client goes away.
 ```maxon
@@ -5525,7 +5181,6 @@ function readFault(error StreamError) returns String
 end 'readFault'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
@@ -5543,7 +5198,6 @@ let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -5557,12 +5211,10 @@ function patientServer(identity TlsIdentity) returns TlsServerOptions
 end 'patientServer'
 
 function echoOne(stream TlsStream) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let heardBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
 	let heard = String.from(heardBytes)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("echo:{heard}") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -5571,13 +5223,11 @@ function echoOne(stream TlsStream) returns String
 end 'echoOne'
 
 function acceptTwo(listener TlsListener) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try listener.accept() otherwise (error) 'firstRefused'
 		return "accept 1: {describe(error)}"
 	end 'firstRefused'
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let firstTask = async echoOne(first)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let second = try listener.accept() otherwise (error) 'secondRefused'
 		firstTask.cancel()
 		return "accept 2: {describe(error)}"
@@ -5592,15 +5242,12 @@ function acceptTwo(listener TlsListener) returns String
 end 'acceptTwo'
 
 function dial(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("hello") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let replyBytes = try stream.readSome(1024) otherwise (error) 'unheard'
 		return "recv: {readFault(error)}"
 	end 'unheard'
@@ -5614,7 +5261,6 @@ function main() returns ExitCode
 	let listenerPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let server = async acceptTwo(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let silent = try TcpClient.connect("127.0.0.1", port: listenerPort) otherwise 'refused2x141'
 		server.cancel()
 		return 2

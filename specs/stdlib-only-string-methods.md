@@ -114,8 +114,6 @@ error E3008: <fragment>:3:11: function 'String.hasSingleByteGraphemes' is not ex
 ```
 
 <!-- test: error.set-byte-is-stdlib-only -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 The one of the five that WRITES, and the last one to be refused by its own declaration rather than by a
 parser arm. Its refusal matters most: reading a private byte is a privacy question, writing one is a
 MUTATION through a receiver the caller may only have borrowed. Note the RECEIVER here is a `let` — so
@@ -124,7 +122,6 @@ keeping the same shape it had when a parser arm answered it.
 ```maxon
 function main() returns ExitCode
 	let s = "abc"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.setByte(0, value: 65) otherwise 'oob'
 		return 1
 	end 'oob'

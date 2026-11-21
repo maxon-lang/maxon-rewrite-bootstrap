@@ -1548,7 +1548,6 @@ error E3005: <fragment>:4:16: Value 2048 is outside the range of 'HeapBucketInde
 
 <!-- test: slab-census.a-census-read-while-classes-churn-returns-and-one-after-the-join-is-exact -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -1683,11 +1682,8 @@ function readWhileChurning() returns Tally
 end 'readWhileChurning'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let fills = StringArray from ["a", "b", "c", "d", "e", "f"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pads = TallyArray from [3, 185, 1000, 3700, 9900, 30000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let populations = TallyArray from [1600, 800, 360, 120, 48, 16]
 	let handles = ChurnHandleArray.create(0)
 	for i in 0 upto ServiceCount 'spawnEach'

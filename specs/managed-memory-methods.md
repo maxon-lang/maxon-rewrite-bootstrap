@@ -64,23 +64,21 @@ end 'main'
 ```
 
 <!-- test: array-get-set -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try arr.get(1) otherwise 'err'
 		return 0
 	end 'err'
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -109,22 +107,20 @@ end 'main'
 ```
 
 <!-- test: array-insert-remove -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(30)
 	arr.insert(1, value: 20)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(0) otherwise 'err'
 		return 99
 	end 'err'
-	return removed + (arr.count() as Int)
+	return try removed + (arr.count() as Int) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -201,13 +197,9 @@ end 'main'
 ```
 
 <!-- test: array-literal -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try arr.get(2) otherwise 'err'
 		return 0
 	end 'err'
@@ -262,7 +254,6 @@ end 'main'
 ```
 
 <!-- test: bounds-set-oob -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -275,7 +266,6 @@ function main() returns ExitCode
 	arr.push(2)
 	arr.push(3)
 	arr.push(4)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.managed.set(10, 99) otherwise 'oob'
 		return 7
 	end 'oob'
@@ -287,7 +277,6 @@ end 'main'
 ```
 
 <!-- test: bounds-setlength-exceeds-capacity -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -297,7 +286,6 @@ typealias IntArray = Array with Int
 function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.push(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.managed.setLength(100) otherwise 'overlen'
 		return 7
 	end 'overlen'
@@ -328,7 +316,6 @@ end 'main'
 ```
 
 <!-- test: bounds-slice-oob -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -341,7 +328,6 @@ function main() returns ExitCode
 	arr.push(2)
 	arr.push(3)
 	arr.push(4)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let sliced = try arr.managed.slice(0, 10) otherwise 'oob'
 		return 7
 	end 'oob'
@@ -752,51 +738,43 @@ landing on the case the operation is documented to report. A shifted ordinal rer
 the `default panic` says which.
 
 <!-- test: managed-memory-error-variants -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
 	var seen = 0 as Count
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedMemory.create(4, 0) otherwise (e) 'zeroElementSize'
 		match e 'k'
 			invalidAllocation then seen = seen + 1
 			default panic("create(4, 0) must report invalidAllocation")
 		end 'k'
 	end 'zeroElementSize'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedMemory.create(-1, 1) otherwise (e) 'negativeCount'
 		match e 'k'
 			invalidAllocation then seen = seen + 1
 			default panic("create(-1, 1) must report invalidAllocation")
 		end 'k'
 	end 'negativeCount'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let m = try __ManagedMemory.create(4, 1) otherwise 'createFail'
 		return 1
 	end 'createFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try m.setLength(5) otherwise (e) 'aboveCapacity'
 		match e 'k'
 			invalidLength then seen = seen + 1
 			default panic("setLength above capacity must report invalidLength")
 		end 'k'
 	end 'aboveCapacity'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try m.setLength(-1) otherwise (e) 'negativeLength'
 		match e 'k'
 			invalidLength then seen = seen + 1
 			default panic("setLength(-1) must report invalidLength")
 		end 'k'
 	end 'negativeLength'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try m.setByte(4, 65) otherwise (e) 'pastLength'
 		match e 'k'
 			invalidByteRange then seen = seen + 1
 			default panic("setByte at the live length must report invalidByteRange")
 		end 'k'
 	end 'pastLength'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try m.setByte(-1, 65) otherwise (e) 'negativeOffset'
 		match e 'k'
 			invalidByteRange then seen = seen + 1
@@ -906,7 +884,6 @@ end 'main'
 ```
 
 <!-- test: grow-to-the-same-capacity-then-below-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 `grow` raises the capacity to EXACTLY what it is asked for. Asked for what it already has it is a no-op;
@@ -919,7 +896,6 @@ function main() returns ExitCode
 	if mm.capacity() != 8 'cap'
 		return 3
 	end 'cap'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mm.grow(4) otherwise (e) 'shrink'
 		match e 'k'
 			invalidCapacity then return 42
@@ -1077,7 +1053,6 @@ end 'main'
 ```
 
 <!-- test: set-at-the-capacity-and-below-zero-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 The bound is the capacity, so the LAST slot inside it takes a write and the first slot outside it does not.
@@ -1091,21 +1066,18 @@ function main() returns ExitCode
 	let mm = try __ManagedMemory.create(4, elementSize: 8) otherwise return 1
 	let cap = mm.capacity()
 	try mm.set(cap - 1, value: 7) otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mm.set(cap, value: 7) otherwise (e) 'atCapacity'
 		match e 'k'
 			indexOutOfBounds then seen = seen + 1
 			default panic("set at the capacity must report indexOutOfBounds")
 		end 'k'
 	end 'atCapacity'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mm.set(cap + 1, value: 7) otherwise (e) 'pastCapacity'
 		match e 'k'
 			indexOutOfBounds then seen = seen + 1
 			default panic("set past the capacity must report indexOutOfBounds")
 		end 'k'
 	end 'pastCapacity'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mm.set(-1, value: 7) otherwise (e) 'negativeIndex'
 		match e 'k'
 			indexOutOfBounds then seen = seen + 1
@@ -1282,7 +1254,6 @@ end 'main'
 ```
 
 <!-- test: array-set-is-still-bounded-by-the-live-length -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 ⭐ **THE NEGATIVE CONTROL, and the case that makes the six above trustworthy.** `Array.set` must NOT move:
 `specs/arrays.md` and the whole array corpus are written against a length bound, and `__managed_set` is shared.
@@ -1299,7 +1270,6 @@ function main() returns ExitCode
 	if arr.capacity() < 4 'needsASlotPastTheLength'
 		return 1
 	end 'needsASlotPastTheLength'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.set(2, value: 3) otherwise 'pastLength'
 		return 42
 	end 'pastLength'
@@ -1311,7 +1281,6 @@ end 'main'
 ```
 
 <!-- test: set-on-a-view-detaches-before-it-reads-a-capacity -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 ⚠ **A VIEW CARRIES A NEGATIVE CAPACITY** (`BufferOwnership.ViewBufferCapacity` is exactly `-1`), so a capacity
@@ -1330,7 +1299,6 @@ function main() returns ExitCode
 	arr.push(33)
 	let sub = try arr.slice(0, endIndex: 2) otherwise panic("slice: 0..2 of a length-3 array")
 	try sub.managed.set(1, value: 99) otherwise return 1
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try sub.managed.set(2, value: 99) otherwise 'pastTheDetachedCapacity'
 		let parent = try arr.get(1) otherwise panic("get: index 1 of a length-3 array")
 		return ((sub.managed.length() as Int) + parent) as ExitCode
@@ -1343,7 +1311,6 @@ end 'main'
 ```
 
 <!-- test: a-refused-set-does-not-leak-the-element-it-was-given -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 ⭐⭐ **A REFUSED `set` ON THE `Array` SURFACE DESTROYS THE ELEMENT IT WAS GIVEN.** The parser MOVES
 a managed element into `set` (`moveElementIntoArray`), so the callee owns it from the call onward and the
@@ -1371,9 +1338,8 @@ typealias StrArray = Array with String
 
 function main() returns ExitCode
 	var refused = 0 as Count
-	let xs = StrArray.create(0)
+	var xs = StrArray.create(0)
 	xs.push("a published string, long enough to require an allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.set(99, value: "a string the array setter refuses, long enough to allocate") otherwise 'arraySurface'
 		refused = refused + 1
 	end 'arraySurface'
@@ -1388,8 +1354,6 @@ end 'main'
 ```
 
 <!-- test: error.a-negative-index-into-a-managed-array-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 The literal half: refused where it is written, and the element type has nothing to do with it.
 ```maxon
 typealias StrArray = Array with String
@@ -1397,7 +1361,6 @@ typealias StrArray = Array with String
 function main() returns ExitCode
 	var xs = StrArray.create(0)
 	xs.push("a published string, long enough to require an allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.set(-1, value: "a string refused for a negative index, long enough to allocate") otherwise 'negativeIndex'
 		return 42
 	end 'negativeIndex'
@@ -1409,7 +1372,6 @@ error E3005: <fragment>:7:9: Value -1 is outside the range of 'ElementIndex' (in
 ```
 
 <!-- test: a-laundered-negative-index-into-a-managed-array-panics -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The laundered half, and the one that keeps the managed-element flavour: the argument string IS built and
 retained before the call, and the door then refuses the call. The program panics rather than returning, so
 what this asserts is the leak gate — the process must not exit 101 on the way out.
@@ -1425,7 +1387,6 @@ end 'launder'
 function main() returns ExitCode
 	let xs = StrArray.create(0)
 	xs.push("a published string, long enough to require an allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try xs.set(launder(-1) as ElementIndex, value: "a string refused for a negative index, long enough to allocate") otherwise 'negativeIndex'
 		return 42
 	end 'negativeIndex'

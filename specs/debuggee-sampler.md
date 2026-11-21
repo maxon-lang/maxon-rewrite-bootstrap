@@ -199,7 +199,6 @@ Stack trace:
 ```
 
 <!-- test: a-process-trace-moves-at-most-the-transfer-window -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 A transfer larger than the 512-byte window throws `unreadable` or `unwritable` before the target is touched, and one
 of no bytes answers at once. `close` releases the region and a second `close` changes nothing.
@@ -215,7 +214,6 @@ function readOutcome(trace ProcessTrace, count DebuggeeByteCount) returns String
 end 'readOutcome'
 
 function writeOutcome(trace ProcessTrace, content ByteArray) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try trace.writeCode(1, address: 4096, content: content) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -372,13 +370,11 @@ Stack trace:
 ```
 
 <!-- test: a-sampled-process-that-does-not-exist-throws-no-such-process -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 There is no process 4000000000, so opening it throws.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try SampledProcess.open(4000000000) otherwise (e) 'refused'
 		print("{e.name}\n")
 		return 0
@@ -741,14 +737,12 @@ system library listed true
 ```
 
 <!-- test: a-process-cannot-sample-its-own-threads-on-linux -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-windows, arm64-macos, wasm32-wasi -->
 Linux refuses a process the right to trace a thread of its own group, so opening the program's own id throws
 `accessDenied`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try SampledProcess.open(Process.id()) otherwise (e) 'refused'
 		print("{e.name}\n")
 		return 0

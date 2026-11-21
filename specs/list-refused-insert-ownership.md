@@ -36,7 +36,6 @@ successfully, so both halves of that contract are pinned by one program.
 ## Tests
 
 <!-- test: a-refused-insert-does-not-leak-the-element-it-was-given -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The reproduction. Without the reject-destroy this prints `rejected` and exits
 **101** — a leak, not a wrong answer, which is why the exit code is pinned and not just the output.
@@ -47,7 +46,6 @@ typealias StringList = List with String
 function main() returns ExitCode
 	let list = StringList.create()
 	list.append("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(5, value: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") otherwise 'oob'
 		print("rejected\n")
 	end 'oob'
@@ -62,7 +60,6 @@ rejected
 ```
 
 <!-- test: a-trivial-element-refused-insert-is-the-control -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The identical program over an `int` element. It passes whether or not the reject block destroys the
 element — the element is an inline word the callee never owns — so it is what identifies a leak above as
@@ -78,7 +75,6 @@ typealias IntList = List with Integer
 function main() returns ExitCode
 	let list = IntList.create()
 	list.append(10)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(5, value: 20) otherwise 'oob'
 		print("rejected\n")
 	end 'oob'
@@ -93,7 +89,6 @@ rejected
 ```
 
 <!-- test: a-refused-insert-leaves-its-source-binding-readable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The other direction. `held` is an owned binding the caller keeps live, so the insert **co-owns** it: the
 callee takes one reference and `held` keeps its own. The refusal must drop exactly the callee's one — a
@@ -108,11 +103,9 @@ function main() returns ExitCode
 	let list = StringList.create()
 	list.append("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	let held = "cccccccccccccccccccccccccccccc"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(9, value: held) otherwise 'oob'
 		print("rejected {held}\n")
 	end 'oob'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(1, value: held) otherwise 'oob2'
 		return 2
 	end 'oob2'

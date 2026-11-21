@@ -932,13 +932,10 @@ error E3004: <fragment>:7:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-method-call-under-try-binding-the-error -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 An `otherwise (e)` handler over a method called on the result names the CALL.
 ```maxon
 function main() returns ExitCode
 	let c = frobnicate(2)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try c.describe() otherwise (e) 'failed'
 		print("{e}\n")
 	end 'failed'
@@ -1298,11 +1295,8 @@ error E3004: <fragment>:3:15: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-as-an-array-literal-first-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [frobnicate(2), 3]
 	return xs.count() as ExitCode
 end 'main'
@@ -1731,8 +1725,6 @@ error E3004: <fragment>:7:10: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-after-a-managed-array-literal-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 type Box
 	export var n = 0 as Count
@@ -1743,7 +1735,6 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [Box.create(), frobnicate(2)]
 	return xs.count() as ExitCode
 end 'main'
@@ -1753,8 +1744,6 @@ error E3004: <fragment>:11:26: call to undefined function 'frobnicate'
 ```
 
 <!-- test: unknown-function-result-as-a-later-map-literal-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 type Box
 	export var n = 0 as Count
@@ -1765,7 +1754,6 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": Box.create(), "b": frobnicate(2)]
 	return m.count() as ExitCode
 end 'main'

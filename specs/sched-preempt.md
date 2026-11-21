@@ -886,7 +886,6 @@ ping=0 held=true preempted=0 retaken=0
 
 <!-- test: sched-preempt.a-main-preempted-between-two-spawns-runs-the-earlier-one-first -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: tuple return types are not supported in minimaxon -->
@@ -1002,7 +1001,6 @@ function main() returns ExitCode
 	var tries = 0 as Integer
 	while tries < attemptCap 'attempts'
 		tries = tries + 1
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let outcome = try attempt() otherwise (e) 'disturbed'
 			match e 'why'
 				neverAsked then return monitorNeverAsked()
@@ -1086,7 +1084,6 @@ preempted=true ran=true sum=9999900000
 
 <!-- test: sched-preempt.a-switch-value-that-is-neither-off-nor-on-is-refused-at-start -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
 **A VALUE THAT IS NEITHER `off` NOR `on` ABORTS THE PROGRAM AT START WITH `RuntimeAbort.schedulerPreemptSwitchUnreadable`, EXIT 116.**
@@ -1133,7 +1130,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_PREEMPT": "maybe"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child exit={run.exitCode()}\n")

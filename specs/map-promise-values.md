@@ -49,7 +49,6 @@ end 'main'
 
 <!-- test: a-map-literal-promise-is-reclaimed-at-scope-exit -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -59,7 +58,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": async work(1)]
 	if held.count() == 1 'one'
@@ -74,7 +72,6 @@ end 'main'
 
 <!-- test: a-map-literal-bound-promise-is-reclaimed-at-scope-exit -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -86,7 +83,6 @@ end 'work'
 function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = async work(1)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let held = ["a": pending]
 	if held.count() == 1 'one'
 		return 0
@@ -163,7 +159,6 @@ end 'main'
 
 <!-- test: a-map-literal-record-holding-a-promise-is-reclaimed-at-scope-exit -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -183,7 +178,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": Job.start(async work(1))]
 	if held.count() == 1 'one'
@@ -198,7 +192,6 @@ end 'main'
 
 <!-- test: a-map-literal-union-carrying-a-promise-is-reclaimed-at-scope-exit -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -215,7 +208,6 @@ function work(n Integer) returns Integer
 end 'work'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let held = ["a": Slot.running(async work(1))]
 	if held.count() == 1 'one'

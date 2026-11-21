@@ -162,7 +162,6 @@ end 'main'
 ```
 
 <!-- test: list-of-structs-from-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### List from Array Literal of Structs
 ```maxon
@@ -178,7 +177,6 @@ type Vec2
 end 'Vec2'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [Vec2.create(1, y: 2), Vec2.create(3, y: 4), Vec2.create(5, y: 6)]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'

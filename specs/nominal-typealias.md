@@ -276,7 +276,7 @@ end 'main'
 ```
 
 <!-- test: every-collection-count-is-a-count -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Every collection's `count()` is a `Count`, so each goes to a `Count` parameter with no cast.
 ```maxon
 typealias Narrow = int(0 to 1000)
@@ -290,13 +290,9 @@ end 'takesCount'
 function main() returns ExitCode
 	let arr = NarrowArray.create(0)
 	arr.push(4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let map = [1: 10, 2: 20, 3: 30]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let set = Set from [5, 6, 7, 8]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let vec = FixedArray from [1, 2, 3, 4, 5]
 	let text = "a😀b"
 	print("{takesCount(arr.count())} {takesCount(list.count())} {takesCount(map.count())} {takesCount(set.count())} {takesCount(vec.count())} {takesCount(text.codepoints().count())} {takesCount(text.utf16().count())}\n")
@@ -1608,7 +1604,7 @@ error E3005: <fragment>:9:8: argument type mismatch for 'value': expected 'Wide'
 ```
 
 <!-- test: error.array-literal-element-across-aliases -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 `WideArray from [n]` stores `n` into a `Wide` slot, so it is refused as `push` is.
 ```maxon
@@ -1620,7 +1616,6 @@ typealias WideArray = Array with Wide
 
 function main() returns ExitCode
 	let n = 5 as Narrow
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = WideArray from [n]
 	return items.count() as ExitCode
 end 'main'
@@ -1630,7 +1625,7 @@ error E3005: <fragment>:8:30: argument type mismatch for 'value': expected 'Wide
 ```
 
 <!-- test: error.array-later-literal-element-across-aliases -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to u64.max)
@@ -1641,7 +1636,6 @@ typealias WideArray = Array with Wide
 
 function main() returns ExitCode
 	let n = 5 as Narrow
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = WideArray from [1, n]
 	return items.count() as ExitCode
 end 'main'
@@ -1818,7 +1812,6 @@ error E3005: <fragment>:9:8: argument type mismatch for 'value': expected 'Real'
 ```
 
 <!-- test: error.array-literal-element-across-float-aliases -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1834,7 +1827,6 @@ typealias Reals = Array with Real
 function main() returns ExitCode
 	// TODO: float literals are not supported in minimaxon
 	let r = 0.5 as Ratio
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = Reals from [r]
 	return items.count() as ExitCode
 end 'main'
@@ -1844,7 +1836,7 @@ error E3005: <fragment>:8:26: argument type mismatch for 'value': expected 'Real
 ```
 
 <!-- test: an-array-element-takes-its-own-alias-an-int-and-a-cast -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A slot named `Wide` is entered by a `Wide` value, a plain `int` and an `as Wide` cast, at `push`, `insert`
 and a `from [..]` literal alike.
 ```maxon
@@ -1869,7 +1861,6 @@ function main() returns ExitCode
 	items.push(plain as Wide)
 	items.push(n as Wide)
 	items.insert(0, value: n as Wide)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = WideArray from [2, same, plain, n as Wide]
 	print("{items.count()} {literal.count()}")
 	return 0
@@ -2696,7 +2687,6 @@ Stack trace:
 ```
 
 <!-- test: an-adopted-result-in-a-packed-array-literal-is-still-guarded -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `[s + 1, s + 2]` is an `Array with Small`, because its first element wears `Small` — and `Small` packs at
 one byte. The element wears the name without a proof, so it is converted into the slot through the same
 door a written cast uses, and the guard fires on 256 rather than storing it as 0.
@@ -2705,7 +2695,6 @@ typealias Small = int(0 to 255)
 
 function main() returns ExitCode
 	let s = 255 as Small
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [s + 1, s + 2]
 	let first = try xs.get(0) otherwise 99
 	print("{first}")

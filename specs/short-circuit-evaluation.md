@@ -160,13 +160,11 @@ end 'main'
 
 <!-- test: guard-protects-right-side -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10 as Index, 20 as Index, 30 as Index]
 	let i = 5 as Index
 	if i < arr.count() and (try arr.get(i) otherwise 0 as Index) > 0 'check'

@@ -72,10 +72,8 @@ end 'URLError'
 ### Parse Tests
 
 <!-- test: url.parse-basic -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com") otherwise 'err'
 		return 1
 	end 'err'
@@ -93,15 +91,12 @@ https
 ```
 
 <!-- test: url.parse-path -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com/path/to/resource") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nohost'
 		return 2
 	end 'nohost'
@@ -120,31 +115,25 @@ example.com
 ```
 
 <!-- test: url.parse-full -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com:8080/path?query=value#frag") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
 	print("{host}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let port = try url.port() otherwise 'np'
 		return 3
 	end 'np'
 	print("{port}\n")
 	print("{url.path}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let query = try url.query() otherwise 'nq'
 		return 4
 	end 'nq'
 	print("{query}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let frag = try url.fragment() otherwise 'nf'
 		return 5
 	end 'nf'
@@ -165,20 +154,16 @@ frag
 ```
 
 <!-- test: url.parse-userinfo -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("ftp://user:pass@ftp.example.com/files") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let ui = try url.userinfo() otherwise 'nui'
 		return 2
 	end 'nui'
 	print("{ui}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 3
 	end 'nh'
@@ -198,19 +183,15 @@ ftp.example.com
 ```
 
 <!-- test: url.parse-ipv6 -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("http://[::1]:8080/path") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
 	print("{host}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let port = try url.port() otherwise 'np'
 		return 3
 	end 'np'
@@ -277,10 +258,8 @@ resolved: http://[::1]:8080/a/c ::1 [::1]
 ```
 
 <!-- test: url.parse-mailto -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("mailto:user@example.com") otherwise 'err'
 		return 1
 	end 'err'
@@ -298,10 +277,8 @@ user@example.com
 ```
 
 <!-- test: url.parse-urn -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("urn:isbn:0451450523") otherwise 'err'
 		return 1
 	end 'err'
@@ -319,15 +296,12 @@ isbn:0451450523
 ```
 
 <!-- test: url.parse-scheme-lowercase -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("HTTP://Example.COM/Path") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
@@ -346,14 +320,11 @@ Example.COM
 ```
 
 <!-- test: url.parse-empty-query -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com/path?") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let query = try url.query() otherwise 'nq'
 		return 2
 	end 'nq'
@@ -371,14 +342,11 @@ query=''
 ```
 
 <!-- test: url.parse-empty-fragment -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com/path#") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let frag = try url.fragment() otherwise 'nf'
 		return 2
 	end 'nf'
@@ -396,10 +364,8 @@ fragment=''
 ```
 
 <!-- test: url.parse-percent-encoding -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com/a%20b") otherwise 'err'
 		return 1
 	end 'err'
@@ -415,14 +381,11 @@ end 'main'
 ```
 
 <!-- test: url.parse-port -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com:443/") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let port = try url.port() otherwise 'np'
 		return 2
 	end 'np'
@@ -440,15 +403,12 @@ end 'main'
 ```
 
 <!-- test: url.parse-file-uri -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("file:///home/user/file.txt") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
@@ -467,15 +427,12 @@ host=''
 ```
 
 <!-- test: url.parse-scheme-chars -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("custom+scheme.v2://host/path") otherwise 'err'
 		return 1
 	end 'err'
 	print("{url.scheme}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
@@ -492,21 +449,17 @@ host
 ```
 
 <!-- test: url.parse-relative -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("/relative/path?q=1#f") otherwise 'err'
 		return 1
 	end 'err'
 	print("scheme='{url.scheme}'\n")
 	print("{url.path}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let query = try url.query() otherwise 'nq'
 		return 2
 	end 'nq'
 	print("{query}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let frag = try url.fragment() otherwise 'nf'
 		return 3
 	end 'nf'
@@ -525,15 +478,12 @@ f
 ```
 
 <!-- test: url.parse-protocol-relative -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("//example.com/path") otherwise 'err'
 		return 1
 	end 'err'
 	print("scheme='{url.scheme}'\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
@@ -552,19 +502,15 @@ example.com
 ```
 
 <!-- test: url.parse-ipv4 -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("http://192.168.1.1:3000/api") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 2
 	end 'nh'
 	print("{host}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let port = try url.port() otherwise 'np'
 		return 3
 	end 'np'
@@ -583,19 +529,15 @@ end 'main'
 ```
 
 <!-- test: url.parse-userinfo-no-pass -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://user@example.com/path") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let ui = try url.userinfo() otherwise 'nui'
 		return 2
 	end 'nui'
 	print("{ui}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let host = try url.host() otherwise 'nh'
 		return 3
 	end 'nh'
@@ -614,10 +556,8 @@ example.com
 ### Parse Error Tests
 
 <!-- test: url.parse-err-empty -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("") otherwise 'err'
 		print("emptyInput\n")
 		return 0
@@ -633,10 +573,8 @@ emptyInput
 ```
 
 <!-- test: url.parse-err-whitespace -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("   ") otherwise 'err'
 		print("emptyInput\n")
 		return 0
@@ -652,10 +590,8 @@ emptyInput
 ```
 
 <!-- test: url.parse-err-port-overflow -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("https://example.com:99999/path") otherwise 'err'
 		print("invalidPort\n")
 		return 0
@@ -671,10 +607,8 @@ invalidPort
 ```
 
 <!-- test: url.parse-err-port-alpha -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("https://example.com:abc/path") otherwise 'err'
 		print("invalidPort\n")
 		return 0
@@ -690,10 +624,8 @@ invalidPort
 ```
 
 <!-- test: url.parse-err-bad-percent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("https://example.com/path%GG") otherwise 'err'
 		print("invalidEncoding\n")
 		return 0
@@ -709,10 +641,8 @@ invalidEncoding
 ```
 
 <!-- test: url.parse-err-truncated-percent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("https://example.com/path%2") otherwise 'err'
 		print("invalidEncoding\n")
 		return 0
@@ -728,10 +658,8 @@ invalidEncoding
 ```
 
 <!-- test: url.parse-err-colon-start -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("://missing-scheme") otherwise 'err'
 		print("invalidScheme\n")
 		return 0
@@ -747,10 +675,8 @@ invalidScheme
 ```
 
 <!-- test: url.parse-err-digit-scheme -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try URL.parse("1http://example.com") otherwise 'err'
 		print("invalidScheme\n")
 		return 0
@@ -766,12 +692,9 @@ invalidScheme
 ```
 
 <!-- test: url.parse-authority-is-read-to-its-grammar -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function verdict(spelled String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse(spelled) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -781,7 +704,6 @@ function verdict(spelled String) returns String
 end 'verdict'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spellings = ["http://[zz]:1/", "http://a b/", "http://:80/", "http://[::1]x/", "http://exa^mple.com/", "http://host:99999/", "http://host:8x/", "http://[::1]:8080/p", "http://host:/p", "http://exa%41mple.com/", "http://[v1.fe80::a+en1]/", "file:///etc/hosts"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelled in spellings 'eachSpelling'
@@ -811,10 +733,8 @@ file:///etc/hosts -> host= port=0
 ### toString Tests
 
 <!-- test: url.tostring-basic -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com/path") otherwise 'err'
 		return 1
 	end 'err'
@@ -830,10 +750,8 @@ https://example.com/path
 ```
 
 <!-- test: url.tostring-full -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("https://example.com:8080/?q=1#top") otherwise 'err'
 		return 1
 	end 'err'
@@ -849,10 +767,8 @@ https://example.com:8080/?q=1#top
 ```
 
 <!-- test: url.tostring-userinfo -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("ftp://user:pass@ftp.example.com/files") otherwise 'err'
 		return 1
 	end 'err'
@@ -868,10 +784,8 @@ ftp://user:pass@ftp.example.com/files
 ```
 
 <!-- test: url.tostring-mailto -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("mailto:user@example.com") otherwise 'err'
 		return 1
 	end 'err'
@@ -887,10 +801,8 @@ mailto:user@example.com
 ```
 
 <!-- test: url.tostring-ipv6 -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("http://[::1]:8080/path") otherwise 'err'
 		return 1
 	end 'err'
@@ -906,10 +818,8 @@ http://[::1]:8080/path
 ```
 
 <!-- test: url.tostring-file -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let url = try URL.parse("file:///home/user/file.txt") otherwise 'err'
 		return 1
 	end 'err'
@@ -927,14 +837,11 @@ file:///home/user/file.txt
 ### resolve Tests
 
 <!-- test: url.resolve-relative -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "g") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -950,14 +857,11 @@ http://a/b/c/g
 ```
 
 <!-- test: url.resolve-dot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "./g") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -973,14 +877,11 @@ http://a/b/c/g
 ```
 
 <!-- test: url.resolve-dotdot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "../g") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -996,14 +897,11 @@ http://a/b/g
 ```
 
 <!-- test: url.resolve-absolute -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "/g") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1019,14 +917,11 @@ http://a/g
 ```
 
 <!-- test: url.resolve-authority -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "//other.com/g") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1042,14 +937,11 @@ http://other.com/g
 ```
 
 <!-- test: url.resolve-query-only -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "?y") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1065,14 +957,11 @@ http://a/b/c/d?y
 ```
 
 <!-- test: url.resolve-fragment-only -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "#s") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1088,14 +977,11 @@ http://a/b/c/d?q#s
 ```
 
 <!-- test: url.resolve-empty -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1111,14 +997,11 @@ http://a/b/c/d?q
 ```
 
 <!-- test: url.resolve-full-relative -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "g?y#s") otherwise 'err2'
 		return 2
 	end 'err2'
@@ -1134,14 +1017,11 @@ http://a/b/c/g?y#s
 ```
 
 <!-- test: url.resolve-double-dotdot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let base = try URL.parse("http://a/b/c/d?q") otherwise 'err'
 		return 1
 	end 'err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let resolved = try URL.resolve(base, reference: "../../g") otherwise 'err2'
 		return 2
 	end 'err2'

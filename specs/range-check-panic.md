@@ -670,7 +670,6 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-library-alias-beside-an-authors-type-is-named-through-stdlib -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 The library's `ElementIndex` beside an author's enum of that name is named `stdlib.ElementIndex` in the panic,
 the spelling a compile-time diagnostic gives it in the same file.
@@ -689,7 +688,6 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val = try arr.get(launder(a.ElementIndex.above.rawValue - 8) as stdlib.ElementIndex) otherwise 99
 	return val
@@ -2973,7 +2971,6 @@ Stack trace:
 ```
 
 <!-- test: a-user-pop-over-a-literal-array-proves-nothing-about-its-result -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user declaration named like a library move-out door is decided by its own body, not by its name: `Picker.pop` returns its `fallback`, so nothing known about the elements of the literal array it was handed bounds that result, and `show` checks the value against `Small` where it enters.
 ```maxon
@@ -2994,7 +2991,6 @@ function show(s Small) returns Small
 end 'show'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
 	let hundred = 100
 	let s = show(Picker.pop(a, fallback: hundred))
@@ -3014,7 +3010,6 @@ Stack trace:
 ```
 
 <!-- test: a-user-get-over-a-literal-array-proves-nothing-about-its-result -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same rule for a user declaration named like a library read: `Picker.get` returns its `fallback`, not an element of the literal array it was handed, so the result carries no bound from that array and `show` checks it against `Small`.
 ```maxon
@@ -3035,7 +3030,6 @@ function show(s Small) returns Small
 end 'show'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
 	let hundred = 100
 	let s = show(Picker.get(a, fallback: hundred))
@@ -3055,13 +3049,11 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-count-subtraction-that-borrows-panics-in-a-let -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⛔⛔ **ARITHMETIC ON A FULL-WIDTH UNSIGNED ALIAS IS RANGE-CHECKED WHERE IT IS COMPUTED, NOT WHERE ITS RESULT LANDS.** Every 64-bit pattern is a value of `int(0 to u64.max)`, so a wrapped difference is a perfectly good pattern (`2 - 3` reads as `u64.max`) and no later door can tell it from a real count. A `let` has no door at all, so the check is on the subtraction itself.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 3]
 	let d = a.count() - b.count()
 	print("d {d}\n")
@@ -3079,13 +3071,11 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-count-subtraction-that-borrows-panics-in-a-for-bound -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The same subtraction as a counted loop's bound: an unchecked wrapped difference reads as `u64.max` and sends the loop over `0 to u64.max`. A loop bound is no door either, so the check is on the subtraction.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 3]
 	for i in 0 to (a.count() - b.count()) 'scan'
 		print("i {i}\n")
@@ -3771,12 +3761,9 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.negating-a-full-width-unsigned-value-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ⛔ **`-n` OVER A FULL-WIDTH UNSIGNED ALIAS IS A COMPILE ERROR.** `Count` holds `0 to u64.max`, so the negation of any value above 0 is outside it, and a wrapping negation is a different operation. The message names the two spellings that mean something: a `bits(64)` typealias for the deliberate wrap, a signed alias for the number.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let n = [1, 2].count()
 	let m = -n
 	print("{m}\n")

@@ -42,7 +42,6 @@ leak: the program returns the borrowed array's element count.
 ## Tests
 
 <!-- test: forward-global-getter-borrow -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 Forwarding a module-global getter's borrow must not retain the outliving image.
 ```maxon
@@ -50,10 +49,8 @@ typealias Count = int(0 to 1000)
 
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let cachedBase = ["first base item", "second base item", "third base item"]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let cachedMerged = ["merged item"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon

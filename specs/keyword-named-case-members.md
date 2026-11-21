@@ -322,7 +322,7 @@ end 'main'
 ```
 
 <!-- test: handler-case-member-spelling-a-labelled-otherwise-in-a-header -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected 'export', 'function', 'public', 'static' or a name but got 'otherwise' -->
 ⚠⚠ **THE THIRD SHAPE** — the exact twin of the `end 'm'` case above, for the OTHER keyword that has a
 labelled block form. A member read `Kw.otherwise` at the end of a block header puts `otherwise`
 immediately before the construct's own block label, which is `otherwiseOpensBlockIn`'s `otherwise 'label'`
@@ -339,11 +339,9 @@ end 'Kw'
 function main() returns ExitCode
 	let k = Kw.alpha
 	var i = 0 as Count
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	while k == Kw.otherwise 'loop'
 		i = i + 1
 	end 'loop'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	if k == Kw.otherwise 'chk'
 		i = 9
 	end 'chk'

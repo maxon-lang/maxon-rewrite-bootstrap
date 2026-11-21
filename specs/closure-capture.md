@@ -134,7 +134,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.map-with-capture -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 
@@ -150,7 +149,6 @@ end 'Level'
 
 function main() returns ExitCode
 	let level = Level.create(5)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	// TODO: closures are not supported in minimaxon
 	let result = arr.map(function(_ Integer) gives level.rawValue)
@@ -3338,7 +3336,6 @@ error E3183: <fragment>:18:15: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-closure-in-an-array-literal-stored-into-what-it-captures -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3360,7 +3357,6 @@ type Counter
 	end 'create'
 
 	export function arm()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		// TODO: closures are not supported in minimaxon
 		self.reads = [function() gives self.n]
 	end 'arm'
@@ -4887,7 +4883,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-closure-in-a-returned-array-literal-runs-after-its-frame-died -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 A closure written as an element of a returned array literal keeps the record it captured.
@@ -4909,7 +4904,6 @@ end 'Counter'
 
 function makeReaders(start Integer) returns Readers
 	let c = Counter.create(start)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	return [function() gives 1, function() gives c.n * 2, function() gives 3]
 end 'makeReaders'
@@ -4925,7 +4919,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-writing-closure-in-a-returned-array-literal-takes-a-let-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 The returned literal carries a closure that writes `b`; handing `arm` the `let` is accepted.
@@ -4952,7 +4945,6 @@ function zero(b Box) returns Count
 end 'zero'
 
 function arm(b Box) returns Bumps
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	return [function() gives zero(b)]
 end 'arm'
@@ -4972,7 +4964,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.a-reading-closure-in-a-returned-array-literal-takes-a-let-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 A closure in the returned literal keeps `b` as a closure returned bare does, whether it reads or writes it; handing `arm` the `let` is accepted.
@@ -4994,7 +4985,6 @@ type Box
 end 'Box'
 
 function arm(b Box) returns Reads
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	return [function() gives b.n]
 end 'arm'
@@ -5014,7 +5004,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-nested-array-literal-of-closures-pushed-into-what-they-capture -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5038,7 +5027,6 @@ type Counter
 	end 'create'
 
 	export function arm()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		// TODO: closures are not supported in minimaxon
 		self.groups.push([function() gives self.n])
 	end 'arm'
@@ -5055,7 +5043,6 @@ error E3183: <fragment>:16:20: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-returned-array-literal-of-closures-stored-into-what-they-capture -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5078,7 +5065,6 @@ type Counter
 end 'Counter'
 
 function reading(h Counter) returns Thunks
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: closures are not supported in minimaxon
 	return [function() gives h.n]
 end 'reading'
@@ -5645,7 +5631,6 @@ error E3207: <fragment>:39:11: the closure at <fragment>:27:16 needs 'b' frozen 
 Two closures of one shape reach one call through a parameter. One of them also pushes onto a module-level `let` array, which is refused for the write, and the cycle the other closure closes through the parameter is reported once, at the call.
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-beside-a-plain-closure-of-its-shape -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5674,7 +5659,6 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Hub = [0 as Integer]
 
 function storePlain(mutates t Counter, mutates p Counter) returns Tally
@@ -5707,7 +5691,6 @@ error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and 
 ```
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-before-a-plain-closure-of-its-shape -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -5736,7 +5719,6 @@ type Counter
 	end 'create'
 end 'Counter'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Hub = [0 as Integer]
 
 function storePlain(mutates t Counter, mutates p Counter) returns Tally

@@ -500,7 +500,6 @@ error E3196: <fragment>:18:26: cannot store a mutable 'Box' into 'an element of 
 ```
 
 <!-- test: an-array-literal-of-fresh-values-into-an-immutable-array-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The literal's elements are stores into the instance's slots like any other.
@@ -520,7 +519,6 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var items = FrozenBoxes from [Box.create(1), Box.create(2)]
 	print("{items.count()}\n")
 	return 0
@@ -1646,7 +1644,6 @@ error E3196: <fragment>:15:14: cannot store an isolated 'Box' into 'an item of t
 ```
 
 <!-- test: an-isolated-value-in-a-map-literal-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` value is merged before it becomes a map value.
@@ -1665,7 +1662,6 @@ end 'Box'
 function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let a = Box.create(1) as isolated Box
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = ["k": a]
 	var found = try m.get("k") otherwise panic("missing")
 	found.n = 5
@@ -1716,7 +1712,6 @@ error E3197: <fragment>:19:2: cannot write 'n' through 'pair.0', which is immuta
 ```
 
 <!-- test: an-immutable-element-in-a-map-literal-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `held` is read out of an `immutable` element, and the map would keep it where something may write it.
@@ -1739,7 +1734,6 @@ function main() returns ExitCode
 	var items = ReadOnlyBoxes.create(0)
 	items.push(freeze(Box.create(1)))
 	let held = try items.get(0) otherwise panic("empty")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = ["k": held]
 	var found = try m.get("k") otherwise panic("missing")
 	found.n = 5
@@ -1752,7 +1746,7 @@ error E3196: <fragment>:17:16: cannot store an immutable 'Box' into 'a value of 
 ```
 
 <!-- test: a-set-literal-of-frozen-elements-runs -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A set stores its elements read-only, so a frozen element needs no capability of its own.
 
 ```maxon
@@ -1778,7 +1772,6 @@ end 'Key'
 
 function main() returns ExitCode
 	let a = freeze(Key.create(1))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let keys = Keys from [a]
 	print("{keys.count()}\n")
 	return 0
@@ -1829,7 +1822,6 @@ error E3005: <fragment>:20:9: argument type mismatch for 'value': expected 'BoxL
 ```
 
 <!-- test: a-frozen-value-in-a-map-literal-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A map literal stores its values into the map's value slots, and an inferred map holds mutable values.
 
@@ -1846,7 +1838,6 @@ end 'Box'
 
 function main() returns ExitCode
 	var a = freeze(Box.create(1))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = ["k": a]
 	var found = try m.get("k") otherwise panic("missing")
 	found.n = 7

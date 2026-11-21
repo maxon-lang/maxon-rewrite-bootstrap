@@ -16,7 +16,6 @@ A parameter the function writes takes a mutable argument: a `freeze` result, a c
 ## Tests
 
 <!-- test: error.a-receiver-write-through-a-local-alias-writes-the-parameter -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 `alias` names the record `d` names, so the push writes `d`, and a constant array cannot be handed to a function that writes its parameter.
 
@@ -31,7 +30,6 @@ function grow(d IntArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer]
 	grow(a)
 	return a.count() as ExitCode
@@ -79,7 +77,6 @@ error E3207: <fragment>:27:7: 'edit' writes 'b'; 'frozen' is immutable
 ```
 
 <!-- test: error.a-receiver-write-through-a-merge-writes-the-parameter -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 `target` is the parameter on one path and a fresh array on the other, so what the push writes may be `d`.
 
@@ -97,7 +94,6 @@ function grow(d IntArray, flag bool)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer]
 	grow(a, flag: true)
 	return a.count() as ExitCode
@@ -369,7 +365,6 @@ error E3207: <fragment>:33:7: 'poke' writes 't' (line 28: `list.push(1)`); 'froz
 ```
 
 <!-- test: a-callee-that-pushes-into-a-fresh-array-leaves-the-parameter-alone -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The negative control: `grow` pushes into an array it creates and only reads `d`, so no parameter is written and a constant array is accepted.
 
 ```maxon
@@ -378,16 +373,15 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function grow(d IntArray, flag bool) returns Integer
-	let target = IntArray.create(0)
+	var target = IntArray.create(0)
 	if flag 'copyOne'
 		target.push(try d.get(0) otherwise 0)
 	end 'copyOne'
 	target.push(9)
-	return target.count() as Integer
+	return try target.count() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Integer]
 	let total = grow(a, flag: true)
 	print("{total} {a.count()}\n")

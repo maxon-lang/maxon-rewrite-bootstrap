@@ -722,7 +722,6 @@ end 'main'
 ```
 
 <!-- test: error.return-a-let-declared-global -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The negative control, and the one thing the widened door must still refuse — **at the BINDING**.
@@ -734,7 +733,6 @@ whole-program — `expose`'s body may be in another file.
 ```maxon
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["ab", "cde"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon
@@ -753,13 +751,11 @@ error E3207: <fragment>:12:4: 'push' needs a writable receiver; 'b' is immutable
 ```
 
 <!-- test: a-let-declared-global-returned-by-a-call-is-read -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 The accepted twin: the returned record is bound to a `let`, read, and never written.
 ```maxon
 typealias Names = Array with String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = ["ab", "cde"]
 
 // TODO: return type capability 'immutable' is not supported in minimaxon

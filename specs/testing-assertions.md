@@ -361,13 +361,11 @@ FAIL main.maxon:4: Expect.isTrue
 ```
 
 <!-- test: the-thrown-error-is-testfailure-assertion -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The thrown value is `TestFailure.assertion` — the error is an enum to `match`, which is why the
 report is printed rather than carried on it.
 ```maxon
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try Expect.equal(1, expected: 2) otherwise (e) 'caught'
 		match e 'kind'
 			assertion then print("caught assertion\n")

@@ -427,7 +427,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-field-reassignment-reserves-the-descriptor-it-releases-through -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### …and so does the bare spelling of the reassignment
 `one = b` names the field without `self.`; the method it is written in carries the layout descriptor the displaced
@@ -475,7 +474,6 @@ type Bag uses Element
 	end 'add'
 
 	function first() returns Element throws ArrayError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let slot = try self.items.first() otherwise 'e'
 			throw ArrayError.indexOutOfBounds
 		end 'e'
@@ -510,7 +508,6 @@ end 'fill'
 function main() returns ExitCode
 	let b = StrBag.create("seed")
 	fill(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let got = try b.first() otherwise 'e'
 		return 9
 	end 'e'

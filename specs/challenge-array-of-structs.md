@@ -15,7 +15,6 @@ Arrays can contain struct values. Each element is a complete copy of the struct.
 ## Tests
 
 <!-- test: array-of-structs-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -32,11 +31,10 @@ end 'Point'
 function main() returns ExitCode
 	let p1 = Point.create(1, y: 2)
 	let p2 = Point.create(3, y: 4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let points = [p1, p2]
 	let pt0 = try points.get(0) otherwise Point.create(0, y: 0)
 	let pt1 = try points.get(1) otherwise Point.create(0, y: 0)
-	return pt0.x + pt1.y
+	return try pt0.x + pt1.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -44,7 +42,6 @@ end 'main'
 ```
 
 <!-- test: array-of-structs-indexed-access -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -60,10 +57,9 @@ end 'Pair'
 
 function main() returns ExitCode
 	let p = Pair.create(10, second: 20)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [p]
 	let elem = try arr.get(0) otherwise Pair.create(0, second: 0)
-	return elem.first + elem.second
+	return try elem.first + elem.second otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

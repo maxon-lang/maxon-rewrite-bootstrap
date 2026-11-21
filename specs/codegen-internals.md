@@ -125,10 +125,8 @@ end 'main'
 ```
 
 <!-- test: managed-memory-fixed-size-array-literal-cleanup -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(1) otherwise 0
 end 'main'
@@ -138,11 +136,9 @@ end 'main'
 ```
 
 <!-- test: rdata-non-constant-array-uses-heap -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
 	let x = 5
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, x, 3]
 	return try arr.get(1) otherwise 0
 end 'main'
@@ -152,9 +148,7 @@ end 'main'
 ```
 
 <!-- test: rdata-dead-global-array-no-init-code -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 public let unusedTable = [100, 200, 300, 400]
 
 function main() returns ExitCode

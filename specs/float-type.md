@@ -726,7 +726,6 @@ end 'main'
 ```
 
 <!-- test: a-float-array-read-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 An element read from a `let` float array carries the interval of the elements written, and fits a float alias that admits the whole interval.
@@ -739,7 +738,6 @@ function take(v Unit) returns Unit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [0.25, 0.75]
 	// TODO: float literals are not supported in minimaxon
@@ -756,7 +754,6 @@ end 'main'
 ```
 
 <!-- test: error.a-float-array-read-outside-a-narrower-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -770,7 +767,6 @@ function take(v Unit) returns Unit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [0.25, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -785,7 +781,6 @@ error E3005: <fragment>:11:10: Value 2.5 is outside the range of 'Unit' (float(0
 ```
 
 <!-- test: a-for-in-over-a-float-array-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -799,7 +794,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [1.5, 2.5]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -895,7 +889,6 @@ end 'main'
 ```
 
 <!-- test: a-float-quotient-by-an-interval-holding-zero-is-unknown -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -909,7 +902,6 @@ function take(v Unit) returns Unit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let ds = [0.0, 1.0]
 	// TODO: float literals are not supported in minimaxon
@@ -926,7 +918,6 @@ error E3005: <fragment>:12:10: argument type mismatch for 'v': expected 'Unit', 
 ```
 
 <!-- test: a-float-interval-flows-through-arithmetic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 Float arithmetic over range-known operands computes an interval, so every result below fits an alias that admits it.
@@ -939,7 +930,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [1.5, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -958,7 +948,6 @@ end 'main'
 ```
 
 <!-- test: a-float-interval-flows-through-the-math-builtins -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 The rounding builtins, `sqrt`, `min` and `max` map an interval to an interval.
@@ -971,7 +960,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [4.0, 9.0]
 	// TODO: float literals are not supported in minimaxon
@@ -988,7 +976,6 @@ end 'main'
 ```
 
 <!-- test: a-float-absolute-value-folds-an-interval-across-zero -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 `abs` of an interval holding zero is non-negative, so it fits an alias that the interval itself does not.
@@ -1001,7 +988,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [-3.0, 2.0]
 	// TODO: float literals are not supported in minimaxon
@@ -1018,7 +1004,6 @@ end 'main'
 ```
 
 <!-- test: error.a-float-product-interval-reaches-past-an-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1032,7 +1017,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [2.0, 6.0]
 	// TODO: float literals are not supported in minimaxon
@@ -1047,7 +1031,6 @@ error E3005: <fragment>:11:10: Value 36 is outside the range of 'Span' (float(0 
 ```
 
 <!-- test: error.a-float-difference-interval-reaches-below-an-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1061,7 +1044,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [2.0, 6.0]
 	// TODO: float literals are not supported in minimaxon
@@ -1077,7 +1059,6 @@ error E3005: <fragment>:11:10: Value -2 is outside the range of 'Span' (float(0 
 ```
 
 <!-- test: a-float-root-of-an-interval-holding-negatives-is-unknown -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1091,7 +1072,6 @@ function take(v Span) returns Span
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [-1.0, 4.0]
 	// TODO: float literals are not supported in minimaxon
@@ -1106,7 +1086,6 @@ error E3005: <fragment>:11:10: argument type mismatch for 'v': expected 'Span', 
 ```
 
 <!-- test: a-let-tuple-float-fields-are-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1120,7 +1099,6 @@ function take(v Unit) returns Unit
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let xs = [0.25, 0.75]
 	// TODO: float literals are not supported in minimaxon

@@ -582,7 +582,6 @@ end 'main'
 ```
 
 <!-- test: control-an-arm-giving-a-read-of-an-immutable-global -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ⛔ **CONTROL: THE SETTLEMENT RULE MAY NOT LAUNDER A READ OF MODULE STORAGE.** The arm holds a managed
 payload binding (`h`), which puts it above its own owned floor — but the give is `A`, a `let`-declared
 top-level array, which outlives every scope and so cannot point into anything the arm releases.
@@ -593,10 +592,8 @@ answers 1.
 ```maxon
 typealias Wide = int(i64.min to i64.max)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let A = [1, 2, 3]
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let B = [4, 5]
 
 type Holder

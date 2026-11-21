@@ -41,8 +41,6 @@ error E3005: specs/builtin-type-checking/builtin-type-checking.error-managed-fil
 ```
 
 <!-- test: builtin-type-checking.error-managed-file-write-int -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -53,7 +51,6 @@ type TestFile
 	export var file as __ManagedFile
 
 	static function open(path String) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openRead(path.toByteArray().managed) otherwise 'f'
 			throw TestFileError.openFailed
 		end 'f'

@@ -1054,7 +1054,6 @@ static call and in `<Alias> from [...]`. Each refusal below is the one the same 
 file-scope alias beside it.
 
 <!-- test: error.an-inner-alias-shadows-a-file-scope-alias-at-the-static-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1079,7 +1078,6 @@ end 'Plain'
 
 function main() returns ExitCode
 	let p = Plain.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = Items from [4, 5]
 	print("{wide.count()}\n")
 	return p.made()
@@ -1118,7 +1116,6 @@ error E3004: <fragment>:12:20: call to undefined function 'Plain.Items.create'
 ```
 
 <!-- test: error.an-inner-alias-shadows-a-file-scope-alias-at-the-from-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1136,7 +1133,6 @@ type Plain
 	end 'create'
 
 	function made() returns ExitCode
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let made = Items from [1, 2]
 		return made.count() as ExitCode
 	end 'made'
@@ -1144,7 +1140,6 @@ end 'Plain'
 
 function main() returns ExitCode
 	let p = Plain.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = Items from [4, 5]
 	print("{wide.count()}\n")
 	return p.made()
@@ -1155,7 +1150,6 @@ error E2004: <fragment>:15:14: Undefined variable 'Items'
 ```
 
 <!-- test: error.an-inner-ranged-alias-takes-no-from -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1169,7 +1163,6 @@ type Plain
 	end 'create'
 
 	function made() returns ExitCode
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let made = Items from [1, 2]
 		return made.count() as ExitCode
 	end 'made'

@@ -60,7 +60,6 @@ the invariant above of a specialized body rather than only of a written one.
 ## Tests
 
 <!-- test: bounds-check-continuation-does-not-desync-spans -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### An array bounds check compiles with debug info on
 `arr.get(5)` past the end lowers to a checked access whose failure edge is its own block and whose
 success edge is a continuation every op past the site moves onto. Everything the preceding statements
@@ -82,10 +81,9 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let arr = SlotArray.create(0)
+	var arr = SlotArray.create(0)
 	arr.push(Slot.create(1))
 	arr.push(Slot.create(2))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.get(5) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42

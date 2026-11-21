@@ -4639,7 +4639,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-of-text-and-numbers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable Job` stands as sendable, and a `Job`'s graph is a `String` and an array of numbers, which a share walk
@@ -4672,7 +4671,6 @@ end 'Pool'
 typealias JobPool = Pool with immutable Job
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let pool = JobPool.create(freeze(Job.create("build", steps: [3, 4])))
 	print("{pool.item.name} {pool.item.steps.count()}\n")
 	return 0

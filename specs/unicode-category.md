@@ -128,11 +128,9 @@ true
 ```
 
 <!-- test: custom-set-unchanged -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let cs = CharacterSet.from(CharSet from ['x', 'y', 'z'])
 	print("{cs.contains('x')}\n{cs.contains('a')}")

@@ -319,14 +319,12 @@ first|abcd|efghij|ended
 ```
 
 <!-- test: a-child-output-read-after-release-answers-closed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: wasm32-wasi -->
 A reader taken from a child that is then released has no stream left to read: its next read throws
 `StreamError.closed`, although the child wrote a line nothing read, and so does the read after that, so a
 caller cannot mistake the released stream for one that ended.
 ```maxon
 function afterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -337,7 +335,6 @@ function afterRelease(reader ChildOutputReader) returns String
 end 'afterRelease'
 
 function bytesAfterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let bytes = try reader.readBytes(4) otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -589,7 +586,6 @@ drained late
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -625,7 +621,6 @@ type LineService
 	end 'create'
 
 	export function next() returns String
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try self.reader.readLine() otherwise (e) 'unread'
 			return "threw {e.name}"
 		end 'unread'
@@ -747,7 +742,6 @@ end 'main'
 <!-- test: a-tcp-connection-is-read-by-line-and-by-declared-length -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- procs: 1 -->
 A reader over a `TcpClient` reads a header by line, the body it declares by count and the rest by line again, with no byte lost between them, and answers `ended` once the peer closes. The client sends its request through `reader.source`, so the source still sends while the reader buffers its reads, and the peer reads that request through a reader of its own.
 ```maxon
@@ -761,7 +755,6 @@ end 'shown'
 function serve(listener TcpListener) returns String
 	let conn = try listener.accept() otherwise return "accept-failed"
 	let reader = StreamReader.over(conn)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let request = try reader.readLine() otherwise (e) 'unheard'
 		return "read threw {e.name}"
 	end 'unheard'
@@ -782,18 +775,15 @@ function exchangeOver(listener TcpListener) returns ExitCode
 	let boundPort = listener.port()
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async serve(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let client = try TcpClient.connect("127.0.0.1", port: boundPort) otherwise 'refused'
 		peer.cancel()
 		return 2
 	end 'refused'
 	let reader = StreamReader.over(client)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try reader.source.send("GET /one\n") otherwise 'unsent'
 		peer.cancel()
 		return 3
 	end 'unsent'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let answer = try heard(reader) otherwise (e) 'unread'
 		peer.cancel()
 		print("read threw {e.name}\n")
@@ -821,8 +811,6 @@ server GET /one
 
 <!-- test: a-tls-stream-is-read-by-line-until-close-notify -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A reader over a `TlsStream` answers `ended` once the peer's close_notify arrives, after every line sent before it. A peer that drops its stream without closing ends the TCP connection with no close_notify, and the read that meets it throws `StreamError.secure(truncated)` rather than answering `ended`.
 ```maxon
@@ -887,13 +875,11 @@ function failure(error StreamError) returns String
 end 'failure'
 
 function identityOf(chainHex String, keyHex String) returns TlsIdentity
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try TlsIdentity.fromDer(ByteArrays from [fromHex(chainHex)], key: fromHex(keyHex)) otherwise panic("the case's identity was refused")
 end 'identityOf'
 
 function trustedClient(rootHex String) returns TlsClientOptions
 	let options = TlsClientOptions.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	try options.setTrustedRoots(RootCertificates from [fromHex(rootHex)]) otherwise panic("the case's root was refused")
 	try options.setServerName("example.com") otherwise panic("the case's server name was refused")
 	options.setVerificationTime(1767225600)
@@ -913,11 +899,9 @@ let leafP256Hex = "3082015930820100a00302010202010a300a06082a8648ce3d040302300f3
 let keyP256Hex = "3041020100301306072a8648ce3d020106082a8648ce3d0301070427302502010104200f9999d9198528f9f986f8315fe0c7aaf7b2aef840198d77b859dc4f4a8c4a2b"
 
 function sendsTwoLines(listener TlsListener, closes bool) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try listener.accept() otherwise (error) 'refused'
 		return "accept: {describe(error)}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try stream.send("first line\nsecond line\n") otherwise (error) 'unsent'
 		return "send: {describe(error)}"
 	end 'unsent'
@@ -929,14 +913,12 @@ function sendsTwoLines(listener TlsListener, closes bool) returns String
 end 'sendsTwoLines'
 
 function readsLines(options TlsClientOptions, port NetworkPort) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let stream = try TlsClient.connect("127.0.0.1", port: port, options: options) otherwise (error) 'refused'
 		return "connect: {describe(error)}"
 	end 'refused'
 	let reader = StreamReader.over(stream)
 	var heard = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try reader.readLine() otherwise (error) 'failed'
 			return "heard [{heard}] then {failure(error)}"
 		end 'failed'
@@ -974,18 +956,15 @@ dropped: client heard [first line;second line;] then secure(truncated)
 
 <!-- test: a-file-is-read-line-by-line-across-chunks -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A reader over a file reads every line of one larger than a single read, so lines that straddle two reads come back whole and the count and the last line are exact.
 ```maxon
 function linesOf(path FilePath) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reader = try File.openRead(path) otherwise (e) 'unopened'
 		return "open threw {e.name}"
 	end 'unopened'
 	var lines = 0 as Count
 	var last = ""
 	while true 'reading'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let read = try reader.readLine() otherwise (e) 'failed'
 			return "read threw {e.name} after {lines}"
 		end 'failed'

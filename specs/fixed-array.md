@@ -252,7 +252,6 @@ error E3005: <fragment>:7:21: Value 5 is outside the range of the indices of 'Fi
 ```
 
 <!-- test: set-out-of-bounds-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Writing at an index beyond the fixed size that is only known at run time throws ArrayError.indexOutOfBounds.
 ```maxon
@@ -268,7 +267,6 @@ end 'runtimeIndex'
 function main() returns ExitCode
 	let v = Vec2.create()
 	v.set(0, value: 10)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try v.set(runtimeIndex(5), value: 99) otherwise 'oob'
 		return 7
 	end 'oob'
@@ -538,10 +536,9 @@ end 'main'
 ```
 
 <!-- test: from-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10, 20, 30]
 	return v.get(0)
 end 'main'
@@ -551,10 +548,9 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-sum -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(0)
 	let b = v.get(1)
@@ -567,11 +563,9 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-float -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let v = FixedArray from [1.5, 2.5]
 	let a = v.get(0)
@@ -584,11 +578,9 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-iterate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [1, 2, 3, 4]
 	var sum = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -603,10 +595,9 @@ end 'main'
 ```
 
 <!-- test: from-array-literal-single -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [99]
 	return v.get(0)
 end 'main'
@@ -728,11 +719,9 @@ end 'main'
 ```
 
 <!-- test: bool-fixed-array-from-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [true, false, true, true, false, true, false, false, true]
 	var count = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -1213,7 +1202,6 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
@@ -1223,7 +1211,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Vec3 = FixedArray with 3 Int
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = Vec3 from [1, 2, 3]
 	v.set(0, value: 7)
 	return v.get(0)
@@ -1263,8 +1250,6 @@ carries the identical guard for the identical reason, and its header says so.
 them would pass on the other's arithmetic.
 
 <!-- test: a-write-past-the-fixed-size-is-refused-however-the-fixed-array-was-built -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both fixed arrays hold three elements and both refuse index 3. The index is laundered through a call so no
 constant is in the compiler's hands at the write — what is under test is the RUNTIME bound, and a folded
@@ -1281,14 +1266,11 @@ end 'runtimeIndex'
 
 function main() returns ExitCode
 	let made = Vec3.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lit = FixedArray from [1, 2, 3].clone()
 	var refused = 0 as Int
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try made.set(runtimeIndex(3) as ElementIndex, value: 99) otherwise 'madePastEnd'
 		refused = refused + 1
 	end 'madePastEnd'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try lit.set(runtimeIndex(3) as ElementIndex, value: 99) otherwise 'litPastEnd'
 		refused = refused + 1
 	end 'litPastEnd'
@@ -1557,7 +1539,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 ```
 
 <!-- test: a-fixed-array-literal-publishes-no-zero-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 A `FixedArray from [..]` writes every slot, so an enum whose raw values exclude 0 is accepted as its element, where `Level.create()` over the same element is refused.
 ```maxon
@@ -1570,9 +1551,7 @@ end 'Level'
 typealias Pair = FixedArray with 2 Level
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = FixedArray from [Level.low, Level.high]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let named = Pair from [Level.high, Level.low]
 	print("{literal.get(1).name} {named.get(0).name}\n")
 	return 0
@@ -2755,7 +2734,6 @@ name2 name2 name1 name1
 ```
 
 <!-- test: a-managed-fixed-array-literal-holds-heap-strings -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 Both literal heads build a managed fixed array whose elements are released when it dies: `2 name1 name2 3`.
 ```maxon
@@ -2769,9 +2747,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bare = FixedArray from [label(1), label(2)]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let named = Pair from [label(3), label(4)]
 	print("{bare.count()} {bare.get(0)} {bare.get(1)} {named.get(0).byteLength() - 2}\n")
 	return 0
@@ -2980,7 +2956,6 @@ name2 2
 ```
 
 <!-- test: a-constant-fixed-array-of-string-literals-is-read-cloned-and-dropped -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 A `let` fixed array of string literals is image data, in a module-level `let` and in a `static let` alike. Reading it allocates nothing, and its `clone()` is a real heap copy that owns its elements: writing and refilling the clone changes none of the image, and dropping the clone frees the heap strings it was given and releases nothing the image owns. Leak-gated and poisoned against a double free: `ab cde changed2 k2 f zzz 2` then `r2 r2 r2 3`.
@@ -2988,12 +2963,10 @@ A `let` fixed array of string literals is image data, in a module-level `let` an
 // TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 typealias Trio = FixedArray with 3 String
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Names = Trio from ["ab", "cde", "f"]
 
 type Registry
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let words = Trio from ["x", "yy", "zzz"]
 
 	static function lengthOfSecond() returns Count
@@ -4212,8 +4185,8 @@ reply false true
 ```
 
 <!-- test: error.a-fixed-array-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 A `FixedArray` instance alias at the head of `from […]` is a type name, and another directory's unexported one is
 refused.
@@ -4223,7 +4196,6 @@ refused.
 typealias Pair = FixedArray with 2 ExitCode
 
 export function probePair() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = Pair from [1, 2]
 	print("{v.count()}")
 	return 0
@@ -4231,7 +4203,6 @@ end 'probePair'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = Pair from [3, 4]
 	print("{v.count()}")
 	return probePair()
@@ -4242,7 +4213,7 @@ error E3008: <fragment>:13:10: typealias 'Pair' is not exported
 ```
 
 <!-- test: a-let-fixed-array-read-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `FixedArray from […]` bound by `let` is a constant, so a value read from it carries the range of the elements written.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4252,7 +4223,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10, 20, 30]
 	let a = v.get(1)
 	print("{take(a)}\n")
@@ -4267,8 +4237,7 @@ end 'main'
 ```
 
 <!-- test: error.a-let-fixed-array-read-outside-a-narrower-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The range a `let` fixed array's elements carry is checked at the use, and the reachable extreme is named.
 ```maxon
 typealias Small = int(0 to 100)
@@ -4278,7 +4247,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10, 2000]
 	let a = v.get(0)
 	let b = take(a)
@@ -4290,12 +4258,10 @@ error E3005: <fragment>:11:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.a-let-fixed-array-mutation-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `let` fixed array literal is immutable, so a write through it is refused as a `let` array's is.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10, 20, 30]
 	v.set(0, value: 99)
 	return v.count() as ExitCode
@@ -4547,7 +4513,6 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-set-past-the-length-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -4559,7 +4524,6 @@ end 'launder'
 
 function main() returns ExitCode
 	let buf = Buf.create(launder(3))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buf.set(launder(3), value: 99) otherwise 'oob'
 		return 7
 	end 'oob'
@@ -5205,7 +5169,7 @@ end 'main'
 ```
 
 <!-- test: a-literal-through-a-runtime-sized-alias-is-sized -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Buf from [...]` writes its length, so it is a `FixedArray with 3 Int` and its bare `get` at 2 is proven: `3 30`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -5213,7 +5177,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Buf = FixedArray with Int
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let buf = Buf from [10, 20, 30]
 	print("{buf.count()} {buf.get(2)}\n")
 	return 0
@@ -5617,7 +5580,6 @@ end 'main'
 ```
 
 <!-- test: a-literal-through-an-inner-runtime-sized-alias-is-sized -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Cells from [...]` inside the type that declares the alias writes its length, so the result is a `FixedArray with 3 Int` and a bare `get` at 2 is proven: `3 6`.
 ```maxon
@@ -5628,7 +5590,6 @@ type Holder
 	typealias Cells = FixedArray with Int
 
 	static function make() returns Int
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let cells = Cells from [4, 5, 6]
 		return (cells.count() as Int) * 100 + cells.get(2)
 	end 'make'
@@ -5765,9 +5726,9 @@ end 'main'
 ```
 
 <!-- test: a-sized-fixed-array-minted-in-two-files-is-one-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Buf.create(4)` in one file and `Buf from [...]` in another each build a `FixedArray with 4 Int` while their bodies are parsed. Both are the one instance the `Vec4` alias names, so each value crosses to a `Vec4` parameter in the other file: `9 4`.
 ```maxon
 // --- file: lib/types.maxon
@@ -5789,7 +5750,6 @@ end 'lastOf'
 
 // --- file: lib/b.maxon
 function sumB(v Vec4) returns Int
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let own = Buf from [1, 2, 3, 4]
 	return v.get(3) + lastOf(own)
 end 'sumB'

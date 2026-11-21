@@ -53,7 +53,6 @@ which a count passes through zero, because no count moves down.
 ## Tests
 
 <!-- test: insert-after-and-before-splice-around-a-named-node -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Both interior insertions, on one chain, checked by walking the whole thing forwards — and then by reading
 every handle again, which is what catches a splice that linked the node into the walk but left a
 neighbour pointing at the wrong side.
@@ -66,13 +65,11 @@ function main() returns ExitCode
 	let c = chain.insertLast("gamma, long enough to be a real heap allocation")
 	let b = chain.insertAfter(a, value: "beta, long enough to be a real heap allocation")
 	let z = chain.insertBefore(a, value: "zero, long enough to be a real heap allocation")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	var cur = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
 	print("{cur.value()}\n")
 	while true 'walk'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		cur = try cur.next() otherwise 'atEnd'
 			break
 		end 'atEnd'
@@ -156,7 +153,6 @@ before
 ```
 
 <!-- test: reinserting-a-node-into-its-own-chain-is-a-reorder -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The self-move, in both directions, including the case a hand-written unlink gets wrong: a chain of ONE,
 where the node is both `head` and `tail` and the unlink must leave the chain genuinely empty for the
 relink's empty-list arm to adopt both ends again.
@@ -164,14 +160,12 @@ relink's empty-list arm to adopt both ends again.
 typealias StrChain = __ManagedList with String
 
 function dump(c StrChain, tag String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	var cur = try c.head() otherwise 'empty'
 		print("{tag}: <empty>\n")
 		return
 	end 'empty'
 	print("{tag}: {cur.value()}")
 	while true 'walk'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		cur = try cur.next() otherwise 'atEnd'
 			break
 		end 'atEnd'
@@ -214,7 +208,6 @@ one, long enough to be a real heap allocation
 ```
 
 <!-- test: reinserting-a-detached-node-links-it-back -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The member `detach` earns, and the one arm where the new chain takes a reference of its own — a detached
 node is held only by handles, so the relink has nothing handed to it. Miss that incref and the node dies
 with its last handle while the chain still lists it; take one on the LINKED arm as well and the node
@@ -233,7 +226,6 @@ function main() returns ExitCode
 		chain.reinsertLast(n2)
 	end 'churn'
 	print("{chain.count()} {n1.value()} {n2.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
@@ -250,7 +242,6 @@ one, long enough to be a real heap allocation
 ```
 
 <!-- test: reinserting-a-node-of-another-chain-moves-it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Where `insertAfter` aborts, this is well defined and runs: the unlink repairs the chain `owner@32`
 names — not the receiver's — so both counts are right afterwards, and the one chain reference the node
 carried simply belongs to the new chain.
@@ -264,12 +255,10 @@ function main() returns ExitCode
 	let nb = b.insertLast("the element chain a is about to take, on the heap")
 	a.reinsertLast(nb)
 	print("a={a.count()} b={b.count()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	var cur = try a.head() otherwise 'empty'
 		return 1
 	end 'empty'
 	print("{cur.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	cur = try cur.next() otherwise 'atEnd'
 		return 2
 	end 'atEnd'
@@ -289,7 +278,6 @@ the element that stays in chain a, on the heap the element chain a is about to t
 ```
 
 <!-- test: setting-a-value-releases-the-one-it-replaced -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The leak direction of `setValue`, and the reason it needs a loop: a single overwrite that forgets to
 release the displaced element still prints the right answer. Sixteen do too — and end at **101**.
 ```maxon
@@ -302,7 +290,6 @@ function main() returns ExitCode
 		n.setValue("a replacement element, long enough to be a real allocation")
 	end 'churn'
 	print("{n.value()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
@@ -368,7 +355,6 @@ a replacement element, long enough to be a real allocation
 ```
 
 <!-- test: detaching-through-a-let-chain-writes-the-chain -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `detach` writes `head@0`, `tail@8` and `count@16`, so it is on the receiver-write roster: `ml.detach(n)`
 through a `let` is accepted exactly as the identical `ml.remove(n)` is, or one operation would give two
 answers about the same binding. The chain is built in a helper
@@ -385,7 +371,6 @@ end 'build'
 
 function main() returns ExitCode
 	let chain = build()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'
@@ -402,7 +387,6 @@ end 'main'
 ```
 
 <!-- test: a-discarded-insertion-mints-no-handle -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐ **A DISCARDED INSERTION.** An insertion whose node nobody reads pays no refcount round trip:
 `insertLast(x)` in statement position emits the link and nothing else — no `__mm_incref` for the
 statement's own drain to cancel with a `__list_node_decref` one instruction later.
@@ -421,7 +405,6 @@ function main() returns ExitCode
 	end 'fill'
 	chain.insertFirst("another element nobody keeps a handle to, on the heap").value()
 	print("{chain.count()}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let h = try chain.head() otherwise 'empty'
 		return 1
 	end 'empty'

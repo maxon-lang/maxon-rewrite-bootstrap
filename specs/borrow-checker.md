@@ -16,12 +16,10 @@ collection while values read from it are still in use.
 ## Tests
 
 <!-- test: get-then-push-keeps-the-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Getting an element, then pushing
 The element read by `get` stays readable after the source grows and is cleared.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello {40 + 2} world, long enough for the heap"]
 	let s = try arr.get(0) otherwise ""
 	arr.push("world")
@@ -62,16 +60,14 @@ end 'main'
 ```
 
 <!-- test: borrow-different-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Mutating a different source
 A value read from one array is untouched by a push to another.
 ```maxon
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr1 = ["hello"]
-	let arr2 = StringArray.create(0)
+	var arr2 = StringArray.create(0)
 	let s = try arr1.get(0) otherwise ""
 	arr2.push("world")
 	print("{s}\n")
@@ -86,14 +82,12 @@ hello
 ```
 
 <!-- test: borrow-not-live-in-otherwise -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### Try-otherwise: the source is mutable inside the otherwise handler
 Inside the `otherwise` block the get failed and `existing` was never bound; the handler mutates the same map.
 ```maxon
 typealias ByteArrayMap = Map with (String, ByteArray)
 
 function intern(lookup ByteArrayMap, name String) returns ByteArray
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let existing = try lookup.get(name) otherwise 'fresh'
 		let bytes = name.toByteArray()
 		lookup.upsert(name, value: bytes)

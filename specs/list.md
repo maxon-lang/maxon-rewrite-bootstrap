@@ -95,10 +95,9 @@ Elements are iterated front to back. Iteration uses a cached cursor on the under
 ## Tests
 
 <!-- test: basic.creation -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	return list.count()
 end 'main'
@@ -126,10 +125,9 @@ end 'main'
 ```
 
 <!-- test: basic.first-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	let f = (try list.first() otherwise 0) as FullRangeInt
 	let l = (try list.last() otherwise 0) as FullRangeInt
@@ -269,10 +267,9 @@ end 'main'
 ```
 
 <!-- test: get.valid -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30, 40]
 	let v0 = (try list.get(0) otherwise 0) as FullRangeInt
 	let v1 = (try list.get(1) otherwise 0) as FullRangeInt
@@ -296,10 +293,9 @@ end 'main'
 ```
 
 <!-- test: get.out-of-bounds -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	let v = (try list.get(5) otherwise 99) as FullRangeInt
 	return v as ExitCode
@@ -310,13 +306,10 @@ end 'main'
 ```
 
 <!-- test: insert.at-beginning -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [20, 30]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(0, value: 10) otherwise 'err'
 		return 1
 	end 'err'
@@ -339,13 +332,10 @@ end 'main'
 ```
 
 <!-- test: insert.at-middle -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 30]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(1, value: 20) otherwise 'err'
 		return 1
 	end 'err'
@@ -368,13 +358,10 @@ end 'main'
 ```
 
 <!-- test: insert.at-end -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(2, value: 30) otherwise 'err'
 		return 1
 	end 'err'
@@ -397,8 +384,7 @@ end 'main'
 ```
 
 <!-- test: insert.out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 
 An index past `count` is out of bounds and throws `ArrayError.indexOutOfBounds`.
 Only `at == count` may append; `at > count` must throw and leave the list
@@ -406,9 +392,7 @@ unchanged, rather than clamp the index to the tail and grow the list.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(5, value: 99) otherwise 'oob'
 		print("threw\n")
 		print("{list.count()}\n")
@@ -427,10 +411,9 @@ threw
 ```
 
 <!-- test: remove-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	let removed = (try list.removeFirst() otherwise 0) as FullRangeInt
 	print("{removed}\n")
@@ -450,10 +433,9 @@ end 'main'
 ```
 
 <!-- test: remove-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	let removed = (try list.removeLast() otherwise 0) as FullRangeInt
 	print("{removed}\n")
@@ -473,10 +455,9 @@ end 'main'
 ```
 
 <!-- test: remove.at-index -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30, 40]
 	let removed = (try list.remove(1) otherwise 0) as FullRangeInt
 	print("{removed}\n")
@@ -502,11 +483,9 @@ end 'main'
 ```
 
 <!-- test: iteration.for-in -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [10, 20, 30]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for item in list 'loop'
@@ -549,11 +528,9 @@ end 'main'
 ```
 
 <!-- test: iteration.two-loops -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [1, 2, 3]
 	var sum1 = 0 as FullRangeInt
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -634,10 +611,9 @@ world
 ```
 
 <!-- test: clear -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let list = List from [1, 2, 3]
 	list.clear()
 	if list.isEmpty() 'check'
@@ -954,15 +930,13 @@ end 'main'
 ```
 
 <!-- test: error.a-list-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `List` instance alias at the head of `from […]` is a type name, and another directory's unexported one is refused.
 ```maxon
 // --- file: probe/probe.maxon
 typealias Readings = List with ExitCode
 
 export function probeReadings() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let r = Readings from [1, 2]
 	print("{r.count()}")
 	return 0
@@ -970,7 +944,6 @@ end 'probeReadings'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let r = Readings from [3]
 	print("{r.count()}")
 	return probeReadings()

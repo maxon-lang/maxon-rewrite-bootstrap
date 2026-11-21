@@ -289,12 +289,10 @@ end 'main'
 ```
 
 <!-- test: array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Initialize from array literal.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	if arr.count() != 3 'cnt'
 		return 1
@@ -1004,7 +1002,6 @@ end 'main'
 ### Remove
 
 <!-- test: remove-from-beginning -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Remove from index 0 shifts all remaining elements left and returns the removed value.
 
 ```maxon
@@ -1013,11 +1010,10 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(0) otherwise 'err'
 		return 99
 	end 'err'
@@ -1043,7 +1039,6 @@ end 'main'
 ```
 
 <!-- test: remove-from-middle -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Remove from the middle shifts later elements left.
 
 ```maxon
@@ -1052,11 +1047,10 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(1) otherwise 'err'
 		return 99
 	end 'err'
@@ -1082,7 +1076,6 @@ end 'main'
 ```
 
 <!-- test: remove-from-end -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Remove last element requires no shift, like pop.
 
 ```maxon
@@ -1091,11 +1084,10 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(2) otherwise 'err'
 		return 99
 	end 'err'
@@ -1117,7 +1109,6 @@ end 'main'
 ```
 
 <!-- test: remove-all-one-by-one -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Remove all elements from the front, one at a time. Exercises repeated shiftLeft.
 
 ```maxon
@@ -1126,7 +1117,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -1134,14 +1125,13 @@ function main() returns ExitCode
 	arr.push(50)
 	var sum = 0 as Int
 	while arr.count() > 0 'drain'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let elem = try arr.remove(0) otherwise 'err'
 			return 99
 		end 'err'
-		sum = sum + elem
+		sum = try sum + elem otherwise panic("out of range")
 	end 'drain'
 	// 10+20+30+40+50 = 150, masked to wasi exit range: 150 and 125 = 20
-	return sum and 125
+	return try (sum and 125) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1195,7 +1185,6 @@ end 'main'
 ### Combined Insert and Remove
 
 <!-- test: insert-then-remove-same-position -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Insert then remove at the same position leaves the array unchanged.
 
 ```maxon
@@ -1204,12 +1193,11 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.insert(1, value: 99)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(1) otherwise 'err'
 		return 99
 	end 'err'
@@ -1341,7 +1329,6 @@ yxz
 ```
 
 <!-- test: insert-remove-structs -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Insert and remove structs from an array. Exercises shift operations with managed struct types.
 
 ```maxon
@@ -1358,16 +1345,15 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(1))
 	arr.push(Item.create(3))
 	arr.insert(1, value: Item.create(2))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let removed = try arr.remove(0) otherwise 'err'
 		return 99
 	end 'err'
 	// removed.id==1, arr is now [Item{id:2}, Item{id:3}]
-	return removed.id + (arr.count() as Int)
+	return try removed.id + (arr.count() as Int) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

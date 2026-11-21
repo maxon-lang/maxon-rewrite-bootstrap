@@ -4745,7 +4745,7 @@ error E3186: <fragment>:15:26: argument 'type' is read by another operand of thi
 ```
 
 <!-- test: map-literal-key-reads-the-root -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected an indented line but got 'end' -->
 <!-- positions: moved -->
 A map literal's key is an operand that reads the local before the call rewrites it.
 
@@ -4768,7 +4768,6 @@ end 'keep'
 
 function main() returns ExitCode
 	var n = 0 as Tally
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let k = tally([n: 1 as Tally], k: bump(n))
 	keep(k)
 	print("ok\n")
@@ -4780,7 +4779,6 @@ error E3186: <fragment>:20:41: argument 'n' is read by another operand of this s
 ```
 
 <!-- test: for-binder-named-like-the-root -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A loop variable spelled like the local is a different binding, so the header's one read of the local is the cell.
 
@@ -4795,7 +4793,6 @@ function bump(mutates n Tally) returns Tally
 end 'bump'
 
 function spread(k Tally) returns TallyArray
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [k, k]
 end 'spread'
 
@@ -4852,7 +4849,6 @@ end 'main'
 ```
 
 <!-- test: closure-with-commas-in-brackets -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 A closure whose own parameter is spelled like the local, with commas inside a bracketed body, reads nothing of the local.
@@ -4877,7 +4873,6 @@ end 'drive'
 function main() returns ExitCode
 	var x = 0 as Tally
 	// TODO: closures are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let r = drive(function(x Tally) gives [x, x], k: bump(x))
 	print("{r}\n")
 	return 0
@@ -7508,7 +7503,6 @@ error E3186: <fragment>:13:18: argument 's' is read by another operand of this s
 ```
 
 <!-- test: write-based-assignment-in-a-try-handler-writes-the-cell -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 An assignment inside a `try ... otherwise` handler is a write of the parameter.
 
@@ -7526,7 +7520,6 @@ function mayFail(n Tally) throws Fault
 end 'mayFail'
 
 function recover(mutates a String, b String) returns Tally
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try mayFail(1) otherwise 'handler'
 		a = "recovered"
 	end 'handler'

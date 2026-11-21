@@ -429,7 +429,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-runtime-callee -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: test declarations are not supported in minimaxon -->
 A throwing compiler-owned callee, the array accessor, written bare in a test body takes the implied
 handler exactly as a user function does.
@@ -437,7 +436,6 @@ handler exactly as a user function does.
 // --- file: suite.maxtest
 // TODO: test declarations are not supported in minimaxon
 test 'reads an element bare'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [10, 20, 30]
 	let x = a.get(1)
 	print("{x}\n")
@@ -616,7 +614,6 @@ end 'main'
 ```
 
 <!-- test: implied-try-iteration-error-in-a-for-range-bound -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: test declarations are not supported in minimaxon -->
 A `for` loop absorbs the `IterationError` of the call that hands it its cursor, and nothing else. Here the
 source is a RANGE whose lower bound is `peek`, which throws `IterationError` but hands the loop no cursor, so
@@ -625,7 +622,6 @@ the loop has nothing to absorb and the call takes the test body's implied handle
 // --- file: suite.maxtest
 // TODO: test declarations are not supported in minimaxon
 test 'counts up from a peeked bound'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let steps = [1, 2, 3]
 	let it = steps.cursor()
 	var total = 0 as FullRangeInt

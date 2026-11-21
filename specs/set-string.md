@@ -199,13 +199,12 @@ end 'main'
 ```
 
 <!-- test: from-literal-distinct -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Set from ["…"]` builds a set by MOVING each key out of the source array literal — the array is the caller's
 owned temp, borrowed by `__set_from`, and each moved-out slot is nulled so the array's own drop double-frees
 nothing. Three distinct keys → count 3.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from ["x", "y", "z"]
 	return s.count()
 end 'main'
@@ -215,13 +214,12 @@ end 'main'
 ```
 
 <!-- test: from-literal-dedup -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The dedup case: `Set from ["a", "b", "a", "c"]` — the second `"a"` is a distinct allocation that
 duplicates the first by content, so it is dropped by the insert dup-path (and its source array slot nulled).
 Three unique members; no double-free between the set's key drops and the array's element drop.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from ["a", "b", "a", "c"]
 	return s.count()
 end 'main'
@@ -231,11 +229,10 @@ end 'main'
 ```
 
 <!-- test: from-literal-contains -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A `Set from ["…"]` value answers `contains` by content and owns its keys to scope exit.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from ["apple", "banana", "cherry"]
 	if not s.contains("banana") 'miss'
 		return 1

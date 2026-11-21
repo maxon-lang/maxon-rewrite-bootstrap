@@ -50,13 +50,11 @@ accumulate one live allocation per iteration.
 ## Tests
 
 <!-- test: if-condition-temp-false-path -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [10, 20, 30].count() == 99 'x'
 		flag = 1
 	end 'x'
@@ -68,13 +66,11 @@ end 'main'
 ```
 
 <!-- test: if-condition-temp-true-path -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [10, 20, 30].count() == 3 'x'
 		flag = 1
 	end 'x'
@@ -86,16 +82,13 @@ end 'main'
 ```
 
 <!-- test: else-if-condition-temp -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [1].count() == 99 'a'
 		flag = 1
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	end 'a' else if [1, 2].count() == 99 'b'
 		flag = 2
 	end 'b' else 'c'
@@ -109,16 +102,14 @@ end 'main'
 ```
 
 <!-- test: while-condition-temp-per-iteration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 
 function main() returns ExitCode
 	var i = 0 as Count
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	while i < [1, 2, 3].count() 'loop'
 		i = i + 1
 	end 'loop'
-	return i as ExitCode
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -126,7 +117,6 @@ end 'main'
 ```
 
 <!-- test: if-condition-temp-inside-a-loop -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 500 iterations, each building and releasing one array in the `if`'s condition.
 A release that runs on only one edge leaks 500 allocations; the leak gate reports
@@ -139,13 +129,12 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	var i = 0 as Integer
 	while i < 500 'loop'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		if [1, 2, 3].count() == 3 'x'
-			n = n + 1
+			n = try n + 1 otherwise panic("out of range")
 		end 'x'
 		i = i + 1
 	end 'loop'
-	return n / 100
+	return try n / 100 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -153,13 +142,11 @@ end 'main'
 ```
 
 <!-- test: match-statement-scrutinee-temp -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	match [1, 2, 3].count() 'm'
 		1 then flag = 1
 		3 then flag = 7
@@ -173,20 +160,17 @@ end 'main'
 ```
 
 <!-- test: match-expression-arm-temp -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let n = 2 as Integer
 	let v = match n 'm'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		1 gives [1, 2].count()
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		2 gives [3, 4, 5].count()
 		default panic("no")
 	end 'm'
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -194,13 +178,11 @@ end 'main'
 ```
 
 <!-- test: ternary-arm-temp-false -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
 	let c = false
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = [1, 2].count() if c else [3, 4, 5].count()
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -208,13 +190,11 @@ end 'main'
 ```
 
 <!-- test: ternary-arm-temp-true -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
 	let c = true
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = [1, 2].count() if c else [3, 4, 5].count()
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -222,13 +202,11 @@ end 'main'
 ```
 
 <!-- test: short-circuit-or-skips-rhs-temp -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [1, 2, 3].count() == 3 or [4, 5].count() == 2 'x'
 		flag = 1
 	end 'x'
@@ -240,13 +218,11 @@ end 'main'
 ```
 
 <!-- test: short-circuit-and-skips-rhs-temp -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [1, 2, 3].count() == 99 and [4, 5].count() == 2 'x'
 		flag = 1
 	end 'x'
@@ -258,8 +234,6 @@ end 'main'
 ```
 
 <!-- test: if-inside-a-try-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 The crossing of the two rules: the `try` fork's temporaries are released once per
 edge, and the `if` nested inside the handler releases its own condition's
@@ -270,10 +244,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try [10, 20, 30].get(9) otherwise 'h'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		if [1, 2].count() == 2 'y'
 			flag = 4
 		end 'y'
@@ -286,7 +257,6 @@ end 'main'
 ```
 
 <!-- test: try-in-a-while-condition -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 A `try` whose own fork temporaries are re-created on every trip round the loop,
 inside a condition that is itself re-evaluated per iteration.
@@ -295,7 +265,6 @@ inside a condition that is itself re-evaluated per iteration.
 
 function main() returns ExitCode
 	var i = 0 as ElementIndex
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	while (try [10, 20, 30].get(i) otherwise 0) > 0 'loop'
 		i = i + 1
 	end 'loop'
@@ -307,7 +276,6 @@ end 'main'
 ```
 
 <!-- test: map-literal-temporary-in-value-position -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 ⛔⛔ **EVERY CASE ABOVE BUILDS ITS TEMPORARY FROM AN *ARRAY* LITERAL, AND A MAP LITERAL IS THE OTHER
 CONTAINER BORN THROUGH A BRACKET.** `Parser.parseMapLiteralBody` must not track its create result as an
@@ -323,8 +291,7 @@ this spec's table covers.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	return [1: 10, 2: 20, 3: 30].count() as ExitCode
+	return try [1: 10, 2: 20, 3: 30].count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -332,7 +299,6 @@ end 'main'
 ```
 
 <!-- test: map-literal-temporary-in-a-condition -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 The `if` row of this spec's table, over a map rather than an array: the literal is live on both edges of
 the branch and must be released exactly once before it.
@@ -342,7 +308,6 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	var flag = 0 as Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	if [1: 10, 2: 20].count() == 2 'x'
 		flag = 5
 	end 'x'
@@ -354,7 +319,6 @@ end 'main'
 ```
 
 <!-- test: map-literal-temporary-with-managed-columns-does-not-leak -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 ⭐ **THE OTHER HALF OF THE SAME RULE, AND THE ONE A DOUBLE FREE CANNOT BE MISTAKEN FOR.** The record is
 released ONCE — not twice (the crash above) and not zero times. Both columns are heap `String`s
@@ -367,10 +331,9 @@ typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 upto 200 'spin'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-		total = total + i - i + (["alpha a fairly long heap string": "beta another long heap string", "gamma a third long heap string": "delta a fourth long heap string"].count() as Integer)
+		total = try total + i - i + (["alpha a fairly long heap string": "beta another long heap string", "gamma a third long heap string": "delta a fourth long heap string"].count() as Integer) otherwise panic("out of range")
 	end 'spin'
-	return (total / 100) as ExitCode
+	return try (total / 100) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

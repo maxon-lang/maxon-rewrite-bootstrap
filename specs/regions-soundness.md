@@ -3335,7 +3335,6 @@ error E3200: <fragment>:13:22: 'a' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: error.a-send-error-union-matched-twice-cannot-give-its-isolated-payload-two-owners -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -3381,7 +3380,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Payload.create(2) as isolated Payload
 	var total = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
 			mailboxFull(back) then total = adopt(back)
@@ -3401,7 +3399,6 @@ error E3102: <fragment>:45:9: use of moved value 'e': its ownership moved to ano
 ```
 
 <!-- test: a-send-error-union-hands-its-isolated-payload-back-once -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -3456,7 +3453,6 @@ function main() returns ExitCode
 	try h.keep(accepted) otherwise panic("a capacity of one takes the first send")
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Payload.create(2) as isolated Payload
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(second) otherwise (e) 'refused'
 		match e 'first'
 			mailboxFull(back) then shelf = Shelf.holding(back)
@@ -3479,7 +3475,6 @@ kept 1
 ```
 
 <!-- test: error.a-local-alias-of-a-send-error-union-cannot-give-its-isolated-payload-a-second-owner -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -3525,7 +3520,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let second = Payload.create(2) as isolated Payload
 	var total = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try h.keep(second) otherwise (e) 'refused'
 		let other = e
 		match e 'first'

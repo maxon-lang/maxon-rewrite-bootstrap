@@ -25,12 +25,10 @@ Values in 16-bit storage are zero-extended (unsigned) or sign-extended (signed) 
 ### U16 Array Basic
 
 <!-- test: short-type.u16-array-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias U16 = int(0 to 65535)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [100 as U16, 200 as U16, 300 as U16]
 	let a = try arr.get(0) otherwise 0
 	let b = try arr.get(1) otherwise 0
@@ -51,7 +49,6 @@ end 'main'
 ### U16 Array Max Value
 
 <!-- test: short-type.u16-array-max -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias U16 = int(0 to 65535)
 
@@ -62,7 +59,6 @@ function sumWide(a U16, b U16) returns Result
 end 'sumWide'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [65535 as U16, 0 as U16, 1 as U16]
 	let a = try arr.get(0) otherwise 0
 	let b = try arr.get(2) otherwise 0
@@ -82,12 +78,10 @@ end 'main'
 ### I16 Array Basic
 
 <!-- test: short-type.i16-array-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias I16 = int(-32768 to 32767)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [100 as I16, -50 as I16, 200 as I16]
 	let a = try arr.get(0) otherwise 0
 	let c = try arr.get(2) otherwise 0
@@ -149,13 +143,11 @@ end 'main'
 ### U16 Array Set
 
 <!-- test: short-type.u16-array-set -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias U16 = int(0 to 65535)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let arr = [0 as U16, 0 as U16, 0 as U16].clone()
+	var arr = [0 as U16, 0 as U16, 0 as U16].clone()
 	try arr.set(1, value: 42) otherwise panic("test invariant: set OOB")
 	let v = try arr.get(1) otherwise 0
 	return v

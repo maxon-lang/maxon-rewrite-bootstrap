@@ -361,14 +361,12 @@ end 'main'
 ```
 
 <!-- test: static-array-of-literals -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An array of never-mutated string literals is a shared immortal record: its inline pointer table
 references the elements' own static records. Iterating and indexing it allocate nothing, the
 elements stay valid, and going out of scope frees nothing extra (no leak).
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let colors = ["red", "green", "blue"]
 	var joined = ""
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'

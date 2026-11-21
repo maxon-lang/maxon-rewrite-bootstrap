@@ -70,13 +70,11 @@ end 'main'
 ```
 
 <!-- test: process-environment-variable.unset-name-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⭐ A name nothing carries THROWS rather than answering the empty string, because a variable set to the
 empty string is a different fact from one that is not set at all, and a caller choosing a fallback has
 to be able to tell them apart.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let value = try Process.environmentVariable("MAXON_SPEC_NO_SUCH_VARIABLE_9F3A") otherwise 'unset'
 		return 7
 	end 'unset'
@@ -89,15 +87,12 @@ end 'main'
 ```
 
 <!-- test: process-environment-variable.value-keeps-everything-past-the-first-separator -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 ⭐⭐ The split keeps the WHOLE remainder. This program spawns ITSELF with one variable whose value
 contains an `=`, and the child echoes what it read back: a split that stopped at the first separator
 would answer `a` where the whole value is `a=b`.
 ```maxon
 function child() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let value = try Process.environmentVariable("MAXON_SPEC_ENV_EQ") otherwise 'unset'
 		print("unset\n")
 		return 3
@@ -115,7 +110,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_SPEC_ENV_EQ": "a=b"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child said {run.stdout.trim()}\n")

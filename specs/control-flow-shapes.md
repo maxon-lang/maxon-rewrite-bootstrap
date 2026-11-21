@@ -298,7 +298,6 @@ end 'main'
 ```
 
 <!-- test: control-flow-shapes.try-otherwise-inside-a-loop -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -323,11 +322,11 @@ function sumChecked(count Integer) returns Integer
 	while i < count 'loop'
 		let v = try check(i * 7) otherwise -1
 		if v < 0 'bad'
-			total = total - 1
+			total = try total - 1 otherwise panic("out of range")
 			i = i + 1
 			continue
 		end 'bad'
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return total
@@ -338,7 +337,6 @@ function sumHandled(count Integer) returns Integer
 	var i = 0 as Integer
 	while i < count 'loop'
 		i = i + 1
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let v = try check(i * 9 - 20) otherwise (e) 'err'
 			if e == CheckError.tooBig 'tooBig'
 				break

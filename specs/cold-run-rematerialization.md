@@ -16,7 +16,7 @@ into has a live view, so the store detaches, and the stored word and the words t
 ## Tests
 
 <!-- test: a-64-bit-constant-survives-a-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `0x123456789ABCDEF0` needs all 64 bits of its register.
 ```maxon
 typealias Word = int(i64.min to i64.max)
@@ -28,7 +28,6 @@ function stamp(arr WordArray)
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
@@ -45,7 +44,7 @@ end 'main'
 ```
 
 <!-- test: minus-one-survives-a-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `-1` is all ones: a zero-extending 32-bit move would give `0xFFFFFFFF`.
 ```maxon
 typealias Word = int(i64.min to i64.max)
@@ -57,7 +56,6 @@ function stamp(arr WordArray)
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
@@ -74,7 +72,7 @@ end 'main'
 ```
 
 <!-- test: the-smallest-signed-word-survives-a-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Word = int(i64.min to i64.max)
 
@@ -85,7 +83,6 @@ function stamp(arr WordArray)
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stamp(arr)
@@ -102,7 +99,7 @@ end 'main'
 ```
 
 <!-- test: the-widest-32-bit-constant-and-the-next-one-survive-a-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `u32.max` is the widest word a 32-bit move zero-extends; `u32.max + 1` is the first that needs the full
 64-bit move.
 ```maxon
@@ -119,11 +116,9 @@ function stampNext(arr WordArray)
 end 'stampNext'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let widest = WordArray from [10, 20, 30]
 	let widestView = try widest.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stampWidest(widest)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let next = WordArray from [10, 20, 30]
 	let nextView = try next.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	stampNext(next)
@@ -142,7 +137,7 @@ end 'main'
 ```
 
 <!-- test: a-constant-and-a-variable-survive-the-same-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The index and the returned tag are variables and the stored word is a constant, all live across one call:
 two registers are saved and reloaded and one is rebuilt.
 ```maxon
@@ -156,7 +151,6 @@ function stamp(arr WordArray, at Count, tag Word) returns Word
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = WordArray from [10, 20, 30]
 	let view = try arr.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let answer = stamp(arr, at: 2, tag: 41)
@@ -173,7 +167,7 @@ end 'main'
 ```
 
 <!-- test: successive-detaches-store-a-constant-then-a-variable-then-a-constant -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A view is taken before each store, so each store detaches. The register that holds the constant at the
 first call holds a variable at the second and a different constant at the third; each view keeps the
 words that were there when it was taken.
@@ -199,7 +193,6 @@ function stamp(arr WordArray, seed Word) returns bool
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = WordArray from [10, 20, 30]
 	if not stamp(arr, seed: 7) 'views'
 		return 1
@@ -218,7 +211,7 @@ end 'main'
 ```
 
 <!-- test: a-constant-passed-on-an-edge-survives-a-detach -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The constant is live across the detach and is then passed on an edge into the phi that `answer` becomes.
 ```maxon
 typealias Word = int(i64.min to i64.max)
@@ -236,11 +229,9 @@ function stamp(arr WordArray, flag Word) returns Word
 end 'stamp'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let taken = WordArray from [10, 20, 30]
 	let takenView = try taken.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let viaEdge = stamp(taken, flag: 1)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let skipped = WordArray from [10, 20, 30]
 	let skippedView = try skipped.slice(0, endIndex: 3) otherwise panic("slice: 0..3 of a three-element array")
 	let direct = stamp(skipped, flag: 0)

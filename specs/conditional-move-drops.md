@@ -452,7 +452,6 @@ an `otherwise (e)` handler that then returns, while the OK path never moved it. 
 state on its surviving edge, the handler's move persisted onto the ok path and `a` leaked (exit 101).
 
 <!-- test: try-handler-move-return-ok-live -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Code = int(0 to 125)
 
@@ -473,7 +472,6 @@ end 'step'
 
 function run(k Code) returns ExitCode
 	let a = build(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try step(k) otherwise 'bad'
 		let u = a
 		print("handed={u}\n")
@@ -501,7 +499,6 @@ ok path leaves it live. `a` must be dropped on the ok edge and marked moved past
 scope-exit drop is right on both paths. Driven down the OK path here.
 
 <!-- test: try-handler-move-fallthrough-both-live -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Code = int(0 to 125)
 
@@ -522,7 +519,6 @@ end 'step'
 
 function run(k Code) returns ExitCode
 	let a = build(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try step(k) otherwise 'bad'
 		let u = a
 		print("moved={u}\n")

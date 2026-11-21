@@ -185,12 +185,10 @@ end 'main'
 ```
 
 <!-- test: json-refuses-a-lone-surrogate-escape -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### A JSON `\u` escape is a scalar value or half of a surrogate pair
 
 ```maxon
 function show(label String, text String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let doc = try Json.parse(text) otherwise 'refused'
 		print("{label}: refused\n")
 		return

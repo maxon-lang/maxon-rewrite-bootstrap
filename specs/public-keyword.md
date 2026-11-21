@@ -295,7 +295,6 @@ cannot write a function that receives one, so it can only discard what went wron
 therefore `public` like the APIs that throw them.
 
 <!-- test: stdlib-error-enums-thrown-by-public-api-are-nameable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Each error type is named in a PARAMETER position, which a binding inferred from `otherwise (e)` never
 does, so the case needs the name to be visible and not merely the value. `StreamError` is named without
 reading anything, so the program compiles on every lane including the ones with no console substrate.
@@ -331,7 +330,6 @@ function describeStream(e StreamError) returns String
 end 'describeStream'
 
 function parseVerdict(text String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let doc = try Json.parse(text) otherwise (e) 'malformed'
 		return describeParse(e)
 	end 'malformed'
@@ -340,7 +338,6 @@ end 'parseVerdict'
 
 function accessVerdict(text String) returns String
 	let doc = try Json.parse(text) otherwise return "unparsed"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let value = try doc.getString(doc.root, key: "a") otherwise (e) 'wrongShape'
 		return describeAccess(e)
 	end 'wrongShape'

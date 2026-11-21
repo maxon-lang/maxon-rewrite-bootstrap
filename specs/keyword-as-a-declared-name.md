@@ -454,7 +454,6 @@ test the raw token, not to add a case to the raw test.
 
 <!-- test: a-keyword-named-METHOD-CALL-ending-a-block-HEADER -->
 <!-- skip: 'otherwise' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⛔ **`opensBlockAt` asks the keyword-as-a-name exclusion ONCE, ahead of every arm, and the `otherwise`
 arm is why.** `otherwiseOpensBlockIn`'s caught-error handler form is `otherwise ( <ident> ) <label>` — which a
 keyword-named METHOD CALL at the end of a block header spells character for character, `.otherwise`
@@ -475,11 +474,9 @@ end 'Ops'
 
 function main() returns ExitCode
 	var i = 0 as Integer
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	while Ops.otherwise(i) 'loop'
 		i = i + 1
 	end 'loop'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	if Ops.otherwise(i) 'lbl'
 		i = 99
 	end 'lbl'
@@ -554,7 +551,7 @@ end 'main'
 ### The keyword keeps its own role in the same program
 
 <!-- test: a-function-named-from-beside-a-set-from-construction -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `from` opens a `Set from […]` construction. Declaring a function named `from` in the same program
 must not disturb it, and calling that function must not be read as one.
 ```maxon
@@ -565,7 +562,6 @@ function from(n Integer) returns Integer
 end 'from'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [10, 20, 30, 40, 50, 60]
 	return from (s.count() as Integer)
 end 'main'

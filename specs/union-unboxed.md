@@ -331,7 +331,6 @@ end 'main'
 ```
 
 <!-- test: an-error-union-keeps-its-box -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A union that implements `Error` is thrown by its box pointer, so it stays boxed and still carries its payload.
 ```maxon
@@ -346,7 +345,6 @@ function risky() throws Failure
 end 'risky'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try risky() otherwise (e) 'caught'
 		return match e 'kind'
 			because(reason) gives reason.byteLength() as ExitCode

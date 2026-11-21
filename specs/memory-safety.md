@@ -153,10 +153,8 @@ end 'main'
 
 <!-- test: array-clone -->
 <!-- skip: 'is' / 'is not' comparison is not supported in minimaxon -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
 	let b = a.clone()
 	// TODO: 'is' / 'is not' comparison is not supported in minimaxon

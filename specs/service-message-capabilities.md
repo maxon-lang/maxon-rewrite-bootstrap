@@ -800,7 +800,6 @@ end 'main'
 
 <!-- test: an-os-handle-needs-no-word-on-a-factory-or-a-reply -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 A `TcpListener` and a `TcpClient` each own an OS socket, so each is `unique`: the listener crosses into the factory and the accepted connection crosses back as a reply, with no capability word on either.
@@ -827,7 +826,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let acceptor = spawn Acceptor.create(listener)
 	let pending = try acceptor.next() otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let out = try TcpClient.connect("127.0.0.1", port: port) otherwise 'refused3x23'
 		pending.cancel()
 		return 3

@@ -184,13 +184,11 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "async_test_file.txt"
 	// Write synchronously first
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path, content: "AsyncTest") otherwise 'werr'
 		return 1
 	end 'werr'
@@ -199,7 +197,6 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let p = async File.readText(FilePath from "async_test_file.txt")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try await p otherwise 'rerr'
 		try File.delete(path) otherwise ignore
 		return 2
@@ -274,7 +271,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -282,11 +278,9 @@ function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path2 = FilePath from "async_par_b.txt"
 	// Write both files synchronously
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path1, content: "FileA") otherwise 'e1'
 		return 1
 	end 'e1'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path2, content: "FileB") otherwise 'e2'
 		try File.delete(path1) otherwise ignore
 		return 2
@@ -320,7 +314,6 @@ FileAFileB
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ### A struct holding a `__ManagedFile`, spawned as an `async` argument
 ⭐ **AN `async` ARGUMENT THAT HOLDS A HANDLE IS LENT, NEVER DEEP-COPIED, AND A HANDLE BOX IS WHY THAT
@@ -338,7 +331,6 @@ type Holder
 	export var f as __ManagedFile
 
 	static function openRead(path __ManagedMemory) returns Holder throws HolderError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw HolderError.openFailed
 		end 'fail'
@@ -347,19 +339,15 @@ type Holder
 end 'Holder'
 
 function readOn(h Holder) returns String throws HolderError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let size = try h.f.size() otherwise 'sizeFail'
 		throw HolderError.openFailed
 	end 'sizeFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let buffer = try __ManagedMemory.create(size + 1, 1) otherwise 'allocFail'
 		throw HolderError.openFailed
 	end 'allocFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let bytesRead = try h.f.read(buffer, size) otherwise 'readFail'
 		throw HolderError.openFailed
 	end 'readFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buffer.setLength(bytesRead) otherwise 'lenFail'
 		throw HolderError.openFailed
 	end 'lenFail'
@@ -368,7 +356,6 @@ end 'readOn'
 
 // The holder's own scope ends here, so its handle is closed before `main` deletes the file.
 function readHolder(name String) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let holder = try Holder.openRead(name.toByteArray().managed) otherwise 'openFail'
 		return "OPENFAILED"
 	end 'openFail'
@@ -381,7 +368,6 @@ end 'readHolder'
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "async_handle_holder.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path, content: "HandleRead") otherwise 'writeFail'
 		return 1
 	end 'writeFail'

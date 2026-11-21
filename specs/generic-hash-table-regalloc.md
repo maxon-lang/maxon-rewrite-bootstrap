@@ -49,7 +49,6 @@ is confined and nothing there moves.
 ## Tests
 
 <!-- test: generic-hash-table-regalloc.rehash-loop-forwards-hidden-parameters -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -144,15 +143,12 @@ type Tbl uses Key where Key implements Hashable and Equatable
 				Deleted gives false
 			end 'so1'
 			if isOccupied 'occupied'
-				// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 				let key = try oldKeys.get(i) otherwise 'skip_key'
 					continue
 				end 'skip_key'
-				// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 				let value = try oldValues.get(i) otherwise 'skip_val'
 					continue
 				end 'skip_val'
-				// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 				let hash = try oldHashes.get(i) otherwise 'skip_hash'
 					continue
 				end 'skip_hash'

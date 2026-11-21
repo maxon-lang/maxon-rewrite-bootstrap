@@ -294,7 +294,6 @@ main ready=1 sum=7 coroutine=103
 <!-- test: await-any-waits.a-message-body-may-make-an-http-request -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `fetch` runs in `Fetcher`'s message body and makes an `HttpClient` request over `http` to a peer coroutine of `main`. The client reaches no wait, so the message is accepted.
 
@@ -332,7 +331,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let fetcher = spawn Fetcher.create()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let length = try await fetcher.fetch("http://127.0.0.1:{port}/") otherwise 'refused'
 		peer.cancel()
 		return 2

@@ -57,7 +57,6 @@ error E3072: <fragment>:3:26: '__ManagedSocket' is a compiler builtin type and c
 ```
 
 <!-- test: managed-socket.connect-bad-host -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently
@@ -65,7 +64,6 @@ discarded — and with a payload-carrying error it would leak the box (`exit 101
 ```maxon
 function main() returns ExitCode
 	let host = "no-such-host-xyz-98765.invalid"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedSocket.tcpConnect(host.toByteArray().managed, port: 80) otherwise (e) 'connErr'
 		match e 'check'
 			resolveFailed then print("resolve failed")
@@ -84,7 +82,6 @@ resolve failed
 ```
 
 <!-- test: managed-socket.connect-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ⚠ The `default` arm says *unreachable*, and in a function declaring no `throws` it has to say so with
 `panic` rather than `throws`: `main` has no error channel, so a `default throws` here would be silently
@@ -92,7 +89,6 @@ discarded — and with a payload-carrying error it would leak the box (`exit 101
 ```maxon
 function main() returns ExitCode
 	let host = "192.0.2.1"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedSocket.tcpConnect(host.toByteArray().managed, port: 1) otherwise (e) 'connErr'
 		match e 'check'
 			connectFailed then print("connect failed")

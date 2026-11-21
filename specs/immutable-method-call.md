@@ -391,7 +391,6 @@ end 'main'
 ```
 
 <!-- test: error.push-through-a-field-chain-off-a-static-let -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 A chain through a `static let` reaches immutable image data: `Facts.shared.counts` is a chain, so
@@ -406,7 +405,6 @@ typealias CountArray = Array with Count
 type Facts
 	export var counts as CountArray
 	// TODO: static fields (static let) are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	static let shared = Facts{counts: CountArray from [0]}
 end 'Facts'
 

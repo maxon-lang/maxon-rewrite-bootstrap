@@ -41,7 +41,6 @@ worked out by hand from those rules.
 ## Tests
 
 <!-- test: der.reads-a-subject-public-key-info -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 A SubjectPublicKeyInfo walked element by element, nested readers over a BIT STRING's content, `isAtEnd`, and `finish` refusing what follows the last element.
@@ -123,7 +122,6 @@ function readKey(id String, hex String) throws DerError
 end 'readKey'
 
 function report(id String, hex String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try readKey(id, hex: hex) otherwise (failure) 'refused'
 		print("{id} {errorName(failure)}\n")
 	end 'refused'
@@ -386,7 +384,6 @@ integer-015 nonMinimalInteger
 ```
 
 <!-- test: der.primitives -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -458,7 +455,6 @@ end 'readOid'
 
 function readNull(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try reader.readNull() otherwise (failure) 'refused'
 		print("{id} {errorName(failure)}\n")
 		return
@@ -541,7 +537,6 @@ octets-004 truncated
 ```
 
 <!-- test: der.constructed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 SET and SEQUENCE readers, an explicit `[n]` tag as X.509 writes its version, and an element running past its parent.
@@ -625,14 +620,12 @@ function readVersion(id String, hex String, tagNumber DerTagNumber) throws DerEr
 end 'readVersion'
 
 function reportSet(id String, hex String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try readSet(id, hex: hex) otherwise (failure) 'refused'
 		print("{id} {errorName(failure)}\n")
 	end 'refused'
 end 'reportSet'
 
 function reportVersion(id String, hex String, tagNumber DerTagNumber)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try readVersion(id, hex: hex, tagNumber: tagNumber) otherwise (failure) 'refused'
 		print("{id} {errorName(failure)}\n")
 	end 'refused'
@@ -808,7 +801,6 @@ time-028 unexpectedTag
 ```
 
 <!-- test: der.x509-reads -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -921,7 +913,6 @@ end 'readImplicitSigned'
 function readElements(id String, hex String)
 	let reader = DerReader.create(fromHex(hex))
 	while not reader.isAtEnd() 'eachElement'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let element = try reader.readElement() otherwise (failure) 'refused'
 			print("{id} {errorName(failure)}\n")
 			return

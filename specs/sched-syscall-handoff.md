@@ -112,7 +112,6 @@ nothing, while a bracket count of 0 says there was nothing it could have taken.
 <!-- test: more-blocking-file-reads-than-processors-still-finish -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 2 -->
 **EIGHT CONCURRENT FILE ROUND-TRIPS ON TWO PROCESSORS.** Every send is posted before any reply is awaited,
@@ -151,11 +150,9 @@ type Reader
 	export function roundTrip() returns Integer
 		// TODO: 'Type from value' conversions are not supported in minimaxon
 		let path = FilePath from "syscall_handoff_read_{self.id}.txt"
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try File.writeText(path, content: payload) otherwise 'w'
 			return 0
 		end 'w'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let text = try File.readText(path) otherwise 'r'
 			try File.delete(path) otherwise ignore
 			return 0
@@ -221,7 +218,6 @@ aggregate=80 last=1
 
 <!-- test: a-blocking-subprocess-wait-does-not-stall-a-sibling -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 <!-- procs: 2 -->
@@ -261,7 +257,6 @@ type Runner
 		argv.push("/c")
 		argv.push("exit")
 		argv.push("0")
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let result = try Subprocess.run(exe, arguments: argv) otherwise 'e'
 			return 0
 		end 'e'
@@ -690,7 +685,6 @@ slept=true exited=true
 <!-- test: a-child-wait-parks-instead-of-holding-a-processor -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 1 -->
@@ -734,7 +728,6 @@ type Waiter
 	end 'create'
 
 	export function outlast(sentinel Sentinel.handle) returns Integer
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let child = try spawnTimedChild() otherwise 'noChild'
 			return 0
 		end 'noChild'

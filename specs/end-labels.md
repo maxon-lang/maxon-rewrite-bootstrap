@@ -338,7 +338,6 @@ error E2008: <fragment>:20:2: Mismatched end label: expected 'work', got 'job'
 ```
 
 <!-- test: error.an-otherwise-handler-end-label-names-another-block -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 ```maxon
 typealias Count = int(0 to 10)
@@ -355,7 +354,6 @@ function risky(n Count) returns Count throws Oops
 end 'risky'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try risky(2) otherwise 'failed'
 		return 1
 	end 'recovered'

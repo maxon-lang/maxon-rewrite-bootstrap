@@ -389,7 +389,6 @@ with `sort()` until self-hosted gains interface-method dispatch on
 type-parameter receivers (Phase 11.4).
 
 <!-- test: pdq-correctness-50elem -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 pdqsort produces a sorted result on a 50-element scrambled input.
 ```maxon
@@ -404,7 +403,6 @@ end 'ascending'
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for v in [50, 40, 30, 20, 10, 45, 35, 25, 15, 5, 48, 38, 28, 18, 8, 46, 36, 26, 16, 6, 44, 34, 24, 14, 4, 42, 32, 22, 12, 2, 49, 39, 29, 19, 9, 47, 37, 27, 17, 7, 43, 33, 23, 13, 3, 41, 31, 21, 11, 1] 'fill'
 		a.push(v)
 	end 'fill'
@@ -500,7 +498,6 @@ end 'main'
 ```
 
 <!-- test: small-sort-network-n4-all-perms -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Exhaustive: every permutation of [0..4) sorts to ascending order. There are
 24 permutations; we test each via a 4-digit index → permutation mapping.
 ```maxon
@@ -538,7 +535,6 @@ function nthPerm4(k Integer) returns IntArray
 	pool.push(3)
 	let result = IntArray.create(0)
 	var remaining = k
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let divs = [6, 2, 1, 1]
 	for i in 0 upto 4 'pick'
 		let d = try divs.get(i) otherwise panic("divs OOB")
@@ -1467,7 +1463,6 @@ error E3210: <fragment>:67:15: function value for 'Array.SortComparator' writes 
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-come-out-sorted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 `sort()` on arrays of 100 to 400 elements drawn from 2 to 40 distinct values. The
 stable quicksort that builds driftsort's runs keeps hitting a partition whose pivot
@@ -1497,7 +1492,6 @@ end 'nextSeed'
 function main() returns ExitCode
 	let spreads = SpreadArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'
@@ -1545,7 +1539,6 @@ unsorted arrays: 0
 ```
 
 <!-- test: sort-duplicate-heavy-arrays-keep-equal-keys-in-arrival-order -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 The same duplicate-heavy shapes as records sorted by key with `sortBy(cmp)`. Each
@@ -1586,7 +1579,6 @@ end 'nextSeed'
 function main() returns ExitCode
 	let spreads = SpreadArray.create(0)
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for spread in [2, 3, 4, 8, 16, 40] 'spreads'
 		spreads.push(spread)
 	end 'spreads'

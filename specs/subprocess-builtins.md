@@ -626,7 +626,6 @@ kind=0 code=0 echoed=true outLen=7
 
 <!-- test: subprocess-builtins.stdin-bytes-holding-a-nul-are-delivered-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
@@ -650,7 +649,6 @@ function appendToken(out ByteArray, token String)
 end 'appendToken'
 
 function readAllStdin() returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try Console.stdin().readToEnd() otherwise (e) 'unread'
 		return "read threw {e.name}"
 	end 'unread'
@@ -2672,7 +2670,6 @@ wrote=0 before=open errBefore=open outLen=7 after=atEof errLen=0 errAfter=atEof 
 ```
 
 <!-- test: subprocess-builtins.streaming-read-after-release-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 The stdlib half of the case above. A `ChildOutputReader` tells the end of the stream from a refusal: a short
 `readBytes` at the end returns what remained, a `readLine` at the end answers `LineOrEnd.ended`, and nothing
@@ -2691,7 +2688,6 @@ function shown(read LineOrEnd) returns String
 end 'shown'
 
 function readLineAfterRelease(reader ChildOutputReader) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let read = try reader.readLine() otherwise (e) 'refused'
 		return e.name
 	end 'refused'
@@ -2699,7 +2695,6 @@ function readLineAfterRelease(reader ChildOutputReader) returns String
 end 'readLineAfterRelease'
 
 function takeAfterRelease(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try child.takeStdout() otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -2707,7 +2702,6 @@ function takeAfterRelease(child StreamingSubprocess) returns String
 end 'takeAfterRelease'
 
 function writeAfterRelease(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try child.writeStdinLine("late") otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -2715,7 +2709,6 @@ function writeAfterRelease(child StreamingSubprocess) returns String
 end 'writeAfterRelease'
 
 function waitAfterRelease(child StreamingSubprocess) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let code = try child.wait() otherwise (e) 'refused'
 		return e.displayReason()
 	end 'refused'
@@ -3012,7 +3005,6 @@ error E3104: <fragment>:3:10: this construct lowers to the runtime entry '__gt_s
 ```
 
 <!-- test: subprocess-builtins.the-stdlib-api-compiles-on-arm64 -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-linux, wasm32-wasi -->
 ⛔⛔ **A `Subprocess` PROGRAM CROSS-COMPILED TO arm64-macOS.** `--target=arm64-macos` on a
 `Configuration.create` + `runConfiguration` with the DEFAULT `Environment.inherit` must compile and run.
@@ -3035,7 +3027,6 @@ panic would make impossible.
 ```maxon
 function main() returns ExitCode
 	let config = Configuration.create(Executable.name("/bin/sh"))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.arguments = ["-c", "printf ok"]
 	config.workingDirectory = WorkingDirectory.inherit
 	let r = try Subprocess.runConfiguration(config) otherwise return 2
@@ -3051,7 +3042,6 @@ exit=0 out=ok
 ```
 
 <!-- test: subprocess-builtins.the-stdlib-api-runs-on-windows -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: x64-linux, arm64-macos, arm64-linux, wasm32-wasi -->
 The host-lane twin of `the-stdlib-api-compiles-on-arm64`, and the reason both exist: the arm64 case
 pins the cross-compile, and this one is the same door with its ANSWER checked on a lane this box can
@@ -3060,7 +3050,6 @@ execute. Between them the stdlib's `Configuration` + `runConfiguration` path —
 ```maxon
 function main() returns ExitCode
 	let config = Configuration.create(Executable.name("cmd"))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.arguments = ["/c", "echo ok"]
 	config.workingDirectory = WorkingDirectory.inherit
 	let r = try Subprocess.runConfiguration(config) otherwise return 2

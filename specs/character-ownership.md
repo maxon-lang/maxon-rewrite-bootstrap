@@ -785,7 +785,6 @@ error E3005: specs/character-ownership/panic-takes-a-string-not-a-character.maxo
 ```
 
 <!-- test: an-array-literal-element-is-not-a-character -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### An array literal infers no element type from a Character
@@ -795,7 +794,6 @@ A type-side site of `tagIsText`, and the one whose wrong answer is SILENT: with
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let a = ['é', 'ö']
 	print("{a.count()}\n")
@@ -1057,7 +1055,6 @@ error E3005: specs/character-ownership/a-cluster-has-no-integer-reading.maxon:4:
 ```
 
 <!-- test: an-ascii-array-literal-is-a-character-array-too -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- positions: moved -->
 ### `['a', 'b']` infers the same element type `['é', 'ö']` does
@@ -1067,7 +1064,6 @@ literal array is not an `Array with integer`.
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: character literals are not supported in minimaxon
 	let a = ['a', 'b']
 	print("{a.count()}\n")

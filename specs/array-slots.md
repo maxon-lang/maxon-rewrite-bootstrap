@@ -164,7 +164,6 @@ end 'main'
 ```
 
 <!-- test: raw-open-slot-reports-empty-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ### An empty slot opened through the raw buffer reports emptySlot
 `__ManagedMemory.setLength` is the layer where an unwritten slot is a defined state. Read back
@@ -183,7 +182,6 @@ function main() returns ExitCode
 	let arr = SlotArray.create(0)
 	arr.reserve(2)
 	try arr.managed.setLength(2) otherwise panic("setLength: capacity just reserved for 2")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.get(0) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42
@@ -198,7 +196,6 @@ end 'main'
 ```
 
 <!-- test: past-the-end-reports-index-out-of-bounds -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### An index past the end still reports indexOutOfBounds
 The other half of the same distinction: this one really IS out of bounds.
 ```maxon
@@ -207,10 +204,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntegerArray.create(0)
+	var arr = IntegerArray.create(0)
 	arr.push(1)
 	arr.push(2)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.get(5) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42
@@ -225,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: error.negative-index-is-refused-at-the-door -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- positions: moved -->
 ### A NEGATIVE index never reaches the distinction at all
 `get`'s failure is decided from the live range, and "below the length" is true of `-1` on every signed
@@ -241,7 +236,6 @@ function main() returns ExitCode
 	var arr = IntegerArray.create(0)
 	arr.push(1)
 	arr.push(2)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.get(-1) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42
@@ -256,7 +250,6 @@ error E3005: <fragment>:9:10: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: laundered-negative-index-panics-at-the-door -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### The same refusal when the compiler cannot fold the index
 A negative the compiler cannot see is refused by the runtime guard instead. The `match` arms are what prove
 the refusal is not either `ArrayError`: both are still written, both would return, and neither runs.
@@ -273,7 +266,6 @@ function main() returns ExitCode
 	let arr = IntegerArray.create(0)
 	arr.push(1)
 	arr.push(2)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.get(launder(-1) as ElementIndex) otherwise (e) 'handler'
 		match e 'check'
 			emptySlot then return 42

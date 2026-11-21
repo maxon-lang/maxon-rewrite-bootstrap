@@ -151,7 +151,6 @@ named=4
 ```
 
 <!-- test: shared-memory-builtins.a-name-some-lane-cannot-publish-is-refused-on-every-lane -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⛔ **THE NAME RULE IS THE SAME ON EVERY LANE, WHATEVER THE HOST WOULD HAVE ACCEPTED.** A name of
 exactly 31 bytes is published; a 32-byte name, an empty one, and names holding `/`, `\` or a NUL are
 each refused with `invalidName` (7). Win32 alone publishes every one of them but the `\` name (5), and
@@ -159,7 +158,6 @@ refuses that one as `createFailed` (3), so every refused line reads 7 only becau
 the host.
 ```maxon
 function createOutcome(name String) returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let segment = try SharedSegment.create(name, bytes: 4096) otherwise (e) 'refused'
 		return match e 'why'
 			invalidName gives 7
@@ -192,14 +190,12 @@ at-limit=5 past-limit=7 empty=7 slash=7 backslash=7 nul=7
 ```
 
 <!-- test: shared-memory-builtins.a-word-read-past-the-segment-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⛔ **AN ACCESS THAT REACHES PAST THE SEGMENT THROWS `outOfBounds` INSTEAD OF READING WHATEVER LIES BEYOND
 IT.** A word is 8 bytes, so offset 4090 in a 4096-byte section starts inside the mapping and ends 2 bytes
 past it. Exit 7 is reachable only through the `outOfBounds` arm; a read that succeeded returns 5.
 ```maxon
 function main() returns ExitCode
 	let segment = try SharedSegment.create("maxon-spec-shm-read-past-end", bytes: 4096) otherwise return 3
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let word = try segment.readWord(4090) otherwise (e) 'refused'
 		segment.close()
 		return match e 'why'
@@ -220,13 +216,11 @@ end 'main'
 ```
 
 <!-- test: shared-memory-builtins.a-word-written-past-the-segment-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The write twin of the read above: a store that straddles the end would overwrite memory the section
 does not own, so it is refused by the same bound before any byte moves.
 ```maxon
 function main() returns ExitCode
 	let segment = try SharedSegment.create("maxon-spec-shm-write-past-end", bytes: 4096) otherwise return 3
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try segment.writeWord(4090, value: 1) otherwise (e) 'refused'
 		segment.close()
 		return match e 'why'
@@ -246,13 +240,11 @@ end 'main'
 ```
 
 <!-- test: shared-memory-builtins.copy-out-past-the-segment-throws -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `copyOut`'s bound is `offset + byteCount`: 4000 + 200 ends 104 bytes past a 4096-byte section, although
 the offset alone is inside it.
 ```maxon
 function main() returns ExitCode
 	let segment = try SharedSegment.create("maxon-spec-shm-copy-past-end", bytes: 4096) otherwise return 3
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let octets = try segment.copyOut(4000, byteCount: 200) otherwise (e) 'refused'
 		segment.close()
 		return match e 'why'
@@ -273,7 +265,6 @@ end 'main'
 ```
 
 <!-- test: shared-memory-builtins.every-accessor-throws-closed-after-close -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⛔ **A CLOSED SEGMENT HAS NO MAPPING, SO EVERY ACCESSOR THROWS `closed` INSTEAD OF REACHING THE ADDRESS IT
 USED TO HAVE.** The offset is inside the 4096 bytes the segment was created with, so the bound passes; only
 the `closed` arm can answer each of the three, and a read, write or copy that reached the unmapped view
@@ -290,7 +281,6 @@ function verdict(e SharedMemoryError) returns String
 end 'verdict'
 
 function readAfterClose(segment SharedSegment) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let word = try segment.readWord(0) otherwise (e) 'refused'
 		return verdict(e)
 	end 'refused'
@@ -298,7 +288,6 @@ function readAfterClose(segment SharedSegment) returns String
 end 'readAfterClose'
 
 function writeAfterClose(segment SharedSegment) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try segment.writeWord(8, value: 7) otherwise (e) 'refused'
 		return verdict(e)
 	end 'refused'
@@ -306,7 +295,6 @@ function writeAfterClose(segment SharedSegment) returns String
 end 'writeAfterClose'
 
 function copyAfterClose(segment SharedSegment) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let octets = try segment.copyOut(0, byteCount: 16) otherwise (e) 'refused'
 		return verdict(e)
 	end 'refused'
@@ -375,13 +363,12 @@ adopter=77 later=77
 ```
 
 <!-- test: shared-memory-builtins.publish-refuses-a-name-already-published -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 `SharedSegment.publish` never adopts: a name some other segment already publishes is refused with
 `createFailed` (3), so a caller that needs a FRESH section can never be handed a stale one. Once the
 publisher closes, the name is free and a second `publish` succeeds (5).
 ```maxon
 function publishOutcome(name String) returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let segment = try SharedSegment.publish(name, bytes: 4096) otherwise (e) 'refused'
 		return match e 'why'
 			createFailed gives 3
@@ -412,13 +399,12 @@ while-held=3 after-close=5
 ```
 
 <!-- test: shared-memory-builtins.create-refuses-an-existing-segment-too-small -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
+<!-- skip: minimaxon does not parse the converted source: Expected a pattern but got 'an indented line' -->
 A `create` that finds the name already published by a section smaller than it asks for is refused at once with
 `createFailed` (3) on every lane, rather than retried or handed a mapping shorter than asked. Asking for no more
 than the section holds adopts it (5).
 ```maxon
 function createOutcome(name String, bytes SegmentByteCount) returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let segment = try SharedSegment.create(name, bytes: bytes) otherwise (e) 'refused'
 		return match e 'why'
 			createFailed gives 3

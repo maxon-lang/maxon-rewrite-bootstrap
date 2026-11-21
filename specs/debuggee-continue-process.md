@@ -22,7 +22,6 @@ Only Linux and macOS have POSIX signals. On Windows and wasm32-wasi a call panic
 ## Tests
 
 <!-- test: a-continue-answers-true-for-a-live-process-and-false-for-a-reaped-one -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: x64-windows, wasm32-wasi -->
 The program continues itself, which is running, and then a short child it has spawned and waited for, which is ended
 and reaped. Windows and wasm32-wasi are excluded because they have no POSIX signals to send, so the call panics
@@ -31,7 +30,6 @@ there; wasm32-wasi also cannot spawn the child.
 ```maxon
 function reapedChildId() returns Pid
 	let shell = try FilePath.from("/bin/sh") otherwise panic("/bin/sh is a spellable path")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let finished = try Subprocess.run(Executable.path(shell), arguments: ["-c", "exit 0"]) otherwise panic("the short child could not run")
 	return finished.pid
 end 'reapedChildId'

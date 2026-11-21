@@ -77,10 +77,8 @@ arr.set(1, value: 200)
 ## Tests
 
 <!-- test: literal-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return try [10, 20, 30].get(0) otherwise 0
 end 'main'
 ```
@@ -89,10 +87,8 @@ end 'main'
 ```
 
 <!-- test: literal-middle -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(1) otherwise 0
 end 'main'
@@ -102,10 +98,8 @@ end 'main'
 ```
 
 <!-- test: literal-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(2) otherwise 0
 end 'main'
@@ -115,10 +109,8 @@ end 'main'
 ```
 
 <!-- test: five-elements -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [5, 10, 15, 20, 25]
 	return try arr.get(4) otherwise 0
 end 'main'
@@ -128,10 +120,9 @@ end 'main'
 ```
 
 <!-- test: index-assignment -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
 	return try arr.get(0) otherwise 0
@@ -142,10 +133,9 @@ end 'main'
 ```
 
 <!-- test: assignment-middle -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [1, 2, 3]
 	try arr.set(1, value: 42) otherwise panic("test invariant: set OOB")
 	return try arr.get(1) otherwise 0
@@ -156,10 +146,9 @@ end 'main'
 ```
 
 <!-- test: assignment-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [1, 2, 3, 4, 5]
 	try arr.set(4, value: 99) otherwise panic("test invariant: set OOB")
 	return try arr.get(4) otherwise 0
@@ -170,10 +159,8 @@ end 'main'
 ```
 
 <!-- test: multiple-access -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [5, 10, 15, 20, 25]
 	let a = try arr.get(2) otherwise 0
 	let b = try arr.get(4) otherwise 0
@@ -185,10 +172,9 @@ end 'main'
 ```
 
 <!-- test: assignment-preserves-others -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(0, value: 100) otherwise panic("test invariant: set OOB")
 	return try arr.get(1) otherwise 0
@@ -199,10 +185,9 @@ end 'main'
 ```
 
 <!-- test: multiple-assignments -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [0, 0, 0]
 	try arr.set(0, value: 1) otherwise panic("test invariant: set OOB")
 	try arr.set(1, value: 2) otherwise panic("test invariant: set OOB")
@@ -218,10 +203,8 @@ end 'main'
 ```
 
 <!-- test: let-array-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(0) otherwise 0
 end 'main'
@@ -231,10 +214,8 @@ end 'main'
 ```
 
 <!-- test: let-array-middle -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(1) otherwise 0
 end 'main'
@@ -244,10 +225,8 @@ end 'main'
 ```
 
 <!-- test: let-array-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	return try arr.get(2) otherwise 0
 end 'main'
@@ -257,10 +236,8 @@ end 'main'
 ```
 
 <!-- test: let-array-multiple-access -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [5, 10, 15, 20]
 	let a = try arr.get(0) otherwise 0
 	let b = try arr.get(3) otherwise 0
@@ -456,10 +433,8 @@ end 'main'
 ```
 
 <!-- test: array-literal-constant -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let numbers = [1, 2, 3, 4, 5]
 
 function main() returns ExitCode
@@ -476,13 +451,11 @@ end 'main'
 ```
 
 <!-- test: array-literal-with-dependency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 let FIRST = 10
 
 let SECOND = 20
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let values = [FIRST, SECOND, 30]
 
 function main() returns ExitCode
@@ -497,7 +470,6 @@ end 'main'
 ```
 
 <!-- test: error.unused-array-typealias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `typealias X = Array with Y` declaration must be referenced **explicitly**
@@ -509,7 +481,6 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let numbers = [1, 2, 3, 4, 5]
 
 function main() returns ExitCode
@@ -616,10 +587,8 @@ error E3062: probe/<fragment>:7:11: unused typealias: 'ThingArray'
 ### String Array Literals
 
 <!-- test: string-array-literal-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello", "world"]
 	let s = try arr.get(0) otherwise ""
 	if s == "hello" 'check'
@@ -633,11 +602,9 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-iterate -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["aaa", "bbb", "ccc"]
 	var count = 0 as Count
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -652,10 +619,8 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-top-level -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let names = ["alice", "bob"]
 
 function main() returns ExitCode
@@ -672,10 +637,8 @@ end 'main'
 ```
 
 <!-- test: string-array-literal-top-level-pass-to-function -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let items = ["hello"]
 
 function useString(s String) returns ExitCode
@@ -700,12 +663,9 @@ end 'main'
 ### Slice
 
 <!-- test: slice-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40, 50]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sub = try arr.slice(1, endIndex: 4) otherwise [1]
 	let a = try sub.get(0) otherwise 0
 	let b = try sub.get(1) otherwise 0
@@ -718,12 +678,9 @@ end 'main'
 ```
 
 <!-- test: slice-from-start -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40, 50]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sub = try arr.slice(0, endIndex: 3) otherwise [1]
 	return sub.count()
 end 'main'
@@ -733,12 +690,9 @@ end 'main'
 ```
 
 <!-- test: slice-to-end -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40, 50]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sub = try arr.slice(3, endIndex: 5) otherwise [1]
 	let a = try sub.get(0) otherwise 0
 	let b = try sub.get(1) otherwise 0
@@ -750,12 +704,9 @@ end 'main'
 ```
 
 <!-- test: slice-empty -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sub = try arr.slice(1, endIndex: 1) otherwise [1]
 	return sub.count()
 end 'main'
@@ -765,12 +716,9 @@ end 'main'
 ```
 
 <!-- test: slice-full -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sub = try arr.slice(0, endIndex: 3) otherwise [1]
 	let a = try sub.get(0) otherwise 0
 	let b = try sub.get(1) otherwise 0
@@ -783,10 +731,8 @@ end 'main'
 ```
 
 <!-- test: slice-throws-invalid-end -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(0, endIndex: 10) otherwise return 42
 	return sub.count()
@@ -797,10 +743,8 @@ end 'main'
 ```
 
 <!-- test: slice-throws-inverted-range -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(2, endIndex: 1) otherwise return 42
 	return sub.count()
@@ -811,10 +755,8 @@ end 'main'
 ```
 
 <!-- test: slice-throws-invalid-start -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(5, endIndex: 5) otherwise return 42
 	return sub.count()
@@ -836,11 +778,8 @@ A LITERAL negative is refused where it is written, by the same constant fold at 
 sites — the accessor's own bound is not consulted at all.
 
 <!-- test: error.get-negative-index-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val = try arr.get(-1) otherwise 99
 	return val
@@ -851,11 +790,9 @@ error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.set-negative-index-is-refused-at-the-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(-1, value: 5) otherwise return 99
 	return 0
@@ -866,11 +803,9 @@ error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.remove-negative-index-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var arr = FullRangeIntArray from [10, 20, 30]
 	let removed = try arr.remove(-1) otherwise return 99
 	return removed
@@ -881,11 +816,8 @@ error E3005: <fragment>:4:24: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.slice-negative-start-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(-1, endIndex: 2) otherwise return 99
 	return sub.count()
@@ -900,11 +832,8 @@ negative `start`. The case below writes both negative, and BOTH are reported —
 at the first argument it finds.
 
 <!-- test: error.slice-negative-end-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let sub = try arr.slice(-2, endIndex: -1) otherwise return 99
 	return sub.count()
@@ -916,11 +845,9 @@ error E3005: <fragment>:4:20: Value -1 is outside the range of 'ElementIndex' (i
 ```
 
 <!-- test: error.insert-negative-index-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var arr = FullRangeIntArray from [10, 20, 30]
 	arr.insert(-1, value: 99)
 	return arr.count()
@@ -946,7 +873,6 @@ goes at the CALL, the panic names the caller's own line, and there is no callee 
 same declaration in `stdlib/Array.maxon` — and only the position the failure is reported at differs.
 
 <!-- test: get-laundered-negative-index-panics-at-the-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Signed = int(i64.min to i64.max)
 
@@ -955,7 +881,6 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let val = try arr.get(launder(-1) as ElementIndex) otherwise 99
 	return val
@@ -972,7 +897,7 @@ Stack trace:
 ```
 
 <!-- test: set-laundered-negative-index-panics-at-the-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Signed = int(i64.min to i64.max)
 
@@ -981,7 +906,6 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30]
 	try arr.set(launder(-1) as ElementIndex, value: 5) otherwise return 99
 	return 0
@@ -998,7 +922,7 @@ Stack trace:
 ```
 
 <!-- test: insert-laundered-negative-index-panics-at-the-door -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Signed = int(i64.min to i64.max)
 
@@ -1007,7 +931,6 @@ function launder(n Signed) returns Signed
 end 'launder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30]
 	arr.insert(launder(-1) as ElementIndex, value: 99)
 	print("inserted, count is now {arr.count()}\n")
@@ -1027,12 +950,10 @@ Stack trace:
 ### Append
 
 <!-- test: append-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [4, 5, 6]
 	a.append(b)
 	var sum = 0 as FullRangeInt
@@ -1049,14 +970,13 @@ end 'main'
 ```
 
 <!-- test: append-empty-to-nonempty -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = IntArray from [1, 2, 3]
 	let b = IntArray.create(0)
 	a.append(b)
@@ -1068,7 +988,6 @@ end 'main'
 ```
 
 <!-- test: append-nonempty-to-empty -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1076,7 +995,6 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [10, 20]
 	a.append(b)
 	let first = try a.get(0) otherwise 0
@@ -1089,12 +1007,10 @@ end 'main'
 ```
 
 <!-- test: append-preserves-originals -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [3, 4]
 	a.append(b)
 	// b should still have its original elements
@@ -1152,7 +1068,6 @@ end 'main'
 ```
 
 <!-- test: appendMemory-takes-another-arrays-managed-and-preserves-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- tier: stdlib -->
 ### `stdlib/Array.maxon`'s own spelling — `append` is a caller of this member
@@ -1160,9 +1075,7 @@ The receiver gains the source's elements, and the source is only read and copied
 `append`'s is: the exit code is the receiver's sum (10) times ten plus the source's two elements (7).
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = FullRangeIntArray from [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [3, 4]
 	a.appendMemory(b.managed)
 	var sum = 0 as FullRangeInt
@@ -1208,8 +1121,6 @@ error E3005: <fragment>:11:4: argument type mismatch for 'source': expected 'Byt
 ```
 
 <!-- test: error.appendMemory-on-a-let-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 ### It WRITES the receiver, so an immutable array refuses it
 `appendMemory` is a receiver-writing method (`arrayMethodMutatesReceiver`), which is the same answer
@@ -1217,9 +1128,7 @@ E3207 and the storage-written mask both read. Served as a member but omitted fro
 answer, this program would have compiled and silently written through an immutable array.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [3]
 	a.appendMemory(b.managed)
 	return a.count()
@@ -1230,16 +1139,13 @@ error E3207: <fragment>:5:4: 'appendMemory' needs a writable receiver; 'a' is im
 ```
 
 <!-- test: appendMemory-keeps-an-element-read-before-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- tier: stdlib -->
 ### An element read before the append stays readable after it
 `first` counts the element it hands back, so the receiver may be written while `s` is still in use.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let other = ["a second long string that also lives on the heap here"]
 	arr.appendMemory(other.managed)
 	print("[{s}]\n")
@@ -1424,15 +1330,11 @@ end 'main'
 ```
 
 <!-- test: error.appendMemory-is-not-a-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 ### It is VOID, like every other `Array` mutator
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = FullRangeIntArray from [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [3]
 	let x = a.appendMemory(b.managed)
 	return x
@@ -1443,15 +1345,12 @@ error E2004: <fragment>:5:12: Function 'appendMemory' does not return a value
 ```
 
 <!-- test: error.insert-on-a-let-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### `insert` owes the same two answers
 `appendMemory`'s twins above exist because the omission would be a silent write. `insert` is on the
 same `arrayMethodMutatesReceiver` answer, so it owes the same two cases (and see
 `ranged-typealias.error.array-insert-out-of-range` for the same gap one door over).
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	arr.insert(0, value: 9)
 	return arr.count()
@@ -1462,10 +1361,8 @@ error E3207: <fragment>:4:2: 'insert' writes its receiver (line 265: `self.resiz
 ```
 
 <!-- test: insert-keeps-an-element-read-before-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.insert(0, value: "a second long string that also lives on the heap")
@@ -1484,18 +1381,13 @@ end 'main'
 ```
 
 <!-- test: error.set-on-a-let-array -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### … and `set` is the THIRD member of that pair
 ⚠ `set` is on the same `arrayMethodMutatesReceiver` answer as `insert`, reached through the same
 `parseArraySet`, so it owes the same two answers, and they are pinned here: a change to how `set` is served
 inherits a guard rather than a green suite.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.set(0, value: 9) otherwise 'oob'
 		return 9
 	end 'oob'
@@ -1507,15 +1399,11 @@ error E3207: <fragment>:4:10: 'set' needs a writable receiver; 'arr' is immutabl
 ```
 
 <!-- test: set-keeps-the-element-it-displaces-readable -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `set` releases the slot's occupant, and `s` still holds its own reference to it.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.set(0, value: "a second long string that also lives on the heap") otherwise 'oob'
 		return 9
 	end 'oob'
@@ -1531,15 +1419,12 @@ end 'main'
 ```
 
 <!-- test: error.reserve-on-a-let-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### … and `reserve` is the FOURTH
 ⚠ `reserve` is served by the corpus declaration, whose own write mask carries the rule. `reserve` allocates
 capacity and rewrites `buffer@0`/`capacity@16`, so an immutable array must refuse it exactly as `push`
 and `set` do.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	arr.reserve(16)
 	return arr.count()
@@ -1550,12 +1435,10 @@ error E3207: <fragment>:4:2: 'reserve' writes its receiver (line 318: `try manag
 ```
 
 <!-- test: reserve-keeps-an-element-read-before-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `reserve` REALLOCATES the buffer; an element read before it holds its own reference, not a slot of the old
 buffer.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.reserve(64)
@@ -1571,8 +1454,6 @@ end 'main'
 ```
 
 <!-- test: error.clear-on-a-let-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### … and `clear` is the FIFTH
 ⚠ `clear` shortens the array and RELEASES every element on the way out, so an immutable array must refuse
 it exactly as `push` and `set` do.
@@ -1583,7 +1464,6 @@ corpus member. This case is the local half, the one the corpus declaration's own
 carries.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1, 2, 3]
 	arr.clear()
 	return arr.count()
@@ -1594,11 +1474,9 @@ error E3207: <fragment>:4:2: 'clear' writes its receiver (line 306: `managed.cle
 ```
 
 <!-- test: clear-keeps-an-element-read-before-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 `clear` releases every element; the one `s` read keeps its own reference and outlives the clear.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world {40 + 2} this is a long string for heap allocation"]
 	let s = try arr.first() otherwise ""
 	arr.clear()
@@ -1627,14 +1505,10 @@ For a MANAGED element that is not merely invisible, it is a LEAK: the record lan
 which is exactly the range the element-destroy walk covers, so nothing ever releases it.
 
 <!-- test: set-past-the-live-length-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["one long heap allocated string value here"]
 	arr.reserve(8)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.set(2, value: "two long heap allocated string value here") otherwise 'pastLength'
 		return 42
 	end 'pastLength'
@@ -1651,14 +1525,10 @@ at all: `index`'s `ElementIndex` is a checked QUANTITY, so the door refuses it. 
 returning 42 is kept here to say that it is NOT the arm that runs: the program does not compile at all.
 
 <!-- test: error.set-negative-index-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var arr = FullRangeIntArray from [10, 20, 30]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try arr.set(-1, value: 99) otherwise 'negative'
 		return 42
 	end 'negative'
@@ -1672,11 +1542,10 @@ error E3005: <fragment>:4:10: Value -1 is outside the range of 'ElementIndex' (i
 ### Copy-on-Write
 
 <!-- test: slice-cow-modify-slice -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Modifying a slice must not affect the original array.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 99) otherwise panic("test invariant: set OOB")
@@ -1696,11 +1565,10 @@ end 'main'
 ```
 
 <!-- test: slice-cow-modify-original -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Modifying the original array must not affect an existing slice.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try arr.set(1, value: 99) otherwise panic("test invariant: set OOB")
@@ -1727,13 +1595,12 @@ eager copy would. A buffer that lives in its record's own allocation is copied a
 [co-allocated-arrays](co-allocated-arrays.md) states.
 
 <!-- test: slice-capacity-is-a-view-until-written -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A slice reports a negative capacity — its buffer is not its own — until a write gives it a private one
 sized to its live elements. This is the one place the sharing is directly observable, and it is what says
 no buffer was allocated: an eager copy would report a grown positive capacity from the moment it was made.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	let notMine = -1
@@ -1809,12 +1676,10 @@ end 'main'
 ```
 
 <!-- test: slice-bounds-are-its-own-window -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A slice is bounded by its OWN length, not the parent's, even though the parent's remaining elements sit
 immediately after it in the same buffer. Reading past the window throws rather than reading a neighbour.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	let past = try sub.get(3) otherwise 77
@@ -1826,11 +1691,10 @@ end 'main'
 ```
 
 <!-- test: slice-of-slice-flattens -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Slicing a slice windows within the window, and writing to the inner one leaves the outer one alone.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50, 60]
 	let s1 = try arr.slice(1, endIndex: 5) otherwise return 1
 	let s2 = try s1.slice(1, endIndex: 3) otherwise return 2
@@ -1849,7 +1713,7 @@ end 'main'
 ```
 
 <!-- test: cow-detach-copies-a-wide-elements-full-stride -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ⭐ **THE DETACH COPIES `length · element_size` BYTES, NOT `length`** — and nothing else in this file was
 asking. The cases above slice a wide-element array and WRITE to it, which forces the copy-on-write detach,
 but each then reads only the element it wrote or an element of the OTHER array; none reads back a surviving
@@ -1863,7 +1727,6 @@ of assuming the String's stride of 1 — one emitted function serves both record
 of the two for which 1 is right.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 99) otherwise panic("index 0 is in bounds")
@@ -1918,13 +1781,12 @@ end 'main'
 ```
 
 <!-- test: many-views-detach-one-by-one -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 One buffer held by an owner, two slices and a slice-of-a-slice, then all four write in turn. The shared
 count has to walk all the way down and reclaim exactly once — every arm of the detach (owner-with-viewers,
 viewer, viewer-of-a-viewer) runs, and each side keeps the bytes it had when it copied out.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [1, 2, 3, 4, 5, 6]
 	let a = try arr.slice(0, endIndex: 3) otherwise return 1
 	let b = try arr.slice(3, endIndex: 6) otherwise return 2
@@ -1942,12 +1804,11 @@ end 'main'
 ```
 
 <!-- test: two-slices-then-write-parent -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Two live slices of one array, then writes at both ends of the parent. The parent copies out once; both
 slices keep reading the original bytes.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40]
 	let v1 = try arr.slice(0, endIndex: 2) otherwise return 1
 	let v2 = try arr.slice(2, endIndex: 4) otherwise return 2
@@ -1968,11 +1829,10 @@ end 'main'
 ```
 
 <!-- test: slice-parent-grows-while-view-lives -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Pushing onto the parent reallocates its buffer. The slice keeps the old one.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30]
 	let sub = try arr.slice(0, endIndex: 3) otherwise return 1
 	arr.push(40)
@@ -1991,12 +1851,11 @@ end 'main'
 ```
 
 <!-- test: append-a-slice-of-self -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `append` reads its source AFTER growing its destination, so appending a slice of an array to that same
 array is coherent: the destination copies out first and the slice still names the original bytes.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [1, 2, 3]
 	let sub = try arr.slice(0, endIndex: 2) otherwise return 1
 	arr.append(sub)
@@ -2096,7 +1955,7 @@ end 'main'
 ```
 
 <!-- test: both-sides-detach-parent-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 Both sides write. The parent copies out first and gives up the shared buffer, leaving the slice as its
 sole owner; the slice then copies out and reclaims it. This case reaches the path where a detach's release
 frees the bytes it just copied — but it does NOT *catch* a detach that released BEFORE copying.
@@ -2110,7 +1969,6 @@ is a rule `__managed_cow_detach` keeps on its OWN rather than one this case gate
 recycling, poisoning allocator is an OPEN QUESTION.**
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try arr.set(1, value: 91) otherwise panic("index 1 is in bounds")
@@ -2129,11 +1987,10 @@ end 'main'
 ```
 
 <!-- test: both-sides-detach-slice-first -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same pair in the other order.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = FullRangeIntArray from [10, 20, 30, 40, 50]
 	let sub = try arr.slice(1, endIndex: 4) otherwise return 1
 	try sub.set(0, value: 92) otherwise panic("index 0 is in bounds")
@@ -2272,7 +2129,6 @@ end 'main'
 ```
 
 <!-- test: array-literal-struct-return-from-function -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -2291,7 +2147,6 @@ typealias PointArray = Array with Point
 function makePoints() returns PointArray
 	let p1 = Point.create(1, y: 2)
 	let p2 = Point.create(3, y: 4)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [p1, p2]
 end 'makePoints'
 
@@ -2299,7 +2154,7 @@ function main() returns ExitCode
 	let pts = makePoints()
 	let p0 = try pts.get(0) otherwise Point.create(0, y: 0)
 	let p1 = try pts.get(1) otherwise Point.create(0, y: 0)
-	return p0.x + p1.y
+	return try p0.x + p1.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2313,10 +2168,8 @@ separating `,`. A newline in those positions is LAYOUT, not the end of the expre
 inside a `{…}` struct literal.
 
 <!-- test: multi-line-literal-break-after-comma -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [10, 20]
 	let v = try a.get(1) otherwise 0
 	return v
@@ -2327,13 +2180,11 @@ end 'main'
 ```
 
 <!-- test: multi-line-literal-one-element-per-line -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [10, 20, 30]
 	let v = try a.get(2) otherwise 0
-	return a.count() + v
+	return try a.count() + v otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2341,12 +2192,10 @@ end 'main'
 ```
 
 <!-- test: multi-line-literal-trailing-newline-before-bracket -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [10, 20, 30]
-	return a.count()
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2354,14 +2203,12 @@ end 'main'
 ```
 
 <!-- test: multi-line-string-literal-elements -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = ["alpha", "beta", "gamma"]
 	let w = try words.get(1) otherwise ""
 	if w == "beta" 'middle'
-		return words.count() as ExitCode
+		return try words.count() as ExitCode otherwise panic("out of range")
 	end 'middle'
 	return 99
 end 'main'
@@ -2371,9 +2218,8 @@ end 'main'
 ```
 
 <!-- test: multi-line-literal-top-level-let -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let xs = FullRangeIntArray from [10, 20]
 
 function main() returns ExitCode
@@ -2386,13 +2232,13 @@ end 'main'
 ```
 
 <!-- test: multi-line-literal-empty-still-rejected -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array -->
 <!-- positions: moved -->
 A `[` and `]` with only a newline between them is still the EMPTY literal, and still carries the empty
 literal's own advice — the newline skip must not turn it into "expected expression".
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	// TODO: an empty array literal is not supported in minimaxon, as in maxon: write Array.create(0) under a typealias of the array
 	let a = []
 	return a.count()
 end 'main'
@@ -2410,15 +2256,13 @@ would refuse a literal with ONE element as holding an element of another type. T
 pin the one-element and formatting-independence halves it cannot.
 
 <!-- test: single-cast-element-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Index = int(0 to u64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let single = [10 as Index]
 	let v = try single.get(0) otherwise 0
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2426,7 +2270,6 @@ end 'main'
 ```
 
 <!-- test: cast-element-literal-matches-instance-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Index = int(0 to u64.max)
 
@@ -2435,11 +2278,10 @@ typealias IndexArray = Array with Index
 function total(xs IndexArray) returns ExitCode
 	let a = try xs.get(0) otherwise 0
 	let b = try xs.get(1) otherwise 0
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return total([10 as Index, 20 as Index])
 end 'main'
 ```
@@ -2448,13 +2290,11 @@ end 'main'
 ```
 
 <!-- test: int-literal-expression-element-stays-integer -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [10 + 5, 20]
 	let v = try a.get(0) otherwise 0
-	return v + a.count()
+	return try v + a.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2935,12 +2775,10 @@ error E3005: <fragment>:19:4: argument type mismatch for 'other': expected 'Colo
 ```
 
 <!-- test: error.append-a-non-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 ### A value that is not an `Array` at all names both types, like every other argument door
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var a = FullRangeIntArray from [1, 2, 3]
 	a.append(42)
 	return a.count()
@@ -3116,7 +2954,6 @@ end 'main'
 ```
 
 <!-- test: a-float-element-reads-back-out-of-the-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 ### A FLOAT element rides the slot as its 64 bits and reads back a float
 The element load and store reinterpret (`containerElementWord` out, its inverse in), so the slot is
@@ -3127,7 +2964,6 @@ container path asked a UNION PAYLOAD's rule about it. A payload's float genuinel
 does, and the two are different questions about different storage.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3141,14 +2977,12 @@ end 'main'
 ```
 
 <!-- test: a-float-element-round-trips-through-set -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 ### `set` writes a float element and `get` reads the same value back
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = Reals from [1.5, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3162,7 +2996,6 @@ end 'main'
 ```
 
 <!-- test: a-float-alias-array-from-a-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A float literal array headed by a float-element alias takes the alias's element type
@@ -3170,7 +3003,6 @@ end 'main'
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = Reals from [1.5, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3193,13 +3025,11 @@ end 'main'
 ```
 
 <!-- test: a-float-element-iterates -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### `for … in` yields float elements
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5, 3.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3216,7 +3046,6 @@ end 'main'
 ```
 
 <!-- test: a-float-element-keeps-every-bit-of-its-slot -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A float element is REINTERPRETED, so every bit of the slot survives the round trip
@@ -3230,7 +3059,6 @@ that says so for the LITERAL element.
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = Reals from [0.1, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3254,7 +3082,6 @@ end 'main'
 ```
 
 <!-- test: a-float-elements-buffer-is-an-ordinary-eight-byte-stride -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### The buffer under a float element answers the managed surface like any other
@@ -3263,7 +3090,6 @@ The element's register file is the CALLER's question, never the buffer's: what t
 no second storage path. The managed surface is where that claim is checkable from source.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = [1.5, 2.5, 3.5]
 	print("{a.managed.length()}\n")
@@ -3281,14 +3107,12 @@ end 'main'
 ```
 
 <!-- test: a-float-element-survives-a-clone -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 ### A cloned float array carries its elements' bits
 ```maxon
 typealias Reals = Array with FullRangeFloat
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let a = Reals from [1.5, 2.5]
 	// TODO: float literals are not supported in minimaxon
@@ -3377,7 +3201,6 @@ end 'main'
 ```
 
 <!-- test: error.a-raw-byte-write-is-refused-on-a-float-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
@@ -3389,7 +3212,6 @@ integer value set gets everywhere else. The element is nameable, so this rule is
 source as well as from a literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	var a = [1.5 as FullRangeFloat, 2.5]
 	try a.managed.setByte(0, value: 223) otherwise panic("test invariant: setByte OOB")
@@ -3428,14 +3250,12 @@ error E3118: <fragment>:8:16: 'setByte' writes a RAW BYTE at a byte OFFSET, so w
 ```
 
 <!-- test: an-array-literal-returned-builds-the-declared-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
 typealias Items = Array with Measure
 
 function make() returns Items
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [1, 2]
 end 'make'
 
@@ -3449,7 +3269,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-in-a-struct-literal-field-builds-the-fields-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3459,7 +3278,6 @@ type Bag
 	export var items as Items
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: [3, 4]}
 	end 'create'
 end 'Bag'
@@ -3475,7 +3293,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-stored-into-a-field-builds-the-fields-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3490,8 +3307,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var b = Bag.create()
 	b.items = [5, 6]
 	return try b.items.get(1) otherwise 0
 end 'main'
@@ -3502,14 +3318,12 @@ end 'main'
 
 
 <!-- test: an-array-literal-field-default-builds-the-fields-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
 typealias Items = Array with Measure
 
 type Bag
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	export var items = [11, 12] as Items
 
 	static function create() returns Self
@@ -3528,7 +3342,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-reassigned-to-a-local-builds-the-locals-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3540,7 +3353,6 @@ end 'fresh'
 
 function main() returns ExitCode
 	var xs = fresh()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	xs = [13, 14]
 	return try xs.get(1) otherwise 0
 end 'main'
@@ -3551,7 +3363,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-union-payload-builds-the-payloads-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3563,7 +3374,6 @@ union Held
 end 'Held'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let h = Held.some([15, 16])
 	match h 'h'
 		some(items) then return try items.get(1) otherwise 0
@@ -3577,7 +3387,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-otherwise-fallback-builds-the-success-values-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3592,7 +3401,6 @@ function risky() returns Items throws Nope
 end 'risky'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = try risky() otherwise [17, 18]
 	return try xs.get(1) otherwise 0
 end 'main'
@@ -3603,7 +3411,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-match-arm-at-a-return-builds-the-declared-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3611,7 +3418,6 @@ typealias Items = Array with Measure
 
 function pick(flag bool) returns Items
 	return match flag 'f'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		true gives [19, 20]
 		default gives Items.create(0)
 	end 'f'
@@ -3627,14 +3433,12 @@ end 'main'
 
 
 <!-- test: an-array-literal-ternary-arm-at-a-return-builds-the-declared-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
 typealias Items = Array with Measure
 
 function pick(flag bool) returns Items
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return [21, 22] if flag else Items.create(0)
 end 'pick'
 
@@ -3648,7 +3452,6 @@ end 'main'
 
 
 <!-- test: an-array-literal-pushed-into-a-container-of-arrays-builds-the-element-instance -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Measure = int(0 to 100)
 
@@ -3657,8 +3460,7 @@ typealias Items = Array with Measure
 typealias Grid = Array with Items
 
 function main() returns ExitCode
-	let g = Grid.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
+	var g = Grid.create(0)
 	g.push([23, 24])
 	let row = try g.get(0) otherwise Items.create(0)
 	return try row.get(1) otherwise 0
@@ -3669,8 +3471,7 @@ end 'main'
 ```
 
 <!-- test: error.an-array-from-head-another-file-keeps-private-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The head of `<alias> from […]` names a type, so an unmarked alias declared in another directory is refused there
 as it is in every other type position.
 ```maxon
@@ -3678,7 +3479,6 @@ as it is in every other type position.
 typealias Smalls = Array with ExitCode
 
 export function probeSmalls() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Smalls from [7, 8]
 	print("{xs.count()}")
 	return 0
@@ -3686,7 +3486,6 @@ end 'probeSmalls'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Smalls from [1, 2]
 	print("{xs.count()}")
 	return probeSmalls()
@@ -3825,7 +3624,6 @@ fatal error: runtime abort 118 (promiseSlotConsumedTwice)
 ```
 
 <!-- test: a-let-array-read-is-range-known-through-get-first-and-last -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 An element read from a `let` array literal carries the range of the elements written, whichever accessor reads it.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3835,7 +3633,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37, 40]
 	let low = try cell.first() otherwise 0
 	let high = try cell.last() otherwise 0
@@ -3852,7 +3649,6 @@ end 'main'
 ```
 
 <!-- test: a-for-in-over-a-let-array-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The element a `for … in` binds over a `let` array carries the array's range, and arithmetic over it carries the sum of the ranges.
 ```maxon
@@ -3863,7 +3659,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [1, 2, 3]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in cell 'each'
@@ -3883,7 +3678,6 @@ end 'main'
 ```
 
 <!-- test: a-for-in-over-an-array-literal-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A literal iterated in place is the same constant a `let` of it would be.
 ```maxon
@@ -3895,7 +3689,6 @@ end 'take'
 
 function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for x in [4, 5] 'each'
 		print("{take(x * 2)}\n")
 	end 'each'
@@ -3911,7 +3704,6 @@ end 'main'
 ```
 
 <!-- test: error.a-for-in-over-a-let-array-outside-a-narrower-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 The range of the whole array is what each element read carries, so the largest element is the reachable extreme the diagnostic names.
@@ -3923,7 +3715,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [37, 400]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in cell 'each'
@@ -3938,7 +3729,6 @@ error E3005: <fragment>:12:11: Value 399 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: a-merge-of-let-array-reads-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A `match` whose arms read a `let` array, or give a literal, joins the ranges of its arms.
 ```maxon
 typealias Small = int(0 to 100)
@@ -3948,7 +3738,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [10, 20]
 	let m = match xs.count() 'm'
 		2 gives try xs.get(0) otherwise 0
@@ -3966,12 +3755,10 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-array-read-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A top-level `let` array is image data whose elements are all known, so a read of it is range-known too.
 ```maxon
 typealias Small = int(0 to 100)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let NUMS = [10, 20, 30]
 
 function take(v Small) returns Small
@@ -3992,13 +3779,10 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-let-array-read-outside-a-narrower-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The elements of a top-level `let` array bound what a read of it can be.
 ```maxon
 typealias Small = int(0 to 100)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let NUMS = [10, 2000]
 
 function take(v Small) returns Small
@@ -4016,8 +3800,6 @@ error E3005: <fragment>:12:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.an-unnamed-argument-aliasing-a-let-array-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A `let` array literal is an immutable root: an argument that names no binding but returns the same record (`pass(a)`)
 reaches the refusal `grow(a)` does.
 ```maxon
@@ -4032,7 +3814,6 @@ function grow(a CountArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	grow(pass(a))
 	return a.count() as ExitCode
@@ -4043,8 +3824,6 @@ error E3207: <fragment>:14:7: 'grow' writes 'a' (line 9: `a.push(2)`); 'pass(a)'
 ```
 
 <!-- test: error.an-unnamed-receiver-aliasing-a-let-array-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The receiver spelling of the same route.
 ```maxon
 typealias CountArray = Array with Count
@@ -4054,7 +3833,6 @@ function pass(a CountArray) returns CountArray
 end 'pass'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	pass(a).push(2)
 	return a.count() as ExitCode
@@ -4065,13 +3843,11 @@ error E3197: <fragment>:10:10: cannot write 'a container' through 'a call result
 ```
 
 <!-- test: error.a-closure-capturing-a-let-array-cannot-write-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 A closure that captures a `let` array and writes it is refused.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	// TODO: closures are not supported in minimaxon
 	let f = function() gives (try a.pop() otherwise 0)
@@ -4086,8 +3862,6 @@ error E3197: <fragment>:4:32: cannot write 'a' through the closure that captures
 ```
 
 <!-- test: error.a-let-array-stored-in-a-var-struct-field-cannot-be-written-through-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A `let` array stored into a field of a `var` record is still the immutable record.
 ```maxon
 typealias CountArray = Array with Count
@@ -4101,7 +3875,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	var h = Holder.create(a)
 	h.a.push(2)
@@ -4113,7 +3886,6 @@ error E3197: <fragment>:15:6: cannot write 'a container' through 'a call result'
 ```
 
 <!-- test: error.a-let-array-element-in-a-dead-branch-outside-a-narrower-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A use is checked where it is written, not where analysis happens to reach it: an element of a `let` array that no run can take into `take` is refused exactly as a literal argument in the same branch is.
@@ -4125,7 +3897,6 @@ function take(v Small) returns Small
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cell = [400]
 	if 3 > 5 'never'
 		// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -4141,11 +3912,9 @@ error E3005: <fragment>:12:12: Value 400 is outside the range of 'Small' (int(0 
 ```
 
 <!-- test: reserve-past-the-signed-range-panics -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A reservation no allocation can satisfy is an error, never a no-op: `reserve(u64.max)` reaches the growth door and its capacity overflow, exactly as `reserve(1 shl 62)` does.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [1 as Count].clone()
 	arr.reserve(u64.max)
 	return arr.count() as ExitCode
@@ -4183,11 +3952,9 @@ Stack trace:
 ```
 
 <!-- test: reserve-a-word-array-past-the-bit-total-panics -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A word-sized element is 64 bits, so `1 shl 62` of them is `2^68` bits: the wrapped total is refused, and the array keeps the buffer it had.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = [1 as Count].clone()
 	words.reserve(1 shl 62)
 	return words.count() as ExitCode
@@ -4205,12 +3972,10 @@ Stack trace:
 ```
 
 <!-- test: growth-by-pushing-keeps-every-element-across-the-doublings -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Growth below the wrap bound takes the allocation road with no overflow refusal: a byte array and a word array pushed through many reallocations keep every element and agree on their counts.
 ```maxon
 function main() returns ExitCode
 	let bytes = ByteArray.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = [0 as Count].clone()
 	var wrong = 0 as Count
 	for i in 0 upto 5000 'push'
@@ -4235,7 +4000,6 @@ end 'main'
 ```
 
 <!-- test: an-array-literal-agrees-on-a-plain-constant-and-a-backing-alias-in-either-order -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A literal array mixing a plain `let` constant and an enum's `rawValue` agrees on its element whichever comes first, because a plain constant fits the alias in either position.
 ```maxon
@@ -4249,13 +4013,11 @@ let Limit = 7
 function main() returns ExitCode
 	var seen = 0 as Count
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for claimed in [Limit, Signal.interrupt.rawValue] 'plainFirst'
 		seen = seen + 1
 		print("{claimed}\n")
 	end 'plainFirst'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for claimed in [Signal.hangup.rawValue, Limit] 'aliasFirst'
 		seen = seen + 1
 		print("{claimed}\n")
@@ -4274,8 +4036,6 @@ end 'main'
 ```
 
 <!-- test: error.a-let-array-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A `let` array literal is a constant its range columns were read from: handing it to an indirect call is refused.
 ```maxon
 typealias CountArray = Array with Count
@@ -4285,7 +4045,6 @@ function grow(a CountArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	let f = grow
 	f(a)
@@ -4297,7 +4056,6 @@ error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is im
 ```
 
 <!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
 The same for a `FixedArray from` literal.
@@ -4310,7 +4068,6 @@ function poke(v CountVector)
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
 	f(v)
@@ -4322,7 +4079,6 @@ error E3207: <fragment>:11:3: 'poke' writes 'v' (it calls 'set', which writes it
 ```
 
 <!-- test: a-let-array-holding-u64-max-reads-back-u64-max -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A bare literal array element is the literal's value: `u64.max` reads back as 18446744073709551615, and the `Count` door accepts it.
 ```maxon
@@ -4331,7 +4087,6 @@ function take(c Count) returns Count
 end 'take'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	var seen = 0 as Count
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -4351,11 +4106,9 @@ end 'main'
 ```
 
 <!-- test: a-top-level-let-array-holding-u64-max-reads-back-u64-max -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same at module scope, where the array is laid down as an image.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Words = [1, u64.max]
 
 function take(c Count) returns Count
@@ -4381,12 +4134,10 @@ end 'main'
 ```
 
 <!-- test: a-let-array-element-u64-max-renders-and-compares-as-u64-max -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The element is the literal's value everywhere it is read, not only at a `Count` door: it renders as 18446744073709551615, equals `u64.max` and is greater than `1`.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for v in a 'each'
@@ -4412,11 +4163,9 @@ greater
 ```
 
 <!-- test: a-top-level-let-array-element-u64-max-renders-and-compares-as-u64-max -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The same for the image.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Words = [1, u64.max]
 
 function main() returns ExitCode
@@ -4444,13 +4193,10 @@ greater
 ```
 
 <!-- test: error.a-top-level-let-array-holding-minus-one-keeps-its-range-columns -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 An image whose words include a genuine `-1` keeps its bounds: a read of `[-1, 5]` is known to lie in `-1 to 5`, so the narrower `Small` refuses it at compile time.
 ```maxon
 typealias Small = int(0 to 100)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Words = [-1, 5]
 
 function take(v Small) returns Small
@@ -4522,7 +4268,6 @@ error E3106: <fragment>:6:10: 'FixedArray.create' cannot publish slots of 'Perce
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-array-to-a-function-value-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- positions: moved -->
 The same for a captured `let` array literal.
@@ -4535,7 +4280,6 @@ function grow(a CountArray) returns Count
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count]
 	let f = grow
 	// TODO: closures are not supported in minimaxon
@@ -4548,7 +4292,6 @@ error E3197: <fragment>:12:29: cannot write 'a' through the closure that capture
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-fixed-array-to-a-function-value-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -4563,7 +4306,6 @@ function poke(v CountVector) returns Count
 end 'poke'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [1 as Count, 2 as Count, 3 as Count]
 	let f = poke
 	// TODO: closures are not supported in minimaxon
@@ -4576,7 +4318,6 @@ error E3197: <fragment>:12:29: cannot write 'v' through the closure that capture
 ```
 
 <!-- test: a-closure-capturing-a-var-array-may-hand-it-to-a-function-value -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 An array that is a clone of the literal is writable, so the same closure is accepted.
 ```maxon
@@ -4588,7 +4329,6 @@ function grow(a CountArray) returns Count
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1 as Count].clone()
 	let f = grow
 	// TODO: closures are not supported in minimaxon
@@ -4601,12 +4341,9 @@ end 'main'
 ```
 
 <!-- test: error.a-let-array-mixing-a-negative-and-a-value-above-i64-max-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A bare literal array has one integer type, and no integer type holds both `-1` and `u64.max`.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [-1, u64.max]
 	return a.count() as ExitCode
 end 'main'
@@ -4616,12 +4353,9 @@ error E3005: <fragment>:3:15: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-let-array-listing-the-large-value-first-is-refused-at-the-negative -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The refusal is positioned at the element that makes the column mixed, whichever order they come in.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max, -5]
 	return a.count() as ExitCode
 end 'main'
@@ -4631,11 +4365,8 @@ error E3005: <fragment>:3:23: no common integer type for -5 and 1844674407370955
 ```
 
 <!-- test: error.a-top-level-let-array-mixing-a-negative-and-a-value-above-i64-max-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 The same at module scope, where the array is laid down as an image.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Words = [-1, u64.max]
 
 function main() returns ExitCode
@@ -4647,12 +4378,10 @@ error E3005: <fragment>:2:18: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-list-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The typed-head forms read their elements the same way.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = List from [-1, u64.max]
 	return xs.count() as ExitCode
 end 'main'
@@ -4662,13 +4391,10 @@ error E3005: <fragment>:3:26: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: a-literal-arrays-that-each-keep-to-one-sign-class-are-accepted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A column holding only a large value, or only a negative one, has an integer type.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = [1, u64.max]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let narrow = [-1, 5]
 	return (wide.count() + narrow.count()) as ExitCode
 end 'main'
@@ -4678,11 +4404,9 @@ end 'main'
 ```
 
 <!-- test: a-try-otherwise-over-an-unsigned-column-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The merge of a read out of `[1, u64.max]` with `0` is the unsigned interval `[0, u64.max]`, so the `let` is range-known and prints as the unsigned value it is.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	let v = try a.get(1) otherwise 0
 	print("{v}\n")
@@ -4701,10 +4425,8 @@ greater
 ```
 
 <!-- test: a-try-otherwise-over-a-top-level-unsigned-column-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 The same for an image.
 ```maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Words = [1, u64.max]
 
 function main() returns ExitCode
@@ -4721,12 +4443,10 @@ end 'main'
 ```
 
 <!-- test: a-ternary-over-an-unsigned-column-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A ternary joins its arms in the unsigned domain when both are non-negative.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
@@ -4745,7 +4465,6 @@ end 'main'
 ```
 
 <!-- test: a-match-gives-over-an-unsigned-column-is-range-known -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 So does a `match` that gives a value in each arm.
 ```maxon
@@ -4755,7 +4474,6 @@ enum Pick
 end 'Pick'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
@@ -4778,12 +4496,9 @@ end 'main'
 ```
 
 <!-- test: error.a-merge-of-a-negative-and-an-unsigned-value-has-no-known-range -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A merge needing both a negative value and a value above `i64.max` has no common interval, so the `let` is refused as it is for any value of unknown range.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	let v = try a.get(1) otherwise -1
 	return 0
@@ -4794,12 +4509,10 @@ error E2004: <fragment>:4:10: A let cannot start from a number whose range is un
 ```
 
 <!-- test: error.a-set-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The same for a `Set from` literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Set from [-1, u64.max]
 	return s.count() as ExitCode
 end 'main'
@@ -4809,12 +4522,10 @@ error E3005: <fragment>:3:24: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: error.a-fixed-array-from-a-mixed-sign-literal-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 And for a `FixedArray from` literal.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [-1, u64.max]
 	return v.count() as ExitCode
 end 'main'
@@ -4824,13 +4535,11 @@ error E3005: <fragment>:3:31: no common integer type for -1 and 1844674407370955
 ```
 
 <!-- test: a-closure-capturing-an-unsigned-column-read-prints-it-unsigned -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A read out of `[1, u64.max]` that a closure captures is still the unsigned value it was: the closure prints 18446744073709551615 and compares it as unsigned.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, u64.max]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for x in a 'each'
@@ -4852,13 +4561,12 @@ end 'main'
 ```
 
 <!-- test: a-fixed-array-from-a-literal-over-an-alias-that-excludes-zero-is-accepted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `FixedArray from` supplies every slot, so the zero-excluding element is only refused at `create`, which publishes zeroed slots.
 ```maxon
 typealias Percent = int(1 to 100)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let v = FixedArray from [10 as Percent, 20 as Percent, 30 as Percent]
 	return v.get(2) as ExitCode
 end 'main'
@@ -4868,12 +4576,9 @@ end 'main'
 ```
 
 <!-- test: error.a-var-cannot-start-from-a-clone-of-a-literal-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A copy of a literal array keeps the literal's column bounds only while no writable name can hold it, so a `var` cannot be born from one.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
 	var b = a.clone()
 	b.push(9)

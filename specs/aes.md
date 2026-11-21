@@ -540,7 +540,6 @@ aes-ctr-err-017 invalidNonceLength
 ```
 
 <!-- test: aes.xor-key-stream-edges -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 Key streams checked against Go crypto/aes (block j is the cipher of the nonce and the 32-bit big-endian counter c + j), over data of every tail length after 0, 8, 16 and 56 bytes: a batch whose last blocks are unused with the counter ending at 2^32 - 1, a counter carried across the 16-bit boundary between batches, a 192-bit key ending exactly at the last counter, and a 256-bit key over a second batch.
@@ -597,22 +596,18 @@ function main() returns ExitCode
 	let k192 = "8e73b0f7da0e6452c810f32b809079e562f8ead2522c6b7b"
 	let k256 = "603deb1015ca71be2b73aef0857d77811f352c073b6108d72d9810a30914dff4"
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for count in [0, 1, 7, 8, 9, 15, 16, 17, 23, 24, 25, 31, 32, 33, 39, 40, 41, 47, 48] 'wrapCounts'
 		report("wrap", keyHex: k128, counter: 4294967293, count: count)
 	end 'wrapCounts'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for count in [55, 56, 57, 63, 64, 65, 71, 72, 73, 79, 80, 127, 128, 129, 130, 136] 'carryCounts'
 		report("carry", keyHex: k128, counter: 65530, count: count)
 	end 'carryCounts'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for count in [129, 144] 'lastCounts'
 		report("last192", keyHex: k192, counter: 4294967287, count: count)
 	end 'lastCounts'
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	for count in [65, 120] 'batchCounts'
 		report("batch256", keyHex: k256, counter: 255, count: count)
 	end 'batchCounts'
@@ -665,7 +660,6 @@ batch256-120 [e012423e47bb46046c37c083b4e9e54100f14b10b623f13f2383cbddc355bb3de6
 ```
 
 <!-- test: aes.the-bitsliced-software-path-matches-aes -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -727,11 +721,9 @@ function errorName(failure AesError) returns String
 end 'errorName'
 
 function keyRefusal(key ByteArray) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let software = try AesBitsliced.create(key) otherwise (failure) 'refused'
 		return errorName(failure)
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let sealed = try software.cryptBlock(fromHex("00112233445566778899aabbccddeeff"), direction: AesDirection.encrypt) otherwise (failure) 'blockRefused'
 		return errorName(failure)
 	end 'blockRefused'
@@ -739,7 +731,6 @@ function keyRefusal(key ByteArray) returns String
 end 'keyRefusal'
 
 function blockRefusal(software AesBitsliced) returns String
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let sealed = try software.cryptBlock(fromHex("00"), direction: AesDirection.encrypt) otherwise (failure) 'refused'
 		return errorName(failure)
 	end 'refused'
@@ -787,7 +778,6 @@ invalidKeyLength invalidBlockLength
 ```
 
 <!-- test: aes.block-calls-write-into-a-caller-owned-array -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
 `encryptBlockInto` and `decryptBlockInto` write the 16 bytes of the cipher of `block` into `output` from `at` and leave
@@ -862,14 +852,12 @@ function main() returns ExitCode
 	let aes = try Aes.create(fromHex("000102030405060708090a0b0c0d0e0f")) otherwise panic("the key is valid")
 	let untouched = filler(20)
 	var refusals = ""
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try aes.encryptBlockInto(fromHex("00112233"), output: untouched, at: 1) otherwise (failure) 'encryptRefused'
 		match failure 'reason'
 			invalidKeyLength then refusals.append("key ")
 			invalidBlockLength then refusals.append("block ")
 		end 'reason'
 	end 'encryptRefused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try aes.decryptBlockInto(fromHex("00112233"), output: untouched, at: 1) otherwise (failure) 'decryptRefused'
 		match failure 'reason'
 			invalidKeyLength then refusals.append("key ")

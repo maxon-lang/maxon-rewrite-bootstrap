@@ -1059,7 +1059,6 @@ end 'main'
 ```
 
 <!-- test: split-result-crosses-a-user-function-and-a-struct-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### An owned `Array with String` survives being returned out of the corpus body
 `split` is the only corpus `String` member that CONSTRUCTS a container. The corpus builds it through
@@ -1093,7 +1092,6 @@ function main() returns ExitCode
 	let h = Holder.create(pieces("p,q"))
 	let first = try h.parts.get(0) otherwise panic("two elements were pushed")
 	print("[{first}]\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let derived = ["seed"]
 	for round in 0 upto 200 'rounds'
 		let tmp = "{round},x,{round}"
@@ -1119,7 +1117,6 @@ end 'main'
 ```
 
 <!-- test: a-split-result-and-an-array-literal-are-one-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### The corpus's `StringArray` and a caller's `Array with String` are ONE instance
 The corpus declares `typealias StringArray = Array with String` INSIDE `type String`
@@ -1136,7 +1133,6 @@ function takesPieces(p Pieces) returns Integer
 end 'takesPieces'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = ["seed"]
 	let fromSplit = "a,b,c".split(",")
 	print("{takesPieces(fromSplit as Pieces)}\n")

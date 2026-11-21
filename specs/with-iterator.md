@@ -34,12 +34,10 @@ Iterators are first-class values. Pass a half-consumed iterator into a function 
 ## Tests
 
 <!-- test: withIterator.basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -107,13 +105,11 @@ end 'main'
 ```
 
 <!-- test: withIterator.body-advance-skips-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Calling `iter.advance()` inside the for-loop body skips the next element. Body runs on 10, advances to 20, header advances again to 30; so 20 is skipped.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40]
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
@@ -133,13 +129,11 @@ end 'main'
 ```
 
 <!-- test: withIterator.body-retreat-revisits-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 Calling `iter.retreat()` inside the body causes the next iteration to re-visit the current element. Without the guard, this would loop forever — we stop after a fixed count.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	var visits = 0 as FullRangeInt
 	var retreated = false
@@ -170,7 +164,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.iterator-as-parameter -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An iterator passed to a helper function is still iterable from its current position. The helper consumes the remaining elements.
 ```maxon
@@ -184,7 +177,6 @@ function printRest(iter TokenIter)
 end 'printRest'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let toks = ["a", "b", "c", "d"]
 	let iter = try toks.createIterator() otherwise return 9
 	try iter.advance() otherwise return 9
@@ -481,7 +473,6 @@ end 'main'
 ```
 
 <!-- test: withIterator.the-wrapper-takes-an-extension-method-over-the-iterator-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 The wrapper conforms to `Iterator` with the tuple `(Source, Element)` as its one associated type, so an `extension Iterator` method that names `Element` reaches it and answers that tuple.
@@ -494,7 +485,6 @@ extension Iterator
 end 'Iterator'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30, 40]
 	let wrapped = try arr.withIterator() otherwise return 90
 	try wrapped.advance() otherwise return 91

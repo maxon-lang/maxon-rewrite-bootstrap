@@ -13,7 +13,6 @@ Map.get with `try...otherwise 'label'...end` block form should correctly resolve
 ## Tests
 
 <!-- test: map-get-try-otherwise-block-string -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Map.get with try-otherwise block form returns correct String type.
 ```maxon
 typealias StringMap = Map with (String, String)
@@ -23,7 +22,6 @@ enum TestError implements Error
 end 'TestError'
 
 function getValue(m StringMap, key String) returns String throws TestError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let entry = try m.get(key) otherwise 'missing'
 		throw TestError.notFound
 	end 'missing'
@@ -45,7 +43,6 @@ end 'main'
 ```
 
 <!-- test: map-get-try-otherwise-block-struct -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 Map.get with try-otherwise block form returns correct struct type.
 ```maxon
 typealias SmallInt = int(0 to u8.max)
@@ -66,7 +63,6 @@ enum TestError implements Error
 end 'TestError'
 
 function getEntry(m EntryMap, key String) returns Entry throws TestError
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let entry = try m.get(key) otherwise 'missing'
 		throw TestError.notFound
 	end 'missing'

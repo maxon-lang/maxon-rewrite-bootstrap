@@ -39,10 +39,8 @@ the same length and the elements at each index are equal. `==` calls `equals`, a
 ### Array hash produces a value
 
 <!-- test: array-hash-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [10, 20, 30]
 	let h = arr.hash()
 	if h != 0 'nonzero'
@@ -58,12 +56,9 @@ end 'main'
 ### Array equals with same elements
 
 <!-- test: array-equals-same -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 3]
 	if a.equals(b) 'eq'
 		return 1
@@ -78,12 +73,9 @@ end 'main'
 ### Array equals with different elements
 
 <!-- test: array-equals-different -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 4]
 	if a.equals(b) 'eq'
 		return 1
@@ -98,12 +90,9 @@ end 'main'
 ### Array equals with different lengths
 
 <!-- test: array-equals-different-length -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2]
 	if a.equals(b) 'eq'
 		return 1
@@ -118,7 +107,6 @@ end 'main'
 ### Int array as Map key
 
 <!-- test: int-array-map-key -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -141,7 +129,6 @@ function main() returns ExitCode
 	lookup.push(1)
 	lookup.push(2)
 	lookup.push(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let val = try m.get(lookup) otherwise 'notFound'
 		return 0
 	end 'notFound'
@@ -210,12 +197,9 @@ below are separate allocations with identical contents, so they are equal; an
 identity compare would answer `!=`.
 
 <!-- test: array-eq-operator-same-content -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 3]
 	if a == b 'eq'
 		return 0
@@ -230,12 +214,9 @@ end 'main'
 ### Array `==` operator with different content
 
 <!-- test: array-eq-operator-different-content -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [1, 2, 3]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [1, 2, 4]
 	if a == b 'eq'
 		return 0
@@ -253,12 +234,9 @@ The `!=` rewrite (`not (a.equals(b))`) must return `false` when the contents
 match — the negation of the content compare, never of a pointer compare.
 
 <!-- test: array-ne-operator-equal-content -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = [7, 8, 9]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = [7, 8, 9]
 	if a != b 'ne'
 		return 1
@@ -301,7 +279,6 @@ Two `Array with String` values whose elements are separate allocations holding e
 `equals` compares element by element through `String.equals`, never the references the buffer holds.
 
 <!-- test: string-array-equals-compares-element-content -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got '[' -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -335,7 +312,6 @@ false
 ### Equal string arrays hash equal
 
 <!-- test: string-array-hash-follows-element-content -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -350,7 +326,6 @@ function numbered(first Val, count Val) returns StrArr
 end 'numbered'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = ["p1", "p2", "p3"]
 	let built = numbered(1, count: 3)
 	print("{literal.hash() == built.hash()}\n")
@@ -367,7 +342,6 @@ true
 ### String array as Map key
 
 <!-- test: string-array-map-key -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -386,7 +360,6 @@ end 'numbered'
 function main() returns ExitCode
 	let m = StrArrMap.create()
 	try m.insert(freeze(numbered(1, count: 3)), value: 42) otherwise ignore
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let found = try m.get(numbered(1, count: 3)) otherwise 'notFound'
 		print("not found\n")
 		return 1
@@ -405,7 +378,6 @@ found 42
 ### String array `==` and `!=` compare element content
 
 <!-- test: string-array-operator-equality-compares-element-content -->
-<!-- skip: minimaxon does not parse the converted source: Expected an expression but got '[' -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -800,7 +772,6 @@ true
 ### Every integer element width hashes alike through every route
 
 <!-- test: every-integer-element-width-hashes-alike-through-every-route -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 An integer array of every element width answers one hash called directly, through a `Hashable` field and
 from a generic body; a separately built equal array hashes equal, and one element changed changes the hash.
@@ -847,32 +818,20 @@ function verdict(direct HashValue, existential HashValue, generic HashValue, equ
 end 'verdict'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = WideArray from [-3, 7, -9000000000000, 9000000000000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wideEqual = WideArray from [-3, 7, -9000000000000, 9000000000000]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wideChanged = WideArray from [-3, 7, -9000000000000, 9000000000001]
 	print("wide: {verdict(wide.hash(), existential: Holder.create(wide).key.hash(), generic: WideRoute.hashOf(wide), equal: wideEqual.hash(), changed: wideChanged.hash())}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let words = WordArray from [65535, 1, 0]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wordsEqual = WordArray from [65535, 1, 0]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wordsChanged = WordArray from [65535, 1, 256]
 	print("word: {verdict(words.hash(), existential: Holder.create(words).key.hash(), generic: WordRoute.hashOf(words), equal: wordsEqual.hash(), changed: wordsChanged.hash())}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let dwords = DwordArray from [4294967295, 2, 0]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let dwordsEqual = DwordArray from [4294967295, 2, 0]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let dwordsChanged = DwordArray from [4294967295, 2, 65536]
 	print("dword: {verdict(dwords.hash(), existential: Holder.create(dwords).key.hash(), generic: DwordRoute.hashOf(dwords), equal: dwordsEqual.hash(), changed: dwordsChanged.hash())}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytes = ByteArray from [0, 200, 255]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytesEqual = ByteArray from [0, 200, 255]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytesChanged = ByteArray from [0, 201, 255]
 	print("byte: {verdict(bytes.hash(), existential: Holder.create(bytes).key.hash(), generic: ByteRoute.hashOf(bytes), equal: bytesEqual.hash(), changed: bytesChanged.hash())}\n")
 	let empty = WideArray.create(0)
@@ -1025,7 +984,6 @@ true false
 ### A byte array hashes as its bytes
 
 <!-- test: a-byte-array-hashes-as-its-bytes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A `ByteArray` is hashed as one run of bytes, not element by element: its hash is
 a `Hasher` that folds `bytes` with `combineBytes`, which is also the hash of a `String` holding the same
@@ -1049,7 +1007,6 @@ function folded(bytes ByteArray) returns HashValue
 end 'folded'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let lengths = LengthList from [0, 1, 15, 16, 17, 31, 32, 33, 63, 64, 65, 127, 128, 129, 300]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for length in lengths 'eachLength'
@@ -1083,7 +1040,6 @@ end 'main'
 ### An int array hashes as the bytes of its storage
 
 <!-- test: an-int-array-hashes-as-the-bytes-of-its-storage -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An array of `int(i64.min to i64.max)` hashes as one run over its storage, each element its eight bytes
 little-endian: a `Hasher` that folds `storage` with `combineBytes`, which is the hash of a
@@ -1113,15 +1069,10 @@ end 'storageHash'
 
 function main() returns ExitCode
 	let empty = WideArray.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let one = WideArray from [7]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let three = WideArray from [10, 20, 30]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let wide = WideArray from [-3, 9000000000000, -9000000000000, 0, -1]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let forward = WideArray from [1, 2]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let backward = WideArray from [2, 1]
 	print("empty: {empty.hash() == storageHash(empty)}\n")
 	print("empty is an empty byte array: {empty.hash() == ByteArray.create(0).hash()}\n")
@@ -1151,7 +1102,6 @@ ordered: true
 ### One flipped bit of one element moves about half of the 32 hash bits
 
 <!-- test: hash-avalanches -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 Changing one element by one bit moves the array's hash by at least 8 of its 32 bits on average, for an
 `int` array (each of the low 31 bits of each of eight elements) and a byte array (each bit of each of
@@ -1214,7 +1164,6 @@ function byteVerdict() returns String
 	for index in 0 upto 16 'eachByte'
 		bytes.push((((index * 2654435761 + 12345) mod 4294967296) shr 11 and 0xFF) as Byte)
 	end 'eachByte'
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let masks = ByteArray from [1, 2, 4, 8, 16, 32, 64, 128]
 	let hash = bytes.hash()
 	var moved = 0 as Count
@@ -1254,7 +1203,7 @@ byte mean>=8: true at most one 0: true
 ### An int array whose hash only a witness table reaches links and hashes
 
 <!-- test: an-int-array-hashed-only-through-a-witness-table-links -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 An `int` array stored in a `Hashable` field is hashed through the field's witness table, and nothing else in
 the program hashes anything. The program links, equal arrays hash equal through the field, and arrays that
 differ in one element hash differently.
@@ -1272,11 +1221,8 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let first = Holder.create(WideArray from [10, -20, 9000000000000])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let same = Holder.create(WideArray from [10, -20, 9000000000000])
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let other = Holder.create(WideArray from [10, -20, 9000000000001])
 	print("equal arrays: {first.key.hash() == same.key.hash()}\n")
 	print("different arrays: {first.key.hash() != other.key.hash()}\n")
@@ -1294,7 +1240,6 @@ different arrays: true
 ### A narrow int array hashes alike through every route
 
 <!-- test: a-narrow-int-array-hashes-alike-through-every-route -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 An array whose element is one byte wide but is not `Byte` — an `int(0 to 100)`, a signed `int(-128 to 127)` —
 answers one hash called directly, through a `Hashable` field and from a generic body; a separately built equal
@@ -1334,18 +1279,12 @@ function verdict(direct HashValue, existential HashValue, generic HashValue, equ
 end 'verdict'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let percents = PercentArray from [0, 7, 100, 42]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let percentsEqual = PercentArray from [0, 7, 100, 42]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let percentsChanged = PercentArray from [0, 7, 100, 43]
 	print("percent: {verdict(percents.hash(), existential: Holder.create(percents).key.hash(), generic: PercentRoute.hashOf(percents), equal: percentsEqual.hash(), changed: percentsChanged.hash())}\n")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let smalls = SmallArray from [-128, 0, 5, 127]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let smallsEqual = SmallArray from [-128, 0, 5, 127]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let smallsChanged = SmallArray from [-127, 0, 5, 127]
 	print("small: {verdict(smalls.hash(), existential: Holder.create(smalls).key.hash(), generic: SmallRoute.hashOf(smalls), equal: smallsEqual.hash(), changed: smallsChanged.hash())}\n")
 	return 0
@@ -1362,7 +1301,6 @@ small: through Hashable true generic true equal true changed true
 ### A payload-free enum array hashes alike through every route
 
 <!-- test: a-payload-free-enum-array-hashes-alike-through-every-route -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: nested typealias declarations are not supported in minimaxon -->
 A payload-free enum's equality is bitwise, so its array hashes as one run over its storage, like an integer
 array: called directly, through a `Hashable` field and from a generic body it answers one hash; a separately
@@ -1397,11 +1335,8 @@ end 'Route'
 typealias SuitRoute = Route with Suit
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let suits = SuitArray from [Suit.spades, Suit.clubs, Suit.hearts, Suit.diamonds]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let suitsEqual = SuitArray from [Suit.spades, Suit.clubs, Suit.hearts, Suit.diamonds]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let suitsChanged = SuitArray from [Suit.spades, Suit.clubs, Suit.hearts, Suit.hearts]
 	let direct = suits.hash()
 	print("through Hashable: {direct == Holder.create(suits).key.hash()}\n")
@@ -1424,7 +1359,6 @@ changed: true true
 ### An enum that declares its own hash chains it
 
 <!-- test: an-enum-array-chains-the-enum-s-own-hash -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An enum that declares its own `hash()` is hashed by it, so its array chains each element's `hash()` from
 a `Hasher.create()`, called directly and through a `Hashable` field alike. Two
@@ -1466,9 +1400,7 @@ function chained(values ParityArray) returns HashValue
 end 'chained'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let values = ParityArray from [Parity.three, Parity.zero, Parity.two]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let sameParity = ParityArray from [Parity.one, Parity.two, Parity.zero]
 	print("direct: {values.hash() == chained(values)}\n")
 	print("through Hashable: {Holder.create(values).key.hash() == chained(values)}\n")
@@ -1488,7 +1420,6 @@ own hash decides: true true
 ### A float array hashes as its element chain
 
 <!-- test: a-float-array-hashes-as-its-element-chain -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A float's equality is not bitwise (`0.0 == -0.0`), so a float array hashes as the chain
@@ -1516,11 +1447,9 @@ function chained(values Reals) returns HashValue
 end 'chained'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let reals = Reals from [1.5, -2.25, 0.0, 1000000.125]
 	let empty = Reals.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: float literals are not supported in minimaxon
 	let positive = Reals from [1.5, 0.0]
 	let negative = Reals.create(0)
@@ -1767,7 +1696,7 @@ error E3185: <fragment>:3:26: call to '__Builtins.elementsHashAsStorage' from ou
 ```
 
 <!-- test: error.hash-array-storage-refused-outside-the-library-tiers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'from' -->
 <!-- positions: moved -->
 Outside `stdlib/` and `runtime/` the call is refused at the member it names. It has no public replacement.
 ```maxon
@@ -1776,7 +1705,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntegerArray = Array with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let digest = __Builtins.hashArrayStorage(IntegerArray from [1, 2])
 	print("{digest}\n")
 	return 0

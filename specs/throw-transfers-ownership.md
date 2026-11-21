@@ -30,7 +30,6 @@ and the no-binding `otherwise` form decrefs once to release the transfer.
 ## Tests
 
 <!-- test: propagate-throw-through-local-struct -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Propagating a heap-allocated error through a function holding a local struct
 
@@ -68,7 +67,6 @@ type Lex
 	end 'bump'
 
 	function run() returns N throws OuterErr
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try bump() otherwise 'inner'
 			if hasPending 'hp'
 				throw pendingError
@@ -85,7 +83,6 @@ function outer() returns N throws OuterErr
 end 'outer'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try outer() otherwise (e) 'fail'
 		match e 'kind'
 			unterminatedString(line, column) then return (line + column)
@@ -100,7 +97,6 @@ end 'main'
 ```
 
 <!-- test: propagate-throw-otherwise-no-binding-decrefs -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### A binding-less `otherwise` on a heap-allocated error path decrefs once
 
@@ -123,7 +119,6 @@ end 'tokenize'
 
 function main() returns ExitCode
 	var ran = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try tokenize() otherwise 'noBinding'
 		ran = true
 		return 0
@@ -139,7 +134,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-owned-local -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union field of a struct held in a local transfers it out
 
@@ -183,7 +177,6 @@ function process() returns N throws OuterErr
 end 'process'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try process() otherwise (e) 'fail'
 		match e 'kind'
 			unterminatedString(line, column) then return (line + column)
@@ -198,7 +191,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-borrowed-self -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union self-field through a BORROWED receiver RETAINS the box
 
@@ -239,7 +231,6 @@ end 'Lex'
 function main() returns ExitCode
 	let lex = Lex.create()
 	var caught = 0 as N
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try lex.run() otherwise (e) 'fail'
 		match e 'k'
 			unterminatedString(line, column) then caught = (line + column)
@@ -258,7 +249,6 @@ end 'main'
 ```
 
 <!-- test: boxed-union-field-throw-out-of-a-sole-owned-literal -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 ### Throwing a boxed-union field of a SOLELY-owned struct still MOVES it out
 
@@ -297,7 +287,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let v = try Holder.boom() otherwise (e) 'fail'
 		match e 'kind'
 			unterminatedString(line, column) then return (line + column)

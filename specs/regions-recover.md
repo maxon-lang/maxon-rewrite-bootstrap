@@ -475,7 +475,6 @@ consumed 7
 ```
 
 <!-- test: an-owned-payload-stored-into-an-open-window-merges-its-region -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -550,7 +549,6 @@ end 'Bay'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let bay = spawn Bay.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try bay.load(Parcel.box(Box.create(8))) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then settle(back)
@@ -627,7 +625,6 @@ end 'main'
 ```
 
 <!-- test: a-behaviour-stores-the-plain-payload-of-its-message-in-an-isolated-slot -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -688,7 +685,6 @@ end 'Shed'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shed = spawn Shed.create(Box.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try shed.store(Parcel.box(Box.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then settle(back)
@@ -703,7 +699,6 @@ end 'main'
 ```
 
 <!-- test: a-handed-back-linear-argument-goes-to-an-isolated-parameter -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 The failed send hands `back` over as an owned value, so the handler passes it to a function that takes an `isolated` union.
@@ -754,7 +749,6 @@ end 'Counter'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let counter = spawn Counter.create()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try counter.take(Parcel.pad(Pad.create(2))) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then settle(back)
@@ -772,7 +766,6 @@ fin 2
 ```
 
 <!-- test: a-linear-union-with-a-plain-payload-does-not-cross-from-a-literal-over-a-live-local -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Mp.m1(b)` is no fresh value, because `b` is a local the sender writes after the send, and `Mp` is not closed: its payload `y` is a plain `Bx`.
@@ -830,7 +823,6 @@ function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let s = spawn Taker.create(0)
 	let b = Bx.create(1)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(Mp.m1(b)) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then drain(back)
@@ -846,7 +838,6 @@ error E3200: <fragment>:52:13: 'Mp.m1(b)' crosses to the service it is sent to o
 ```
 
 <!-- test: a-linear-union-local-with-a-plain-payload-does-not-cross -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `m` is an owned linear value, but `Mp` holds the plain part `y`, which `b` still names, so `m` is not the whole of its region.
@@ -905,7 +896,6 @@ function main() returns ExitCode
 	let s = spawn Taker.create(0)
 	let b = Bx.create(1)
 	let m = Mp.m1(b)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then drain(back)
@@ -1565,7 +1555,6 @@ error E3200: <fragment>:33:13: 'u' crosses to the service it is sent to only as 
 ```
 
 <!-- test: the-payload-of-a-message-parameter-whose-union-is-not-closed-is-not-isolated -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -1626,7 +1615,6 @@ end 'Shed'
 function main() returns ExitCode
 	// TODO: spawn services are not supported in minimaxon; use cown/when concurrency
 	let shed = spawn Shed.create(Bx.create(0))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try shed.store(Parcel.box(Bx.create(1))) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then settle(back)
@@ -1641,7 +1629,6 @@ error E3200: <fragment>:45:28: 'b' is not isolated: only a clean call, a `swap` 
 ```
 
 <!-- test: a-linear-local-of-a-closed-type-crosses-in-a-message -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Rl` holds only a value, so the owned linear local `r` is the whole of its region and crosses.
 ```maxon
@@ -1676,7 +1663,6 @@ function main() returns ExitCode
 	let s = spawn RlTaker.create(0)
 	let r = Rl.create(1)
 	print("peek {r.code}\n")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(r) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then back.fin()
@@ -1695,7 +1681,6 @@ fin 1
 ```
 
 <!-- test: a-linear-union-whose-payloads-are-values-or-isolated-crosses-in-a-message -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: capability qualifier 'isolated' on union payload is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Every payload of `Mq` is linear and closed or declared `isolated`, so `Mq` is closed.
@@ -1755,7 +1740,6 @@ function main() returns ExitCode
 	let s = spawn QTaker.create(0)
 	let m = Mq.q1(Bx.create(1))
 	drainQ(Mq.q0(Rl.create(2)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then drainQ(back)
@@ -1773,7 +1757,6 @@ fin 2
 ```
 
 <!-- test: a-linear-union-declared-isolated-crosses-though-its-type-is-not-closed -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `m` is declared `isolated`, so it is the whole of its region whatever `Mp` holds.
@@ -1833,7 +1816,6 @@ function main() returns ExitCode
 	// TODO: region capability 'isolated' is not supported in minimaxon
 	let m = Mp.m1(Bx.create(1)) as isolated Mp
 	drain(Mp.m0(Rl.create(3)))
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try s.take(m) otherwise (failure) 'refused'
 		match failure 'why'
 			mailboxFull(back) then drain(back)

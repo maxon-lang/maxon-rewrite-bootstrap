@@ -926,7 +926,6 @@ error E3008: <fragment>:38:16: type 'Point' is not exported
 ```
 
 <!-- test: error.a-hidden-types-iteration-is-refused-through-a-for-loop -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
 A `for` loop over a value calls its type's `createIterator`, which is hidden with the type.
@@ -963,7 +962,6 @@ type Seq
 	var items as IntArray
 
 	static function make() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: [10, 20, 12]}
 	end 'make'
 
@@ -1091,7 +1089,6 @@ error E3008: <fragment>:19:10: type 'Mode' is not exported
 ```
 
 <!-- test: a-hidden-types-values-sort-through-the-librarys-comparable-witness -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 Sorting an array of a hidden type's values calls `compare` through the `Comparable` witness the library's sort
 dispatches on, which is the interface's surface rather than the type's, so it stays legal.
 ```maxon
@@ -1122,7 +1119,6 @@ export type Points
 	var items as PointArray
 
 	export static function make() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: [Point.make(3), Point.make(1), Point.make(2)]}
 	end 'make'
 
@@ -1328,14 +1324,12 @@ end 'main'
 ```
 
 <!-- test: exported-array-let-cross-file -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
 Cross-file access to an exported module-level array.
 ```maxon
 // --- file: api/state.maxon
 export typealias SmallInt = int(0 to u8.max)
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 export let shared = [42 as SmallInt]
 
 // --- file: app/main.maxon
@@ -1777,8 +1771,7 @@ error E3008: specs/export-keyword/error.hidden-alias-as-a-top-level-container-cr
 ```
 
 <!-- test: error.hidden-alias-as-a-top-level-set-from-head -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A top-level `<alias> from […]` names the alias, so another directory's unmarked one is refused there as it is in
 a body.
 ```maxon
@@ -1786,14 +1779,12 @@ a body.
 typealias Counts = Set with ExitCode
 
 export function probeCounts() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = Counts from [1, 2]
 	print("{s.count()}")
 	return 0
 end 'probeCounts'
 
 // --- file: main.maxon
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let S = Counts from [3, 4]
 
 function main() returns ExitCode

@@ -35,7 +35,6 @@ post-resolution pass has.
 ## Tests
 
 <!-- test: array-literal-nonconstant-byte-stride -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Non-constant Byte array literal has element_size 1, not pointer-width 8
 Builds a `Byte` array *literal* from runtime byte values (read out of a source
 string, so the elements are non-constant and cannot take the `.rdata` constant
@@ -51,7 +50,6 @@ function main() returns ExitCode
 	let x = try sb.get(0) otherwise 0
 	let y = try sb.get(1) otherwise 0
 	let z = try sb.get(2) otherwise 0
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let bytes = [x, y, z]
 	let s = String.from(bytes)
 	return 0 if s == "Hi!" else 1

@@ -426,7 +426,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `otherwise (e)` on a `try await` binds the error the awaited thunk THREW,
 at the thunk's declared `throws` type — exactly as it does on a `try` call.
 The promise carries its callee's error type, so `e` here is a `TaskError`
@@ -455,7 +454,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async mayFail(2)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
@@ -473,7 +471,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The bound error is an associated-value union, so the error flag IS a heap
 pointer to the payload. The binding takes ownership and scope-end releases
@@ -503,7 +500,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async work(-1)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -525,7 +521,6 @@ caught: negative input
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The `async` and its `try await` sit in different basic blocks, so the promise
 reaches the await through the cross-block variable-reference path. That path
@@ -557,7 +552,6 @@ function main() returns ExitCode
 		guard = 2
 	end 'sep'
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -578,7 +572,6 @@ caught: cross-block
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A void-returning throwing async function has no result — only an error flag.
 The `otherwise (e)` binding must still be typed at the thunk's `throws` type.
 ```maxon
@@ -611,7 +604,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async maySetFlag(false, flag: flag)
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try await p otherwise (e) 'failed'
 		flag = e.code()
 	end 'failed'
@@ -664,7 +656,6 @@ error E3073: specs/async-await/async-await.error.no-yield.maxon:9:11: 'async hea
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The error type SURVIVES storage, so an `otherwise (e)` binding on a promise pulled back out of
 an array binds the error the thunk actually throws — a `TaskError`, matched case by case. The
 storage type `Promise with (T, E)` names the error type, so `e` is typed exactly as for a direct await.
@@ -692,7 +683,6 @@ function main() returns ExitCode
 	arr.push(async mayFail())
 	let p = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		return match e 'why'
 			timedOut gives 7
@@ -710,7 +700,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The error carried back out of storage is an associated-value union, so its flag IS a heap pointer
 to the payload. The binding takes ownership and scope-end releases it exactly once. Only a worker that DIES
@@ -745,7 +734,6 @@ function main() returns ExitCode
 	arr.push(async work(-1))
 	let p = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let r = try await p otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -1991,7 +1979,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 An array literal stores its elements, so it takes ownership of each promise it is given, whatever made it. The loop awaits them out of the array, and the run is leak-free.
 ```maxon
@@ -2013,7 +2000,6 @@ function ask() returns IntPromise
 end 'ask'
 
 function gather(p IntPromise) returns Integer
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let pending = IntPromiseArray from [p, ask(), async work()]
 	var sum = 0 as Integer
@@ -2040,7 +2026,6 @@ end 'main'
 <!-- test: async-await.error.an-array-literal-of-promises-must-match-the-array-type -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 A promise in a literal is checked against the array's element type like a promise pushed into it.
 ```maxon
@@ -2061,7 +2046,6 @@ function mayFail() returns Integer throws TaskError
 end 'mayFail'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	var pending = IntPromiseArray from [async mayFail()]
 	pending.clear()
@@ -3777,7 +3761,6 @@ agreement check cannot come to disagree about what the callee returns.
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 enum DrainError implements Error
 	broken
@@ -3798,7 +3781,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async drainThunk()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let lines = try await p otherwise 'died'
 		return 1
 	end 'died'
@@ -3826,7 +3808,6 @@ promise's function returns 'int'" — a sentence naming a type the program does 
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ```maxon
 enum DrainError implements Error
@@ -3859,7 +3840,6 @@ function main() returns ExitCode
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for p in promises 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let lines = try await p otherwise 'died'
 			continue
 		end 'died'
@@ -3891,7 +3871,6 @@ keeps the alias name available to every downstream range check.
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 typealias Tally = int(0 to 1000)
 
@@ -3911,7 +3890,6 @@ function main() returns ExitCode
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async countThunk()
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let n = try await p otherwise 'died'
 		return 1
 	end 'died'
@@ -5116,7 +5094,6 @@ error E3102: <fragment>:27:22: use of moved value 'word': its ownership moved to
 
 <!-- test: async-await.error.a-cell-resident-var-read-after-a-nested-closure-across-lines-cannot-be-handed-to-async -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
@@ -5156,7 +5133,6 @@ function main() returns ExitCode
 	var (word, _) = opening()
 	fill(word, n: 2)
 	// TODO: closures are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let peek = function() gives [run(function() gives 0), word.byteLength() as Integer]
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5565,7 +5541,6 @@ error E3207: <fragment>:20:27: 'poke' writes 'p' (line 14: `p.n = 99`); 'b' is i
 
 <!-- test: async-await.error.a-closure-body-spanning-lines-takes-a-cell-resident-string -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- positions: moved -->
@@ -5599,7 +5574,6 @@ function main() returns ExitCode
 	var word = "hello padded out long enough to heap allocate {1}"
 	fill(word, n: 2)
 	// TODO: closures are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let peek = function() gives total([1, word.byteLength() as Integer])
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let p = async shout(word)
@@ -5877,7 +5851,6 @@ error E3186: <fragment>:17:36: argument 'word' is read by another operand of thi
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 A promise stored as `Promise with (Box, WorkError)` carries a record result and an error whose payload is a heap String. The success path hands the record to the awaiter and the failure path hands it the error; neither leaks.
 ```maxon
@@ -5918,14 +5891,12 @@ function main() returns ExitCode
 	arr.push(async work(-1))
 	let first = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let box = try await first otherwise (e) 'firstFailed'
 		return 1
 	end 'firstFailed'
 	print("got {box.n}\n")
 	let second = try arr.get(1) otherwise panic("index 1 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let none = try await second otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")
@@ -5949,7 +5920,6 @@ caught: negative input
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: union errors are not supported in minimaxon; an error is an enum -->
 The result record holds a heap array next to the awaited error whose payload is a heap String. Both the success value and the error are released exactly once, which a leak check at exit would otherwise turn into exit 101.
 ```maxon
@@ -5995,14 +5965,12 @@ function main() returns ExitCode
 	arr.push(async work(-1))
 	let first = try arr.get(0) otherwise panic("index 0 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let batch = try await first otherwise (e) 'firstFailed'
 		return 1
 	end 'firstFailed'
 	print("got {batch.lines.count()} {batch.tally}\n")
 	let second = try arr.get(1) otherwise panic("index 1 is in bounds by construction")
 	// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let other = try await second otherwise (e) 'failed'
 		match e 'which'
 			failed(reason) then print("caught: {reason}\n")

@@ -61,7 +61,6 @@ end 'main'
 ### Array of Lists
 
 <!-- test: array-of-lists -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -73,7 +72,6 @@ function main() returns ExitCode
 	list1.append(20)
 	let list2 = IntList.create()
 	list2.append(30)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = [list1, list2]
 	print("{arr.count()}\n")
 	let first = try arr.get(0) otherwise IntList.create()

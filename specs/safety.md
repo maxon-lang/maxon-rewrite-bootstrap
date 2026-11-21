@@ -187,7 +187,6 @@ subject — the throw, the `(e)` binding, and the `match e` discrimination of `d
 documented while the block form is outstanding.
 
 <!-- test: divide-by-zero-expression-form -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### An integer divide's DivisionByZero is bound and discriminated by match
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -202,7 +201,6 @@ function main() returns ExitCode
 	// A STATEMENT-position `try`, which is what the block form's `result = 100 / zero` body amounts to.
 	// The quotient is discarded, and the throw survives that: what raises the error is the divisor test
 	// feeding the fork, not the divide whose value nobody reads.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try (100 / zero) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then result = 42
@@ -216,7 +214,6 @@ end 'main'
 ```
 
 <!-- test: float-divide-by-zero-expression-form -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 ### A float divide's DivisionByZero is bound and discriminated by match
@@ -233,7 +230,6 @@ function main() returns ExitCode
 	let zero = opaque(0.0)
 	var result = 0 as FullRangeInt
 	// TODO: float literals are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try (100.0 / zero) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then result = 42
@@ -267,7 +263,6 @@ refactor the register guard cannot see: a deliberately well-typed bitcast of the
 integer to avoid an xmm compare.
 
 <!-- test: float-divide-by-runtime-negative-zero -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: float literals are not supported in minimaxon -->
 <!-- skip: float typealiases are not supported in minimaxon -->
 ```maxon
@@ -283,7 +278,6 @@ function main() returns ExitCode
 	let negZero = opaque(-0.0)
 	var result = 0 as FullRangeInt
 	// TODO: float literals are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try (1.0 / negZero) otherwise (e) 'handle'
 		match e 'kind'
 			divisionByZero then result = 42

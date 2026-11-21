@@ -1159,7 +1159,6 @@ decode-err-058 illegalParameter 47
 ```
 
 <!-- test: tls-handshake-codec.encode -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: string interpolation format specifiers are not supported in minimaxon -->
@@ -1210,14 +1209,11 @@ end 'report'
 function main() returns ExitCode
 	report("encode-001", message: TlsHandshakeMessage.keyUpdate(TlsKeyUpdateRequest.updateRequested))
 	report("encode-002", message: TlsHandshakeMessage.finished(fromHex("0000000000000000000000000000000000000000000000000000000000000000")))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("encode-003", message: TlsHandshakeMessage.helloRetryRequest(TlsServerHello.create(771, random: fromHex("cf21ad74e59a6111be1d8c021e65b891c2a211167abb8c5e079e09e2c8a8339c"), legacySessionIdEcho: fromHex(""), cipherSuite: 4865, compressionMethod: 0, extensions: TlsExtensionBlock.listed(TlsExtensionArray from [TlsExtension.selectedGroup(23), TlsExtension.selectedVersion(772)]))))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("encode-004", message: TlsHandshakeMessage.encryptedExtensions(TlsExtensionArray from [TlsExtension.serverNameAcknowledgement, TlsExtension.applicationProtocols(TlsProtocolNameArray from [fromHex("687474702f312e31")])]))
 	report("encode-005", message: TlsHandshakeMessage.clientKeyExchange(fromHex("1111111111111111111111111111111111111111111111111111111111111111")))
 	report("encode-006", message: TlsHandshakeMessage.serverHelloDone)
 	report("encode-007", message: TlsHandshakeMessage.tls13Certificate(fromHex(""), entries: TlsCertificateEntryArray.create(0)))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("encode-008", message: TlsHandshakeMessage.clientHello(TlsClientHello.create(771, random: fromHex("8be81568b6b7b19ae406c4652cbadf27ca911c78ce5956d2be42a2d8a2520db8"), legacySessionId: fromHex("8932987bdc56d5b0e445aa29f4a14ab2e71e711e52830c94baaf2e7f8ff4dbaf"), cipherSuites: TlsCipherSuiteCodeArray from [4867, 4865, 4866, 52393, 52392, 49195, 49199, 49196, 49200], compressionMethods: fromHex("00"), extensions: TlsExtensionBlock.listed(TlsExtensionArray from [TlsExtension.serverName("example.com"), TlsExtension.extendedMasterSecret, TlsExtension.renegotiationInfo(fromHex("")), TlsExtension.supportedGroups(TlsGroupCodeArray from [29, 23]), TlsExtension.ecPointFormats(fromHex("00")), TlsExtension.signatureAlgorithms(TlsSignatureSchemeCodeArray from [1027, 2052, 2055, 1283, 2053, 2054, 1025, 1281, 1537]), TlsExtension.applicationProtocols(TlsProtocolNameArray from [fromHex("687474702f312e31")]), TlsExtension.clientKeyShares(TlsKeyShareArray from [TlsKeyShare.create(29, keyExchange: fromHex("cc2a3a0da9952cf71cce25e0cc56db9ea784eb3a1d4c4ddbc009b411ad235b68"))]), TlsExtension.supportedVersions(TlsVersionCodeArray from [772, 771])]))))
 	return 0
 end 'main'
@@ -1360,7 +1356,6 @@ noApplicationProtocol 120
 ```
 
 <!-- test: tls-handshake-codec.a-field-longer-than-its-length-prefix-is-refused-when-encoding -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 `TlsHandshakeCodec.encode` throws `TlsEncodeError.vectorTooLong` for a field that does not fit its length prefix (uint8 session id, uint16 ticket and extension block, uint24 handshake body) and writes the largest one that fits. A line prints the encoded length.
 ```maxon
@@ -1380,7 +1375,6 @@ function report(id String, message TlsHandshakeMessage)
 end 'report'
 
 function helloWith(sessionId ByteArray) returns TlsHandshakeMessage
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return TlsHandshakeMessage.clientHello(TlsClientHello.create(771, random: filled(32), legacySessionId: sessionId, cipherSuites: TlsCipherSuiteCodeArray from [4865], compressionMethods: filled(1), extensions: TlsExtensionBlock.absent))
 end 'helloWith'
 
@@ -1393,9 +1387,7 @@ function main() returns ExitCode
 	report("session-id-256", message: helloWith(filled(256)))
 	report("ticket-65535", message: ticketWith(filled(65535)))
 	report("ticket-65536", message: ticketWith(filled(65536)))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("extension-block-65535", message: TlsHandshakeMessage.encryptedExtensions(TlsExtensionArray from [TlsExtension.opaque(1000, data: filled(65531))]))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	report("extension-block-65536", message: TlsHandshakeMessage.encryptedExtensions(TlsExtensionArray from [TlsExtension.opaque(1000, data: filled(65532))]))
 	report("finished-16777215", message: TlsHandshakeMessage.finished(filled(16777215)))
 	report("finished-16777216", message: TlsHandshakeMessage.finished(filled(16777216)))

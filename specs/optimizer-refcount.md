@@ -40,7 +40,6 @@ anything meaningful to optimize.
 ## Tests
 
 <!-- test: refcount-baseline-whole-program -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
@@ -205,7 +204,6 @@ function main() returns ExitCode
 	triplet.push(Point.create(9, y: 10))
 	triplet.push(Point.create(11, y: 12))
 	for i in 0 upto 3 'alias_loop'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let p = try triplet.get(i) otherwise 'missErr'
 			panic("alias_loop: triplet.get({i}) invariant violated")
 		end 'missErr'

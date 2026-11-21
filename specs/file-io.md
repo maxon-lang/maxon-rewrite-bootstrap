@@ -265,12 +265,10 @@ implementations of the `__mf_*` entries.
 
 <!-- test: read-text-file -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// Try to read a nonexistent file - this tests the error path
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readText(FilePath from "nonexistent_file_xyz.txt") otherwise 'err'
 		print("File not found")
 		return 42
@@ -288,11 +286,9 @@ File not found
 
 <!-- test: read-nonexistent-file -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readText(FilePath from "nonexistent.txt") otherwise 'err'
 		print("File not found")
 		return 0
@@ -326,11 +322,9 @@ end 'main'
 
 <!-- test: read-binary-nonexistent -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let bytes = try File.readBinary(FilePath from "nonexistent_binary_file.bin") otherwise 'err'
 		print("File not found")
 		return 42
@@ -348,25 +342,21 @@ File not found
 
 <!-- test: write-and-read-text -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_readtext.txt"
 	// Write a text file
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(path, content: "Hello World") otherwise 'write_err'
 		print("Write failed")
 		return 1
 	end 'write_err'
 	// Read it back with readText
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readText(path) otherwise 'read_err'
 		print("Read failed")
 		return 2
 	end 'read_err'
 	// Clean up
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(path) otherwise 'del_err'
 		print("Delete failed")
 	end 'del_err'
@@ -388,19 +378,16 @@ Hello World
 
 <!-- test: create-text-of-an-existing-file-throws-already-exists -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 The refusal is `FileWriteError.alreadyExists`, which is what tells a caller that somebody else made the file
 from every other reason a create can fail.
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_create_text_exists.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.createText(path, content: "first") otherwise 'createFailed'
 		return 1
 	end 'createFailed'
 	var answer = 2 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.createText(path, content: "second") otherwise (e) 'refused'
 		answer = 42 if e == FileWriteError.alreadyExists else 3
 	end 'refused'
@@ -414,7 +401,6 @@ end 'main'
 
 <!-- test: write-text-over-the-running-executable-throws-busy -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: conditional compilation directives (#if/#else/#endif) are not supported in minimaxon -->
 <!-- unsupported-targets: arm64-macos, wasm32-wasi -->
 A file a running program's image keeps from being written — which Windows refuses with a sharing violation and
@@ -450,7 +436,6 @@ function main() returns ExitCode
 	let image = try File.readBinary(executable) otherwise return 2
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let copy = (FilePath from "test_write_over_a_running_copy.exe").resolve(Directory.currentPath())
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeBinary(copy, content: image, mode: FilePermission.executable) otherwise 'unwritten'
 		return 3 if deleteTheCopy(copy) else 7
 	end 'unwritten'
@@ -475,7 +460,6 @@ end 'verdictOverARunningCopy'
 function verdictWhileItRuns(running StreamingSubprocess, copy FilePath) returns ExitCode
 	let output = try running.takeStdout() otherwise return 5
 	_ = try output.readLine() otherwise return 5
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(copy, content: "") otherwise (e) 'refused'
 		return 42 if e == FileWriteError.busy else (10 + e.ordinal) as ExitCode
 	end 'refused'
@@ -489,7 +473,6 @@ end 'endedCleanly'
 
 function deleteTheCopy(copy FilePath) returns bool
 	while true 'eachAttempt'
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try File.delete(copy) otherwise (e) 'refused'
 			if e == FileDeleteError.notFound 'nothingToDelete'
 				return true
@@ -510,12 +493,10 @@ end 'deleteTheCopy'
 
 <!-- test: read-text-of-a-missing-file-throws-not-found -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A file that is not there is `FileReadError.notFound`, distinct from a read that failed for another reason.
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let text = try File.readText(FilePath from "test_missing_read_text.txt") otherwise (e) 'unread'
 		return 42 if e == FileReadError.notFound else 1
 	end 'unread'
@@ -528,26 +509,21 @@ end 'main'
 
 <!-- test: create-text-refuses-an-existing-file -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 `File.createText` writes a file that does not exist yet, and refuses one that does without touching it.
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "test_create_text.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.createText(path, content: "first") otherwise 'createFailed'
 		return 1
 	end 'createFailed'
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.createText(path, content: "second") otherwise 'secondRefused'
 		refused = true
 	end 'secondRefused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readText(path) otherwise 'readFailed'
 		return 2
 	end 'readFailed'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(path) otherwise 'deleteFailed'
 		return 3
 	end 'deleteFailed'
@@ -567,7 +543,6 @@ first
 
 <!-- test: read-text-of-a-file-that-reports-no-size -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- unsupported-targets: x64-windows, arm64-macos -->
 A Linux `/proc` file reports a size of 0 and still holds text, so `File.readText` reads to the end of the file
 rather than stopping at the size it was told. `/proc/self/smaps` is longer than one 4096-byte read, so the
@@ -579,7 +554,6 @@ let OneReadChunkBytes = 4096
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let path = FilePath from "/proc/self/smaps"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let text = try File.readText(path) otherwise 'readFailed'
 		return 1
 	end 'readFailed'
@@ -600,7 +574,6 @@ end 'main'
 
 <!-- test: write-and-read-binary -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 function main() returns ExitCode
@@ -612,19 +585,16 @@ function main() returns ExitCode
 	data.push(66 as Byte)
 	data.push(67 as Byte)
 	// Write binary file
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeBinary(path, content: data) otherwise 'write_err'
 		print("Write failed")
 		return 1
 	end 'write_err'
 	// Read it back
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let readData = try File.readBinary(path) otherwise 'read_err'
 		print("Read failed")
 		return 2
 	end 'read_err'
 	// Clean up the temp file
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(path) otherwise 'del_err'
 		print("Delete failed")
 	end 'del_err'
@@ -634,7 +604,6 @@ function main() returns ExitCode
 		return 3
 	end 'count_check'
 	// Verify first value
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let b0 = try readData.get(0) otherwise 'e0'
 		return 10
 	end 'e0'
@@ -655,7 +624,6 @@ Binary read/write OK
 
 <!-- test: bytes-written-before-close-are-the-files-content-after -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -665,28 +633,23 @@ function main() returns ExitCode
 	first.push(66 as Byte)
 	let second = ByteArray.create(0)
 	second.push(67 as Byte)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let writer = try FileWriter.open(path) otherwise 'open_err'
 		print("Open failed")
 		return 1
 	end 'open_err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try writer.write(first) otherwise 'first_err'
 		print("First write failed")
 		return 2
 	end 'first_err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try writer.write(second) otherwise 'second_err'
 		print("Second write failed")
 		return 3
 	end 'second_err'
 	writer.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let content = try File.readBinary(path) otherwise 'read_err'
 		print("Read failed")
 		return 4
 	end 'read_err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(path) otherwise 'del_err'
 		print("Delete failed")
 	end 'del_err'
@@ -694,7 +657,6 @@ function main() returns ExitCode
 		print("Wrong count: {content.count()}")
 		return 5
 	end 'count_check'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let last = try content.get(2) otherwise 'e2'
 		return 10
 	end 'e2'
@@ -723,7 +685,6 @@ exists. Backed by `MoveFileEx` (Windows), `rename(2)` (POSIX), and
 
 <!-- test: write-rename-and-read -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 
 function main() returns ExitCode
@@ -734,13 +695,11 @@ function main() returns ExitCode
 	let data = ByteArray.create(0)
 	data.push(70 as Byte)
 	data.push(71 as Byte)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeBinary(src, content: data) otherwise 'write_err'
 		print("Write failed")
 		return 1
 	end 'write_err'
 	// Rename src -> dst.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.rename(src, to: dst) otherwise 'rename_err'
 		print("Rename failed")
 		return 2
@@ -750,7 +709,6 @@ function main() returns ExitCode
 		print("Source still exists")
 		return 3
 	end 'src_remains'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let readData = try File.readBinary(dst) otherwise 'read_err'
 		print("Read failed")
 		return 4
@@ -760,17 +718,14 @@ function main() returns ExitCode
 		return 5
 	end 'count_check'
 	// Rename over an existing destination replaces it.
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeBinary(src, content: data) otherwise 'rewrite_err'
 		print("Rewrite failed")
 		return 6
 	end 'rewrite_err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.rename(src, to: dst) otherwise 'replace_err'
 		print("Replace rename failed")
 		return 7
 	end 'replace_err'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(dst) otherwise 'del_err'
 		print("Delete failed")
 	end 'del_err'
@@ -787,7 +742,6 @@ Rename OK
 
 <!-- test: rename-of-a-missing-file-throws-not-found -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 A source that is not there is `FileRenameError.notFound`, distinct from a rename that failed for another reason.
 ```maxon
 function main() returns ExitCode
@@ -795,7 +749,6 @@ function main() returns ExitCode
 	let src = FilePath from "test_rename_missing_src.bin"
 	// TODO: 'Type from value' conversions are not supported in minimaxon
 	let dst = FilePath from "test_rename_missing_dst.bin"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.rename(src, to: dst) otherwise (e) 'unmoved'
 		return 42 if e == FileRenameError.notFound else (10 + e.ordinal) as ExitCode
 	end 'unmoved'
@@ -816,7 +769,6 @@ not exist or holds the whole source.
 
 <!-- test: rename-new-moves-a-file-to-a-free-name -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -825,7 +777,6 @@ function main() returns ExitCode
 	let dst = FilePath from "test_rename_new_free_dst.txt"
 	try File.delete(dst) otherwise ignore
 	try File.writeText(src, content: "moved") otherwise return 2
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.renameNew(src, to: dst) otherwise 'refused'
 		try File.delete(src) otherwise ignore
 		return 3
@@ -849,7 +800,6 @@ destination holds moved
 
 <!-- test: rename-new-refuses-an-existing-destination -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -859,7 +809,6 @@ function main() returns ExitCode
 	try File.writeText(src, content: "source") otherwise return 2
 	try File.writeText(dst, content: "destination") otherwise return 3
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.renameNew(src, to: dst) otherwise 'taken'
 		refused = true
 	end 'taken'
@@ -884,7 +833,6 @@ destination holds destination
 
 <!-- test: rename-new-refuses-a-missing-source -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function main() returns ExitCode
 	// TODO: 'Type from value' conversions are not supported in minimaxon
@@ -894,7 +842,6 @@ function main() returns ExitCode
 	try File.delete(src) otherwise ignore
 	try File.delete(dst) otherwise ignore
 	var refused = false
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.renameNew(src, to: dst) otherwise 'unmoved'
 		refused = true
 	end 'unmoved'
@@ -914,7 +861,6 @@ destination exists false
 ```
 
 <!-- test: a-path-holding-a-nul-names-no-file-not-its-prefix -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 A path holding a NUL names no file on any lane — never the file named by the bytes before the NUL. Every
 `File` operation on one answers as it would for a file that is not there, and the file the prefix names
@@ -933,15 +879,12 @@ function main() returns ExitCode
 	end 'read' else (e) 'readRefused'
 		print("readText refused {e.name}\n")
 	end 'readRefused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.writeText(holding, content: "y") otherwise 'writeRefused'
 		print("writeText refused\n")
 	end 'writeRefused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.rename(holding, to: moved) otherwise (e) 'renameRefused'
 		print("rename refused {e.name}\n")
 	end 'renameRefused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try File.delete(holding) otherwise (e) 'deleteRefused'
 		print("delete refused {e.name}\n")
 	end 'deleteRefused'

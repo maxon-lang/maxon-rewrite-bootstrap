@@ -292,7 +292,6 @@ end 'main'
 ```
 
 <!-- test: enum-map-for-in-insert -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ```maxon
 enum Color
 	red
@@ -301,7 +300,6 @@ enum Color
 end 'Color'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [Color.red: 10 as Count, Color.green: 20 as Count, Color.blue: 30 as Count]
 	let redVal = try m.get(Color.red) otherwise 0
 	m.upsert(Color.red, value: redVal + 1)

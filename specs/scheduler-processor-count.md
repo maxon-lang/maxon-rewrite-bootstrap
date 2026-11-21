@@ -74,7 +74,6 @@ procs=64
 ```
 
 <!-- test: scheduler-processor-count.a-request-beyond-32-bits-is-ignored -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 `18446744073709551621` is `2^64 + 5`: a decimal walk that wraps in 64 bits reads it as 5, and a count is only
 a count when it fits a positive 32-bit signed integer, so the value is ignored and the machine's count
@@ -98,7 +97,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "18446744073709551621"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
@@ -115,7 +113,6 @@ child exit=0
 ```
 
 <!-- test: scheduler-processor-count.a-count-with-trailing-text-is-ignored -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 `12abc` starts with a count and is not one: the whole value must be a decimal, so a trailing suffix makes it
 ignored rather than read as 12, and the machine's count applies. The same re-execution as its sibling
@@ -136,7 +133,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "12abc"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
@@ -153,7 +149,6 @@ child exit=0
 ```
 
 <!-- test: scheduler-processor-count.a-count-with-a-leading-plus-is-taken -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 `+4` is a decimal, as Go's `strconv.ParseInt` reads one: a leading `+` is part of the number, so the count
 is 4. The same re-execution as the siblings above, with this text as `MAXON_MAX_PROCS`.
@@ -172,7 +167,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "+4"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")
@@ -189,7 +183,6 @@ child exit=0
 ```
 
 <!-- test: scheduler-processor-count.a-count-longer-than-thirty-two-bytes-is-read-whole -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- unsupported-targets: wasm32-wasi -->
 Forty `0`s and a `4` are 41 bytes of one decimal whose value is 4. The length of the text is not what makes a
 count; its value is, so a value longer than any first read's buffer is read whole and the count is 4. The
@@ -209,7 +202,6 @@ function main() returns ExitCode
 	argv.push("child")
 	let config = Configuration.create(Executable.path(me))
 	config.arguments = argv
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	config.environment = Environment.inheritUpdating(["MAXON_MAX_PROCS": "00000000000000000000000000000000000000004"])
 	let run = try Subprocess.runConfiguration(config) otherwise return 4
 	print("child {run.stdout}")

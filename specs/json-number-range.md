@@ -20,10 +20,8 @@ An exponent too long to count is not allowed to wrap around: `1e9999999999999999
 ## Tests
 
 <!-- test: json-number-range.an-exponent-past-the-float-range-is-refused -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ```maxon
 function show(text String)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let doc = try Json.parse(text) otherwise 'refused'
 		print("{text}: refused\n")
 		return
@@ -58,7 +56,6 @@ end 'main'
 ```
 
 <!-- test: json-number-range.a-number-is-read-to-the-nearest-float -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: float literals are not supported in minimaxon -->
 A number reads as the float nearest to its decimal value, whatever the digits and the exponent are made of: a mantissa of 310 digits under `e-300` is a billion, the smallest subnormal is read as itself rather than zero, and the largest float reads back as itself.
 
@@ -69,7 +66,6 @@ function numberOf(text String) returns JsonFloat throws JsonError
 end 'numberOf'
 
 function check(label String, text String, expected JsonFloat)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let value = try numberOf(text) otherwise 'refused'
 		print("{label}: refused\n")
 		return

@@ -344,7 +344,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: stdlib-user-shadows.a-field-of-a-value-of-the-moved-declaration -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ⚠ **THE CONTRAST THAT PINS THE RULE.** A FIELD read on a value of the moved declaration reads the
 value's own layout and names nothing, so it has no minted callee for the reserved door to judge — pinned
 here so a cure for the method case that disturbs the value's layout is caught. The cwd
@@ -359,7 +358,6 @@ type FileInfo
 end 'FileInfo'
 
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let info = try File.info(Directory.currentPath()) otherwise 'missing'
 		return 90
 	end 'missing'
@@ -1160,13 +1158,11 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-masked-count-cast-to-the-programs-own-count-is-not-unneeded -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A masked `count()` keeps the library's `Count`, and this file's `Count` is a different declaration of that name, so the cast between them is a conversion rather than an unneeded cast.
 ```maxon
 typealias Count = int(0 to u64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]
 	let low = (xs.count() and 7) as Count
 	print("{low}\n")
@@ -1203,14 +1199,11 @@ error E3005: <fragment>:6:41: operator '+' requires both operands to be the same
 ```
 
 <!-- test: stdlib-user-shadows.a-librarys-count-and-the-programs-own-count-do-not-mix -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 `count()` answers the library's `Count` and `mine` is this file's `Count`, declared with the same range, so `+` refuses the pair.
 ```maxon
 typealias Count = int(0 to u64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2, 3]
 	let mine = 3 as Count
 	let total = xs.count() + mine
@@ -1616,7 +1609,6 @@ end 'main'
 ```
 
 <!-- test: stdlib-user-shadows.a-library-extension-reads-the-librarys-alias-past-an-authors-member-alias-of-that-name -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 A program extends `Array` with a member typealias named `ElementIndex`, the name of an alias the library's own `Array`
 extensions spell bare. A library file never sees an author's declaration, so the library's sort keeps indexing with
@@ -1632,7 +1624,6 @@ extension Array
 end 'Array'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let items = TallyArray from [3, 1, 2, 9, 4, 7, 5, 8, 6, 0, 11, 15, 12, 14, 13, 10]
 	items.sort()
 	let first = try items.get(0) otherwise 99

@@ -1558,7 +1558,6 @@ error E3005: specs/where-clauses/where-clauses.error.witness-return-keeps-the-re
 ```
 
 <!-- test: where-clauses.witness-requirement-returning-byte-array-throws-through-two-conformers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A throwing requirement returning `ByteArray`, called through a `where T is Transform` type parameter of a
 generic function, propagated with `try` and caught with `otherwise`: each conformer's result reaches the
@@ -1633,7 +1632,6 @@ function show(bytes ByteArray)
 end 'show'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let data = ByteArray from [1, 2, 3]
 	show(try apply(Doubler.create(8), data: data) otherwise ByteArray.create(0))
 	show(try apply(Reverser.create(8), data: data) otherwise ByteArray.create(0))
@@ -2620,11 +2618,9 @@ end 'main'
 Map requires `Key is Hashable`. String implements Hashable, so this should work:
 
 <!-- test: where-clauses.map-basic -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["hello": 42]
 	return try m.get("hello") otherwise 0
 end 'main'
@@ -4454,7 +4450,6 @@ error E2015: <fragment>:36:22: Unsupported: `async holder.…` spawns a method o
 ```
 
 <!-- test: where-clauses.a-static-with-conditional-witnesses-called-in-a-closure-passed-to-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
@@ -4476,7 +4471,6 @@ typealias Small = int(0 to 100)
 typealias SmallHolder = Holder with Small
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives SmallHolder.width(n))
@@ -4492,7 +4486,6 @@ end 'main'
 ```
 
 <!-- test: where-clauses.a-static-reading-a-witness-called-in-a-closure-passed-to-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -4512,7 +4505,6 @@ end 'Holder'
 typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	// TODO: closures are not supported in minimaxon
 	let ys = xs.map(function(n) gives IntHolder.agree(n, b: 1))

@@ -38,7 +38,6 @@ difference is the managed element and the chain membership, not the insertion.
 ## Tests
 
 <!-- test: a-middle-inserted-managed-element-is-released-by-clear -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The stamp half. A heap `String` spliced into the middle, then a `clear()` that lets go of every node — the
 element must die with its node. Without `element_drop@24` copied onto the interior node this printed the
@@ -51,7 +50,6 @@ function main() returns ExitCode
 	let list = StringList.create()
 	list.append("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	list.append("cccccccccccccccccccccccccccccc")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(1, value: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") otherwise 'oob'
 		return 2
 	end 'oob'
@@ -71,7 +69,6 @@ bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb 3
 ```
 
 <!-- test: a-middle-inserted-node-can-be-removed-by-index -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The owner half. `remove(at:)` walks to the node and hands it to `__list_remove_node`, whose `owner@32` gate
 asks *"is this node linked HERE?"* — a question a node the interior splice never claimed answers with `no`.
@@ -85,7 +82,6 @@ function main() returns ExitCode
 	let list = StringList.create()
 	list.append("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 	list.append("cccccccccccccccccccccccccccccc")
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(1, value: "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbb") otherwise 'oob'
 		return 2
 	end 'oob'
@@ -109,7 +105,6 @@ cccccccccccccccccccccccccccccc
 ```
 
 <!-- test: a-trivial-middle-insert-is-the-control -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 
 The identical pair of shapes over an `int` element, in one program. The stamp half is 0 for a trivial
 element by construction, so this case can only ever see the OWNER half — and it did see it, which is what
@@ -125,7 +120,6 @@ function main() returns ExitCode
 	let list = IntList.create()
 	list.append(1)
 	list.append(3)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try list.insert(1, value: 2) otherwise 'oob'
 		return 2
 	end 'oob'

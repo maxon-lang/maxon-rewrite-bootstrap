@@ -2234,7 +2234,6 @@ end 'main'
 ```
 
 <!-- test: an-extension-member-of-the-programs-wins-over-the-librarys-function-member -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
@@ -2257,7 +2256,6 @@ typealias Number = int(0 to 9)
 typealias Numbers = Array with Number
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = Numbers from [3, 1, 2]
 	// TODO: closures are not supported in minimaxon
 	xs.sortBy(function(a, b) gives a.compare(b))

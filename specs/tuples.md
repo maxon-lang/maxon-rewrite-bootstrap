@@ -256,12 +256,10 @@ end 'main'
 ```
 
 <!-- test: for-destructuring-map -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": 10, "b": 32]
 	var sum = 0 as FullRangeInt
 	// TODO: tuple loop variables in for loops are not supported in minimaxon
@@ -694,7 +692,6 @@ end 'main'
 ```
 
 <!-- test: for-in-over-map-allocates-no-tuple -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 A `for` loop over a Map allocates NO tuple record per iteration. `MapIterator.current()` builds its
@@ -730,7 +727,6 @@ function sum(m IntMap) returns Integer
 end 'sum'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [1: 10, 2: 20, 3: 30]
 	return sum(m)
 end 'main'
@@ -1063,7 +1059,6 @@ end 'main'
 ```
 
 <!-- test: array-of-tuples-from-a-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1092,7 +1087,6 @@ function main() returns ExitCode
 	let p = (1, 2)
 	// TODO: tuple values and types are not supported in minimaxon
 	let q = (3, 40)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [p, q]
 	let r = try xs.get(1) otherwise panic("pushed")
 	// TODO: tuple element access is not supported in minimaxon
@@ -2507,7 +2501,6 @@ shared record|shared record
 ```
 
 <!-- test: array-of-substituted-entry-tuples-clones-each -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ⭐ The SUBSTITUTED half of the case above. A tuple minted by SUBSTITUTION is in no file's artifact —
 `MapIterator.current()`'s declared `Entry = (Key, Value)` becomes `(String, String)` at the call site,
@@ -2518,11 +2511,9 @@ ranged alias and no `typealias` in the program at all. Returns 2 (one element in
 entry loop never ran.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = ["a": "x"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in m 'each'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arr = [e]
 		let cp = arr.clone()
 		let copied = try cp.get(0) otherwise panic("cloned")
@@ -2540,7 +2531,6 @@ ax
 ```
 
 <!-- test: array-of-substituted-entry-tuples-with-a-struct-element-clones-each -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 The case above with a MANAGED STRUCT in the substituted entry, so the missing cloner is one whose body has a
 NESTED cloner of its own (`__clone___Tuple2.String.Point` calling `__clone_Point`): the substituted tuple has
@@ -2563,7 +2553,6 @@ function main() returns ExitCode
 	m.upsert("a", value: Point.create("alpha"))
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for e in m 'each'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		let arr = [e]
 		let cp = arr.clone()
 		let copied = try cp.get(0) otherwise panic("cloned")
@@ -3223,7 +3212,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-tuple-and-an-array-of-tuples-fill-function-typed-columns -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -3256,7 +3244,6 @@ type Table
 
 	static function create() returns Self
 		// TODO: tuple values and types are not supported in minimaxon
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{nested: ((seven, 1), 2), entries: [(seven, 3), (eight, 4)]}
 	end 'create'
 end 'Table'
@@ -3939,7 +3926,6 @@ error E3005: <fragment>:21:2: argument type mismatch for 'v': expected 'fn((Xs, 
 ```
 
 <!-- test: a-tuple-literal-element-without-a-brand-fits-a-branded-tuple-parameter -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -3962,7 +3948,6 @@ end 'pass'
 
 function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	pass(([1 as Item, 2 as Item], 3 as Item))
 	return 0
 end 'main'
@@ -4279,7 +4264,6 @@ end 'main'
 
 <!-- test: a-message-parameter-of-a-generic-alias-names-its-own-modules-alias-beside-a-sibling-of-the-same-name -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -4296,7 +4280,6 @@ function head(xs Nums) returns Num
 end 'head'
 
 export function first() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return head([3 as Num])
 end 'first'
 
@@ -4506,7 +4489,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-function-declared-before-the-body-that-mints-its-tuple-of-an-array-compiles -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 The same, with a tuple whose first element is an array. Returns 43.
@@ -4519,7 +4501,6 @@ function launch(x T) uses T returns Num
 end 'launch'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1 as Num, 2 as Num, 3 as Num]
 	// TODO: tuple values and types are not supported in minimaxon
 	return launch((xs, 40 as Num))
@@ -4575,7 +4556,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-function-declared-before-the-body-that-mints-a-tuple-of-an-array-of-a-tuple-compiles -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple inside an array inside the tuple argument: every layout the instance needs travels with it.
@@ -4590,7 +4570,6 @@ end 'launch'
 
 function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	return launch(([(3 as Num, 1 as Num)], 40 as Num))
 end 'main'
 ```
@@ -4921,14 +4900,12 @@ error E2015: <fragment>:5:11: Unsupported: a counted `for … in <lo> to|upto <h
 ```
 
 <!-- test: error.a-tuple-in-a-character-set-literal-names-the-tuple-type -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 function main() returns ExitCode
 	// TODO: tuple values and types are not supported in minimaxon
 	let t = (1, 2)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let cs = CharSet from [t]
 	return 0
 end 'main'

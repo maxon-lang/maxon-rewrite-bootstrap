@@ -147,12 +147,9 @@ error E2004: <fragment>:4:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: error.a-local-var-bound-to-an-unheaded-array-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A local `var` initialized with an array literal that names no element type is refused at the bracket.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var xs = [1, 2]
 	xs.push(3)
 	return xs.count() as ExitCode
@@ -202,7 +199,6 @@ end 'main'
 ```
 
 <!-- test: a-let-array-constant-acts-like-a-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A plain `let` array constant passes to a typed-array parameter its elements fit, as the literal would.
 ```maxon
@@ -218,7 +214,6 @@ function total(xs Counts) returns Count
 end 'total'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = [1, 2]
 	print("{total(xs)}\n")
 	return 0
@@ -251,12 +246,9 @@ end 'main'
 ```
 
 <!-- test: error.a-local-var-bound-to-a-map-literal-of-bare-numbers -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A local `var` initialized with a map literal whose values are bare numbers is refused at the bracket, as an array of them is.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = [1: 10, 2: 20]
 	m.upsert(3, value: 30)
 	return m.count() as ExitCode
@@ -267,12 +259,9 @@ error E2004: <fragment>:3:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: error.a-local-var-bound-to-a-map-literal-with-a-bare-key -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 A bare number in the key column is as much a plain number as one in the value column.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = [1: 10 as Count]
 	m.upsert(2, value: 20)
 	return m.count() as ExitCode
@@ -302,14 +291,12 @@ error E2004: <fragment>:3:10: A var cannot start from a bare number: write 'var 
 ```
 
 <!-- test: a-local-var-map-of-typed-numbers-is-accepted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 A map whose columns are cast to an alias is a typed map, and its clone can grow.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
-	let m = [1 as Count: 10 as Count].clone()
+	var m = [1 as Count: 10 as Count].clone()
 	m.upsert(2, value: 20)
-	return m.count() as ExitCode
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

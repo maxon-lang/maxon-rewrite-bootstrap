@@ -227,16 +227,14 @@ error E3005: <fragment>:8:17: argument type mismatch for 'bytes': expected 'Byte
 ```
 
 <!-- test: from-takes-a-bare-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### …and a bare `[…]` written at that parameter IS an `Array with Byte`
 The elements are laid down one byte apart because the parameter is what states their type, so `byteLength`
 counts the three bytes the source wrote rather than the twenty-four an inferred `Array with integer` would
 have occupied.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let s = String.from([1, 2, 3])
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -572,7 +570,6 @@ Hi!
 ```
 
 <!-- test: a-user-ranged-alias-element-keeps-its-name -->
-<!-- skip: minimaxon does not parse the converted source: Expected ')' but got '[' -->
 ### The same rule for a USER-declared ranged alias, which is the arm the byte case never reaches
 The case above rides `emitArrayElementAccessor`'s trivial arm; the element type of a compiler-minted
 `Array with Byte` is not a `named` type, so it never reaches `arrayElementValueType`'s ranged-alias arm.
@@ -601,7 +598,7 @@ function readBack(bytes OctetArray) returns OctetSum
 end 'readBack'
 
 function main() returns ExitCode
-	let a = OctetArray.create(0)
+	var a = OctetArray.create(0)
 	a.push(72)
 	a.push(105)
 	let x = try a.get(0) otherwise 0
@@ -618,7 +615,6 @@ end 'main'
 ```
 
 <!-- test: error.from-refuses-a-user-ranged-byte-alias -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- positions: moved -->
 ### `String.from` takes a `ByteArray`, and a user's own byte alias is not one
 `Octet` is declared over `Byte`'s exact range and still names a different type, so `Array with Octet` is a
@@ -641,7 +637,6 @@ function main() returns ExitCode
 	let x = try a.get(0) otherwise 0
 	let y = try a.get(1) otherwise 0
 	let pushed = String.from(a)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = String.from([x, y])
 	print("pushed={pushed} literal={literal} len={pushed.byteLength()}")
 	return 0
@@ -653,19 +648,17 @@ error E3005: <fragment>:12:23: argument type mismatch for 'bytes': expected 'Byt
 ```
 
 <!-- test: from-admits-a-byte-array-by-both-routes -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### The legal program: the array is a `ByteArray`
 A pushed `ByteArray` and a literal of its elements both reach `String.from`, and both keep the one-byte
 stride: `Hi`, two bytes.
 ```maxon
 function main() returns ExitCode
-	let a = ByteArray.create(0)
+	var a = ByteArray.create(0)
 	a.push(72)
 	a.push(105)
 	let x = try a.get(0) otherwise 0
 	let y = try a.get(1) otherwise 0
 	let pushed = String.from(a)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let literal = String.from([x, y])
 	print("pushed={pushed} literal={literal} len={pushed.byteLength()}")
 	return 0

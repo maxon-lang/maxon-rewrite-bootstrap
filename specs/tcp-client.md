@@ -159,8 +159,6 @@ refused resolveFailed
 <!-- test: tcp-client.an-ipv6-literal-binds-connects-and-echoes-in-every-spelling -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 <!-- procs: 1 -->
 A bare IPv6 literal is an address, not a name: `TcpListener.bind` and `TcpClient.connect` take it as `::1` and talk
@@ -180,17 +178,14 @@ end 'echoOnce'
 function reach(spelling String, port NetworkPort, listener TcpListener) returns String
 	// TODO: 'async' is not supported in minimaxon; use cown/when concurrency
 	let peer = async echoOnce(listener)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let client = try TcpClient.connect(spelling, port: port) otherwise (e) 'refused'
 		peer.cancel()
 		return "refused {e.name}"
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	_ = try client.send("ping") otherwise 'cancelled17'
 		peer.cancel()
 		return "send-failed"
 	end 'cancelled17'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let answer = try client.readSome(RequestBytes) otherwise 'cancelled18'
 		peer.cancel()
 		return "recv-failed"
@@ -203,7 +198,6 @@ end 'reach'
 function main() returns ExitCode
 	let listener = try TcpListener.bind("::1", port: 0) otherwise return 1
 	let port = listener.port()
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spellings = ["::1", "0:0:0:0:0:0:0:1", "0::1", "0:0:0:0:0:0::1", "0000:0000:0000:0000:0000:0000:0000:0001", "::0.0.0.1", "0:0:0:0:0:0:0.0.0.1", "0:0:0:0:0::0.0.0.1"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelling in spellings 'eachSpelling'
@@ -227,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: tcp-client.an-ipv6-literal-is-read-to-the-address-grammar -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 A host holding a colon is an IPv6 literal or nothing: a spelling outside the grammar fails to resolve without ever
@@ -246,7 +239,6 @@ function verdict(host String) returns String
 end 'verdict'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let spellings = ["2001:DB8:abcd:EF01::1", "2001:db8:0:0:0:0:0:1", "2001:db8::1.2.3.4", "1:2:3:4:5:6:7::", "::1:2:3:4:5:6:7", "1:2:3:4:5:6:1.2.3.4", "::1::", "1:2:3:4:5:6:7", "1:2:3:4:5:6:7:8:9", "1:2:3:4:5:6:7::8", ":1", "1:", "::1:", ":::", "12345::1", "::g", "1::2::3", "::1.2.3", "::1.2.3.4.5", "::1.2.3.256", "1.2.3.4::", "1:2:3:4:5:6:1.2.3.4:5", "::1%eth0", "[::1]", "host:80"]
 	// TODO: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b'
 	for spelling in spellings 'eachSpelling'

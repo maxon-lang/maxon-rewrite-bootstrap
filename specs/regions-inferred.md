@@ -3796,7 +3796,6 @@ error E3196: <fragment>:18:11: cannot store a read-only 'Box' into 'an item of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-map-literal -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `["k": e]` stores the carried `e` as a map value, and the next trip stores frozen data there.
@@ -3815,11 +3814,9 @@ end 'Box'
 // TODO: parameter capability 'immutable' is not supported in minimaxon
 function edit(pinned immutable Box, rounds Tally)
 	var e = Box.create(0)
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var m = ["k": e]
 	var i = 0 as Tally
 	while i < rounds 'again'
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		m = ["k": e]
 		e = pinned
 		i = i + 1

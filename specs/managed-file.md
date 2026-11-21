@@ -75,11 +75,9 @@ end
 ## Tests
 
 <!-- test: managed-file.open-read-nonexistent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.openRead("nonexistent_file_xyz_98765.txt".toByteArray().managed) otherwise 'notFound'
 		print("not found")
 		return 42
@@ -95,7 +93,6 @@ not found
 ```
 
 <!-- test: managed-file.write-and-read -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -106,7 +103,6 @@ type TestFile
 	export var file as __ManagedFile
 
 	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -114,7 +110,6 @@ type TestFile
 	end 'openWrite'
 
 	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -125,59 +120,48 @@ end 'TestFile'
 function main() returns ExitCode
 	let path = "test_managed_file_rw.txt"
 	// Write a file
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let wf = try TestFile.openWrite(path.toByteArray().managed) otherwise 'writeFail'
 		print("write open failed")
 		return 1
 	end 'writeFail'
 	let content = "Hello Managed"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try wf.file.write(content.toByteArray().managed) otherwise 'wErr'
 		wf.file.close()
 		return 3
 	end 'wErr'
 	wf.file.close()
 	// Read it back
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let rf = try TestFile.openRead(path.toByteArray().managed) otherwise 'readFail'
 		print("read open failed")
 		return 2
 	end 'readFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let size = try rf.file.size() otherwise 'sizeErr'
 		return 8
 	end 'sizeErr'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let buffer = try __ManagedMemory.create(size + 1, 1) otherwise 'allocFail'
 		return 5
 	end 'allocFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let bytesRead = try rf.file.read(buffer, size) otherwise 'rErr'
 		rf.file.close()
 		return 9
 	end 'rErr'
 	rf.file.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buffer.setLength(bytesRead) otherwise 'setLenFail'
 		return 6
 	end 'setLenFail'
 	// Null-terminate
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buffer.setLength(bytesRead + 1) otherwise 'setLenFail2'
 		return 6
 	end 'setLenFail2'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buffer.setByte(bytesRead, 0) otherwise 'setByteFail'
 		return 7
 	end 'setByteFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try buffer.setLength(bytesRead) otherwise 'setLenFail3'
 		return 6
 	end 'setLenFail3'
 	let readContent = String.init(buffer)
 	print("{readContent}")
 	// Clean up
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise 'delErr'
 		return 4
 	end 'delErr'
@@ -192,7 +176,6 @@ Hello Managed
 ```
 
 <!-- test: managed-file.exists -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -203,7 +186,6 @@ type TestFile
 	export var file as __ManagedFile
 
 	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -224,7 +206,6 @@ function main() returns ExitCode
 	end 'check1'
 	// Create a file, check exists, delete it
 	let path = "test_managed_exists.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try createEmptyFile(path) otherwise 'createFail'
 		return 10
 	end 'createFail'
@@ -232,7 +213,6 @@ function main() returns ExitCode
 	if e2 != 1 'check2'
 		return 2
 	end 'check2'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise 'delErr'
 		return 4
 	end 'delErr'
@@ -244,11 +224,9 @@ end 'main'
 ```
 
 <!-- test: managed-file.delete-nonexistent -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete("nonexistent_delete_xyz.txt".toByteArray().managed) otherwise 'checkFail'
 		print("delete failed as expected")
 		return 42
@@ -264,7 +242,6 @@ delete failed as expected
 ```
 
 <!-- test: managed-file.auto-close -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 enum TestFileError implements Error
@@ -275,7 +252,6 @@ type TestFile
 	export var file as __ManagedFile
 
 	static function openWrite(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openWrite(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -283,7 +259,6 @@ type TestFile
 	end 'openWrite'
 
 	static function openRead(path __ManagedMemory) returns TestFile throws TestFileError
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		let handle = try __ManagedFile.openRead(path) otherwise 'fail'
 			throw TestFileError.openFailed
 		end 'fail'
@@ -301,17 +276,14 @@ function main() returns ExitCode
 	let path = "test_managed_autoclose.txt"
 	writeFile(path)
 	// Verify we can read it (file was properly closed by destructor)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let rf = try TestFile.openRead(path.toByteArray().managed) otherwise 'readFail'
 		print("read failed")
 		return 1
 	end 'readFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let size = try rf.file.size() otherwise 'sizeErr'
 		return 3
 	end 'sizeErr'
 	rf.file.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise 'delErr'
 		return 2
 	end 'delErr'
@@ -326,7 +298,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-read-not-found-variant -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 
 The errno→variant mapping ensures that opening a path that does not exist
@@ -337,7 +308,6 @@ Backed by `gt->io_error_code` populated by the runtime sync worker
 ```maxon
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.openRead("nonexistent_phaseB_open_xyz.txt".toByteArray().managed) otherwise (e) 'h'
 		match e 'k'
 			notFound then result = 42
@@ -352,12 +322,10 @@ end 'main'
 ```
 
 <!-- test: managed-file.delete-not-found-variant -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete("nonexistent_phaseB_delete_xyz.txt".toByteArray().managed) otherwise (e) 'h'
 		match e 'k'
 			notFound then result = 42
@@ -372,12 +340,10 @@ end 'main'
 ```
 
 <!-- test: managed-file.stat-not-found-variant -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 ```maxon
 function main() returns ExitCode
 	var result = 0 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.stat("nonexistent_phaseB_stat_xyz.txt".toByteArray().managed) otherwise (e) 'h'
 		match e 'k'
 			notFound then result = 42
@@ -418,8 +384,6 @@ error E3072: <fragment>:3:24: '__ManagedFile' is a compiler builtin type and can
 ```
 
 <!-- test: managed-file.unknown-instance-method-is-refused-by-name -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- positions: moved -->
 <!-- tier: stdlib -->
 This case pins the instance-method DISPATCHER.
 
@@ -438,7 +402,6 @@ which reach `write`/`size` through a struct FIELD — the spelling the documente
 uses.
 ```maxon
 function main() returns ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openRead("nonexistent_unknown_method_xyz.txt".toByteArray().managed) otherwise 'nf'
 		return 1
 	end 'nf'
@@ -451,7 +414,6 @@ error E2015: <fragment>:6:12: Unsupported: `__ManagedFile` method 'seek' — the
 ```
 
 <!-- test: managed-file.rename-round-trip -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 `rename` is the ONLY one of the thirteen methods that no other case reaches SUCCESSFULLY at the builtin
 level: `specs/file-io.md` goes through `File.rename`, whose signature takes a `FilePath`, and
@@ -469,17 +431,14 @@ both covered by the file: this one and `managed-file.write-and-read`.
 function main() returns ExitCode
 	let oldPath = "test_managed_rename_src.txt"
 	let newPath = "test_managed_rename_dst.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(oldPath.toByteArray().managed) otherwise 'openFail'
 		return 1
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("rename me".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		return 2
 	end 'writeFail'
 	f.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.rename(oldPath.toByteArray().managed, newPath.toByteArray().managed) otherwise 'renameFail'
 		return 3
 	end 'renameFail'
@@ -489,7 +448,6 @@ function main() returns ExitCode
 	if __ManagedFile.exists(newPath.toByteArray().managed) != 1 'newMissing'
 		return 5
 	end 'newMissing'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(newPath.toByteArray().managed) otherwise 'deleteFail'
 		return 6
 	end 'deleteFail'
@@ -501,7 +459,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-create-new-refuses-an-existing-path -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 `openCreateNew` creates a file that does not exist, and a second `openCreateNew` of the same path throws and
 leaves the first file's bytes in place.
@@ -514,27 +471,22 @@ end 'createsNew'
 
 function main() returns ExitCode
 	let path = "test_managed_create_new.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try __ManagedFile.openCreateNew(path.toByteArray().managed) otherwise 'firstFail'
 		return 1
 	end 'firstFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try first.write("first".toByteArray().managed) otherwise 'writeFail'
 		first.close()
 		return 2
 	end 'writeFail'
 	first.close()
 	let refused = not createsNew(path)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let reader = try __ManagedFile.openRead(path.toByteArray().managed) otherwise 'readFail'
 		return 3
 	end 'readFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let size = try reader.size() otherwise 'sizeFail'
 		return 4
 	end 'sizeFail'
 	reader.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise 'deleteFail'
 		return 5
 	end 'deleteFail'
@@ -549,19 +501,16 @@ end 'main'
 ```
 
 <!-- test: managed-file.open-create-new-of-an-existing-path-throws-already-exists -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 The refusal of an existing path is the `alreadyExists` case, not the catch-all `openFailed`.
 ```maxon
 function main() returns ExitCode
 	let path = "test_managed_create_new_exists.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let first = try __ManagedFile.openCreateNew(path.toByteArray().managed) otherwise 'firstFail'
 		return 1
 	end 'firstFail'
 	first.close()
 	var answer = 2 as ExitCode
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let second = try __ManagedFile.openCreateNew(path.toByteArray().managed) otherwise (e) 'refused'
 		answer = 42 if e == __ManagedFileError.alreadyExists else 3
 		try __ManagedFile.delete(path.toByteArray().managed) otherwise return 4
@@ -696,7 +645,6 @@ error E3005: <fragment>:5:18: argument type mismatch for 'managed': expected '__
 ```
 
 <!-- test: managed-file.a-file-held-open-for-reading-can-be-rewritten-and-deleted -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- skip: if try is not supported in minimaxon -->
 <!-- tier: stdlib -->
 A read handle shares the file with every other open: while one is held, the same path can be opened for
@@ -712,7 +660,6 @@ function main() returns ExitCode
 	// TODO: if try is not supported in minimaxon
 	if let rewrite = try __ManagedFile.openWrite(path.toByteArray().managed) 'rewritten'
 		let w = rewrite
-		// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 		try w.write("rewritten".toByteArray().managed) otherwise 'unwritten'
 			answer = 4
 		end 'unwritten'
@@ -720,7 +667,6 @@ function main() returns ExitCode
 	end 'rewritten' else (e) 'refused'
 		answer = (10 + e.ordinal) as ExitCode
 	end 'refused'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise (e) 'undeleted'
 		answer = (30 + e.ordinal) as ExitCode
 	end 'undeleted'
@@ -733,7 +679,6 @@ end 'main'
 ```
 
 <!-- test: managed-file.stat-round-trip -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 <!-- tier: stdlib -->
 This is the case that reaches a SUCCESSFUL `stat` at the builtin level. Every other successful
 `stat` goes through `File.info`, and `stat-not-found-variant` throws before a buffer exists.
@@ -758,17 +703,14 @@ What the case pins, and why each half is here rather than one of them:
 ```maxon
 function main() returns ExitCode
 	let path = "test_managed_stat_round_trip.txt"
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let f = try __ManagedFile.openWrite(path.toByteArray().managed) otherwise 'openFail'
 		return 1
 	end 'openFail'
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try f.write("abcde".toByteArray().managed) otherwise 'writeFail'
 		f.close()
 		return 2
 	end 'writeFail'
 	f.close()
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let st = try __ManagedFile.stat(path.toByteArray().managed) otherwise 'statFail'
 		return 3
 	end 'statFail'
@@ -782,13 +724,11 @@ function main() returns ExitCode
 	end 'stamps'
 	print("implausibleTimestamps={implausible}\n")
 	__ManagedFile.statFree(st)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let dst = try __ManagedFile.stat(".".toByteArray().managed) otherwise 'dirStatFail'
 		return 4
 	end 'dirStatFail'
 	print("dirIsDirectory={__ManagedFile.statField(dst, 4)}\n")
 	__ManagedFile.statFree(dst)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	try __ManagedFile.delete(path.toByteArray().managed) otherwise 'deleteFail'
 		return 5
 	end 'deleteFail'

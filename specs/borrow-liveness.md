@@ -30,14 +30,12 @@ The strings these cases read are built at run time, and each case prints what it
 ## Tests
 
 <!-- test: rebind-keeps-the-value-read-out-of-the-old-record -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Rebinding the source leaves an element read out of it alive
 `arr = <fresh>` releases the array's reference to the old record; `s` holds its own.
 ```maxon
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise ""
 	arr = StringArray.create(0)
@@ -82,7 +80,6 @@ first 3 long enough for the heap
 ```
 
 <!-- test: field-chain-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### An element read through a field chain survives a clear of that field
 `b.items.get(0)` counts the element, so `b.items.clear()` releases only the array's reference.
 ```maxon
@@ -92,7 +89,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}"]}
 	end 'create'
 end 'Bag'
@@ -113,7 +109,6 @@ end 'main'
 ```
 
 <!-- test: self-field-alias-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### The bare self-field spelling counts the same
 `items` inside a method of `Bag` names the field.
 ```maxon
@@ -123,7 +118,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}"]}
 	end 'create'
 
@@ -148,7 +142,6 @@ end 'main'
 ```
 
 <!-- test: self-field-rebind -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Rebinding a self-field leaves an element read out of it alive
 `items = <fresh>` and `self.items = <fresh>` are one self-field store; it releases the field's reference
 to the old array and nothing else.
@@ -159,11 +152,10 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}"]}
 	end 'create'
 
-	function peek() returns ExitCode
+	function peek(mutates self) returns ExitCode
 		let s = try items.get(0) otherwise ""
 		items = StringArray.create(0)
 		print("[{s}] {items.count()}\n")
@@ -172,7 +164,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	return b.peek()
 end 'main'
 ```
@@ -184,7 +176,6 @@ end 'main'
 ```
 
 <!-- test: parameter-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### An element read out of a PARAMETER survives a clear through that parameter
 The clear reaches the caller's record; the element keeps its own reference.
 ```maxon
@@ -198,7 +189,6 @@ function look(arr StringArray) returns ExitCode
 end 'look'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = ["hello world this is a long string for heap allocation {40 + 2}"]
 	return look(a)
 end 'main'
@@ -211,7 +201,6 @@ end 'main'
 ```
 
 <!-- test: mutating-callee-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Handing the source to a callee that clears it
 The callee empties the caller's array; the element `s` read before the call is still its own.
 ```maxon
@@ -222,7 +211,6 @@ function grow(dest StringArray)
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise ""
 	grow(arr)
@@ -238,7 +226,6 @@ end 'main'
 ```
 
 <!-- test: mutating-callee-labelled-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### … and the same through a labelled argument out of declaration order
 `grow(1, dest: arr, other: spare)` clears parameter 2 while `arr` is source argument 1.
 ```maxon
@@ -252,7 +239,6 @@ function grow(n Integer, other StringArray, dest StringArray) returns Integer
 end 'grow'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let spare = StringArray.create(0)
 	let s = try arr.get(0) otherwise ""
@@ -269,7 +255,6 @@ end 'main'
 ```
 
 <!-- test: non-mutating-callee-argument -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A callee that only READS the source
 The element and the array are both intact after the call.
 ```maxon
@@ -278,11 +263,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias StringArray = Array with String
 
 function peek(src StringArray) returns Integer
-	return src.count()
+	return try src.count() as Integer otherwise panic("out of range")
 end 'peek'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	let s = try arr.get(0) otherwise ""
 	let n = peek(arr)
@@ -298,18 +282,16 @@ end 'main'
 ```
 
 <!-- test: shadowed-source-is-writable -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A block that SHADOWS the source's name writes a different array
 The inner `arr` is a different binding, so writing it leaves the outer array and its element untouched.
 ```maxon
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	let s = try arr.get(0) otherwise ""
 	if s.byteLength() > 0 'inner'
-		let arr = StringArray.create(0)
+		var arr = StringArray.create(0)
 		arr.push("a wholly different array that shares only the name")
 		print("{arr.count()}\n")
 	end 'inner'
@@ -326,12 +308,10 @@ end 'main'
 ```
 
 <!-- test: first-counts-like-get -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### `first()` counts exactly as `get()` does
 The pushes reallocate the array's buffer; `s` holds the element itself, not a slot of the buffer.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.first() otherwise ""
 	for i in 0 upto 40 'grow'
@@ -350,12 +330,10 @@ end 'main'
 ```
 
 <!-- test: pop-moves-the-element-out -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### `pop()` MOVES the element out of the array
 The caller owns the element `pop()` returns outright.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	let s = try arr.pop() otherwise ""
 	arr.clear()
@@ -371,11 +349,9 @@ end 'main'
 ```
 
 <!-- test: remove-moves-the-element-out -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### `remove()` moves out too
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	let s = try arr.remove(0) otherwise ""
 	arr.clear()
@@ -391,14 +367,12 @@ end 'main'
 ```
 
 <!-- test: a-value-read-and-consumed-inside-a-block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A value read and consumed inside a block
 The element is read and measured inside `inner`; the `clear()` after the block writes the array alone.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	var n = 0 as Integer
 	if n == 0 'inner'
@@ -418,15 +392,13 @@ end 'main'
 ```
 
 <!-- test: mutation-in-otherwise-handler -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
 ### The source is mutable inside the `otherwise` handler
 On the handler's path the get FAILED and `s` was never bound; the handler writes the array and returns.
 ```maxon
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
+	var arr = StringArray.create(0)
 	let s = try arr.get(0) otherwise 'empty'
 		arr.push("a replacement long string for the heap allocation path")
 		return 7
@@ -440,7 +412,6 @@ end 'main'
 ```
 
 <!-- test: forin-element-survives-a-callee-clearing-the-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A `for … in` element survives a callee clearing the array, and the clear ends the loop
 The element is counted, so the body reads it intact after `wipe`; the next step reads the live count,
@@ -454,7 +425,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}", "second string long enough for heap allocation {40 + 2}"]}
 	end 'create'
 end 'Bag'
@@ -485,7 +455,6 @@ end 'main'
 ```
 
 <!-- test: a-clear-at-the-end-of-a-for-body-ends-the-iteration -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A clear as the body's last statement ends the iteration at the next step
 The loop reads the array's live count on every step, not the count it started with.
@@ -498,7 +467,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}", "second string long enough for heap allocation {40 + 2}"]}
 	end 'create'
 end 'Bag'
@@ -527,7 +495,6 @@ end 'main'
 ```
 
 <!-- test: forin-mutation-after-loop -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A write after the loop
 The loop walks the whole array; the clear after its `end` writes an array no loop is reading.
@@ -540,7 +507,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation"]}
 	end 'create'
 end 'Bag'
@@ -569,7 +535,6 @@ end 'main'
 ```
 
 <!-- test: forin-discard-binds-no-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### `for _ in` reads the live count too
 The discard binds no element, and the loop still reads the array's live count each step, so the clear
@@ -583,7 +548,6 @@ type Bag
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation", "second string long enough for heap allocation"]}
 	end 'create'
 end 'Bag'
@@ -612,7 +576,6 @@ end 'main'
 ```
 
 <!-- test: forin-over-a-fresh-clone-walks-the-clone -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: iterator-based for loops are not supported in minimaxon; use 'for i in a to|upto b' -->
 ### A loop over a fresh clone of a field walks the clone, not the field
 The iterated container is a new array the loop owns, so pushing onto the field inside the body does not
@@ -626,7 +589,6 @@ type Paths
 	var items as Strings
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["first path", "second path"]}
 	end 'create'
 
@@ -657,12 +619,10 @@ end 'main'
 ```
 
 <!-- test: otherwise-return-keeps-the-element-counted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A diverging `otherwise` binds a counted element on the success path
 `try arr.get(0) otherwise return 1` binds `s` to the element it read, which outlives the `clear()`.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let s = try arr.get(0) otherwise return 1
 	arr.clear()
@@ -678,14 +638,10 @@ end 'main'
 ```
 
 <!-- test: otherwise-block-keeps-the-element-counted -->
-<!-- skip: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### … and so does a diverging `otherwise` BLOCK
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
-	// TODO: a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block
 	let s = try arr.get(0) otherwise 'empty'
 		return 7
 	end 'empty'
@@ -702,7 +658,6 @@ end 'main'
 ```
 
 <!-- test: a-value-computed-from-an-element-survives-a-clear -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A value computed from the element
 `n` is an integer computed FROM the element, and the clear after it leaves `n` as it was.
 ```maxon
@@ -713,7 +668,6 @@ function sizeOf(s String) returns Integer
 end 'sizeOf'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	let n = sizeOf(try arr.get(0) otherwise "")
 	arr.clear()
@@ -729,7 +683,6 @@ end 'main'
 ```
 
 <!-- test: range-loop-counter-is-an-index-not-an-element -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A counted range's loop variable is the index, not an element
 The range's bound is evaluated once, before the loop, so the clear in the body changes nothing the loop
 reads.
@@ -741,7 +694,6 @@ function sizeOf(s String) returns Integer
 end 'sizeOf'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	var total = 0 as Integer
 	for i in 0 upto sizeOf(try arr.get(0) otherwise "") 'l'
@@ -760,7 +712,6 @@ end 'main'
 ```
 
 <!-- test: a-sibling-field-clear-leaves-the-element-intact -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Clearing a SIBLING field of the same base
 `b.other.clear()` empties a different array; the element read out of `b.items` and `b.items` itself are
 untouched.
@@ -772,7 +723,6 @@ type Bag
 	export var other as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["hello world this is a long string for heap allocation {40 + 2}"], other: ["a second array entirely, sharing only its base binding"]}
 	end 'create'
 end 'Bag'
@@ -793,14 +743,12 @@ end 'main'
 ```
 
 <!-- test: ternary-merge-keeps-the-element-counted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### An element chosen by a TERNARY survives a clear of its array
 The merge carries the counted element, not a slot of the array.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let n = 0 as Integer
 	let s = (try arr.get(0) otherwise "") if n == 0 else "a fallback string long enough for the heap"
@@ -817,7 +765,6 @@ end 'main'
 ```
 
 <!-- test: match-gives-keeps-the-element-counted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### … and one chosen by a `match … gives`
 ```maxon
 enum Mode
@@ -826,7 +773,6 @@ enum Mode
 end 'Mode'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let m = Mode.first
 	let s = match m 'pick'
@@ -846,7 +792,6 @@ end 'main'
 ```
 
 <!-- test: match-gives-over-two-arrays-survives-clearing-both -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### … whichever array the chosen arm read from
 `s` may come out of either array, and clearing both leaves it intact.
 ```maxon
@@ -856,9 +801,7 @@ enum Mode
 end 'Mode'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = ["alpha string long enough for the heap allocation path {40 + 2}"]
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let b = ["beta string long enough for the heap allocation path {40 + 2}"]
 	let m = Mode.first
 	let s = match m 'pick'
@@ -879,7 +822,6 @@ end 'main'
 ```
 
 <!-- test: propagating-try-keeps-the-element-counted -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A PROPAGATING `try` binds the counted element
 ```maxon
 typealias StringArray = Array with String
@@ -892,7 +834,6 @@ function look(arr StringArray) returns ExitCode throws ArrayError
 end 'look'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let a = ["hello world this is a long string for heap allocation {40 + 2}"]
 	return try look(a) otherwise 9
 end 'main'
@@ -905,12 +846,10 @@ end 'main'
 ```
 
 <!-- test: var-reassigned-from-an-element-copies-it -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### Assigning an element into a `var`
 `s` owns the value it was assigned, so clearing the array leaves it intact.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation"]
 	var s = "an initial string long enough for the heap allocation"
 	s = try arr.get(0) otherwise ""
@@ -927,13 +866,11 @@ end 'main'
 ```
 
 <!-- test: loop-carried-var-holds-a-copy -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A `var` assigned on every trip of a loop keeps the last element it was assigned
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["hello world this is a long string for heap allocation", "second long string for the heap allocation path"]
 	var s = "an initial string long enough for the heap allocation"
 	var i = 0 as Integer
@@ -1627,12 +1564,10 @@ hello 5
 ```
 
 <!-- test: a-value-read-through-a-cursor-survives-a-clear-of-its-source -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A value read through a cursor survives a clear of the cursor's source
 `c.current()` counts the element it returns, and the cursor counts its source.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let c = try xs.cursor() otherwise return 1
 	let s = c.current()
@@ -1649,11 +1584,9 @@ end 'main'
 ```
 
 <!-- test: a-value-read-through-a-cursor-printed-before-the-clear -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A value read through a cursor, printed before the clear
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["hello world this is a long string for heap allocation {40 + 2}"]
 	let c = try xs.cursor() otherwise return 1
 	let s = c.current()
@@ -1670,7 +1603,6 @@ end 'main'
 ```
 
 <!-- test: a-value-read-out-of-an-element-survives-a-clear-of-that-element-s-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A value read out of an element's field survives a clear of that field
 `p` is an element read out of `arr`, and `s` an element read out of `p.items`; `p.items.clear()`
 releases only the array's reference to `s`.
@@ -1681,7 +1613,6 @@ type Holder
 	export var items as StringArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: ["alpha string long enough for heap allocation {40 + 2}"]}
 	end 'create'
 end 'Holder'
@@ -3169,7 +3100,6 @@ end 'main'
 ```
 
 <!-- test: an-element-survives-a-holder-growing-and-clearing-the-shared-array -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### … and a method of the second holder that grows the array past many reallocations, then clears it
 The element was read before the holder existed; it is neither a slot of the buffer the pushes
 reallocate nor released by the clear.
@@ -3192,7 +3122,6 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let arr = ["first {1} padded out long enough for the heap", "second {2} padded out long enough for the heap"]
 	let s = try arr.get(0) otherwise "none"
 	let h = Holder.create(arr)
@@ -3340,14 +3269,12 @@ hook
 ```
 
 <!-- test: a-raw-cursor-current-survives-a-clear-of-its-buffer -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- tier: stdlib -->
 ### A value read through a raw buffer cursor survives a `clear` of the buffer
 The raw cursor's `current()` is an element read like `get`: it counts what it returns, so the buffer's
 `clear` releases only the buffer's reference.
 ```maxon
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let xs = ["alpha {40 + 2} value long enough for a heap record"]
 	let c = try xs.managed.createCursor() otherwise return 1
 	let s = c.current()
@@ -3959,7 +3886,6 @@ end 'main'
 ```
 
 <!-- test: a-map-literal-key-read-survives-its-value-reassigning-the-field -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A field read as a map literal's key survives its value reassigning the field
 ```maxon
 type Holder
@@ -3977,7 +3903,6 @@ end 'Holder'
 
 function main() returns ExitCode
 	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	let m = [x.label: x.reset()]
 	let filler = "filler {1} padded out long enough for the heap"
 	let found = try m.get("original {40 + 2} padded out long enough for the heap") otherwise "missing"
@@ -4418,7 +4343,6 @@ t.1=99 p.1=2
 ```
 
 <!-- test: a-let-field-array-through-a-merge-into-a-writing-callee-is-written -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 ### A `let` field's array handed through a merge to a callee that writes it is written, as the bare read is
 
 ```maxon
@@ -4430,12 +4354,11 @@ type Holder
 	export let items as CountArray
 
 	static function create() returns Self
-		// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 		return Self{items: [1]}
 	end 'create'
 end 'Holder'
 
-function grow(a CountArray)
+function grow(mutates a CountArray)
 	a.push(2)
 end 'grow'
 
@@ -5446,8 +5369,6 @@ error E3220: <fragment>:12:14: the initializer of 'Origin' calls 'Point.create':
 ```
 
 <!-- test: error.a-module-let-array-literal-holding-a-factory-call-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
-<!-- positions: moved -->
 ### A module `let` array literal whose element is a factory call is refused
 The literal is not a call, but its element is.
 ```maxon
@@ -5461,7 +5382,6 @@ type Point
 	end 'create'
 end 'Point'
 
-// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 let Origins = [Point.create(1)]
 
 function main() returns ExitCode

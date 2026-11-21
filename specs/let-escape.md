@@ -676,7 +676,6 @@ error E3196: <fragment>:18:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-a-map-and-a-global-field-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal's element and a field of a `var` holder are each a mutable place, so storing a `static let`'s record into either is refused.
@@ -714,7 +713,6 @@ end 'bump'
 
 function main() returns ExitCode
 	var registry = Holder.create(Box.create(0))
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var lit = [Box.shared]
 	var w = try lit.get(0) otherwise return 1
 	w.n = 11
@@ -734,7 +732,6 @@ error E3196: <fragment>:33:13: cannot store an immutable 'Box' into 'an element 
 ```
 
 <!-- test: let-escape.error.a-static-lets-record-in-a-literal-and-a-map-value-is-refused -->
-<!-- skip: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert -->
 <!-- skip: static fields (static let) are not supported in minimaxon -->
 <!-- positions: moved -->
 An array literal's element is a mutable place, so storing a `static let`'s record into it is refused.
@@ -755,7 +752,6 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	// TODO: array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert
 	var lit = [Box.shared]
 	var w = try lit.get(0) otherwise return 1
 	w.n = 11
