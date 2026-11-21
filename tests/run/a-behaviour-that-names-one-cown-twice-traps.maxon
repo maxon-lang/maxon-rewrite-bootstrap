@@ -1,0 +1,24 @@
+// expect-exit: 1
+// Two owners of one cown are two names, which the checker cannot tell apart, so the behaviour traps when it is
+// scheduled, before it could hold the cown twice.
+type Counter
+	export var n as Count
+
+	static function make() returns Counter
+		return Counter{n: 0}
+	end 'make'
+end 'Counter'
+
+function main() returns ExitCode
+	let a = cown(Counter.make())
+	let b = share(a)
+	print("before\n")
+	when a, b as x, y 'both'
+		x.n = 1
+		y.n = 2
+	end 'both'
+	print("after\n")
+	return 0
+end 'main'
+
+//> before

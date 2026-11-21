@@ -1,0 +1,126 @@
+// Many behaviours over pairs and triples of a ring of cowns, some scheduled from inside other behaviours, each moving
+// value from one of its cells to another. Where the value ends up depends on the schedule, but the total does not, nor
+// how many behaviours touched each cell; the last behaviour to finish its work schedules a chain that sums the cells,
+// and that checksum is what the program prints.
+typealias CellCowns = Array with (cown with Cell)
+
+let cellCount = 32 as Count
+
+let rounds = 20 as Count
+
+// Each round schedules a pair and a triple at every cell, and each triple schedules a pair of its own.
+let workPerRound = 3 as Count
+
+let startingValue = 10 as Count
+
+type Cell
+	export var value as Count
+	export var touches as Count
+
+	static function make(value Count) returns Cell
+		return Cell{value: value, touches: 0}
+	end 'make'
+end 'Cell'
+
+type Tally
+	export var left as Count
+	export var cells as CellCowns
+
+	static function make(left Count, consumes cells CellCowns) returns Tally
+		return Tally{left: left, cells: cells}
+	end 'make'
+end 'Tally'
+
+type Sum
+	export var value as Count
+	export var touches as Count
+	export var weighted as Count
+
+	static function make() returns Sum
+		return Sum{value: 0, touches: 0, weighted: 0}
+	end 'make'
+end 'Sum'
+
+// pair moves amount from a to b when a has it.
+function pair(a cown with Cell, b cown with Cell, tally cown with Tally, amount Count)
+	let t = share(tally)
+	when a, b as x, y 'pair'
+		x.touches = try x.touches + 1 otherwise return
+		y.touches = try y.touches + 1 otherwise return
+		if x.value >= amount 'enough'
+			x.value = x.value - amount
+			y.value = try y.value + amount otherwise return
+		end 'enough'
+		finished(t)
+	end 'pair'
+end 'pair'
+
+// triple moves what it can from a and b to c, and then schedules a pair that moves some of it back to a.
+function triple(a cown with Cell, b cown with Cell, c cown with Cell, tally cown with Tally)
+	let t = share(tally)
+	let back = share(a)
+	let from = share(c)
+	when a, b, c as x, y, z 'triple'
+		x.touches = try x.touches + 1 otherwise return
+		y.touches = try y.touches + 1 otherwise return
+		z.touches = try z.touches + 1 otherwise return
+		let moved = try x.value / 2 + y.value / 2 otherwise return
+		x.value = try x.value - x.value / 2 otherwise return
+		y.value = try y.value - y.value / 2 otherwise return
+		z.value = try z.value + moved otherwise return
+		pair(from, b: back, tally: t, amount: moved / 3)
+		finished(t)
+	end 'triple'
+end 'triple'
+
+// finished counts one piece of work done; the last starts the sum.
+function finished(tally cown with Tally)
+	when tally as k 'count'
+		k.left = try k.left - 1 otherwise return
+		if k.left == 0 'last'
+			total(k.cells)
+		end 'last'
+	end 'count'
+end 'finished'
+
+// total sums the cells in a chain of behaviours on the sum, each after every behaviour scheduled on its cell before it.
+function total(cells CellCowns)
+	let sum = cown(Sum.make())
+	for i in 0 upto cells.count() 'cells'
+		addCell(cells[i], sum: sum, weight: i + 1)
+	end 'cells'
+	when sum as s 'report'
+		print("value {s.value} touches {s.touches} weighted {s.weighted}\n")
+	end 'report'
+end 'total'
+
+function addCell(c cown with Cell, sum cown with Sum, weight Count)
+	when c, sum as x, s 'add'
+		s.value = try s.value + x.value otherwise return
+		s.touches = try s.touches + x.touches otherwise return
+		s.weighted = try s.weighted + x.touches * weight otherwise return
+	end 'add'
+end 'addCell'
+
+function main() returns ExitCode
+	var cells = CellCowns.create(0)
+	for i in 0 upto cellCount 'make'
+		cells.push(cown(Cell.make(startingValue)))
+	end 'make'
+	var ring = CellCowns.create(0)
+	for i in 0 upto cellCount 'share'
+		ring.push(share(cells[i]))
+	end 'share'
+	let tally = cown(Tally.make(rounds * cellCount * workPerRound, cells: ring))
+	for r in 0 upto rounds 'rounds'
+		for i in 0 upto cellCount 'cells'
+			let next = (i + 1) mod cellCount
+			let after = (i + 2) mod cellCount
+			pair(cells[i], b: cells[next], tally: tally, amount: r + 1)
+			triple(cells[i], b: cells[next], c: cells[after], tally: tally)
+		end 'cells'
+	end 'rounds'
+	return 0
+end 'main'
+
+//> value 320 touches 4480 weighted 73920

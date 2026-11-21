@@ -1,6 +1,6 @@
 let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
 
-let interpreterOnlyMessage = "a map, a list, a pool or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
+let interpreterOnlyMessage = "a map, a list or a pool runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
 
 // entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
 // backend has no code for the entry.

@@ -14,10 +14,16 @@ end 'lowerRead'
 
 // visitWhenStmt schedules the body of a behaviour, which becomes a function of its own. The cowns it names are read, and
 // what it captures moves in: the ownership pass marked each capture consumed, so reading it takes it out of its owner.
+// The body keeps the types of the cowns, whose holds its thunk drops.
 function visitWhenStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	let info = whenInfoAt(p, module: l.module, node: s)
-	let body = lowerBehaviour(l, p: p, info: info)
 	let cownsRef = ast.whenStmtCownsRef(p.modules[l.mi].tree, id: s)
+	var cownTypes = ast.TypeIDList.create(0)
+	for i in 0 upto p.modules[l.mi].tree.listLen(cownsRef) 'types'
+		let e = p.modules[l.mi].tree.listAt(cownsRef, index: i) as ast.NodeID
+		cownTypes.push(applyType(l, p: p, t: exprType(p, module: l.module, node: e)))
+	end 'types'
+	let body = lowerBehaviour(l, p: p, info: info, cownTypes: cownTypes)
 	var cowns = RegList.create(0)
 	for i in 0 upto p.modules[l.mi].tree.listLen(cownsRef) 'cowns'
 		cowns.push(lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(cownsRef, index: i) as ast.NodeID))
@@ -26,7 +32,6 @@ function visitWhenStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	for i in 0 upto info.captures.count() 'captures'
 		captures.push(lowerExpr(l, p: p, e: info.captures[i].refNode))
 	end 'captures'
-	refuse(l, site: siteOf(l, p: p, node: s), code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
 	emitWhen(l, behaviour: body, cowns: cowns, captures: captures)
 end 'visitWhenStmt'
 
@@ -37,9 +42,10 @@ function behaviourBodyName(enclosing String, index Count) returns String
 end 'behaviourBodyName'
 
 // lowerBehaviour lowers the body of a `when` as a function, which goes in the one of the function around it.
-function lowerBehaviour(mutates l Lowerer, mutates p ast.Project, info ast.WhenInfo) returns Count
+function lowerBehaviour(mutates l Lowerer, mutates p ast.Project, info ast.WhenInfo, consumes cownTypes ast.TypeIDList) returns Count
 	let name = behaviourBodyName(irSymbol(p, f: l.b.f), index: l.b.f.bodies.count())
-	let body = lowerNested(l, p: p, fn: info.fn, name: name)
+	var body = lowerNested(l, p: p, fn: info.fn, name: name)
+	body.cownTypes = cownTypes
 	return l.b.body(body)
 end 'lowerBehaviour'
 

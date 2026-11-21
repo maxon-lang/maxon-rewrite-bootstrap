@@ -399,5 +399,8 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	if symbol == ir.Rt.rtMainContext or symbol == ir.Rt.rtThreadStart or symbol == ir.Rt.rtSchedDrain or symbol == ir.Rt.rtWorkerMain 'internal3'
 		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
 	end 'internal3'
+	if symbol == ir.Rt.rtCownAcquire or symbol == ir.Rt.rtCownRelease 'internal4'
+		panic("interp: {ir.rtText(symbol)} is no entry the IR calls")
+	end 'internal4'
 	panic("interp: a call of no runtime entry")
 end 'runtimeEntry'

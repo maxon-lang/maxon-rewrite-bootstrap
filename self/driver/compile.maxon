@@ -217,8 +217,8 @@ function writeIr(p ast.Project, lowered backend.FunctionLists, path String)
 end 'writeIr'
 
 // refusals are the places in the modules' functions where a program needs something the backend cannot run yet, such as
-// a map, a list, a pool or a behaviour, which only the interpreter runs. One is reported for each
-// function, at its first, and an instance that several modules lowered is reported once.
+// a map, a list or a pool, which only the interpreter runs. One is reported for each function, at its first, and an
+// instance that several modules lowered is reported once.
 function refusals(p ast.Project, lowered backend.FunctionLists, mutates errs diag.ErrorList)
 	var seen = ir.RefusalList.create(0)
 	for m in 0 upto lowered.count() 'modules'

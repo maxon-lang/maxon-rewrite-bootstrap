@@ -1032,8 +1032,35 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		end 'gives'
 	end 'visitCallValue'
 
+	// visitWhen makes a behaviour's record and hands it to the runtime's acquire: the thunk of its body, how many cowns it
+	// names, and then, after the request slots that the acquire fills in, the cowns in source order and the captures, a
+	// word each. The record holds the behaviour's captures from here on, and the runtime adds the behaviour's own hold
+	// on each cown.
 	function visitWhen(mutates self, f ir.IrFunction, x ir.Instr)
-		panic("codegen: a behaviour has no native code, and the driver refuses it before code is generated")
+		let cowns = ir.whenCownsCount(x)
+		let index = ir.whenBody(f, x: x)
+		let words = try cowns + ir.whenCapturesCount(x) otherwise panic("backend: a behaviour past memory")
+		if f.bodies[index].paramCount != words or f.bodies[index].cownTypes.count() != cowns 'shape'
+			panic("backend: a behaviour's body does not take its cowns' values and its captures, which its thunk passes it")
+		end 'shape'
+		let start = behaviourWordsOffset(cowns)
+		let bytes = try start + words * wordBytes otherwise panic("backend: a behaviour past memory")
+		u.asm.movImm(rax, imm: try bytes as FullRangeInt otherwise panic("backend: a behaviour past memory"))
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
+		u.asm.addImm(rsp, imm: wordBytes)
+		u.asm.leaSymbol(rcx, symbol: thunkSymbol(bodySymbol(fnSymbol, index: index)))
+		u.asm.store(rax, disp: imm32Of(behaviourRunOffset), src: rcx)
+		u.asm.movImm(rcx, imm: try cowns as FullRangeInt otherwise panic("backend: a behaviour past memory"))
+		u.asm.store(rax, disp: imm32Of(behaviourCownCountOffset), src: rcx)
+		let first = ir.whenCownsStart(x)
+		for i in 0 upto words 'words'
+			self.get(f, r: rcx, v: f.args[try first + i otherwise panic("backend: a cown past the pool")])
+			u.asm.store(rax, disp: imm32Of(try start + i * wordBytes otherwise panic("backend: a behaviour past memory")), src: rcx)
+		end 'words'
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtCownAcquire))
+		u.asm.addImm(rsp, imm: wordBytes)
 	end 'visitWhen'
 
 	// visitGuard jumps to the guard's failure block unless the value is in its range.
@@ -1123,6 +1150,23 @@ function captureDropSymbol(body String) returns String
 	return "captures {body}"
 end 'captureDropSymbol'
 
+// thunkSymbol is the link name of the thunk of the behaviour body with the link name body, which the scheduler runs the
+// behaviour's record with. It starts with a word and a space, as a routine's does, so no function is named like it.
+function thunkSymbol(body String) returns String
+	return "run {body}"
+end 'thunkSymbol'
+
+// behaviourWordsOffset is where the record of a behaviour of a count of cowns holds them, after its request slots, the
+// captures following them.
+export function behaviourWordsOffset(cowns Count) returns Count
+	return try behaviourSlotsOffset + cowns * requestSlotBytes otherwise panic("backend: a behaviour past memory")
+end 'behaviourWordsOffset'
+
+// isBehaviourBody is whether a body is a behaviour's, which a `when` names at least one cown of, rather than a closure's.
+function isBehaviourBody(body ir.IrFunction) returns bool
+	return body.cownTypes.count() > 0
+end 'isBehaviourBody'
+
 // ownsCaptures is whether a closure of the body owns a value it captured, which its drop routine then drops.
 function ownsCaptures(body ir.IrFunction) returns bool
 	for i in 0 upto body.captureOwned.count() 'captures'
@@ -1133,8 +1177,9 @@ function ownsCaptures(body ir.IrFunction) returns bool
 	return false
 end 'ownsCaptures'
 
-// emitFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures, each with
-// the routine that drops what its closure owns, and the tables that they name and the unit does not have yet.
+// emitFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures and its
+// behaviours, each closure's with the routine that drops what the closure owns and each behaviour's with its thunk, and
+// the tables that they name and the unit does not have yet.
 function emitFunctionTree(mutates g Codegen, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
 	emitFunction(g, p: p, f: f, symbol: symbol, instance: instance)
 	let due = exchange(g.due, value: ir.WitnessTableList.create(0))
@@ -1144,7 +1189,9 @@ function emitFunctionTree(mutates g Codegen, mutates p ast.Project, f ir.IrFunct
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
 		emitFunctionTree(g, p: p, f: f.bodies[i], symbol: body, instance: instance)
-		if ownsCaptures(f.bodies[i]) 'owns'
+		if isBehaviourBody(f.bodies[i]) 'behaviour'
+			emitBehaviourThunk(g.u, p: p, symbol: thunkSymbol(body), body: f.bodies[i], bodySymbol: body, instance: instance)
+		end 'behaviour' else if ownsCaptures(f.bodies[i]) 'owns'
 			emitCaptureDrop(g.u, p: p, symbol: captureDropSymbol(body), body: f.bodies[i], instance: instance)
 		end 'owns'
 	end 'bodies'

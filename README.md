@@ -115,15 +115,14 @@ and none is run. Any other program that compiles is run twice, as the executable
 (see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
 directives say; the interpreter must also find no violation of the memory model, and the executable, built with
 `--count-allocations`, must end with no heap box live (a program that traps skips that check). A program that uses a
-map, a list, a pool or a behaviour has no executable yet: it fails to compile with `E9900`, and the runner then runs it
-under the interpreter alone. A program that schedules behaviours runs under 20 schedules
-(seeds 0 to 19), and every one must give the same stdout and exit code and no violation, so the directives of such a
-program must say an output that does not depend on the schedule: print only from behaviours that the cowns put in
-order, such as one chain, or behaviours on one cown. A program under `tests/runtime/` is a test of the runtime: it is
+map, a list or a pool has no executable yet: it fails to compile with `E9900`, and the runner then runs it under the
+interpreter alone. A program that schedules behaviours runs under 20 schedules of the interpreter
+(seeds 0 to 19), and every one must give the same stdout and exit code and no violation, as must the executable, whose
+workers schedule it as the machine does, so the directives of such a program must say an output that does not depend
+on the schedule: print only from behaviours that the cowns put in order, such as one chain, or behaviours on one cown. A program under `tests/runtime/` is a test of the runtime: it is
 compiled as one more file of the runtime's module (`compileRuntimeTest`), so it may call the runtime's functions and the
 `__Raw` intrinsics, and holds `main`; it is run natively only, since the interpreter does not run the runtime's source.
-`tests/runtime/scheduler.maxon` is how the scheduler is tested before `when` compiles: it builds behaviour records by
-hand. A test executable runs under a 10 second deadline, and a program
+`tests/runtime/scheduler.maxon` tests the scheduler alone: it builds behaviour records by hand. A test executable runs under a 10 second deadline, and a program
 that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
 failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes before each test, so a crash of the compiler, which ends the run, names the test it was compiling.
 
@@ -796,15 +795,14 @@ an instance of a generic).
 
 A `when` is one instruction, `when body cowns [%a, %b] captures [%c]`. The cowns are read, not moved, and each gains a count of
 its own for as long as the behaviour is waiting or running. Each capture is a value that moves in: a managed one was moved out
-of its owner by the instruction before, so it is in flight. **The body is a function of its own**, in `IrFunction.behaviours` of
+of its owner by the instruction before, so it is in flight. **The body is a function of its own**, in `IrFunction.bodies` of
 the function around it and printed after it: its parameters are the access to each cown's value (an address, as a `mutates`
 parameter has), then the captures, which it owns as a `consumes` parameter does and drops at its end. It returns nothing, and
 nothing waits for it. Its name is the enclosing function's with `$when` and a number, in source order (`transfer$when0`,
 `swap[String]$when0` in an instance, `outer$when0$when0` for one inside another; `ast.behaviourName`), so a generic function that
 holds a behaviour has one for each instance, lowered with the instance's type arguments.
 
-**Native.** Everything but `when` has native code; a function that schedules a behaviour is refused with `E9900`, as a
-map, a list or a pool is. `rt.frozen.freeze` and `rt.cown.new` are functions of `runtime/frozen.maxon`: one allocation and
+**Native.** All of it has native code. `rt.frozen.freeze` and `rt.cown.new` are functions of `runtime/frozen.maxon`: one allocation and
 the stores of the header and the value, whatever the value holds (layouts `frozen*Offset` and `cown*Offset` of
 `internal/abigen`). `rt.frozen.get` is written in place by the backend, a load of the box's value that leaves the count
 alone, so a read or a borrow through a frozen value costs nothing more. `rt.share` (and the copy routine of
@@ -814,6 +812,23 @@ cown's `ending`. The drop routine of `frozen with T` and of `cown with T` (`back
 with one `lock xadd`, and the owner that found 1 there frees the box and then ends the value, which is the order the
 interpreter frees them in: the cown's `ending` with the value when it has one and the value is there, else the drop
 routine of `T`. A string literal stays immortal inside a frozen value, since dropping it is the string's drop.
+
+A `when` allocates the behaviour's **record** (`backend.Codegen.visitWhen`; layouts `behaviour*Offset` and `request*Offset`
+of `internal/abigen`): `pending`, `run` (the address of the body's thunk), `n` (how many cowns it names), `n` request slots
+`{cown, next, blocked, owner}` that the runtime fills in, then the cowns in source order and the captures, a word each,
+which move into the record. It hands the record to `rt.cown.acquire` (`runtime/cown.maxon`, Verona's two-phase protocol,
+Cheeseman et al., OOPSLA 2023): the slots are sorted by cown address (the same cown twice traps with
+`a behaviour names the same cown twice`, as the interpreter does), the behaviour takes a hold on each cown, and in
+address order each slot is exchanged into its cown's `tail`, waiting out a predecessor that is still queuing before it
+links behind it; once queued on all of them, one locked add on `pending` of the cowns acquired at once, plus 1 for the
+queuing, leaves it runnable or waiting for the releases of the behaviours ahead of it, and whoever brings `pending` to 0
+pushes it on its own thread's queue (`schedPush`). There is no lock word: a cown's queue is the chain of request slots.
+The **thunk** (`run <body>`, `backend.emitBehaviourThunk`, written with each behaviour body) calls the body with the
+address of each cown's `value` and the captures, which the body drops as it drops `consumes` parameters; then
+`rt.cown.release` hands each cown to the slot linked after it (or sets its `tail` back to 0 by a compare-exchange when
+none is), lowering that behaviour's `pending`; then the thunk drops the behaviour's hold on each cown in source order,
+which may end a cown and run its destructor on that worker, and frees the record. Behaviours that one thread schedules
+on one cown run in that order; behaviours on disjoint cowns run in parallel.
 
 ### Function values in the IR
 
@@ -2360,8 +2375,9 @@ records that have no fields (`internal/builtingen/table.go`), so a program calls
 ### Immutable values, cowns and behaviours
 
 Layer 3 of [docs/regions.md](docs/regions.md), step 5: how data crosses between threads, after Verona's
-behaviour-oriented concurrency. There are no threads in a compiled program yet (see "Native" below); the interpreter
-runs behaviours under a simulated scheduler, and the checker's rules are what the interpreter's runs test.
+behaviour-oriented concurrency. A compiled program runs behaviours on worker threads (see "Frozen values, cowns and
+behaviours in the IR"); the interpreter runs them under a simulated scheduler, and the checker's rules are what the
+interpreter's runs test.
 
 ```
 type Account
@@ -2661,8 +2677,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 - A compiled program frees each value where its owner dies, as the IR says (see "Drops" and "Native freeing"), with one
   `HeapFree` and no reference counting; Maxon counts references. A panic and a fault print no backtrace after their line
   (the spec runner leaves maxon's `Stack trace:` lines out of what it compares). A frozen value, a cown and a function
-  value are the values with a count of owners, always stepped by one locked add, whatever the program; a behaviour has
-  no native code yet: the interpreter schedules behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
+  value are the values with a count of owners, always stepped by one locked add, whatever the program. Behaviours run
+  to completion on a scheduler of worker threads of minimaxon's own (`runtime/sched.maxon`, `runtime/cown.maxon`),
+  with no green threads, since there is no `await`: maxon's runtime of green threads, strands and services is not
+  ported, only its work-stealing queues, `MAXON_MAX_PROCS` and its acquire of several cowns in address order, which
+  minimaxon does with no lock per cown. The interpreter schedules behaviours too, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
 - Errors (see "Errors of the program"): a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
@@ -2726,7 +2745,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   parameters. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
-  only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
+  all but the map, the list and the pool. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,
   and a frozen value is a type, `frozen with T`, where Maxon recovers immutability from facts about a value's history.
   The grammar has none of the rest, so each is a syntax error.
 - Array and map literals (see "Primitives") are the maxon literals without a literal spread over several

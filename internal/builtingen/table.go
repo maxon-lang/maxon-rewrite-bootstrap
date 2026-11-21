@@ -612,6 +612,8 @@ var entries = []entry{
 	{"ThreadStart", "rt.threadStart", "Runtime", roleInternal, "(context) by Win64: the start of a thread the runtime makes, which keeps stack for the fault handler, stores the context in the thread-local slot and calls workerMain"},
 	{"SchedDrain", "rt.schedDrain", "Source", roleInternal, "(exit code) -> exit code: what the entry calls after main, which runs behaviours until none is left"},
 	{"WorkerMain", "rt.workerMain", "Source", roleInternal, "(context): what a thread the runtime makes runs"},
+	{"CownAcquire", "rt.cown.acquire", "Source", roleInternal, "(behaviour record): what a when calls with the record it made, which queues the behaviour on each cown it names and makes it runnable once it holds them all"},
+	{"CownRelease", "rt.cown.release", "Source", roleInternal, "(behaviour record): what a behaviour's thunk calls after its body, which hands each cown to the behaviour queued after it"},
 
 	{"ArrayNew", "rt.array.new", "Arrays", roleCall, "() -> Array"},
 	{"ArrayLen", "rt.array.len", "Arrays", roleCall, "(array) -> count"},
@@ -736,6 +738,8 @@ var runtimeFunctions = []runtimeFunction{
 	{"CheckLeaks", "checkLeaks(code Count) Count"},
 	{"SchedDrain", "schedDrain(code Count) Count"},
 	{"WorkerMain", "workerMain(context Count)"},
+	{"CownAcquire", "cownAcquire(record Count)"},
+	{"CownRelease", "cownRelease(record Count)"},
 	{"FrozenFreeze", "frozenFreeze(value Count) Count"},
 	{"FrozenGet", "frozenGet(frozen Count) Count"},
 	{"Share", "share(box Count) Count"},

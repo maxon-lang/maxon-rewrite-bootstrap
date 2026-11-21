@@ -1,0 +1,136 @@
+// Behaviours on cowns: the acquire that `when` calls and the release that a behaviour's thunk calls after its body.
+// The protocol is Verona's behaviour-oriented concurrency, Cheeseman et al., "When Concurrency Matters:
+// Behaviour-Oriented Concurrency" (OOPSLA 2023), section 5, with no lock word on a cown: the behaviours waiting on a
+// cown are a chain of their request slots (an MCS queue), the newest at the cown's tail. A behaviour runs when it is at
+// the head of the chain of every cown it names, and it holds them until its thunk releases them.
+//
+// The record the compiled `when` makes (layout rows in internal/abigen): pending, run, the count n of cowns, then n
+// request slots {cown, next, blocked, owner}, then the n cowns in the order the source names them, then the captures.
+// The compiled code fills in run, n, the cowns and the captures; the acquire fills in the slots.
+
+// notQueued is a slot's next, and a cown's tail, when nothing is queued after it.
+let notQueued = 0 as Count
+
+// The values of a slot's blocked flag.
+let queuing = 1 as Count
+
+let queued = 0 as Count
+
+// beingQueued is the share of a behaviour's pending count that its own acquire holds until it is queued on every cown,
+// so that the releases of the behaviours ahead of it cannot make it runnable before then.
+let beingQueued = 1 as Count
+
+// behaviourHold is the count of owners a behaviour holds on each cown it names until it has run.
+let behaviourHold = 1 as Count
+
+// cownAcquire queues a behaviour on each cown it names and makes it runnable once it holds them all.
+//
+// 0. The slots are sorted by their cown's address, and the same cown twice traps, as the interpreter does. The
+//    behaviour takes a hold on each cown, and pending starts at n + beingQueued.
+// 1. In address order, for each slot: blocked = 1; prev = exchange(cown.tail, slot); when prev is a slot, wait while
+//    prev is blocked, then link prev.next = slot; when there is none, the cown is acquired at once.
+// 2. Every slot is marked not blocked, and pending is lowered by the acquired count plus beingQueued in one locked
+//    add: whoever brings it to 0 (this thread, or the release of a behaviour ahead of it) pushes the behaviour.
+//
+// Why the wait in phase 1 keeps two behaviours from enqueuing in opposite orders (A ahead of B on one cown but behind
+// it on another, which would deadlock): B links behind A on a cown only once A is no longer blocked, which A clears
+// only after it is queued on every cown it names. So when A and B share cowns, whichever links on the lowest shared
+// cown first is queued on all the shared ones before the other links on any of them, and is ahead on every one. The
+// wait cannot cycle: a behaviour at cown c waits for one that exchanged c's tail before it and is now at c or at a
+// higher address, and the addresses only grow. Verona takes the same order with a lock per cown held across the
+// exchanges; maxon's __cown_acquire_many does too. The wait needs no lock word, and it lasts only for the predecessor's
+// phase 1.
+//
+// x64 keeps plain stores in order and plain loads in order, so a plain store publishes what was written before it, and
+// the exchange and the locked add are full fences.
+function cownAcquire(record Count)
+	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
+	for i in 0 upto n 'sort'
+		let cown = __Raw.loadWord(record, offset: cownOffset(n, index: i))
+		var at = i
+		while at > 0 and slotCown(record, index: __Raw.wrappingSub(at, right: 1)) > cown 'shift'
+			let below = __Raw.wrappingSub(at, right: 1)
+			__Raw.storeWord(requestSlot(record, index: at), offset: requestCownOffset, value: slotCown(record, index: below))
+			at = below
+		end 'shift'
+		if at > 0 and slotCown(record, index: __Raw.wrappingSub(at, right: 1)) == cown 'twice'
+			// panicWith rather than panic, whose line would name this file: the trap is the program's, worded as the
+			// interpreter words it.
+			panicWith("a behaviour names the same cown twice")
+		end 'twice'
+		__Raw.storeWord(requestSlot(record, index: at), offset: requestCownOffset, value: cown)
+	end 'sort'
+	for i in 0 upto n 'holds'
+		let slot = requestSlot(record, index: i)
+		__Raw.storeWord(slot, offset: requestOwnerOffset, value: record)
+		_ = __Raw.atomicAdd(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownCountOffset, value: behaviourHold)
+	end 'holds'
+	__Raw.storeWord(record, offset: behaviourPendingOffset, value: try n + beingQueued otherwise panic("a behaviour names more cowns than memory"))
+	schedEnter()
+	var acquired = 0 as Count
+	for i in 0 upto n 'queue'
+		let slot = requestSlot(record, index: i)
+		__Raw.storeWord(slot, offset: requestBlockedOffset, value: queuing)
+		let prev = __Raw.atomicExchange(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownTailOffset, value: slot)
+		if prev == notQueued 'idle'
+			acquired = __Raw.wrappingAdd(acquired, right: 1)
+		end 'idle' else 'behind'
+			while __Raw.loadWord(prev, offset: requestBlockedOffset) == queuing 'wait'
+				__Raw.spinPause()
+			end 'wait'
+			__Raw.storeWord(prev, offset: requestNextOffset, value: slot)
+		end 'behind'
+	end 'queue'
+	for i in 0 upto n 'unblock'
+		__Raw.storeWord(requestSlot(record, index: i), offset: requestBlockedOffset, value: queued)
+	end 'unblock'
+	let step = __Raw.wrappingAdd(acquired, right: beingQueued)
+	if __Raw.atomicAdd(record, offset: behaviourPendingOffset, value: __Raw.wrappingSub(0, right: step)) == step 'runnable'
+		schedPush(record)
+	end 'runnable'
+end 'cownAcquire'
+
+// cownRelease hands each cown of a behaviour that has run to the behaviour queued after it, in the slots' order:
+//
+// 3. When no slot is linked after this one, the cown goes idle by a compare-exchange of its tail from this slot to 0;
+//    when that fails, a behaviour has exchanged itself into the tail and is about to link, so this waits for its link.
+//    The next behaviour's pending is lowered by 1, and whoever brings it to 0 pushes it on its own thread's queue.
+//
+// Once this returns no other behaviour reads or writes the record's slots: a later behaviour writes a slot's next only
+// before the wait above ends, and reads its blocked only before that. The behaviour's holds on its cowns are the
+// thunk's to drop, since only the compiled code knows the types of the values they hold.
+function cownRelease(record Count)
+	let n = __Raw.loadWord(record, offset: behaviourCownCountOffset)
+	for i in 0 upto n 'slots'
+		let slot = requestSlot(record, index: i)
+		var next = __Raw.loadWord(slot, offset: requestNextOffset)
+		if next == notQueued 'last'
+			if __Raw.compareExchange(__Raw.loadWord(slot, offset: requestCownOffset), offset: cownTailOffset, expected: slot, desired: notQueued) == slot 'idle'
+				continue 'slots'
+			end 'idle'
+			while next == notQueued 'link'
+				__Raw.spinPause()
+				next = __Raw.loadWord(slot, offset: requestNextOffset)
+			end 'link'
+		end 'last'
+		let owner = __Raw.loadWord(next, offset: requestOwnerOffset)
+		if __Raw.atomicAdd(owner, offset: behaviourPendingOffset, value: stepDown) == 1 'runnable'
+			schedPush(owner)
+		end 'runnable'
+	end 'slots'
+end 'cownRelease'
+
+// requestSlot is the address of a behaviour's request slot of an index.
+function requestSlot(record Count, index Count) returns Count
+	return __Raw.wrappingAdd(record, right: try behaviourSlotsOffset + index * requestSlotBytes otherwise panic("a behaviour past memory"))
+end 'requestSlot'
+
+// slotCown is the cown that a behaviour's request slot of an index asks for.
+function slotCown(record Count, index Count) returns Count
+	return __Raw.loadWord(requestSlot(record, index: index), offset: requestCownOffset)
+end 'slotCown'
+
+// cownOffset is where a behaviour of n cowns holds the one of an index in the source's order, after its slots.
+function cownOffset(n Count, index Count) returns Count
+	return try behaviourSlotsOffset + n * requestSlotBytes + index * wordBytes otherwise panic("a behaviour past memory")
+end 'cownOffset'

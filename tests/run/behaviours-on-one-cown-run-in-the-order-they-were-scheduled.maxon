@@ -1,0 +1,30 @@
+// Behaviours that one thread schedules on one cown run in that order, however many workers there are; each checks that
+// it comes right after the one before it.
+let behaviours = 2000 as Count
+
+type Sequence
+	export var next as Count
+	export var outOfOrder as Count
+
+	static function make() returns Sequence
+		return Sequence{next: 0, outOfOrder: 0}
+	end 'make'
+end 'Sequence'
+
+function main() returns ExitCode
+	let sequence = cown(Sequence.make())
+	for i in 0 upto behaviours 'schedule'
+		when sequence as s 'step'
+			if s.next != i 'late'
+				s.outOfOrder = try s.outOfOrder + 1 otherwise return
+			end 'late'
+			s.next = try i + 1 otherwise return
+		end 'step'
+	end 'schedule'
+	when sequence as s 'report'
+		print("{s.next} in order, {s.outOfOrder} out of order\n")
+	end 'report'
+	return 0
+end 'main'
+
+//> 2000 in order, 0 out of order
