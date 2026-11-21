@@ -121,7 +121,7 @@ parse time they were a parameter, a literal and a parameter.
 typealias Word = int(i64.min to i64.max)
 
 function scale(a Word, b Word) returns Word
-	return a * 31 + b
+	return try a * 31 + b otherwise panic("out of range")
 end 'scale'
 
 function main() returns ExitCode
@@ -191,7 +191,7 @@ evaluator is the parser's own (`foldIntUnaryOp`, reached through `maxonUnaryOpOf
 typealias Word = int(i64.min to i64.max)
 
 function negate(a Word) returns Word
-	return -a
+	return try -a otherwise panic("out of range")
 end 'negate'
 
 function complement(a Word) returns Word
@@ -272,6 +272,7 @@ end 'main'
 ```
 
 <!-- test: a-negative-count-is-not-folded-and-panics-at-run-time -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐⭐ **THE OTHER HALF OF `shiftCountIsUnguarded`'s GATE, AND THE DISCRIMINATION IS THAT THIS PROGRAM
 COMPILES AT ALL.** A negative literal reaches `FoldConstants` as a single `const` once `inlineLeaves` has
 substituted it for the parameter, and `evalShift` PANICS on one rather than inventing an answer — so a
@@ -907,6 +908,7 @@ end 'main'
 ```
 
 <!-- test: a-folded-value-still-meets-its-range-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Folding produces a VALUE; it does not decide whether that value meets a ranged typealias. `50 * 4`
 is 200 and `Small` stops at 100, so the guard `insertRangeChecks` emitted before this pass ever ran
 must still fire — at its own line, with its own message, and after the `print` that precedes it, so
@@ -948,11 +950,11 @@ typealias Word = int(i64.min to i64.max)
 typealias Small = int(0 to 100)
 
 function scale(a Word, b Word) returns Word
-	return a * b
+	return try a * b otherwise panic("out of range")
 end 'scale'
 
 function main() returns ExitCode
-	let v = scale(25, b: 2) as Small
+	let v = try scale(25, b: 2) as Small otherwise panic("out of range")
 	if v != 50 'value'
 		return 1
 	end 'value'

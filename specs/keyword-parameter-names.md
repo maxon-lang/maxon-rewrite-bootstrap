@@ -125,13 +125,13 @@ produce it.
 typealias StdType = int(i64.min to i64.max)
 
 function repeated(array StdType, of StdType) returns StdType
-	return array * of
+	return try array * of otherwise panic("out of range")
 end 'repeated'
 
 function main() returns ExitCode
 	let array = 6
 	let of = 7
-	return repeated(array, of: of)
+	return try repeated(array, of: of) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

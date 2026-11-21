@@ -58,7 +58,7 @@ end 'Foo'
 function main() returns ExitCode
 	let f1 = Foo.create(10)
 	let f2 = Foo.create(42)
-	return f1.callBarOn(f2)
+	return try f1.callBarOn(f2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -78,11 +78,11 @@ type Value
 	end 'get'
 
 	function add(other Value) returns Integer
-		return n + other.get()
+		return try n + other.get() otherwise panic("out of range")
 	end 'add'
 
 	function multiply(other Value) returns Integer
-		return n * other.get()
+		return try n * other.get() otherwise panic("out of range")
 	end 'multiply'
 
 	static function create(n Integer) returns Self
@@ -97,7 +97,7 @@ function main() returns ExitCode
 	// a.add(b) = 5 + 3 = 8
 	// a.multiply(c) = 5 * 2 = 10
 	// total = 8 + 10 = 18
-	return a.add(b) + a.multiply(c)
+	return try a.add(b) + a.multiply(c) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -128,7 +128,7 @@ end 'Calculator'
 
 function main() returns ExitCode
 	let calc = Calculator.create(5)
-	return calc.quadruple()
+	return calc.quadruple() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -144,7 +144,7 @@ type Adder
 	var value as Integer
 
 	function addTo(n Integer) returns Integer
-		return value + n
+		return try value + n otherwise panic("out of range")
 	end 'addTo'
 
 	function delegateAdd(other Adder, n Integer) returns Integer
@@ -159,7 +159,7 @@ end 'Adder'
 function main() returns ExitCode
 	let a = Adder.create(100)
 	let b = Adder.create(50)
-	return a.delegateAdd(b, n: 7)
+	return try a.delegateAdd(b, n: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

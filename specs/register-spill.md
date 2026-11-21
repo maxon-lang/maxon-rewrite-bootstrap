@@ -212,32 +212,32 @@ splitter stores several of them in the PREHEADER and reloads them after the loop
 `sum(0..3)=6 + sum(1..15)=120 = 126`.
 ```maxon
 function idleAcrossLoop(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
-	let k13 = p + 13
-	let k14 = p + 14
-	let k15 = p + 15
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
+	let k13 = try p + 13 otherwise panic("out of range")
+	let k14 = try p + 14 otherwise panic("out of range")
+	let k15 = try p + 15 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 otherwise panic("out of range")
 end 'idleAcrossLoop'
 
 function main() returns ExitCode
-	return idleAcrossLoop(0)
+	return try idleAcrossLoop(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -252,29 +252,29 @@ furthest in the future and reloads each right before its use. Result is
 `sum(1..18) = 171`.
 ```maxon
 function straightLine(p Integer) returns Integer
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
-	let a6 = p + 6
-	let a7 = p + 7
-	let a8 = p + 8
-	let a9 = p + 9
-	let a10 = p + 10
-	let a11 = p + 11
-	let a12 = p + 12
-	let a13 = p + 13
-	let a14 = p + 14
-	let a15 = p + 15
-	let a16 = p + 16
-	let a17 = p + 17
-	let a18 = p + 18
-	return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
+	let a6 = try p + 6 otherwise panic("out of range")
+	let a7 = try p + 7 otherwise panic("out of range")
+	let a8 = try p + 8 otherwise panic("out of range")
+	let a9 = try p + 9 otherwise panic("out of range")
+	let a10 = try p + 10 otherwise panic("out of range")
+	let a11 = try p + 11 otherwise panic("out of range")
+	let a12 = try p + 12 otherwise panic("out of range")
+	let a13 = try p + 13 otherwise panic("out of range")
+	let a14 = try p + 14 otherwise panic("out of range")
+	let a15 = try p + 15 otherwise panic("out of range")
+	let a16 = try p + 16 otherwise panic("out of range")
+	let a17 = try p + 17 otherwise panic("out of range")
+	let a18 = try p + 18 otherwise panic("out of range")
+	return try a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 otherwise panic("out of range")
 end 'straightLine'
 
 function main() returns ExitCode
-	return straightLine(0)
+	return try straightLine(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -292,26 +292,26 @@ is `sum(1..14)/7 = 105/7 = 15`.
 ```maxon
 function rematConstant(p Integer) returns Integer
 	let c = 7
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
-	let a6 = p + 6
-	let a7 = p + 7
-	let a8 = p + 8
-	let a9 = p + 9
-	let a10 = p + 10
-	let a11 = p + 11
-	let a12 = p + 12
-	let a13 = p + 13
-	let a14 = p + 14
-	let s = a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
+	let a6 = try p + 6 otherwise panic("out of range")
+	let a7 = try p + 7 otherwise panic("out of range")
+	let a8 = try p + 8 otherwise panic("out of range")
+	let a9 = try p + 9 otherwise panic("out of range")
+	let a10 = try p + 10 otherwise panic("out of range")
+	let a11 = try p + 11 otherwise panic("out of range")
+	let a12 = try p + 12 otherwise panic("out of range")
+	let a13 = try p + 13 otherwise panic("out of range")
+	let a14 = try p + 14 otherwise panic("out of range")
+	let s = try a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 otherwise panic("out of range")
 	return s / c
 end 'rematConstant'
 
 function main() returns ExitCode
-	return rematConstant(0)
+	return try rematConstant(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -331,30 +331,30 @@ not converge — the bug this guards.) With `p = 0`: `a1 = 1`, `w = 1`, `peak = 
 121`, `z = 1 + 121 = 122`.
 ```maxon
 function usedBeforeAndAfter(p Integer) returns Integer
-	let a1 = p + 1
-	let w = a1 + p
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let b14 = p + 14
-	let b15 = p + 15
-	let peak = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + w
-	let z = a1 + peak
+	let a1 = try p + 1 otherwise panic("out of range")
+	let w = try a1 + p otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let b14 = try p + 14 otherwise panic("out of range")
+	let b15 = try p + 15 otherwise panic("out of range")
+	let peak = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + w otherwise panic("out of range")
+	let z = try a1 + peak otherwise panic("out of range")
 	return z
 end 'usedBeforeAndAfter'
 
 function main() returns ExitCode
-	return usedBeforeAndAfter(0)
+	return try usedBeforeAndAfter(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -376,18 +376,18 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function caller(p Integer) returns Integer
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
-	let a6 = p + 6
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
+	let a6 = try p + 6 otherwise panic("out of range")
 	let r = sink(p)
-	return a1 + a2 + a3 + a4 + a5 + a6 + r
+	return try a1 + a2 + a3 + a4 + a5 + a6 + r otherwise panic("out of range")
 end 'caller'
 
 function main() returns ExitCode
-	return caller(0)
+	return try caller(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -406,27 +406,27 @@ the function would enter the splitter loop yet find no raw peak, and panic. `p =
 `rhs = 50`, `d = 50`, and `(2+3+…+13) + d + a = 90 + 50 + 100 = 240`.
 ```maxon
 function reuseTransientOverflow(p Integer) returns Integer
-	let a = p + 100
-	let b1 = p + 2
-	let b2 = p + 3
-	let b3 = p + 4
-	let b4 = p + 5
-	let b5 = p + 6
-	let b6 = p + 7
-	let b7 = p + 8
-	let b8 = p + 9
-	let b9 = p + 10
-	let b10 = p + 11
-	let b11 = p + 12
-	let b12 = p + 13
-	let rhs = p + 50
-	let d = a - rhs
-	let s = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + d + a
+	let a = try p + 100 otherwise panic("out of range")
+	let b1 = try p + 2 otherwise panic("out of range")
+	let b2 = try p + 3 otherwise panic("out of range")
+	let b3 = try p + 4 otherwise panic("out of range")
+	let b4 = try p + 5 otherwise panic("out of range")
+	let b5 = try p + 6 otherwise panic("out of range")
+	let b6 = try p + 7 otherwise panic("out of range")
+	let b7 = try p + 8 otherwise panic("out of range")
+	let b8 = try p + 9 otherwise panic("out of range")
+	let b9 = try p + 10 otherwise panic("out of range")
+	let b10 = try p + 11 otherwise panic("out of range")
+	let b11 = try p + 12 otherwise panic("out of range")
+	let b12 = try p + 13 otherwise panic("out of range")
+	let rhs = try p + 50 otherwise panic("out of range")
+	let d = try a - rhs otherwise panic("out of range")
+	let s = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + d + a otherwise panic("out of range")
 	return s
 end 'reuseTransientOverflow'
 
 function main() returns ExitCode
-	return reuseTransientOverflow(0)
+	return try reuseTransientOverflow(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -446,38 +446,38 @@ instead. (The self-check avoids the exit-code's mod-256 wrap: `382 & 0xFF` is `1
 would masquerade as a plausible direct exit code.)
 ```maxon
 function f(p Integer) returns Integer
-	let a = p + 100
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let s1 = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13
-	let u1 = a + s1
-	let c1 = p + 1
-	let c2 = p + 2
-	let c3 = p + 3
-	let c4 = p + 4
-	let c5 = p + 5
-	let c6 = p + 6
-	let c7 = p + 7
-	let c8 = p + 8
-	let c9 = p + 9
-	let c10 = p + 10
-	let c11 = p + 11
-	let c12 = p + 12
-	let c13 = p + 13
-	let s2 = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13
-	let u2 = a + s2
-	return u1 + u2
+	let a = try p + 100 otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let s1 = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 otherwise panic("out of range")
+	let u1 = try a + s1 otherwise panic("out of range")
+	let c1 = try p + 1 otherwise panic("out of range")
+	let c2 = try p + 2 otherwise panic("out of range")
+	let c3 = try p + 3 otherwise panic("out of range")
+	let c4 = try p + 4 otherwise panic("out of range")
+	let c5 = try p + 5 otherwise panic("out of range")
+	let c6 = try p + 6 otherwise panic("out of range")
+	let c7 = try p + 7 otherwise panic("out of range")
+	let c8 = try p + 8 otherwise panic("out of range")
+	let c9 = try p + 9 otherwise panic("out of range")
+	let c10 = try p + 10 otherwise panic("out of range")
+	let c11 = try p + 11 otherwise panic("out of range")
+	let c12 = try p + 12 otherwise panic("out of range")
+	let c13 = try p + 13 otherwise panic("out of range")
+	let s2 = try c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 otherwise panic("out of range")
+	let u2 = try a + s2 otherwise panic("out of range")
+	return try u1 + u2 otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -500,53 +500,53 @@ typealias Integer = int(i64.min to i64.max)
 s3 = 91`, `u1 = u2 = u3 = 191`, `f(0) = 573`; `main` returns `0` iff correct.
 ```maxon
 function f(p Integer) returns Integer
-	let a = p + 100
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let s1 = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13
-	let u1 = a + s1
-	let c1 = p + 1
-	let c2 = p + 2
-	let c3 = p + 3
-	let c4 = p + 4
-	let c5 = p + 5
-	let c6 = p + 6
-	let c7 = p + 7
-	let c8 = p + 8
-	let c9 = p + 9
-	let c10 = p + 10
-	let c11 = p + 11
-	let c12 = p + 12
-	let c13 = p + 13
-	let s2 = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13
-	let u2 = a + s2
-	let d1 = p + 1
-	let d2 = p + 2
-	let d3 = p + 3
-	let d4 = p + 4
-	let d5 = p + 5
-	let d6 = p + 6
-	let d7 = p + 7
-	let d8 = p + 8
-	let d9 = p + 9
-	let d10 = p + 10
-	let d11 = p + 11
-	let d12 = p + 12
-	let d13 = p + 13
-	let s3 = d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 + d10 + d11 + d12 + d13
-	let u3 = a + s3
-	return u1 + u2 + u3
+	let a = try p + 100 otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let s1 = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 otherwise panic("out of range")
+	let u1 = try a + s1 otherwise panic("out of range")
+	let c1 = try p + 1 otherwise panic("out of range")
+	let c2 = try p + 2 otherwise panic("out of range")
+	let c3 = try p + 3 otherwise panic("out of range")
+	let c4 = try p + 4 otherwise panic("out of range")
+	let c5 = try p + 5 otherwise panic("out of range")
+	let c6 = try p + 6 otherwise panic("out of range")
+	let c7 = try p + 7 otherwise panic("out of range")
+	let c8 = try p + 8 otherwise panic("out of range")
+	let c9 = try p + 9 otherwise panic("out of range")
+	let c10 = try p + 10 otherwise panic("out of range")
+	let c11 = try p + 11 otherwise panic("out of range")
+	let c12 = try p + 12 otherwise panic("out of range")
+	let c13 = try p + 13 otherwise panic("out of range")
+	let s2 = try c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 otherwise panic("out of range")
+	let u2 = try a + s2 otherwise panic("out of range")
+	let d1 = try p + 1 otherwise panic("out of range")
+	let d2 = try p + 2 otherwise panic("out of range")
+	let d3 = try p + 3 otherwise panic("out of range")
+	let d4 = try p + 4 otherwise panic("out of range")
+	let d5 = try p + 5 otherwise panic("out of range")
+	let d6 = try p + 6 otherwise panic("out of range")
+	let d7 = try p + 7 otherwise panic("out of range")
+	let d8 = try p + 8 otherwise panic("out of range")
+	let d9 = try p + 9 otherwise panic("out of range")
+	let d10 = try p + 10 otherwise panic("out of range")
+	let d11 = try p + 11 otherwise panic("out of range")
+	let d12 = try p + 12 otherwise panic("out of range")
+	let d13 = try p + 13 otherwise panic("out of range")
+	let s3 = try d1 + d2 + d3 + d4 + d5 + d6 + d7 + d8 + d9 + d10 + d11 + d12 + d13 otherwise panic("out of range")
+	let u3 = try a + s3 otherwise panic("out of range")
+	return try u1 + u2 + u3 otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -570,41 +570,41 @@ each split around both peaks. `u1 = a + s1 = 191`, `w1 = e + s1 = 141`, `u2 = 19
 141`, `f(0) = 664`; `main` returns `0` iff correct.
 ```maxon
 function f(p Integer) returns Integer
-	let a = p + 100
-	let e = p + 50
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let s1 = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13
-	let u1 = a + s1
-	let w1 = e + s1
-	let c1 = p + 1
-	let c2 = p + 2
-	let c3 = p + 3
-	let c4 = p + 4
-	let c5 = p + 5
-	let c6 = p + 6
-	let c7 = p + 7
-	let c8 = p + 8
-	let c9 = p + 9
-	let c10 = p + 10
-	let c11 = p + 11
-	let c12 = p + 12
-	let c13 = p + 13
-	let s2 = c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13
-	let u2 = a + s2
-	let w2 = e + s2
-	return u1 + u2 + w1 + w2
+	let a = try p + 100 otherwise panic("out of range")
+	let e = try p + 50 otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let s1 = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 otherwise panic("out of range")
+	let u1 = try a + s1 otherwise panic("out of range")
+	let w1 = try e + s1 otherwise panic("out of range")
+	let c1 = try p + 1 otherwise panic("out of range")
+	let c2 = try p + 2 otherwise panic("out of range")
+	let c3 = try p + 3 otherwise panic("out of range")
+	let c4 = try p + 4 otherwise panic("out of range")
+	let c5 = try p + 5 otherwise panic("out of range")
+	let c6 = try p + 6 otherwise panic("out of range")
+	let c7 = try p + 7 otherwise panic("out of range")
+	let c8 = try p + 8 otherwise panic("out of range")
+	let c9 = try p + 9 otherwise panic("out of range")
+	let c10 = try p + 10 otherwise panic("out of range")
+	let c11 = try p + 11 otherwise panic("out of range")
+	let c12 = try p + 12 otherwise panic("out of range")
+	let c13 = try p + 13 otherwise panic("out of range")
+	let s2 = try c1 + c2 + c3 + c4 + c5 + c6 + c7 + c8 + c9 + c10 + c11 + c12 + c13 otherwise panic("out of range")
+	let u2 = try a + s2 otherwise panic("out of range")
+	let w2 = try e + s2 otherwise panic("out of range")
+	return try u1 + u2 + w1 + w2 otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -633,32 +633,32 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function f(p Integer) returns Integer
-	let a = p + 100
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let b14 = p + 14
-	let s1 = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14
-	let u1 = a + s1
-	let d1 = p + 1
-	let d2 = p + 2
-	let d3 = p + 3
-	let d4 = p + 4
-	let d5 = p + 5
-	let d6 = p + 6
+	let a = try p + 100 otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let b14 = try p + 14 otherwise panic("out of range")
+	let s1 = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 otherwise panic("out of range")
+	let u1 = try a + s1 otherwise panic("out of range")
+	let d1 = try p + 1 otherwise panic("out of range")
+	let d2 = try p + 2 otherwise panic("out of range")
+	let d3 = try p + 3 otherwise panic("out of range")
+	let d4 = try p + 4 otherwise panic("out of range")
+	let d5 = try p + 5 otherwise panic("out of range")
+	let d6 = try p + 6 otherwise panic("out of range")
 	let r = sink(p)
-	let u2 = a + d1 + d2 + d3 + d4 + d5 + d6 + r
-	return u1 + u2
+	let u2 = try a + d1 + d2 + d3 + d4 + d5 + d6 + r otherwise panic("out of range")
+	return try u1 + u2 otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -754,25 +754,25 @@ the store sits, so it cannot see the bug at all; the `p <= 0` call is the one th
 exit code, so either path can fail on its own.
 ```maxon
 function leaf(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'leaf'
 
 function edgeAnchor(p Integer, q Integer) returns Integer
-	let t = p + q
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
-	let a6 = p + 6
-	let a7 = p + 7
-	let a8 = p + 8
+	let t = try p + q otherwise panic("out of range")
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
+	let a6 = try p + 6 otherwise panic("out of range")
+	let a7 = try p + 7 otherwise panic("out of range")
+	let a8 = try p + 8 otherwise panic("out of range")
 	var m = 0 as Integer
 	if p > 0 'br'
 		m = t
 	end 'br'
 	let r = leaf(p)
-	return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + m + r + t
+	return try a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + m + r + t otherwise panic("out of range")
 end 'edgeAnchor'
 
 function main() returns ExitCode
@@ -830,31 +830,31 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function pick(k Integer) returns Integer
-	let v1 = k + 11
-	let v2 = k + 22
-	let v3 = k + 33
-	let v4 = k + 44
-	let v5 = k + 55
-	let v6 = k + 66
+	let v1 = try k + 11 otherwise panic("out of range")
+	let v2 = try k + 22 otherwise panic("out of range")
+	let v3 = try k + 33 otherwise panic("out of range")
+	let v4 = try k + 44 otherwise panic("out of range")
+	let v5 = try k + 55 otherwise panic("out of range")
+	let v6 = try k + 66 otherwise panic("out of range")
 	var out = 0 as Integer
 	if k == 1 'b1'
 		let t = sink(1)
-		out = v1 + t
+		out = try v1 + t otherwise panic("out of range")
 	end 'b1' else if k == 2 'b2'
 		let t = sink(2)
-		out = v2 + t
+		out = try v2 + t otherwise panic("out of range")
 	end 'b2' else if k == 3 'b3'
 		let t = sink(3)
-		out = v3 + t
+		out = try v3 + t otherwise panic("out of range")
 	end 'b3' else if k == 4 'b4'
 		let t = sink(4)
-		out = v4 + t
+		out = try v4 + t otherwise panic("out of range")
 	end 'b4' else if k == 5 'b5'
 		let t = sink(5)
-		out = v5 + t
+		out = try v5 + t otherwise panic("out of range")
 	end 'b5' else 'b6'
 		let t = sink(6)
-		out = v6 + t
+		out = try v6 + t otherwise panic("out of range")
 	end 'b6'
 	return out
 end 'pick'
@@ -911,25 +911,25 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function invariantsAcrossCall(p Integer) returns Integer
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
-	let a6 = p + 6
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
+	let a6 = try p + 6 otherwise panic("out of range")
 	var acc = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'loop'
-		let pre = acc + a1 + a2 + a3 + a4 + a5 + a6
+		let pre = try acc + a1 + a2 + a3 + a4 + a5 + a6 otherwise panic("out of range")
 		let r = sink(i)
-		acc = pre + r + a1 + a2 + a3 + a4 + a5 + a6
+		acc = try pre + r + a1 + a2 + a3 + a4 + a5 + a6 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return acc
 end 'invariantsAcrossCall'
 
 function main() returns ExitCode
-	return invariantsAcrossCall(0)
+	return try invariantsAcrossCall(0) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -960,19 +960,19 @@ end 'sink'
 
 function loopConst(p Integer) returns Integer
 	let c = 1000
-	let a1 = p + 1
-	let a2 = p + 2
-	let a3 = p + 3
-	let a4 = p + 4
-	let a5 = p + 5
+	let a1 = try p + 1 otherwise panic("out of range")
+	let a2 = try p + 2 otherwise panic("out of range")
+	let a3 = try p + 3 otherwise panic("out of range")
+	let a4 = try p + 4 otherwise panic("out of range")
+	let a5 = try p + 5 otherwise panic("out of range")
 	var acc = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'loop'
-		let pre = acc + a1 + a2 + a3 + a4 + a5
-		let d1 = c - i
+		let pre = try acc + a1 + a2 + a3 + a4 + a5 otherwise panic("out of range")
+		let d1 = try c - i otherwise panic("out of range")
 		let r = sink(i)
-		let d2 = c - i
-		acc = pre + d1 + d2 + r + a1 + a2 + a3 + a4 + a5
+		let d2 = try c - i otherwise panic("out of range")
+		acc = try pre + d1 + d2 + r + a1 + a2 + a3 + a4 + a5 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return acc
@@ -1350,45 +1350,45 @@ answer rather than cancelling: `sink4(1, 2, 3, 7) = 1237`, `s = sum(1..28) = 406
 allocatable GPRs on arm64 against x64's 14 — and 28 is the first round number past it.
 ```maxon
 function sink4(a Integer, b Integer, c Integer, d Integer) returns Integer
-	return a * 1000 + b * 100 + c * 10 + d
+	return try a * 1000 + b * 100 + c * 10 + d otherwise panic("out of range")
 end 'sink4'
 
 function f(p Integer) returns Integer
-	let a = p + 7
-	let b1 = p + 1
-	let b2 = p + 2
-	let b3 = p + 3
-	let b4 = p + 4
-	let b5 = p + 5
-	let b6 = p + 6
-	let b7 = p + 7
-	let b8 = p + 8
-	let b9 = p + 9
-	let b10 = p + 10
-	let b11 = p + 11
-	let b12 = p + 12
-	let b13 = p + 13
-	let b14 = p + 14
-	let b15 = p + 15
-	let b16 = p + 16
-	let b17 = p + 17
-	let b18 = p + 18
-	let b19 = p + 19
-	let b20 = p + 20
-	let b21 = p + 21
-	let b22 = p + 22
-	let b23 = p + 23
-	let b24 = p + 24
-	let b25 = p + 25
-	let b26 = p + 26
-	let b27 = p + 27
-	let b28 = p + 28
-	let s = b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16 + b17 + b18 + b19 + b20 + b21 + b22 + b23 + b24 + b25 + b26 + b27 + b28
-	let c0 = p + 1
-	let c1 = p + 2
-	let c2 = p + 3
+	let a = try p + 7 otherwise panic("out of range")
+	let b1 = try p + 1 otherwise panic("out of range")
+	let b2 = try p + 2 otherwise panic("out of range")
+	let b3 = try p + 3 otherwise panic("out of range")
+	let b4 = try p + 4 otherwise panic("out of range")
+	let b5 = try p + 5 otherwise panic("out of range")
+	let b6 = try p + 6 otherwise panic("out of range")
+	let b7 = try p + 7 otherwise panic("out of range")
+	let b8 = try p + 8 otherwise panic("out of range")
+	let b9 = try p + 9 otherwise panic("out of range")
+	let b10 = try p + 10 otherwise panic("out of range")
+	let b11 = try p + 11 otherwise panic("out of range")
+	let b12 = try p + 12 otherwise panic("out of range")
+	let b13 = try p + 13 otherwise panic("out of range")
+	let b14 = try p + 14 otherwise panic("out of range")
+	let b15 = try p + 15 otherwise panic("out of range")
+	let b16 = try p + 16 otherwise panic("out of range")
+	let b17 = try p + 17 otherwise panic("out of range")
+	let b18 = try p + 18 otherwise panic("out of range")
+	let b19 = try p + 19 otherwise panic("out of range")
+	let b20 = try p + 20 otherwise panic("out of range")
+	let b21 = try p + 21 otherwise panic("out of range")
+	let b22 = try p + 22 otherwise panic("out of range")
+	let b23 = try p + 23 otherwise panic("out of range")
+	let b24 = try p + 24 otherwise panic("out of range")
+	let b25 = try p + 25 otherwise panic("out of range")
+	let b26 = try p + 26 otherwise panic("out of range")
+	let b27 = try p + 27 otherwise panic("out of range")
+	let b28 = try p + 28 otherwise panic("out of range")
+	let s = try b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + b10 + b11 + b12 + b13 + b14 + b15 + b16 + b17 + b18 + b19 + b20 + b21 + b22 + b23 + b24 + b25 + b26 + b27 + b28 otherwise panic("out of range")
+	let c0 = try p + 1 otherwise panic("out of range")
+	let c1 = try p + 2 otherwise panic("out of range")
+	let c2 = try p + 3 otherwise panic("out of range")
 	let r = sink4(c0, b: c1, c: c2, d: a)
-	return s + r
+	return try s + r otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -1486,7 +1486,7 @@ function humps(g WideNum) returns WideNum
 	let q3 = b6 + b7
 	let q4 = b8 + b9
 	let q5 = b10 + b11
-	return g + p0 + p1 + p2 + p3 + p4 + p5 + q0 + q1 + q2 + q3 + q4 + q5
+	return try g + p0 + p1 + p2 + p3 + p4 + p5 + q0 + q1 + q2 + q3 + q4 + q5 otherwise panic("out of range")
 end 'humps'
 
 function main() returns ExitCode
@@ -1681,7 +1681,7 @@ function opaque(a Wide) returns Wide
 end 'opaque'
 
 function eight(a Wide, b Wide, c Wide, d Wide, e Wide, f Wide, g Wide, h Wide) returns Wide
-	return a + b + c + d + e + f + g + h
+	return try a + b + c + d + e + f + g + h otherwise panic("out of range")
 end 'eight'
 
 function install(p Wide) returns Wide
@@ -1696,11 +1696,11 @@ function install(p Wide) returns Wide
 	var sink = 0 as Wide
 	var total = opaque(p)
 	sink = sink + eight(c0, b: c1, c: c2, d: c3, e: c4, f: c5, g: c6, h: c7)
-	total = total + sink
-	total = total + opaque(total)
-	sink = sink + eight(c0, b: c1, c: c2, d: c3, e: c4, f: c5, g: c6, h: c7)
-	total = total + sink
-	total = total + opaque(total)
+	total = try total + sink otherwise panic("out of range")
+	total = try total + opaque(total) otherwise panic("out of range")
+	sink = try sink + eight(c0, b: c1, c: c2, d: c3, e: c4, f: c5, g: c6, h: c7) otherwise panic("out of range")
+	total = try total + sink otherwise panic("out of range")
+	total = try total + opaque(total) otherwise panic("out of range")
 	return total
 end 'install'
 

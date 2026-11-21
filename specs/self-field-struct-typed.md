@@ -235,13 +235,13 @@ type Outer
 	end 'callIt'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(20))
-	return o.readIt() + o.callIt()
+	return try o.readIt() + o.callIt() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -271,7 +271,7 @@ end 'Inner'
 type Outer
 	export var inner as Inner
 
-	function writeIt(v Integer)
+	function writeIt(mutates self, v Integer)
 		inner.value = v
 	end 'writeIt'
 
@@ -280,14 +280,14 @@ type Outer
 	end 'readIt'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(3))
+	var o = Outer.create(Inner.create(3))
 	o.writeIt(7)
-	return o.readIt()
+	return try o.readIt() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -313,19 +313,19 @@ end 'Inner'
 type Outer
 	export let inner as Inner
 
-	function writeIt(v Integer)
+	function writeIt(mutates self, v Integer)
 		inner.value = v
 	end 'writeIt'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(3))
+	var o = Outer.create(Inner.create(3))
 	o.writeIt(7)
-	return o.inner.value as ExitCode
+	return try o.inner.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -358,32 +358,32 @@ type Inner
 	export var name as String
 
 	static function create(n String) returns Self
-		return Self{name: n}
+		return Self{name: n.clone()}
 	end 'create'
 end 'Inner'
 
 type Outer
 	export var inner as Inner
 
-	function setViaAlias(n String)
-		inner.name = n
+	function setViaAlias(mutates self, n String)
+		inner.name = n.clone()
 	end 'setViaAlias'
 
-	function setViaSelf(n String)
-		self.inner.name = n
+	function setViaSelf(mutates self, n String)
+		self.inner.name = n.clone()
 	end 'setViaSelf'
 
 	function lenViaAlias() returns Small
-		return inner.name.byteLength() as Small
+		return try inner.name.byteLength() as Small otherwise panic("out of range")
 	end 'lenViaAlias'
 
 	static function create(i Inner) returns Self
-		return Self{inner: i}
+		return Self{inner: i.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create("abc"))
+	var o = Outer.create(Inner.create("abc"))
 	o.setViaAlias("hello world")
 	let a = o.lenViaAlias()
 	o.setViaSelf("hi")

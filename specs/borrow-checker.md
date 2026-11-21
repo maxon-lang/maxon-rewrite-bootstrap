@@ -46,7 +46,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
 	let v = try arr.get(0) otherwise 0
 	print("{v}\n")

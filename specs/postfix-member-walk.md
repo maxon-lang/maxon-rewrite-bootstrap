@@ -33,7 +33,7 @@ write through it and nothing needs a live-binding check — which is exactly why
 could not take a `VarInfo`.
 ```maxon
 function main() returns ExitCode
-	return "abc".byteLength()
+	return try "abc".byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -59,7 +59,7 @@ type Inner
 end 'Inner'
 
 function main() returns ExitCode
-	return Inner.make(9).get()
+	return try Inner.make(9).get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -86,7 +86,7 @@ end 'Inner'
 
 function main() returns ExitCode
 	let i = Inner.make(5)
-	return (i).get()
+	return try (i).get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -116,13 +116,13 @@ type Outer
 	export var inner as Inner
 
 	static function make(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'make'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.make(Inner.make(3))
-	return o.inner.get()
+	return try o.inner.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -147,13 +147,13 @@ type Outer
 	export var inner as Inner
 
 	static function make(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'make'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.make(Inner.make(7))
-	return o.inner.v
+	return try o.inner.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -178,12 +178,12 @@ type Leaf
 	end 'size'
 
 	function bump() returns Leaf
-		return Leaf{tally: self.tally + 1}
+		return Leaf{tally: try self.tally + 1 otherwise panic("out of range")}
 	end 'bump'
 end 'Leaf'
 
 function main() returns ExitCode
-	return Leaf.make(1).bump().bump().size()
+	return try Leaf.make(1).bump().bump().size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -205,7 +205,7 @@ type Leaf
 end 'Leaf'
 
 function main() returns ExitCode
-	return Leaf.make(4).tally
+	return try Leaf.make(4).tally as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -265,7 +265,7 @@ function pick() returns Direction
 end 'pick'
 
 function main() returns ExitCode
-	return pick().score()
+	return try pick().score() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -291,7 +291,7 @@ enum Direction
 end 'Direction'
 
 function main() returns ExitCode
-	return Direction.south.score()
+	return try Direction.south.score() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -324,7 +324,7 @@ function pick() returns Shape
 end 'pick'
 
 function main() returns ExitCode
-	return pick().area() * 2
+	return try pick().area() * 2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -351,7 +351,7 @@ union Shape
 end 'Shape'
 
 function main() returns ExitCode
-	return Shape.box(21).area() + Shape.dot.area()
+	return try Shape.box(21).area() + Shape.dot.area() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -450,13 +450,13 @@ type Box
 	export var name as String
 
 	static function make(n String) returns Self
-		return Self{name: n}
+		return Self{name: n.clone()}
 	end 'make'
 end 'Box'
 
 function main() returns ExitCode
-	let s = Box.make("hello").name
-	return s.byteLength()
+	let s = Box.make("hello").name.clone()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,13 +487,13 @@ type Outer
 	export var inner as Inner
 
 	static function make(i Inner) returns Self
-		return Self{inner: i}
+		return Self{inner: i.clone()}
 	end 'make'
 end 'Outer'
 
 function main() returns ExitCode
-	let i = Outer.make(Inner.make(3)).inner
-	return i.get()
+	let i = Outer.make(Inner.make(3)).inner.clone()
+	return try i.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -537,14 +537,14 @@ type Box
 	export var name as String
 
 	static function make(n String) returns Self
-		return Self{name: n}
+		return Self{name: n.clone()}
 	end 'make'
 end 'Box'
 
 function main() returns ExitCode
 	let b = Box.make("hello")
 	let s = b.name
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -561,11 +561,11 @@ type Box
 	export var name as String
 
 	static function make(n String) returns Self
-		return Self{name: n}
+		return Self{name: n.clone()}
 	end 'make'
 
 	function len() returns ExitCode
-		return self.name.byteLength()
+		return try self.name.byteLength() as ExitCode otherwise panic("out of range")
 	end 'len'
 end 'Box'
 
@@ -587,7 +587,7 @@ then dropped at statement end, so a leak here is exit 101 and the untouched `s` 
 function main() returns ExitCode
 	let s = "abc"
 	s.clone().append("XYZ")
-	return s.byteLength()
+	return s.byteLength() as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -33,14 +33,14 @@ type Outer
 	export var z as Integer
 
 	static function create(inner Inner, z Integer) returns Self
-		return Self{inner: inner, z: z}
+		return Self{inner: inner.clone(), z: z}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let inner = Inner.create(10, y: 20)
 	let outer = Outer.create(inner, z: 30)
-	return outer.inner.x + outer.inner.y + outer.z
+	return try outer.inner.x + outer.inner.y + outer.z otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -64,7 +64,7 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -75,7 +75,7 @@ end 'makeOuter'
 
 function main() returns ExitCode
 	let o = makeOuter()
-	return o.inner.value
+	return try o.inner.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ type Level2
 	export var inner as Level1
 
 	static function create(inner Level1) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Level2'
 
@@ -107,7 +107,7 @@ type Level3
 	export var inner as Level2
 
 	static function create(inner Level2) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Level3'
 
@@ -115,7 +115,7 @@ function main() returns ExitCode
 	let l1 = Level1.create(42)
 	let l2 = Level2.create(l1)
 	let l3 = Level3.create(l2)
-	return l3.inner.inner.value
+	return try l3.inner.inner.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -141,7 +141,7 @@ type Line
 	export var finish as Point
 
 	static function create(start Point, finish Point) returns Self
-		return Self{start: start, finish: finish}
+		return Self{start: start.clone(), finish: finish.clone()}
 	end 'create'
 end 'Line'
 
@@ -149,7 +149,7 @@ function main() returns ExitCode
 	let p1 = Point.create(1, y: 2)
 	let p2 = Point.create(10, y: 20)
 	let line = Line.create(p1, finish: p2)
-	return line.start.x + line.start.y + line.finish.x + line.finish.y
+	return try line.start.x + line.start.y + line.finish.x + line.finish.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

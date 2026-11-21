@@ -188,7 +188,7 @@ type Box
 end 'Box'
 
 function swap(left Tally, right Tally) returns Tally
-	return left * 10 + right
+	return try left * 10 + right otherwise panic("out of range")
 end 'swap'
 
 function main() returns ExitCode
@@ -593,7 +593,7 @@ error E2010: <fragment>:13:19: Expected 'a type' but got 'Own'
 typealias Tally = int(0 to u64.max)
 
 function isolated(x Tally) returns Tally
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'isolated'
 
 function viaCall(x Tally) returns Tally
@@ -605,7 +605,7 @@ function viaOperand(x Tally) returns Tally
 end 'viaOperand'
 
 function bump(mutable Tally) returns Tally
-	return mutable + 1
+	return try mutable + 1 otherwise panic("out of range")
 end 'bump'
 
 function negated(flag bool) returns bool
@@ -614,7 +614,7 @@ function negated(flag bool) returns bool
 end 'negated'
 
 function mutable(x Tally) returns Tally
-	return x + 2
+	return try x + 2 otherwise panic("out of range")
 end 'mutable'
 
 function immutable(x Tally) returns bool

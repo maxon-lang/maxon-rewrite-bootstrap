@@ -88,7 +88,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function make() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -97,7 +97,7 @@ end 'make'
 
 function main() returns ExitCode
 	let v = try make().clone().get(1) otherwise return 9
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,14 +111,14 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function make() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	return arr
 end 'make'
 
 function main() returns ExitCode
 	let v = try make().get(5) otherwise return 9
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -132,7 +132,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function make() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -141,7 +141,7 @@ end 'make'
 
 function main() returns ExitCode
 	let v = try make().clone().get(9) otherwise return 7
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -280,19 +280,19 @@ type Gate
 		return Self{n: 0}
 	end 'create'
 
-	function bump(v Integer) throws E
+	function bump(mutates self, v Integer) throws E
 		if v < 0 'neg'
 			throw E.bad
 		end 'neg'
-		n = n + v
+		n = try n + v otherwise panic("out of range")
 	end 'bump'
 
-	function driveTwice() throws E
+	function driveTwice(mutates self) throws E
 		try self.bump(2)
 		try self.bump(3)
 	end 'driveTwice'
 
-	function driveBad() throws E
+	function driveBad(mutates self) throws E
 		try self.bump(-1)
 	end 'driveBad'
 
@@ -302,9 +302,9 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	let g = Gate.create()
+	var g = Gate.create()
 	try g.driveTwice() otherwise return 9
-	try g.driveBad() otherwise return g.total()
+	try g.driveBad() otherwise return try g.total() as ExitCode otherwise panic("out of range")
 	return 0
 end 'main'
 ```
@@ -536,14 +536,14 @@ type Box
 		return Self{n: 1}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		print("bumped to {self.n}\n")
 	end 'bump'
 end 'Box'
 
 function main() returns ExitCode
-	let b = Box.create()
+	var b = Box.create()
 	(b).bump()
 	(b).bump()
 	return 0
@@ -572,8 +572,8 @@ type Inner
 		return Self{n: 0}
 	end 'create'
 
-	function note()
-		self.n = self.n + 1
+	function note(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		print("noted {self.n}\n")
 	end 'note'
 end 'Inner'
@@ -588,7 +588,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let fallback = Box.create()
-	let boxes = Boxes.create(0)
+	var boxes = Boxes.create(0)
 	boxes.push(Box.create())
 	(try boxes.get(0) otherwise fallback).inner.note()
 	(try boxes.get(5) otherwise fallback).inner.note()

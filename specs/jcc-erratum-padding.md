@@ -52,14 +52,14 @@ function spin(rounds Rounds) returns Rounds
 	var acc = 0 as Rounds
 	var i = 0 as Rounds
 	while i < rounds 'innerSpin'
-		acc = acc + i
+		acc = try acc + i otherwise panic("out of range")
 		i = i + 1
 	end 'innerSpin'
 	return acc mod 251
 end 'spin'
 
 function main() returns ExitCode
-	return spin(1000)
+	return spin(1000) as ExitCode
 end 'main'
 ```
 ```exitcode

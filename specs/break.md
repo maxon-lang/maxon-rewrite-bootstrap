@@ -72,7 +72,7 @@ end 'outer'
 function main() returns ExitCode
 	var x = 0 as ExitCode
 	while true 'loop'
-		x = x + 1
+		x = try x + 1 otherwise panic("out of range")
 		if x == 5 'check'
 			break
 		end 'check'
@@ -89,7 +89,7 @@ end 'main'
 function main() returns ExitCode
 	var x = 0 as ExitCode
 	while true 'loop'
-		x = x + 1
+		x = try x + 1 otherwise panic("out of range")
 		if x == 10 'check'
 			break
 		end 'check'
@@ -108,7 +108,7 @@ function main() returns ExitCode
 	var count = 0 as Count
 	while x < 100 'loop'
 		x = x + 1
-		count = count + 1
+		count = try count + 1 otherwise panic("out of range")
 		if count == 3 'check'
 			break
 		end 'check'
@@ -168,7 +168,7 @@ function main() returns ExitCode
 	while true 'outer'
 		while true 'middle'
 			while true 'inner'
-				result = result + 1
+				result = try result + 1 otherwise panic("out of range")
 				if result == 5 'check'
 					break 'outer'
 				end 'check'
@@ -192,7 +192,7 @@ function main() returns ExitCode
 		var y = 0 as Count
 		while y < 5 'inner'
 			y = y + 1
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 			if y == 2 'check'
 				continue 'outer'
 			end 'check'
@@ -218,7 +218,7 @@ function main() returns ExitCode
 			if y == 3 'check'
 				continue
 			end 'check'
-			sum = sum + 1
+			sum = try sum + 1 otherwise panic("out of range")
 		end 'inner'
 	end 'outer'
 	return sum
@@ -241,7 +241,7 @@ function main() returns ExitCode
 			var c = 0 as Count
 			while c < 4 'inner'
 				c = c + 1
-				count = count + 1
+				count = try count + 1 otherwise panic("out of range")
 				if c == 2 'check'
 					continue 'middle'
 				end 'check'

@@ -361,6 +361,7 @@ end 'main'
 ```
 
 <!-- test: a-recursion-with-a-frame-over-16-kib-on-the-main-thread-panics-with-stack-overflow -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- unsupported-targets: wasm32-wasi -->
 `deep` keeps 2600 values live across its own call, so each of its frames is over 20 KiB — wider than
 the 16 KiB guard below arm64-macOS's main-thread stack. The program starts no green thread, so the recursion

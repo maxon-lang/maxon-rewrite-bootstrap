@@ -29,8 +29,8 @@ type Stage
 		return Self{generation: generation}
 	end 'create'
 
-	function bump(by Tally)
-		self.total = self.total + by
+	function bump(mutates self, by Tally)
+		self.total = try self.total + by otherwise panic("out of range")
 	end 'bump'
 end 'Stage'
 
@@ -41,19 +41,19 @@ type Pipeline
 		return Self{current: Stage.create(0)}
 	end 'create'
 
-	function advance() returns Tally
-		self.current = Stage.create(self.current.generation + 1)
+	function advance(mutates self) returns Tally
+		self.current = Stage.create(try self.current.generation + 1 otherwise panic("out of range"))
 		return 1
 	end 'advance'
 
-	function step() returns String
+	function step(mutates self) returns String
 		self.current.bump(self.advance())
 		return "{self.current.generation} {self.current.total}"
 	end 'step'
 end 'Pipeline'
 
 function main() returns ExitCode
-	let pipeline = Pipeline.create()
+	var pipeline = Pipeline.create()
 	print("{pipeline.step()}\n")
 	return 0
 end 'main'
@@ -79,8 +79,8 @@ type Stage
 		return Self{generation: generation}
 	end 'create'
 
-	function bump(by Tally)
-		self.total = self.total + by
+	function bump(mutates self, by Tally)
+		self.total = try self.total + by otherwise panic("out of range")
 	end 'bump'
 end 'Stage'
 
@@ -91,19 +91,19 @@ type Pipeline
 		return Self{current: Stage.create(0)}
 	end 'create'
 
-	function advance() returns Tally
-		self.current = Stage.create(self.current.generation + 1)
+	function advance(mutates self) returns Tally
+		self.current = Stage.create(try self.current.generation + 1 otherwise panic("out of range"))
 		return 1
 	end 'advance'
 
-	function step() returns String
+	function step(mutates self) returns String
 		self.current.total = self.advance()
 		return "{self.current.generation} {self.current.total}"
 	end 'step'
 end 'Pipeline'
 
 function main() returns ExitCode
-	let pipeline = Pipeline.create()
+	var pipeline = Pipeline.create()
 	print("{pipeline.step()}\n")
 	return 0
 end 'main'

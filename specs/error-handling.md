@@ -191,7 +191,7 @@ function mayFail(n Integer) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	return (try mayFail(42) otherwise 0) as ExitCode
+	return try (try mayFail(42) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -216,7 +216,7 @@ function mayFail(shouldFail bool) returns Integer throws MyError
 end 'mayFail'
 
 function main() returns ExitCode
-	return (try mayFail(false) otherwise 0) as ExitCode
+	return try (try mayFail(false) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -244,7 +244,7 @@ end 'middle'
 
 function main() returns ExitCode
 	let x = try middle() otherwise 99
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -267,7 +267,7 @@ end 'mayFail'
 
 function main() returns ExitCode
 	let val = try mayFail() otherwise 42
-	return val
+	return try val as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -293,7 +293,7 @@ end 'mayFail'
 
 function main() returns ExitCode
 	let val = try mayFail(false) otherwise 42
-	return val
+	return try val as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -311,7 +311,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.failed
 end 'mayFail'
 
@@ -1665,8 +1665,8 @@ end 'runIt'
 
 function main() returns ExitCode
 	let good = try runIt(false) otherwise return 1
-	let bad = try runIt(true) otherwise return good
-	return bad
+	let bad = try runIt(true) otherwise return try good as ExitCode otherwise panic("out of range")
+	return try bad as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1759,7 +1759,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	if counter == 3 'check'
 		throw MyError.failed
 	end 'check'
@@ -1771,9 +1771,9 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	while true 'loop'
 		let v = try mayFail(counter) otherwise break
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1791,7 +1791,7 @@ enum MyError implements Error
 end 'MyError'
 
 function mayFail(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	if counter == 2 'check'
 		throw MyError.failed
 	end 'check'
@@ -1805,9 +1805,9 @@ function main() returns ExitCode
 	while iter < 4 'loop'
 		iter = iter + 1
 		let v = try mayFail(counter) otherwise continue
-		total = total + v
+		total = try total + v otherwise panic("out of range")
 	end 'loop'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1839,7 +1839,7 @@ end 'outer'
 
 function main() returns ExitCode
 	let v = try outer() otherwise 77
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2657,7 +2657,7 @@ function firstSpace(s String) returns Num throws SearchFailed
 end 'firstSpace'
 
 function main() returns ExitCode
-	return (try firstSpace("ab cd") otherwise 99)
+	return ((try firstSpace("ab cd") otherwise 99) as ExitCode)
 end 'main'
 ```
 ```exitcode

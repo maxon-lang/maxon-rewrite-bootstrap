@@ -101,7 +101,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let p = Box.create(1)
+	var p = Box.create(1)
 	p.n = 2
 	print("{p.n}\n")
 	return 0
@@ -201,7 +201,7 @@ end 'grow'
 
 function size(holder Holder) returns ExitCode
 	return match holder 'innerSize'
-		held(items) gives items.count() as ExitCode
+		held(items) gives try items.count() as ExitCode otherwise panic("out of range")
 		empty gives 99
 	end 'innerSize'
 end 'size'
@@ -244,7 +244,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	let c = h.box
+	var c = h.box
 	c.n = 7
 	print("{h.box.n}\n")
 	return 0
@@ -278,7 +278,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let b = h.box
 	h.box.n = 7
 	print("{b.n}\n")
@@ -307,7 +307,7 @@ type Box
 end 'Box'
 
 function retarget(p Box)
-	let a = p
+	var a = p.clone()
 	a.n = 3
 end 'retarget'
 
@@ -361,13 +361,13 @@ typealias Count = int(0 to 1000)
 
 typealias Counts = Array with Count
 
-function fill(xs Counts)
+function fill(mutates xs Counts)
 	xs.push(1)
 	xs.push(2)
 end 'fill'
 
 function main() returns ExitCode
-	let xs = Counts.create(0)
+	var xs = Counts.create(0)
 	fill(xs)
 	print("{xs.count()}\n")
 	return 0
@@ -402,19 +402,19 @@ type Shelf
 	export var all as Boxes
 
 	static function create(kept Box, spare Box) returns Self
-		return Self{kept: kept, spare: spare, all: Boxes.create(0)}
+		return Self{kept: kept.clone(), spare: spare.clone(), all: Boxes.create(0)}
 	end 'create'
 
-	function stock(item Box)
-		self.all.push(item)
+	function stock(mutates self, item Box)
+		self.all.push(item.clone())
 	end 'stock'
 end 'Shelf'
 
 function main() returns ExitCode
-	let a = Box.create(1)
-	let b = Box.create(2)
-	let c = Box.create(3)
-	let shelf = Shelf.create(a, spare: b)
+	var a = Box.create(1)
+	var b = Box.create(2)
+	var c = Box.create(3)
+	var shelf = Shelf.create(a, spare: b)
 	shelf.stock(c)
 	a.n = 10
 	b.n = 20
@@ -666,7 +666,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create()
-	let v = h.box
+	var v = h.box
 	v.n = 9
 	print("{h.box.n}\n")
 	return 0

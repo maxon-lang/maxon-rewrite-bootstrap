@@ -77,16 +77,16 @@ point.
 typealias Word = int(i64.min to i64.max)
 
 function work(x Word, y Word) returns Word
-	let a = x * 31 + y
-	let b = x * 31 + y
-	let c = x * 31 + y
-	return a + b + c
+	let a = try x * 31 + y otherwise panic("out of range")
+	let b = try x * 31 + y otherwise panic("out of range")
+	let c = try x * 31 + y otherwise panic("out of range")
+	return try a + b + c otherwise panic("out of range")
 end 'work'
 
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 4 'feed'
-		seed = seed + work(i, y: i + 1)
+		seed = try seed + work(i, y: i + 1) otherwise panic("out of range")
 	end 'feed'
 	if seed != 588 'wrongSum'
 		return 1
@@ -107,18 +107,18 @@ loop is what keeps `x` and `y` runtime values; called with literals the whole fu
 typealias Word = int(i64.min to i64.max)
 
 function pick(x Word, y Word) returns Word
-	let base = x * 31 + y
+	let base = try x * 31 + y otherwise panic("out of range")
 	if y > 0 'positive'
-		return base + x * 31 + y
+		return try base + x * 31 + y otherwise panic("out of range")
 	end 'positive' else 'negative'
-		return base * 2 - (x * 31 + y)
+		return try base * 2 - (x * 31 + y) otherwise panic("out of range")
 	end 'negative'
 end 'pick'
 
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 4 'feed'
-		seed = seed + pick(i, y: i - 2)
+		seed = try seed + pick(i, y: i - 2) otherwise panic("out of range")
 	end 'feed'
 	if seed != 278 'wrongSum'
 		return 1
@@ -141,9 +141,9 @@ typealias Word = int(i64.min to i64.max)
 function branchy(x Word, y Word) returns Word
 	var out = 0 as Word
 	if y > 0 'positive'
-		out = (x * 31 + y) * 2
+		out = try (x * 31 + y) * 2 otherwise panic("out of range")
 	end 'positive' else 'negative'
-		out = (x * 31 + y) * 3
+		out = try (x * 31 + y) * 3 otherwise panic("out of range")
 	end 'negative'
 	return out
 end 'branchy'
@@ -151,7 +151,7 @@ end 'branchy'
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 4 'feed'
-		seed = seed + branchy(i, y: i - 2)
+		seed = try seed + branchy(i, y: i - 2) otherwise panic("out of range")
 	end 'feed'
 	if seed != 458 'wrongSum'
 		return 1
@@ -172,17 +172,17 @@ rule ever grows a `sub` arm.
 typealias Word = int(i64.min to i64.max)
 
 function sums(a Word, b Word) returns Word
-	return (a + b) + (b + a)
+	return try (a + b) + (b + a) otherwise panic("out of range")
 end 'sums'
 
 function differences(a Word, b Word) returns Word
-	return (a - b) * 10 + (b - a)
+	return try (a - b) * 10 + (b - a) otherwise panic("out of range")
 end 'differences'
 
 function main() returns ExitCode
 	var total = 0 as Word
 	for i in 0 upto 4 'feed'
-		total = total + sums(i, b: i + 3) + differences(i, b: i + 3)
+		total = try total + sums(i, b: i + 3) + differences(i, b: i + 3) otherwise panic("out of range")
 	end 'feed'
 	// `sums` is `4i + 6`; `differences` is `-30 + 3`, and it is `-33` rather than `-27` exactly when
 	// `b - a` has been rewritten to `a - b`.
@@ -213,11 +213,11 @@ type Cell
 end 'Cell'
 
 function main() returns ExitCode
-	let c = Cell.create(1)
+	var c = Cell.create(1)
 	let before = c.slot
 	c.slot = 2
 	let after = c.slot
-	if before + after != 3 'staleRead'
+	if (try before + after otherwise panic("out of range")) != 3 'staleRead'
 		return 1
 	end 'staleRead'
 	return 0
@@ -241,7 +241,7 @@ typealias Word = int(i64.min to i64.max)
 typealias NonZeroWord = int(1 to i64.max)
 
 function halves(a Word, b NonZeroWord) returns Word
-	return (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero"))
+	return try (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a / (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero")) + (try (a mod (b as Word)) otherwise panic("b is never zero")) otherwise panic("out of range")
 end 'halves'
 
 function main() returns ExitCode
@@ -301,19 +301,19 @@ function noise(v Word) returns Word
 	if v <= 0 'base'
 		return 0
 	end 'base'
-	return v + noise(v - 1)
+	return try v + noise(v - 1) otherwise panic("out of range")
 end 'noise'
 
 function across(x Word, y Word) returns Word
-	let first = x * 31 + y
+	let first = try x * 31 + y otherwise panic("out of range")
 	let middle = noise(first)
-	return first + middle + (x * 31 + y)
+	return try first + middle + (x * 31 + y) otherwise panic("out of range")
 end 'across'
 
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 3 'feed'
-		seed = seed + across(i, y: i + 1)
+		seed = try seed + across(i, y: i + 1) otherwise panic("out of range")
 	end 'feed'
 	if seed != 2905 'wrongSum'
 		return 1

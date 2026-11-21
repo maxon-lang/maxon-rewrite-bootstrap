@@ -168,9 +168,9 @@ end 'getEnd'
 function main() returns ExitCode
 	var sum = 0 as Integer
 	for i in getStart() to getEnd() 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -184,7 +184,7 @@ function main() returns ExitCode
 	for i in -2 to 2 'loop'
 		sum = sum + i
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -642,7 +642,7 @@ function main() returns ExitCode
 	var total = 0 as Count
 	for i in 0 upto 200 'each'
 		if i < 100 'inRange'
-			total = total + (take(i) as Count)
+			total = total + (take(i as Small) as Count)
 		end 'inRange'
 	end 'each'
 	print("{total}\n")

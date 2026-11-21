@@ -1511,11 +1511,11 @@ A static that does not return `Self` copies its type-parameter parameter into a 
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
-	static function adopt(v T, other Self) returns T
+	static function adopt(consumes v T, other Self) returns T
 		var held = v
 		held = other.v
 		return held
@@ -1544,7 +1544,7 @@ A static that does not return `Self` rebinds a local holding a type-parameter va
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -1580,7 +1580,7 @@ A static that does not return `Self` stores what an instance method of one insta
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -1588,7 +1588,7 @@ type Cell uses T
 		return self.v
 	end 'fetch'
 
-	static function poke(mutates into Self, donor Self)
+	static function poke(mutates into Self, mutates donor Self)
 		donor.v = into.fetch()
 	end 'poke'
 end 'Cell'
@@ -1596,8 +1596,8 @@ end 'Cell'
 typealias StrCell = Cell with String
 
 function main() returns ExitCode
-	let src = StrCell.make("source {40 + 2} value long enough for a heap record")
-	let dst = StrCell.make("target {40 + 2} value long enough for a heap record")
+	var src = StrCell.make("source {40 + 2} value long enough for a heap record")
+	var dst = StrCell.make("target {40 + 2} value long enough for a heap record")
 	StrCell.poke(dst, donor: src)
 	print("{src.v} {dst.v}\n")
 	return 0
@@ -1620,14 +1620,14 @@ type Entry
 	export var n as Small
 
 	static function create(name String, n Small) returns Self
-		return Self{name: name, n: n}
+		return Self{name: name.clone(), n: n}
 	end 'create'
 end 'Entry'
 
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 
@@ -1703,10 +1703,10 @@ A concrete function that reassigns its parameter and a generic function that doe
 typealias Count = int(0 to 1000)
 
 function bump(mutates dest Count)
-	dest = dest + 1
+	dest = try dest + 1 otherwise panic("out of range")
 end 'bump'
 
-function bumpAny(dest T) uses T returns T
+function bumpAny(consumes dest T) uses T returns T
 	return dest
 end 'bumpAny'
 
@@ -2762,7 +2762,7 @@ Deciding what a record literal's field holds costs one visit per local, however 
 type Cell uses T
 	export var v as T
 
-	static function chain(v T, flag bool) returns Self
+	static function chain(consumes v T, flag bool) returns Self
 		var a0 = v
 		a0 = v
 		var a1 = v
@@ -7456,7 +7456,7 @@ Inside `Holder`'s own body the base names the enclosing instance, so `Holder.mak
 type Holder uses T
 	var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -7464,7 +7464,7 @@ type Holder uses T
 		panic("nothing to make")
 	end 'make'
 
-	static function orMake(flag bool, v T) returns T
+	static function orMake(flag bool, consumes v T) returns T
 		if flag 'wantsOne'
 			return Holder.make()
 		end 'wantsOne'
@@ -7528,11 +7528,11 @@ An argument that is an instance of the static's own base fixes nothing about the
 type Holder uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
-	static function keep(other StrHolder, fallback T) returns T
+	static function keep(other StrHolder, consumes fallback T) returns T
 		print("{other.v}\n")
 		return fallback
 	end 'keep'
@@ -7546,7 +7546,7 @@ typealias StrHolder = Holder with String
 
 function main() returns ExitCode
 	let n = IntHolder.keep(StrHolder.create("seen"), fallback: 7)
-	print("{n + 1}\n")
+	print("{try n + 1 otherwise panic("out of range")}\n")
 	return 0
 end 'main'
 ```
@@ -7599,7 +7599,7 @@ A static with no result, called through an instance alias, types nothing and lea
 type Holder uses T
 	var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -7736,7 +7736,7 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(x T) returns Count
+	static function keep(consumes x T) returns Count
 		var copy = x
 		copy = x
 		let pair = Self{v: copy}
@@ -7768,7 +7768,7 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(x T) returns Count
+	static function keep(consumes x T) returns Count
 		let pair = Self{v: x}
 		return pair.touch()
 	end 'keep'
@@ -7798,7 +7798,7 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(x T) returns Count
+	static function keep(consumes x T) returns Count
 		var copy = x
 		copy = x
 		let pair = Self{v: copy}

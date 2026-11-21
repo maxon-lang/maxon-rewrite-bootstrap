@@ -90,9 +90,9 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create(10, y: 20)
+	var p = Point.create(10, y: 20)
 	p.x = 30
-	return p.x
+	return p.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -114,9 +114,9 @@ type Config
 end 'Config'
 
 function main() returns ExitCode
-	let c = Config.create(1, count: 0)
+	var c = Config.create(1, count: 0)
 	c.count = 5
-	return c.count
+	return c.count as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -138,9 +138,9 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create(10, y: 20)
+	var p = Point.create(10, y: 20)
 	p.x = 30
-	return p.x
+	return p.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -187,7 +187,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.create(3, y: 4)
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -210,7 +210,7 @@ end 'Rect'
 
 function main() returns ExitCode
 	let r = Rect.create(5, height: 10)
-	return r.width * r.height
+	return try r.width * r.height otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -232,13 +232,13 @@ type Vec2
 end 'Vec2'
 
 function dot(a Vec2, b Vec2) returns Integer
-	return a.x * b.x + a.y * b.y
+	return try a.x * b.x + a.y * b.y otherwise panic("out of range")
 end 'dot'
 
 function main() returns ExitCode
 	let v1 = Vec2.create(3, y: 4)
 	let v2 = Vec2.create(2, y: 1)
-	return dot(v1, b: v2)
+	return try dot(v1, b: v2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -265,7 +265,7 @@ end 'makePair'
 
 function main() returns ExitCode
 	let p = makePair(5, b: 7)
-	return p.first + p.second
+	return try p.first + p.second otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -287,11 +287,11 @@ type Point
 end 'Point'
 
 function acceptPoint(p Point) returns Integer
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'acceptPoint'
 
 function main() returns ExitCode
-	return acceptPoint(Point.create(3, y: 4))
+	return try acceptPoint(Point.create(3, y: 4)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -321,7 +321,7 @@ function main() returns ExitCode
 	let c1 = Counter.create()
 	let c2 = Counter.createWith(40, step: 1)
 	let c3 = Counter.createWith(10, step: 2)
-	return c1.value + c2.value + (c3.step as CounterValue)
+	return try c1.value + c2.value + (c3.step as CounterValue) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -522,16 +522,16 @@ type Counter
 		return Self{value: value}
 	end 'create'
 
-	function bump() returns Counter
-		self.value = self.value + 1
-		return self
+	function bump(mutates self) returns Counter
+		self.value = try self.value + 1 otherwise panic("out of range")
+		return self.clone()
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(41)
+	var c = Counter.create(41)
 	let d = c.bump()
-	return d.value as ExitCode
+	return try d.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -555,17 +555,17 @@ type Counter
 		return Self{value: value}
 	end 'create'
 
-	function bump() returns Counter
-		self.value = self.value + 1
-		return self
+	function bump(mutates self) returns Counter
+		self.value = try self.value + 1 otherwise panic("out of range")
+		return self.clone()
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(40)
-	let d = c.bump()
-	d.value = d.value + 1
-	return c.value as ExitCode
+	var c = Counter.create(40)
+	var d = c.bump()
+	d.value = try d.value + 1 otherwise panic("out of range")
+	return try c.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -622,7 +622,7 @@ type Point
 	end 'create'
 
 	function tally(p Point) returns Integer
-		return self.x + p.x
+		return try self.x + p.x otherwise panic("out of range")
 	end 'tally'
 
 	function combineWith(other Point) returns Integer
@@ -632,9 +632,9 @@ end 'Point'
 
 function pick(a Point, b Point) returns Point
 	if a.x > b.x 'bigger'
-		return a
+		return a.clone()
 	end 'bigger' else 'smaller'
-		return b
+		return b.clone()
 	end 'smaller'
 end 'pick'
 
@@ -642,7 +642,7 @@ function main() returns ExitCode
 	let p = Point.create(11)
 	let q = Point.create(31)
 	let w = pick(p, b: q)
-	return (p.combineWith(q) + w.x) as ExitCode
+	return try (p.combineWith(q) + w.x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -669,17 +669,17 @@ type Trunk
 	export var leaf as Leaf
 
 	static function create(leaf Leaf) returns Self
-		return Self{leaf: leaf}
+		return Self{leaf: leaf.clone()}
 	end 'create'
 
 	function branch() returns Leaf
-		return self.leaf
+		return self.leaf.clone()
 	end 'branch'
 end 'Trunk'
 
 function main() returns ExitCode
 	let t = Trunk.create(Leaf.create(42))
-	return t.branch().tally as ExitCode
+	return try t.branch().tally as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

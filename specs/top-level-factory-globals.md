@@ -138,7 +138,7 @@ typealias IntBox = Box with Count
 
 function main() returns ExitCode
 	let b = IntBox.create()
-	return b as ExitCode
+	return try b as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -186,7 +186,7 @@ typealias IntBox = Box with Count
 
 function main() returns ExitCode
 	let b = IntBox.create(9)
-	return b.n
+	return try b.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -211,7 +211,7 @@ typealias IntBox = Box with Count
 
 function main() returns ExitCode
 	let b = IntBox.create()
-	return b.n
+	return try b.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -671,8 +671,8 @@ end 'Maker'
 function main() returns ExitCode
 	let a = Maker.build()
 	match a 'kind'
-		circle(r) then return r
-		square(s) then return s
+		circle(r) then return try r as ExitCode otherwise panic("out of range")
+		square(s) then return try s as ExitCode otherwise panic("out of range")
 	end 'kind'
 end 'main'
 

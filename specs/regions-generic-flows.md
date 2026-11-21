@@ -972,7 +972,7 @@ end 'Job'
 type Holder uses T
 	var held as T
 
-	static function wrap(item T) returns Self
+	static function wrap(consumes item T) returns Self
 		return Self{held: item}
 	end 'wrap'
 

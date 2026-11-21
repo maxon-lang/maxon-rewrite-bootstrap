@@ -53,7 +53,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	return c.twice()
+	return c.twice() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -83,7 +83,7 @@ end 'Rec'
 
 function main() returns ExitCode
 	let r = Rec.create()
-	return r.sumTo(3)
+	return r.sumTo(3) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -115,7 +115,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.first()
+	return b.first() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -147,7 +147,7 @@ end 'Adder'
 
 function main() returns ExitCode
 	let a = Adder.create(1)
-	return a.addTwice(3)
+	return a.addTwice(3) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -179,7 +179,7 @@ end 'Maker'
 
 function main() returns ExitCode
 	let m = Maker.create()
-	return m.useIt()
+	return m.useIt() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -206,7 +206,7 @@ type Maker
 end 'Maker'
 
 function main() returns ExitCode
-	return Maker.build()
+	return Maker.build() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -243,7 +243,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -270,13 +270,13 @@ type Box
 	end 'create'
 
 	function get() returns Integer
-		return helper() + 1
+		return try helper() + 1 otherwise panic("out of range")
 	end 'get'
 end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -310,7 +310,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.pick()
+	return b.pick() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -347,7 +347,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create()
-	return b.branchy(1)
+	return b.branchy(1) as ExitCode
 end 'main'
 ```
 ```exitcode

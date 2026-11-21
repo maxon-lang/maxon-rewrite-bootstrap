@@ -308,7 +308,7 @@ typealias Integer = int(0 to u32.max)
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 

@@ -201,10 +201,10 @@ function main() returns ExitCode
 	var sum = 0 as FullRangeInt
 	var i = 1 as FullRangeInt
 	while i <= 6 'loop'
-		sum = sum + (100 / (i as Positive)) as FullRangeInt
+		sum = try sum + (100 / (i as Positive)) as FullRangeInt otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -231,7 +231,7 @@ function divide(n NonZero, d NonZero) returns Integer
 end 'divide'
 
 function main() returns ExitCode
-	return divide(100, d: 7) as ExitCode
+	return try divide(100, d: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -253,7 +253,7 @@ end 'opaque'
 function main() returns ExitCode
 	let d = opaque(7)
 	let q = try (100 / d) otherwise 99
-	return q as ExitCode
+	return try q as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -277,10 +277,10 @@ function main() returns ExitCode
 	var sum = 0 as Integer
 	var i = 1 as Integer
 	while i <= 6 'loop'
-		sum = sum + (try (100 / opaque(i)) otherwise 0)
+		sum = try sum + (try (100 / opaque(i)) otherwise 0) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -371,7 +371,7 @@ function remainder(n BelowMinusOne, d BelowMinusOne) returns Integer
 end 'remainder'
 
 function main() returns ExitCode
-	return (remainder(-13, d: -5) + 45) as ExitCode
+	return try (remainder(-13, d: -5) + 45) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -396,7 +396,7 @@ function main() returns ExitCode
 	let z = opaque(0)
 	let q = try (100 / d) otherwise 99
 	let r = try (100 / z) otherwise 0
-	return (q + d + r + z) as ExitCode
+	return try (q + d + r + z) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -518,7 +518,7 @@ function ident(v Any64) returns Any64
 end 'ident'
 
 function main() returns ExitCode
-	let big = ident(-1) as NonZeroWord
+	let big = try ident(-1) as NonZeroWord otherwise panic("out of range")
 	print("r={5 mod big}\n")
 	print("q={5 / big}\n")
 	return 0

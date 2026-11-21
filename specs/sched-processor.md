@@ -252,11 +252,11 @@ other scalar spec in the suite also happens to assert, which is why this one is 
 discovery.
 ```maxon
 function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
-	return twice(21) as ExitCode
+	return try twice(21) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

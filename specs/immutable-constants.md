@@ -457,12 +457,12 @@ type Tok
 	export let value as ByteArray
 
 	static function create(value ByteArray) returns Self
-		return Self{value: value}
+		return Self{value: value.clone()}
 	end 'create'
 end 'Tok'
 
 function main() returns ExitCode
-	let buffer = ByteArray.create(0)
+	var buffer = ByteArray.create(0)
 	buffer.push(1)
 	buffer.push(2)
 	let t = Tok.create(buffer)
@@ -2281,7 +2281,7 @@ type Location
 	export let path as String
 
 	static function create(path String) returns Location
-		return Self{path: path}
+		return Self{path: path.clone()}
 	end 'create'
 end 'Location'
 
@@ -2294,7 +2294,7 @@ function originOf(files LocationArray) returns Origin
 end 'originOf'
 
 function main() returns ExitCode
-	let files = LocationArray.create(0)
+	var files = LocationArray.create(0)
 	files.push(Location.create("a.maxon"))
 	match originOf(files) 'origin'
 		declaredIn(site) then print("{site.path}\n")

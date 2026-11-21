@@ -51,7 +51,7 @@ function main() returns ExitCode
 	let c = Color.green
 	// `.ordinal` may only be observed as data, not compared (E3097) — surface
 	// it as the exit code; green is the second case, so ordinal 1.
-	return c.ordinal as ExitCode
+	return try c.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ end 'HttpStatus'
 function main() returns ExitCode
 	let s = HttpStatus.serverError
 	// ordinal is 2 (third case), not 500 (the raw value)
-	return s.ordinal as ExitCode
+	return try s.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -195,7 +195,7 @@ end 'Color'
 
 function main() returns ExitCode
 	let c = Color.blue
-	let result = c.ordinal + 10
+	let result = try c.ordinal + 10 otherwise panic("out of range")
 	if result == 12 'check'
 		return 1
 	end 'check'
@@ -269,7 +269,7 @@ end 'Priority'
 typealias OrdinalValue = int(0 to 100)
 
 function getOrdinal(p Priority) returns OrdinalValue
-	return p.ordinal
+	return try p.ordinal as OrdinalValue otherwise panic("out of range")
 end 'getOrdinal'
 
 function main() returns ExitCode
@@ -297,7 +297,7 @@ end 'Shape'
 
 function main() returns ExitCode
 	let s = Shape.square
-	return s.ordinal
+	return try s.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -375,7 +375,7 @@ type Outer
 	export let inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -418,7 +418,7 @@ type Holder
 	export let n as Named
 
 	static function create(s Status, n Named) returns Self
-		return Self{s: s, n: n}
+		return Self{s: s, n: n.clone()}
 	end 'create'
 end 'Holder'
 
@@ -513,7 +513,7 @@ function stepFor(n Count) returns Step
 end 'stepFor'
 
 function total(v FullRangeInt) returns FullRangeInt
-	return v + v
+	return try v + v otherwise panic("out of range")
 end 'total'
 
 function take(v Small) returns Small
@@ -522,8 +522,8 @@ end 'take'
 
 function main() returns ExitCode
 	let s = stepFor(CommandLine.args().count())
-	let doubled = total(s.rawValue)
-	return (take(s.rawValue as Small) as ExitCode) + (doubled as ExitCode)
+	let doubled = total(try s.rawValue as FullRangeInt otherwise panic("out of range"))
+	return try (take(try s.rawValue as Small otherwise panic("out of range")) as ExitCode) + (doubled as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

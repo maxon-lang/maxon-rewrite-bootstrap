@@ -896,7 +896,7 @@ function build(n Count) returns Count
 	if seen != (n * (n - 1)) / 2 'sum'
 		return -1
 	end 'sum'
-	return m.count()
+	return m.count() as Count
 end 'build'
 
 function main() returns ExitCode

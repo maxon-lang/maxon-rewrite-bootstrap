@@ -83,9 +83,9 @@ type Conf
 end 'Conf'
 
 function main() returns ExitCode
-	let c = Conf.create(3)
+	var c = Conf.create(3)
 	c.argv.push("a")
-	return (c.argv.count() as ExitCode) + c.n as ExitCode
+	return try (c.argv.count() as ExitCode) + c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -122,12 +122,12 @@ type Conf
 end 'Conf'
 
 function main() returns ExitCode
-	let ok = Conf.create(3)
+	var ok = Conf.create(3)
 	ok.argv.push("a")
-	let failed = Conf.create(900)
+	var failed = Conf.create(900)
 	failed.argv.push("b")
 	failed.argv.push("c")
-	return ((ok.argv.count() as Integer) + ok.n + (failed.argv.count() as Integer) + failed.n) as ExitCode
+	return try ((ok.argv.count() as Integer) + ok.n + (failed.argv.count() as Integer) + failed.n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -168,7 +168,7 @@ end 'Conf'
 
 function main() returns ExitCode
 	let c = try Conf.create(900) otherwise return 9
-	return (c.n + (c.argv.count() as Integer)) as ExitCode
+	return try (c.n + (c.argv.count() as Integer)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

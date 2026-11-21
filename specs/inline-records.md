@@ -705,6 +705,7 @@ error E3005: specs/inline-records/inline-records.field-range-check-at-the-door.m
 ```
 
 <!-- test: inline-records.runtime-field-range-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 CONTROL: a sum of two in-range values of the field's own alias, which the compiler cannot fold, panics at the field's
 door in the factory. The second field is checked as readily as the first.
 ```maxon
@@ -736,6 +737,7 @@ Stack trace:
 ```
 
 <!-- test: inline-records.runtime-first-field-range-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 CONTROL: the first field's door is the same door.
 ```maxon
 typealias Nib = int(0 to 15)
@@ -955,7 +957,7 @@ function main() returns ExitCode
 	let s = Slot.filled(Pair.create(7, hi: 3))
 	match s 'slot'
 		empty then return 1
-		filled(p) then return (p.lo + p.hi) as ExitCode
+		filled(p) then return try (p.lo + p.hi) as ExitCode otherwise panic("out of range")
 	end 'slot'
 end 'main'
 ```

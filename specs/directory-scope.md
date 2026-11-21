@@ -82,7 +82,7 @@ type Counter
 	end 'create'
 
 	function added(n Score) returns Score
-		return total + n
+		return try total + n otherwise panic("out of range")
 	end 'added'
 end 'Counter'
 
@@ -356,7 +356,7 @@ end 'Holder'
 
 function twice(module Integer) returns Integer
 	var doubled = module
-	doubled = doubled + module
+	doubled = try doubled + module otherwise panic("out of range")
 	return doubled
 end 'twice'
 
@@ -364,7 +364,7 @@ function main() returns ExitCode
 	let h = Holder.create(16)
 	var module = 5 as Integer
 	module = module + 1
-	return (twice(module) + h.module + module) as ExitCode
+	return try (twice(module) + h.module + module) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -837,7 +837,7 @@ typealias Score = int(0 to 200)
 
 // --- file: lib/b.maxon
 export function pick() returns ExitCode
-	return 150 as Score
+	return (150 as Score) as ExitCode
 end 'pick'
 
 // --- file: z/z.maxon
@@ -845,7 +845,7 @@ typealias Score = int(0 to 5)
 
 export function tiny() returns ExitCode
 	let s = 1 as Score
-	return s
+	return s as ExitCode
 end 'tiny'
 
 // --- file: main.maxon

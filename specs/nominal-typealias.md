@@ -1320,7 +1320,7 @@ typealias Wide = int(0 to u64.max)
 typealias Narrow = int(0 to 16)
 
 function widen(n Narrow) returns Wide
-	return n
+	return n as Wide
 end 'widen'
 
 function main() returns ExitCode
@@ -1975,7 +1975,7 @@ typealias Score = int(0 to 100)
 
 function main() returns ExitCode
 	let s = 7 as Score
-	return s
+	return s as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2316,7 +2316,7 @@ function main() returns ExitCode
 	let bare = 11
 	var acc = 0 as Age
 	for i in 0 upto 3 'count'
-		acc = acc + takesAge(a + i)
+		acc = try acc + takesAge(a + i) otherwise panic("out of range")
 	end 'count'
 	let viaLiteral = takesAge(a + 1)
 	let literalFirst = takesAge(2 + a)
@@ -2429,7 +2429,7 @@ function main() returns ExitCode
 	var w = takesWide(2)
 	w = 32
 	let fallback = try mayFail() otherwise 64
-	let total = h.w + w + fallback + pick(0) + pick(1)
+	let total = try h.w + w + fallback + pick(0) + pick(1) otherwise panic("out of range")
 	print("{total}")
 	return 0
 end 'main'
@@ -2539,7 +2539,7 @@ end 'seven'
 function main() returns ExitCode
 	let d = 5 as Delta
 	let c = seven()
-	print("{takesDelta(-d)} {takesDelta(-(c as Delta))}")
+	print("{takesDelta(-d)} {takesDelta(try -(c as Delta) otherwise panic("out of range"))}")
 	return 0
 end 'main'
 ```
@@ -2630,7 +2630,7 @@ function widen(n Narrow) returns Wide
 end 'widen'
 
 function main() returns ExitCode
-	return widen(9) as ExitCode
+	return try widen(9) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2638,6 +2638,7 @@ end 'main'
 ```
 
 <!-- test: a-narrowing-cast-keeps-its-guard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Wide = int(0 to u64.max)
 
@@ -2665,6 +2666,7 @@ Stack trace:
 ```
 
 <!-- test: an-arithmetic-result-is-unproven-and-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `a + a2` is `Score`-typed, but the name is not a proof: 130 is outside `Score`, and the guard at the
 callee's entry still fires.
 ```maxon
@@ -2730,11 +2732,11 @@ typealias Wide = int(0 to u64.max)
 typealias Narrow = int(0 to 16)
 
 function widen(n Narrow) returns Wide
-	return n
+	return n as Wide
 end 'widen'
 
 function main() returns ExitCode
-	return widen(9) as ExitCode
+	return try widen(9) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2742,6 +2744,7 @@ end 'main'
 ```
 
 <!-- test: a-narrowing-return-keeps-its-guard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `return w` from a `returns Narrow` function is `return w as Narrow`, and a narrowing cast keeps its guard:
 360 is outside `Narrow`, and the `return` panics.
 ```maxon

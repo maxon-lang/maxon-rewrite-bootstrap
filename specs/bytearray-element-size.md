@@ -64,7 +64,7 @@ reconstruction is garbage and the equality check fails.
 function main() returns ExitCode
 	let src = "Environment.inherit"
 	let bytes = src.toByteArray()
-	let out = ByteArray.create(0)
+	var out = ByteArray.create(0)
 	var i = 12 as Count
 	while i < bytes.count() 'copy'
 		let b = try bytes.get(i) otherwise 0
@@ -174,7 +174,7 @@ heap-owned from birth and no copy-on-write ever runs. It must give the identical
 answer: the erase width follows `element_size`, not where the buffer came from.
 ```maxon
 function main() returns ExitCode
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	bytes.push(104)
 	bytes.push(101)
 	bytes.push(121)
@@ -756,7 +756,7 @@ typealias Byte = int(0 to 1000)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let made = Bytes.create(0)
+	var made = Bytes.create(0)
 	made.push(300)
 	made.push(700)
 	return 0 if made.count() == 2 and (try made.get(1) otherwise 0) == 700 else 1
@@ -1197,6 +1197,7 @@ error E3005: <fragment>:7:7: Value 2000 is outside the range of 'Byte' (int(0 to
 ```
 
 <!-- test: a-contested-alias-panics-under-the-name-source-spells -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and so does the runtime guard, through the same speller
 `InsertRangeChecks.rangeCheckMessage` and the compile-time twin apply the one strip, so a program
 cannot be refused under one spelling and panic under another.
@@ -1476,7 +1477,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return (try b.get(0) otherwise 0)
+	return ((try b.get(0) otherwise 0) as ExitCode)
 end 'takes'
 
 function main() returns ExitCode
@@ -1754,7 +1755,7 @@ typealias Byte = int(0 to u16.max)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return (try b.get(0) otherwise 0)
+	return ((try b.get(0) otherwise 0) as ExitCode)
 end 'takes'
 
 function main() returns ExitCode
@@ -1777,7 +1778,7 @@ typealias Byte = int(0 to 100)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return (try b.get(0) otherwise 0)
+	return ((try b.get(0) otherwise 0) as ExitCode)
 end 'takes'
 
 function main() returns ExitCode
@@ -2032,7 +2033,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return (try b.get(0) otherwise 0)
+	return ((try b.get(0) otherwise 0) as ExitCode)
 end 'takes'
 
 function main() returns ExitCode
@@ -2320,7 +2321,7 @@ typealias Byte = int(0 to u8.max)
 typealias Bytes = Array with Byte
 
 function takes(b Bytes) returns ExitCode
-	return (try b.get(0) otherwise 0)
+	return ((try b.get(0) otherwise 0) as ExitCode)
 end 'takes'
 
 function main() returns ExitCode

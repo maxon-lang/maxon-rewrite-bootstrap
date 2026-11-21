@@ -62,8 +62,11 @@ rewrites only each test's `maxon` block (every `// --- file:` section of it) thr
 the rest, with line endings made LF. A test whose conversion warned, or whose source minimaxon cannot parse, carries one
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
-the kinds by tests blocked, most blocking first. `specs/README.md` has the command that regenerates the directory; it is
-never edited by hand, except `specs/baseline.txt` (see "Tests").
+the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
+name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`) to every test that runs a program; a test
+that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
+instead. `specs.ps1` runs both; `specs/README.md` has the command, and the directory is never edited by hand, except
+`specs/baseline.txt` (see "Tests").
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal

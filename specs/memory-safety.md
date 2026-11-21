@@ -91,7 +91,7 @@ end 'Point'
 
 function main() returns ExitCode
 	var a = Point.create(1, y: 2)
-	let b = a
+	var b = a
 	b.x = 99
 	a = b
 	print("{a.x}")
@@ -183,17 +183,17 @@ type Leaf
 	export var value as Integer
 
 	static function create(label String, value Integer) returns Self
-		return Self{label: label, value: value}
+		return Self{label: label.clone(), value: value}
 	end 'create'
 end 'Leaf'
 
 typealias Leaves = Array with Leaf
 
 function main() returns ExitCode
-	let a = Leaves.create(0)
+	var a = Leaves.create(0)
 	a.push(Leaf.create("original label long enough for a heap record", value: 10))
-	let b = a.clone()
-	let cloned = try b.get(0) otherwise panic("no leaf")
+	var b = a.clone()
+	var cloned = try b.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
 	b.push(Leaf.create("second label long enough for a heap record", value: 20))
 	let kept = try a.get(0) otherwise panic("no leaf")
@@ -223,12 +223,12 @@ typealias Row = Array with Integer
 typealias Grid = Array with Row
 
 function main() returns ExitCode
-	let a = Grid.create(0)
-	let row = Row.create(0)
+	var a = Grid.create(0)
+	var row = Row.create(0)
 	row.push(1)
 	a.push(row)
 	let b = a.clone()
-	let clonedRow = try b.get(0) otherwise panic("no row")
+	var clonedRow = try b.get(0) otherwise panic("no row")
 	clonedRow.push(2)
 	let keptRow = try a.get(0) otherwise panic("no row")
 	print("{keptRow.count()} {clonedRow.count()}\n")
@@ -256,18 +256,18 @@ type Leaf
 	export var value as Integer
 
 	static function create(label String, value Integer) returns Self
-		return Self{label: label, value: value}
+		return Self{label: label.clone(), value: value}
 	end 'create'
 end 'Leaf'
 
 typealias Leaves = Array with Leaf
 
 function main() returns ExitCode
-	let a = Leaves.create(0)
+	var a = Leaves.create(0)
 	a.push(Leaf.create("original label long enough for a heap record", value: 10))
 	let b = a.clone()
 	let c = b.clone()
-	let cloned = try c.get(0) otherwise panic("no leaf")
+	var cloned = try c.get(0) otherwise panic("no leaf")
 	cloned.label = "mutated"
 	let fromA = try a.get(0) otherwise panic("no leaf")
 	let fromB = try b.get(0) otherwise panic("no leaf")
@@ -458,7 +458,7 @@ type Item
 	export var label as String
 
 	static function create(label String) returns Item
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Item'
 
@@ -467,7 +467,7 @@ union Op
 	none
 end 'Op'
 
-function mutate(item Item)
+function mutate(mutates item Item)
 	item.label = "MUTATED"
 end 'mutate'
 
@@ -1283,18 +1283,18 @@ type Holder
 		return Self{sites: IntArray.create(0)}
 	end 'create'
 
-	function add(x Integer)
+	function add(mutates self, x Integer)
 		sites.push(x)
 	end 'add'
 end 'Holder'
 
-function through(col IntArray, holder Holder) returns Integer
+function through(col IntArray, mutates holder Holder) returns Integer
 	holder.add(1)
-	return col.count()
+	return try col.count() as Integer otherwise panic("out of range")
 end 'through'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let seen = through(h.sites, holder: h)
 	print("param saw={seen} field={h.sites.count()}")
 	return 0

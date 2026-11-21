@@ -89,36 +89,36 @@ ten `b` values are `a0*3 = 15` through `a9*21 = 294`, summing to `1305`. Total `
 typealias Integer = int(i64.min to i64.max)
 
 function sink(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'sink'
 
 function main() returns ExitCode
 	let n = sink(3)
-	let a0 = n + 1
-	let a1 = n + 2
-	let a2 = n + 3
-	let a3 = n + 4
-	let a4 = n + 5
-	let a5 = n + 6
-	let a6 = n + 7
-	let a7 = n + 8
-	let a8 = n + 9
-	let a9 = n + 10
-	let a10 = n + 11
-	let a11 = n + 12
-	let b0 = a0 * 3
-	let b1 = a1 * 5
-	let b2 = a2 * 7
-	let b3 = a3 * 9
-	let b4 = a4 * 11
-	let b5 = a5 * 13
-	let b6 = a6 * 15
-	let b7 = a7 * 17
-	let b8 = a8 * 19
-	let b9 = a9 * 21
-	let s = a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11
+	let a0 = try n + 1 otherwise panic("out of range")
+	let a1 = try n + 2 otherwise panic("out of range")
+	let a2 = try n + 3 otherwise panic("out of range")
+	let a3 = try n + 4 otherwise panic("out of range")
+	let a4 = try n + 5 otherwise panic("out of range")
+	let a5 = try n + 6 otherwise panic("out of range")
+	let a6 = try n + 7 otherwise panic("out of range")
+	let a7 = try n + 8 otherwise panic("out of range")
+	let a8 = try n + 9 otherwise panic("out of range")
+	let a9 = try n + 10 otherwise panic("out of range")
+	let a10 = try n + 11 otherwise panic("out of range")
+	let a11 = try n + 12 otherwise panic("out of range")
+	let b0 = try a0 * 3 otherwise panic("out of range")
+	let b1 = try a1 * 5 otherwise panic("out of range")
+	let b2 = try a2 * 7 otherwise panic("out of range")
+	let b3 = try a3 * 9 otherwise panic("out of range")
+	let b4 = try a4 * 11 otherwise panic("out of range")
+	let b5 = try a5 * 13 otherwise panic("out of range")
+	let b6 = try a6 * 15 otherwise panic("out of range")
+	let b7 = try a7 * 17 otherwise panic("out of range")
+	let b8 = try a8 * 19 otherwise panic("out of range")
+	let b9 = try a9 * 21 otherwise panic("out of range")
+	let s = try a0 + a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 otherwise panic("out of range")
 	let c = sink(s)
-	let total = b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + c
+	let total = try b0 + b1 + b2 + b3 + b4 + b5 + b6 + b7 + b8 + b9 + c otherwise panic("out of range")
 	return 0 if total == 1432 else 99
 end 'main'
 ```

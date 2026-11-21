@@ -1033,13 +1033,13 @@ type Bag
 		return Self{items: StringArray.create(0)}
 	end 'create'
 
-	function wipe()
+	function wipe(mutates self)
 		items = StringArray.create(0)
 	end 'wipe'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	b.wipe()
@@ -1251,12 +1251,12 @@ type Bag
 	end 'create'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	let s = try b.items.get(0) otherwise ""
 	let n = b.size()
@@ -1376,7 +1376,7 @@ type Bag
 		let s = try items.get(0) otherwise ""
 		reset()
 		print("[{s}]\n")
-		return s.byteLength()
+		return s.byteLength() as Integer
 	end 'measure'
 end 'Bag'
 
@@ -1417,7 +1417,7 @@ type Bag
 		let s = try items.get(0) otherwise ""
 		self.reset()
 		print("[{s}]\n")
-		return s.byteLength()
+		return s.byteLength() as Integer
 	end 'measure'
 end 'Bag'
 
@@ -1451,18 +1451,18 @@ type Bag
 	end 'create'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 
 	function ok() returns Integer
 		let s = try items.get(0) otherwise ""
 		let n = self.size()
-		return (s.byteLength() as Integer) + n
+		return try (s.byteLength() as Integer) + n otherwise panic("out of range")
 	end 'ok'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	print("{b.ok()}\n")
 	return 0
@@ -1490,13 +1490,13 @@ type Bag
 		return Self{items: StringArray.create(0), total: 0}
 	end 'create'
 
-	function add(v Integer)
-		total = total + v
+	function add(mutates self, v Integer)
+		total = try total + v otherwise panic("out of range")
 	end 'add'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	let s = try b.items.get(0) otherwise ""
 	b.add(42)
@@ -1574,12 +1574,12 @@ type Bag
 	end 'create'
 end 'Bag'
 
-function wipe(b Bag)
+function wipe(mutates b Bag)
 	b.items = StringArray.create(0)
 end 'wipe'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.items.get(0) otherwise ""
 	wipe(b)
@@ -1611,7 +1611,7 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("hello")
 	let s = try b.items.get(0) otherwise ""
 	b.n = 5
@@ -1857,13 +1857,13 @@ type Bag
 		return Self{inner: Inner.create()}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		inner = Inner.create()
 	end 'reset'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.inner.items.push("alpha string long enough for heap allocation {40 + 2}")
 	let s = try b.inner.items.get(0) otherwise "none"
 	b.reset()
@@ -1892,17 +1892,17 @@ type Bag
 		return Self{items: StringArray.create(0), name: "tag"}
 	end 'create'
 
-	function retag()
+	function retag(mutates self)
 		name = "another tag entirely"
 	end 'retag'
 end 'Bag'
 
-function rename(b Bag)
+function rename(mutates b Bag)
 	b.name = "a third tag entirely"
 end 'rename'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push("alpha string long enough for heap allocation")
 	let s = try b.items.get(0) otherwise ""
 	b.retag()
@@ -1932,7 +1932,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(n Count)
+	function fill(mutates self, n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1940,14 +1940,14 @@ type Cell
 		self.s = t
 	end 'fill'
 
-	function replace(other String) returns String
+	function replace(mutates self, other String) returns String
 		self.s = "replaced"
 		return "[{other}]"
 	end 'replace'
 end 'Cell'
 
 function main() returns ExitCode
-	let a = Cell.create()
+	var a = Cell.create()
 	a.fill(10)
 	let out = a.replace(a.s)
 	print("{out} {a.s}\n")
@@ -1975,7 +1975,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(n Count)
+	function fill(mutates self, n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -1984,13 +1984,13 @@ type Cell
 	end 'fill'
 end 'Cell'
 
-function clobber(c Cell, borrowed String) returns String
+function clobber(mutates c Cell, borrowed String) returns String
 	c.s = "clobbered"
 	return "[{borrowed}]"
 end 'clobber'
 
 function main() returns ExitCode
-	let b = Cell.create()
+	var b = Cell.create()
 	b.fill(10)
 	let out = clobber(b, borrowed: b.s)
 	print("{out} {b.s}\n")
@@ -2057,7 +2057,7 @@ type Cell
 		return Cell{s: ""}
 	end 'create'
 
-	function fill(n Count)
+	function fill(mutates self, n Count)
 		var t = ""
 		for _ in 0 upto n 'grow'
 			t = "{t}x"
@@ -2071,7 +2071,7 @@ function measure(borrowed String) returns String
 end 'measure'
 
 function main() returns ExitCode
-	let b = Cell.create()
+	var b = Cell.create()
 	b.fill(10)
 	print("{measure(b.s)}\n")
 	return 0
@@ -2339,7 +2339,7 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
@@ -2384,14 +2384,14 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	let h = Holder.create(b)
+	var h = Holder.create(b)
 	h.box = Outer.create(5)
 	print("{inner.label.byteLength()} {h.box.inner.label.byteLength()} {b.inner.label.byteLength()}\n")
 	return 0
@@ -2430,14 +2430,14 @@ type Holder
 	export var box as Outer
 
 	static function create(box Outer) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Outer.create(1)
 	let inner = b.inner
-	let h = Holder.create(Outer.create(0))
+	var h = Holder.create(Outer.create(0))
 	h.box = b
 	h.box = Outer.create(5)
 	print("{inner.label.byteLength()} {b.inner.label.byteLength()}\n")
@@ -2715,7 +2715,7 @@ end 'main'
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let xs = Words.create(0)
+	var xs = Words.create(0)
 	xs.push("a word padded out long enough to heap allocate {1}")
 	let s = try xs.get(0) otherwise ""
 	if s.byteLength() > 0 'nested'
@@ -3217,25 +3217,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	function current() returns String
-		return name
+		return name.clone()
 	end 'current'
 
-	function rename() returns String
+	function rename(mutates self) returns String
 		self.name = "renamed {40 + 2} value long enough for a heap record"
 		return "done"
 	end 'rename'
 
-	function describe() returns String
+	function describe(mutates self) returns String
 		return "{self.name} {self.rename()}"
 	end 'describe'
 end 'Person'
 
 function main() returns ExitCode
-	let p = Person.create("original {40 + 2} value long enough for a heap record")
+	var p = Person.create("original {40 + 2} value long enough for a heap record")
 	let text = p.describe()
 	print("[{text}]\n")
 	print("[{p.current()}]\n")
@@ -3259,25 +3259,25 @@ type Person
 	var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	function current() returns String
-		return name
+		return name.clone()
 	end 'current'
 
-	function swapName() returns String
+	function swapName(mutates self) returns String
 		self.name = "swapped {40 + 2} value long enough for a heap record"
 		return "original {40 + 2} value long enough for a heap record"
 	end 'swapName'
 
-	function keptOriginal() returns bool
+	function keptOriginal(mutates self) returns bool
 		return self.name == self.swapName()
 	end 'keptOriginal'
 end 'Person'
 
 function main() returns ExitCode
-	let p = Person.create("original {40 + 2} value long enough for a heap record")
+	var p = Person.create("original {40 + 2} value long enough for a heap record")
 	print("{p.keptOriginal()}\n")
 	print("[{p.current()}]\n")
 	return 0
@@ -3373,7 +3373,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3384,8 +3384,8 @@ type Outer
 		return Self{inner: Inner.create(name)}
 	end 'create'
 
-	function nameAfterRebind() returns String
-		let n = self.inner.name
+	function nameAfterRebind(mutates self) returns String
+		let n = self.inner.name.clone()
 		self.inner = Inner.create("replacement {7} padded out long enough for the heap")
 		let filler = "filler {1} padded out long enough for the heap"
 		return "[{n}] [{self.inner.name}] [{filler}]"
@@ -3393,7 +3393,7 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	let a = Outer.create("first {40 + 2} padded out long enough for the heap")
+	var a = Outer.create("first {40 + 2} padded out long enough for the heap")
 	print("{a.nameAfterRebind()}\n")
 	return 0
 end 'main'
@@ -3412,7 +3412,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3424,15 +3424,15 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function nameAfterRebind(o Outer) returns String
-	let n = o.inner.name
+function nameAfterRebind(mutates o Outer) returns String
+	let n = o.inner.name.clone()
 	o.inner = Inner.create("replacement {8} padded out long enough for the heap")
 	let filler = "filler {2} padded out long enough for the heap"
 	return "[{n}] [{o.inner.name}] [{filler}]"
 end 'nameAfterRebind'
 
 function main() returns ExitCode
-	let b = Outer.create("second {40 + 3} padded out long enough for the heap")
+	var b = Outer.create("second {40 + 3} padded out long enough for the heap")
 	print("{nameAfterRebind(b)}\n")
 	return 0
 end 'main'
@@ -3453,7 +3453,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3465,14 +3465,14 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function clobber(o Outer, name String) returns String
+function clobber(mutates o Outer, name String) returns String
 	o.inner = Inner.create("replacement {9} padded out long enough for the heap")
 	let filler = "filler {3} padded out long enough for the heap"
 	return "[{name}] [{o.inner.name}] [{filler}]"
 end 'clobber'
 
 function main() returns ExitCode
-	let c = Outer.create("third {40 + 4} padded out long enough for the heap")
+	var c = Outer.create("third {40 + 4} padded out long enough for the heap")
 	print("{clobber(c, name: c.inner.name)}\n")
 	return 0
 end 'main'
@@ -3494,7 +3494,7 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Inner'
 
@@ -3505,14 +3505,14 @@ type Outer
 		return Self{inner: Inner.create(name)}
 	end 'create'
 
-	function dropInner() returns String
+	function dropInner(mutates self) returns String
 		self.inner = Inner.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropInner'
 end 'Outer'
 
 function main() returns ExitCode
-	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.inner.name = x.dropInner()
 	let filler = Inner.create("filler {1} padded out long enough for the heap")
 	let filler2 = Inner.create("filler {2} padded out long enough for the heap")
@@ -3536,7 +3536,7 @@ type Leaf
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Leaf'
 
@@ -3555,14 +3555,14 @@ type Outer
 		return Self{middle: Middle.create(name)}
 	end 'create'
 
-	function dropLeaf() returns String
+	function dropLeaf(mutates self) returns String
 		self.middle.leaf = Leaf.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropLeaf'
 end 'Outer'
 
 function main() returns ExitCode
-	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.middle.leaf.name = x.dropLeaf()
 	let filler = Leaf.create("filler {1} padded out long enough for the heap")
 	let filler2 = Leaf.create("filler {2} padded out long enough for the heap")
@@ -3591,10 +3591,10 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.label = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
@@ -3608,7 +3608,7 @@ function describe(p Pair) returns String
 end 'describe'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let p = Pair.both(x.label, second: x.reset())
 	let filler = "filler {1} padded out long enough for the heap"
 	print("{describe(p)} [{x.label}] [{filler}]\n")
@@ -3630,16 +3630,16 @@ type Holder
 	var second as String
 
 	static function create(label String) returns Self
-		return Self{first: label, second: "unset"}
+		return Self{first: label.clone(), second: "unset"}
 	end 'create'
 
-	function reset() returns String
+	function reset(mutates self) returns String
 		self.first = "replacement {7} padded out long enough for the heap"
 		return "second {5} padded out long enough for the heap"
 	end 'reset'
 
-	function snapshot() returns Self
-		return Self{first: self.first, second: self.reset()}
+	function snapshot(mutates self) returns Self
+		return Self{first: self.first.clone(), second: self.reset()}
 	end 'snapshot'
 
 	function describe() returns String
@@ -3648,7 +3648,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let x = Holder.create("original {40 + 2} padded out long enough for the heap")
+	var x = Holder.create("original {40 + 2} padded out long enough for the heap")
 	let copy = x.snapshot()
 	let filler = "filler {1} padded out long enough for the heap"
 	print("{copy.describe()} {x.describe()} [{filler}]\n")
@@ -4003,13 +4003,13 @@ type Holder
 	export var items as StringArray
 
 	static function create() returns Self
-		let items = StringArray.create(0)
+		var items = StringArray.create(0)
 		items.push("original {40 + 2} padded out long enough for the heap")
 		return Self{items: items}
 	end 'create'
 
-	function reset() returns String
-		let fresh = StringArray.create(0)
+	function reset(mutates self) returns String
+		var fresh = StringArray.create(0)
 		fresh.push("replacement {7} padded out long enough for the heap")
 		self.items = fresh
 		return "pushed {5} padded out long enough for the heap"
@@ -4017,9 +4017,9 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let x = Holder.create()
+	var x = Holder.create()
 	x.items.push(x.reset())
-	let filler = StringArray.create(0)
+	var filler = StringArray.create(0)
 	filler.push("filler {1} padded out long enough for the heap")
 	filler.push("filler {2} padded out long enough for the heap")
 	print("{x.items.count()} [{try x.items.get(0) otherwise "none"}] [{try filler.get(0) otherwise "none"}]\n")
@@ -4042,11 +4042,11 @@ type Inner
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
-	function rename(text String)
-		self.name = text
+	function rename(mutates self, text String)
+		self.name = text.clone()
 	end 'rename'
 end 'Inner'
 
@@ -4057,14 +4057,14 @@ type Outer
 		return Self{inner: Inner.create(name)}
 	end 'create'
 
-	function dropInner() returns String
+	function dropInner(mutates self) returns String
 		self.inner = Inner.create("replacement {7} padded out long enough for the heap")
 		return "stored {5} padded out long enough for the heap"
 	end 'dropInner'
 end 'Outer'
 
 function main() returns ExitCode
-	let x = Outer.create("original {40 + 2} padded out long enough for the heap")
+	var x = Outer.create("original {40 + 2} padded out long enough for the heap")
 	x.inner.rename(x.dropInner())
 	let filler = Inner.create("filler {1} padded out long enough for the heap")
 	let filler2 = Inner.create("filler {2} padded out long enough for the heap")
@@ -4484,7 +4484,7 @@ end 'fresh'
 function main() returns ExitCode
 	let h = Outer.create()
 	let c = h.inner.n == 1
-	let t = h.inner if c else fresh()
+	var t = h.inner if c else fresh()
 	t.n = 5
 	print("{h.inner.n}\n")
 	return 0
@@ -4524,12 +4524,12 @@ function fresh() returns Inner
 end 'fresh'
 
 function pick(h Outer, c bool) returns Inner
-	return h.inner if c else fresh()
+	return h.inner.clone() if c else fresh()
 end 'pick'
 
 function main() returns ExitCode
 	let h = Outer.create()
-	let r = pick(h, c: true)
+	var r = pick(h, c: true)
 	r.n = 5
 	print("{h.inner.n}\n")
 	return 0
@@ -4573,7 +4573,7 @@ type Pair
 	export var label as String
 
 	static function from(h Outer) returns Self
-		return Self{first: h.inner, label: label()}
+		return Self{first: h.inner.clone(), label: label()}
 	end 'from'
 end 'Pair'
 
@@ -4742,7 +4742,7 @@ type Item
 	export let text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Item'
 
@@ -4801,7 +4801,7 @@ function main() returns ExitCode
 	let h = Holder.create()
 	var q = Point.create(0)
 	match h.slot 'slot'
-		full(point) then q = point
+		full(point) then q = point.clone()
 		empty then q = Point.create(2)
 	end 'slot'
 	q.n = 9
@@ -5001,15 +5001,15 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 
-	function reset() returns Integer
+	function reset(mutates self) returns Integer
 		slot = LSlot.lempty(1)
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(slot, k: self.reset())
 	end 'go'
 end 'VarHolder'
@@ -5021,18 +5021,18 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
 end 'reuse'
 
 function use(u LSlot, k Integer) returns Integer
 	return match u 'm'
-		lfilled(s) gives reuse(s) + k
+		lfilled(s) gives try reuse(s) + k otherwise panic("out of range")
 		lempty(n) gives n
 	end 'm'
 end 'use'
 
 function main() returns ExitCode
-	let vh = VarHolder.create(LSlot.lfilled(text(5)))
+	var vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.go()
 	print("d={d}")
 	return 0
@@ -5056,7 +5056,7 @@ type Inner
 	export let label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Inner'
 
@@ -5064,15 +5064,15 @@ type Holder
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 
-	function reset() returns Integer
+	function reset(mutates self) returns Integer
 		inner = Inner.create("short")
 		return 1
 	end 'reset'
 
-	function go() returns Integer
+	function go(mutates self) returns Integer
 		return use(inner, k: self.reset())
 	end 'go'
 end 'Holder'
@@ -5084,17 +5084,17 @@ end 'text'
 function churn(n Integer) returns Integer
 	let a = "r{n} a fresh allocation of its own, reusing the freed record, yes"
 	let b = "q{a.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return b.byteLength() as Integer
+	return try b.byteLength() as Integer otherwise panic("out of range")
 end 'churn'
 
 function use(i Inner, k Integer) returns Integer
-	let len = i.label.byteLength() as Integer
+	let len = try i.label.byteLength() as Integer otherwise panic("out of range")
 	let c = churn(len)
-	return len * 1000 + c + k
+	return try len * 1000 + c + k otherwise panic("out of range")
 end 'use'
 
 function main() returns ExitCode
-	let h = Holder.create(Inner.create(text(5)))
+	var h = Holder.create(Inner.create(text(5)))
 	let d = h.go()
 	print("d={d}")
 	return 0

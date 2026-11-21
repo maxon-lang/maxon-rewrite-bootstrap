@@ -64,7 +64,7 @@ end 'Named'
 type Wrapper uses T implements Named
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -76,7 +76,7 @@ end 'Wrapper'
 type Holder uses N where N implements Named
 	export var item as N
 
-	static function create(item N) returns Self
+	static function create(consumes item N) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -115,7 +115,7 @@ end 'Named'
 type Wrapper uses T implements Named
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -127,7 +127,7 @@ end 'Wrapper'
 type Holder uses N where N implements Named
 	export var item as N
 
-	static function create(item N) returns Self
+	static function create(consumes item N) returns Self
 		return Self{item: item}
 	end 'create'
 

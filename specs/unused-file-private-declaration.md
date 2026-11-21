@@ -242,11 +242,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function from(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'from'
 
 function main() returns ExitCode
-	return from(41)
+	return try from(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -290,7 +290,7 @@ function describe(outcome Outcome) returns ExitCode
 end 'describe'
 
 function main() returns ExitCode
-	return Counter.create().start + pick(Shade.dark) + describe(Outcome.success)
+	return try Counter.create().start + pick(Shade.dark) + describe(Outcome.success) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -311,7 +311,7 @@ end
 function main() returns ExitCode
 	match Shade.dark 'which'
 		light then return one()
-		dark then return one() + 1
+		dark then return try one() + 1 otherwise panic("out of range")
 	end 'which'
 end 'main'
 ```
@@ -330,7 +330,7 @@ function inner() returns ExitCode
 end 'inner'
 
 function outer() returns ExitCode
-	return inner() + 1
+	return try inner() + 1 otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode

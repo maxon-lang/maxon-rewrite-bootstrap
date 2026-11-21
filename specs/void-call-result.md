@@ -175,14 +175,14 @@ case is about the void check, so the discard is spelled the way both rules accep
 typealias Integer = int(i64.min to i64.max)
 
 function answer(mutates calls Integer) returns Integer
-	calls = calls + 1
+	calls = try calls + 1 otherwise panic("out of range")
 	return 42
 end 'answer'
 
 function main() returns ExitCode
 	var calls = 0 as Integer
 	_ = answer(calls)
-	return 41 + calls
+	return try 41 + calls otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -463,7 +463,7 @@ type Wrapper
 	export var row as Box
 
 	static function create(row Box) returns Self
-		return Self{row: row}
+		return Self{row: row.clone()}
 	end 'create'
 end 'Wrapper'
 
@@ -471,7 +471,7 @@ function pick(p Box, fresh bool) returns Box
 	if fresh 'makeOne'
 		return Box.create(0)
 	end 'makeOne'
-	return p
+	return p.clone()
 end 'pick'
 
 function wrap(p Box) returns Wrapper
@@ -1600,7 +1600,7 @@ end 'Node'
 
 function main() returns ExitCode
 	let a = Node.create(3)
-	let log = Log.create()
+	var log = Log.create()
 	a.note(log)
 	print("{a.n} {log.last}\n")
 	return 0

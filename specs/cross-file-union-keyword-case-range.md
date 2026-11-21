@@ -115,7 +115,7 @@ end 'Wrapper'
 function classify(ref Wrapper) returns Dim
 	let raw = match ref 'unwrap'
 		void gives MyType.unresolved
-		value(inner) gives inner
+		value(inner) gives inner.clone()
 	end 'unwrap'
 	return match raw 'r'
 		named(id) gives id
@@ -125,7 +125,7 @@ function classify(ref Wrapper) returns Dim
 end 'classify'
 
 function main() returns ExitCode
-	return classify(Wrapper.value(MyType.named(7)))
+	return classify(Wrapper.value(MyType.named(7))) as ExitCode
 end 'main'
 ```
 ```exitcode

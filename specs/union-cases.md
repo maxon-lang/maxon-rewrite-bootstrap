@@ -189,7 +189,7 @@ function tagOf(sh Shape) returns Integer
 end 'tagOf'
 
 function ordOf(sh Shape) returns Integer
-	return sh.ordinal
+	return sh.ordinal as Integer
 end 'ordOf'
 
 function main() returns ExitCode
@@ -311,12 +311,12 @@ end 'Paint'
 function readOne(p Paint) returns Integer
 	match p 'go'
 		tint(c) then return c.v
-		wash(s) then return s.ordinal
+		wash(s) then return try s.ordinal as Integer otherwise panic("out of range")
 	end 'go'
 end 'readOne'
 
 function main() returns ExitCode
-	return readOne(Paint.tint(Color.create(4))) + readOne(Paint.wash(Shade.light))
+	return try readOne(Paint.tint(Color.create(4))) + readOne(Paint.wash(Shade.light)) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -497,11 +497,11 @@ function main() returns ExitCode
 	let r = Reply.pair(4, b: 5)
 	var total = 0 as Integer
 	match r 'show'
-		ok(value, extra) then total = value + extra
-		pair(a, b) then total = a * b
+		ok(value, extra) then total = try value + extra otherwise panic("out of range")
+		pair(a, b) then total = try a * b otherwise panic("out of range")
 		none then total = 0
 	end 'show'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

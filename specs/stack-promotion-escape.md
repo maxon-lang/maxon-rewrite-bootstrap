@@ -61,9 +61,9 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 upto 6 'each'
 		let p = Point.create(i, y: i + 1)
-		total = total + p.x + p.y
+		total = try total + p.x + p.y otherwise panic("out of range")
 	end 'each'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -91,7 +91,7 @@ end 'Quad'
 
 function main() returns ExitCode
 	let q = Quad.create(1, b: 2, c: 4, d: 8)
-	return q.a + q.b + q.c + q.d
+	return try q.a + q.b + q.c + q.d otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -117,28 +117,28 @@ end 'Point'
 
 function spread(seed Integer) returns Integer
 	let p = Point.create(1000, y: 2000)
-	let v0 = seed + 1
-	let v1 = seed + 2
-	let v2 = seed + 3
-	let v3 = seed + 4
-	let v4 = seed + 5
-	let v5 = seed + 6
-	let v6 = seed + 7
-	let v7 = seed + 8
-	let v8 = seed + 9
-	let v9 = seed + 10
-	let v10 = seed + 11
-	let v11 = seed + 12
-	let v12 = seed + 13
-	let v13 = seed + 14
-	let v14 = seed + 15
-	let v15 = seed + 16
-	let total = v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15
-	return total + p.x + p.y
+	let v0 = try seed + 1 otherwise panic("out of range")
+	let v1 = try seed + 2 otherwise panic("out of range")
+	let v2 = try seed + 3 otherwise panic("out of range")
+	let v3 = try seed + 4 otherwise panic("out of range")
+	let v4 = try seed + 5 otherwise panic("out of range")
+	let v5 = try seed + 6 otherwise panic("out of range")
+	let v6 = try seed + 7 otherwise panic("out of range")
+	let v7 = try seed + 8 otherwise panic("out of range")
+	let v8 = try seed + 9 otherwise panic("out of range")
+	let v9 = try seed + 10 otherwise panic("out of range")
+	let v10 = try seed + 11 otherwise panic("out of range")
+	let v11 = try seed + 12 otherwise panic("out of range")
+	let v12 = try seed + 13 otherwise panic("out of range")
+	let v13 = try seed + 14 otherwise panic("out of range")
+	let v14 = try seed + 15 otherwise panic("out of range")
+	let v15 = try seed + 16 otherwise panic("out of range")
+	let total = try v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 otherwise panic("out of range")
+	return try total + p.x + p.y otherwise panic("out of range")
 end 'spread'
 
 function main() returns ExitCode
-	return spread(0) - 3094
+	return try spread(0) - 3094 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -172,7 +172,7 @@ function pick(other bool) returns Integer
 end 'pick'
 
 function main() returns ExitCode
-	return pick(false) + pick(true)
+	return try pick(false) + pick(true) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -197,7 +197,7 @@ type Point
 end 'Point'
 
 function keep(p Point) returns Point
-	return p
+	return p.clone()
 end 'keep'
 
 function main() returns ExitCode
@@ -205,7 +205,7 @@ function main() returns ExitCode
 	let b = Point.create(5, y: 6)
 	let ka = keep(a)
 	let kb = keep(b)
-	return ka.x + ka.y + kb.x + kb.y
+	return try ka.x + ka.y + kb.x + kb.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -235,23 +235,23 @@ type Point
 end 'Point'
 
 function churn(seed Integer) returns Integer
-	let v0 = seed + 1
-	let v1 = seed + 2
-	let v2 = seed + 3
-	let v3 = seed + 4
-	let v4 = seed + 5
-	let v5 = seed + 6
-	let v6 = seed + 7
-	let v7 = seed + 8
-	let v8 = seed + 9
-	let v9 = seed + 10
-	let v10 = seed + 11
-	let v11 = seed + 12
-	let v12 = seed + 13
-	let v13 = seed + 14
-	let v14 = seed + 15
-	let v15 = seed + 16
-	return v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15
+	let v0 = try seed + 1 otherwise panic("out of range")
+	let v1 = try seed + 2 otherwise panic("out of range")
+	let v2 = try seed + 3 otherwise panic("out of range")
+	let v3 = try seed + 4 otherwise panic("out of range")
+	let v4 = try seed + 5 otherwise panic("out of range")
+	let v5 = try seed + 6 otherwise panic("out of range")
+	let v6 = try seed + 7 otherwise panic("out of range")
+	let v7 = try seed + 8 otherwise panic("out of range")
+	let v8 = try seed + 9 otherwise panic("out of range")
+	let v9 = try seed + 10 otherwise panic("out of range")
+	let v10 = try seed + 11 otherwise panic("out of range")
+	let v11 = try seed + 12 otherwise panic("out of range")
+	let v12 = try seed + 13 otherwise panic("out of range")
+	let v13 = try seed + 14 otherwise panic("out of range")
+	let v14 = try seed + 15 otherwise panic("out of range")
+	let v15 = try seed + 16 otherwise panic("out of range")
+	return try v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 otherwise panic("out of range")
 end 'churn'
 
 type Keeper
@@ -262,16 +262,16 @@ type Keeper
 	end 'create'
 end 'Keeper'
 
-function stash(keeper Keeper)
+function stash(mutates keeper Keeper)
 	let p = Point.create(11, y: 22)
 	keeper.point = p
 end 'stash'
 
 function main() returns ExitCode
-	let keeper = Keeper.create()
+	var keeper = Keeper.create()
 	stash(keeper)
 	let noise = churn(1000)
-	return keeper.point.x if noise > 0 else 1
+	return try (keeper.point.x if noise > 0 else 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -296,36 +296,36 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function churn(seed Integer) returns Integer
-	let v0 = seed + 1
-	let v1 = seed + 2
-	let v2 = seed + 3
-	let v3 = seed + 4
-	let v4 = seed + 5
-	let v5 = seed + 6
-	let v6 = seed + 7
-	let v7 = seed + 8
-	let v8 = seed + 9
-	let v9 = seed + 10
-	let v10 = seed + 11
-	let v11 = seed + 12
-	let v12 = seed + 13
-	let v13 = seed + 14
-	let v14 = seed + 15
-	let v15 = seed + 16
-	return v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15
+	let v0 = try seed + 1 otherwise panic("out of range")
+	let v1 = try seed + 2 otherwise panic("out of range")
+	let v2 = try seed + 3 otherwise panic("out of range")
+	let v3 = try seed + 4 otherwise panic("out of range")
+	let v4 = try seed + 5 otherwise panic("out of range")
+	let v5 = try seed + 6 otherwise panic("out of range")
+	let v6 = try seed + 7 otherwise panic("out of range")
+	let v7 = try seed + 8 otherwise panic("out of range")
+	let v8 = try seed + 9 otherwise panic("out of range")
+	let v9 = try seed + 10 otherwise panic("out of range")
+	let v10 = try seed + 11 otherwise panic("out of range")
+	let v11 = try seed + 12 otherwise panic("out of range")
+	let v12 = try seed + 13 otherwise panic("out of range")
+	let v13 = try seed + 14 otherwise panic("out of range")
+	let v14 = try seed + 15 otherwise panic("out of range")
+	let v15 = try seed + 16 otherwise panic("out of range")
+	return try v0 + v1 + v2 + v3 + v4 + v5 + v6 + v7 + v8 + v9 + v10 + v11 + v12 + v13 + v14 + v15 otherwise panic("out of range")
 end 'churn'
 
-function fill(arr ItemArray)
+function fill(mutates arr ItemArray)
 	let item = Item.create(42)
 	arr.push(item)
 end 'fill'
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	fill(arr)
 	let noise = churn(1000)
 	let got = try arr.get(0) otherwise Item.create(0)
-	return got.value if noise > 0 else 1
+	return try (got.value if noise > 0 else 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

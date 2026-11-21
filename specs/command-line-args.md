@@ -87,7 +87,7 @@ end 'main'
 function main() returns ExitCode
 	// Without extra args, count should be 1 (just argv[0])
 	let args = CommandLine.args()
-	return args.count()
+	return try args.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	return args.count()
+	return try args.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,7 +111,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	return args.count()
+	return try args.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -267,7 +267,7 @@ lane, so `HeapStats` answers alike everywhere.
 function main() returns ExitCode
 	let args = CommandLine.args()
 	print("{HeapStats.rawAllocationsLive()}")
-	return args.count()
+	return args.count() as ExitCode
 end 'main'
 ```
 ```exitcode

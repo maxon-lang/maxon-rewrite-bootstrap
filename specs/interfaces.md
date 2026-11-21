@@ -259,7 +259,7 @@ type Counter implements Describable
 	let count as Integer
 
 	function describe() returns Integer
-		return 50 + count
+		return try 50 + count otherwise panic("out of range")
 	end 'describe'
 
 	function value() returns Integer
@@ -273,7 +273,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(12)
-	return c.describe() + c.value()
+	return try c.describe() + c.value() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -294,7 +294,7 @@ type Accumulator implements Calculator
 	let total as Integer
 
 	function add(n Integer) returns Integer
-		return total + n
+		return try total + n otherwise panic("out of range")
 	end 'add'
 
 	static function create(total Integer) returns Self
@@ -304,7 +304,7 @@ end 'Accumulator'
 
 function main() returns ExitCode
 	let acc = Accumulator.create(10)
-	return acc.add(5)
+	return try acc.add(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -365,7 +365,7 @@ type Point implements Movable
 	export var y as Integer
 
 	function move(dx Integer, dy Integer) returns Point
-		return Point{x: x + dx, y: y + dy}
+		return Point{x: try x + dx otherwise panic("out of range"), y: try y + dy otherwise panic("out of range")}
 	end 'move'
 
 	static function create(x Integer, y Integer) returns Self
@@ -376,7 +376,7 @@ end 'Point'
 function main() returns ExitCode
 	let p = Point.create(10, y: 20)
 	let p2 = p.move(5, dy: 10)
-	return p2.x + p2.y
+	return try p2.x + p2.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -397,7 +397,7 @@ type Value implements Incrementable
 	let n as Integer
 
 	function inc() returns Integer
-		return n + 1
+		return try n + 1 otherwise panic("out of range")
 	end 'inc'
 
 	static function create(n Integer) returns Self
@@ -407,7 +407,7 @@ end 'Value'
 
 function main() returns ExitCode
 	let v = Value.create(41)
-	return v.inc()
+	return try v.inc() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -454,11 +454,11 @@ type Calculator
 	var value as Integer
 
 	function double() returns Integer
-		return value * 2
+		return try value * 2 otherwise panic("out of range")
 	end 'double'
 
 	function triple() returns Integer
-		return value * 3
+		return try value * 3 otherwise panic("out of range")
 	end 'triple'
 
 	static function create(value Integer) returns Self
@@ -468,7 +468,7 @@ end 'Calculator'
 
 function main() returns ExitCode
 	let c = Calculator.create(7)
-	return c.double() + c.triple()
+	return try c.double() + c.triple() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

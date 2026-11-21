@@ -73,7 +73,7 @@ function test_bool_param(flag bool) returns Integer
 end 'test_bool_param'
 
 function main() returns ExitCode
-	return test_bool_param(true)
+	return try test_bool_param(true) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

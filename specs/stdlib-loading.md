@@ -823,7 +823,7 @@ the same property with no stdlib in it at all.
 typealias Ms = int(0 to 1000)
 
 function sleep(milliseconds Ms) returns Ms
-	return milliseconds + 7
+	return try milliseconds + 7 otherwise panic("out of range")
 end 'sleep'
 
 function main() returns ExitCode
@@ -849,7 +849,7 @@ so a user's own `graphemeBreakProperty` would compile and be silently unreachabl
 typealias Cp = int(0 to 1114111)
 
 function graphemeBreakProperty(cp Cp) returns Cp
-	return cp + 99
+	return try cp + 99 otherwise panic("out of range")
 end 'graphemeBreakProperty'
 
 function isExtendedPictographic(cp Cp) returns bool

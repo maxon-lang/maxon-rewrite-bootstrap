@@ -179,7 +179,7 @@ typealias Tally = int(0 to 1000000)
 typealias Table = Map with (Key, Tally)
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	for i in 0 upto 4096 'eachKey'
 		table.upsert(((i as Key) shl 32) or 2, value: i as Tally)
 	end 'eachKey'

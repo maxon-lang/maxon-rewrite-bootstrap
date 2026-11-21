@@ -57,7 +57,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -109,7 +109,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -175,12 +175,12 @@ end 'Point'
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function combined() returns Code
-		return self.item.digest() + self.item.tag()
+		return try self.item.digest() + self.item.tag() otherwise panic("out of range")
 	end 'combined'
 end 'Box'
 
@@ -227,7 +227,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -286,7 +286,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -454,14 +454,14 @@ type Point implements Adder
 	end 'create'
 
 	function add(a Code, b Code) returns Code
-		return self.x + a + b
+		return try self.x + a + b otherwise panic("out of range")
 	end 'add'
 end 'Point'
 
 type Box uses T where T implements Adder
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -503,14 +503,14 @@ type Point implements Mixer
 	end 'create'
 
 	function combine(a Code, k Code, b Code) returns Code
-		return self.x + a * 100 + k * 10 + b
+		return try self.x + a * 100 + k * 10 + b otherwise panic("out of range")
 	end 'combine'
 end 'Point'
 
 type Box uses T where T implements Mixer
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -604,14 +604,14 @@ type Point implements Adder
 	end 'create'
 
 	function add(a Small, b Small) returns Small
-		return self.x + a + b
+		return try self.x + a + b otherwise panic("out of range")
 	end 'add'
 end 'Point'
 
 type Box uses T where T implements Adder
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -677,7 +677,7 @@ end 'Widget'
 type Box uses T where T implements Coded
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1217,11 +1217,11 @@ end 'Pusher'
 type Box uses T where T implements Grower
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function run(dest IntArray)
+	function run(mutates dest IntArray)
 		self.item.grow(dest)
 	end 'run'
 end 'Box'
@@ -1229,10 +1229,10 @@ end 'Box'
 typealias PusherBox = Box with Pusher
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let b = PusherBox.create(Pusher.create(1))
 	b.run(a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1268,11 +1268,11 @@ end 'Pusher'
 type Box uses T where T implements Grower
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	function run(dest IntArray)
+	function run(mutates dest IntArray)
 		self.item.grow(dest)
 	end 'run'
 end 'Box'
@@ -1280,10 +1280,10 @@ end 'Box'
 typealias PusherBox = Box with Pusher
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let b = PusherBox.create(Pusher.create(1))
 	b.run(a)
-	return try a.get(0) otherwise 55
+	return try (try a.get(0) otherwise 55) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1312,14 +1312,14 @@ type Summer implements Reader
 	end 'create'
 
 	function total(src IntArray) returns Integer
-		return src.count() as Integer
+		return try src.count() as Integer otherwise panic("out of range")
 	end 'total'
 end 'Summer'
 
 type Box uses T where T implements Reader
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1333,7 +1333,7 @@ typealias SummerBox = Box with Summer
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	let b = SummerBox.create(Summer.create(1))
-	return b.run(a) as ExitCode
+	return try b.run(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1366,7 +1366,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1421,7 +1421,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1472,7 +1472,7 @@ type Builder implements Maker
 	end 'create'
 
 	function make() returns IntArray
-		let xs = IntArray.create(0)
+		var xs = IntArray.create(0)
 		xs.push(self.seed)
 		return xs
 	end 'make'
@@ -1481,7 +1481,7 @@ end 'Builder'
 type Box uses T where T implements Maker
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -1494,7 +1494,7 @@ end 'Box'
 typealias BuilderBox = Box with Builder
 
 function main() returns ExitCode
-	return BuilderBox.create(Builder.create(42)).first()
+	return try BuilderBox.create(Builder.create(42)).first() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2756,7 +2756,7 @@ end 'Wrapper'
 type Holder uses T where T implements Valuable
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Holder'
@@ -2766,7 +2766,7 @@ typealias WrapperHolder = Holder with Wrapper
 function main() returns ExitCode
 	let w = Wrapper.create(10)
 	let h = WrapperHolder.create(w)
-	return h.item.value()
+	return try h.item.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2810,7 +2810,7 @@ end 'Person'
 type Registry uses T where T implements HasName and HasAge
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Registry'
@@ -2820,7 +2820,7 @@ typealias PersonRegistry = Registry with Person
 function main() returns ExitCode
 	let p = Person.create(30)
 	let r = PersonRegistry.create(p)
-	return r.item.age()
+	return try r.item.age() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4188,14 +4188,14 @@ type Point implements sub.Digest
 	end 'create'
 
 	function digest() returns ExitCode
-		return self.x * 2
+		return try self.x * 2 otherwise panic("out of range")
 	end 'digest'
 end 'Point'
 
 type Box uses T where T implements sub.Digest
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 

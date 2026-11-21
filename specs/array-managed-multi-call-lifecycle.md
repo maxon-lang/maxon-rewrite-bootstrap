@@ -101,7 +101,7 @@ type Entry
 	export var tag as Tag
 
 	static function create(tag Tag) returns Self
-		return Self{tag: tag}
+		return Self{tag: tag.clone()}
 	end 'create'
 end 'Entry'
 
@@ -111,20 +111,20 @@ type Store
 	export var entries as EntryArray
 
 	static function create(entries EntryArray) returns Self
-		return Self{entries: entries}
+		return Self{entries: entries.clone()}
 	end 'create'
 end 'Store'
 
-function addEntry(store Store, entry Entry)
-	store.entries.push(entry)
+function addEntry(mutates store Store, entry Entry)
+	store.entries.push(entry.clone())
 end 'addEntry'
 
-function replaceAll(store Store)
+function replaceAll(mutates store Store)
 	store.entries = EntryArray.create(0)
 end 'replaceAll'
 
 function main() returns ExitCode
-	let store = Store.create(EntryArray.create(0))
+	var store = Store.create(EntryArray.create(0))
 	// Push enough to trigger multiple reallocations (initial cap is usually 4)
 	addEntry(store, entry: Entry.create(Tag.label("entry zero long enough for heap allocation")))
 	addEntry(store, entry: Entry.create(Tag.label("entry one long enough for heap allocation")))
@@ -136,7 +136,7 @@ function main() returns ExitCode
 	addEntry(store, entry: Entry.create(Tag.label("entry seven long enough for heap allocation")))
 	addEntry(store, entry: Entry.create(Tag.label("entry eight long enough for heap allocation")))
 	replaceAll(store)
-	return store.entries.count()
+	return try store.entries.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

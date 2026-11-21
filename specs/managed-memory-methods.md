@@ -50,13 +50,13 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
 	arr.push(40)
 	arr.push(50)
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -135,7 +135,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let s = "hello world"
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -147,7 +147,7 @@ end 'main'
 function main() returns ExitCode
 	var s = "hello"
 	s.append(" world")
-	return s.byteLength()
+	return s.byteLength() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -191,9 +191,9 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let s = ""
-	let v = s.toByteArray()
+	var v = s.toByteArray()
 	v.push(65)
-	return v.count() as ExitCode
+	return try v.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -225,13 +225,13 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	var i = 0 as Int
 	while i < 100 'fill'
 		arr.push(i)
 		i = i + 1
 	end 'fill'
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2637,10 +2637,10 @@ The array control's positive half, for the reason its tuple twin has one.
 typealias BufArray = Array with ByteArray
 
 function main() returns ExitCode
-	let a = BufArray.create(0)
+	var a = BufArray.create(0)
 	a.push("hello".toByteArray())
 	let m = try a.get(0) otherwise return 1
-	return m.count() as ExitCode
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4045,13 +4045,13 @@ type Holder
 	export var buf as ByteArray
 
 	static function create(buf ByteArray) returns Self
-		return Self{buf: buf}
+		return Self{buf: buf.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
 	let h = Holder.create("hello".toByteArray())
-	return h.buf.count() as ExitCode
+	return try h.buf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4517,7 +4517,7 @@ served to this one.
 type Cell uses U
 	export var slot as U
 
-	static function make(slot U) returns Self
+	static function make(consumes slot U) returns Self
 		return Self{slot: slot}
 	end 'make'
 
@@ -4530,7 +4530,7 @@ typealias BytesCell = Cell with ByteArray
 
 function main() returns ExitCode
 	let c = BytesCell.make("hello".toByteArray())
-	return c.get().count() as ExitCode
+	return try c.get().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

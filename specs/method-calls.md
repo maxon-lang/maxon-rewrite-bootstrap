@@ -96,8 +96,8 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function get() returns Integer
@@ -110,11 +110,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
 	c.increment()
 	c.increment()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -129,8 +129,8 @@ typealias Integer = int(i64.min to i64.max)
 type Adder
 	var total as Integer
 
-	function add(n Integer)
-		total = total + n
+	function add(mutates self, n Integer)
+		total = try total + n otherwise panic("out of range")
 	end 'add'
 
 	function get() returns Integer
@@ -143,11 +143,11 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let a = Adder.create(0)
+	var a = Adder.create(0)
 	a.add(10)
 	a.add(20)
 	a.add(12)
-	return a.get()
+	return try a.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -173,7 +173,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create(40)
-	return b.getValue() + 2
+	return try b.getValue() + 2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -188,8 +188,8 @@ typealias Integer = int(i64.min to i64.max)
 type Calculator
 	var result as Integer
 
-	function addTwo(a Integer, b Integer)
-		result = result + a + b
+	function addTwo(mutates self, a Integer, b Integer)
+		result = try result + a + b otherwise panic("out of range")
 	end 'addTwo'
 
 	function get() returns Integer
@@ -202,9 +202,9 @@ type Calculator
 end 'Calculator'
 
 function main() returns ExitCode
-	let calc = Calculator.create(0)
+	var calc = Calculator.create(0)
 	calc.addTwo(20, b: 22)
-	return calc.get()
+	return try calc.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -236,13 +236,13 @@ type Outer
 	end 'getInnerValue'
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(42))
-	return o.getInnerValue()
+	return try o.getInnerValue() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -258,13 +258,13 @@ type Point
 	var x as Integer
 	var y as Integer
 
-	function moveBy(dx Integer, dy Integer)
-		x = x + dx
-		y = y + dy
+	function moveBy(mutates self, dx Integer, dy Integer)
+		x = try x + dx otherwise panic("out of range")
+		y = try y + dy otherwise panic("out of range")
 	end 'moveBy'
 
 	function sum() returns Integer
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'sum'
 
 	static function create(x Integer, y Integer) returns Self
@@ -273,9 +273,9 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create(10, y: 10)
+	var p = Point.create(10, y: 10)
 	p.moveBy(10, dy: 12)
-	return p.sum()
+	return try p.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -304,7 +304,7 @@ end 'Value'
 
 function main() returns ExitCode
 	let v = Value.create(42)
-	return v.isPositive()
+	return try v.isPositive() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -346,8 +346,8 @@ typealias Integer = int(i64.min to i64.max)
 type Calculator
 	var result as Integer
 
-	function compute(a Integer, b Integer, c Integer)
-		result = a + b * c
+	function compute(mutates self, a Integer, b Integer, c Integer)
+		result = try a + b * c otherwise panic("out of range")
 	end 'compute'
 
 	function get() returns Integer
@@ -360,9 +360,9 @@ type Calculator
 end 'Calculator'
 
 function main() returns ExitCode
-	let calc = Calculator.create(0)
+	var calc = Calculator.create(0)
 	calc.compute(10, c: 4, b: 8)
-	return calc.get()
+	return try calc.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -376,12 +376,12 @@ typealias Integer = int(i64.min to i64.max)
 
 type Factory
 	static function create(x Integer, y Integer) returns Integer
-		return x * 10 + y
+		return try x * 10 + y otherwise panic("out of range")
 	end 'create'
 end 'Factory'
 
 function main() returns ExitCode
-	return Factory.create(4, y: 2)
+	return try Factory.create(4, y: 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

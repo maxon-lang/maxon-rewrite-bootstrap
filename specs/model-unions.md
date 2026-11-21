@@ -765,7 +765,7 @@ function eatUT(u UT)
 	end 'x1'
 end 'eatUT'
 
-function f(u UT) returns UT
+function f(consumes u UT) returns UT
 	match u 'x1'
 		none then return u
 		have then return u
@@ -992,7 +992,7 @@ type Tk is noncopyable
 end 'Tk'
 
 function main() returns ExitCode
-	let sink = UTArray.create(0)
+	var sink = UTArray.create(0)
 	_ = UT.have(Tk.create(2))
 	let u = UT.have(Tk.create(1))
 	match u 'x1'
@@ -1291,7 +1291,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1336,7 +1336,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1385,13 +1385,13 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
 
 function main() returns ExitCode
-	let sink = HnArray.create(0)
+	var sink = HnArray.create(0)
 	_ = Hn.create(UT.none, k: 1)
 	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
 	match h.u 'x1'
@@ -1430,7 +1430,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1479,7 +1479,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1528,7 +1528,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1619,7 +1619,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1627,7 +1627,7 @@ end 'Hn'
 function main() returns ExitCode
 	_ = HnArray.create(0)
 	_ = Hn.create(UT.none, k: 1)
-	let h = Hn.create(UT.have(Tk.create(1)), k: 0)
+	var h = Hn.create(UT.have(Tk.create(1)), k: 0)
 	match h.u 'x1'
 		none then break
 		have then h.u = UT.none
@@ -1664,7 +1664,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1716,7 +1716,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1761,7 +1761,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1806,7 +1806,7 @@ type Hn
 	var u as UT
 	var k as Num
 
-	static function create(u UT, k Num) returns Self
+	static function create(consumes u UT, k Num) returns Self
 		return Self{u: u, k: k}
 	end 'create'
 end 'Hn'
@@ -1850,7 +1850,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -1894,7 +1894,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -1945,13 +1945,13 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
 
 function main() returns ExitCode
-	let sink = HdArray.create(0)
+	var sink = HdArray.create(0)
 	_ = Hd.create(UT.none)
 	let h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
@@ -1989,7 +1989,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2037,7 +2037,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2085,7 +2085,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2174,7 +2174,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2182,7 +2182,7 @@ end 'Hd'
 function main() returns ExitCode
 	_ = HdArray.create(0)
 	_ = Hd.create(UT.none)
-	let h = Hd.create(UT.have(Tk.create(1)))
+	var h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
 		have then h.u = UT.none
@@ -2218,7 +2218,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2269,7 +2269,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2313,7 +2313,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2357,7 +2357,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2401,7 +2401,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2410,7 +2410,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2454,7 +2454,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2463,7 +2463,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2512,7 +2512,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2521,13 +2521,13 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
 
 function main() returns ExitCode
-	let sink = HxArray.create(0)
+	var sink = HxArray.create(0)
 	_ = Hx.create(UT.none, h: Hd.create(UT.none))
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.h.u 'x1'
@@ -2565,7 +2565,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2574,7 +2574,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2622,7 +2622,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2631,7 +2631,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2679,7 +2679,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2688,7 +2688,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2786,7 +2786,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2795,7 +2795,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2803,7 +2803,7 @@ end 'Hx'
 function main() returns ExitCode
 	_ = HxArray.create(0)
 	_ = Hx.create(UT.none, h: Hd.create(UT.none))
-	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	var hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.h.u 'x1'
 		none then break
 		have then hV.h.u = UT.none
@@ -2839,7 +2839,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2848,7 +2848,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2899,7 +2899,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2908,7 +2908,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -2952,7 +2952,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -2961,7 +2961,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3005,7 +3005,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3014,7 +3014,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3058,7 +3058,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3067,7 +3067,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3111,7 +3111,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3120,7 +3120,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3169,7 +3169,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3178,13 +3178,13 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
 
 function main() returns ExitCode
-	let sink = HxArray.create(0)
+	var sink = HxArray.create(0)
 	_ = Hx.create(UT.none, h: Hd.create(UT.none))
 	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.u 'x1'
@@ -3222,7 +3222,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3231,7 +3231,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3279,7 +3279,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3288,7 +3288,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3336,7 +3336,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3345,7 +3345,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3443,7 +3443,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3452,7 +3452,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3460,7 +3460,7 @@ end 'Hx'
 function main() returns ExitCode
 	_ = HxArray.create(0)
 	_ = Hx.create(UT.none, h: Hd.create(UT.none))
-	let hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
+	var hV = Hx.create(UT.have(Tk.create(1)), h: Hd.create(UT.have(Tk.create(3))))
 	match hV.u 'x1'
 		none then break
 		have then hV.u = UT.none
@@ -3496,7 +3496,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3505,7 +3505,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3556,7 +3556,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3565,7 +3565,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3609,7 +3609,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3618,7 +3618,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -3662,7 +3662,7 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
@@ -3671,7 +3671,7 @@ type Hx is noncopyable
 	var u as UT
 	var h as Hd
 
-	static function create(u UT, h Hd) returns Self
+	static function create(consumes u UT, consumes h Hd) returns Self
 		return Self{u: u, h: h}
 	end 'create'
 end 'Hx'
@@ -4969,7 +4969,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function id(x UT) returns UT
+function id(consumes x UT) returns UT
 	return x
 end 'id'
 
@@ -5077,7 +5077,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function id(x UT) returns UT
+function id(consumes x UT) returns UT
 	return x
 end 'id'
 
@@ -5184,7 +5184,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function id(x UT) returns UT
+function id(consumes x UT) returns UT
 	return x
 end 'id'
 
@@ -5291,7 +5291,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function id(x UT) returns UT
+function id(consumes x UT) returns UT
 	return x
 end 'id'
 
@@ -5398,7 +5398,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function bothT(x UT, y Tk)
+function bothT(x UT, mutates y Tk)
 	y.n = 5
 	match x 'x1'
 		none then break
@@ -5478,7 +5478,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -5522,12 +5522,12 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -5563,7 +5563,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -5688,17 +5688,17 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
 
-function clearHd(x Hd)
+function clearHd(mutates x Hd)
 	x.u = UT.none
 end 'clearHd'
 
 function main() returns ExitCode
-	let h = Hd.create(UT.have(Tk.create(1)))
+	var h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
 		have then clearHd(h)
@@ -6941,7 +6941,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 
@@ -7674,13 +7674,13 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
 
 function main() returns ExitCode
-	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	var h = Ht.create(UT.have(Tk.create(1)), n: 0)
 	_ = Ht.create(UT.none, n: 0)
 	match h.u 'x1'
 		none then break
@@ -7798,12 +7798,12 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 
 function main() returns ExitCode
-	let h = Hp.create(UP.have(1), n: 0)
+	var h = Hp.create(UP.have(1), n: 0)
 	let g = Hp.create(UP.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
@@ -7832,12 +7832,12 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 
 function main() returns ExitCode
-	let h = Hp.create(UP.have(1), n: 0)
+	var h = Hp.create(UP.have(1), n: 0)
 	let g = Hp.create(UP.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
@@ -7955,7 +7955,7 @@ type Hr is noncopyable
 	var v as UT
 	var n as Num
 
-	static function create(v UT, n Num) returns Self
+	static function create(consumes v UT, n Num) returns Self
 		return Self{v: v, n: n}
 	end 'create'
 end 'Hr'
@@ -7964,13 +7964,13 @@ type Hu is noncopyable
 	var u as Hr
 	var n as Num
 
-	static function create(u Hr, n Num) returns Self
+	static function create(consumes u Hr, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hu'
 
 function main() returns ExitCode
-	let k = Hu.create(Hr.create(UT.have(Tk.create(2)), n: 0), n: 0)
+	var k = Hu.create(Hr.create(UT.have(Tk.create(2)), n: 0), n: 0)
 	match k.u.v 'x1'
 		none then break
 		have then k.n = 5
@@ -8005,7 +8005,7 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
@@ -8048,7 +8048,7 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
@@ -8090,7 +8090,7 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
@@ -8137,7 +8137,7 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
@@ -10975,7 +10975,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function idU(x UT) returns UT
+function idU(consumes x UT) returns UT
 	return x
 end 'idU'
 
@@ -11456,7 +11456,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11497,7 +11497,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11538,7 +11538,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11579,7 +11579,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11627,7 +11627,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11675,7 +11675,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11723,7 +11723,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11775,7 +11775,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11827,7 +11827,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11879,7 +11879,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11887,13 +11887,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then h.n = 5
 		have then break
@@ -11929,7 +11929,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11937,13 +11937,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.n = 5
@@ -11979,7 +11979,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -11987,13 +11987,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then h.n = 5
 		have then h.n = 5
@@ -12029,7 +12029,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12037,13 +12037,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then h.u = UQ.none
 		have then break
@@ -12079,7 +12079,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12087,13 +12087,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.u = UQ.none
@@ -12129,7 +12129,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12137,13 +12137,13 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then h.u = UQ.none
 		have then h.u = UQ.none
@@ -12179,7 +12179,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12187,17 +12187,17 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then setH(h)
 		have then break
@@ -12233,7 +12233,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12241,17 +12241,17 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then break
 		have then setH(h)
@@ -12287,7 +12287,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12295,17 +12295,17 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	match h.u 'x1'
 		none then setH(h)
 		have then setH(h)
@@ -12341,7 +12341,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12349,7 +12349,7 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
@@ -12398,7 +12398,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12406,7 +12406,7 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
@@ -12455,7 +12455,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12463,7 +12463,7 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
@@ -12512,7 +12512,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12520,12 +12520,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then h.n = 5
 		have then break
@@ -12533,7 +12533,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12566,7 +12566,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12574,12 +12574,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then break
 		have then h.n = 5
@@ -12587,7 +12587,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12620,7 +12620,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12628,12 +12628,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then h.n = 5
 		have then h.n = 5
@@ -12641,7 +12641,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12674,7 +12674,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12682,12 +12682,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then h.u = UQ.none
 		have then break
@@ -12695,7 +12695,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12728,7 +12728,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12736,12 +12736,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then break
 		have then h.u = UQ.none
@@ -12749,7 +12749,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12782,7 +12782,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12790,12 +12790,12 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then h.u = UQ.none
 		have then h.u = UQ.none
@@ -12803,7 +12803,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12836,7 +12836,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12844,16 +12844,16 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then setH(h)
 		have then break
@@ -12861,7 +12861,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12894,7 +12894,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12902,16 +12902,16 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then break
 		have then setH(h)
@@ -12919,7 +12919,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -12952,7 +12952,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -12960,16 +12960,16 @@ type Hq is noncopyable
 	var u as UQ
 	var n as Num
 
-	static function create(u UQ, n Num) returns Self
+	static function create(consumes u UQ, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hq'
 
-function setH(h Hq)
+function setH(mutates h Hq)
 	h.n = 7
 end 'setH'
 
-function f(h Hq)
+function f(mutates h Hq)
 	match h.u 'x1'
 		none then setH(h)
 		have then setH(h)
@@ -12977,7 +12977,7 @@ function f(h Hq)
 end 'f'
 
 function main() returns ExitCode
-	let h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
+	var h = Hq.create(UQ.have(Tq.create(1, b: Bx.create(2))), n: 0)
 	f(h)
 	return 0
 end 'main'
@@ -13223,7 +13223,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -13265,7 +13265,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -13306,7 +13306,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -13354,7 +13354,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -13567,12 +13567,12 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 
 function main() returns ExitCode
-	let h = Hp.create(UP.have(Pb.create(1)), n: 0)
+	var h = Hp.create(UP.have(Pb.create(1)), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.u = UP.none
@@ -13737,12 +13737,12 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 
 function main() returns ExitCode
-	let h = Hp.create(UP.have(Pb.create(1)), n: 0)
+	var h = Hp.create(UP.have(Pb.create(1)), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.n = 5
@@ -14236,13 +14236,13 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
 
 function main() returns ExitCode
-	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	var h = Ht.create(UT.have(Tk.create(1)), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.u = UT.none
@@ -14375,13 +14375,13 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
 
 function main() returns ExitCode
-	let h = Ht.create(UT.have(Tk.create(1)), n: 0)
+	var h = Ht.create(UT.have(Tk.create(1)), n: 0)
 	match h.u 'x1'
 		none then break
 		have then h.n = 5
@@ -14476,12 +14476,12 @@ type He is noncopyable
 	var n as Num
 
 	static function create(u En, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'He'
 
 function main() returns ExitCode
-	let h = He.create(En.b, n: 0)
+	var h = He.create(En.b, n: 0)
 	match h.u 'x1'
 		a then break
 		b then h.u = En.a
@@ -14576,12 +14576,12 @@ type He is noncopyable
 	var n as Num
 
 	static function create(u En, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'He'
 
 function main() returns ExitCode
-	let h = He.create(En.b, n: 0)
+	var h = He.create(En.b, n: 0)
 	match h.u 'x1'
 		a then break
 		b then h.n = 5
@@ -15463,12 +15463,12 @@ type Hp is noncopyable
 	var n as Num
 
 	static function create(u UP, n Num) returns Self
-		return Self{u: u, n: n}
+		return Self{u: u.clone(), n: n}
 	end 'create'
 end 'Hp'
 
 function main() returns ExitCode
-	let h = Hp.create(UP.have(1), n: 0)
+	var h = Hp.create(UP.have(1), n: 0)
 	let g = Hp.create(UP.none, n: 0)
 	match (h if 1 != 0 else g).u 'x1'
 		none then break
@@ -15504,7 +15504,7 @@ type Ht is noncopyable
 	var u as UT
 	var n as Num
 
-	static function create(u UT, n Num) returns Self
+	static function create(consumes u UT, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Ht'
@@ -15894,13 +15894,13 @@ type Hm is noncopyable
 	var u as UM
 	var n as Num
 
-	static function create(u UM, n Num) returns Self
+	static function create(consumes u UM, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hm'
 
 function main() returns ExitCode
-	let h = Hm.create(UM.pl(1), n: 0)
+	var h = Hm.create(UM.pl(1), n: 0)
 	match h.u 'x1'
 		none then break
 		pl then break
@@ -15937,13 +15937,13 @@ type Hm is noncopyable
 	var u as UM
 	var n as Num
 
-	static function create(u UM, n Num) returns Self
+	static function create(consumes u UM, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hm'
 
 function main() returns ExitCode
-	let h = Hm.create(UM.pl(1), n: 0)
+	var h = Hm.create(UM.pl(1), n: 0)
 	match h.u 'x1'
 		none then break
 		pl then h.n = 5
@@ -15980,13 +15980,13 @@ type Hm is noncopyable
 	var u as UM
 	var n as Num
 
-	static function create(u UM, n Num) returns Self
+	static function create(consumes u UM, n Num) returns Self
 		return Self{u: u, n: n}
 	end 'create'
 end 'Hm'
 
 function main() returns ExitCode
-	let h = Hm.create(UM.pl(1), n: 0)
+	var h = Hm.create(UM.pl(1), n: 0)
 	match h.u 'x1'
 		none then break
 		pl(x) then h.n = x
@@ -17111,13 +17111,13 @@ end 'Tk'
 type Hd is noncopyable
 	var u as UT
 
-	static function create(u UT) returns Self
+	static function create(consumes u UT) returns Self
 		return Self{u: u}
 	end 'create'
 end 'Hd'
 
 function main() returns ExitCode
-	let h = Hd.create(UT.have(Tk.create(1)))
+	var h = Hd.create(UT.have(Tk.create(1)))
 	match h.u 'x1'
 		none then break
 		have then h.u = UT.none

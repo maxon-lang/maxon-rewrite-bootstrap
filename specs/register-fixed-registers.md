@@ -55,14 +55,14 @@ across the call too, so its `RAX` birth hint must MISS and it must land callee-s
 `a = 100`, `q = 100 / 7 = 14` (7·14 = 98), `s = sink(3) = 4`; `100 + 14 + 4 = 118`.
 ```maxon
 function sink(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'sink'
 
 function f(p Integer) returns Integer
-	let a = p + 100
+	let a = try p + 100 otherwise panic("out of range")
 	let q = a / 7
 	let s = sink(3)
-	return a + q + s
+	return try a + q + s otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode
@@ -90,7 +90,7 @@ the remainder before `mov rax, m` reads it, and the third argument silently beco
 (The clobber above would give `take3(1, 19, 19)` = 11919.)
 ```maxon
 function take3(p1 Integer, p2 Integer, p3 Integer) returns Integer
-	return p1 * 10000 + p2 * 100 + p3
+	return try p1 * 10000 + p2 * 100 + p3 otherwise panic("out of range")
 end 'take3'
 
 function main() returns ExitCode
@@ -120,7 +120,7 @@ digit.
 Digits `8,4,6,3,2,5` → `800000 + 40000 + 6000 + 300 + 20 + 5` = 846325.
 ```maxon
 function digits6(p1 Integer, p2 Integer, p3 Integer, p4 Integer, p5 Integer, p6 Integer) returns Integer
-	return p1 * 100000 + p2 * 10000 + p3 * 1000 + p4 * 100 + p5 * 10 + p6
+	return try p1 * 100000 + p2 * 10000 + p3 * 1000 + p4 * 100 + p5 * 10 + p6 otherwise panic("out of range")
 end 'digits6'
 
 function main() returns ExitCode
@@ -164,16 +164,16 @@ callee-saved registers with no spill, which is the claim above and is what the e
 ```maxon
 
 function digits6(p1 Integer, p2 Integer, p3 Integer, p4 Integer, p5 Integer, p6 Integer) returns Integer
-	return p1 * 100000 + p2 * 10000 + p3 * 1000 + p4 * 100 + p5 * 10 + p6
+	return try p1 * 100000 + p2 * 10000 + p3 * 1000 + p4 * 100 + p5 * 10 + p6 otherwise panic("out of range")
 end 'digits6'
 
 function divsAcross(p Integer) returns Integer
-	let n1 = p + 100
-	let n2 = p + 45
-	let n3 = p + 23
-	let d1 = p + 12
-	let d2 = p + 7
-	let d3 = p + 9
+	let n1 = try p + 100 otherwise panic("out of range")
+	let n2 = try p + 45 otherwise panic("out of range")
+	let n3 = try p + 23 otherwise panic("out of range")
+	let d1 = try p + 12 otherwise panic("out of range")
+	let d2 = try p + 7 otherwise panic("out of range")
+	let d3 = try p + 9 otherwise panic("out of range")
 	let q1 = try (n1 / d1) otherwise panic("d1 is never zero")
 	let q2 = try (n1 mod d1) otherwise panic("d1 is never zero")
 	let q3 = try (n2 / d2) otherwise panic("d2 is never zero")
@@ -181,7 +181,7 @@ function divsAcross(p Integer) returns Integer
 	let q5 = try (n3 / d3) otherwise panic("d3 is never zero")
 	let q6 = try (n3 mod d3) otherwise panic("d3 is never zero")
 	let r = digits6(q1, p2: q2, p3: q3, p4: q4, p5: q5, p6: q6)
-	return r + q1 * 100000 + q2 * 10000 + q3 * 1000 + q4 * 100 + q5 * 10 + q6
+	return try r + q1 * 100000 + q2 * 10000 + q3 * 1000 + q4 * 100 + q5 * 10 + q6 otherwise panic("out of range")
 end 'divsAcross'
 
 function main() returns ExitCode
@@ -283,7 +283,7 @@ Its only home is the callee-saved set, and the prologue must push it.
 `bump` destroys it, so the divide runs on garbage.
 ```maxon
 function bump(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
@@ -291,7 +291,7 @@ function main() returns ExitCode
 	let d = 6 as Integer
 	let t = bump(d)
 	let q = n / d
-	let r = q + t
+	let r = try q + t otherwise panic("out of range")
 	if r == 90 'ok'
 		return 0
 	end 'ok'
@@ -312,7 +312,7 @@ is a real move out of a callee-saved register.
 `1000 / 7 = 142` (994); `twice(142) = 284`; `142 + 284 = 426`.
 ```maxon
 function twice(x Integer) returns Integer
-	return x + x
+	return try x + x otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
@@ -320,7 +320,7 @@ function main() returns ExitCode
 	let d = 7
 	let q = n / d
 	let t = twice(q)
-	let r = q + t
+	let r = try q + t otherwise panic("out of range")
 	if r == 426 'ok'
 		return 0
 	end 'ok'
@@ -357,20 +357,20 @@ bound. `i` runs 1..6, so the guard never fires.
 ```maxon
 
 function press(p Integer) returns Integer
-	let k1 = p + 11
-	let k2 = p + 12
-	let k3 = p + 13
-	let k4 = p + 14
-	let k5 = p + 15
-	let k6 = p + 16
-	let k7 = p + 17
-	let k8 = p + 18
-	let k9 = p + 19
+	let k1 = try p + 11 otherwise panic("out of range")
+	let k2 = try p + 12 otherwise panic("out of range")
+	let k3 = try p + 13 otherwise panic("out of range")
+	let k4 = try p + 14 otherwise panic("out of range")
+	let k5 = try p + 15 otherwise panic("out of range")
+	let k6 = try p + 16 otherwise panic("out of range")
+	let k7 = try p + 17 otherwise panic("out of range")
+	let k8 = try p + 18 otherwise panic("out of range")
+	let k9 = try p + 19 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 1 as Integer
 	while i <= 5 'loop'
-		let t = k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9
-		sum = sum + (try (t / i) otherwise panic("i is never zero"))
+		let t = try k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 otherwise panic("out of range")
+		sum = try sum + (try (t / i) otherwise panic("i is never zero")) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return sum

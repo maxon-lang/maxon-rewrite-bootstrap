@@ -141,7 +141,7 @@ end 'Pair'
 typealias PairList = List with Pair
 
 function main() returns ExitCode
-	let list = PairList.create()
+	var list = PairList.create()
 	list.prepend(Pair.create(3, b: 30))
 	list.prepend(Pair.create(2, b: 20))
 	list.prepend(Pair.create(1, b: 10))

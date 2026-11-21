@@ -154,14 +154,14 @@ typealias CellArray = Array with Cell
 type Chain uses T
 	export var seed as T
 
-	static function create(seed T) returns Self
+	static function create(consumes seed T) returns Self
 		return Self{seed: seed}
 	end 'create'
 
 	function churn(d Num) returns Num
 		print("churn\n")
 		let pad = 1
-		let arr = CellArray.create(0)
+		var arr = CellArray.create(0)
 		arr.push(Cell.init(pad))
 		let missed = try arr.get(7) otherwise Cell.init(3)
 		return try (missed.v / d) otherwise 9
@@ -172,7 +172,7 @@ typealias NumChain = Chain with Num
 
 function main() returns ExitCode
 	let ch = NumChain.create(1)
-	return ch.churn(0)
+	return ch.churn(0) as ExitCode
 end 'main'
 ```
 ```stdout

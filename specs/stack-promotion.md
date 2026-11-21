@@ -28,7 +28,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.create(10, y: 20)
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -50,9 +50,9 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create(1, y: 2)
+	var p = Point.create(1, y: 2)
 	p.x = 100
-	return p.x
+	return p.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -76,7 +76,7 @@ end 'Point'
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
 	let b = a
-	return b.x
+	return try b.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -103,7 +103,7 @@ end 'readX'
 
 function main() returns ExitCode
 	let p = Point.create(42, y: 0)
-	return readX(p)
+	return try readX(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -126,11 +126,11 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	let item = Item.create(7)
 	arr.push(item)
 	let got = try arr.get(0) otherwise Item.create(0)
-	return got.value
+	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -157,7 +157,7 @@ end 'makePoint'
 
 function main() returns ExitCode
 	let p = makePoint(5, y: 10)
-	return p.x
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -61,7 +61,7 @@ end 'Slot'
 
 function bump(s Slot)
 	match s 'step'
-		holding(c) then c.n = c.n + 32
+		holding(c) then c.n = try c.n + 32 otherwise panic("out of range")
 		empty then return
 	end 'step'
 end 'bump'
@@ -70,7 +70,7 @@ function main() returns ExitCode
 	let s = Slot.holding(Counter.create(10))
 	bump(s)
 	match s 'read'
-		holding(c) then return c.n
+		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
 		empty then return 0
 	end 'read'
 end 'main'
@@ -99,8 +99,8 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raise(c Counter)
-	c.n = c.n + 32
+function raise(mutates c Counter)
+	c.n = try c.n + 32 otherwise panic("out of range")
 end 'raise'
 
 function bump(s Slot)
@@ -114,7 +114,7 @@ function main() returns ExitCode
 	let s = Slot.holding(Counter.create(10))
 	bump(s)
 	match s 'read'
-		holding(c) then return c.n
+		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
 		empty then return 0
 	end 'read'
 end 'main'
@@ -142,14 +142,14 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raiseAndRead(c Counter) returns Integer
-	c.n = c.n + 32
+function raiseAndRead(mutates c Counter) returns Integer
+	c.n = try c.n + 32 otherwise panic("out of range")
 	return c.n
 end 'raiseAndRead'
 
 function main() returns ExitCode
 	match Slot.holding(Counter.create(10)) 'step'
-		holding(c) then return raiseAndRead(c)
+		holding(c) then return try raiseAndRead(c) as ExitCode otherwise panic("out of range")
 		empty then return 0
 	end 'step'
 end 'main'
@@ -177,8 +177,8 @@ union Slot
 	holding(c Counter)
 end 'Slot'
 
-function raise(c Counter)
-	c.n = c.n + 32
+function raise(mutates c Counter)
+	c.n = try c.n + 32 otherwise panic("out of range")
 end 'raise'
 
 function makeSlot() returns Slot
@@ -192,7 +192,7 @@ function main() returns ExitCode
 		empty then return 0
 	end 'step'
 	match s 'read'
-		holding(c) then return c.n
+		holding(c) then return try c.n as ExitCode otherwise panic("out of range")
 		empty then return 0
 	end 'read'
 end 'main'
@@ -218,7 +218,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle}
+		return Self{settle: settle.clone()}
 	end 'create'
 end 'Holder'
 
@@ -231,20 +231,20 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(settle Settle)
+	function keep(mutates self, settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(count Integer)
+	function run(mutates self, count Integer)
 		self.keep(Settle.someMoved(count))
 		self.keep(Settle.moved)
 	end 'run'
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	registry.run(3)
-	return registry.held.count() as ExitCode
+	return try registry.held.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -266,7 +266,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle}
+		return Self{settle: settle.clone()}
 	end 'create'
 end 'Holder'
 
@@ -279,20 +279,20 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(settle Settle)
+	function keep(mutates self, settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(count Integer)
+	function run(mutates self, count Integer)
 		let settle = Settle.someMoved(count)
 		self.keep(settle)
 	end 'run'
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	registry.run(3)
-	return registry.held.count() as ExitCode
+	return try registry.held.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -314,7 +314,7 @@ type Holder
 	export let settle as Settle
 
 	static function create(settle Settle) returns Self
-		return Self{settle: settle}
+		return Self{settle: settle.clone()}
 	end 'create'
 end 'Holder'
 
@@ -327,11 +327,11 @@ type Registry
 		return Self{held: HolderArray.create(0)}
 	end 'create'
 
-	function keep(settle Settle)
+	function keep(mutates self, settle Settle)
 		self.held.push(Holder.create(settle))
 	end 'keep'
 
-	function run(count Integer)
+	function run(mutates self, count Integer)
 		let settle = Settle.someMoved(count)
 		self.keep(settle)
 		self.keep(settle)
@@ -339,9 +339,9 @@ type Registry
 end 'Registry'
 
 function main() returns ExitCode
-	let registry = Registry.create()
+	var registry = Registry.create()
 	registry.run(3)
-	return registry.held.count() as ExitCode
+	return try registry.held.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -415,8 +415,8 @@ type Counter
 		return Self{n: n}
 	end 'create'
 
-	function raise()
-		self.n = self.n + 32
+	function raise(mutates self)
+		self.n = try self.n + 32 otherwise panic("out of range")
 	end 'raise'
 end 'Counter'
 
@@ -437,7 +437,7 @@ function main() returns ExitCode
 		empty then seen = 1
 	end 'step'
 	match s 'read'
-		holding(c) then return c.n + seen
+		holding(c) then return try c.n + seen otherwise panic("out of range")
 		empty then return 0
 	end 'read'
 end 'main'
@@ -459,8 +459,8 @@ type Counter
 		return Self{n: n}
 	end 'create'
 
-	function raise()
-		self.n = self.n + 32
+	function raise(mutates self)
+		self.n = try self.n + 32 otherwise panic("out of range")
 	end 'raise'
 end 'Counter'
 
@@ -481,7 +481,7 @@ function main() returns ExitCode
 		empty then seen = 1
 	end 'step'
 	match s 'read'
-		holding(c) then return c.n + seen
+		holding(c) then return try c.n + seen otherwise panic("out of range")
 		empty then return 0
 	end 'read'
 end 'main'

@@ -40,7 +40,7 @@ function plot(p Point) returns String
 end 'plot'
 
 function main() returns ExitCode
-	let cursor = Point.create(0, y: 0)
+	var cursor = Point.create(0, y: 0)
 	cursor.x = 7
 	let pinned = freeze(Point.create(2, y: 3))
 	print("{plot(pinned)} {plot(cursor)}\n")

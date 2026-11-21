@@ -28,7 +28,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -40,20 +40,20 @@ type Table
 		return Self{visits: 0, fixed: "beta".toByteArray()}
 	end 'create'
 
-	function touch()
-		self.visits = self.visits + 1
+	function touch(mutates self)
+		self.visits = try self.visits + 1 otherwise panic("out of range")
 	end 'touch'
 
 	function fixedName() returns ByteArray
-		return self.fixed
+		return self.fixed.clone()
 	end 'fixedName'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	table.touch()
 	let label = Label.create(table.fixedName())
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -298,7 +298,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -310,23 +310,23 @@ type Table
 		return Self{visits: 0, fixed: "beta".toByteArray()}
 	end 'create'
 
-	function touch()
-		self.visits = self.visits + 1
+	function touch(mutates self)
+		self.visits = try self.visits + 1 otherwise panic("out of range")
 	end 'touch'
 
 	function pick(useFixed bool) returns ByteArray
 		if useFixed 'fixed'
-			return self.fixed
+			return self.fixed.clone()
 		end 'fixed'
 		return ByteArray.create(0)
 	end 'pick'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	table.touch()
 	let label = Label.create(table.pick(true))
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -386,7 +386,7 @@ type Label
 	export let text as ByteArray
 
 	static function create(text ByteArray) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
@@ -395,28 +395,28 @@ type Table
 	let fixed as ByteArray
 
 	static function create() returns Self
-		let names = NameList.create(0)
+		var names = NameList.create(0)
 		names.push("alpha".toByteArray())
 		return Self{names: names, fixed: "beta".toByteArray()}
 	end 'create'
 
-	function register(name ByteArray)
-		self.names.push(name)
+	function register(mutates self, name ByteArray)
+		self.names.push(name.clone())
 	end 'register'
 
 	function pick(useFixed bool) returns ByteArray
 		if useFixed 'fixed'
-			return self.fixed
+			return self.fixed.clone()
 		end 'fixed'
 		return try self.names.get(0) otherwise panic("pick: no names")
 	end 'pick'
 end 'Table'
 
 function main() returns ExitCode
-	let table = Table.create()
+	var table = Table.create()
 	table.register("gamma".toByteArray())
 	let label = Label.create(table.pick(true))
-	return label.text.count() as ExitCode
+	return try label.text.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

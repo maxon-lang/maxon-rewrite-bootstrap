@@ -1597,7 +1597,7 @@ type Rl
 	end 'fin'
 end 'Rl'
 
-function use(r Rl)
+function use(consumes r Rl)
 	r.fin(1)
 end 'use'
 
@@ -2293,7 +2293,7 @@ type Q
 		return Self{n: n}
 	end 'create'
 
-	function fin(destructs self, o Resp)
+	function fin(destructs self, consumes o Resp)
 		o.fin(1)
 	end 'fin'
 end 'Q'
@@ -2820,7 +2820,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -2907,7 +2907,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -2999,7 +2999,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -4444,7 +4444,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function ckr(r Resp) returns Num
+function ckr(consumes r Resp) returns Num
 	r.fin(1)
 	return 0
 end 'ckr'
@@ -6153,7 +6153,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function passR(r Resp) returns Resp
+function passR(consumes r Resp) returns Resp
 	return r
 end 'passR'
 
@@ -6847,7 +6847,7 @@ type Q
 		return Self{n: n}
 	end 'create'
 
-	function f(destructs self, r Resp)
+	function f(destructs self, consumes r Resp)
 		r.fin(1)
 	end 'f'
 end 'Q'
@@ -8813,7 +8813,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -9237,7 +9237,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -9325,7 +9325,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -9474,7 +9474,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -9520,7 +9520,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -12530,7 +12530,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -12573,7 +12573,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function useR(r Resp)
+function useR(consumes r Resp)
 	r.fin(1)
 end 'useR'
 
@@ -12687,7 +12687,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -13004,7 +13004,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function f(r Resp)
+function f(consumes r Resp)
 	if 1 != 0 'i1'
 		let r = Resp.create(1)
 		r.fin(1)
@@ -13178,7 +13178,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -14477,7 +14477,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function ckr(r Resp) returns Num
+function ckr(consumes r Resp) returns Num
 	r.fin(1)
 	return 0
 end 'ckr'
@@ -14746,7 +14746,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15256,7 +15256,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15345,7 +15345,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15535,7 +15535,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15823,7 +15823,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -15953,7 +15953,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -16040,7 +16040,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -16049,7 +16049,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function nxt(r Resp) returns Resp
+function nxt(consumes r Resp) returns Resp
 	r.fin(1)
 	return Resp.create(2)
 end 'nxt'
@@ -16086,7 +16086,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -16095,7 +16095,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function keepR(r Resp) returns Resp
+function keepR(consumes r Resp) returns Resp
 	return r
 end 'keepR'
 
@@ -16482,7 +16482,7 @@ type Resp
 		return self.code
 	end 'peek'
 
-	function bump()
+	function bump(mutates self)
 		self.code = lg(1)
 	end 'bump'
 end 'Resp'
@@ -17423,7 +17423,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -17520,7 +17520,7 @@ type Resp
 	end 'peek'
 end 'Resp'
 
-function giveS(r Resp) returns Sent
+function giveS(consumes r Resp) returns Sent
 	return Sent.notSent(r)
 end 'giveS'
 
@@ -20812,7 +20812,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -20830,7 +20830,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	let y = Bx.create(5)
+	var y = Bx.create(5)
 	let u = Mp.m1(Bx.create(1))
 	match u 'x1'
 		m0(x) then x.fin(1)
@@ -20875,7 +20875,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -20940,7 +20940,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -20958,7 +20958,7 @@ type Bx
 end 'Bx'
 
 function main() returns ExitCode
-	let b = Bx.create(1)
+	var b = Bx.create(1)
 	let u = Mp.m1(b)
 	match u 'x1'
 		m0(x) then x.fin(1)
@@ -21003,7 +21003,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -21021,7 +21021,7 @@ type Bx
 end 'Bx'
 
 function buildw(b Bx) returns Mp
-	return Mp.m1(b)
+	return Mp.m1(b.clone())
 end 'buildw'
 
 function main() returns ExitCode
@@ -24783,7 +24783,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -25132,7 +25132,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -25200,7 +25200,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -25268,7 +25268,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -25294,7 +25294,7 @@ function eatUq(p Uq)
 end 'eatUq'
 
 function main() returns ExitCode
-	let b = Bx.create(1)
+	var b = Bx.create(1)
 	var u = Uq.s(b)
 	u = Uq.r(Rl.create(1))
 	b.n = 3
@@ -30744,7 +30744,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -30757,7 +30757,7 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function idRl(x Rl) returns Rl
+function idRl(consumes x Rl) returns Rl
 	return x
 end 'idRl'
 
@@ -31756,7 +31756,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -31765,15 +31765,15 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function a1(r Rl)
+function a1(consumes r Rl)
 	a2(r)
 end 'a1'
 
-function a2(r Rl)
+function a2(consumes r Rl)
 	a3(r)
 end 'a2'
 
-function a3(r Rl)
+function a3(consumes r Rl)
 	r.fin(1)
 end 'a3'
 
@@ -31812,7 +31812,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -31863,7 +31863,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -31872,7 +31872,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function thru(r Rl) returns Rl
+function thru(consumes r Rl) returns Rl
 	return r
 end 'thru'
 
@@ -33272,7 +33272,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -33301,7 +33301,7 @@ function fin2(m Mp)
 end 'fin2'
 
 function main() returns ExitCode
-	let b = Bx.create(1)
+	var b = Bx.create(1)
 	fin2(Mp.m1(b))
 	b.n = 5
 	return 0
@@ -33342,7 +33342,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -33375,7 +33375,7 @@ function relay2(m Mp)
 end 'relay2'
 
 function main() returns ExitCode
-	let b = Bx.create(1)
+	var b = Bx.create(1)
 	relay2(Mp.m1(b))
 	b.n = 5
 	return 0
@@ -33821,7 +33821,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -33830,7 +33830,7 @@ type Rl
 	end 'wrap'
 end 'Rl'
 
-function f(r Rl)
+function f(consumes r Rl)
 	r.fin(1)
 end 'f'
 
@@ -33916,7 +33916,7 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
@@ -33925,7 +33925,7 @@ type Lq
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function take(destructs self) returns Bx
@@ -33939,13 +33939,13 @@ type Lq
 	end 'whole'
 
 	function look() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'look'
 end 'Lq'
 
 function main() returns ExitCode
 	let q = Lq.create(1, b: Bx.create(2))
-	let bV = q.take()
+	var bV = q.take()
 	bV.n = 4
 	return 0
 end 'main'
@@ -36021,7 +36021,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 
@@ -36226,7 +36226,7 @@ type Rl
 		return self.code
 	end 'peek'
 
-	function set(c Num)
+	function set(mutates self, c Num)
 		self.code = c
 	end 'set'
 

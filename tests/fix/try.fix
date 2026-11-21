@@ -1,0 +1,11 @@
+// An operation that may leave its range, outside a try, is covered by a try around the whole arithmetic expression.
+typealias Score = int(0 to 100)
+
+function bonus(s Score, extra Score) returns Score
+	return s * 2 + extra
+end 'bonus'
+
+function main() returns ExitCode
+	print("{bonus(3, extra: 4)}\n")
+	return 0
+end 'main'

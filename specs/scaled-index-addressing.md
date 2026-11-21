@@ -179,20 +179,20 @@ Both are fed from a loop counter so nothing here is constant-folded away.
 typealias Word = int(i64.min to i64.max)
 
 function scaledAddress(base Word, i Word) returns Word
-	return base + i * 8
+	return try base + i * 8 otherwise panic("out of range")
 end 'scaledAddress'
 
 function sharedScaling(base Word, i Word) returns Word
-	let scaled = i * 8
-	let hi = base + scaled
-	let lo = base - scaled
-	return hi + lo + scaled
+	let scaled = try i * 8 otherwise panic("out of range")
+	let hi = try base + scaled otherwise panic("out of range")
+	let lo = try base - scaled otherwise panic("out of range")
+	return try hi + lo + scaled otherwise panic("out of range")
 end 'sharedScaling'
 
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 4 'feed'
-		seed = seed + scaledAddress(i, i: i + 1) + sharedScaling(i, i: i + 2)
+		seed = try seed + scaledAddress(i, i: i + 1) + sharedScaling(i, i: i + 2) otherwise panic("out of range")
 	end 'feed'
 	// scaledAddress: 8, 17, 26, 35 = 86.  sharedScaling: 2*base + 8*(i+2) = 16, 26, 36, 46 = 124.
 	if seed != 210 'value'

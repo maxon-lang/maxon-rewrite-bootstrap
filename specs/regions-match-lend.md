@@ -702,7 +702,7 @@ type Tk is noncopyable
 	function plus(u Ut) returns Num
 		return match u 'inner'
 			none gives self.n
-			have(x) gives self.n + x.n
+			have(x) gives try self.n + x.n otherwise panic("out of range")
 		end 'inner'
 	end 'plus'
 end 'Tk'
@@ -714,7 +714,7 @@ union Ut
 	function total(t Tk) returns Num
 		return match self 'inner'
 			none gives t.n
-			have(x) gives t.n + x.n
+			have(x) gives try t.n + x.n otherwise panic("out of range")
 		end 'inner'
 	end 'total'
 end 'Ut'
@@ -956,7 +956,7 @@ function both(u Ut, t Tk) returns Num
 		none gives 0
 		have(x) gives x.n
 	end 'inner'
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'both'
 
 function main() returns ExitCode
@@ -1495,7 +1495,7 @@ union Slot
 	held(t Token)
 end 'Slot'
 
-function passOn(s Slot) returns Slot
+function passOn(consumes s Slot) returns Slot
 	return s
 end 'passOn'
 
@@ -1615,13 +1615,13 @@ type Holder is noncopyable
 	var u as Mixed
 	var n as Num
 
-	static function create(u Mixed) returns Self
+	static function create(consumes u Mixed) returns Self
 		return Self{u: u, n: 0}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Mixed.plain(5))
+	var h = Holder.create(Mixed.plain(5))
 	match h.u 'which'
 		none then break
 		plain(n) then h.n = n
@@ -1745,7 +1745,7 @@ function main() returns ExitCode
 	end 'first'
 	match s 'second'
 		empty then break
-		held(b) then total = total + b.n
+		held(b) then total = try total + b.n otherwise panic("out of range")
 	end 'second'
 	print("{total}\n")
 	return 0
@@ -4834,7 +4834,7 @@ end 'Slot'
 
 function next(b Box, step Count) returns Slot
 	if step < 3 'more'
-		return Slot.held(Box.create(step + b.n))
+		return Slot.held(Box.create(try step + b.n otherwise panic("out of range")))
 	end 'more'
 	return Slot.empty
 end 'next'
@@ -4845,7 +4845,7 @@ function main() returns ExitCode
 	for _ in 0 upto 5 'lap'
 		match next(v, step: k) 'm'
 			empty then break
-			held(x) then k = x.n + 1
+			held(x) then k = try x.n + 1 otherwise panic("out of range")
 		end 'm'
 	end 'lap'
 	print("{k}\n")

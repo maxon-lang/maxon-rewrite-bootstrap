@@ -88,17 +88,17 @@ typealias WordArray = Array with Word
 function clampedSum(a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i) otherwise 7)
+		t = try t + (try a.get(i) otherwise 7) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'clampedSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 1 to 5 'seed'
 		a.push(i)
 	end 'seed'
-	return clampedSum(a, n: 9)
+	return try clampedSum(a, n: 9) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -159,7 +159,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return walkDown(a, start: 2)
+	return walkDown(a, start: 2) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -174,6 +174,7 @@ Stack trace:
 ```
 
 <!-- test: a-sunk-panic-handler-still-fires -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control. The sixth index is past the end, so the sunk `otherwise panic` handler runs.
 ```maxon
 typealias Word = int(i64.min to i64.max)

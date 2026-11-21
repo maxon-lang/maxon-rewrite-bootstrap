@@ -345,7 +345,7 @@ let NoColumn = Column.unwritten
 function main() returns ExitCode
 	match NoColumn 'probe'
 		unwritten then return 0
-		entries(c) then return c.count() as ExitCode
+		entries(c) then return try c.count() as ExitCode otherwise panic("out of range")
 	end 'probe'
 end 'main'
 ```
@@ -433,7 +433,7 @@ end 'Facts'
 
 function main() returns ExitCode
 	let facts = Facts.create()
-	return (facts.counts.count() + facts.names.count()) as ExitCode
+	return try (facts.counts.count() + facts.names.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -737,7 +737,7 @@ end 'Holder'
 typealias HolderArray = Array with Holder
 
 function main() returns ExitCode
-	let all = HolderArray.create(0)
+	var all = HolderArray.create(0)
 	all.push(Holder.holding(Body.create(7)))
 	all.push(Holder.empty)
 	let first = try all.get(0) otherwise return 99

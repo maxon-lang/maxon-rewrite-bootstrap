@@ -83,17 +83,17 @@ type Blk
 		return Self{args: NumArray.create(0)}
 	end 'create'
 
-	function setArgs(x NumArray)
-		self.args = x
+	function setArgs(mutates self, x NumArray)
+		self.args = x.clone()
 	end 'setArgs'
 end 'Blk'
 
 function main() returns ExitCode
 	var i = 0 as Num
 	while i < 3000 'l'
-		let a = Blk.create()
+		var a = Blk.create()
 		a.args.push(i)
-		let b = Blk.create()
+		var b = Blk.create()
 		b.setArgs(a.args)
 		i = i + 1
 	end 'l'
@@ -127,8 +127,8 @@ type Blk
 end 'Blk'
 
 function cloneBlk(src Blk) returns Blk
-	let block = Blk.create()
-	block.args = src.args
+	var block = Blk.create()
+	block.args = src.args.clone()
 	return block
 end 'cloneBlk'
 
@@ -136,10 +136,10 @@ function main() returns ExitCode
 	var i = 0 as Num
 	var total = 0 as Num
 	while i < 3000 'l'
-		let a = Blk.create()
+		var a = Blk.create()
 		a.args.push(i)
 		let c = cloneBlk(a)
-		total = total + (a.args.count() + c.args.count()) as Num
+		total = try total + (a.args.count() + c.args.count()) as Num otherwise panic("out of range")
 		i = i + 1
 	end 'l'
 	print("done {total}")

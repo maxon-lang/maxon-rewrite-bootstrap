@@ -151,11 +151,11 @@ function main() returns ExitCode
 	var i = 0 as Count
 	while i < 8 'each'
 		if maskContains(mask, regNum: i as RegNum) 'set'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'set'
 		i = i + 1
 	end 'each'
-	return count as ExitCode
+	return try count as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -163,6 +163,7 @@ end 'main'
 ```
 
 <!-- test: the-inlined-guard-still-panics-with-the-callees-frame -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE PANIC RULE'S GATE.** `clampPct` is a leaf whose entry guard panics, and the argument is the sum of
 two `Percent`s — a value the compile-time half cannot fold, which wears `Percent` without proving it and
 so reaches the parameter with no cast, crossing no door on the way: the guard that refuses it is the
@@ -254,19 +255,19 @@ type Minter
 		return Self{next: 0}
 	end 'create'
 
-	function mint() returns Integer
+	function mint(mutates self) returns Integer
 		let id = self.next
-		self.next = self.next + 1
+		self.next = try self.next + 1 otherwise panic("out of range")
 		return id
 	end 'mint'
 end 'Minter'
 
 function main() returns ExitCode
-	let m = Minter.create()
+	var m = Minter.create()
 	let a = m.mint()
 	let b = m.mint()
 	let c = m.mint()
-	return (a + b + c + 39) as ExitCode
+	return try (a + b + c + 39) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -290,17 +291,17 @@ type Meter
 		return Self{level: 0}
 	end 'create'
 
-	function record(p Percent) returns Integer
-		self.level = self.level + (p as Integer)
+	function record(mutates self, p Percent) returns Integer
+		self.level = try self.level + (p as Integer) otherwise panic("out of range")
 		return self.level
 	end 'record'
 end 'Meter'
 
 function main() returns ExitCode
-	let m = Meter.create()
+	var m = Meter.create()
 	let first = m.record(40)
 	let second = m.record(2)
-	return (second - first + 40) as ExitCode
+	return try (second - first + 40) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -319,7 +320,7 @@ function identity(a Integer) returns Integer
 end 'identity'
 
 function main() returns ExitCode
-	return identity(42) as ExitCode
+	return try identity(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -334,14 +335,14 @@ carry — and its `retVoid` becomes a bare branch.
 typealias Integer = int(i64.min to i64.max)
 
 function bump(n Integer, mutates total Integer)
-	total = total + n
+	total = try total + n otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
 	var total = 0 as Integer
 	bump(40, total: total)
 	bump(2, total: total)
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -363,7 +364,7 @@ function pick(a Integer) returns Integer
 end 'pick'
 
 function main() returns ExitCode
-	return (pick(50) * 10 + pick(1)) as ExitCode
+	return try (pick(50) * 10 + pick(1)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -381,11 +382,11 @@ function countDown(n Integer) returns Integer
 	if n <= 0 'done'
 		return 0
 	end 'done'
-	return countDown(n - 1) + 1
+	return try countDown(n - 1) + 1 otherwise panic("out of range")
 end 'countDown'
 
 function main() returns ExitCode
-	return countDown(42) as ExitCode
+	return try countDown(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -469,7 +470,7 @@ type Box uses T
 	export var value as T
 	export var weight as Integer
 
-	static function create(v T, weight Integer) returns Self
+	static function create(consumes v T, weight Integer) returns Self
 		return Self{value: v, weight: weight}
 	end 'create'
 
@@ -485,7 +486,7 @@ typealias ByteBox = Box with Byte
 function main() returns ExitCode
 	let a = IntBox.create(7, weight: 40)
 	let b = ByteBox.create(2 as Byte, weight: 2)
-	return (a.weightOf() + b.weightOf()) as ExitCode
+	return try (a.weightOf() + b.weightOf()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -506,7 +507,7 @@ function doubled(b Byte) returns Integer
 end 'doubled'
 
 function main() returns ExitCode
-	return doubled(21) as ExitCode
+	return try doubled(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -546,15 +547,15 @@ holds none once `inner` is spliced into it, so a follow-up round takes it for a 
 typealias Integer = int(i64.min to i64.max)
 
 function inner(a Integer) returns Integer
-	return a + 1
+	return try a + 1 otherwise panic("out of range")
 end 'inner'
 
 function outer(a Integer) returns Integer
-	return inner(a) * 2
+	return try inner(a) * 2 otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	return outer(20) as ExitCode
+	return try outer(20) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -574,7 +575,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	if not a.isEmpty() 'startsEmpty'
 		return 1
 	end 'startsEmpty'

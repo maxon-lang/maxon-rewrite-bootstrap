@@ -23,24 +23,24 @@ typealias IntArray = Array with Integer
 type Container
 	export var items as IntArray
 
-	function addItem(value Integer)
+	function addItem(mutates self, value Integer)
 		self.items.push(value)
 	end 'addItem'
 
 	function getCount() returns Integer
-		return self.items.count()
+		return try self.items.count() as Integer otherwise panic("out of range")
 	end 'getCount'
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Container'
 
 function main() returns ExitCode
-	let c = Container.create(IntArray.create(0))
+	var c = Container.create(IntArray.create(0))
 	c.addItem(10)
 	c.addItem(20)
-	return c.getCount()
+	return try c.getCount() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -57,7 +57,7 @@ typealias IntArray = Array with Integer
 type NumberList
 	export var data as IntArray
 
-	function add(value Integer)
+	function add(mutates self, value Integer)
 		self.data.push(value)
 	end 'add'
 
@@ -66,14 +66,14 @@ type NumberList
 	end 'first'
 
 	static function create(data IntArray) returns Self
-		return Self{data: data}
+		return Self{data: data.clone()}
 	end 'create'
 end 'NumberList'
 
 function main() returns ExitCode
-	let list = NumberList.create(IntArray.create(0))
+	var list = NumberList.create(IntArray.create(0))
 	list.add(42)
-	return list.first()
+	return try list.first() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -133,21 +133,21 @@ typealias IntArray = Array with Integer
 type Accumulator
 	export var items as IntArray
 
-	function addAndCount(value Integer) returns Integer
+	function addAndCount(mutates self, value Integer) returns Integer
 		self.items.push(value)
-		return self.items.count()
+		return try self.items.count() as Integer otherwise panic("out of range")
 	end 'addAndCount'
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Accumulator'
 
 function main() returns ExitCode
-	let acc = Accumulator.create(IntArray.create(0))
+	var acc = Accumulator.create(IntArray.create(0))
 	_ = acc.addAndCount(1)
 	_ = acc.addAndCount(2)
-	return acc.addAndCount(3)
+	return try acc.addAndCount(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

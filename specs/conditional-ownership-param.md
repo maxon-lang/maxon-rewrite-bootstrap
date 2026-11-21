@@ -68,7 +68,7 @@ type Point
 end 'Point'
 
 function pick(p Point, c Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	if c > 0 'b'
 		q = Point.create(9)
 	end 'b'
@@ -77,7 +77,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, c: 1)
+	return try pick(base, c: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -105,7 +105,7 @@ type Point
 end 'Point'
 
 function pick(p Point, c Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	if c > 0 'b'
 		q = Point.create(9)
 	end 'b'
@@ -114,7 +114,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, c: 0)
+	return try pick(base, c: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -141,14 +141,14 @@ type Point
 end 'Point'
 
 function pick(p Point) returns Integer
-	var q = p
+	var q = p.clone()
 	q = Point.create(9)
 	return q.x
 end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base)
+	return try pick(base) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -180,9 +180,9 @@ type Point
 end 'Point'
 
 function pick(p Point, p2 Point, c Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	if c > 0 'b'
-		q = p2
+		q = p2.clone()
 	end 'b'
 	return q.x
 end 'pick'
@@ -190,7 +190,7 @@ end 'pick'
 function main() returns ExitCode
 	let a = Point.create(5)
 	let b = Point.create(8)
-	return pick(a, p2: b, c: 1)
+	return try pick(a, p2: b, c: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -217,9 +217,9 @@ union Num
 end 'Num'
 
 function pick(u Num, u2 Num, c Integer) returns Integer
-	var q = u
+	var q = u.clone()
 	if c > 0 'b'
-		q = u2
+		q = u2.clone()
 	end 'b'
 	return match q 'm'
 		none gives 0
@@ -230,7 +230,7 @@ end 'pick'
 function main() returns ExitCode
 	let a = Num.val(5)
 	let b = Num.val(8)
-	return pick(a, u2: b, c: 1) + pick(a, u2: b, c: 0)
+	return try pick(a, u2: b, c: 1) + pick(a, u2: b, c: 0) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -256,7 +256,7 @@ union Num
 end 'Num'
 
 function pick(u Num, c Integer) returns Integer
-	var q = u
+	var q = u.clone()
 	if c > 0 'b'
 		q = Num.val(7)
 	end 'b'
@@ -268,7 +268,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Num.val(5)
-	return pick(base, c: 1)
+	return try pick(base, c: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -292,7 +292,7 @@ union Num
 end 'Num'
 
 function pick(u Num, c Integer) returns Integer
-	var q = u
+	var q = u.clone()
 	if c > 0 'b'
 		q = Num.val(7)
 	end 'b'
@@ -304,7 +304,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Num.val(5)
-	return pick(base, c: 0)
+	return try pick(base, c: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -333,7 +333,7 @@ type Point
 end 'Point'
 
 function pick(p Point, c Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	if c > 0 'b'
 		q = Point.create(9)
 		return q.x
@@ -343,7 +343,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, c: 1)
+	return try pick(base, c: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -371,7 +371,7 @@ type Point
 end 'Point'
 
 function pick(p Point, n Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	var i = 0 as Integer
 	while i < n 'l'
 		q = Point.create(9)
@@ -383,7 +383,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, n: 1)
+	return try pick(base, n: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -411,7 +411,7 @@ type Point
 end 'Point'
 
 function pick(p Point, n Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	var i = 0 as Integer
 	while i < n 'l'
 		if i > 0 'b'
@@ -426,7 +426,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, n: 2)
+	return try pick(base, n: 2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -455,7 +455,7 @@ type Point
 end 'Point'
 
 function pick(p Point, n Integer) returns Integer
-	var q = p
+	var q = p.clone()
 	var i = 0 as Integer
 	while i < n 'l'
 		q = Point.create(i)
@@ -466,7 +466,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, n: 3)
+	return try pick(base, n: 3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -496,7 +496,7 @@ type Point
 end 'Point'
 
 function pick(p Point, replace bool) returns Integer
-	var q = p
+	var q = p.clone()
 	if replace 'maybe'
 		q = Point.create(9)
 	end 'maybe'
@@ -505,7 +505,7 @@ end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, replace: false)
+	return try pick(base, replace: false) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -534,17 +534,17 @@ type Point
 end 'Point'
 
 function pick(p Point, c Integer) returns Integer
-	var q = p
-	let r = p
+	var q = p.clone()
+	let r = p.clone()
 	if c > 0 'b'
 		q = Point.create(9)
 	end 'b'
-	return q.x + r.x
+	return try q.x + r.x otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base, c: 1)
+	return try pick(base, c: 1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -572,14 +572,14 @@ type Point
 end 'Point'
 
 function pick(p Point) returns Integer
-	let q = p
+	let q = p.clone()
 	let r = q
 	return r.x
 end 'pick'
 
 function main() returns ExitCode
 	let base = Point.create(5)
-	return pick(base)
+	return try pick(base) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

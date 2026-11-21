@@ -1,0 +1,18 @@
+// An integer of another alias where an alias is needed gets a cast to it, and a try where the cast may fail.
+typealias Count8 = int(0 to 255)
+
+typealias Wide = int(-1000 to 1000)
+
+function size(n Count8) returns Count8
+	return n
+end 'size'
+
+function code(n Wide) returns ExitCode
+	return try n as ExitCode otherwise panic("out of range")
+end 'code'
+
+function main() returns ExitCode
+	let n = size(7)
+	print("{code(3)}\n")
+	return n as ExitCode
+end 'main'

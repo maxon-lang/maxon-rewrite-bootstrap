@@ -28,7 +28,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -40,16 +40,16 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 
-	function replace(text String)
+	function replace(mutates self, text String)
 		self.note = Note.create(text, weight: 2)
 	end 'replace'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("first note built at run time {40 + 2}")
+	var shelf = Shelf.create("first note built at run time {40 + 2}")
 	let kept = shelf.holding()
 	shelf.replace("second note built at run time {40 + 3}")
 	print("[{kept.text}] [{shelf.holding().text}]\n")
@@ -74,7 +74,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -86,21 +86,21 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 
-	function replace(text String)
+	function replace(mutates self, text String)
 		self.note = Note.create(text, weight: 2)
 	end 'replace'
 end 'Shelf'
 
-function swapAndShow(shelf Shelf, item Note)
+function swapAndShow(mutates shelf Shelf, item Note)
 	shelf.replace("replacement built at run time {7 * 6}")
 	print("[{item.text}] [{shelf.holding().text}]\n")
 end 'swapAndShow'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("original built at run time {6 * 7 + 1}")
+	var shelf = Shelf.create("original built at run time {6 * 7 + 1}")
 	swapAndShow(shelf, item: shelf.holding())
 	return 0
 end 'main'
@@ -123,7 +123,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -135,7 +135,7 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 end 'Shelf'
 
@@ -162,7 +162,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -174,7 +174,7 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 end 'Shelf'
 
@@ -186,7 +186,7 @@ type Cabinet
 	end 'create'
 
 	function innerShelf() returns Shelf
-		return self.inner
+		return self.inner.clone()
 	end 'innerShelf'
 end 'Cabinet'
 
@@ -214,7 +214,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -229,22 +229,22 @@ type Library
 
 	function active() returns Note
 		if self.usesSecondary 'useSecondary'
-			return self.secondary
+			return self.secondary.clone()
 		end 'useSecondary'
-		return self.primary
+		return self.primary.clone()
 	end 'active'
 
-	function flip()
+	function flip(mutates self)
 		self.usesSecondary = not self.usesSecondary
 	end 'flip'
 
-	function retire()
+	function retire(mutates self)
 		self.primary = Note.create("retired primary built at run time {10 + 3}", weight: 3)
 	end 'retire'
 end 'Library'
 
 function main() returns ExitCode
-	let library = Library.create()
+	var library = Library.create()
 	let before = library.active()
 	library.retire()
 	library.flip()
@@ -321,7 +321,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -333,16 +333,16 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 
-	function replace(text String, weight Count)
+	function replace(mutates self, text String, weight Count)
 		self.note = Note.create(text, weight: weight)
 	end 'replace'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("loop note built at run time {0 + 100}")
+	var shelf = Shelf.create("loop note built at run time {0 + 100}")
 	let first = shelf.holding()
 	for trip in 1 to 3 'trips'
 		shelf.replace("loop note built at run time {trip + 100}", weight: trip as Count)
@@ -373,7 +373,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -388,16 +388,16 @@ type Shelf
 		if slot > 1000 'beyond'
 			panic("slot beyond the shelf")
 		end 'beyond'
-		return self.note
+		return self.note.clone()
 	end 'holding'
 
-	function replace(text String)
+	function replace(mutates self, text String)
 		self.note = Note.create(text, weight: 2)
 	end 'replace'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("first note built at run time {40 + 2}")
+	var shelf = Shelf.create("first note built at run time {40 + 2}")
 	let kept = shelf.holding(0)
 	shelf.replace("second note built at run time {40 + 3}")
 	print("[{kept.text}] [{shelf.holding(0).text}]\n")
@@ -424,14 +424,14 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
 type Shelf uses Item
 	var held as Item
 
-	static function create(held Item) returns Self
+	static function create(consumes held Item) returns Self
 		return Self{held: held}
 	end 'create'
 
@@ -439,13 +439,13 @@ type Shelf uses Item
 		return self.held
 	end 'holding'
 
-	function replace(next Item)
+	function replace(mutates self, consumes next Item)
 		self.held = next
 	end 'replace'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = NoteShelf.create(Note.create("first note built at run time {40 + 2}", weight: 1))
+	var shelf = NoteShelf.create(Note.create("first note built at run time {40 + 2}", weight: 1))
 	let kept = shelf.holding()
 	shelf.replace(Note.create("second note built at run time {40 + 3}", weight: 2))
 	print("[{kept.text}] [{shelf.holding().text}]\n")
@@ -470,7 +470,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -485,13 +485,13 @@ type Shelf
 		return Note.create(self.note.text, weight: 9)
 	end 'describe'
 
-	function replace(text String)
+	function replace(mutates self, text String)
 		self.note = Note.create(text, weight: 2)
 	end 'replace'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create("first note built at run time {40 + 2}")
+	var shelf = Shelf.create("first note built at run time {40 + 2}")
 	let kept = shelf.describe()
 	shelf.replace("second note built at run time {40 + 3}")
 	print("[{kept.text}] {kept.weight} [{shelf.describe().text}]\n")
@@ -516,7 +516,7 @@ type Note
 	export var weight as Count
 
 	static function create(text String, weight Count) returns Note
-		return Note{text: text, weight: weight}
+		return Note{text: text.clone(), weight: weight}
 	end 'create'
 end 'Note'
 
@@ -528,7 +528,7 @@ type Shelf
 	end 'create'
 
 	function holding() returns Note
-		return self.note
+		return self.note.clone()
 	end 'holding'
 end 'Shelf'
 

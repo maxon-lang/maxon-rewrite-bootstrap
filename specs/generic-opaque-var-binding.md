@@ -249,14 +249,14 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
@@ -264,7 +264,7 @@ type Box uses Item
 		return self.stored
 	end 'fresh'
 
-	function ifAssignOwned(fallback Item, flag bool) returns Item
+	function ifAssignOwned(consumes fallback Item, flag bool) returns Item
 		var chosen = fallback
 		if flag 'taken'
 			chosen = self.fresh()
@@ -316,14 +316,14 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
@@ -331,7 +331,7 @@ type Box uses Item
 		return self.stored
 	end 'fresh'
 
-	function bornOwnedThenIf(fallback Item, flag bool) returns Item
+	function bornOwnedThenIf(consumes fallback Item, flag bool) returns Item
 		var chosen = self.fresh()
 		if flag 'taken'
 			chosen = fallback
@@ -452,7 +452,7 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
@@ -460,7 +460,7 @@ type Holder uses Item
 	var held as Item
 	var echoed as Item
 
-	static function create(item Item, other Item, swap bool) returns Self
+	static function create(consumes item Item, consumes other Item, swap bool) returns Self
 		var copy = item
 		if swap 'maybeSwap'
 			copy = other
@@ -557,18 +557,18 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
-	function pick(v Item, which Count) returns Item
+	function pick(consumes v Item, which Count) returns Item
 		let chosen = match which 'arm'
 			0 gives Self.create(v).stored
 			default gives self.stored
@@ -694,18 +694,18 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
-	function pick(v Item, which Count) returns Item
+	function pick(consumes v Item, which Count) returns Item
 		let chosen = Self.create(v).stored if which == 0 else self.stored
 		return chosen
 	end 'pick'
@@ -754,14 +754,14 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
@@ -769,7 +769,7 @@ type Box uses Item
 		return self.stored
 	end 'fresh'
 
-	function pick(v Item, which Count) returns Item
+	function pick(consumes v Item, which Count) returns Item
 		let chosen = match which 'arm'
 			0 gives v
 			default gives self.fresh()
@@ -821,18 +821,18 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Box uses Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
-	function pick(v Item, w Item, which Count) returns Item
+	function pick(consumes v Item, consumes w Item, which Count) returns Item
 		let chosen = match which 'arm'
 			0 gives v
 			1 gives self.stored
@@ -982,7 +982,7 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
@@ -993,11 +993,11 @@ type Slot uses Item
 		return Self{}
 	end 'create'
 
-	function rebind(first Item, second Item) returns Count
+	function rebind(mutates self, consumes first Item, consumes second Item) returns Count
 		var held = first
 		held = second
 		_ = held
-		self.swaps = self.swaps + 1
+		self.swaps = try self.swaps + 1 otherwise panic("out of range")
 		return self.swaps
 	end 'rebind'
 end 'Slot'
@@ -1009,19 +1009,19 @@ typealias PebbleSlot = Slot with Pebble
 typealias TallySlot = Slot with Count
 
 function main() returns ExitCode
-	let texts = TextSlot.create()
+	var texts = TextSlot.create()
 	var textSwaps = 0 as Count
 	for round in 0 upto 4 'eachTextRound'
 		textSwaps = texts.rebind("first {round} long enough for a heap record", second: "second {round} long enough for a heap record")
 	end 'eachTextRound'
 	print("{textSwaps}\n")
-	let pebbles = PebbleSlot.create()
+	var pebbles = PebbleSlot.create()
 	var pebbleSwaps = 0 as Count
 	for round in 0 upto 4 'eachPebbleRound'
 		pebbleSwaps = pebbles.rebind(Pebble.create("first {round} long enough for a heap record", n: 1), second: Pebble.create("second {round} long enough for a heap record", n: 2))
 	end 'eachPebbleRound'
 	print("{pebbleSwaps}\n")
-	let tallies = TallySlot.create()
+	var tallies = TallySlot.create()
 	var tallySwaps = 0 as Count
 	for round in 0 upto 4 'eachTallyRound'
 		tallySwaps = tallies.rebind(round, second: round + 10)
@@ -1094,14 +1094,14 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Chooser uses Item
 	var spare as Item
 
-	static function create(spare Item) returns Self
+	static function create(consumes spare Item) returns Self
 		return Self{spare: spare}
 	end 'create'
 
@@ -1109,7 +1109,7 @@ type Chooser uses Item
 		return self.spare
 	end 'fresh'
 
-	function choose(first Item, other Item, rounds Count) returns Item
+	function choose(consumes first Item, consumes other Item, rounds Count) returns Item
 		var chosen = first
 		var trip = 0 as Count
 		while trip < rounds 'trips'
@@ -1270,7 +1270,7 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
@@ -1287,7 +1287,7 @@ end 'check'
 type Chooser uses Item
 	var spare as Item
 
-	static function create(spare Item) returns Self
+	static function create(consumes spare Item) returns Self
 		return Self{spare: spare}
 	end 'create'
 
@@ -1295,7 +1295,7 @@ type Chooser uses Item
 		return self.spare
 	end 'fresh'
 
-	function attempt(first Item, other Item, step Count) returns Item
+	function attempt(consumes first Item, consumes other Item, step Count) returns Item
 		var chosen = first
 		try 'work'
 			chosen = self.fresh()

@@ -175,20 +175,20 @@ type Db
 	end 'create'
 end 'Db'
 
-function memo(db Db) returns Index
-	db.hits = db.hits + 1
-	return db.cache
+function memo(mutates db Db) returns Index
+	db.hits = try db.hits + 1 otherwise panic("out of range")
+	return db.cache.clone()
 end 'memo'
 
-function fill(db Db) returns Tally
-	let index = memo(db)
+function fill(mutates db Db) returns Tally
+	var index = memo(db)
 	index.items.push(7)
 	index.items.push(8)
-	return index.items.count()
+	return index.items.count() as Tally
 end 'fill'
 
 function main() returns ExitCode
-	let db = Db.create()
+	var db = Db.create()
 	print("{fill(db)} {db.cache.items.count()} {db.hits}\n")
 	return 0
 end 'main'
@@ -316,19 +316,19 @@ type Rec
 	end 'create'
 end 'Rec'
 
-function note(seen Seen, rec Rec)
+function note(mutates seen Seen, rec Rec)
 	seen.upsert(rec.id, value: 1)
 end 'note'
 
-function work(seen Seen, rec Rec) returns Count64
-	rec.id = rec.id + 1
+function work(mutates seen Seen, mutates rec Rec) returns Count64
+	rec.id = try rec.id + 1 otherwise panic("out of range")
 	note(seen, rec: rec)
 	return seen.count() as Count64
 end 'work'
 
 function main() returns ExitCode
-	let seen = Seen.create()
-	let rec = Rec.create()
+	var seen = Seen.create()
+	var rec = Rec.create()
 	print("{work(seen, rec: rec)}\n")
 	return 0
 end 'main'

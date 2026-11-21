@@ -139,12 +139,12 @@ type Blk
 	end 'create'
 end 'Blk'
 
-function assign(dst Blk, src Blk)
-	dst.args = src.args
+function assign(mutates dst Blk, src Blk)
+	dst.args = src.args.clone()
 end 'assign'
 
 function main() returns ExitCode
-	let a = Blk.create()
+	var a = Blk.create()
 	a.args.push(7)
 	assign(a, src: a)
 	let v = try a.args.get(0) otherwise 0
@@ -173,13 +173,13 @@ type Blk
 		return Self{args: NumArray.create(0)}
 	end 'create'
 
-	function absorb(other Blk)
-		self.args = other.args
+	function absorb(mutates self, other Blk)
+		self.args = other.args.clone()
 	end 'absorb'
 end 'Blk'
 
 function main() returns ExitCode
-	let a = Blk.create()
+	var a = Blk.create()
 	a.args.push(7)
 	a.absorb(a)
 	let v = try a.args.get(0) otherwise 0
@@ -349,7 +349,7 @@ type Holder
 end 'Holder'
 
 function peek(n Coord, h Holder) returns Coord
-	return n + h.n
+	return try n + h.n otherwise panic("out of range")
 end 'peek'
 
 function main() returns ExitCode
@@ -409,12 +409,12 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, h Holder) returns Coord
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return h.n
 end 'bump'
 
 function main() returns ExitCode
-	let h = Holder.create(5)
+	var h = Holder.create(5)
 	let seen = bump(h.n, h: Holder.create(7))
 	print("{seen} {h.n}\n")
 	return 0

@@ -1,0 +1,132 @@
+// The fixes of the diagnostics whose message names one change: each is built from the nodes the message is built from, and
+// only when the diagnostic is raised, so a program that checks clean never pays for them.
+
+// The kinds of fix, by which a tool counts what it changed.
+export let fixKindTry = "try"
+
+export let fixKindCast = "as"
+
+export let fixKindClone = "clone"
+
+export let fixKindConsumes = "consumes"
+
+export let fixKindMutates = "mutates"
+
+export let fixKindMutatesSelf = "mutates self"
+
+export let fixKindVar = "var"
+
+// fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
+// expected.
+let fixPanicText = "out of range"
+
+let letKeyword = "let"
+
+let varKeyword = "var"
+
+let closeParenByte = 41 as Byte
+
+function fixOf(consumes kind String, consumes edits diag.FixEdits) returns diag.Fix
+	return diag.Fix.make(kind, edits: edits)
+end 'fixOf'
+
+function at32(offset Count) returns diag.U32
+	return try offset as diag.U32 otherwise panic("fixes: an offset past a module")
+end 'at32'
+
+// wrapFix writes before and after around the expression, with parentheses around the whole of it when it is an operand.
+function wrapFix(t ast.Tree, consumes kind String, e ast.NodeID, before String, after String) returns diag.Fix
+	let found = ast.exprExtent(t, e: e)
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	let extent = found.unwrap()
+	var open = before.clone()
+	var close = after.clone()
+	if ast.isOperand(t, extent: extent) 'grouped'
+		open = "({before}"
+		close = "{after})"
+	end 'grouped'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: extent.begin, text: open))
+	edits.push(diag.FixEdit.insert(t.module, at: extent.until, text: close))
+	return fixOf(kind, edits: edits)
+end 'wrapFix'
+
+// tryFix covers the failure of e with a try around the whole arithmetic expression it is part of, which panics: what
+// "handle the failure with 'try'" asks for, where the program had no handling of its own.
+export function tryFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	return wrapFix(t, kind: fixKindTry, e: ast.outermostArithmetic(t, e: e), before: "try ", after: " otherwise panic(\"{fixPanicText}\")")
+end 'tryFix'
+
+// castFix converts the value of e to the integer type named target, as a cast to it is written.
+export function castFix(t ast.Tree, e ast.NodeID, target String) returns diag.Fix
+	let k = t.kindOf(e)
+	if k == ast.NodeKind.binaryExpr or k == ast.NodeKind.unaryExpr or k == ast.NodeKind.condExpr or k == ast.NodeKind.tryExpr or k == ast.NodeKind.castExpr 'operator'
+		return wrapFix(t, kind: fixKindCast, e: e, before: "(", after: ") as {target}")
+	end 'operator'
+	return wrapFix(t, kind: fixKindCast, e: e, before: "", after: " as {target}")
+end 'castFix'
+
+// cloneFix copies the value of the place e instead of moving it.
+export function cloneFix(t ast.Tree, e ast.NodeID) returns diag.Fix
+	let found = ast.exprEnd(t, e: e)
+	if not found.isSome() 'unknown'
+		return diag.Fix.none()
+	end 'unknown'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: at32(found.unwrap()), text: ".clone()"))
+	return fixOf(fixKindClone, edits: edits)
+end 'cloneFix'
+
+// conventionFix writes a convention before a parameter that has none.
+export function conventionFix(t ast.Tree, param ast.NodeID, consumes keyword String) returns diag.Fix
+	if param == 0 or t.kindOf(param) != ast.NodeKind.param 'notParam'
+		return diag.Fix.none()
+	end 'notParam'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: t.startOf(param), text: "{keyword} "))
+	return fixOf(keyword, edits: edits)
+end 'conventionFix'
+
+// varFix declares the local of a let statement with var.
+export function varFix(t ast.Tree, stmt ast.NodeID) returns diag.Fix
+	if stmt == 0 or t.kindOf(stmt) != ast.NodeKind.letStmt 'notLet'
+		return diag.Fix.none()
+	end 'notLet'
+	let start = t.startOf(stmt) as Count
+	let finish = try start + letKeyword.byteLength() otherwise panic("fixes: an offset past a module")
+	if finish > t.text.byteLength() or t.text.sliceBytes(start, endPos: finish) != letKeyword 'notWritten'
+		return diag.Fix.none()
+	end 'notWritten'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.make(t.module, begin: at32(start), until: at32(finish), text: varKeyword))
+	return fixOf(fixKindVar, edits: edits)
+end 'varFix'
+
+// mutatesSelfFix declares the receiver of the method mutable, first among its parameters. A method whose receiver is
+// already written with another convention has none: the message names no change for it.
+export function mutatesSelfFix(t ast.Tree, method ast.NodeID) returns diag.Fix
+	if method == 0 or t.kindOf(method) != ast.NodeKind.funcDecl 'notMethod'
+		return diag.Fix.none()
+	end 'notMethod'
+	let open = ast.openingAfter(t.text, at: t.startOf(method) as Count)
+	if open >= t.text.byteLength() 'noParameters'
+		return diag.Fix.none()
+	end 'noParameters'
+	let inside = try open + 1 otherwise panic("fixes: an offset past a module")
+	let first = ast.skipSpace(t.text, at: inside)
+	var text = "mutates self, "
+	if first < t.text.byteLength() and t.text.byteAt(first) == closeParenByte 'empty'
+		text = "mutates self"
+	end 'empty' else 'parameters'
+		let word = ast.wordEnd(t.text, at: first)
+		let second = ast.skipSpace(t.text, at: word)
+		if t.text.sliceBytes(second, endPos: ast.wordEnd(t.text, at: second)) == "self" 'written'
+			return diag.Fix.none()
+		end 'written'
+	end 'parameters'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: at32(inside), text: text))
+	return fixOf(fixKindMutatesSelf, edits: edits)
+end 'mutatesSelfFix'

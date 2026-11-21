@@ -1,0 +1,9 @@
+// A let that is changed is declared with var.
+typealias Numbers = Array with Count
+
+function main() returns ExitCode
+	var xs = Numbers.create(0)
+	xs.push(1)
+	print("{xs.count()}\n")
+	return 0
+end 'main'

@@ -45,7 +45,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 42 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -81,7 +81,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 0 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode

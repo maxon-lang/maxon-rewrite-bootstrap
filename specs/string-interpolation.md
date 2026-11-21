@@ -553,7 +553,7 @@ Count: 2
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode

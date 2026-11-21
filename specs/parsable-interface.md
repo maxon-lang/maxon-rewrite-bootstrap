@@ -534,7 +534,7 @@ type byte
 end 'byte'
 
 function main() returns ExitCode
-	return byte.fromString("41")
+	return try byte.fromString("41") as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -611,7 +611,7 @@ type Box
 end 'Box'
 
 function f(float Box) returns ExitCode
-	return float.fromString("9")
+	return try float.fromString("9") as ExitCode otherwise panic("out of range")
 end 'f'
 
 function main() returns ExitCode

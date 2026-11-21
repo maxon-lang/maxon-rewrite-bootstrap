@@ -266,7 +266,7 @@ function main() returns ExitCode
 	while i < 3 'loop'
 		if i < 2 'b'
 			let b = Box.create(i)
-			seen = seen + b.v
+			seen = try seen + b.v otherwise panic("out of range")
 		end 'b'
 		i = i + 1
 	end 'loop'

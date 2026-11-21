@@ -81,21 +81,21 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function rotateAll(current WordArray, count WordArray, n Count) returns Word
+function rotateAll(mutates current WordArray, mutates count WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 1 upto n 'each'
 		let c = try count.get(i) otherwise panic("rotateAll: i < n <= count.count()")
 		try count.set(i, value: c + 1) otherwise panic("rotateAll: i < n <= count.count()")
 		let v = try current.get(i - 1) otherwise panic("rotateAll: i - 1 < n <= current.count()")
 		try current.set(i, value: v) otherwise panic("rotateAll: i < n <= current.count()")
-		t = t + v + c
+		t = try t + v + c otherwise panic("out of range")
 	end 'each'
 	return t
 end 'rotateAll'
 
 function main() returns ExitCode
-	let current = WordArray.create(0)
-	let count = WordArray.create(0)
+	var current = WordArray.create(0)
+	var count = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		current.push(i + 10)
 		count.push(i)
@@ -204,14 +204,14 @@ function pairs(a WordArray, n Count) returns Word
 	for i in 0 upto n 'each'
 		let first = try a.get(i) otherwise 100
 		let second = try a.get(i + 1) otherwise 1000
-		w = w + 1
-		t = t + first + second + w
+		w = try w + 1 otherwise panic("out of range")
+		t = try t + first + second + w otherwise panic("out of range")
 	end 'each'
 	return t
 end 'pairs'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i)
 	end 'seed'
@@ -232,18 +232,18 @@ across it are confined. Every occupant is destroyed (no leak) and every new valu
 ```maxon
 typealias Names = Array with String
 
-function relabel(a Names, n Count) returns Count
+function relabel(mutates a Names, n Count) returns Count
 	var bytes = 0 as Count
 	for i in 0 upto n 'each'
 		try a.set(i, value: "name-{i}") otherwise panic("relabel: i < n = a.count()")
 		let s = try a.get(i) otherwise panic("relabel: i < n = a.count()")
-		bytes = bytes + s.byteLength()
+		bytes = try bytes + s.byteLength() otherwise panic("out of range")
 	end 'each'
 	return bytes
 end 'relabel'
 
 function main() returns ExitCode
-	let a = Names.create(0)
+	var a = Names.create(0)
 	for i in 0 upto 4 'seed'
 		a.push("original-{i}")
 	end 'seed'
@@ -599,19 +599,19 @@ function walk(a WordArray, n Count, m Scale, d Scale) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		let v = try a.get(i) otherwise panic("index {i} is past the end; ratio was {m / d} remainder {m mod d}")
-		t = t + v
+		t = try t + v otherwise panic("out of range")
 	end 'each'
 	return t
 end 'walk'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i + 3)
 	end 'seed'
 	let dividend = try a.get(4) otherwise 1
 	let divisor = try a.get(2) otherwise 1
-	return 0 if walk(a, n: 5, m: dividend as Scale, d: divisor as Scale) == 25 else 1
+	return 0 if walk(a, n: 5, m: try dividend as Scale otherwise panic("out of range"), d: try divisor as Scale otherwise panic("out of range")) == 25 else 1
 end 'main'
 ```
 ```exitcode
@@ -619,6 +619,7 @@ end 'main'
 ```
 
 <!-- test: a-cold-arm-that-divides-reads-its-live-values-after-the-divide -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control for the division above with the handler running. The counter, the running sum and the
 multiplier are live across both divides of the message and are read after them, so each is saved
 before the run and reloaded after the capture of the remainder; the message reads them back.
@@ -662,6 +663,7 @@ Stack trace:
 ```
 
 <!-- test: a-cold-arm-that-divides-by-a-constant-reads-its-live-values-after-the-divide -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control for a divisor known at compile time. The division becomes a multiply that keeps only the high
 half of the product, whose answer is read from RDX, and the remainder is taken from that quotient. The
 run is the pre-moves into RAX, the high multiply and the capture of RDX, and the sum, multiplier and

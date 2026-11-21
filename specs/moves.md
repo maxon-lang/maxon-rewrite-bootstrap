@@ -156,7 +156,7 @@ type Box
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Box'
 
@@ -577,7 +577,7 @@ end 'Point'
 function main() returns ExitCode
 	let p = Point.create(7)
 	let q = p
-	return q.x
+	return try q.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -794,7 +794,7 @@ function main() returns ExitCode
 	print("{q.x}")
 	p = Point.create(3)
 	p.x = 5
-	return p.x
+	return p.x as ExitCode
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -827,9 +827,9 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create(4)
+	var p = Point.create(4)
 	p.x = 0
-	return p.getX()
+	return try p.getX() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -859,7 +859,7 @@ type Box
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Box'
 
@@ -868,7 +868,7 @@ type Pair
 	export var b as Box
 
 	static function create(a Box, b Box) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 end 'Pair'
 
@@ -902,11 +902,11 @@ type Box
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 
 	function label() returns String
-		return self.name
+		return self.name.clone()
 	end 'label'
 end 'Box'
 
@@ -954,9 +954,9 @@ end 'Box'
 
 function main() returns ExitCode
 	let t = Box.create(5)
-	let u = t
+	var u = t
 	u.value = 9
-	return u.value
+	return u.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -979,9 +979,9 @@ end 'Box'
 
 function main() returns ExitCode
 	let t = Box.create(5)
-	let u = t.clone()
+	var u = t.clone()
 	u.value = 9
-	return u.value + t.value
+	return try u.value + t.value otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1010,15 +1010,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(5))
-	let i = (o).inner
+	var i = (o).inner
 	i.value = 9
-	return o.inner.value
+	return try o.inner.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1124,8 +1124,8 @@ type Holder
 		return Self{list: Counts.create(0)}
 	end 'create'
 
-	function refresh(n Count)
-		let before = self.list
+	function refresh(mutates self, n Count)
+		let before = self.list.clone()
 		var sink = Counts.create(0)
 		for i in 0 upto n 'each'
 			let fresh = Counts.create(0)
@@ -1137,7 +1137,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.refresh(2)
 	return 0
 end 'main'

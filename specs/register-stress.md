@@ -75,28 +75,28 @@ it is here so the next test has something to be identical to.
 `k1..k15 = 1..15` sum to 120; the loop adds `0+1+2+3 = 6`. So `126`.
 ```maxon
 function idleLets(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
-	let k13 = p + 13
-	let k14 = p + 14
-	let k15 = p + 15
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
+	let k13 = try p + 13 otherwise panic("out of range")
+	let k14 = try p + 14 otherwise panic("out of range")
+	let k15 = try p + 15 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 otherwise panic("out of range")
 end 'idleLets'
 
 function main() returns ExitCode
@@ -135,42 +135,42 @@ Same answer, 126.
 ```maxon
 function idleVars(p Integer) returns Integer
 	var k1 = 0 as Integer
-	k1 = p + 1
+	k1 = try p + 1 otherwise panic("out of range")
 	var k2 = 0 as Integer
-	k2 = p + 2
+	k2 = try p + 2 otherwise panic("out of range")
 	var k3 = 0 as Integer
-	k3 = p + 3
+	k3 = try p + 3 otherwise panic("out of range")
 	var k4 = 0 as Integer
-	k4 = p + 4
+	k4 = try p + 4 otherwise panic("out of range")
 	var k5 = 0 as Integer
-	k5 = p + 5
+	k5 = try p + 5 otherwise panic("out of range")
 	var k6 = 0 as Integer
-	k6 = p + 6
+	k6 = try p + 6 otherwise panic("out of range")
 	var k7 = 0 as Integer
-	k7 = p + 7
+	k7 = try p + 7 otherwise panic("out of range")
 	var k8 = 0 as Integer
-	k8 = p + 8
+	k8 = try p + 8 otherwise panic("out of range")
 	var k9 = 0 as Integer
-	k9 = p + 9
+	k9 = try p + 9 otherwise panic("out of range")
 	var k10 = 0 as Integer
-	k10 = p + 10
+	k10 = try p + 10 otherwise panic("out of range")
 	var k11 = 0 as Integer
-	k11 = p + 11
+	k11 = try p + 11 otherwise panic("out of range")
 	var k12 = 0 as Integer
-	k12 = p + 12
+	k12 = try p + 12 otherwise panic("out of range")
 	var k13 = 0 as Integer
-	k13 = p + 13
+	k13 = try p + 13 otherwise panic("out of range")
 	var k14 = 0 as Integer
-	k14 = p + 14
+	k14 = try p + 14 otherwise panic("out of range")
 	var k15 = 0 as Integer
-	k15 = p + 15
+	k15 = try p + 15 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 4 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 otherwise panic("out of range")
 end 'idleVars'
 
 function main() returns ExitCode
@@ -197,40 +197,40 @@ outer runs `i = 0,1,2` — so the loop contributes `3 · 1 = 3`. Total `78 + 3 =
 ```maxon
 function nestedIdle(p Integer) returns Integer
 	var k1 = 0 as Integer
-	k1 = p + 1
+	k1 = try p + 1 otherwise panic("out of range")
 	var k2 = 0 as Integer
-	k2 = p + 2
+	k2 = try p + 2 otherwise panic("out of range")
 	var k3 = 0 as Integer
-	k3 = p + 3
+	k3 = try p + 3 otherwise panic("out of range")
 	var k4 = 0 as Integer
-	k4 = p + 4
+	k4 = try p + 4 otherwise panic("out of range")
 	var k5 = 0 as Integer
-	k5 = p + 5
+	k5 = try p + 5 otherwise panic("out of range")
 	var k6 = 0 as Integer
-	k6 = p + 6
+	k6 = try p + 6 otherwise panic("out of range")
 	var k7 = 0 as Integer
-	k7 = p + 7
+	k7 = try p + 7 otherwise panic("out of range")
 	var k8 = 0 as Integer
-	k8 = p + 8
+	k8 = try p + 8 otherwise panic("out of range")
 	var k9 = 0 as Integer
-	k9 = p + 9
+	k9 = try p + 9 otherwise panic("out of range")
 	var k10 = 0 as Integer
-	k10 = p + 10
+	k10 = try p + 10 otherwise panic("out of range")
 	var k11 = 0 as Integer
-	k11 = p + 11
+	k11 = try p + 11 otherwise panic("out of range")
 	var k12 = 0 as Integer
-	k12 = p + 12
+	k12 = try p + 12 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'outer'
 		var j = 0 as Integer
 		while j < 2 'inner'
-			sum = sum + j
+			sum = try sum + j otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'nestedIdle'
 
 function main() returns ExitCode
@@ -276,47 +276,47 @@ end 'gate'
 
 function idleVarsPastABreak(p Integer) returns Integer
 	var k1 = 0 as Integer
-	k1 = p + 1
+	k1 = try p + 1 otherwise panic("out of range")
 	var k2 = 0 as Integer
-	k2 = p + 2
+	k2 = try p + 2 otherwise panic("out of range")
 	var k3 = 0 as Integer
-	k3 = p + 3
+	k3 = try p + 3 otherwise panic("out of range")
 	var k4 = 0 as Integer
-	k4 = p + 4
+	k4 = try p + 4 otherwise panic("out of range")
 	var k5 = 0 as Integer
-	k5 = p + 5
+	k5 = try p + 5 otherwise panic("out of range")
 	var k6 = 0 as Integer
-	k6 = p + 6
+	k6 = try p + 6 otherwise panic("out of range")
 	var k7 = 0 as Integer
-	k7 = p + 7
+	k7 = try p + 7 otherwise panic("out of range")
 	var k8 = 0 as Integer
-	k8 = p + 8
+	k8 = try p + 8 otherwise panic("out of range")
 	var k9 = 0 as Integer
-	k9 = p + 9
+	k9 = try p + 9 otherwise panic("out of range")
 	var k10 = 0 as Integer
-	k10 = p + 10
+	k10 = try p + 10 otherwise panic("out of range")
 	var k11 = 0 as Integer
-	k11 = p + 11
+	k11 = try p + 11 otherwise panic("out of range")
 	var k12 = 0 as Integer
-	k12 = p + 12
+	k12 = try p + 12 otherwise panic("out of range")
 	var k13 = 0 as Integer
-	k13 = p + 13
+	k13 = try p + 13 otherwise panic("out of range")
 	var k14 = 0 as Integer
-	k14 = p + 14
+	k14 = try p + 14 otherwise panic("out of range")
 	var k15 = 0 as Integer
-	k15 = p + 15
+	k15 = try p + 15 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	if gate(p) 'guard'
 		while i < 100 'loop'
-			sum = sum + i
+			sum = try sum + i otherwise panic("out of range")
 			i = i + 1
 			if i > 3 'done'
 				break
 			end 'done'
 		end 'loop'
 	end 'guard'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 + k13 + k14 + k15 otherwise panic("out of range")
 end 'idleVarsPastABreak'
 
 function main() returns ExitCode
@@ -453,37 +453,37 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function pick(k Integer) returns Integer
-	let v1 = k + 11
-	let v2 = k + 22
-	let v3 = k + 33
-	let v4 = k + 44
-	let v5 = k + 55
-	let v6 = k + 66
+	let v1 = try k + 11 otherwise panic("out of range")
+	let v2 = try k + 22 otherwise panic("out of range")
+	let v3 = try k + 33 otherwise panic("out of range")
+	let v4 = try k + 44 otherwise panic("out of range")
+	let v5 = try k + 55 otherwise panic("out of range")
+	let v6 = try k + 66 otherwise panic("out of range")
 	var out = 0 as Integer
 	if k == 1 'b1'
 		let t = sink(1)
-		out = v1 + t
+		out = try v1 + t otherwise panic("out of range")
 	end 'b1' else if k == 2 'b2'
 		let t2 = sink(2)
-		out = v2 + t2
+		out = try v2 + t2 otherwise panic("out of range")
 	end 'b2' else if k == 3 'b3'
 		let t3 = sink(3)
-		out = v3 + t3
+		out = try v3 + t3 otherwise panic("out of range")
 	end 'b3' else if k == 4 'b4'
 		let t4 = sink(4)
-		out = v4 + t4
+		out = try v4 + t4 otherwise panic("out of range")
 	end 'b4' else if k == 5 'b5'
 		let t5 = sink(5)
-		out = v5 + t5
+		out = try v5 + t5 otherwise panic("out of range")
 	end 'b5' else 'b6'
 		let t6 = sink(6)
-		out = v6 + t6
+		out = try v6 + t6 otherwise panic("out of range")
 	end 'b6'
 	return out
 end 'pick'
 
 function main() returns ExitCode
-	let total = pick(1) + pick(2) + pick(3) + pick(4) + pick(5) + pick(6)
+	let total = try pick(1) + pick(2) + pick(3) + pick(4) + pick(5) + pick(6) otherwise panic("out of range")
 	if total == 273 'ok'
 		return 0
 	end 'ok'
@@ -506,28 +506,28 @@ a loop that has two ways out.
 — at `i = 4`, `sum = 10 > 6`, so it breaks with `sum = 10`. Total `10 + 78 = 88`.
 ```maxon
 function breakUnderPressure(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 100 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 		if sum > 6 'stop'
 			break
 		end 'stop'
 	end 'loop'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'breakUnderPressure'
 
 function main() returns ExitCode
@@ -554,29 +554,29 @@ store landing at loop depth ≠ 0, so a placement bug here is a hard failure rat
 runs `i = 0,1,2` — so `3 · 3 = 9`. Total `78 + 9 = 87`.
 ```maxon
 function depthTwo(p Integer) returns Integer
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'outer'
 		var j = 0 as Integer
 		while j < 3 'inner'
-			sum = sum + j
+			sum = try sum + j otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12
+	return try sum + k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 end 'depthTwo'
 
 function main() returns ExitCode

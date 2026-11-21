@@ -1599,11 +1599,11 @@ typealias Row = Array with Count
 typealias Rows = Array with Row
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	rows.push(Row.create(0))
-	let first = try rows.get(0) otherwise Row.create(0)
+	var first = try rows.get(0) otherwise Row.create(0)
 	first.push(1)
-	return ((try rows.get(0) otherwise Row.create(0)).count() as ExitCode) + (rows.count() as ExitCode)
+	return try ((try rows.get(0) otherwise Row.create(0)).count() as ExitCode) + (rows.count() as ExitCode) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

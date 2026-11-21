@@ -278,6 +278,7 @@ low=0 high=255
 ```
 
 <!-- test: computed-negative-return-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE RUNTIME HALF, AND THE CASE THIS SPEC IS ABOUT.** The value is computed, so no literal
 check can see it; the `return` is where it meets `ExitCode` and where the guard stands. Unguarded, it
 would print `-1` on x64 and `4294967295` on wasm, with no diagnostic on either — a wrong answer that is
@@ -321,7 +322,7 @@ function opaque(n Integer) returns Integer
 end 'opaque'
 
 function code() returns ExitCode
-	return opaque(3) + 4
+	return try opaque(3) + 4 otherwise panic("out of range")
 end 'code'
 
 function main() returns ExitCode
@@ -365,6 +366,7 @@ reach for that `u8`.
 ⚠ The compile-time half of this door is closed on every target — `takes(-3)` above never builds.
 
 <!-- test: computed-argument-is-guarded-at-the-callee-entry -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The half that holds whatever the range: where the ABI passes the argument at full width,
 the entry guard refuses it, and the panic names the parameter's own declaration line rather than the
 caller's — one guard serves every call site, so the caller's line is not a fact it holds.
@@ -396,6 +398,7 @@ Stack trace:
 ```
 
 <!-- test: computed-argument-is-guarded-on-a-narrowing-abi -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- unsupported-targets: x64-windows, x64-linux, arm64-macos, arm64-linux -->
 ⭐⭐ **THE wasm TWIN OF THE CASE ABOVE, AND IT NEEDS NO MECHANISM OF ITS OWN.** The identical program;
 only the lane differs, and on this lane the ABI narrows the argument to `i32` before the callee's guard
@@ -565,6 +568,7 @@ end 'main'
 ```
 
 <!-- test: throws-plain-return-is-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE GENERAL FORM OF THE CASE ABOVE, AND THE ONE THAT NAMES THE REAL TRIGGER.** No `match`, no
 join — one `return v`, past a guard the program never trips, in a function whose only distinguishing
 feature is a `throws` clause.
@@ -603,6 +607,7 @@ Stack trace:
 ```
 
 <!-- test: try-otherwise-nonliteral-fallback-is-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE `try` MERGE IS A MERGE LIKE THE OTHERS.** The continuation phi is named off the callee's return
 type, so it claims `Num`; the ok edge earns that claim (the callee guards its own `return`), but a VARIABLE
 fallback earns nothing — only a LITERAL fallback is checked, and only at compile time. Without the claim

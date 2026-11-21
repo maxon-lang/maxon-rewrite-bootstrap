@@ -283,7 +283,7 @@ function main() returns ExitCode
 		cold gives -10
 		warm gives 25
 	end 'check'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -812,7 +812,7 @@ end 'Direction'
 
 function main() returns ExitCode
 	let d = Direction.south
-	return d.rawValue
+	return try d.rawValue as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1075,7 +1075,7 @@ enum HttpStatus
 end 'HttpStatus'
 
 function getCode(s HttpStatus) returns Integer
-	return s.rawValue
+	return try s.rawValue as Integer otherwise panic("out of range")
 end 'getCode'
 
 function main() returns ExitCode

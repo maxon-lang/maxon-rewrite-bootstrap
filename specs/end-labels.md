@@ -488,17 +488,17 @@ typealias Count = int(0 to 100)
 function sum(limit Count) returns Count
 	var total = 0 as Count
 	for i in 0 upto limit 'each'
-		total = total + i
+		total = try total + i otherwise panic("out of range")
 	end 'each'
 	for j in 0 upto limit 'each'
-		total = total + j
+		total = try total + j otherwise panic("out of range")
 	end 'each'
 	if total > 20 'check'
-		total = total + 5
+		total = try total + 5 otherwise panic("out of range")
 	end 'check' else if total > 10 'check'
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 	end 'check' else 'check'
-		total = total + 3
+		total = try total + 3 otherwise panic("out of range")
 	end 'check'
 	return total
 end 'sum'
@@ -512,7 +512,7 @@ type Meter
 
 	function up() returns Count
 		if self.reading > 0 'step'
-			return self.reading + 1
+			return try self.reading + 1 otherwise panic("out of range")
 		end 'step'
 		return 0
 	end 'up'

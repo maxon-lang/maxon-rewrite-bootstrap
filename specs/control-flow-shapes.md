@@ -31,7 +31,7 @@ function nestedSum(limit Integer) returns Integer
 		end 'skipOuter'
 		var j = 0 as Integer
 		while true 'inner'
-			j = j + 1
+			j = try j + 1 otherwise panic("out of range")
 			if j > i 'doneInner'
 				break
 			end 'doneInner'
@@ -41,7 +41,7 @@ function nestedSum(limit Integer) returns Integer
 			if total > 400 'bail'
 				break 'outer'
 			end 'bail'
-			total = total + i * j
+			total = try total + i * j otherwise panic("out of range")
 		end 'inner'
 	end 'outer'
 	return total
@@ -73,7 +73,7 @@ function exitKind(start Integer, step Integer)
 	var kind = 0 as Integer
 	while n < 50 'walk'
 		n = n + 1
-		v = v + step
+		v = try v + step otherwise panic("out of range")
 		if v > 100 'high'
 			kind = 1
 			break
@@ -119,15 +119,15 @@ function findPair(target Integer) returns Integer
 	while a < 30 'outerA'
 		var b = a
 		while b < 30 'innerB'
-			if a * b == target 'hit'
-				return a * 100 + b
+			if (try a * b otherwise panic("out of range")) == target 'hit'
+				return try a * 100 + b otherwise panic("out of range")
 			end 'hit'
-			if a * b > target 'over'
+			if (try a * b otherwise panic("out of range")) > target 'over'
 				break
 			end 'over'
 			b = b + 1
 		end 'innerB'
-		a = a + 1
+		a = try a + 1 otherwise panic("out of range")
 	end 'outerA'
 	return 0
 end 'findPair'
@@ -184,7 +184,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	var n = 0 as Integer
 	while n < 80 'sweep'
-		total = total + classify(n)
+		total = try total + classify(n) otherwise panic("out of range")
 		n = n + 1
 	end 'sweep'
 	print("{total}\n")
@@ -436,18 +436,18 @@ function scan(limit Integer) returns Integer
 		i = i + 1
 		if i mod 4 == 0 'a'
 			if i mod 6 == 0 'b'
-				found = found + 1000
+				found = try found + 1000 otherwise panic("out of range")
 				break
 			end 'b'
 			continue
 		end 'a'
 		if i mod 5 == 0 'c'
-			found = found + 3
+			found = try found + 3 otherwise panic("out of range")
 		end 'c' else 'd'
-			found = found + 1
+			found = try found + 1 otherwise panic("out of range")
 		end 'd'
 	end 'innerScan'
-	return found * 100 + i
+	return try found * 100 + i otherwise panic("out of range")
 end 'scan'
 
 function firstOver(limit Integer, cap Integer) returns Integer
@@ -455,12 +455,12 @@ function firstOver(limit Integer, cap Integer) returns Integer
 	var sum = 0 as Integer
 	while i < limit 'loop'
 		i = i + 1
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		if sum > cap 'capped'
 			break
 		end 'capped'
 	end 'loop'
-	return sum * 100 + i
+	return try sum * 100 + i otherwise panic("out of range")
 end 'firstOver'
 
 function main() returns ExitCode
@@ -497,7 +497,7 @@ function gate(limit Integer) returns Integer
 	while n < limit 'loop'
 		n = n + 1
 		if (n mod 3 == 0 and n mod 5 != 0) or (n > 20 and n mod 2 == 1 and n < 30) 'pass'
-			hits = hits + n
+			hits = try hits + n otherwise panic("out of range")
 		end 'pass'
 	end 'loop'
 	return hits
@@ -630,7 +630,7 @@ function machine(steps Integer) returns Integer
 			4 then state = 0
 			default panic("bad state")
 		end 'st'
-		acc = acc * 3 + state
+		acc = try acc * 3 + state otherwise panic("out of range")
 		acc = acc mod 100003
 	end 'run'
 	return acc

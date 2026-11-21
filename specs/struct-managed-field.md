@@ -212,14 +212,14 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let i = Inner.create(10)
 	let o = Outer.create(i)
-	return o.inner.x
+	return try o.inner.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -244,15 +244,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let i = Inner.create(10)
-	let o = Outer.create(i)
+	var o = Outer.create(i)
 	o.inner.x = 42
-	return o.inner.x
+	return o.inner.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -272,7 +272,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.text = "brandnew"
 	if h.text == "brandnew" 'updated'
 		return 8
@@ -292,8 +292,8 @@ owned copy, so nothing dangles and nothing leaks.
 type Box
 	export var name as String
 
-	function setName(n String)
-		name = n
+	function setName(mutates self, n String)
+		name = n.clone()
 	end 'setName'
 
 	static function create() returns Self
@@ -302,7 +302,7 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let b = Box.create()
+	var b = Box.create()
 	b.setName("bb")
 	if b.name == "bb" 'ok'
 		return 2
@@ -334,7 +334,7 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -342,7 +342,7 @@ function main() returns ExitCode
 	let i = Inner.create(10)
 	let o = Outer.create(i)
 	print("{o.inner.x}")
-	return i.x
+	return try i.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -369,7 +369,7 @@ type Pair
 	export var b as String
 
 	static function create(v String) returns Self
-		return Self{a: v, b: v}
+		return Self{a: v.clone(), b: v.clone()}
 	end 'create'
 end 'Pair'
 
@@ -402,7 +402,7 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -413,7 +413,7 @@ end 'forward'
 function main() returns ExitCode
 	let i = Inner.create(10)
 	let o = forward(i)
-	return o.inner.x
+	return try o.inner.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -537,7 +537,7 @@ type Named
 	export var label as String
 
 	static function create(l String) returns Self
-		return Self{label: l}
+		return Self{label: l.clone()}
 	end 'create'
 end 'Named'
 
@@ -545,12 +545,12 @@ type Holder
 	export var n as Named
 
 	static function create(first Named) returns Self
-		return Self{n: first}
+		return Self{n: first.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Named.create("a"))
+	var h = Holder.create(Named.create("a"))
 	h.n = Named.create("b")
 	if h.n.label == "b" 'updated'
 		return 9
@@ -571,7 +571,7 @@ type Named
 	export var label as String
 
 	static function create(l String) returns Self
-		return Self{label: l}
+		return Self{label: l.clone()}
 	end 'create'
 end 'Named'
 
@@ -579,12 +579,12 @@ type Holder
 	export var n as Named
 
 	static function create(first Named) returns Self
-		return Self{n: first}
+		return Self{n: first.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Named.create("start"))
+	var h = Holder.create(Named.create("start"))
 	var i = 0 as FullRangeInt
 	while i < 5 'loop'
 		h.n = Named.create("iter")
@@ -609,7 +609,7 @@ type Inner
 	export var label as String
 
 	static function create(l String) returns Self
-		return Self{label: l}
+		return Self{label: l.clone()}
 	end 'create'
 end 'Inner'
 
@@ -617,7 +617,7 @@ type Mid
 	export var inner as Inner
 
 	static function create(i Inner) returns Self
-		return Self{inner: i}
+		return Self{inner: i.clone()}
 	end 'create'
 end 'Mid'
 
@@ -625,12 +625,12 @@ type Holder
 	export var m as Mid
 
 	static function create(first Mid) returns Self
-		return Self{m: first}
+		return Self{m: first.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Mid.create(Inner.create("a")))
+	var h = Holder.create(Mid.create(Inner.create("a")))
 	h.m = Mid.create(Inner.create("b"))
 	if h.m.inner.label == "b" 'ok'
 		return 4
@@ -661,14 +661,14 @@ type Holder
 	export var p as Point
 
 	static function create(first Point) returns Self
-		return Self{p: first}
+		return Self{p: first.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Point.create(1))
+	var h = Holder.create(Point.create(1))
 	h.p = Point.create(2)
-	return h.p.x
+	return try h.p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

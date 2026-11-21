@@ -157,7 +157,7 @@ drop lands in the return statement itself, not at the (skipped) statement-end dr
 typealias Integer = int(i64.min to i64.max)
 
 function wrap(s String) returns String
-	return s
+	return s.clone()
 end 'wrap'
 
 function outer(x Integer) returns String

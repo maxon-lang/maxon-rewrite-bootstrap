@@ -19,7 +19,7 @@ A method inside a type can call a free (module-level) function defined in the sa
 typealias Integer = int(i64.min to i64.max)
 
 function double(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 type Box
@@ -36,7 +36,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create(21)
-	return b.doubled()
+	return try b.doubled() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

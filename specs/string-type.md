@@ -276,7 +276,7 @@ Hello, World!
 <!-- test: print-multiple-literals-and-global -->
 ```maxon
 function bump(n Integer, mutates total Integer) returns Integer
-	total = total + n
+	total = try total + n otherwise panic("out of range")
 	return total
 end 'bump'
 
@@ -287,7 +287,7 @@ function main() returns ExitCode
 	print("bar")
 	let b = bump(5, total: total)
 	print("baz")
-	return b - a - 5
+	return try b - a - 5 otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

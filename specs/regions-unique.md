@@ -339,7 +339,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function rebind(a Tk)
+function rebind(consumes a Tk)
 	let b = a
 	print("{b.n}\n")
 end 'rebind'
@@ -372,13 +372,13 @@ end 'Tk'
 
 typealias TkArray = Array with Tk
 
-function rebind(a Tk, shelf TkArray)
+function rebind(consumes a Tk, mutates shelf TkArray)
 	let b = a
 	shelf.push(b)
 end 'rebind'
 
 function main() returns ExitCode
-	let shelf = TkArray.create(0)
+	var shelf = TkArray.create(0)
 	rebind(Tk.create(7), shelf: shelf)
 	print("{shelf.count()}\n")
 	return 0
@@ -434,7 +434,7 @@ type Tk is noncopyable
 	end 'create'
 end 'Tk'
 
-function rebind(a Tk)
+function rebind(consumes a Tk)
 	let b = a
 	let c = b
 	print("{c.n}\n")
@@ -568,8 +568,8 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
@@ -636,8 +636,8 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
@@ -679,7 +679,7 @@ end 'Slot'
 function peek(slot Slot, k Tally) returns Tally
 	match slot 'which'
 		empty then return k
-		filled(token, n) then return token.n + n + k
+		filled(token, n) then return try token.n + n + k otherwise panic("out of range")
 	end 'which'
 end 'peek'
 
@@ -835,14 +835,14 @@ end 'Token'
 
 typealias TokenArray = Array with Token
 
-function keep(token Token) returns Tally
-	let kept = TokenArray.create(0)
+function keep(consumes token Token) returns Tally
+	var kept = TokenArray.create(0)
 	kept.push(token)
 	return 1
 end 'keep'
 
 function main() returns ExitCode
-	let tokens = TokenArray.create(0)
+	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
 	let moved = keep(try tokens.pop() otherwise panic("one element"))
 	print("{moved} {tokens.count()}\n")
@@ -953,7 +953,7 @@ function empty(tokens TokenArray) returns bool
 end 'empty'
 
 function main() returns ExitCode
-	let tokens = TokenArray.create(0)
+	var tokens = TokenArray.create(0)
 	tokens.push(Token.create(1))
 	print("{empty(tokens)} {tokens.count()}\n")
 	return 0
@@ -1256,7 +1256,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create(4)
+	var holder = Holder.create(4)
 	holder.token.n = 6
 	let seen = holder.token.n
 	print("{seen} {holder.token.n}\n")
@@ -1739,7 +1739,7 @@ end 'Ticket'
 typealias TicketArray = Array with Ticket
 
 function main() returns ExitCode
-	let tickets = TicketArray.create(0)
+	var tickets = TicketArray.create(0)
 	tickets.push(Ticket.create(1))
 	let first = tickets.count()
 	let second = tickets.count()
@@ -2182,8 +2182,8 @@ end 'Slot'
 
 typealias SlotArray = Array with Slot
 
-function keep(slot Slot) returns Tally
-	let kept = SlotArray.create(0)
+function keep(consumes slot Slot) returns Tally
+	var kept = SlotArray.create(0)
 	kept.push(slot)
 	return 1
 end 'keep'
@@ -2226,8 +2226,8 @@ end 'Slot'
 
 typealias SlotArray = Array with Slot
 
-function keep(slot Slot) returns Tally
-	let kept = SlotArray.create(0)
+function keep(consumes slot Slot) returns Tally
+	var kept = SlotArray.create(0)
 	kept.push(slot)
 	return 1
 end 'keep'
@@ -2914,13 +2914,13 @@ function readN(t Tk) returns Num
 	return t.n
 end 'readN'
 
-function bump(t Tk)
-	t.n = t.n + 1
+function bump(mutates t Tk)
+	t.n = try t.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let q = Tk.create(1)
-	let q2 = Tk.create(2)
+	var q = Tk.create(1)
+	var q2 = Tk.create(2)
 	let z = readN(q if chosen(1) else q2)
 	bump(q)
 	bump(q2)
@@ -2954,7 +2954,7 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	let q = Tk.create(4)
+	var q = Tk.create(4)
 	let z = readN(q if chosen(1) else q)
 	q.n = 5
 	print("{z} {q.n}\n")
@@ -2978,7 +2978,7 @@ type Tk is noncopyable
 	end 'create'
 
 	function doubled() returns Num
-		return self.n * 2
+		return try self.n * 2 otherwise panic("out of range")
 	end 'doubled'
 end 'Tk'
 
@@ -2987,7 +2987,7 @@ function chosen(n Num) returns bool
 end 'chosen'
 
 function main() returns ExitCode
-	let q = Tk.create(1)
+	var q = Tk.create(1)
 	let q2 = Tk.create(2)
 	let z = (q if chosen(0) else q2).doubled()
 	q.n = 7
@@ -3122,7 +3122,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -3135,7 +3135,7 @@ function bound(flag bool) returns Num
 end 'bound'
 
 function stored(flag bool) returns Num
-	let h = Kp.create(Tk.create(0))
+	var h = Kp.create(Tk.create(0))
 	let q = Tk.create(3)
 	let q2 = Tk.create(4)
 	h.k = q if flag else q2
@@ -3284,9 +3284,9 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	let q = Tk.create(1)
-	let q2 = Tk.create(2)
-	let q3 = Tk.create(3)
+	var q = Tk.create(1)
+	var q2 = Tk.create(2)
+	var q3 = Tk.create(3)
 	let z = readN(q if chosen(0) else (q2 if chosen(0) else q3))
 	q.n = 4
 	q2.n = 5
@@ -3426,7 +3426,7 @@ function readN(t Tk) returns Num
 end 'readN'
 
 function main() returns ExitCode
-	let q = Tk.create(1)
+	var q = Tk.create(1)
 	let z = readN(try mk(0) otherwise q)
 	let w = readN(try mk(7) otherwise q)
 	q.n = 5
@@ -3562,7 +3562,7 @@ function viaCond(flag bool, inner bool) returns Num
 	let q2 = Tk.create(2)
 	let r = q if flag else q
 	let s = (q2 if inner else q2) if flag else q2
-	return r.n * 10 + s.n
+	return try r.n * 10 + s.n otherwise panic("out of range")
 end 'viaCond'
 
 function viaMatch(p Pick, inner bool) returns Num
@@ -3576,7 +3576,7 @@ function viaMatch(p Pick, inner bool) returns Num
 		first gives q2
 		second gives q2 if inner else q2
 	end 'k'
-	return r.n * 10 + s.n
+	return try r.n * 10 + s.n otherwise panic("out of range")
 end 'viaMatch'
 
 function viaTry(code Num, flag bool) returns Num
@@ -3584,7 +3584,7 @@ function viaTry(code Num, flag bool) returns Num
 	let q2 = Tk.create(6)
 	let r = try mk(code) otherwise q
 	let s = (try mk(code) otherwise q2) if flag else q2
-	return r.n * 10 + s.n
+	return try r.n * 10 + s.n otherwise panic("out of range")
 end 'viaTry'
 
 function main() returns ExitCode
@@ -4655,20 +4655,20 @@ type Holder is noncopyable
 	var n as Count
 
 	static function create(data Box, n Count) returns Self
-		return Self{data: data, n: n}
+		return Self{data: data.clone(), n: n}
 	end 'create'
 end 'Holder'
 
-function partFirst(d Box, h Holder)
-	h.n = h.n + d.n
+function partFirst(d Box, mutates h Holder)
+	h.n = try h.n + d.n otherwise panic("out of range")
 end 'partFirst'
 
-function rootFirst(h Holder, d Box)
-	h.n = h.n + d.n
+function rootFirst(mutates h Holder, d Box)
+	h.n = try h.n + d.n otherwise panic("out of range")
 end 'rootFirst'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(2), n: 0)
+	var h = Holder.create(Box.create(2), n: 0)
 	partFirst(h.data, h: h)
 	rootFirst(h, d: h.data)
 	print("{h.n}\n")

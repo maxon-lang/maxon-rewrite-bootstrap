@@ -185,11 +185,11 @@ end 'base'
 
 function widen(j Integer) returns Integer
 	let r = base()
-	return (r as Integer) + j
+	return try (r as Integer) + j otherwise panic("out of range")
 end 'widen'
 
 function main() returns ExitCode
-	return widen(10)
+	return try widen(10) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

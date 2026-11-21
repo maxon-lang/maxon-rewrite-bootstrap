@@ -79,15 +79,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(i Inner) returns Self
-		return Self{inner: i}
+		return Self{inner: i.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(6))
+	var o = Outer.create(Inner.create(6))
 	let old = o.inner
 	o.inner = Inner.create(9)
-	return old.tag
+	return old.tag as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -134,7 +134,7 @@ end 'churn'
 
 function main() returns ExitCode
 	var label = "label number 0, long enough to live on the heap"
-	return churn(label)
+	return churn(label) as ExitCode
 end 'main'
 ```
 ```exitcode

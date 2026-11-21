@@ -27,12 +27,12 @@ type Palette
 	export var secondary as Color
 
 	static function create(primary Color, secondary Color) returns Self
-		return Self{primary: primary, secondary: secondary}
+		return Self{primary: primary.clone(), secondary: secondary.clone()}
 	end 'create'
 end 'Palette'
 
 function checkPrimary(p Palette) returns bool
-	let c = p.primary
+	let c = p.primary.clone()
 	match c 'mc'
 		red then return true
 		blue then return false
@@ -65,7 +65,7 @@ type Drawing
 	export var shape as Shape
 
 	static function create(shape Shape) returns Self
-		return Self{shape: shape}
+		return Self{shape: shape.clone()}
 	end 'create'
 end 'Drawing'
 
@@ -102,12 +102,12 @@ type Container
 	export var item as Value
 
 	static function create(item Value) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 end 'Container'
 
 function getNumber(c Container) returns SmallInt
-	let v = c.item
+	let v = c.item.clone()
 	match v 'mv'
 		number(n) then return n
 		empty then return 0
@@ -116,7 +116,7 @@ end 'getNumber'
 
 function main() returns ExitCode
 	let c = Container.create(Value.number(42))
-	return getNumber(c)
+	return getNumber(c) as ExitCode
 end 'main'
 ```
 ```exitcode

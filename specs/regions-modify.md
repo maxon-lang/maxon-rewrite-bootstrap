@@ -145,7 +145,7 @@ The temporary the argument was built into is released before the freeze walks th
 
 ```maxon
 function pick(bytes ByteArray) returns ByteArray
-	return bytes
+	return bytes.clone()
 end 'pick'
 
 function main() returns ExitCode

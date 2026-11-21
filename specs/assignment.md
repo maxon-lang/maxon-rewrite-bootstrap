@@ -64,7 +64,7 @@ function main() returns ExitCode
 	var sum = 0 as ExitCode
 	var i = 1 as ExitCode
 	while i <= 5 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return sum
@@ -394,7 +394,7 @@ function main() returns ExitCode
 	var s = 0 as Score
 	s = 5
 	s = s + 20
-	return s
+	return s as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -402,6 +402,7 @@ end 'main'
 ```
 
 <!-- test: a-rebind-out-of-range-panics-at-the-rebind -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ The value leaves `Score` at the rebind inside `bump`, and the check fires there: the panic names
 line 7, the print after it never runs, and the `return` door is never reached. A `var` never holds a
 value outside its own range.
@@ -436,6 +437,7 @@ Stack trace:
 ```
 
 <!-- test: a-rebind-of-a-ranged-var-is-checked -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A rebind of a ranged `var` is a range door: a value the compiler cannot prove inside the alias is checked
 where it is stored, so the panic lands on the rebind line and the print after it never runs.
 ```maxon
@@ -531,7 +533,7 @@ function main() returns ExitCode
 	p.x = 9
 	let q = Point.create(5, y: 5)
 	p = q
-	return p.x as ExitCode
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -553,7 +555,7 @@ end 'JsonByte'
 function main() returns ExitCode
 	var b = 0 as Byte
 	b = JsonByte.lBracket
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -712,11 +714,11 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.c = Color.green
 	var c = Color.red
 	c = Color.green
-	return h.c.ordinal + c.ordinal
+	return try h.c.ordinal + c.ordinal otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -199,7 +199,7 @@ typealias DurationMs = int(0 to 10)
 
 function main() returns ExitCode
 	let d = 5 as DurationMs
-	return d
+	return d as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -235,7 +235,7 @@ end 'Clock'
 
 function main() returns ExitCode
 	let c = Clock.make()
-	return c.x as ExitCode
+	return try c.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -509,7 +509,7 @@ end 'FullRangeInt'
 
 function main() returns ExitCode
 	let p = FullRangeInt.create(7)
-	return p.value
+	return p.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -529,7 +529,7 @@ enum RepeatCount
 end 'RepeatCount'
 
 function main() returns ExitCode
-	return RepeatCount.second.rawValue
+	return try RepeatCount.second.rawValue as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1438,7 +1438,7 @@ file's own `Byte` binds that one and keeps a value past the library's range.
 ```maxon
 typealias Byte = int(0 to 60000)
 
-function pick(value T) uses T returns T
+function pick(consumes value T) uses T returns T
 	return value
 end 'pick'
 
@@ -1462,6 +1462,7 @@ true 50000
 ```
 
 <!-- test: stdlib-user-shadows.a-field-declared-as-the-librarys-byte-keeps-the-librarys-range -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A field declared `stdlib.Byte` in a file whose own `Byte` is wider holds the library's `Byte`: the field of the
 file's own `Byte` takes a value past 255, and a value past 255 stored into the other panics, naming
 `stdlib.Byte`.

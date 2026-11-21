@@ -77,10 +77,10 @@ function main() returns ExitCode
 	var product = 1 as FullRangeInt
 	var i = 5 as FullRangeInt
 	while i > 1 'loop'
-		product = product * i
+		product = try product * i otherwise panic("out of range")
 		i = i - 1
 	end 'loop'
-	return product
+	return try product as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -95,10 +95,10 @@ function main() returns ExitCode
 	var acc = 100 as FullRangeInt
 	var i = 1 as FullRangeInt
 	while i < 5 'loop'
-		acc = acc - i
+		acc = try acc - i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return acc
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -116,10 +116,10 @@ function main() returns ExitCode
 	var b = 5 as FullRangeInt
 	var i = 0 as FullRangeInt
 	while i < 3 'loop'
-		b = a - b
+		b = try a - b otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return b
+	return try b as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -136,12 +136,12 @@ must be recorded as dying exactly ONCE even though it appears twice in the op.
 `81` instead of `9`, giving 8230.)
 ```maxon
 function sameTwice(p Integer) returns Integer
-	let x = p + 9
-	let y = p + 7
-	let sq = x * x
-	let df = x - x
-	let t = y * y
-	return sq * 100 + df * 10 + x + t
+	let x = try p + 9 otherwise panic("out of range")
+	let y = try p + 7 otherwise panic("out of range")
+	let sq = try x * x otherwise panic("out of range")
+	let df = try x - x otherwise panic("out of range")
+	let t = try y * y otherwise panic("out of range")
+	return try sq * 100 + df * 10 + x + t otherwise panic("out of range")
 end 'sameTwice'
 
 function main() returns ExitCode
@@ -168,15 +168,15 @@ additionally forced callee-saved.
 `diff(200, 137) = 63`; `chainDiff(90, 20, 5) = 90 − 20 − 5 = 65`; `63·1000 + 65 = 63065`.
 ```maxon
 function diff(a Integer, b Integer) returns Integer
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'diff'
 
 function chainDiff(a Integer, b Integer, c Integer) returns Integer
-	return a - b - c
+	return try a - b - c otherwise panic("out of range")
 end 'chainDiff'
 
 function main() returns ExitCode
-	let r = diff(200, b: 137) * 1000 + chainDiff(90, b: 20, c: 5)
+	let r = try diff(200, b: 137) * 1000 + chainDiff(90, b: 20, c: 5) otherwise panic("out of range")
 	if r == 63065 'ok'
 		return 0
 	end 'ok'
@@ -200,18 +200,18 @@ operand lowers to a `lea` and never reaches the two-address path at all.
 `p = 0`: `a = 100`, `b..f = 1..5`; `r1..r5 = 99, 98, 97, 96, 95`, summing to 485; `+ a` = 585.
 ```maxon
 function chain(p Integer) returns Integer
-	let a = p + 100
-	let b = p + 1
-	let c = p + 2
-	let d = p + 3
-	let e = p + 4
-	let f = p + 5
-	let r1 = a - b
-	let r2 = a - c
-	let r3 = a - d
-	let r4 = a - e
-	let r5 = a - f
-	return r1 + r2 + r3 + r4 + r5 + a
+	let a = try p + 100 otherwise panic("out of range")
+	let b = try p + 1 otherwise panic("out of range")
+	let c = try p + 2 otherwise panic("out of range")
+	let d = try p + 3 otherwise panic("out of range")
+	let e = try p + 4 otherwise panic("out of range")
+	let f = try p + 5 otherwise panic("out of range")
+	let r1 = try a - b otherwise panic("out of range")
+	let r2 = try a - c otherwise panic("out of range")
+	let r3 = try a - d otherwise panic("out of range")
+	let r4 = try a - e otherwise panic("out of range")
+	let r5 = try a - f otherwise panic("out of range")
+	return try r1 + r2 + r3 + r4 + r5 + a otherwise panic("out of range")
 end 'chain'
 
 function main() returns ExitCode
@@ -246,15 +246,15 @@ checks a constant. Neither the parser's constant domain nor the fold pass looks 
 load of a global keeps the three `neg`s, and the reuse copy this case exists to pin, on every lane.
 ```maxon
 function negs(p Integer) returns Integer
-	let x = p + 7
+	let x = try p + 7 otherwise panic("out of range")
 	let n1 = -x
 	let n2 = -n1
 	let n3 = -n2
-	return x * 100 - n3
+	return try x * 100 - n3 otherwise panic("out of range")
 end 'negs'
 
 function main() returns ExitCode
-	let seed = (CommandLine.args().count() - 1) as Integer
+	let seed = try (CommandLine.args().count() - 1) as Integer otherwise panic("out of range")
 	let r = negs(seed)
 	if r == 707 'ok'
 		return 0
@@ -353,24 +353,24 @@ function sink(x Integer) returns Integer
 end 'sink'
 
 function tight(p Integer) returns Integer
-	let a = p + 100
-	let b = p + 50
-	let k1 = p + 1
-	let k2 = p + 2
-	let k3 = p + 3
-	let k4 = p + 4
-	let k5 = p + 5
-	let k6 = p + 6
-	let k7 = p + 7
-	let k8 = p + 8
-	let k9 = p + 9
-	let k10 = p + 10
-	let k11 = p + 11
-	let k12 = p + 12
-	let d = a - b
-	let t = k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12
+	let a = try p + 100 otherwise panic("out of range")
+	let b = try p + 50 otherwise panic("out of range")
+	let k1 = try p + 1 otherwise panic("out of range")
+	let k2 = try p + 2 otherwise panic("out of range")
+	let k3 = try p + 3 otherwise panic("out of range")
+	let k4 = try p + 4 otherwise panic("out of range")
+	let k5 = try p + 5 otherwise panic("out of range")
+	let k6 = try p + 6 otherwise panic("out of range")
+	let k7 = try p + 7 otherwise panic("out of range")
+	let k8 = try p + 8 otherwise panic("out of range")
+	let k9 = try p + 9 otherwise panic("out of range")
+	let k10 = try p + 10 otherwise panic("out of range")
+	let k11 = try p + 11 otherwise panic("out of range")
+	let k12 = try p + 12 otherwise panic("out of range")
+	let d = try a - b otherwise panic("out of range")
+	let t = try k1 + k2 + k3 + k4 + k5 + k6 + k7 + k8 + k9 + k10 + k11 + k12 otherwise panic("out of range")
 	let s = sink(t)
-	return d + s
+	return try d + s otherwise panic("out of range")
 end 'tight'
 
 function main() returns ExitCode

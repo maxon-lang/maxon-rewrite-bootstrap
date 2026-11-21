@@ -272,7 +272,7 @@ missed reference a poison fault and a doubled one a leak.
 type Holder uses Element
 	export var value as Element
 
-	static function create(v Element) returns Self
+	static function create(consumes v Element) returns Self
 		return Self{value: v}
 	end 'create'
 

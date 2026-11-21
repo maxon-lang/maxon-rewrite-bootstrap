@@ -105,13 +105,13 @@ typealias WordArray = Array with Word
 function total(a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'sum'
-		t = t + (try a.get(i) otherwise panic("total: i < n = a.count()"))
+		t = try t + (try a.get(i) otherwise panic("total: i < n = a.count()")) otherwise panic("out of range")
 	end 'sum'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -184,17 +184,17 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function grow(a WordArray, n Count) returns Word
+function grow(mutates a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		a.push(i as Word)
-		t = t + (try a.get(0) otherwise panic("grow: a holds an element on entry"))
+		a.push(try i as Word otherwise panic("out of range"))
+		t = try t + (try a.get(0) otherwise panic("grow: a holds an element on entry")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'grow'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(7)
 	if grow(a, n: 40) != 280 'sum'
 		return 1
@@ -259,18 +259,18 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function lastDoubled(a WordArray, n Count) returns Word
+function lastDoubled(mutates a WordArray, n Count) returns Word
 	var last = -1 as Word
 	for i in 0 upto n 'each'
 		let v = try a.get(i) otherwise panic("lastDoubled: i < n = a.count()")
 		try a.set(i, value: v * 2) otherwise panic("lastDoubled: i < n = a.count()")
-		last = v * 2
+		last = try v * 2 otherwise panic("out of range")
 	end 'each'
 	return last
 end 'lastDoubled'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i + 1)
 	end 'seed'
@@ -297,26 +297,26 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function firstBigRow(rows WordArray, width Count, limit Word) returns Word
+function firstBigRow(mutates rows WordArray, width Count, limit Word) returns Word
 	var found = -1 as Word
 	var r = 0 as Word
 	while r < limit 'outer'
-		rows.push(r * 10)
+		rows.push(try r * 10 otherwise panic("out of range"))
 		for c in 0 upto width 'inner'
 			let v = try rows.get(c) otherwise panic("firstBigRow: c < width <= rows.count()")
 			try rows.set(c, value: v + 1) otherwise panic("firstBigRow: c < width <= rows.count()")
 			if v > 25 'hit'
-				found = r * 100 + (c as Word)
+				found = try r * 100 + (c as Word) otherwise panic("out of range")
 				break 'outer'
 			end 'hit'
 		end 'inner'
-		r = r + 1
+		r = try r + 1 otherwise panic("out of range")
 	end 'outer'
 	return found
 end 'firstBigRow'
 
 function main() returns ExitCode
-	let rows = WordArray.create(0)
+	var rows = WordArray.create(0)
 	for _ in 0 upto 3 'seed'
 		rows.push(20)
 	end 'seed'

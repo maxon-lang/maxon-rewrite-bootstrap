@@ -89,8 +89,8 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function get() returns Integer
@@ -103,9 +103,9 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -120,8 +120,8 @@ typealias Integer = int(i64.min to i64.max)
 type Adder
 	var total as Integer
 
-	function add(value Integer)
-		total = total + value
+	function add(mutates self, value Integer)
+		total = try total + value otherwise panic("out of range")
 	end 'add'
 
 	function getTotal() returns Integer
@@ -134,10 +134,10 @@ type Adder
 end 'Adder'
 
 function main() returns ExitCode
-	let a = Adder.create(0)
+	var a = Adder.create(0)
 	a.add(10)
 	a.add(32)
-	return a.getTotal()
+	return try a.getTotal() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -153,7 +153,7 @@ type Calculator
 	var value as Integer
 
 	function double() returns Integer
-		return value * 2
+		return try value * 2 otherwise panic("out of range")
 	end 'double'
 
 	static function create(value Integer) returns Self
@@ -163,7 +163,7 @@ end 'Calculator'
 
 function main() returns ExitCode
 	let c = Calculator.create(21)
-	return c.double()
+	return try c.double() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -178,15 +178,15 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
-	function decrement()
-		count = count - 1
+	function decrement(mutates self)
+		count = try count - 1 otherwise panic("out of range")
 	end 'decrement'
 
-	function reset()
+	function reset(mutates self)
 		count = 0
 	end 'reset'
 
@@ -200,11 +200,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(10)
+	var c = Counter.create(10)
 	c.increment()
 	c.increment()
 	c.decrement()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -219,8 +219,8 @@ typealias Integer = int(i64.min to i64.max)
 type Value
 	var n as Integer
 
-	function add(x Integer)
-		n = n + x
+	function add(mutates self, x Integer)
+		n = try n + x otherwise panic("out of range")
 	end 'add'
 
 	function get() returns Integer
@@ -233,11 +233,11 @@ type Value
 end 'Value'
 
 function main() returns ExitCode
-	let v = Value.create(0)
+	var v = Value.create(0)
 	v.add(10)
 	v.add(20)
 	v.add(12)
-	return v.get()
+	return try v.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

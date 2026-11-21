@@ -73,7 +73,7 @@ function pick(p Box, fresh bool) returns Box
 	if fresh 'makeOne'
 		return Box.create(0)
 	end 'makeOne'
-	return p
+	return p.clone()
 end 'pick'
 
 function main() returns ExitCode
@@ -108,12 +108,12 @@ function pick(p Box, fresh bool) returns Box
 	if fresh 'makeOne'
 		return Box.create(0)
 	end 'makeOne'
-	return p
+	return p.clone()
 end 'pick'
 
 function main() returns ExitCode
 	let row = Box.create(1)
-	let alias = pick(row, fresh: false)
+	var alias = pick(row, fresh: false)
 	alias.n = 9
 	print("{row.n}\n")
 	return 0
@@ -142,13 +142,13 @@ end 'Box'
 
 function second(p Box, q Box) returns Box
 	print("{p.n}\n")
-	return q
+	return q.clone()
 end 'second'
 
 function main() returns ExitCode
 	let frozen = freeze(Box.create(4))
 	let row = Box.create(1)
-	let r = second(frozen, q: row)
+	var r = second(frozen, q: row)
 	r.n = 7
 	print("{row.n}\n")
 	return 0

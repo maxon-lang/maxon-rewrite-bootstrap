@@ -52,7 +52,7 @@ error E3077: specs/var-should-be-let/var-never-reassigned.maxon:4:6: variable 'x
 function main() returns ExitCode
 	var x = 10 as FullRangeInt
 	x = 20
-	return x
+	return x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -79,7 +79,7 @@ function main() returns ExitCode
 	if x == 0 'check'
 		x = 42
 	end 'check'
-	return x
+	return x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -107,7 +107,7 @@ function main() returns ExitCode
 	let x = 10 as FullRangeInt
 	var y = x
 	y = 20
-	return y
+	return y as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -132,9 +132,9 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
-	let b = a
+	var b = a
 	b.x = 99
-	return b.x
+	return b.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -157,9 +157,9 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
-	let b = a.clone()
+	var b = a.clone()
 	b.x = 99
-	return b.x + a.x
+	return try b.x + a.x otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -209,15 +209,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let o = Outer.create(Inner.create(42))
-	let i = o.inner
+	var i = o.inner
 	i.value = 99
-	return i.value
+	return i.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -242,7 +242,7 @@ function main() returns ExitCode
 	let p = Point.create(1, y: 2)
 	var x = p.x
 	x = 99
-	return x
+	return x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -257,7 +257,7 @@ function main() returns ExitCode
 	x = 20
 	var y = x
 	y = 30
-	return y
+	return y as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -354,14 +354,14 @@ type Point
 end 'Point'
 
 function relay(p Point) returns Point
-	return p
+	return p.clone()
 end 'relay'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = relay(a)
+	var b = relay(a)
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -747,16 +747,16 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function launder(p Point) returns Point
-	let arr = PointArray.create(0)
-	arr.push(p)
+	var arr = PointArray.create(0)
+	arr.push(p.clone())
 	return try arr.get(0) otherwise panic("an element was pushed")
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = launder(a)
+	var b = launder(a)
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -781,29 +781,29 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 
-	function set(p Point)
-		self.item = p
+	function set(mutates self, p Point)
+		self.item = p.clone()
 	end 'set'
 
 	function get() returns Point
-		return self.item
+		return self.item.clone()
 	end 'get'
 end 'Box'
 
 function launder(p Point) returns Point
-	let box = Box.create(Point.create(0))
+	var box = Box.create(Point.create(0))
 	box.set(p)
 	return box.get()
 end 'launder'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let b = launder(a)
+	var b = launder(a)
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -952,11 +952,11 @@ function main() returns ExitCode
 	var b = Point.create(0)
 	b = relay(a)
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 
 function relay(p Point) returns Point
-	return p
+	return p.clone()
 end 'relay'
 ```
 ```exitcode
@@ -982,15 +982,15 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let box = Box.create(a)
+	var box = Box.create(a)
 	box.item.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1016,11 +1016,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let arr = PointArray.create(0)
+	var arr = PointArray.create(0)
 	arr.push(a)
-	let e = try arr.get(0) otherwise panic("an element was pushed")
+	var e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1046,16 +1046,16 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let box = Box.create(Point.create(0))
+	var box = Box.create(Point.create(0))
 	box.item = a
 	box.item.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1107,11 +1107,11 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let a = Point.create(1)
-	let arr = PointArray.create(0)
+	var arr = PointArray.create(0)
 	arr.push(a)
-	let e = try arr.pop() otherwise panic("one element was pushed")
+	var e = try arr.pop() otherwise panic("one element was pushed")
 	e.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1136,12 +1136,12 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function main() returns ExitCode
-	let arr = PointArray.create(0)
+	var arr = PointArray.create(0)
 	arr.push(Point.create(1))
 	let s = try arr.get(0) otherwise panic("an element was pushed")
-	let e = try arr.get(0) otherwise panic("an element was pushed")
+	var e = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 9
-	return s.x
+	return try s.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1167,15 +1167,15 @@ type Box
 	export var item as Point
 
 	static function create(item Point) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
 function main() returns ExitCode
-	let box = Box.create(Point.create(1))
+	var box = Box.create(Point.create(1))
 	let p = box.item
 	box.item.x = 99
-	return p.x
+	return try p.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1248,7 +1248,7 @@ function main() returns ExitCode
 	let b = relay(a)
 	let f = bumpIt
 	f(b)
-	return a.x
+	return a.x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1273,12 +1273,12 @@ end 'Point'
 typealias PointArray = Array with Point
 
 function main() returns ExitCode
-	let arr = PointArray.create(0)
+	var arr = PointArray.create(0)
 	arr.push(Point.create(1))
-	let e = try arr.get(0) otherwise panic("an element was pushed")
+	var e = try arr.get(0) otherwise panic("an element was pushed")
 	let s = try arr.get(0) otherwise panic("an element was pushed")
 	e.x = 9
-	return s.x
+	return try s.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1312,13 +1312,13 @@ type Pair
 end 'Pair'
 
 function main() returns ExitCode
-	let pair = Pair.create()
+	var pair = Pair.create()
 	pair.left.push(Point.create(3))
 	pair.right.push(Point.create(4))
 	let src = try pair.left.get(0) otherwise panic("an element was pushed")
-	let dst = try pair.right.get(0) otherwise panic("an element was pushed")
+	var dst = try pair.right.get(0) otherwise panic("an element was pushed")
 	dst.x = 9
-	return src.x
+	return try src.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1344,10 +1344,10 @@ typealias PointArray = Array with Point
 
 function main() returns ExitCode
 	let s = Point.create(1)
-	let arr = PointArray.create(0)
+	var arr = PointArray.create(0)
 	if arr.count() == 0 'writes'
 		arr.push(s)
-		let e = try arr.get(0) otherwise panic("an element was pushed")
+		var e = try arr.get(0) otherwise panic("an element was pushed")
 		e.x = 9
 		print("wrote {e.x}\n")
 	end 'writes' else 'reads'
@@ -1384,16 +1384,16 @@ type Pair
 	export var right as Point
 
 	static function create(left Point, right Point) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Point.create(1)
-	let pair = Pair.create(p, right: p)
+	var pair = Pair.create(p, right: p)
 	let l = pair.left
 	pair.right.x = 9
-	return l.x
+	return try l.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1419,18 +1419,18 @@ type Pair
 	export var right as Point
 
 	static function create(left Point, right Point) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left.clone(), right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
 	let p = Point.create(1)
-	let pair = Pair.create(Point.create(0), right: Point.create(0))
+	var pair = Pair.create(Point.create(0), right: Point.create(0))
 	pair.left = p
 	pair.right = p
 	let l = pair.left
 	pair.right.x = 9
-	return l.x
+	return try l.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1495,14 +1495,14 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function fill(bag Bag)
+function fill(mutates bag Bag)
 	bag.items.push(1)
 end 'fill'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	fill(holder.bag)
-	return holder.bag.items.count() as ExitCode
+	return try holder.bag.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1533,14 +1533,14 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function fill(bag Bag)
+function fill(mutates bag Bag)
 	bag.items.push(1)
 end 'fill'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	fill(holder.bag)
-	return holder.bag.items.count() as ExitCode
+	return try holder.bag.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

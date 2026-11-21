@@ -50,13 +50,13 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create(0)
+	var words = Words.create(0)
 	var n = 0 as Count
 	while n < 7 'loop'
-		words.hits = words.hits + 1
+		words.hits = try words.hits + 1 otherwise panic("out of range")
 		n = n + 1
 	end 'loop'
-	return words.hits as ExitCode
+	return try words.hits as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -83,14 +83,14 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.lo = 1
 	words.hi = 2
-	let next = words.hits + 1
+	let next = try words.hits + 1 otherwise panic("out of range")
 	let less = words.lo < words.hi
 	words.hits = next
 	if less 'less'
-		return (40 + words.hits) as ExitCode
+		return try (40 + words.hits) as ExitCode otherwise panic("out of range")
 	end 'less'
 	return 7
 end 'main'
@@ -116,7 +116,7 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create(0)
+	var words = Words.create(0)
 	words.hits = 3
 	let next = words.hits + 1
 	let seen = words.hits
@@ -144,11 +144,11 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create(5)
+	var words = Words.create(5)
 	let seen = words.slot
 	words.slot = 100
-	words.slot = seen + 1
-	return words.slot as ExitCode
+	words.slot = try seen + 1 otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -181,11 +181,11 @@ function reset(mutates words Words, depth Depth)
 end 'reset'
 
 function main() returns ExitCode
-	let words = Words.create(5)
+	var words = Words.create(5)
 	let seen = words.slot
 	reset(words, depth: 3)
-	words.slot = seen + 1
-	return words.slot as ExitCode
+	words.slot = try seen + 1 otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -207,10 +207,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create(20)
+	var words = Words.create(20)
 	let before = words.total
-	words.total = before + 1
-	return (before + words.total) as ExitCode
+	words.total = try before + 1 otherwise panic("out of range")
+	return try (before + words.total) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -232,10 +232,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create(20)
-	let after = words.total + 1
+	var words = Words.create(20)
+	let after = try words.total + 1 otherwise panic("out of range")
 	words.total = after
-	return (after * 2 - words.total) as ExitCode
+	return try (after * 2 - words.total) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -257,9 +257,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
-	words.slot = words.slot + 10
-	return words.slot as ExitCode
+	var words = Words.create()
+	words.slot = try words.slot + 10 otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -283,10 +283,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
-	words.slot = words.slot + words.operand
-	return words.slot as ExitCode
+	words.slot = try words.slot + words.operand otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -308,9 +308,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
-	words.slot = words.slot - 10
-	return words.slot as ExitCode
+	var words = Words.create()
+	words.slot = try words.slot - 10 otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -334,10 +334,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
-	words.slot = words.slot - words.operand
-	return words.slot as ExitCode
+	words.slot = try words.slot - words.operand otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -359,9 +359,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.slot = words.slot and 10
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -385,10 +385,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
 	words.slot = words.slot and words.operand
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -410,9 +410,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.slot = words.slot or 10
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -436,10 +436,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
 	words.slot = words.slot or words.operand
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -461,9 +461,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.slot = words.slot xor 10
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -487,10 +487,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
 	words.slot = words.slot xor words.operand
-	return words.slot as ExitCode
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -514,10 +514,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 10
-	words.hits = words.operand + words.hits
-	return words.hits as ExitCode
+	words.hits = try words.operand + words.hits otherwise panic("out of range")
+	return try words.hits as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -539,9 +539,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
-	words.hits = 1 + words.hits
-	return words.hits as ExitCode
+	var words = Words.create()
+	words.hits = try 1 + words.hits otherwise panic("out of range")
+	return try words.hits as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -564,9 +564,9 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
-	words.slot = 10 - words.slot
-	return words.slot as ExitCode
+	var words = Words.create()
+	words.slot = try 10 - words.slot otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -590,7 +590,7 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.b = 20
 	words.a = words.b + 1
 	return words.a as ExitCode
@@ -618,10 +618,10 @@ type Words
 end 'Words'
 
 function main() returns ExitCode
-	let words = Words.create()
+	var words = Words.create()
 	words.operand = 3
-	words.slot = words.slot + words.operand * 8
-	return words.slot as ExitCode
+	words.slot = try words.slot + words.operand * 8 otherwise panic("out of range")
+	return try words.slot as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

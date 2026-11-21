@@ -63,7 +63,7 @@ end 'readVal'
 
 function main() returns ExitCode
 	let n = 42
-	return readVal(n)
+	return try readVal(n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -112,7 +112,7 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		setTo99(self.n)
 	end 'bump'
 
@@ -122,7 +122,7 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.bump()
 	print("{c.value()}")
 	return 0
@@ -156,7 +156,7 @@ type Point
 end 'Point'
 
 function main() returns ExitCode
-	let p = Point.create()
+	var p = Point.create()
 	p.x = 1
 	setTo99(p.x)
 	print("{p.x}")
@@ -199,7 +199,7 @@ type Outer
 		return Self{a: Inner.create()}
 	end 'create'
 
-	function bumpOwn()
+	function bumpOwn(mutates self)
 		setTo99(self.a.b)
 	end 'bumpOwn'
 
@@ -209,10 +209,10 @@ type Outer
 end 'Outer'
 
 function main() returns ExitCode
-	let p = Outer.create()
+	var p = Outer.create()
 	p.a.b = 1
 	setTo99(p.a.b)
-	let q = Outer.create()
+	var q = Outer.create()
 	q.a.b = 2
 	q.bumpOwn()
 	print("{p.a.b} {q.inner()}")
@@ -313,7 +313,7 @@ end 'readVal'
 
 function main() returns ExitCode
 	let n = 37
-	return readVal(n)
+	return try readVal(n) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -330,7 +330,7 @@ function readVal(x Integer) returns Integer
 end 'readVal'
 
 function main() returns ExitCode
-	return readVal(42)
+	return try readVal(42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -349,7 +349,7 @@ end 'readVal'
 function main() returns ExitCode
 	let a = 20
 	let b = 22
-	return readVal(a + b)
+	return try readVal(a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -370,12 +370,12 @@ type Point
 	end 'create'
 end 'Point'
 
-function setX(p Point)
+function setX(mutates p Point)
 	p.x = 99
 end 'setX'
 
 function main() returns ExitCode
-	let p = Point.create(1, y: 2)
+	var p = Point.create(1, y: 2)
 	setX(p)
 	print("{p.x}")
 	return 0
@@ -518,7 +518,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function process(a Integer, mutates b Integer, c Integer)
-	b = a + c + 90
+	b = try a + c + 90 otherwise panic("out of range")
 end 'process'
 
 function main() returns ExitCode
@@ -558,7 +558,7 @@ end 'switchColor'
 function main() returns ExitCode
 	var c = Color.red
 	switchColor(c)
-	return c.rawValue
+	return try c.rawValue as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1595,7 +1595,7 @@ A variable of the alias the generic function's parameter names takes every value
 ```maxon
 typealias Wide = int(0 to 100)
 
-function bumpWide(mutates n Wide, tag T) uses T returns T
+function bumpWide(mutates n Wide, consumes tag T) uses T returns T
 	n = 50
 	return tag
 end 'bumpWide'
@@ -1981,7 +1981,7 @@ type Shelf
 	end 'create'
 
 	function first() returns Row
-		return self.row
+		return self.row.clone()
 	end 'first'
 
 	function total() returns Count
@@ -2021,12 +2021,12 @@ type Row
 end 'Row'
 
 function both(mutates a Row, mutates b Row)
-	a.n = a.n + 1
-	b.n = b.n + 10
+	a.n = try a.n + 1 otherwise panic("out of range")
+	b.n = try b.n + 10 otherwise panic("out of range")
 end 'both'
 
 function main() returns ExitCode
-	let row = Row.create(1)
+	var row = Row.create(1)
 	both(row, b: row)
 	print("{row.n}\n")
 	return 0

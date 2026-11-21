@@ -112,7 +112,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -125,7 +125,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.create(42)
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

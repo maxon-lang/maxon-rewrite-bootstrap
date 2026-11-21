@@ -94,10 +94,10 @@ end 'Cell'
 
 function main() returns ExitCode
 	var total = 0 as FullRangeInt
-	let cell = Cell.create()
+	var cell = Cell.create()
 	cell.n = 40
 	total = total + cell.n + 2
-	return total
+	return total as ExitCode
 end 'main'
 ```
 ```exitcode

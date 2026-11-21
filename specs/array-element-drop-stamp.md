@@ -221,14 +221,14 @@ type Label
 	var text as String
 
 	static function named(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'named'
 end 'Label'
 
 typealias LabelArray = Array with Label
 
 function main() returns ExitCode
-	let held = LabelArray.create(0)
+	var held = LabelArray.create(0)
 	held.push(Label.named("held {1 + 1}"))
 	return 0
 end 'main'
@@ -250,14 +250,14 @@ type Cell
 	end 'of'
 
 	function total() returns Small
-		return (self.low + self.high) as Small
+		return try (self.low + self.high) as Small otherwise panic("out of range")
 	end 'total'
 end 'Cell'
 
 typealias CellArray = Array with Cell
 
 function main() returns ExitCode
-	let held = CellArray.create(0)
+	var held = CellArray.create(0)
 	held.push(Cell.of(3, high: 4))
 	let cell = try held.get(0) otherwise panic("one was pushed")
 	return cell.total() as ExitCode

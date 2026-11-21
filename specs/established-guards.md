@@ -64,7 +64,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function swapFirstTwo(a WordArray)
+function swapFirstTwo(mutates a WordArray)
 	let second = try a.get(1) otherwise panic("swapFirstTwo: a holds two elements")
 	let first = try a.get(0) otherwise panic("swapFirstTwo: a holds two elements")
 	try a.set(1, value: first) otherwise panic("swapFirstTwo: a holds two elements")
@@ -72,7 +72,7 @@ function swapFirstTwo(a WordArray)
 end 'swapFirstTwo'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(3)
 	a.push(5)
 	a.push(7)
@@ -133,7 +133,7 @@ typealias Word = int(i64.min to i64.max)
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	try a.set(0, value: 10) otherwise panic("main: a holds two elements")
@@ -193,7 +193,7 @@ function share(a WordArray) returns WordArray
 	return a.clone()
 end 'share'
 
-function rewrite(a WordArray) returns WordArray
+function rewrite(mutates a WordArray) returns WordArray
 	try a.set(0, value: 10) otherwise panic("rewrite: a holds an element")
 	let kept = share(a)
 	try a.set(0, value: 20) otherwise panic("rewrite: a holds an element")
@@ -201,7 +201,7 @@ function rewrite(a WordArray) returns WordArray
 end 'rewrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	let kept = rewrite(a)
 	if (try kept.get(0) otherwise 0) != 10 'keptHoldsTheFirstWrite'
@@ -227,7 +227,7 @@ typealias Word = int(i64.min to i64.max)
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	let b = a.clone()
@@ -254,7 +254,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function rewrite(a WordArray, n Word)
+function rewrite(mutates a WordArray, n Word)
 	if n > 100 'never'
 		try a.set(0, value: 1) otherwise panic("rewrite: a holds two elements")
 	end 'never'
@@ -262,7 +262,7 @@ function rewrite(a WordArray, n Word)
 end 'rewrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	let b = a.clone()
@@ -289,7 +289,7 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function rewrite(a WordArray, b WordArray) returns WordArray
+function rewrite(mutates a WordArray, b WordArray) returns WordArray
 	try a.set(0, value: 10) otherwise panic("rewrite: a holds two elements")
 	let kept = b.clone()
 	try a.set(1, value: 20) otherwise panic("rewrite: a holds two elements")
@@ -297,7 +297,7 @@ function rewrite(a WordArray, b WordArray) returns WordArray
 end 'rewrite'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(1)
 	a.push(2)
 	let kept = rewrite(a, b: a)

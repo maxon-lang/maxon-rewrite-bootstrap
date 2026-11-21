@@ -239,7 +239,7 @@ end 'getForty'
 function main() returns ExitCode
 	let x = 2
 	let y = getForty()
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -263,7 +263,7 @@ function main() returns ExitCode
 	let b = getTen()
 	let c = 7
 	let d = getTwo()
-	return a + b + c + d
+	return try a + b + c + d otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -281,7 +281,7 @@ end 'compute'
 function main() returns ExitCode
 	let a = compute()
 	let b = compute()
-	return (a + b) and 125
+	return try ((try a + b otherwise panic("out of range")) and 125) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -319,11 +319,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(30, b: 12)
+	return try add(30, b: 12) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -335,13 +335,13 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
 	let x = 20
 	let y = 22
-	return add(y, b: x)
+	return try add(y, b: x) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -387,7 +387,7 @@ function main() returns ExitCode
 	while i < 42 'loop'
 		i = i + 1
 	end 'loop'
-	return i
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -399,10 +399,10 @@ function main() returns ExitCode
 	var sum = 0 as FullRangeInt
 	var i = 0 as FullRangeInt
 	while i < 10 'loop'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum mod 256
+	return try sum mod 256 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -417,14 +417,14 @@ function main() returns ExitCode
 	var i = 0 as FullRangeInt
 	while i < 20 'loop'
 		if i mod 2 == 0 'even'
-			even_sum = even_sum + i
-			count = count + 1
+			even_sum = try even_sum + i otherwise panic("out of range")
+			count = try count + 1 otherwise panic("out of range")
 		end 'even' else 'odd'
-			odd_sum = odd_sum + i
+			odd_sum = try odd_sum + i otherwise panic("out of range")
 		end 'odd'
 		i = i + 1
 	end 'loop'
-	return (even_sum + odd_sum + count) and 125
+	return try ((try even_sum + odd_sum + count otherwise panic("out of range")) and 125) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -437,13 +437,13 @@ function main() returns ExitCode
 	var i = 1 as FullRangeInt
 	while i <= 10 'loop'
 		if i <= 5 'first'
-			result = result + i
+			result = try result + i otherwise panic("out of range")
 		end 'first' else 'second'
-			result = result + i * 2
+			result = try result + i * 2 otherwise panic("out of range")
 		end 'second'
 		i = i + 1
 	end 'loop'
-	return result mod 256
+	return try result mod 256 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -457,12 +457,12 @@ function main() returns ExitCode
 	while i < 5 'outer'
 		var j = 0 as FullRangeInt
 		while j < 4 'inner'
-			total = total + 1
+			total = try total + 1 otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -476,12 +476,12 @@ function main() returns ExitCode
 	while i <= 5 'outer'
 		var j = 1 as FullRangeInt
 		while j <= i 'inner'
-			total = total + 1
-			j = j + 1
+			total = try total + 1 otherwise panic("out of range")
+			j = try j + 1 otherwise panic("out of range")
 		end 'inner'
 		i = i + 1
 	end 'outer'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -493,17 +493,17 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	var sum = 0 as Integer
 	var i = 0 as Integer
 	while i < 5 'loop'
-		sum = sum + double(i)
+		sum = try sum + double(i) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -539,11 +539,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function sum5(a Integer, b Integer, c Integer, d Integer, e Integer) returns Integer
-	return a + b + c + d + e
+	return try a + b + c + d + e otherwise panic("out of range")
 end 'sum5'
 
 function main() returns ExitCode
-	return sum5(5, b: 10, c: 8, d: 12, e: 7)
+	return try sum5(5, b: 10, c: 8, d: 12, e: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -555,11 +555,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function sum9(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer, h Integer, i Integer) returns Integer
-	return a + b + c + d + e + f + g + h + i
+	return try a + b + c + d + e + f + g + h + i otherwise panic("out of range")
 end 'sum9'
 
 function main() returns ExitCode
-	return sum9(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9)
+	return try sum9(1, b: 2, c: 3, d: 4, e: 5, f: 6, g: 7, h: 8, i: 9) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -574,11 +574,11 @@ function factorial(n Integer) returns Integer
 	if n <= 1 'base'
 		return 1
 	end 'base'
-	return n * factorial(n - 1)
+	return try n * factorial(n - 1) otherwise panic("out of range")
 end 'factorial'
 
 function main() returns ExitCode
-	return factorial(5) mod 256
+	return try factorial(5) mod 256 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -602,12 +602,12 @@ function main() returns ExitCode
 	let f = 6
 	var i = 0 as Integer
 	while i < 3 'loop'
-		a = a + identity(b)
-		c = c + identity(d)
-		e = e + identity(f)
+		a = try a + identity(b) otherwise panic("out of range")
+		c = try c + identity(d) otherwise panic("out of range")
+		e = try e + identity(f) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return (a + c + d + e + f) mod 256
+	return try (a + c + d + e + f) mod 256 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -641,13 +641,13 @@ function main() returns ExitCode
 		var j = 0 as FullRangeInt
 		while j < 3 'inner'
 			if i == j 'diag'
-				total = total + 1
+				total = try total + 1 otherwise panic("out of range")
 			end 'diag'
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return sentinel + total
+	return try sentinel + total otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -660,12 +660,12 @@ function main() returns ExitCode
 	var b = 1 as FullRangeInt
 	var i = 0 as FullRangeInt
 	while i < 13 'loop'
-		let temp = a + b
+		let temp = try a + b otherwise panic("out of range")
 		a = b
 		b = temp
 		i = i + 1
 	end 'loop'
-	return a and 125
+	return try (a and 125) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -695,16 +695,16 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function useRegs(a Integer, b Integer, c Integer, d Integer) returns Integer
-	let x = a + b
-	let y = c + d
-	let z = x + y
+	let x = try a + b otherwise panic("out of range")
+	let y = try c + d otherwise panic("out of range")
+	let z = try x + y otherwise panic("out of range")
 	return z
 end 'useRegs'
 
 function main() returns ExitCode
 	let sentinel = 42
 	let result = useRegs(1, b: 2, c: 3, d: 4)
-	return sentinel + result
+	return try sentinel + result otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -763,14 +763,14 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function sub(a Integer, b Integer) returns Integer
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'sub'
 
 function main() returns ExitCode
 	let x = 10
 	let y = 3
 	let result = sub(y, b: x)
-	return result + 45
+	return try result + 45 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -840,7 +840,7 @@ function main() returns ExitCode
 		2 then result = 200
 		default then result = 0
 	end 'process'
-	return result and 125
+	return (result and 125) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -937,7 +937,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
@@ -948,7 +948,7 @@ function main() returns ExitCode
 		2 then result = double(20)
 		default then result = 0
 	end 'process'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1023,7 +1023,7 @@ end 'middle'
 
 function main() returns ExitCode
 	let x = try middle() otherwise 99
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1060,7 +1060,7 @@ function main() returns ExitCode
 	let a = try getA(10) otherwise 0
 	let b = try getB(20) otherwise 0
 	let c = try getC() otherwise 12
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1087,7 +1087,7 @@ end 'lookup'
 function main() returns ExitCode
 	let a = try lookup(2) otherwise 0
 	let b = try lookup(99) otherwise 42
-	return (a + b) and 125
+	return try ((try a + b otherwise panic("out of range")) and 125) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1135,7 +1135,7 @@ function main() returns ExitCode
 		b = a - 1
 		d = c - 1
 	end 'g3e'
-	return (a + b + c + d) and 125
+	return ((a + b + c + d) and 125) as ExitCode
 end 'main'
 ```
 ```exitcode

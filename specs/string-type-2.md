@@ -1117,7 +1117,7 @@ The copy-on-write view behind it is an optimisation, not the contract.
 function main() returns ExitCode
 	let who = "ello"
 	let s = "H{who}"
-	let arr = s.toByteArray()
+	var arr = s.toByteArray()
 	try arr.set(0, value: 74) otherwise panic("set")
 	let b0 = try arr.get(0) otherwise panic("get")
 	print("s={s} arr[0]={b0}")
@@ -1139,7 +1139,7 @@ ONE immortal object in read-only `.rodata`. A shared write would rewrite `b` too
 function main() returns ExitCode
 	let a = "Hello"
 	let b = "Hello"
-	let arr = a.toByteArray()
+	var arr = a.toByteArray()
 	try arr.set(0, value: 74) otherwise panic("set")
 	let b0 = try arr.get(0) otherwise panic("get")
 	print("a={a} b={b} arr[0]={b0}")

@@ -28,11 +28,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(x Integer, y Integer) returns Integer
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(3, y: 4)
+	return try add(3, y: 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

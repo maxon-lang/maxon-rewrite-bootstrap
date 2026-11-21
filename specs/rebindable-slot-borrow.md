@@ -44,29 +44,29 @@ type Holder
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function fill(n Integer)
+	function fill(mutates self, n Integer)
 		for i in 0 upto n 'each'
 			items.push(i)
 		end 'each'
 	end 'fill'
 
-	function swapAndRead() returns Integer
-		let old = items
-		let fresh = IntArray.create(0)
+	function swapAndRead(mutates self) returns Integer
+		let old = items.clone()
+		var fresh = IntArray.create(0)
 		fresh.push(99)
 		items = fresh
 		var sum = 0 as Integer
 		for i in 0 upto old.count() 'walk'
-			sum = sum + (try old.get(i) otherwise 0)
+			sum = try sum + (try old.get(i) otherwise 0) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'swapAndRead'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.fill(5)
-	return h.swapAndRead() as ExitCode
+	return try h.swapAndRead() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -88,22 +88,22 @@ type Holder
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function swapAndRead() returns Integer
+	function swapAndRead(mutates self) returns Integer
 		items.push(3)
 		items.push(4)
-		let old = items
+		let old = items.clone()
 		items = IntArray.create(0)
 		var sum = 0 as Integer
 		for i in 0 upto old.count() 'walk'
-			sum = sum + (try old.get(i) otherwise 0)
+			sum = try sum + (try old.get(i) otherwise 0) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'swapAndRead'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
-	return h.swapAndRead() as ExitCode
+	var h = Holder.create()
+	return try h.swapAndRead() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -120,19 +120,19 @@ type Holder
 	var name as String
 
 	static function create(n String) returns Self
-		return Self{name: n}
+		return Self{name: n.clone()}
 	end 'create'
 
-	function swapAndRead(fresh String) returns String
-		let old = name
-		name = fresh
+	function swapAndRead(mutates self, fresh String) returns String
+		let old = name.clone()
+		name = fresh.clone()
 		let filler = "filler {9} padded out long enough for the heap"
 		return "[{old}] [{name}] [{filler}]"
 	end 'swapAndRead'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create("hello world {40 + 2} padded out long enough for the heap")
+	var h = Holder.create("hello world {40 + 2} padded out long enough for the heap")
 	print(h.swapAndRead("replacement {7} padded out long enough for the heap"))
 	return 0
 end 'main'
@@ -153,17 +153,17 @@ type Frozen
 	let items as IntArray
 
 	static function create() returns Self
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(4)
 		a.push(5)
 		return Self{items: a}
 	end 'create'
 
 	function total() returns Integer
-		let held = items
+		let held = items.clone()
 		var sum = 0 as Integer
 		for i in 0 upto held.count() 'walk'
-			sum = sum + (try held.get(i) otherwise 0)
+			sum = try sum + (try held.get(i) otherwise 0) otherwise panic("out of range")
 		end 'walk'
 		return sum
 	end 'total'
@@ -171,7 +171,7 @@ end 'Frozen'
 
 function main() returns ExitCode
 	let f = Frozen.create()
-	return f.total() as ExitCode
+	return try f.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -635,6 +635,26 @@ function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, co
 	report(o, err: diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(modID, offset: site)))
 end 'fail'
 
+// failFixed is fail for an error whose message names the change that fix makes.
+function failFixed(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String, consumes fix diag.Fix)
+	var err = diag.CompileError.atSite(code.clone(), message: msg, site: diag.Site.make(o.c.modID, offset: site))
+	err.fix = fix
+	report(o, err: err)
+end 'failFixed'
+
+// canCopy is whether a value of type t can be copied, which is when a message offers '.clone()'.
+function canCopy(mutates o Ownership, mutates p ast.Project, t ast.TypeID) returns bool
+	return not lacksCap(o.c, p: p, wantCopy: true, t: t).missing
+end 'canCopy'
+
+// cloneFixIf is the fix that copies the place e, when its type can be copied.
+function cloneFixIf(mutates o Ownership, mutates p ast.Project, e ast.NodeID, t ast.TypeID) returns diag.Fix
+	if not canCopy(o, p: p, t: t) 'noCopy'
+		return diag.Fix.none()
+	end 'noCopy'
+	return cloneFix(p.modules[o.c.modIdx].tree, e: e)
+end 'cloneFixIf'
+
 // pushFrameOwn opens a frame for a loop or match.
 function pushFrameOwn(mutates o Ownership, target ast.NodeID)
 	let obliged = o.obliged.count()

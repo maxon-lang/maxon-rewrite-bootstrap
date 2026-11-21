@@ -50,7 +50,7 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -114,7 +114,7 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -182,7 +182,7 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -244,7 +244,7 @@ end 'Forwarder'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -300,7 +300,7 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -390,11 +390,11 @@ type Holder uses T where T implements Bumper
 	export var item as T
 	export var level as Wide
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item, level: 3}
 	end 'create'
 
-	function run(helper T)
+	function run(mutates self, helper T)
 		helper.bump(self.level)
 		print("{self.level}\n")
 	end 'run'
@@ -403,7 +403,7 @@ end 'Holder'
 typealias DoublerHolder = Holder with Doubler
 
 function main() returns ExitCode
-	let h = DoublerHolder.create(Doubler.create(1))
+	var h = DoublerHolder.create(Doubler.create(1))
 	h.run(Doubler.create(2))
 	return 0
 end 'main'
@@ -629,7 +629,7 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -681,7 +681,7 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 

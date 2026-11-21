@@ -186,6 +186,7 @@ arm existed, and could not: the only frame that knows which ops moved is the one
 ## Tests
 
 <!-- test: range-check-panic.upper-bound -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Above the maximum, and not foldable — so a runtime check is what fires, and the trace names `clamp`.
 `one * 101` is a `Percent` by name only (arithmetic adopts its operand's alias without proving it), so it
 reaches `clamp` with no cast to refuse it at the call. ⭐ The guard is `clamp`'s ENTRY guard, at the
@@ -221,6 +222,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.lower-bound -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Below the minimum. `Natural`'s lower bound is 0, so a negative value is out of range even though it
 is a perfectly ordinary `int` — and, as above, the `Natural`-named `one - 2` reaches `check` uncast, so
 `check`'s entry guard is what refuses it, at the parameter's line.
@@ -267,7 +269,7 @@ function check(x SmallInt) returns SmallInt
 end 'check'
 
 function main() returns ExitCode
-	return check(5)
+	return check(5) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -275,6 +277,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.nested-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The stack trace goes as deep as the value does: `process` receives an in-range `Score`, computes one
 that is not, and `validate` is where it is refused — at `validate`'s parameter (line 4), the boundary
 the bad value crosses first.
@@ -714,7 +717,7 @@ function h(x Integer) returns HashValue
 end 'h'
 
 function main() returns ExitCode
-	return h(12345)
+	return h(12345) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -981,6 +984,7 @@ error E3005: specs/range-check-panic/range-check-panic.error.literal-struct-fiel
 ```
 
 <!-- test: range-check-panic.runtime-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A runtime out-of-range argument is refused AT THE PARAMETER, before the callee's body runs. `by`
 excludes 0, so `a / by` is a bare divide with no `try` spellable -- the proof the elision rests on is
 the parameter's declared range, and this is the check that makes that proof true. The panic names the
@@ -1026,11 +1030,11 @@ that leaf is the reason the entry guard is a cost only where a range is genuinel
 typealias Integer = int(i64.min to i64.max)
 
 function passthrough(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'passthrough'
 
 function main() returns ExitCode
-	return passthrough(6)
+	return try passthrough(6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1133,6 +1137,7 @@ error E3005: specs/range-check-panic/range-check-panic.error.literal-argument-in
 ```
 
 <!-- test: range-check-panic.entry-guard-on-a-parameter-no-body-reads -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐⭐ **THE GUARD IS NOT DEAD CODE, EVEN WHEN NOTHING BUT THE PREMISE CONSUMES IT.** `unused`'s body never
 mentions its parameter — it is spelled `_`, the ignore name, because a parameter no body reads is exactly
 what this case is about and E3012 refuses any other spelling of it — so the only thing the entry guard
@@ -1222,6 +1227,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.return-of-a-reassigned-shadow-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **CLAUSE 1 BROKEN: the returned value is not the parameter any more.** `y` starts as `x` — which mints
 no op, so at that point it IS the parameter's `ValueId` — and is then REASSIGNED, which rebinds it to the
 call's result. A `return` guard elided on "the function has a ranged parameter" rather than on the
@@ -1258,6 +1264,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.return-through-a-narrower-alias-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **CLAUSE 2 BROKEN: same value, DIFFERENT alias.** `x` is a `Wide` the entry guard admits and a `Narrow`
 the return must refuse. An elision keyed on "the returned value is a ranged parameter" — without
 comparing the alias NAMES — would return `50` through a type declared `int(0 to 10)`.
@@ -1287,6 +1294,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.return-of-a-computed-value-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **CLAUSE 1 BROKEN THE OTHER WAY: the value never was the parameter.** `x * 3` is a `binOp` result, so
 the entry guard says nothing about it — the parameter it was computed FROM was in range, and the result
 is not.
@@ -1326,7 +1334,7 @@ function pick(_ SmallInt, b SmallInt) returns SmallInt
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, b: 7)
+	return pick(1, b: 7) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1335,6 +1343,7 @@ end 'main'
 
 
 <!-- test: range-check-panic.entry-guard-covers-a-return-inside-a-branch -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **CLAUSE 3, which is the one that cannot be broken by writing a program.** The entry guard splits the
 entry block before any body op, so it DOMINATES every `return` — including one inside a branch, whose own
 guard is elided. `99` is refused at `pick`'s parameter line before the `if` is even evaluated, which is
@@ -1391,11 +1400,11 @@ function opaque(n Integer) returns Integer
 end 'opaque'
 
 function pick() returns Byte
-	return opaque(7)
+	return try opaque(7) as Byte otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
-	return pick()
+	return pick() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1424,6 +1433,7 @@ end 'main'
 
 
 <!-- test: range-check-panic.an-uncontained-return-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **THE NEGATIVE CONTROL, and the one that matters most.** `Wide` is not inside `Narrow`, so nothing is
 proved and the guard stands at the `return`. Off by one at the top: `101` is a legal `Wide` and
 not a legal `Narrow`.
@@ -1463,6 +1473,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.the-source-alias-keeps-its-own-guard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ **THE ELISION MOVES NOTHING UPSTREAM.** It is the DOWNSTREAM door that proves nothing to check; the
 door the value actually entered through is untouched, and it is the one that fires. `300` is outside
 `Byte`, so `pick` panics naming `Byte` — `main`'s elided `ExitCode` check never gets a value at all.
@@ -1520,13 +1531,13 @@ function small() returns Small
 end 'small'
 
 function fieldStore() returns Wide
-	let b = Box.create()
+	var b = Box.create()
 	b.v = small() as Wide
 	return b.v
 end 'fieldStore'
 
 function elementStore() returns Wide
-	let a = Wides.create(0)
+	var a = Wides.create(0)
 	a.push(small() as Wide)
 	return try a.get(0) otherwise panic("no slot")
 end 'elementStore'
@@ -1542,6 +1553,7 @@ f=5 e=5
 
 
 <!-- test: range-check-panic.an-uncontained-field-store-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The negative control for the field door, one value past the bound the elision would need. `Loose` is
 not inside `Wide`, so the store guards, and `1001` is what the guard is for.
 ```maxon
@@ -1586,6 +1598,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.an-uncontained-element-store-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The negative control for the array-element door, whose guard stands at the STORE rather than at
 the callee's entry — so the elision has to leave that one standing too. The pushed value carries no
 alias (`-loose()`, whose range `0 to 2000` is not inside `Wide`), because a value of another named alias
@@ -1742,6 +1755,7 @@ error E3005: <fragment>:8:15: Value 64 is outside the range of 'RegNum' (int(0 t
 
 
 <!-- test: range-check-panic.a-runtime-loop-bound-proves-nothing -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A bound the compiler cannot fold states no interval, however obvious the value is at run time — so
 the guard stands and fires at 64.
 ```maxon
@@ -1805,7 +1819,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 upto opaque(3) 'each'
 		let g = i as NonNeg
-		total = total + (g as Integer)
+		total = try total + (g as Integer) otherwise panic("out of range")
 	end 'each'
 	print("total={total}\n")
 	return 0
@@ -1827,14 +1841,14 @@ typealias NonNeg = int(0 to i64.max)
 typealias Ints = Array with Integer
 
 function main() returns ExitCode
-	let xs = Ints.create(0)
+	var xs = Ints.create(0)
 	xs.push(10)
 	xs.push(20)
 	xs.push(30)
 	var total = 0 as Integer
 	for i in 0 upto xs.count() 'each'
-		let g = i as NonNeg
-		total = total + (g as Integer)
+		let g = try i as NonNeg otherwise panic("out of range")
+		total = try total + (g as Integer) otherwise panic("out of range")
 	end 'each'
 	print("total={total}\n")
 	return 0
@@ -1845,6 +1859,7 @@ total=3
 ```
 
 <!-- test: range-check-panic.a-runtime-limit-proves-no-ceiling -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The discriminating negative for the FLOOR: only the low bound is stated, so a target the counter can
 climb past keeps its guard and fires. `Small` admits `0` and `1`; the third trip is `2`.
 ```maxon
@@ -1879,6 +1894,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-runtime-start-proves-no-floor -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The discriminating negative for the START. A start that does not fold states no floor, so the guard
 stands — and here it fires on the first trip, at `-2`.
 ```maxon
@@ -1933,8 +1949,8 @@ end 'opaque'
 function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 upto opaque(3) 'each'
-		let g = i as NonNeg
-		total = total + (g as Integer)
+		let g = try i as NonNeg otherwise panic("out of range")
+		total = try total + (g as Integer) otherwise panic("out of range")
 	end 'each'
 	print("total={total}\n")
 	return 0
@@ -1964,7 +1980,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 upto opaque(3) 'each'
 		let g = i as NonNeg
-		total = total + (g as Integer)
+		total = try total + (g as Integer) otherwise panic("out of range")
 	end 'each'
 	print("total={total}\n")
 	return 0
@@ -1991,7 +2007,7 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	for i in 0 to opaque(3) 'each'
 		let g = i as NonNeg
-		total = total + (g as Integer)
+		total = try total + (g as Integer) otherwise panic("out of range")
 	end 'each'
 	print("total={total}\n")
 	return 0
@@ -2099,13 +2115,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias RegNum = int(0 to 63)
 
 function weigh(table Integer, regNum RegNum) returns Integer
-	return table + (regNum as Integer)
+	return try table + (regNum as Integer) otherwise panic("out of range")
 end 'weigh'
 
 function main() returns ExitCode
 	var total = 0 as Integer
 	for r in 0 upto 64 'scan'
-		total = total + weigh(1, regNum: r)
+		total = try total + weigh(1, regNum: r) otherwise panic("out of range")
 	end 'scan'
 	print("total={total}\n")
 	return 0
@@ -2153,11 +2169,11 @@ typealias Integer = int(i64.min to i64.max)
 typealias RegNum = int(0 to 63)
 
 function weigh(table Integer, regNum RegNum) returns Integer
-	return table + (regNum as Integer)
+	return try table + (regNum as Integer) otherwise panic("out of range")
 end 'weigh'
 
 function twice(table Integer, reg RegNum) returns Integer
-	return weigh(table, regNum: reg) + weigh(table, regNum: reg)
+	return try weigh(table, regNum: reg) + weigh(table, regNum: reg) otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
@@ -2171,6 +2187,7 @@ t=16
 
 
 <!-- test: range-check-panic.a-wider-parameter-does-not-prove-a-narrower-one -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The negative control for that second proof: `Wide` admits values `RegNum` does not, so the caller's
 own guard proves nothing about the callee's and the spliced cascade stays. Both frames are in the
 trace, which is what says the panic is still the callee's.
@@ -2398,15 +2415,15 @@ typealias Wide = int(0 to u64.max)
 typealias Small = int(0 to 100)
 
 function widen(n Wide) returns Wide
-	return n * 100
+	return try n * 100 otherwise panic("out of range")
 end 'widen'
 
 function pick(i Wide, flag bool) returns Small
-	return (i as Small) if flag else 7
+	return (try i as Small otherwise panic("out of range")) if flag else 7
 end 'pick'
 
 function main() returns ExitCode
-	return pick(widen(5), flag: false)
+	return pick(widen(5), flag: false) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2414,6 +2431,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-guard-in-the-selected-ternary-arm-still-fires -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The positive control for the case above, and the half that says the guard was MOVED rather than lost:
 the identical program with the condition TRUE panics, at the arm's own line.
 ```maxon
@@ -2459,11 +2477,11 @@ typealias Wide = int(0 to u64.max)
 typealias Small = int(0 to 100)
 
 function widen(n Wide) returns Wide
-	return n * 100
+	return try n * 100 otherwise panic("out of range")
 end 'widen'
 
 function pick(i Wide, flag bool) returns Small
-	return ((i + 1) as Small) if flag else 7
+	return (try (i + 1) as Small otherwise panic("out of range")) if flag else 7
 end 'pick'
 
 function main() returns ExitCode
@@ -2481,6 +2499,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-computed-value-in-the-selected-ternary-arm-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The fourth corner, and the one that says the computed shape's guard was MOVED rather than dropped: the
 same program with the arm SELECTED and the computation out of range panics, from the arm's own line.
 ```maxon
@@ -2513,6 +2532,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.a-return-through-the-exit-cascade-is-still-guarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2554,6 +2574,7 @@ Stack trace:
 
 
 <!-- test: range-check-panic.a-guarded-return-whose-only-drop-was-promoted-away -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -2919,6 +2940,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-sum-past-a-callees-parameter-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⚠ The run-time twin of the refusal above, and it pins the FRAME as well as the panic: the argument is a sum of two `RegNum`s, which wears `RegNum` without proving it, so the cascade is copied as it always was and the slow arm re-issues the real call — the trace names `weigh`, at `weigh`'s own parameter line.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3110,6 +3132,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-multiplication-past-the-unsigned-top-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `*` is checked for a nonzero high word of the 128-bit product: `2^32 * 2^32` is `0` as a pattern.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3135,6 +3158,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-subtraction-that-borrows-panics-in-a-full-unsigned-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The same borrow through a parameter and a `return`, which is where a named function's own door would otherwise be the only check: the panic names the typealias and the subtraction's line.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3243,6 +3267,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-merged-operand-times-a-constant-wraps-and-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A merged operand times a constant factor: `2^62 * 4` is `0` as a pattern and `2^64` as a number.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3351,6 +3376,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-carry-out-of-bit-63-panics-on-the-runtime-path -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `2^63 + 2^63` is `0` as a pattern and `2^64` as a number: the two operands are each below `u64.max`, so only the carry can tell.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3392,6 +3418,7 @@ error E3005: <fragment>:6:17: The result of 9223372036854775808 + 92233720368547
 ```
 
 <!-- test: range-check-panic.a-borrow-across-the-signed-midpoint-panics-on-the-runtime-path -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `2^63 - 1` is below `2^63` read unsigned, though it is the larger number read signed: the borrow is a comparison of the operands as unsigned.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3502,6 +3529,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-constant-right-factor-past-its-limit-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 One past the limit of a constant factor on the right.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3527,6 +3555,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-constant-left-factor-past-its-limit-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 One past the limit of a constant factor on the left.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3577,6 +3606,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-two-to-the-32-factor-past-its-limit-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `2^32 * 2^32` against a constant `2^32` factor.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3602,6 +3632,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-product-of-two-runtime-words-over-the-top-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A product of two values neither of which the compiler knows has no constant factor to compare against, so it tests the high word of the 128-bit product: `2^32 * 2^32` has a high word of `1`.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3627,6 +3658,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-product-with-the-top-bit-set-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `2^63 * 2`, where the product's low word is `0`.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3693,6 +3725,7 @@ error E3005: <fragment>:6:21: The result of 4294967296 * 4294967296 is outside t
 ```
 
 <!-- test: range-check-panic.a-var-doubled-past-the-top-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A `var` operand: the loop doubles `acc` until `2^63 * 2`, which is the 64th trip.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3941,6 +3974,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.a-difference-under-the-opposite-order-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The order `a >= b` bounds `a - b`, not `b - a`: the reversed subtraction in the same arm keeps its check.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -3969,6 +4003,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-reassigned-operand-after-its-order-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `x` is rewritten after `x >= b` held, so the order says nothing about the value the subtraction reads and the borrow panics.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4027,6 +4062,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.an-order-ends-with-the-branch-that-established-it -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The order `a >= b` holds inside its own arm and nowhere else: after the `if` the subtraction is checked again, and a borrow there panics.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4127,6 +4163,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-loop-condition-does-not-outlive-a-rewritten-bound -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `i < m` holds when the loop body starts, but the body rewrites `m` before it subtracts, so the order says nothing about the new `m` and the borrow panics.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4158,6 +4195,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-callee-that-rewrites-a-by-reference-operand-voids-its-order -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `x >= b` held, then a callee rewrote `x` through a `mutable` parameter. The subtraction reads the variable again, and the order about the old value does not cover it.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4192,6 +4230,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-field-rewritten-after-its-order-keeps-the-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A field is compared, a mutating call rewrites it, and the field is read again: each read is a new load, so the order established for the first read does not cover the second.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4229,6 +4268,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-disjunction-establishes-no-order-for-its-arm -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `a >= b or c` is true when `c` is, whatever `a` and `b` are, so its true arm may not assume `b <= a` and the subtraction keeps its check.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4257,6 +4297,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.an-else-if-chain-whose-later-arm-falls-through-establishes-no-order -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Only the first arm returns, and it returns on `c`, which says nothing about `a` and `b`. The second arm falls through on `a < b`, so after the chain the subtraction can still borrow.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4290,6 +4331,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-then-arm-that-leaves-only-conditionally-establishes-no-order -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The `a < b` arm returns only when `c` holds, so control can reach the code after the `if` with `a < b` still true.
 ```maxon
 typealias Slot = int(0 to u64.max)
@@ -4348,6 +4390,7 @@ Stack trace:
 ```
 
 <!-- test: range-check-panic.a-nonzero-leaves-room-for-one-not-two -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `n == 0` having returned leaves `n >= 1`, so `n - 1` is proven and `n - 2` is not: at `n = 1` it borrows and panics.
 ```maxon
 typealias Slot = int(0 to u64.max)

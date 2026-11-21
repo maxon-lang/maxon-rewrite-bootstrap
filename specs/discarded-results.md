@@ -191,12 +191,12 @@ error E3064: specs/discarded-results/fixed-array-static-factory-discard.maxon:16
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
 	let result = double(5)
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -360,14 +360,14 @@ typealias Integer = int(i64.min to i64.max)
 
 type Clock
 	static function bump(mutates ticks Integer)
-		ticks = ticks + 3
+		ticks = try ticks + 3 otherwise panic("out of range")
 	end 'bump'
 end 'Clock'
 
 function main() returns ExitCode
 	var ticks = 0 as Integer
 	Clock.bump(ticks)
-	return ticks as ExitCode
+	return try ticks as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -380,7 +380,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function incrementAndGet(mutates counter Integer) returns Integer
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	return counter
 end 'incrementAndGet'
 
@@ -418,9 +418,9 @@ typealias Count = int(i64.min to i64.max)
 type Counter
 	export var value as Count
 
-	function increment() returns Counter
-		value = value + 1
-		return self
+	function increment(mutates self) returns Counter
+		value = try value + 1 otherwise panic("out of range")
+		return self.clone()
 	end 'increment'
 
 	static function create(value Count) returns Self
@@ -429,9 +429,9 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
-	return c.value
+	return try c.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -445,7 +445,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function computeAndPrint(x Integer) returns Integer
 	print("computing")
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'computeAndPrint'
 
 function main() returns ExitCode
@@ -466,7 +466,7 @@ computing
 typealias Integer = int(i64.min to i64.max)
 
 function doubleInPlace(mutates x Integer) returns Integer
-	x = x * 2
+	x = try x * 2 otherwise panic("out of range")
 	return x
 end 'doubleInPlace'
 
@@ -633,7 +633,7 @@ enum ParseError implements Error
 end 'ParseError'
 
 function parseNum(s String, mutates counter Integer) returns Integer throws ParseError
-	counter = counter + (s.byteLength() as Integer)
+	counter = try counter + (s.byteLength() as Integer) otherwise panic("out of range")
 	throw ParseError.invalidFormat
 end 'parseNum'
 
@@ -657,7 +657,7 @@ enum MyError implements Error
 end 'MyError'
 
 function doWork(mutates counter Integer) returns Integer throws MyError
-	counter = counter + 1
+	counter = try counter + 1 otherwise panic("out of range")
 	throw MyError.failed
 end 'doWork'
 
@@ -702,7 +702,7 @@ function main() returns ExitCode
 	a.push(2)
 	a.push(5)
 	_ = removeFirst(a, value: 2)
-	return a.count()
+	return a.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -743,10 +743,10 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let arr = TallyArray.create(0)
+	var arr = TallyArray.create(0)
 	arr.push(1)
 	_ = try arr.pop() otherwise 0
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -808,10 +808,10 @@ typealias Tally = int(0 to u64.max)
 typealias TallyMap = Map with (String, Tally)
 
 function main() returns ExitCode
-	let m = TallyMap.create()
+	var m = TallyMap.create()
 	m.upsert("a", value: 1)
 	_ = m.remove("a")
-	return m.count()
+	return try m.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -852,10 +852,10 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let arr = TallyArray.create(0)
+	var arr = TallyArray.create(0)
 	arr.push(7)
 	arr.clone()
-	return arr.count() - 1
+	return try arr.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -874,11 +874,11 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let src = TallyArray.create(0)
+	var src = TallyArray.create(0)
 	src.push(3)
-	let dst = TallyArray.create(0)
+	var dst = TallyArray.create(0)
 	dst.push(try src.get(0) otherwise panic("src holds one element"))
-	return dst.count() - 1
+	return try dst.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -898,10 +898,10 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let arr = TallyArray.create(0)
+	var arr = TallyArray.create(0)
 	arr.push(7)
 	_ = arr.clone()
-	return arr.count() - 1
+	return try arr.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1008,7 +1008,7 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function main() returns ExitCode
-	let stack = TallyArray.create(0)
+	var stack = TallyArray.create(0)
 	stack.push(7)
 	_ = try stack.pop() otherwise panic("pushed one element")
 	return 0
@@ -1028,14 +1028,14 @@ the widening, which the laundered `try` statements above are the reason for.
 typealias Integer = int(i64.min to i64.max)
 
 function bump(mutates hits Integer) returns Integer
-	hits = hits + 1
+	hits = try hits + 1 otherwise panic("out of range")
 	return hits
 end 'bump'
 
 function main() returns ExitCode
 	var hits = 0 as Integer
-	_ = bump(hits) + 1
-	return hits - 1
+	_ = try bump(hits) + 1 otherwise panic("out of range")
+	return try hits - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1438,7 +1438,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function fill(target IntArray, count Integer) returns Integer
+function fill(mutates target IntArray, count Integer) returns Integer
 	for i in 0 upto count 'each'
 		target.push(i)
 	end 'each'
@@ -1446,7 +1446,7 @@ function fill(target IntArray, count Integer) returns Integer
 end 'fill'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	_ = fill(values, count: 3)
 	if values.count() != 3 'wrong'
 		return 1
@@ -1496,24 +1496,24 @@ type Sink
 		return Sink{items: IntArray.create(0)}
 	end 'create'
 
-	function attach(extra IntArray)
-		self.items = extra
+	function attach(mutates self, extra IntArray)
+		self.items = extra.clone()
 	end 'attach'
 
 	function size() returns Integer
-		return self.items.count() as Integer
+		return try self.items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Sink'
 
-function stash(sink Sink, count Integer) returns Integer
-	let extra = IntArray.create(0)
+function stash(mutates sink Sink, count Integer) returns Integer
+	var extra = IntArray.create(0)
 	sink.attach(extra)
 	extra.push(count)
 	return count
 end 'stash'
 
 function main() returns ExitCode
-	let sink = Sink.create()
+	var sink = Sink.create()
 	_ = stash(sink, count: 4)
 	if sink.size() != 1 'wrong'
 		return 1
@@ -1883,8 +1883,8 @@ type Box
 		return Box{total: 0}
 	end 'create'
 
-	function bump() returns Integer
-		self.total = self.total + 1
+	function bump(mutates self) returns Integer
+		self.total = try self.total + 1 otherwise panic("out of range")
 		return self.total
 	end 'bump'
 
@@ -1902,12 +1902,12 @@ function enroll(mutates registry BoxArray) returns Box
 end 'enroll'
 
 function tamper(mutates registry BoxArray) returns Integer
-	let box = enroll(registry)
+	var box = enroll(registry)
 	return box.bump()
 end 'tamper'
 
 function main() returns ExitCode
-	let registry = BoxArray.create(0)
+	var registry = BoxArray.create(0)
 	_ = tamper(registry)
 	if (try registry.get(0) otherwise return 2).read() != 1 'wrong'
 		return 1
@@ -2857,8 +2857,8 @@ type Child
 		return Child{box: Box.create(0)}
 	end 'create'
 
-	function bump()
-		self.box.number = self.box.number + 1
+	function bump(mutates self)
+		self.box.number = try self.box.number + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Child'
 
@@ -2866,17 +2866,17 @@ type Parent
 	var child as Child
 
 	static function over(child Child) returns Parent
-		return Parent{child: child}
+		return Parent{child: child.clone()}
 	end 'over'
 
-	function adopt(box Box)
-		self.child.box = box
+	function adopt(mutates self, box Box)
+		self.child.box = box.clone()
 	end 'adopt'
 end 'Parent'
 
 function bumped(target Box) returns Integer
-	let child = Child.create()
-	let parent = Parent.over(child)
+	var child = Child.create()
+	var parent = Parent.over(child)
 	parent.adopt(target)
 	child.bump()
 	return 1
@@ -2951,7 +2951,7 @@ type Child
 	export var data as IntArray
 
 	static function over(data IntArray) returns Child
-		return Child{data: data}
+		return Child{data: data.clone()}
 	end 'over'
 end 'Child'
 
@@ -2962,13 +2962,13 @@ type Parent
 		return Parent{child: Child.over(data)}
 	end 'over'
 
-	function grow()
+	function grow(mutates self)
 		self.child.data.push(1)
 	end 'grow'
 end 'Parent'
 
 function grown(target IntArray) returns Integer
-	let parent = Parent.over(target)
+	var parent = Parent.over(target)
 	parent.grow()
 	return 1
 end 'grown'
@@ -3098,7 +3098,7 @@ type Child
 	export var box as Box
 
 	static function over(box Box) returns Child
-		return Child{box: box}
+		return Child{box: box.clone()}
 	end 'over'
 end 'Child'
 
@@ -3106,16 +3106,16 @@ type Parent
 	var child as Child
 
 	static function over(child Child) returns Parent
-		return Parent{child: child}
+		return Parent{child: child.clone()}
 	end 'over'
 
-	function bump()
-		self.child.box.number = self.child.box.number + 1
+	function bump(mutates self)
+		self.child.box.number = try self.child.box.number + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Parent'
 
 function bumped(target Box) returns Integer
-	let parent = Parent.over(Child.over(target))
+	var parent = Parent.over(Child.over(target))
 	parent.bump()
 	return 1
 end 'bumped'
@@ -3144,11 +3144,11 @@ type Holder
 		return Holder{items: IntArray.create(0)}
 	end 'make'
 
-	function adopt(fresh IntArray)
-		self.items = fresh
+	function adopt(mutates self, fresh IntArray)
+		self.items = fresh.clone()
 	end 'adopt'
 
-	function grow()
+	function grow(mutates self)
 		self.items.push(1)
 	end 'grow'
 end 'Holder'
@@ -3160,23 +3160,23 @@ type Wrapper
 		return Wrapper{items: IntArray.create(0)}
 	end 'make'
 
-	function touchChild()
+	function touchChild(mutates self)
 		self.items.push(1)
 	end 'touchChild'
 end 'Wrapper'
 
-function relay(target Holder, items IntArray)
+function relay(mutates target Holder, items IntArray)
 	target.adopt(items)
 end 'relay'
 
-function hand(target Holder, items IntArray)
-	let scratch = Wrapper.make()
+function hand(mutates target Holder, items IntArray)
+	var scratch = Wrapper.make()
 	scratch.touchChild()
 	relay(target, items: items)
 end 'hand'
 
 function grown(items IntArray) returns Integer
-	let holder = Holder.make()
+	var holder = Holder.make()
 	hand(holder, items: items)
 	holder.grow()
 	return 1
@@ -3212,12 +3212,12 @@ type Holder
 		return Holder{box: Box.create(0)}
 	end 'make'
 
-	function adopt(fresh Box)
-		self.box = fresh
+	function adopt(mutates self, fresh Box)
+		self.box = fresh.clone()
 	end 'adopt'
 
-	function bumpBox()
-		self.box.number = self.box.number + 1
+	function bumpBox(mutates self)
+		self.box.number = try self.box.number + 1 otherwise panic("out of range")
 	end 'bumpBox'
 end 'Holder'
 
@@ -3228,23 +3228,23 @@ type Wrapper
 		return Wrapper{box: Box.create(0)}
 	end 'make'
 
-	function touchChild()
+	function touchChild(mutates self)
 		self.box.number = 1
 	end 'touchChild'
 end 'Wrapper'
 
-function relay(target Holder, box Box)
+function relay(mutates target Holder, box Box)
 	target.adopt(box)
 end 'relay'
 
-function hand(target Holder, box Box)
-	let scratch = Wrapper.make()
+function hand(mutates target Holder, box Box)
+	var scratch = Wrapper.make()
 	scratch.touchChild()
 	relay(target, box: box)
 end 'hand'
 
 function bumped(box Box) returns Integer
-	let holder = Holder.make()
+	var holder = Holder.make()
 	hand(holder, box: box)
 	holder.bumpBox()
 	return 1
@@ -3514,14 +3514,14 @@ function scribble(mutates shared Box) returns Small
 		let pick = fresh if i < 2 else b
 		other = pick
 		other.n = 7
-		held = shared
+		held = shared.clone()
 		i = i + 1
 	end 'loop'
 	return other.n
 end 'scribble'
 
 function main() returns ExitCode
-	let shared = Box.create(0)
+	var shared = Box.create(0)
 	_ = scribble(shared)
 	return 0 if shared.n == 7 else 1
 end 'main'

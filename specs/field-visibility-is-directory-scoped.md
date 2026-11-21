@@ -46,13 +46,13 @@ type B
 
 	function peek() returns Integer
 		let a = A.create()
-		return a.secret + n
+		return try a.secret + n otherwise panic("out of range")
 	end 'peek'
 end 'B'
 
 function main() returns ExitCode
 	let b = B.create()
-	return b.peek()
+	return try b.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -81,15 +81,15 @@ type B
 	end 'create'
 
 	function poke() returns Integer
-		let a = A.create()
+		var a = A.create()
 		a.secret = 42
-		return a.secret + n
+		return try a.secret + n otherwise panic("out of range")
 	end 'poke'
 end 'B'
 
 function main() returns ExitCode
 	let b = B.create()
-	return b.poke()
+	return try b.poke() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,13 +111,13 @@ type A
 
 	function sumWith() returns Integer
 		let other = A.create(20)
-		return secret + other.secret
+		return try secret + other.secret otherwise panic("out of range")
 	end 'sumWith'
 end 'A'
 
 function main() returns ExitCode
 	let a = A.create(22)
-	return a.sumWith()
+	return try a.sumWith() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

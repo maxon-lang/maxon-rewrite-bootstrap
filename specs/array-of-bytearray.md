@@ -23,8 +23,8 @@ typealias ByteArray = Array with Byte
 typealias ByteArrayArray = Array with ByteArray
 
 function main() returns ExitCode
-	let outer = ByteArrayArray.create(0)
-	let inner = ByteArray.create(0)
+	var outer = ByteArrayArray.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(10)
 	inner.push(20)
 	inner.push(30)

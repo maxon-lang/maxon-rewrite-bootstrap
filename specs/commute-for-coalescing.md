@@ -95,13 +95,13 @@ typealias Word = int(i64.min to i64.max)
 function classify(flags Word, n Word) returns Word
 	let edge = n and 1
 	let merged = flags or edge
-	return merged + flags
+	return try merged + flags otherwise panic("out of range")
 end 'classify'
 
 function main() returns ExitCode
 	var seen = 0 as Word
 	for i in 0 upto 4 'feed'
-		seen = seen + classify(i * 2, n: i)
+		seen = try seen + classify(i * 2, n: i) otherwise panic("out of range")
 	end 'feed'
 	// i = 0,1,2,3 -> flags = 0,2,4,6; edge = 0,1,0,1
 	// merged = 0,3,4,7; merged+flags = 0,5,8,13 -> 26
@@ -126,13 +126,13 @@ typealias Word = int(i64.min to i64.max)
 function classifyBoth(flags Word, n Word) returns Word
 	let edge = n and 1
 	let merged = flags or edge
-	return merged + flags + edge
+	return try merged + flags + edge otherwise panic("out of range")
 end 'classifyBoth'
 
 function main() returns ExitCode
 	var seen = 0 as Word
 	for i in 0 upto 4 'feed'
-		seen = seen + classifyBoth(i * 2, n: i)
+		seen = try seen + classifyBoth(i * 2, n: i) otherwise panic("out of range")
 	end 'feed'
 	// merged+flags = 0,5,8,13; plus edge 0,1,0,1 -> 0,6,8,14 -> 28
 	if seen != 28 'sum'
@@ -161,15 +161,15 @@ and the commutativity guard is never reached.
 typealias Word = int(i64.min to i64.max)
 
 function difference(a Word, b Word) returns Word
-	let scaled = b * 3
-	let d = a - scaled
-	return d + a
+	let scaled = try b * 3 otherwise panic("out of range")
+	let d = try a - scaled otherwise panic("out of range")
+	return try d + a otherwise panic("out of range")
 end 'difference'
 
 function main() returns ExitCode
 	var seen = 0 as Word
 	for i in 0 upto 4 'feed'
-		seen = seen + difference(i * 10, b: i)
+		seen = try seen + difference(i * 10, b: i) otherwise panic("out of range")
 	end 'feed'
 	// a = 0,10,20,30; scaled = 0,3,6,9; d = 0,7,14,21; d+a = 0,17,34,51 -> 102
 	// commuted, `d` would be scaled - a = 0,-7,-14,-21 and the sum 18
@@ -237,15 +237,15 @@ is neither `total`'s nor a power of two (which scaled-index folding would absorb
 typealias Word = int(i64.min to i64.max)
 
 function accumulate(total Word, step Word) returns Word
-	let scaled = step * 5
-	let next = total + scaled
-	return next + total
+	let scaled = try step * 5 otherwise panic("out of range")
+	let next = try total + scaled otherwise panic("out of range")
+	return try next + total otherwise panic("out of range")
 end 'accumulate'
 
 function main() returns ExitCode
 	var seen = 0 as Word
 	for i in 0 upto 4 'feed'
-		seen = seen + accumulate(i * 3, step: i)
+		seen = try seen + accumulate(i * 3, step: i) otherwise panic("out of range")
 	end 'feed'
 	// total = 0,3,6,9; scaled = 0,5,10,15; next = 0,8,16,24; next+total = 0,11,22,33 -> 66
 	if seen != 66 'sum'

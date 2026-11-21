@@ -28,9 +28,9 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(10)
+	var c = Counter.create(10)
 	c.value = 42
-	return c.value
+	return c.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -80,15 +80,15 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let i = Inner.create(10)
-	let o = Outer.create(i)
+	var o = Outer.create(i)
 	o.inner.x = 42
-	return o.inner.x
+	return o.inner.x as ExitCode
 end 'main'
 ```
 ```exitcode

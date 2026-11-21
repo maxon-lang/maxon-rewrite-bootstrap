@@ -139,7 +139,7 @@ end 'store'
 function main() returns ExitCode
 	var counter = 0 as U16
 	store(counter)
-	return counter
+	return counter as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -94,7 +94,7 @@ function main() returns ExitCode
 	arr.push(Clause.create("Item", traitName: "Comparable", typeName: "NotComparable"))
 	try m.insert("MyHolder.isGreater", value: arr) otherwise return 1
 	// "Item"(4) + "Comparable"(10) + "NotComparable"(13) = 27
-	return firstFailing(m, key: "MyHolder.isGreater")
+	return firstFailing(m, key: "MyHolder.isGreater") as ExitCode
 end 'main'
 ```
 ```exitcode

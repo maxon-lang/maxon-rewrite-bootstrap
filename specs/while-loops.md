@@ -40,7 +40,7 @@ function main() returns ExitCode
 	while x < 5 'loop'
 		x = x + 1
 	end 'loop'
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -57,9 +57,9 @@ function main() returns ExitCode
 		if i == 3 'skip'
 			continue
 		end 'skip'
-		sum = sum + i
+		sum = try sum + i otherwise panic("out of range")
 	end 'loop'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -81,11 +81,11 @@ function big(n Integer) returns Integer
 	while i1 < n 'L1'
 		i1 = i1 + 1
 	end 'L1'
-	return i0 + i1
+	return try i0 + i1 otherwise panic("out of range")
 end 'big'
 
 function main() returns ExitCode
-	return big(3)
+	return try big(3) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -114,7 +114,7 @@ header carries that argument and is the one place it is made.)
 `a = 1 + 6 = 7`, `b = 1 + 6 = 7`, and `total = 0 + 7 + 7 = 14`.
 ```maxon
 function work(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function big(n Integer) returns Integer
@@ -123,23 +123,23 @@ function big(n Integer) returns Integer
 	var i0 = 0 as Integer
 	while i0 < n 'L0'
 		let r = work(i0)
-		a = a + r
+		a = try a + r otherwise panic("out of range")
 		i0 = i0 + 1
 	end 'L0'
-	total = total + a
+	total = try total + a otherwise panic("out of range")
 	var b = 1 as Integer
 	var i1 = 0 as Integer
 	while i1 < n 'L1'
 		let s = work(i1)
-		b = b + s
+		b = try b + s otherwise panic("out of range")
 		i1 = i1 + 1
 	end 'L1'
-	total = total + b
+	total = try total + b otherwise panic("out of range")
 	return total
 end 'big'
 
 function main() returns ExitCode
-	return big(3)
+	return try big(3) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -174,7 +174,7 @@ Per loop the accumulators start at `1..6` and finish at `7..12`, summing to `21 
 loops give `total = 114`.
 ```maxon
 function work(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'work'
 
 function big(n Integer) returns Integer
@@ -188,15 +188,15 @@ function big(n Integer) returns Integer
 	var i0 = 0 as Integer
 	while i0 < n 'L0'
 		let r = work(i0)
-		a0 = a0 + r
-		a1 = a1 + r
-		a2 = a2 + r
-		a3 = a3 + r
-		a4 = a4 + r
-		a5 = a5 + r
+		a0 = try a0 + r otherwise panic("out of range")
+		a1 = try a1 + r otherwise panic("out of range")
+		a2 = try a2 + r otherwise panic("out of range")
+		a3 = try a3 + r otherwise panic("out of range")
+		a4 = try a4 + r otherwise panic("out of range")
+		a5 = try a5 + r otherwise panic("out of range")
 		i0 = i0 + 1
 	end 'L0'
-	total = total + a0 + a1 + a2 + a3 + a4 + a5
+	total = try total + a0 + a1 + a2 + a3 + a4 + a5 otherwise panic("out of range")
 	var b0 = 1 as Integer
 	var b1 = 2 as Integer
 	var b2 = 3 as Integer
@@ -206,20 +206,20 @@ function big(n Integer) returns Integer
 	var i1 = 0 as Integer
 	while i1 < n 'L1'
 		let s = work(i1)
-		b0 = b0 + s
-		b1 = b1 + s
-		b2 = b2 + s
-		b3 = b3 + s
-		b4 = b4 + s
-		b5 = b5 + s
+		b0 = try b0 + s otherwise panic("out of range")
+		b1 = try b1 + s otherwise panic("out of range")
+		b2 = try b2 + s otherwise panic("out of range")
+		b3 = try b3 + s otherwise panic("out of range")
+		b4 = try b4 + s otherwise panic("out of range")
+		b5 = try b5 + s otherwise panic("out of range")
 		i1 = i1 + 1
 	end 'L1'
-	total = total + b0 + b1 + b2 + b3 + b4 + b5
+	total = try total + b0 + b1 + b2 + b3 + b4 + b5 otherwise panic("out of range")
 	return total
 end 'big'
 
 function main() returns ExitCode
-	return big(3)
+	return try big(3) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -234,12 +234,12 @@ typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	var x = 5 as FullRangeInt
 	while true 'loop'
-		x = x + 2
+		x = try x + 2 otherwise panic("out of range")
 		if x == 11 'check'
 			break
 		end 'check'
 	end 'loop'
-	return x
+	return x as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -253,13 +253,13 @@ function main() returns ExitCode
 	var x = 5 as FullRangeInt
 	var i = 3 as FullRangeInt
 	while i > 0 'loop'
-		x = x + 2
+		x = try x + 2 otherwise panic("out of range")
 		i = i - 1
 		if i == 0 'check'
 			break
 		end 'check'
 	end 'loop'
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -291,7 +291,7 @@ function main() returns ExitCode
 		end 'b'
 		i = i + 1
 	end 'l'
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -313,10 +313,10 @@ function main() returns ExitCode
 	var i = 0 as FullRangeInt
 	var acc = 0 as FullRangeInt
 	while i < limit 'l'
-		acc = acc + limit
+		acc = try acc + limit otherwise panic("out of range")
 		i = i + 1
 	end 'l'
-	return acc
+	return try acc as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -343,9 +343,9 @@ function main() returns ExitCode
 	while i < 3 'l'
 		var t = 0 as FullRangeInt
 		t = i + 1
-		i = i + t
+		i = try i + t otherwise panic("out of range")
 	end 'l'
-	return t
+	return try t as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -391,14 +391,14 @@ function main() returns ExitCode
 	while i < 3 'outer'
 		var j = 0 as FullRangeInt
 		while j < 3 'inner'
-			if (i + j) mod 2 == 0 'even'
-				result = result + 1
+			if (try (i + j) mod 2 otherwise panic("out of range")) == 0 'even'
+				result = try result + 1 otherwise panic("out of range")
 			end 'even'
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -493,9 +493,9 @@ function main() returns ExitCode
 	var total = 0 as FullRangeInt
 	var step = 0 as FullRangeInt
 	while step < 4 'steps'
-		total = total + 1
-		total = total + 2
-		total = total + 3
+		total = try total + 1 otherwise panic("out of range")
+		total = try total + 2 otherwise panic("out of range")
+		total = try total + 3 otherwise panic("out of range")
 		step = step + 1
 	end 'steps'
 	print("{total}\n")

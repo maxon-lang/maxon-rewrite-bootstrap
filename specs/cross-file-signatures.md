@@ -137,7 +137,7 @@ end 'crossFileInt'
 
 // --- file: b.maxon
 function main() returns ExitCode
-	return crossFileInt() + 1
+	return try crossFileInt() + 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -235,20 +235,20 @@ type Holder
 	export var nums as IntArray
 
 	static function create() returns Holder
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(12)
 		return Self{nums: a}
 	end 'create'
 
 	function more() returns IntArray
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(14)
 		return a
 	end 'more'
 end 'Holder'
 
 function make() returns IntArray
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(16)
 	return a
 end 'make'
@@ -258,7 +258,7 @@ function main() returns ExitCode
 	let x = try h.nums.get(0) otherwise return 1
 	let y = try h.more().get(0) otherwise return 1
 	let z = try make().get(0) otherwise return 1
-	return (x + y + z) as ExitCode
+	return try (x + y + z) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -279,20 +279,20 @@ type Holder
 	export var nums as IntArray
 
 	static function create() returns Holder
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(12)
 		return Self{nums: a}
 	end 'create'
 
 	function more() returns IntArray
-		let a = IntArray.create(0)
+		var a = IntArray.create(0)
 		a.push(14)
 		return a
 	end 'more'
 end 'Holder'
 
 function make() returns IntArray
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(16)
 	return a
 end 'make'
@@ -302,7 +302,7 @@ function main() returns ExitCode
 	let x = try h.nums.get(0) otherwise return 1
 	let y = try h.more().get(0) otherwise return 1
 	let z = try make().get(0) otherwise return 1
-	return (x + y + z) as ExitCode
+	return try (x + y + z) as ExitCode otherwise panic("out of range")
 end 'main'
 
 // --- file: alias.maxon

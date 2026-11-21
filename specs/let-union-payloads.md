@@ -87,17 +87,17 @@ end 'Op'
 
 function size(op Op) returns Integer
 	return match op 'shape'
-		call(callee, _) gives callee.count() as Integer
+		call(callee, _) gives try callee.count() as Integer otherwise panic("out of range")
 		nop gives 0
 	end 'shape'
 end 'size'
 
 function main() returns ExitCode
-	let name = ByteArray.create(0)
+	var name = ByteArray.create(0)
 	name.push(65)
 	name.push(66)
 	let op = Op.call(name, weight: 1)
-	return size(op) as ExitCode
+	return try size(op) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -116,12 +116,12 @@ union Op
 end 'Op'
 
 function main() returns ExitCode
-	let name = ByteArray.create(0)
+	var name = ByteArray.create(0)
 	name.push(65)
 	let op = Op.call(name, weight: 1)
 	name.push(66)
 	match op 'shape'
-		call(_, weight) then return weight as ExitCode
+		call(_, weight) then return try weight as ExitCode otherwise panic("out of range")
 		nop then return 0
 	end 'shape'
 end 'main'
@@ -282,10 +282,10 @@ function main() returns ExitCode
 	let holder = Holder.held(Cell.create())
 	var copy = Cell.create()
 	match holder 'read'
-		held(cell) then copy = cell
+		held(cell) then copy = cell.clone()
 		empty then return 1
 	end 'read'
-	return copy.level as ExitCode
+	return try copy.level as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -311,8 +311,8 @@ union Holder
 	empty
 end 'Holder'
 
-function bump(cell Cell)
-	cell.level = cell.level + 1
+function bump(mutates cell Cell)
+	cell.level = try cell.level + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
@@ -354,19 +354,19 @@ type Pocket
 		return Self{kept: Cell.create()}
 	end 'create'
 
-	function keep(cell Cell)
-		self.kept = cell
+	function keep(mutates self, cell Cell)
+		self.kept = cell.clone()
 	end 'keep'
 end 'Pocket'
 
 function main() returns ExitCode
 	let holder = Holder.held(Cell.create())
-	let pocket = Pocket.create()
+	var pocket = Pocket.create()
 	match holder 'read'
 		held(cell) then pocket.keep(cell)
 		empty then return 1
 	end 'read'
-	return pocket.kept.level as ExitCode
+	return try pocket.kept.level as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -394,14 +394,14 @@ end 'Holder'
 
 function payloadOf(holder Holder) returns Cell
 	return match holder 'read'
-		held(cell) gives cell
+		held(cell) gives cell.clone()
 		empty gives Cell.create()
 	end 'read'
 end 'payloadOf'
 
 function main() returns ExitCode
 	let holder = Holder.held(Cell.create())
-	let copy = payloadOf(holder)
+	var copy = payloadOf(holder)
 	copy.level = 4
 	return copy.level as ExitCode
 end 'main'
@@ -438,23 +438,23 @@ type Shelf
 		return Self{holders: HolderArray.create(0)}
 	end 'create'
 
-	function shelve(cell Cell)
-		self.holders.push(Holder.held(cell))
+	function shelve(mutates self, cell Cell)
+		self.holders.push(Holder.held(cell.clone()))
 	end 'shelve'
 
 	function count() returns Integer
-		return self.holders.count() as Integer
+		return try self.holders.count() as Integer otherwise panic("out of range")
 	end 'count'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	let source = Holder.held(Cell.create())
 	match source 'copy'
 		held(cell) then shelf.shelve(cell)
 		empty then return 1
 	end 'copy'
-	return shelf.count() as ExitCode
+	return try shelf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -489,21 +489,21 @@ type Shelf
 		return Self{holders: HolderArray.create(0)}
 	end 'create'
 
-	function shelve(cell Cell)
-		self.holders.push(Holder.held(cell))
+	function shelve(mutates self, cell Cell)
+		self.holders.push(Holder.held(cell.clone()))
 	end 'shelve'
 
 	function count() returns Integer
-		return self.holders.count() as Integer
+		return try self.holders.count() as Integer otherwise panic("out of range")
 	end 'count'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
-	let cell = Cell.create()
+	var shelf = Shelf.create()
+	var cell = Cell.create()
 	shelf.shelve(cell)
 	cell.level = 9
-	return shelf.count() as ExitCode
+	return try shelf.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -535,9 +535,9 @@ function main() returns ExitCode
 	let point = Point.create(3, y: 4)
 	var tick = 5 as Integer
 	let mark = Mark.at(point, tick: tick)
-	tick = tick + point.x
+	tick = try tick + point.x otherwise panic("out of range")
 	return match mark 'read'
-		at(p, t) gives (p.x + p.y + t + tick) as ExitCode
+		at(p, t) gives try (p.x + p.y + t + tick) as ExitCode otherwise panic("out of range")
 		cleared gives 0
 	end 'read'
 end 'main'
@@ -556,7 +556,7 @@ union Op
 end 'Op'
 
 function makeOp(callee ByteArray) returns Op
-	return Op.call(callee)
+	return Op.call(callee.clone())
 end 'makeOp'
 
 function wrapOp(callee ByteArray) returns Op
@@ -564,12 +564,12 @@ function wrapOp(callee ByteArray) returns Op
 end 'wrapOp'
 
 function main() returns ExitCode
-	let scratch = ByteArray.create(0)
+	var scratch = ByteArray.create(0)
 	scratch.push(1)
 	let op = wrapOp(scratch)
 	scratch.push(2)
 	return match op 'shape'
-		call(callee) gives callee.count() as ExitCode
+		call(callee) gives try callee.count() as ExitCode otherwise panic("out of range")
 		nop gives 0
 	end 'shape'
 end 'main'
@@ -665,7 +665,7 @@ union Op
 end 'Op'
 
 function makeOp(grid Grid) returns Op
-	return Op.call(grid)
+	return Op.call(grid.clone())
 end 'makeOp'
 
 function wrapOp(grid Grid) returns Op
@@ -673,12 +673,12 @@ function wrapOp(grid Grid) returns Op
 end 'wrapOp'
 
 function main() returns ExitCode
-	let scratch = Grid.create(0)
+	var scratch = Grid.create(0)
 	scratch.push(Row.create(0))
 	let op = wrapOp(scratch)
 	scratch.push(Row.create(0))
 	return match op 'shape'
-		call(grid) gives grid.count() as ExitCode
+		call(grid) gives try grid.count() as ExitCode otherwise panic("out of range")
 		nop gives 0
 	end 'shape'
 end 'main'
@@ -710,7 +710,7 @@ type Shape
 	export var cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Shape'
 
@@ -724,7 +724,7 @@ end 'shapeOf'
 function main() returns ExitCode
 	let holder = Holder.held(Cell.create())
 	let shape = shapeOf(holder)
-	return shape.cell.level as ExitCode
+	return try shape.cell.level as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -70,11 +70,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(10, b: 20)
+	return try add(10, b: 20) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -88,15 +88,15 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function triple(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'triple'
 
 function main() returns ExitCode
-	return double(5) + triple(4)
+	return try double(5) + triple(4) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -110,7 +110,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function sum_three(a Integer, b Integer, c Integer) returns Integer
@@ -118,7 +118,7 @@ function sum_three(a Integer, b Integer, c Integer) returns Integer
 end 'sum_three'
 
 function main() returns ExitCode
-	return sum_three(1, b: 2, c: 3)
+	return try sum_three(1, b: 2, c: 3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -273,7 +273,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.make()
-	return c.bumpTwice(5)
+	return c.bumpTwice(5) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -353,7 +353,7 @@ The bare call is the root's, so it has a value to bind.
 typealias Ms = int(0 to 1000)
 
 function pick(milliseconds Ms) returns Ms
-	return milliseconds + 7
+	return try milliseconds + 7 otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
@@ -393,7 +393,7 @@ end 'pick'
 typealias Ms = int(0 to 1000)
 
 function pick(milliseconds Ms) returns Ms
-	return milliseconds + 7
+	return try milliseconds + 7 otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode

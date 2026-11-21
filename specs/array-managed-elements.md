@@ -34,19 +34,19 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(Item.create("hello world that needs heap allocation", value: 1))
 	items.push(Item.create("another long string for heap allocation", value: 2))
 	let first = try items.get(0) otherwise Item.create("", value: 0)
 	print("{first.name}\n")
-	return first.value
+	return try first.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -65,14 +65,14 @@ type Pair
 	export var second as String
 
 	static function create(first String, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 end 'Pair'
 
 typealias PairArray = Array with Pair
 
 function main() returns ExitCode
-	let pairs = PairArray.create(0)
+	var pairs = PairArray.create(0)
 	pairs.push(Pair.create("alpha string that is long for heap", second: "beta string that is long for heap"))
 	return 0
 end 'main'
@@ -96,14 +96,14 @@ type MultiField
 	export var e as String
 
 	static function create(a String, b Integer, c String, d Integer, e String) returns Self
-		return Self{a: a, b: b, c: c, d: d, e: e}
+		return Self{a: a.clone(), b: b, c: c.clone(), d: d, e: e.clone()}
 	end 'create'
 end 'MultiField'
 
 typealias MultiArray = Array with MultiField
 
 function main() returns ExitCode
-	let items = MultiArray.create(0)
+	var items = MultiArray.create(0)
 	items.push(MultiField.create("string a that is long enough for heap", b: 1, c: "string c that is long enough for heap", d: 2, e: "string e that is long enough for heap"))
 	return 0
 end 'main'

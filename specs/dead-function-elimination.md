@@ -38,7 +38,7 @@ else; nothing in the suite pins it.
 public typealias Integer = int(i64.min to i64.max)
 
 public function unusedHelper(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'unusedHelper'
 
 function main() returns ExitCode
@@ -56,11 +56,11 @@ The whole cone goes, not just its entry: `deadOuter` is unreachable, so `deadInn
 public typealias Integer = int(i64.min to i64.max)
 
 public function deadInner(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'deadInner'
 
 public function deadOuter(x Integer) returns Integer
-	return deadInner(x) * 2
+	return try deadInner(x) * 2 otherwise panic("out of range")
 end 'deadOuter'
 
 function main() returns ExitCode
@@ -85,7 +85,7 @@ public function pingDead(n Integer) returns Integer
 end 'pingDead'
 
 public function pongDead(n Integer) returns Integer
-	return pingDead(n - 1)
+	return pingDead(try n - 1 otherwise panic("out of range"))
 end 'pongDead'
 
 function main() returns ExitCode
@@ -145,7 +145,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -158,7 +158,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(3, y: 4))
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode

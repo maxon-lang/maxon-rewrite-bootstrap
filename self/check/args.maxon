@@ -166,7 +166,7 @@ function coerceArg(mutates c Checker, mutates p ast.Project, value ast.NodeID, c
 		end 'keeps'
 		return true
 	end 'frozen'
-	return coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: spec.ty, wrong: Mismatch.argument("'{spec.name}'"), errs: errs)
+	return coerce(c, p: p, node: value, src: t, target: spec.ty, wrong: Mismatch.argument("'{spec.name}'"), errs: errs)
 end 'coerceArg'
 
 // nameable is whether a type can be written as a type argument, so inference may choose it: an integer constant or the

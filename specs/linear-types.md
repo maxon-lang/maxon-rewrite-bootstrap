@@ -51,12 +51,12 @@ type Resp
 	end 'fin'
 end 'Resp'
 
-function use(r Resp)
+function use(consumes r Resp)
 	print("use {r.peek()}\n")
 	r.fin()
 end 'use'
 
-function branches(r Resp, flag bool)
+function branches(consumes r Resp, flag bool)
 	if flag 'a'
 		r.fin()
 	end 'a' else 'b'
@@ -64,7 +64,7 @@ function branches(r Resp, flag bool)
 	end 'b'
 end 'branches'
 
-function viaReturn(r Resp, flag bool) returns Code
+function viaReturn(consumes r Resp, flag bool) returns Code
 	if flag 'a'
 		let c = r.peek()
 		r.fin()
@@ -126,7 +126,7 @@ function make(code Code) returns Resp
 	return Resp.create(code)
 end 'make'
 
-function pass(r Resp) returns Resp
+function pass(consumes r Resp) returns Resp
 	return r
 end 'pass'
 
@@ -5538,7 +5538,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function recycle(r Resp) returns Maybe
+function recycle(consumes r Resp) returns Maybe
 	r.fin()
 	return Maybe.some(Resp.create(9))
 end 'recycle'
@@ -5590,7 +5590,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function rewrap(r Resp) returns Maybe
+function rewrap(consumes r Resp) returns Maybe
 	return Maybe.some(r)
 end 'rewrap'
 
@@ -5734,7 +5734,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function recycle(r Resp) returns Maybe
+function recycle(consumes r Resp) returns Maybe
 	r.fin()
 	return Maybe.some(Resp.create(9))
 end 'recycle'
@@ -5890,7 +5890,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function recycle(r Resp) returns Maybe
+function recycle(consumes r Resp) returns Maybe
 	r.fin()
 	return Maybe.some(Resp.create(9))
 end 'recycle'
@@ -5952,7 +5952,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function recycle(r Resp) returns Maybe
+function recycle(consumes r Resp) returns Maybe
 	r.fin()
 	return Maybe.some(Resp.create(9))
 end 'recycle'
@@ -6062,7 +6062,7 @@ function settle(m Maybe)
 	end 'which'
 end 'settle'
 
-function recycle(r Resp) returns Maybe
+function recycle(consumes r Resp) returns Maybe
 	r.fin()
 	return Maybe.some(Resp.create(9))
 end 'recycle'
@@ -6391,7 +6391,7 @@ type Fz
 			if i == 1 'last'
 				return
 			end 'last'
-			i = i - 1
+			i = try i - 1 otherwise panic("out of range")
 		end 'w1'
 	end 'f'
 end 'Fz'

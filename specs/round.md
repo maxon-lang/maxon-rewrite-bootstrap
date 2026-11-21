@@ -139,11 +139,11 @@ undiagnosed has no other symptom. A QUALIFIED callee is unaffected — `Point.ro
 typealias Tally = int(0 to 1000)
 
 function round(n Tally) returns Tally
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'round'
 
 function main() returns ExitCode
-	return round(10)
+	return round(10) as ExitCode
 end 'main'
 ```
 ```exitcode

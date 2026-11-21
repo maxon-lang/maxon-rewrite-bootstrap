@@ -87,11 +87,11 @@ differ only in wording.
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(3, b: 4)
+	return try add(3, b: 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -104,11 +104,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function multiply(x Integer, y Integer) returns Integer
-	return x * y
+	return try x * y otherwise panic("out of range")
 end 'multiply'
 
 function main() returns ExitCode
-	return multiply(6, y: 7)
+	return try multiply(6, y: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -251,11 +251,11 @@ function pick(a Num, b String, c bool) returns Num
 	if c 'isTrue'
 		return a
 	end 'isTrue'
-	return b.byteLength() as Num
+	return try b.byteLength() as Num otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, c: true, b: "longer")
+	return pick(1, c: true, b: "longer") as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -274,11 +274,11 @@ function pick(a Num, b String, c bool) returns Num
 	if c 'isTrue'
 		return a
 	end 'isTrue'
-	return b.byteLength() as Num
+	return try b.byteLength() as Num otherwise panic("out of range")
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1, c: false, b: "abcde")
+	return pick(1, c: false, b: "abcde") as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -298,7 +298,7 @@ end 'ping'
 
 function main() returns ExitCode
 	let r = ping()
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -319,7 +319,7 @@ end 'ping'
 
 function main() returns ExitCode
 	let r = ping()
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -388,14 +388,14 @@ type Counter
 
 	function bump() returns Integer
 		print("bump\n")
-		return self.n + 1
+		return try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
 	let r = c.bump()
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -444,7 +444,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	return c.value() as ExitCode
+	return try c.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -471,7 +471,7 @@ end 'Cell'
 
 function main() returns ExitCode
 	let w = IntCell.width()
-	return w as ExitCode
+	return try w as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -488,9 +488,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntList = List with Integer
 
 function main() returns ExitCode
-	let xs = IntList.create()
+	var xs = IntList.create()
 	xs.append(5)
-	return xs.count() as ExitCode
+	return try xs.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -504,7 +504,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(5)
 	xs.push(6)
 	let n = xs.count()
@@ -526,7 +526,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let xs = IntArray.create(0)
+	var xs = IntArray.create(0)
 	xs.push(7)
 	xs.push(8)
 	xs.push(9)
@@ -650,12 +650,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let r = pair(1, b: 2)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -671,12 +671,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let r = pair(3, b: 4)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -692,12 +692,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let r = pair(5, b: 6)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -713,12 +713,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let r = pair(7, b: 8)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -734,12 +734,12 @@ typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
 	print("a={a} b={b}\n")
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
 	let r = pair(pair(1, b: 2), b: 3)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -775,7 +775,7 @@ a=5 b=6
 typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
@@ -799,11 +799,11 @@ hit
 typealias Integer = int(i64.min to i64.max)
 
 function pair(a Integer, b Integer) returns Integer
-	return a * 10 + b
+	return try a * 10 + b otherwise panic("out of range")
 end 'pair'
 
 function main() returns ExitCode
-	return pair(0, b: 7) as ExitCode
+	return try pair(0, b: 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -816,7 +816,7 @@ A managed argument on a line of its own is moved into the container exactly as o
 typealias NameArray = Array with String
 
 function main() returns ExitCode
-	let names = NameArray.create(0)
+	var names = NameArray.create(0)
 	let name = "ada"
 	names.push(name)
 	print("{names.count()}\n")
@@ -1010,11 +1010,11 @@ A call to a function whose name is spelled by a keyword takes a split argument l
 typealias Integer = int(i64.min to i64.max)
 
 function from(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'from'
 
 function main() returns ExitCode
-	return from(41)
+	return try from(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -41,7 +41,7 @@ type Table
 		return self.rows.count()
 	end 'count'
 
-	function add(n Tally)
+	function add(mutates self, n Tally)
 		self.rows.push(n)
 	end 'add'
 end 'Table'
@@ -50,12 +50,12 @@ function describe(table Table) returns String
 	return "{table.count()} rows"
 end 'describe'
 
-function stamp(table Table)
+function stamp(mutates table Table)
 	table.add(9)
 end 'stamp'
 
 function main() returns ExitCode
-	let live = Table.create()
+	var live = Table.create()
 	live.add(1)
 	let frozen = freeze(Table.create())
 	print("{describe(live)} {describe(frozen)}\n")
@@ -1445,7 +1445,7 @@ function main() returns ExitCode
 	var e = Box.create(0)
 	var i = 0 as Tally
 	while i < 3 'again'
-		e.n = e.n + i
+		e.n = try e.n + i otherwise panic("out of range")
 		e = Box.create(e.n)
 		i = i + 1
 	end 'again'
@@ -3447,11 +3447,11 @@ type Holder
 	export var held as Box
 
 	static function build(item Box) returns Self
-		return Self{held: item}
+		return Self{held: item.clone()}
 	end 'build'
 
-	function adopt(item Box)
-		self.held = item
+	function adopt(mutates self, item Box)
+		self.held = item.clone()
 	end 'adopt'
 end 'Holder'
 
@@ -3461,12 +3461,12 @@ end 'relay'
 
 function main() returns ExitCode
 	let loose = Box.create(1)
-	let other = Box.create(2)
+	var other = Box.create(2)
 	let frozen = freeze(Box.create(3))
-	let h = relay(loose)
+	var h = relay(loose)
 	h.adopt(other)
 	h.held.n = 7
-	other.n = other.n + 1
+	other.n = try other.n + 1 otherwise panic("out of range")
 	print("{loose.n} {other.n} {h.held.n} {frozen.n}\n")
 	return 0
 end 'main'
@@ -4025,7 +4025,7 @@ end 'Box'
 
 function pick(p Box, flag bool) returns Box
 	if flag 'useParameter'
-		return p
+		return p.clone()
 	end 'useParameter'
 	return Box.create(0)
 end 'pick'
@@ -4131,7 +4131,7 @@ end 'Box'
 function total(p Box, flag bool) returns Tally
 	var c = Box.create(1)
 	if flag 'useParameter'
-		c = p
+		c = p.clone()
 	end 'useParameter'
 	return c.n
 end 'total'
@@ -4164,7 +4164,7 @@ type Box
 end 'Box'
 
 function total(p Box, flag bool) returns Tally
-	let c = p if flag else Box.create(1)
+	let c = p.clone() if flag else Box.create(1)
 	return c.n
 end 'total'
 
@@ -4231,12 +4231,12 @@ type Box
 end 'Box'
 
 function pick(p Box, flag bool) returns Box
-	return p if flag else Box.create(0)
+	return p.clone() if flag else Box.create(0)
 end 'pick'
 
 function main() returns ExitCode
 	let mine = Box.create(1)
-	let r = pick(mine, flag: true)
+	var r = pick(mine, flag: true)
 	r.n = 5
 	print("{mine.n}\n")
 	return 0
@@ -4466,9 +4466,9 @@ type Box
 end 'Box'
 
 function pick(a Box, b Box, flag bool) returns Box
-	var c = a
+	var c = a.clone()
 	if flag 'useSecond'
-		c = b
+		c = b.clone()
 	end 'useSecond'
 	return c
 end 'pick'
@@ -4476,7 +4476,7 @@ end 'pick'
 function main() returns ExitCode
 	let first = Box.create(1)
 	let second = Box.create(2)
-	let r = pick(first, b: second, flag: true)
+	var r = pick(first, b: second, flag: true)
 	r.n = 5
 	print("{first.n} {second.n}\n")
 	return 0
@@ -4614,9 +4614,9 @@ type Box
 end 'Box'
 
 function total(a Box, b Box, flag bool) returns Tally
-	var c = a
+	var c = a.clone()
 	if flag 'useSecond'
-		c = b
+		c = b.clone()
 	end 'useSecond'
 	return c.n
 end 'total'

@@ -1,0 +1,518 @@
+// The fix command applies the change that each diagnostic's message names, which the check records with the diagnostic,
+// and checks again, until the program is clean or what is left names no change. It works on a .maxon file, a project's
+// directory, or the tests of spec files, and for a spec test only on its maxon block.
+
+// maxFixRounds bounds the rounds of a program: each round applies at least one fix, and the range analysis reports one
+// failure of a function at a time.
+let maxFixRounds = 64
+
+// trapSkipLine is what a spec test gets in place of the fix of its arithmetic when what it expects is the run-time trap
+// that maxon raises there: the fix turns the trap into the panic of a try, and the test would test nothing of its own.
+let trapSkipLine = "<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->\n"
+
+let panicWord = "panic"
+
+typealias Flags = Array with bool
+
+// FixProgram is a program being fixed, in memory: one file, or the files of a project's directory at root.
+type FixProgram
+	var root as String
+	// name is what a message calls the program.
+	var name as String
+	var single as bool
+	var files as project.SourceFiles
+
+	static function make(consumes root String, consumes name String, single bool, consumes files project.SourceFiles) returns FixProgram
+		return FixProgram{root: root, name: name, single: single, files: files}
+	end 'make'
+
+	function fileIndex(path String) returns table.Option with Count
+		for i in 0 upto files.count() 'files'
+			if files[i].path == path 'found'
+				return table.Option.some(i)
+			end 'found'
+		end 'files'
+		return table.Option.none
+	end 'fileIndex'
+end 'FixProgram'
+
+// FixOutcome is what fixing a program came to: its files, which files changed, the kinds of fix it applied, each once, and
+// the code of the first diagnostic that is left, or nothing when it checks clean.
+type FixOutcome
+	var files as project.SourceFiles
+	var changed as Flags
+	var kinds as ast.StringList
+	var left as String
+	var broken as bool
+
+	static function make(consumes files project.SourceFiles, consumes changed Flags, consumes kinds ast.StringList, consumes left String, broken bool) returns FixOutcome
+		return FixOutcome{files: files, changed: changed, kinds: kinds, left: left, broken: broken}
+	end 'make'
+
+	function anyChanged() returns bool
+		for i in 0 upto changed.count() 'each'
+			if changed[i] 'one'
+				return true
+			end 'one'
+		end 'each'
+		return false
+	end 'anyChanged'
+end 'FixOutcome'
+
+// checkFixing is the diagnostics of the program, located in its files.
+function checkFixing(prog FixProgram) returns diag.ErrorList
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	var ready = backend.UnitList.create(0)
+	if prog.single 'single'
+		project.loadSourceInto(p, path: prog.files[0].path, text: prog.files[0].text, errs: errs)
+	end 'single' else 'project'
+		project.loadFilesInto(p, rootPath: prog.root, files: prog.files, errs: errs)
+	end 'project'
+	compileLoaded(p, first: 0, ready: ready, output: "", options: Options.new(), errs: errs)
+	diag.sortErrors(errs)
+	return errs
+end 'checkFixing'
+
+// editsMeet is whether two edits of one file cannot both be made: they replace text in common, or one inserts inside the
+// text the other replaces, or both insert at one place, which leaves their order open.
+function editsMeet(a diag.FixEdit, b diag.FixEdit) returns bool
+	if a.file != b.file 'files'
+		return false
+	end 'files'
+	let aInserts = a.fileBegin == a.fileUntil
+	let bInserts = b.fileBegin == b.fileUntil
+	if aInserts and bInserts 'inserts'
+		return a.fileBegin == b.fileBegin
+	end 'inserts'
+	if aInserts 'aInside'
+		return b.fileBegin < a.fileBegin and a.fileBegin < b.fileUntil
+	end 'aInside'
+	if bInserts 'bInside'
+		return a.fileBegin < b.fileBegin and b.fileBegin < a.fileUntil
+	end 'bInside'
+	return a.fileBegin < b.fileUntil and b.fileBegin < a.fileUntil
+end 'editsMeet'
+
+function sameEdit(a diag.FixEdit, b diag.FixEdit) returns bool
+	return a.file == b.file and a.fileBegin == b.fileBegin and a.fileUntil == b.fileUntil and a.text == b.text
+end 'sameEdit'
+
+// Choice is the edits of one round, from the fixes that can be made together, and their kinds.
+type Choice
+	var edits as diag.FixEdits
+	var kinds as ast.StringList
+
+	static function new() returns Choice
+		return Choice{edits: diag.FixEdits.create(0), kinds: ast.StringList.create(0)}
+	end 'new'
+
+	// fits is whether every edit of fix is in a file of the program and meets none chosen. A fix whose edits are all chosen
+	// already is the same change asked for twice, and adds nothing.
+	function fits(prog FixProgram, fix diag.Fix) returns bool
+		var repeated = 0 as Count
+		for i in 0 upto fix.edits.count() 'edits'
+			if not prog.fileIndex(fix.edits[i].file).isSome() 'outside'
+				return false
+			end 'outside'
+			for j in 0 upto edits.count() 'chosen'
+				if sameEdit(fix.edits[i], b: edits[j]) 'same'
+					repeated = increment(repeated)
+					continue 'edits'
+				end 'same'
+				if editsMeet(fix.edits[i], b: edits[j]) 'meets'
+					return false
+				end 'meets'
+			end 'chosen'
+		end 'edits'
+		return repeated == 0
+	end 'fits'
+
+	function add(mutates self, fix diag.Fix)
+		for i in 0 upto fix.edits.count() 'edits'
+			edits.push(fix.edits[i].clone())
+		end 'edits'
+		addKind(kinds, kind: fix.kind)
+	end 'add'
+end 'Choice'
+
+function addKind(mutates kinds ast.StringList, kind String)
+	for i in 0 upto kinds.count() 'known'
+		if kinds[i] == kind 'same'
+			return
+		end 'same'
+	end 'known'
+	kinds.push(kind.clone())
+end 'addKind'
+
+// chooseFixes is the fixes of the diagnostics, in their order, that can be made together.
+function chooseFixes(prog FixProgram, errs diag.ErrorList) returns Choice
+	var choice = Choice.new()
+	for i in 0 upto errs.count() 'errors'
+		if errs[i].fix.isSome() and choice.fits(prog, fix: errs[i].fix) 'fits'
+			choice.add(errs[i].fix)
+		end 'fits'
+	end 'errors'
+	return choice
+end 'chooseFixes'
+
+// editsOfFile is the chosen edits of one file in text order, which keeps the order of the edits at one place.
+function editsOfFile(edits diag.FixEdits, file String) returns syntax.Edits
+	var out = syntax.Edits.create(0)
+	for i in 0 upto edits.count() 'each'
+		if edits[i].file != file 'other'
+			continue 'each'
+		end 'other'
+		out.push(syntax.Edit.make(edits[i].fileBegin, until: edits[i].fileUntil, replacement: edits[i].text.clone()))
+		var j = 0 as Count
+		j = try out.count() - 1 otherwise panic("fix: no edit after a push")
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise panic("fix: no edit before the first")
+			if out[j].begin >= out[prev].begin 'ordered'
+				break 'shift'
+			end 'ordered'
+			let moved = out[j].clone()
+			out[j] = out[prev].clone()
+			out[prev] = moved
+			j = prev
+		end 'shift'
+	end 'each'
+	return out
+end 'editsOfFile'
+
+// applyChoice makes the chosen edits in the program's files and puts each file they change in the one layout. A round that
+// leaves a file unparsable is a fix that is wrong: it is undone, said, and false.
+function applyChoice(mutates prog FixProgram, choice Choice, mutates changed Flags) returns bool
+	var files = prog.files.clone()
+	for i in 0 upto files.count() 'files'
+		let edits = editsOfFile(choice.edits, file: files[i].path)
+		if edits.count() == 0 'untouched'
+			continue 'files'
+		end 'untouched'
+		let edited = syntax.applyEdits(files[i].text, edits: edits)
+		var refusal = diag.ErrorList.create(0)
+		match syntax.formatSource(files[i].path, text: edited) 'layout'
+			formatted(text) then files[i].text = text.clone()
+			refused(errors) then refusal = errors.clone()
+		end 'layout'
+		if refusal.count() > 0 'broken'
+			print("broken  a fix left {prog.name} unparsable, so its round is undone: {refusal[0].format()}\n")
+			return false
+		end 'broken'
+		changed[i] = true
+	end 'files'
+	prog.files = files
+	return true
+end 'applyChoice'
+
+// fixProgram applies the fixes of the program's diagnostics, round by round, until it checks clean, no diagnostic left has
+// a fix that can be made, or the rounds run out. A round that leaves a file unparsable is undone, and the outcome says so.
+function fixProgram(consumes prog FixProgram) returns FixOutcome
+	var current = prog
+	var changed = Flags.create(0)
+	for i in 0 upto current.files.count() 'unchanged'
+		changed.push(false)
+	end 'unchanged'
+	var kinds = ast.StringList.create(0)
+	var left = ""
+	var broken = false
+	for round in 0 upto increment(maxFixRounds) 'rounds'
+		let errs = checkFixing(current)
+		if errs.count() == 0 'clean'
+			left = ""
+			break 'rounds'
+		end 'clean'
+		left = errs[0].code.clone()
+		if round == maxFixRounds 'last'
+			break 'rounds'
+		end 'last'
+		let choice = chooseFixes(current, errs: errs)
+		if choice.edits.count() == 0 'stuck'
+			break 'rounds'
+		end 'stuck'
+		var roundChanged = changed.clone()
+		if not applyChoice(current, choice: choice, changed: roundChanged) 'undone'
+			broken = true
+			break 'rounds'
+		end 'undone'
+		changed = roundChanged
+		for k in 0 upto choice.kinds.count() 'kinds'
+			addKind(kinds, kind: choice.kinds[k])
+		end 'kinds'
+	end 'rounds'
+	return FixOutcome.make(current.files, changed: changed, kinds: kinds, left: left, broken: broken)
+end 'fixProgram'
+
+// FixTally counts what a run of fix did: the programs or tests it changed, by kind of fix, the spec tests it skipped for a
+// trap, and those left with a diagnostic, by its code.
+type FixTally
+	var changed as Count
+	var trapSkips as Count
+	var broken as Count
+	var kinds as ast.StringList
+	var kindCounts as CountList
+	var codes as ast.StringList
+	var codeCounts as CountList
+
+	static function new() returns FixTally
+		return FixTally{changed: 0, trapSkips: 0, broken: 0, kinds: ast.StringList.create(0), kindCounts: CountList.create(0), codes: ast.StringList.create(0), codeCounts: CountList.create(0)}
+	end 'new'
+
+	function count(mutates self, outcome FixOutcome)
+		if outcome.broken 'broken'
+			broken = increment(broken)
+		end 'broken'
+		if outcome.left != "" 'left'
+			countIn(codes, counts: codeCounts, key: outcome.left)
+		end 'left'
+	end 'count'
+
+	function countChange(mutates self, outcome FixOutcome)
+		changed = increment(changed)
+		for i in 0 upto outcome.kinds.count() 'kinds'
+			countIn(kinds, counts: kindCounts, key: outcome.kinds[i])
+		end 'kinds'
+	end 'countChange'
+end 'FixTally'
+
+function countIn(mutates keys ast.StringList, mutates counts CountList, key String)
+	for i in 0 upto keys.count() 'known'
+		if keys[i] == key 'same'
+			counts[i] = increment(counts[i])
+			return
+		end 'same'
+	end 'known'
+	keys.push(key.clone())
+	counts.push(1)
+end 'countIn'
+
+// countsText is the keys with their counts, the most first and then by key.
+function countsText(keys ast.StringList, counts CountList) returns String
+	var order = CountList.create(0)
+	for i in 0 upto keys.count() 'each'
+		order.push(i)
+		var at = i
+		while at > 0 'sift'
+			let before = try at - 1 otherwise 0
+			let a = order[at]
+			let b = order[before]
+			if counts[a] < counts[b] or (counts[a] == counts[b] and not diag.stringLess(keys[a], b: keys[b])) 'ordered'
+				break 'sift'
+			end 'ordered'
+			order[at] = b
+			order[before] = a
+			at = before
+		end 'sift'
+	end 'each'
+	var out = ByteArray.create(0)
+	for i in 0 upto order.count() 'join'
+		if i > 0 'separator'
+			out.append(", ".toByteArray())
+		end 'separator'
+		out.append("{keys[order[i]]} {counts[order[i]]}".toByteArray())
+	end 'join'
+	if order.count() == 0 'none'
+		return "none"
+	end 'none'
+	return String.from(out)
+end 'countsText'
+
+function printFixSummary(tally FixTally, checkOnly bool, unit String)
+	var verb = "fixed"
+	if checkOnly 'checking'
+		verb = "would fix"
+	end 'checking'
+	print("{verb} {tally.changed} {unit}, by kind of fix: {countsText(tally.kinds, counts: tally.kindCounts)}\n")
+	if tally.trapSkips > 0 'traps'
+		print("skipped {tally.trapSkips} tests that expect maxon's run-time trap where a fix would add a try\n")
+	end 'traps'
+	if tally.broken > 0 'broken'
+		print("{tally.broken} {unit} had a round undone because a fix left them unparsable\n")
+	end 'broken'
+	print("left with a diagnostic that has no fix, by the code of the first: {countsText(tally.codes, counts: tally.codeCounts)}\n")
+end 'printFixSummary'
+
+// fixCommand is `fix [--check] <path>...`: rest holds the command's name, then the paths and the flag in any order.
+function fixCommand(rest CommandNames) returns ExitCode
+	var checkOnly = false
+	var paths = ast.StringList.create(0)
+	for i in 1 upto rest.count() 'args'
+		if rest[i] == checkFlag 'check'
+			checkOnly = true
+		end 'check' else 'path'
+			paths.push(rest[i].clone())
+		end 'path'
+	end 'args'
+	if paths.count() == 0 'none'
+		printError(usage())
+		return usageExitCode
+	end 'none'
+	for i in 0 upto paths.count() 'readable'
+		if not isReadable(paths[i]) 'unreadable'
+			printError("cannot read {paths[i]}\n")
+			return diagnosticsExitCode
+		end 'unreadable'
+	end 'readable'
+	var tally = FixTally.new()
+	var unit = "programs"
+	for i in 0 upto paths.count() 'paths'
+		if isSpecPath(paths[i]) 'specs'
+			unit = "tests"
+			let files = specFiles(paths[i])
+			for f in 0 upto files.count() 'files'
+				fixSpecFile(files[f], checkOnly: checkOnly, tally: tally)
+			end 'files'
+		end 'specs' else 'program'
+			fixProgramAt(paths[i], checkOnly: checkOnly, tally: tally)
+		end 'program'
+	end 'paths'
+	printFixSummary(tally, checkOnly: checkOnly, unit: unit)
+	if checkOnly and tally.changed > 0 'differs'
+		return diagnosticsExitCode
+	end 'differs'
+	return 0
+end 'fixCommand'
+
+// programAt is the program at path, a .maxon file or a project's directory, as its files read.
+function programAt(path String) returns FixProgram
+	var files = project.SourceFiles.create(0)
+	if project.isDirectoryPath(path) 'project'
+		var names = ast.StringList.create(0)
+		collectSourceFiles(path, files: names)
+		project.sortStrings(names)
+		for i in 0 upto names.count() 'files'
+			if endsWithText(names[i], suffix: sourceExtension) 'source'
+				files.push(project.SourceFile.make(names[i].clone(), text: readText(names[i])))
+			end 'source'
+		end 'files'
+		return FixProgram.make(path.clone(), name: path.clone(), single: false, files: files)
+	end 'project'
+	files.push(project.SourceFile.make(path.clone(), text: readText(path)))
+	return FixProgram.make(path.clone(), name: path.clone(), single: true, files: files)
+end 'programAt'
+
+// fixProgramAt fixes the program at path and writes the files it changed, or with check names them.
+function fixProgramAt(path String, checkOnly bool, mutates tally FixTally)
+	let outcome = fixProgram(programAt(path))
+	tally.count(outcome)
+	if not outcome.anyChanged() 'unchanged'
+		return
+	end 'unchanged'
+	tally.countChange(outcome)
+	for i in 0 upto outcome.files.count() 'files'
+		if not outcome.changed[i] 'untouched'
+			continue 'files'
+		end 'untouched'
+		let file = outcome.files[i].path.clone()
+		if checkOnly 'listed'
+			print("would fix  {file}\n")
+			continue 'files'
+		end 'listed'
+		try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: outcome.files[i].text) otherwise panic("fix: cannot write {file}")
+		print("fixed  {file}\n")
+	end 'files'
+end 'fixProgramAt'
+
+// fixSource is the text that fix makes of one program file, path naming it in the diagnostics, and what fixing it came to.
+function fixSource(path String, text String) returns FixOutcome
+	var files = project.SourceFiles.create(0)
+	files.push(project.SourceFile.make(path.clone(), text: text.clone()))
+	return fixProgram(FixProgram.make(path.clone(), name: path.clone(), single: true, files: files))
+end 'fixSource'
+
+// isFixable is whether fix may change a spec test: one that the conversion did not skip, that runs a program rather than
+// being about a diagnostic, and whose block is the program alone.
+function isFixable(test SpecTest, text String) returns bool
+	if test.skips.count() > 0 or not test.hasSource or test.sourceStart >= test.sourceFinish 'skipped'
+		return false
+	end 'skipped'
+	if resultFence(test, base: compilerErrorFence).isSome() 'aboutDiagnostic'
+		return false
+	end 'aboutDiagnostic'
+	return not sourceHasOverlay(text.sliceBytes(test.sourceStart, endPos: test.sourceFinish))
+end 'isFixable'
+
+// expectsTrap is whether what the test expects on stderr is a panic, which a trap of maxon's prints.
+function expectsTrap(test SpecTest, text String) returns bool
+	let stderr = fenceText(test, text: text, base: stderrFence)
+	return stderr.isSome() and holdsText(stderr.unwrap(), needle: panicWord)
+end 'expectsTrap'
+
+// withoutFinalNewline is a file's text as a block of a spec holds it, which ends before the newline that ends the file.
+function withoutFinalNewline(text String) returns String
+	var finish = text.byteLength()
+	while finish > 0 and text.byteAt(try finish - 1 otherwise 0) == newlineByte 'trim'
+		finish = try finish - 1 otherwise 0
+	end 'trim'
+	return text.sliceBytes(0, endPos: finish)
+end 'withoutFinalNewline'
+
+// fixedBlock is the maxon block of a test after fixing: the file, which is checked under the header line that the runner puts
+// above it, or each section of a multi-file block in its place.
+function fixedBlock(source String, sections SourceSections, outcome FixOutcome) returns String
+	if sections.count() == 0 'single'
+		let text = outcome.files[0].text.clone()
+		var at = 0 as Count
+		while at < text.byteLength() and text.byteAt(at) != newlineByte 'header'
+			at = offsetBy(at, by: 1)
+		end 'header'
+		return withoutFinalNewline(text.sliceBytes(minCount(offsetBy(at, by: 1), b: text.byteLength()), endPos: text.byteLength()))
+	end 'single'
+	var edits = syntax.Edits.create(0)
+	for i in 0 upto sections.count() 'sections'
+		if outcome.changed[i] 'changed'
+			let finish = offsetBy(sections[i].start, by: sections[i].text.byteLength())
+			edits.push(syntax.Edit.make(sections[i].start, until: finish, replacement: withoutFinalNewline(outcome.files[i].text)))
+		end 'changed'
+	end 'sections'
+	return syntax.applyEdits(source, edits: edits)
+end 'fixedBlock'
+
+// fixSpecFile fixes the tests of one spec file and writes the file, or with check names the tests it would change.
+function fixSpecFile(file String, checkOnly bool, mutates tally FixTally)
+	let text = readText(file)
+	let display = project.lastComponent(file)
+	let tests = parseSpec(text)
+	var edits = syntax.Edits.create(0)
+	for i in 0 upto tests.count() 'tests'
+		if not isFixable(tests[i], text: text) 'fixed'
+			continue 'tests'
+		end 'fixed'
+		let source = text.sliceBytes(tests[i].sourceStart, endPos: tests[i].sourceFinish)
+		let sections = splitSections(source)
+		var prog = FixProgram.make(fragmentToken, name: "{display}: {tests[i].name}", single: true, files: project.SourceFiles.create(0))
+		if sections.count() == 0 'single'
+			prog.files.push(project.SourceFile.make(fragmentToken, text: "{fragmentHeader}{tests[i].name}\n{source}\n"))
+		end 'single' else 'project'
+			prog = FixProgram.make(projectRoot, name: "{display}: {tests[i].name}", single: false, files: sectionFiles(sections))
+		end 'project'
+		let outcome = fixProgram(prog)
+		tally.count(outcome)
+		if not outcome.anyChanged() 'unchanged'
+			continue 'tests'
+		end 'unchanged'
+		if holdsKind(outcome.kinds, kind: check.fixKindTry) and expectsTrap(tests[i], text: text) 'trap'
+			tally.trapSkips = increment(tally.trapSkips)
+			edits.push(syntax.Edit.make(tests[i].markerEnd, until: tests[i].markerEnd, replacement: trapSkipLine))
+			continue 'tests'
+		end 'trap'
+		tally.countChange(outcome)
+		if checkOnly 'listed'
+			print("would fix  {display}: {tests[i].name}\n")
+		end 'listed'
+		edits.push(syntax.Edit.make(tests[i].sourceStart, until: tests[i].sourceFinish, replacement: fixedBlock(source, sections: sections, outcome: outcome)))
+	end 'tests'
+	if checkOnly or edits.count() == 0 'unwritten'
+		return
+	end 'unwritten'
+	try File.writeText(try FilePath.from(file) otherwise panic("fix: {file} is not a path"), content: syntax.applyEdits(text, edits: edits)) otherwise panic("fix: cannot write {file}")
+end 'fixSpecFile'
+
+function holdsKind(kinds ast.StringList, kind String) returns bool
+	for i in 0 upto kinds.count() 'each'
+		if kinds[i] == kind 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'holdsKind'

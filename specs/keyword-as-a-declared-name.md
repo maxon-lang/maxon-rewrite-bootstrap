@@ -56,11 +56,11 @@ end` is a BARE return for the same reason (`end` terminates a value-less `return
 typealias Integer = int(i64.min to i64.max)
 
 function from(n Integer) returns Integer
-	return n + 1
+	return try n + 1 otherwise panic("out of range")
 end 'from'
 
 function main() returns ExitCode
-	return from(41)
+	return try from(41) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -82,7 +82,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.from(42)
-	return b.v
+	return try b.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -383,7 +383,7 @@ construction, which is a wrong COST driven by a name's spelling.
 type Box uses T
 	export var value as T
 
-	static function create(from T) returns Self
+	static function create(consumes from T) returns Self
 		return Self{value: from}
 	end 'create'
 end 'Box'
@@ -394,7 +394,7 @@ function main() returns ExitCode
 	let n = 7
 	let msg = "hello{n}"
 	let b = StrBox.create(msg)
-	return (b.value.byteLength() * 7) as ExitCode
+	return try (b.value.byteLength() * 7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

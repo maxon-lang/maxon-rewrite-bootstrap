@@ -64,11 +64,11 @@ class shipped as a silent miscompile once, and it is a running test that catches
 `add(2, b: 3)` binds `2` positionally to `a` and `3` (labelled) to `b`, returning 5.
 ```maxon
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(2, b: 3)
+	return try add(2, b: 3) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -82,11 +82,11 @@ The positional argument fills the first parameter and the labelled one the secon
 `sub(20, b: 8)` is `20 - 8` = 12 — argument ORDER is preserved through the labelling.
 ```maxon
 function sub(a Integer, b Integer) returns Integer
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'sub'
 
 function main() returns ExitCode
-	return sub(20, b: 8)
+	return try sub(20, b: 8) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -103,7 +103,7 @@ function answer() returns Integer
 end 'answer'
 
 function main() returns ExitCode
-	return answer()
+	return try answer() as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -117,11 +117,11 @@ Six arguments — the full register-argument set (`rcx`, `rdx`, `rax`, `r9`, `rs
 `rdi`). Their sum is 1+2+3+4+5+6 = 21.
 ```maxon
 function sum6(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer) returns Integer
-	return a + b + c + d + e + f
+	return try a + b + c + d + e + f otherwise panic("out of range")
 end 'sum6'
 
 function main() returns ExitCode
-	return sum6(1, b: 2, c: 3, d: 4, e: 5, f: 6)
+	return try sum6(1, b: 2, c: 3, d: 4, e: 5, f: 6) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -139,11 +139,11 @@ function zero() returns Integer
 end 'zero'
 
 function inc(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'inc'
 
 function main() returns ExitCode
-	return inc(inc(inc(zero())))
+	return try inc(inc(inc(zero()))) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -158,11 +158,11 @@ Call results feed a larger expression, `add(2, b: 3) + add(10, b: 20) * 2` = 5 +
 register.
 ```maxon
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(2, b: 3) + add(10, b: 20) * 2
+	return try add(2, b: 3) + add(10, b: 20) * 2 otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -179,11 +179,11 @@ function factorial(n Integer) returns Integer
 	if n <= 1 'base'
 		return 1
 	end 'base'
-	return n * factorial(n - 1)
+	return try n * factorial(n - 1) otherwise panic("out of range")
 end 'factorial'
 
 function main() returns ExitCode
-	return factorial(5)
+	return try factorial(5) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -200,11 +200,11 @@ function fib(n Integer) returns Integer
 	if n <= 1 'base'
 		return n
 	end 'base'
-	return fib(n - 1) + fib(n - 2)
+	return try fib(n - 1) + fib(n - 2) otherwise panic("out of range")
 end 'fib'
 
 function main() returns ExitCode
-	return fib(10)
+	return try fib(10) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -220,16 +220,16 @@ it into a callee-saved register the function push/pops. `compute(5)` = add(5, 10
 110.
 ```maxon
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function compute(n Integer) returns Integer
 	let y = add(n, b: 100)
-	return n + y
+	return try n + y otherwise panic("out of range")
 end 'compute'
 
 function main() returns ExitCode
-	return compute(5)
+	return try compute(5) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -248,16 +248,16 @@ be colored onto `c`'s incoming register (`rax`) — otherwise `a`'s capture woul
 `combine(10, b: 20, c: 30)` computes `diff(20, y: 10)` = 10, then `+ c` = 10 + 30 = 40.
 ```maxon
 function diff(x Integer, y Integer) returns Integer
-	return x - y
+	return try x - y otherwise panic("out of range")
 end 'diff'
 
 function combine(a Integer, b Integer, c Integer) returns Integer
 	let r = diff(b, y: a)
-	return r + c
+	return try r + c otherwise panic("out of range")
 end 'combine'
 
 function main() returns ExitCode
-	return combine(10, b: 20, c: 30)
+	return try combine(10, b: 20, c: 30) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -273,17 +273,17 @@ with nothing added inside the loop but the argument move and the call. Sum of `d
 for `i = 1..4` is 2+4+6+8 = 20.
 ```maxon
 function dbl(x Integer) returns Integer
-	return x + x
+	return try x + x otherwise panic("out of range")
 end 'dbl'
 
 function main() returns ExitCode
 	var sum = 0 as Integer
 	var i = 1 as Integer
 	while i <= 4 'loop'
-		sum = sum + dbl(i)
+		sum = try sum + dbl(i) otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return sum as ExitCode
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -299,14 +299,14 @@ be E3064 (`discarded-results.md`). The BARE form belongs to a callee that return
 `discarded-results.md`'s `void-function-ok` pins. The program returns 0.
 ```maxon
 function noop(x Integer, mutates runs Integer) returns Integer
-	runs = runs + 1
+	runs = try runs + 1 otherwise panic("out of range")
 	return x
 end 'noop'
 
 function main() returns ExitCode
 	var runs = 0 as Integer
 	_ = noop(5, runs: runs)
-	return runs - 1
+	return try runs - 1 otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -1842,12 +1842,12 @@ A parameter list may span lines: a line break inside the parentheses is layout, 
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
 	let r = add(2, b: 3)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1866,14 +1866,14 @@ type Box
 	end 'create'
 
 	function plus(a Integer, b Integer) returns Integer
-		return self.n + a + b
+		return try self.n + a + b otherwise panic("out of range")
 	end 'plus'
 end 'Box'
 
 function main() returns ExitCode
 	let box = Box.create(10)
 	let r = box.plus(3, b: 4)
-	return r as ExitCode
+	return try r as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

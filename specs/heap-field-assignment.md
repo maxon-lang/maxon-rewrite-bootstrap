@@ -36,17 +36,17 @@ type Container
 	export var value as Integer
 	export var child as Inner
 
-	function replaceChild(newChild Inner)
-		child = newChild
+	function replaceChild(mutates self, newChild Inner)
+		child = newChild.clone()
 	end 'replaceChild'
 
 	static function create(value Integer, child Inner) returns Self
-		return Self{value: value, child: child}
+		return Self{value: value, child: child.clone()}
 	end 'create'
 end 'Container'
 
 function main() returns ExitCode
-	let c = Container.create(1, child: Inner.create(10))
+	var c = Container.create(1, child: Inner.create(10))
 	c.replaceChild(Inner.create(20))
 	if c.child.value == 20 'check'
 		return 0
@@ -76,12 +76,12 @@ type Pair
 	export var right as Right
 
 	static function create(left Integer, right Right) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left, right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function main() returns ExitCode
-	let p = Pair.create(5, right: Right.create(10))
+	var p = Pair.create(5, right: Right.create(10))
 	p.right = Right.create(20)
 	if p.right.left == 20 'check'
 		return 0
@@ -101,8 +101,8 @@ typealias Tally = int(0 to u64.max)
 type Counter
 	var count as Tally
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function value() returns Tally
@@ -115,10 +115,10 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
 	c.increment()
-	return c.value()
+	return try c.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -142,8 +142,8 @@ type Container
 	export var value as Integer
 	export var child as Inner
 
-	function replaceChild(newChild Inner)
-		child = newChild
+	function replaceChild(mutates self, newChild Inner)
+		child = newChild.clone()
 	end 'replaceChild'
 
 	function childValue() returns Integer
@@ -151,12 +151,12 @@ type Container
 	end 'childValue'
 
 	static function create(value Integer, child Inner) returns Self
-		return Self{value: value, child: child}
+		return Self{value: value, child: child.clone()}
 	end 'create'
 end 'Container'
 
 function testAssign()
-	let c = Container.create(1, child: Inner.create(10))
+	var c = Container.create(1, child: Inner.create(10))
 	c.replaceChild(Inner.create(20))
 	print("{c.childValue()}\n")
 end 'testAssign'
@@ -191,12 +191,12 @@ type Pair
 	export var right as Right
 
 	static function create(left Integer, right Right) returns Self
-		return Self{left: left, right: right}
+		return Self{left: left, right: right.clone()}
 	end 'create'
 end 'Pair'
 
 function testAssign()
-	let p = Pair.create(5, right: Right.create(10))
+	var p = Pair.create(5, right: Right.create(10))
 	p.right = Right.create(20)
 	print("{p.right.left}\n")
 end 'testAssign'

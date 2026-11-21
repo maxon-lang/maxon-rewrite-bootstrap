@@ -328,7 +328,7 @@ end 'process'
 
 function main() returns ExitCode
 	let c = Container.value(42)
-	return process(c)
+	return try process(c) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -354,7 +354,7 @@ end 'process'
 
 function main() returns ExitCode
 	let c = Container.empty
-	return process(c)
+	return try process(c) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -381,8 +381,8 @@ end 'getResult'
 function main() returns ExitCode
 	let r = getResult(true)
 	match r 'handle'
-		success(v) then return v
-		failure(c) then return c
+		success(v) then return try v as ExitCode otherwise panic("out of range")
+		failure(c) then return try c as ExitCode otherwise panic("out of range")
 	end 'handle'
 end 'main'
 ```
@@ -403,13 +403,13 @@ end 'TwoParts'
 function sum(p TwoParts) returns Integer
 	match p 'handle'
 		none then return 0
-		values(a, b) then return a + b
+		values(a, b) then return try a + b otherwise panic("out of range")
 	end 'handle'
 end 'sum'
 
 function main() returns ExitCode
 	let p = TwoParts.values(10, b: 20)
-	return sum(p)
+	return try sum(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -429,13 +429,13 @@ end 'TwoParts'
 function sum(p TwoParts) returns Integer
 	match p 'handle'
 		none then return 0
-		values(a, b) then return a + b
+		values(a, b) then return try a + b otherwise panic("out of range")
 	end 'handle'
 end 'sum'
 
 function main() returns ExitCode
 	let p = TwoParts.values(10, b: 20)
-	return sum(p)
+	return try sum(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -500,14 +500,14 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(Item.value(10))
 	items.push(Item.value(20))
 	items.push(Item.empty)
 	let first = try items.get(0) otherwise Item.empty
 	match first 'check'
 		empty then return 0
-		value(n) then return n
+		value(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```
@@ -829,7 +829,7 @@ end 'Outcome'
 
 function main() returns ExitCode
 	let o = Outcome.failure(42)
-	return o.statusCode()
+	return o.statusCode() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -948,7 +948,7 @@ function main() returns ExitCode
 	let c = Container.value(42)
 	match c 'extract'
 		empty then return 0
-		value(n) then return n
+		value(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'extract'
 end 'main'
 ```
@@ -969,8 +969,8 @@ end 'Result'
 function main() returns ExitCode
 	let r = Result.failure(99)
 	match r 'handle'
-		success(v) then return v
-		failure(c) then return c
+		success(v) then return try v as ExitCode otherwise panic("out of range")
+		failure(c) then return try c as ExitCode otherwise panic("out of range")
 	end 'handle'
 end 'main'
 ```
@@ -992,9 +992,9 @@ function main() returns ExitCode
 	let c = Container.value(10)
 	let result = match c 'get'
 		empty gives 0
-		value(n) gives n * 2
+		value(n) gives try n * 2 otherwise panic("out of range")
 	end 'get'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1015,7 +1015,7 @@ function main() returns ExitCode
 	let c = Container.empty
 	match c 'check'
 		empty then return 1
-		value(n) then return n
+		value(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```
@@ -1481,8 +1481,8 @@ end 'StringResult'
 function main() returns ExitCode
 	let r = StringResult.err("bad")
 	match r 'handle'
-		ok(v) then return v
-		err(msg) then return msg.byteLength()
+		ok(v) then return try v as ExitCode otherwise panic("out of range")
+		err(msg) then return try msg.byteLength() as ExitCode otherwise panic("out of range")
 	end 'handle'
 end 'main'
 ```
@@ -1512,8 +1512,8 @@ end 'Shape'
 function main() returns ExitCode
 	let s = Shape.rect(EnumPoint.create(10, y: 20))
 	match s 'handle'
-		circle(r) then return r
-		rect(p) then return p.x + p.y
+		circle(r) then return try r as ExitCode otherwise panic("out of range")
+		rect(p) then return try p.x + p.y otherwise panic("out of range")
 	end 'handle'
 end 'main'
 ```

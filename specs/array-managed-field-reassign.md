@@ -213,7 +213,7 @@ type Dep
 	export var target as Key
 
 	static function create(source Key, target Key) returns Self
-		return Self{source: source, target: target}
+		return Self{source: source.clone(), target: target.clone()}
 	end 'create'
 end 'Dep'
 
@@ -223,22 +223,22 @@ type State
 	export var deps as DepArray
 
 	static function create(deps DepArray) returns Self
-		return Self{deps: deps}
+		return Self{deps: deps.clone()}
 	end 'create'
 end 'State'
 
-function clearAll(state State)
+function clearAll(mutates state State)
 	state.deps = DepArray.create(0)
 end 'clearAll'
 
 function main() returns ExitCode
-	let deps = DepArray.create(0)
+	var deps = DepArray.create(0)
 	deps.push(Dep.create(Key.module, target: Key.file("a.maxon long enough for heap")))
 	deps.push(Dep.create(Key.module, target: Key.file("b.maxon long enough for heap")))
 	deps.push(Dep.create(Key.file("c.maxon long enough for heap"), target: Key.module))
-	let state = State.create(deps)
+	var state = State.create(deps)
 	clearAll(state)
-	return state.deps.count()
+	return try state.deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

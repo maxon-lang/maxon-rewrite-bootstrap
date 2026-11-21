@@ -110,7 +110,7 @@ end 'walk'
 function main() returns ExitCode
 	let r = walk(5)
 	let ty = exprType(r)
-	return tyLen(ty)
+	return tyLen(ty) as ExitCode
 end 'main'
 ```
 ```exitcode

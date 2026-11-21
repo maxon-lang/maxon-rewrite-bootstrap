@@ -418,15 +418,15 @@ type Shelf
 end 'Shelf'
 
 function build(s Shelf) returns Shelf
-	let made = Shelf.create()
+	var made = Shelf.create()
 	made.items.push(try s.items.get(0) otherwise 0)
 	return made
 end 'build'
 
 function main() returns ExitCode
-	let source = Shelf.create()
+	var source = Shelf.create()
 	source.items.push(4)
-	let made = build(source)
+	var made = build(source)
 	made.items.push(5)
 	print("{made.items.count()} {source.items.count()}\n")
 	return 0
@@ -448,23 +448,23 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function viaAlias(d IntArray)
-	let alias = d
+	var alias = d.clone()
 	alias.push(1)
 end 'viaAlias'
 
 function pass(d IntArray) returns IntArray
-	return d
+	return d.clone()
 end 'pass'
 
 function viaResult(d IntArray)
-	let r = pass(d)
+	var r = pass(d)
 	r.push(2)
 end 'viaResult'
 
 function viaMerge(d IntArray, flag bool)
 	var target = IntArray.create(0)
 	if flag 'useParameter'
-		target = d
+		target = d.clone()
 	end 'useParameter'
 	target.push(3)
 end 'viaMerge'

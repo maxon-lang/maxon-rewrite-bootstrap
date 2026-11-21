@@ -106,7 +106,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -137,7 +137,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -163,7 +163,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -171,7 +171,7 @@ end 'Box'
 typealias IntBox = Box with Integer
 
 function main() returns ExitCode
-	let b = IntBox.create(7)
+	var b = IntBox.create(7)
 	b.value = 99
 	if b.value == 99 'chk'
 		return 0
@@ -191,7 +191,7 @@ type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	static function create(a A, b B) returns Self
+	static function create(consumes a A, consumes b B) returns Self
 		return Self{first: a, second: b}
 	end 'create'
 
@@ -239,7 +239,7 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -250,7 +250,7 @@ function main() returns ExitCode
 	let p = Point.create(7)
 	let pb = PointBox.create(p)
 	print("{pb.value.x}")
-	return p.getX() - 7
+	return try p.getX() - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -326,7 +326,7 @@ error E2015: <fragment>:8:610: Unsupported: a type-argument list with more than 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -356,14 +356,14 @@ type Holder
 	export var n as Integer
 
 	static function create(l String, n Integer) returns Self
-		return Self{label: l, n: n}
+		return Self{label: l.clone(), n: n}
 	end 'create'
 end 'Holder'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -392,7 +392,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -452,7 +452,7 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -480,7 +480,7 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -495,7 +495,7 @@ end 'make'
 function main() returns ExitCode
 	let b = make()
 	let sv = b.value
-	return sv.byteLength() - 1
+	return try sv.byteLength() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -540,8 +540,8 @@ type Tagged uses T
 	export var value as T
 	export var tag as String
 
-	static function create(v T, tag String) returns Self
-		return Self{value: v, tag: tag}
+	static function create(consumes v T, tag String) returns Self
+		return Self{value: v, tag: tag.clone()}
 	end 'create'
 end 'Tagged'
 
@@ -569,7 +569,7 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{a: v, b: v}
 	end 'create'
 end 'DPair'
@@ -604,7 +604,7 @@ end 'IntPair'
 
 function main() returns ExitCode
 	let p = IntPair.create(7)
-	return p.a - 7
+	return try p.a - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -619,11 +619,11 @@ with no drop, exercised on all targets.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -633,7 +633,7 @@ typealias SmallInt = int(0 to 100)
 typealias IntBox = Box with SmallInt
 
 function main() returns ExitCode
-	let b = IntBox.create(7)
+	var b = IntBox.create(7)
 	b.replace(9)
 	return 0
 end 'main'
@@ -651,11 +651,11 @@ and the new value transfers in. Old `"alpha"` is freed exactly once — leak-fre
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -663,7 +663,7 @@ end 'Box'
 typealias StringBox = Box with String
 
 function main() returns ExitCode
-	let b = StringBox.create("alpha")
+	var b = StringBox.create("alpha")
 	b.replace("beta")
 	return 0
 end 'main'
@@ -681,7 +681,7 @@ Leak-free under `__mm_free` poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 end 'Box'
@@ -689,7 +689,7 @@ end 'Box'
 typealias StringBox = Box with String
 
 function main() returns ExitCode
-	let b = StringBox.create("alpha")
+	var b = StringBox.create("alpha")
 	b.saved = "beta"
 	return 0
 end 'main'
@@ -707,11 +707,11 @@ poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -719,7 +719,7 @@ end 'Box'
 typealias StringBox = Box with String
 
 function main() returns ExitCode
-	let b = StringBox.create("start")
+	var b = StringBox.create("start")
 	var i = 0 as Count
 	while i < 3 'loop'
 		b.replace("iter")
@@ -742,18 +742,18 @@ type Holder
 	export var text as String
 
 	static function create(t String) returns Self
-		return Self{text: t}
+		return Self{text: t.clone()}
 	end 'create'
 end 'Holder'
 
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -761,7 +761,7 @@ end 'Box'
 typealias HolderBox = Box with Holder
 
 function main() returns ExitCode
-	let b = HolderBox.create(Holder.create("alpha"))
+	var b = HolderBox.create(Holder.create("alpha"))
 	b.replace(Holder.create("beta"))
 	return 0
 end 'main'
@@ -2007,14 +2007,14 @@ type Leaf
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'Leaf'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2044,14 +2044,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2081,14 +2081,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2119,14 +2119,14 @@ type S0
 	var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2166,14 +2166,14 @@ type S0
 	var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2309,18 +2309,18 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	function swap(v T)
+	function swap(mutates self, consumes v T)
 		self.value = v
 	end 'swap'
 end 'Box'
@@ -2331,7 +2331,7 @@ typealias N1 = Box with N0
 
 function main() returns ExitCode
 	let v0 = N0.create(S0.make("x"))
-	let v1 = N1.create(v0)
+	var v1 = N1.create(v0)
 	v1.swap(N0.create(S0.make("y")))
 	return 0
 end 'main'
@@ -2349,18 +2349,18 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
-	function swap(v T)
+	function swap(mutates self, consumes v T)
 		self.value = v
 	end 'swap'
 end 'Box'
@@ -2370,7 +2370,7 @@ typealias N0 = Box with S0
 typealias N1 = Box with N0
 
 function main() returns ExitCode
-	let v1 = N1.create(N0.create(S0.make("start")))
+	var v1 = N1.create(N0.create(S0.make("start")))
 	for _ in 0 upto 200 'rounds'
 		v1.swap(N0.create(S0.make("round")))
 	end 'rounds'
@@ -2392,14 +2392,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2434,14 +2434,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2481,14 +2481,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2496,7 +2496,7 @@ end 'Box'
 typealias N0 = Box with S0
 
 function takes(b N0) returns ExitCode
-	return b.value.s.byteLength() as ExitCode
+	return try b.value.s.byteLength() as ExitCode otherwise panic("out of range")
 end 'takes'
 
 function main() returns ExitCode
@@ -2515,14 +2515,14 @@ type S0
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'S0'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -2530,7 +2530,7 @@ end 'Box'
 typealias N0 = Box with S0
 
 function takes(b N0) returns ExitCode
-	return b.value.s.byteLength() as ExitCode
+	return try b.value.s.byteLength() as ExitCode otherwise panic("out of range")
 end 'takes'
 
 function main() returns ExitCode
@@ -2551,12 +2551,12 @@ typealias Tally = int(0 to u64.max)
 type Wrap uses T
 	export let held as T
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held}
 	end 'create'
 end 'Wrap'
 
-function same(x T) uses T returns T
+function same(consumes x T) uses T returns T
 	return x
 end 'same'
 
@@ -2618,12 +2618,12 @@ typealias Tally = int(0 to u64.max)
 type Wrap uses T
 	export let held as T
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held}
 	end 'create'
 end 'Wrap'
 
-function same(x T) uses T returns T
+function same(consumes x T) uses T returns T
 	return x
 end 'same'
 
@@ -3078,7 +3078,7 @@ export type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	export static function create(first A, second B) returns Self
+	export static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 end 'Pair'
@@ -3089,11 +3089,11 @@ typealias Good = lib.Pair with (ExitCode, ExitCode)
 typealias Goods = Array with Good
 
 function total(g Good) returns ExitCode
-	return g.first + g.second
+	return try g.first + g.second otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
-	let goods = Goods.create(0)
+	var goods = Goods.create(0)
 	goods.push(Good.create(40, second: 2))
 	let g = try goods.get(0) otherwise panic("one pair was pushed")
 	return total(g)
@@ -3117,7 +3117,7 @@ typealias Goods = Array with (lib.Pair with (ExitCode, ExitCode))
 
 function main() returns ExitCode
 	let goods = Goods.create(0)
-	return goods.count() as ExitCode
+	return try goods.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3133,7 +3133,7 @@ export type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	export static function create(first A, second B) returns Self
+	export static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 end 'Pair'
@@ -3142,7 +3142,7 @@ end 'Pair'
 export type Pair uses A
 	export var only as A
 
-	export static function create(only A) returns Self
+	export static function create(consumes only A) returns Self
 		return Self{only: only}
 	end 'create'
 end 'Pair'
@@ -3155,7 +3155,7 @@ typealias FromB = b.Pair with ExitCode
 function main() returns ExitCode
 	let both = FromA.create(40, second: 2)
 	let single = FromB.create(5)
-	return both.first + both.second + single.only
+	return try both.first + both.second + single.only otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3585,7 +3585,7 @@ builtin `Array`.
 type Sizer uses T
 	export var v as T
 
-	static function create(x T) returns Self
+	static function create(consumes x T) returns Self
 		return Self{v: x}
 	end 'create'
 
@@ -3600,9 +3600,9 @@ typealias BoolArray = Array with bool
 
 function main() returns ExitCode
 	let s = BoolSizer.create(true)
-	let a = BoolArray.create(0)
+	var a = BoolArray.create(0)
 	a.push(s.get())
-	return a.count() - 1
+	return try a.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3620,14 +3620,14 @@ type Leaf
 	export var s as String
 
 	static function make(t String) returns Self
-		return Self{s: t}
+		return Self{s: t.clone()}
 	end 'make'
 end 'Leaf'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -3667,7 +3667,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -3682,9 +3682,9 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	let b = IntBox.create(42)
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(b.get())
-	return (try a.get(0) otherwise 0) - 42
+	return try (try a.get(0) otherwise 0) - 42 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3761,7 +3761,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -3770,7 +3770,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.create(7)
-	return b.value
+	return try b.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3861,7 +3861,7 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -3872,7 +3872,7 @@ function main() returns ExitCode
 	let pb = PointBox.create(Point.create(7))
 	let q = pb.value
 	print("{q.x}\n")
-	return q.x - 7
+	return try q.x - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3932,7 +3932,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -3940,7 +3940,7 @@ end 'Box'
 type Holder uses U
 	export var item as U
 
-	static function hold(v U) returns Self
+	static function hold(consumes v U) returns Self
 		return Self{item: v}
 	end 'hold'
 end 'Holder'
@@ -3953,7 +3953,7 @@ function main() returns ExitCode
 	let h = BoxHolder.hold(IntBox.create(7))
 	let q = h.item
 	print("{q.value}\n")
-	return q.value - 7
+	return try q.value - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3976,14 +3976,14 @@ type Label
 	export var n as Integer
 
 	static function create(t String, n Integer) returns Self
-		return Self{text: t, n: n}
+		return Self{text: t.clone(), n: n}
 	end 'create'
 end 'Label'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -3994,7 +3994,7 @@ function main() returns ExitCode
 	let b = LabelBox.create(Label.create("{9}", n: 3))
 	let q = b.value
 	print("{q.text} {q.n}\n")
-	return q.n - 3
+	return try q.n - 3 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4017,7 +4017,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4025,7 +4025,7 @@ end 'Box'
 type Holder uses U
 	export var item as U
 
-	static function hold(v U) returns Self
+	static function hold(consumes v U) returns Self
 		return Self{item: v}
 	end 'hold'
 end 'Holder'
@@ -4035,11 +4035,11 @@ typealias IntBox = Box with Integer
 typealias BoxHolder = Holder with IntBox
 
 function main() returns ExitCode
-	let h = BoxHolder.hold(IntBox.create(7))
+	var h = BoxHolder.hold(IntBox.create(7))
 	h.item = IntBox.create(8)
 	let q = h.item
 	print("{q.value}\n")
-	return q.value - 8
+	return try q.value - 8 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4062,14 +4062,14 @@ type Label
 	export var n as Integer
 
 	static function create(t String, n Integer) returns Self
-		return Self{text: t, n: n}
+		return Self{text: t.clone(), n: n}
 	end 'create'
 end 'Label'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4077,11 +4077,11 @@ end 'Box'
 typealias LabelBox = Box with Label
 
 function main() returns ExitCode
-	let b = LabelBox.create(Label.create("{9}", n: 3))
+	var b = LabelBox.create(Label.create("{9}", n: 3))
 	b.value = Label.create("{8}", n: 4)
 	let q = b.value
 	print("{q.text} {q.n}\n")
-	return q.n - 4
+	return try q.n - 4 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4200,7 +4200,7 @@ typealias Num = int(0 to 1000)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4243,7 +4243,7 @@ union Payload
 end 'Payload'
 
 function main() returns ExitCode
-	let a = Nums.create(0)
+	var a = Nums.create(0)
 	a.push(4)
 	a.push(5)
 	let p = Payload.list(a)
@@ -4274,14 +4274,14 @@ type Label
 	export var text as String
 
 	static function create(t String) returns Self
-		return Self{text: t}
+		return Self{text: t.clone()}
 	end 'create'
 end 'Label'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4294,7 +4294,7 @@ union Payload
 end 'Payload'
 
 function show(b LabelBox)
-	let q = b.value
+	let q = b.value.clone()
 	print("t={q.text}\n")
 end 'show'
 
@@ -4326,14 +4326,14 @@ type Label
 	export var text as String
 
 	static function create(t String) returns Self
-		return Self{text: t}
+		return Self{text: t.clone()}
 	end 'create'
 end 'Label'
 
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4411,7 +4411,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4422,7 +4422,7 @@ type Outer
 	export var b as IntBox
 
 	static function create(v IntBox) returns Self
-		return Self{b: v}
+		return Self{b: v.clone()}
 	end 'create'
 end 'Outer'
 
@@ -4461,7 +4461,7 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4499,7 +4499,7 @@ end 'Leaf'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 end 'Box'
@@ -4510,7 +4510,7 @@ type Outer
 	export var b as LeafBox
 
 	static function create(v LeafBox) returns Self
-		return Self{b: v}
+		return Self{b: v.clone()}
 	end 'create'
 end 'Outer'
 
@@ -4604,7 +4604,7 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(v T) returns T
+	function echo(consumes v T) returns T
 		return v
 	end 'echo'
 end 'Box'
@@ -4649,7 +4649,7 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(v T) returns T
+	function echo(consumes v T) returns T
 		return v
 	end 'echo'
 end 'Box'
@@ -4662,10 +4662,10 @@ function main() returns ExitCode
 	var total = 0 as Integer
 	while i < 100 'loop'
 		let back = bx.echo(Alpha.create(i))
-		total = total + back.a
+		total = try total + back.a otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return (total - 4950) as ExitCode
+	return try (total - 4950) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4732,7 +4732,7 @@ type Wrap
 	export var held as Alpha
 
 	static function create(v Alpha) returns Self
-		return Self{held: v}
+		return Self{held: v.clone()}
 	end 'create'
 end 'Wrap'
 
@@ -4743,7 +4743,7 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(v T) returns T
+	function echo(consumes v T) returns T
 		return v
 	end 'echo'
 end 'Box'
@@ -4754,7 +4754,7 @@ function main() returns ExitCode
 	let bx = AlphaBox.create()
 	let w = Wrap.create(bx.echo(Alpha.create(5)))
 	print("{w.held.a}\n")
-	return w.held.a - 5
+	return try w.held.a - 5 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4788,7 +4788,7 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -4835,7 +4835,7 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -4847,7 +4847,7 @@ end 'Box'
 typealias AlphaBox = Box with Alpha
 
 function overAlpha(x Alpha) returns Integer
-	return x.a + 4
+	return try x.a + 4 otherwise panic("out of range")
 end 'overAlpha'
 
 function main() returns ExitCode
@@ -4880,7 +4880,7 @@ end 'Shape'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -4893,8 +4893,8 @@ typealias ShapeBox = Box with Shape
 
 function overShape(x Shape) returns Integer
 	match x 'k'
-		circle(r) then return r + 4
-		square(s) then return s + 5
+		circle(r) then return try r + 4 otherwise panic("out of range")
+		square(s) then return try s + 5 otherwise panic("out of range")
 	end 'k'
 end 'overShape'
 
@@ -4937,7 +4937,7 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(v T) returns T
+	function echo(consumes v T) returns T
 		return v
 	end 'echo'
 end 'Box'
@@ -4948,7 +4948,7 @@ function main() returns ExitCode
 	let bx = StrBox.create()
 	let s = bx.echo("hi")
 	print("{s}\n")
-	return s.byteLength() - 2
+	return try s.byteLength() - 2 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4988,7 +4988,7 @@ type Box uses T
 		return Self{tag: t}
 	end 'create'
 
-	function echo(v T) returns T throws Boom
+	function echo(consumes v T) returns T throws Boom
 		if self.tag > 0 'blows'
 			throw Boom.bad
 		end 'blows'
@@ -5055,7 +5055,7 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -5098,7 +5098,7 @@ end 'Boom'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -5142,7 +5142,7 @@ end 'Boom'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -5251,7 +5251,7 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -5313,7 +5313,7 @@ type Box uses T
 	export var value as T
 	export var fail as bool
 
-	static function create(v T, f bool) returns Self
+	static function create(consumes v T, f bool) returns Self
 		return Self{value: v, fail: f}
 	end 'create'
 
@@ -6642,7 +6642,7 @@ type Pair
 	var b as String
 
 	static function create(item String) returns Self
-		return Self{a: item, b: item}
+		return Self{a: item.clone(), b: item.clone()}
 	end 'create'
 end 'Pair'
 
@@ -6650,7 +6650,7 @@ type Solo
 	export var a as String
 
 	static function create(item String) returns Self
-		let built = Self{a: item}
+		let built = Self{a: item.clone()}
 		print(item)
 		return built
 	end 'create'

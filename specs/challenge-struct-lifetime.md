@@ -29,12 +29,12 @@ type Result
 end 'Result'
 
 function compute(a Integer, b Integer) returns Result
-	return Result.create(a + b, product: a * b)
+	return Result.create(try a + b otherwise panic("out of range"), product: try a * b otherwise panic("out of range"))
 end 'compute'
 
 function main() returns ExitCode
 	let r = compute(3, b: 4)
-	return r.sum + r.product
+	return try r.sum + r.product otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -55,13 +55,13 @@ type Counter
 end 'Counter'
 
 function increment(c Counter) returns Counter
-	return Counter.create(c.value + 1)
+	return Counter.create(try c.value + 1 otherwise panic("out of range"))
 end 'increment'
 
 function main() returns ExitCode
 	let c1 = Counter.create(10)
 	let c2 = increment(c1)
-	return c2.value
+	return try c2.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -86,18 +86,18 @@ function step1() returns Value
 end 'step1'
 
 function step2(v Value) returns Value
-	return Value.create(v.n + 10)
+	return Value.create(try v.n + 10 otherwise panic("out of range"))
 end 'step2'
 
 function step3(v Value) returns Value
-	return Value.create(v.n + 100)
+	return Value.create(try v.n + 100 otherwise panic("out of range"))
 end 'step3'
 
 function main() returns ExitCode
 	let v1 = step1()
 	let v2 = step2(v1)
 	let v3 = step3(v2)
-	return v3.n
+	return try v3.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

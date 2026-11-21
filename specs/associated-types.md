@@ -598,7 +598,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(42)
-	return c.getCount()
+	return try c.getCount() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -619,7 +619,7 @@ type Number implements Addable
 	let value as Integer
 
 	function addOne() returns Integer
-		return value + 1
+		return try value + 1 otherwise panic("out of range")
 	end 'addOne'
 
 	static function create(value Integer) returns Self
@@ -629,7 +629,7 @@ end 'Number'
 
 function main() returns ExitCode
 	let n = Number.create(41)
-	return n.addOne()
+	return try n.addOne() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -252,6 +252,15 @@ function rangeRaise(mutates r Ranges, p ast.Project, node ast.NodeID, consumes c
 	checkFail(r.modID, off: p.modules[r.modIdx].tree.startOf(node), code: code, msg: msg, errs: r.errs)
 end 'rangeRaise'
 
+// rangeRaiseFixed is rangeRaise for an error whose message names the change that fix makes.
+function rangeRaiseFixed(mutates r Ranges, p ast.Project, node ast.NodeID, consumes code String, consumes msg String, consumes fix diag.Fix)
+	if r.failed 'once'
+		return
+	end 'once'
+	r.failed = true
+	checkFailFixed(r.modID, off: p.modules[r.modIdx].tree.startOf(node), code: code, msg: msg, fix: fix, errs: r.errs)
+end 'rangeRaiseFixed'
+
 function typeOf(r Ranges, e ast.NodeID) returns ast.TypeID
 	return ast.nodeType(r.typing, node: e)
 end 'typeOf'

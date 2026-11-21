@@ -29,14 +29,14 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
-function appendFromHelper(dest ItemArray)
-	let src = ItemArray.create(0)
+function appendFromHelper(mutates dest ItemArray)
+	var src = ItemArray.create(0)
 	src.push(Item.create("hello from source that is long enough", value: 10))
 	src.push(Item.create("second item from source long enough", value: 20))
 	src.push(Item.create("third item from source long enough", value: 30))
@@ -45,7 +45,7 @@ function appendFromHelper(dest ItemArray)
 end 'appendFromHelper'
 
 function main() returns ExitCode
-	let dest = ItemArray.create(0)
+	var dest = ItemArray.create(0)
 	dest.push(Item.create("dest item that is long enough for heap", value: 1))
 	appendFromHelper(dest)
 	// Source array is freed. dest should still have valid elements.
@@ -53,7 +53,7 @@ function main() returns ExitCode
 		return 99
 	end 'badCount'
 	let item = try dest.get(1) otherwise Item.create("", value: 0)
-	return item.value
+	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -73,8 +73,8 @@ end 'Op'
 
 typealias OpArray = Array with Op
 
-function appendOps(dest OpArray)
-	let src = OpArray.create(0)
+function appendOps(mutates dest OpArray)
+	var src = OpArray.create(0)
 	src.push(Op.add(10))
 	src.push(Op.sub(20))
 	src.push(Op.add(30))
@@ -82,7 +82,7 @@ function appendOps(dest OpArray)
 end 'appendOps'
 
 function main() returns ExitCode
-	let dest = OpArray.create(0)
+	var dest = OpArray.create(0)
 	dest.push(Op.nop)
 	appendOps(dest)
 	if dest.count() != 4 'badCount'
@@ -90,7 +90,7 @@ function main() returns ExitCode
 	end 'badCount'
 	let op = try dest.get(1) otherwise Op.nop
 	match op 'check'
-		add(v) then return v
+		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 98
 		nop then return 97
 	end 'check'
@@ -114,7 +114,7 @@ type Func
 	export var body as IntArray
 
 	static function create(name String, body IntArray) returns Self
-		return Self{name: name, body: body}
+		return Self{name: name.clone(), body: body.clone()}
 	end 'create'
 end 'Func'
 
@@ -124,7 +124,7 @@ type Module
 	export var functions as FuncArray
 
 	static function create(functions FuncArray) returns Self
-		return Self{functions: functions}
+		return Self{functions: functions.clone()}
 	end 'create'
 end 'Module'
 
@@ -132,15 +132,15 @@ function createModule() returns Module
 	return Module.create(FuncArray.create(0))
 end 'createModule'
 
-function parseAndMerge(dest Module, name String)
-	let source = createModule()
+function parseAndMerge(mutates dest Module, name String)
+	var source = createModule()
 	source.functions.push(Func.create(name, body: IntArray.create(0)))
 	dest.functions.append(source.functions)
 // source is freed when this function returns
 end 'parseAndMerge'
 
 function main() returns ExitCode
-	let allModule = createModule()
+	var allModule = createModule()
 	parseAndMerge(allModule, name: "func_a_with_long_name_for_heap")
 	parseAndMerge(allModule, name: "func_b_with_long_name_for_heap")
 	if allModule.functions.count() != 2 'badCount'
@@ -171,28 +171,28 @@ type Record
 	export var lines as StringArray
 
 	static function create(tag String, lines StringArray) returns Self
-		return Self{tag: tag, lines: lines}
+		return Self{tag: tag.clone(), lines: lines.clone()}
 	end 'create'
 end 'Record'
 
 typealias RecordArray = Array with Record
 
 function buildLines() returns StringArray
-	let ls = StringArray.create(0)
+	var ls = StringArray.create(0)
 	ls.push("line one long enough for heap allocation")
 	ls.push("line two long enough for heap allocation")
 	return ls
 end 'buildLines'
 
-function appendRecords(dest RecordArray)
-	let src = RecordArray.create(0)
+function appendRecords(mutates dest RecordArray)
+	var src = RecordArray.create(0)
 	src.push(Record.create("source tag long enough for the heap", lines: buildLines()))
 	dest.append(src)
 // src is freed when this function returns
 end 'appendRecords'
 
 function main() returns ExitCode
-	let dest = RecordArray.create(0)
+	var dest = RecordArray.create(0)
 	dest.push(Record.create("dest tag long enough for the heapp", lines: buildLines()))
 	appendRecords(dest)
 	if dest.count() != 2 'badCount'

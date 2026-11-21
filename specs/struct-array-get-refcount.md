@@ -63,7 +63,7 @@ function main() returns ExitCode
 	list.walk()
 	list.pushFront(30)
 	let n1 = try list.nodes.get(1) otherwise Node.create(0, next: -1)
-	return n1.value
+	return n1.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -132,15 +132,15 @@ typealias ItemArray = Array with Item
 function readTwice(items ItemArray) returns Integer
 	let a = try items.get(0) otherwise Item.create(0)
 	let b = try items.get(0) otherwise Item.create(0)
-	return a.id + b.id
+	return try a.id + b.id otherwise panic("out of range")
 end 'readTwice'
 
 function main() returns ExitCode
-	let items = ItemArray.create(0)
+	var items = ItemArray.create(0)
 	items.push(Item.create(21))
 	let result = readTwice(items)
 	let check = try items.get(0) otherwise Item.create(0)
-	return check.id + result
+	return try check.id + result otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -163,10 +163,10 @@ end 'Slot'
 typealias SlotArray = Array with Slot
 
 function main() returns ExitCode
-	let arr = SlotArray.create(0)
+	var arr = SlotArray.create(0)
 	arr.push(Slot.create(10))
 	let result = try arr.get(1) otherwise Slot.create(-7)
-	return result.value + 8
+	return try result.value + 8 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -211,11 +211,11 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	let a = NodeArray.create(0)
+	var a = NodeArray.create(0)
 	a.push(Node.create(10))
 	let fallback = Node.create(99)
 	let r = try a.get(9) otherwise fallback
-	return r.value + fallback.value
+	return try r.value + fallback.value otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -238,10 +238,10 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	let a = NodeArray.create(0)
+	var a = NodeArray.create(0)
 	let fallback = Node.create(99)
 	let r = try a.pop() otherwise fallback
-	return r.value + fallback.value
+	return try r.value + fallback.value otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

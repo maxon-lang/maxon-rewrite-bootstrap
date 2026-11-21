@@ -54,13 +54,13 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	var i = 0 as Integer
 	while i < 5 'loop'
-		c.value = c.value + 1
+		c.value = try c.value + 1 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return c.value
+	return try c.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -1533,16 +1533,16 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function tick()
-		self.n = self.n + 3
+	function tick(mutates self)
+		self.n = try self.n + 3 otherwise panic("out of range")
 	end 'tick'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.tick()
 	c.tick()
-	return c.n as ExitCode
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3715,7 +3715,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function make(item T) returns Self
+	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 end 'Box'
@@ -3724,7 +3724,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.make(5)
-	return b.item as ExitCode
+	return try b.item as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3738,7 +3738,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function make(item T) returns Self
+	static function make(consumes item T) returns Self
 		return Self{item: item}
 	end 'make'
 end 'Box'
@@ -3747,7 +3747,7 @@ typealias IntBox = Box with Integer
 
 function main() returns ExitCode
 	let b = IntBox.make(5)
-	return b.item as ExitCode
+	return try b.item as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3857,7 +3857,7 @@ end 'make'
 // --- file: main.maxon
 function main() returns ExitCode
 	let h = byte.make()
-	return h.n as ExitCode
+	return try h.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3998,13 +3998,13 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	byte.ping()
-	return byte.twice(2) as ExitCode
+	return try byte.twice(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4146,13 +4146,13 @@ export function ping()
 end 'ping'
 
 export function twice(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'twice'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	lib.ping()
-	return lib.twice(2) as ExitCode
+	return try lib.twice(2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -127,7 +127,31 @@ export function locateError(mods ModuleList, mutates e diag.CompileError)
 	e.line = loc.line
 	e.col = loc.col
 	e.located = true
+	if not locateFix(mods, fix: e.fix) 'unplaced'
+		e.fix = diag.Fix.none()
+	end 'unplaced'
 end 'locateError'
+
+// locateFix places each edit of a fix in its file, and is false when one lies in no file of the program, which a tool cannot
+// edit.
+function locateFix(mods ModuleList, mutates fix diag.Fix) returns bool
+	for i in 0 upto fix.edits.count() 'edits'
+		let module = fix.edits[i].module
+		if module < 0 or module as Count >= mods.count() 'outside'
+			return false
+		end 'outside'
+		let m = module as Count
+		if mods[m].files.count() == 0 'synthetic'
+			return false
+		end 'synthetic'
+		let file = findFileIndex(mods[m].files, offset: fix.edits[i].begin)
+		let start = mods[m].files[file].start as Count
+		fix.edits[i].file = mods[m].files[file].path.clone()
+		fix.edits[i].fileBegin = try (fix.edits[i].begin as Count) - start otherwise panic("positions: a fix before its file")
+		fix.edits[i].fileUntil = try (fix.edits[i].until as Count) - start otherwise panic("positions: a fix before its file")
+	end 'edits'
+	return true
+end 'locateFix'
 
 export function locateAllErrors(mods ModuleList, mutates errs diag.ErrorList)
 	for i in 0 upto errs.count() 'each'

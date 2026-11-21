@@ -33,7 +33,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -44,20 +44,20 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
 function bump(b Box) returns Count
-	let e = Env.create(b)
+	var e = Env.create(b)
 	return e.run()
 end 'bump'
 
@@ -88,13 +88,13 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -104,24 +104,24 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
-function zeroHeld(e Env) returns Count
+function zeroHeld(mutates e Env) returns Count
 	return zero(e.b)
 end 'zeroHeld'
 
 function bump(b Box) returns Count
-	let e = Env.create(b)
+	var e = Env.create(b)
 	return zeroHeld(e)
 end 'bump'
 
@@ -205,13 +205,13 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function zero(b Box) returns Count
+function zero(mutates b Box) returns Count
 	b.n = 0
 	return 0
 end 'zero'
@@ -221,15 +221,15 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
@@ -238,7 +238,7 @@ function make(b Box) returns Env
 end 'make'
 
 function bump(b Box) returns Count
-	let e = make(b)
+	var e = make(b)
 	return zero(e.b)
 end 'bump'
 
@@ -269,7 +269,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -282,17 +282,17 @@ type Slot
 		return Self{held: Box.create(0)}
 	end 'create'
 
-	function attach(b Box)
-		held = b
+	function attach(mutates self, b Box)
+		held = b.clone()
 	end 'attach'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.held.clear()
 	end 'run'
 end 'Slot'
 
 function bump(b Box) returns Count
-	let s = Slot.create()
+	var s = Slot.create()
 	s.attach(b)
 	return s.run()
 end 'bump'
@@ -324,7 +324,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -335,24 +335,24 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
-function relay(e Env) returns Count
+function relay(mutates e Env) returns Count
 	return e.run()
 end 'relay'
 
 function bump(b Box) returns Count
-	let e = Env.create(b)
+	var e = Env.create(b)
 	return relay(e)
 end 'bump'
 
@@ -383,7 +383,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -394,21 +394,21 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
 function main() returns ExitCode
 	let a = Box.create(2)
-	let e = Env.create(a)
+	var e = Env.create(a)
 	let r = e.run()
 	print("{a.n}{r}\n")
 	return 0
@@ -439,17 +439,17 @@ type Env
 	export var b as Box
 
 	static function create(b Box) returns Self
-		return Self{b: b}
+		return Self{b: b.clone()}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.b.n = 5
 	end 'bump'
 end 'Env'
 
 function main() returns ExitCode
 	let a = Box.create(2)
-	let e = Env.create(a)
+	var e = Env.create(a)
 	e.bump()
 	print("{a.n}\n")
 	return 0
@@ -481,17 +481,17 @@ type Env
 	export var c as Box
 
 	static function create(b Box) returns Self
-		return Self{b: b, c: Box.create(9)}
+		return Self{b: b.clone(), c: Box.create(9)}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.c.n = 5
 	end 'bump'
 end 'Env'
 
 function main() returns ExitCode
 	let a = Box.create(2)
-	let e = Env.create(a)
+	var e = Env.create(a)
 	e.bump()
 	print("{a.n}\n")
 	return 0
@@ -517,7 +517,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -528,20 +528,20 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
-	function run() returns Count
+	function run(mutates self) returns Count
 		return self.b.clear()
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
 function bump(b Box) returns Count
-	let e = Env.create(b)
+	var e = Env.create(b)
 	e.bumpHits()
 	return e.hits
 end 'bump'
@@ -573,7 +573,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -584,17 +584,17 @@ type Pair
 	export var second as Box
 
 	static function create(first Box, second Box) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function clearSecond() returns Count
+	function clearSecond(mutates self) returns Count
 		return self.second.clear()
 	end 'clearSecond'
 end 'Pair'
 
 function bump(b Box) returns Count
 	let other = Box.create(5)
-	let p = Pair.create(b, second: other)
+	var p = Pair.create(b, second: other)
 	return p.clearSecond()
 end 'bump'
 
@@ -625,18 +625,18 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
 end 'Box'
 
-function bump(b Box) returns Count
+function bump(mutates b Box) returns Count
 	return b.clear()
 end 'bump'
 
 function main() returns ExitCode
-	let a = Box.create(2)
+	var a = Box.create(2)
 	let r = bump(a)
 	print("{a.n}{r}\n")
 	return 0
@@ -662,7 +662,7 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function clear() returns Count
+	function clear(mutates self) returns Count
 		n = 0
 		return 0
 	end 'clear'
@@ -673,15 +673,15 @@ type Env
 	export var hits as Count
 
 	static function create(b Box) returns Self
-		return Self{b: b, hits: 0}
+		return Self{b: b.clone(), hits: 0}
 	end 'create'
 
 	function run() returns Count
 		return self.b.n
 	end 'run'
 
-	function bumpHits()
-		hits = hits + 1
+	function bumpHits(mutates self)
+		hits = try hits + 1 otherwise panic("out of range")
 	end 'bumpHits'
 end 'Env'
 
@@ -729,17 +729,17 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashAfterZero(reg Reg, b Box)
+function stashAfterZero(mutates reg Reg, b Box)
 	zeroFirst(reg)
-	reg.items.push(b)
+	reg.items.push(b.clone())
 end 'stashAfterZero'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stashAfterZero(reg, b: a)
 	print("{a.n}\n")
@@ -778,20 +778,20 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashArms(reg Reg, b Box, first bool)
+function stashArms(mutates reg Reg, b Box, first bool)
 	if first 'zeroes'
 		zeroFirst(reg)
 	end 'zeroes' else 'stores'
-		reg.items.push(b)
+		reg.items.push(b.clone())
 	end 'stores'
 end 'stashArms'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stashArms(reg, b: a, first: true)
 	print("{a.n}\n")
@@ -826,33 +826,33 @@ type Reg
 	export var last as Box
 
 	static function create(seed Box) returns Self
-		return Self{items: Boxes.create(0), last: seed}
+		return Self{items: Boxes.create(0), last: seed.clone()}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
 	end 'add'
 end 'Reg'
 
-function growAndKeep(reg Reg)
+function growAndKeep(mutates reg Reg)
 	let kept = reg.add(7)
 	reg.last = kept
 end 'growAndKeep'
 
-function growAndBump(reg Reg)
-	let fresh = reg.add(1)
+function growAndBump(mutates reg Reg)
+	var fresh = reg.add(1)
 	fresh.n = 2
 end 'growAndBump'
 
-function parkAndGrow(reg Reg, b Box)
-	reg.last = b
+function parkAndGrow(mutates reg Reg, b Box)
+	reg.last = b.clone()
 	growAndBump(reg)
 end 'parkAndGrow'
 
 function main() returns ExitCode
-	let reg = Reg.create(Box.create(0))
+	var reg = Reg.create(Box.create(0))
 	growAndKeep(reg)
 	let a = Box.create(5)
 	parkAndGrow(reg, b: a)
@@ -892,17 +892,17 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashAndZero(reg Reg, b Box)
-	reg.items.push(b)
+function stashAndZero(mutates reg Reg, b Box)
+	reg.items.push(b.clone())
 	zeroFirst(reg)
 end 'stashAndZero'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stashAndZero(reg, b: a)
 	print("{a.n}\n")
@@ -941,21 +941,21 @@ type Reg
 end 'Reg'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
-function stashLoop(reg Reg, b Box, times Count)
+function stashLoop(mutates reg Reg, b Box, times Count)
 	var left = times
 	while left > 0 'each'
 		zeroFirst(reg)
-		reg.items.push(b)
+		reg.items.push(b.clone())
 		left = left - 1
 	end 'each'
 end 'stashLoop'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stashLoop(reg, b: a, times: 3)
 	print("{a.n}\n")

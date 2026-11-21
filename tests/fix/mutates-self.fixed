@@ -1,0 +1,19 @@
+// A method that writes a field of its receiver is declared with 'mutates self'.
+type Light
+	var on as bool
+
+	static function make() returns Light
+		return Light{on: false}
+	end 'make'
+
+	function toggle(mutates self)
+		on = not on
+	end 'toggle'
+end 'Light'
+
+function main() returns ExitCode
+	var l = Light.make()
+	l.toggle()
+	print("{l.on}\n")
+	return 0
+end 'main'

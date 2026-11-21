@@ -1597,12 +1597,12 @@ The three arguments carry 1, 2 and 4 so their SUM names exactly which of them ar
 transposed label changes the total to a different, distinguishable number rather than to another 7.
 ```maxon
 function runProcess(exe Integer, argv Integer, workingDirectory Integer) returns Integer
-	return exe + argv + workingDirectory
+	return try exe + argv + workingDirectory otherwise panic("out of range")
 end 'runProcess'
 
 function main() returns ExitCode
 	let n = runProcess(1, argv: 2, workingDirectory: 4)
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

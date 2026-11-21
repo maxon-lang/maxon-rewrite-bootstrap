@@ -2395,7 +2395,7 @@ type Runner implements Exiter
 	let base as Integer
 
 	function take(c ExitCode) returns Integer
-		return base + (c as Integer)
+		return try base + (c as Integer) otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -2410,7 +2410,7 @@ type Box uses T where T implements Exiter
 		return self.item.take(11)
 	end 'run'
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
@@ -2418,7 +2418,7 @@ end 'Box'
 typealias RunnerBox = Box with Runner
 
 function main() returns ExitCode
-	return RunnerBox.create(Runner.create(20)).run() as ExitCode
+	return try RunnerBox.create(Runner.create(20)).run() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2449,7 +2449,7 @@ type Runner implements Exiter
 		if c < 5 'small'
 			throw TakeError.tooSmall
 		end 'small'
-		return base + (c as Integer)
+		return try base + (c as Integer) otherwise panic("out of range")
 	end 'take'
 
 	static function create(base Integer) returns Self
@@ -2464,7 +2464,7 @@ type Box uses T where T implements Exiter
 		return try self.item.take(11) otherwise 55
 	end 'run'
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
@@ -2472,7 +2472,7 @@ end 'Box'
 typealias RunnerBox = Box with Runner
 
 function main() returns ExitCode
-	return RunnerBox.create(Runner.create(20)).run() as ExitCode
+	return try RunnerBox.create(Runner.create(20)).run() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3545,7 +3545,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3558,7 +3558,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(7))
-	return b.constantAnswer()
+	return b.constantAnswer() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3594,7 +3594,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -3607,7 +3607,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(3))
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode

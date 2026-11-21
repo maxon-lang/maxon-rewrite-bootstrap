@@ -239,7 +239,7 @@ typealias StringBox = Box with String
 type Box uses Item
 	let kept as Item
 
-	static function create(item Item) returns Self
+	static function create(consumes item Item) returns Self
 		return Self{kept: item}
 	end 'create'
 
@@ -250,7 +250,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let box = StringBox.create("a")
-	return box.peek().byteLength() as ExitCode
+	return try box.peek().byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -279,7 +279,7 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(item Item) returns Self
+	static function create(consumes item Item) returns Self
 		return Self{kept: item}
 	end 'create'
 
@@ -289,10 +289,10 @@ type Box uses Item
 end 'Box'
 
 function main() returns ExitCode
-	let counters = CounterArray.create(0)
+	var counters = CounterArray.create(0)
 	counters.push(Counter.create(1))
 	let box = CounterBox.create(try counters.get(0) otherwise panic("empty"))
-	return box.peek().n as ExitCode
+	return try box.peek().n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -390,20 +390,20 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(consumes one Item, consumes two Item) returns Self
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror(extra Item) returns Item
+	function mirror(mutates self, consumes extra Item) returns Item
 		self.second = self.first
 		return extra
 	end 'mirror'
 end 'Pair'
 
 function main() returns ExitCode
-	let pair = StringPair.create("a", two: "b")
+	var pair = StringPair.create("a", two: "b")
 	let extra = pair.mirror("c")
-	return extra.byteLength() as ExitCode
+	return try extra.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -431,20 +431,20 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(consumes one Item, consumes two Item) returns Self
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror(extra Item) returns Item
+	function mirror(mutates self, consumes extra Item) returns Item
 		self.second = self.first
 		return extra
 	end 'mirror'
 end 'Pair'
 
 function main() returns ExitCode
-	let pair = CounterPair.create(Counter.create(1), two: Counter.create(2))
+	var pair = CounterPair.create(Counter.create(1), two: Counter.create(2))
 	let extra = pair.mirror(Counter.create(3))
-	return extra.n as ExitCode
+	return try extra.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -461,17 +461,17 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(consumes one Item, consumes two Item) returns Self
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self)
 		self.second = self.first
 	end 'mirror'
 end 'Pair'
 
 function main() returns ExitCode
-	let pair = StringPair.create("a", two: "b")
+	var pair = StringPair.create("a", two: "b")
 	pair.mirror()
 	return 0
 end 'main'
@@ -501,17 +501,17 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(one Item, two Item) returns Self
+	static function create(consumes one Item, consumes two Item) returns Self
 		return Self{first: one, second: two}
 	end 'create'
 
-	function mirror()
+	function mirror(mutates self)
 		self.second = self.first
 	end 'mirror'
 end 'Pair'
 
 function main() returns ExitCode
-	let pair = CounterPair.create(Counter.create(1), two: Counter.create(2))
+	var pair = CounterPair.create(Counter.create(1), two: Counter.create(2))
 	pair.mirror()
 	return 0
 end 'main'
@@ -759,7 +759,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item}
+		return Self{kept: item.clone()}
 	end 'create'
 
 	function peek() returns Integer
@@ -768,10 +768,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let counter = Counter.create(1)
+	var counter = Counter.create(1)
 	counter.n = 3
 	let box = Box.create(counter)
-	return box.peek() as ExitCode
+	return try box.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -798,7 +798,7 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(item Item) returns Self
+	static function create(consumes item Item) returns Self
 		return Self{kept: item}
 	end 'create'
 
@@ -808,10 +808,10 @@ type Box uses Item
 end 'Box'
 
 function main() returns ExitCode
-	let counter = Counter.create(1)
+	var counter = Counter.create(1)
 	counter.n = 4
 	let box = CounterBox.create(counter)
-	return box.peek().n as ExitCode
+	return try box.peek().n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -837,7 +837,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item}
+		return Self{kept: item.clone()}
 	end 'create'
 
 	function peek() returns Integer
@@ -849,7 +849,7 @@ function main() returns ExitCode
 	let counter = Counter.create(1)
 	let box = Box.create(counter)
 	let seen = counter.n
-	return (box.peek() + seen) as ExitCode
+	return try (box.peek() + seen) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -875,7 +875,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item}
+		return Self{kept: item.clone()}
 	end 'create'
 
 	function peek() returns Integer
@@ -884,10 +884,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let counter = Counter.create(1)
+	var counter = Counter.create(1)
 	let box = Box.create(counter)
 	counter.n = 2
-	return box.peek() as ExitCode
+	return try box.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -914,7 +914,7 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(item Item) returns Self
+	static function create(consumes item Item) returns Self
 		return Self{kept: item}
 	end 'create'
 
@@ -924,10 +924,10 @@ type Box uses Item
 end 'Box'
 
 function main() returns ExitCode
-	let counter = Counter.create(1)
+	var counter = Counter.create(1)
 	let box = CounterBox.create(counter)
 	counter.n = 2
-	return box.peek().n as ExitCode
+	return try box.peek().n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -961,7 +961,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item}
+		return Self{kept: item.clone()}
 	end 'create'
 
 	function peek() returns Integer
@@ -970,12 +970,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let holder = Holder.create(1)
+	var holder = Holder.create(1)
 	let view = holder.field
 	let box = Box.create(view)
 	let seen = view.n
 	holder.field.n = 2
-	return (box.peek() + seen) as ExitCode
+	return try (box.peek() + seen) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1001,7 +1001,7 @@ type Box
 	let kept as Counter
 
 	static function create(item Counter) returns Self
-		return Self{kept: item}
+		return Self{kept: item.clone()}
 	end 'create'
 
 	function peek() returns Integer
@@ -1010,12 +1010,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let a = Counter.create(1)
+	var a = Counter.create(1)
 	a.n = 2
 	let b = a
 	let box = Box.create(b)
 	let seen = b.n
-	return (box.peek() + seen) as ExitCode
+	return try (box.peek() + seen) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1049,8 +1049,8 @@ type Box
 	let kept as Counter
 
 	static function create(n Integer) returns Self
-		let holder = Holder.create(n)
-		holder.field.n = n + 1
+		var holder = Holder.create(n)
+		holder.field.n = try n + 1 otherwise panic("out of range")
 		let x = holder.field
 		return Self{kept: x}
 	end 'create'
@@ -1062,7 +1062,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let box = Box.create(1)
-	return box.peek() as ExitCode
+	return try box.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1099,7 +1099,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let box = Box.create(3)
-	return box.peek() as ExitCode
+	return try box.peek() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

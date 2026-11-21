@@ -52,7 +52,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.make(42)
-	return b.value
+	return try b.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -68,12 +68,12 @@ type Math
 	var unused as Integer
 
 	static function add(a Integer, b Integer) returns Integer
-		return a + b
+		return try a + b otherwise panic("out of range")
 	end 'add'
 end 'Math'
 
 function main() returns ExitCode
-	return Math.add(20, b: 22)
+	return try Math.add(20, b: 22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -100,7 +100,7 @@ end 'Factory'
 function main() returns ExitCode
 	let f1 = Factory.create(100)
 	let f2 = Factory.zero()
-	return f1.id + f2.id
+	return try f1.id + f2.id otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

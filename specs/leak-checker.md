@@ -70,7 +70,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function use_array()
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -189,13 +189,13 @@ end 'Op'
 function applyOp(useAdd bool, addArg Op, mulArg Op) returns Integer
 	if useAdd 'branch'
 		return match addArg 'matchAdd'
-			addOp(left, right) gives left + right
-			mulOp(left, right) gives left * right
+			addOp(left, right) gives try left + right otherwise panic("out of range")
+			mulOp(left, right) gives try left * right otherwise panic("out of range")
 		end 'matchAdd'
 	end 'branch' else 'other'
 		return match mulArg 'matchMul'
-			addOp(left, right) gives left + right
-			mulOp(left, right) gives left * right
+			addOp(left, right) gives try left + right otherwise panic("out of range")
+			mulOp(left, right) gives try left * right otherwise panic("out of range")
 		end 'matchMul'
 	end 'other'
 end 'applyOp'

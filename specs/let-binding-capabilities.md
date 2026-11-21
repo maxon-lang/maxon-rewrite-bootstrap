@@ -45,15 +45,15 @@ type Holder
 		return Self{box: Box.create(1)}
 	end 'create'
 
-	function bump() returns Count
-		let b = self.box
-		self.box.n = self.box.n + 1
+	function bump(mutates self) returns Count
+		let b = self.box.clone()
+		self.box.n = try self.box.n + 1 otherwise panic("out of range")
 		return b.n
 	end 'bump'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	print("{holder.bump()}\n")
 	return 0
 end 'main'
@@ -82,10 +82,10 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let boxes = Boxes.create(0)
+	var boxes = Boxes.create(0)
 	boxes.push(Box.create(1))
 	let w = try boxes.get(0) otherwise return 1
-	let again = try boxes.get(0) otherwise return 2
+	var again = try boxes.get(0) otherwise return 2
 	again.n = 5
 	print("{w.n}\n")
 	return 0
@@ -120,16 +120,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box
+		return self.box.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let b = holder.grab()
 	holder.grow()
 	print("{b.n}\n")
@@ -218,17 +218,17 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function peek(p Holder) returns Count
-	let z = p.box
+	let z = p.box.clone()
 	return z.n
 end 'peek'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(4))
+	var h = Holder.create(Box.create(4))
 	h.box.n = 6
 	print("{peek(h)}\n")
 	return 0
@@ -259,12 +259,12 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function register(mutates holder Holder, b Box)
-	holder.box = b
+	holder.box = b.clone()
 end 'register'
 
 function clobber(mutates holder Holder)
@@ -272,7 +272,7 @@ function clobber(mutates holder Holder)
 end 'clobber'
 
 function main() returns ExitCode
-	let holder = Holder.create(Box.create(0))
+	var holder = Holder.create(Box.create(0))
 	let a = Box.create(1)
 	register(holder, b: a)
 	clobber(holder)
@@ -305,12 +305,12 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function register(mutates holder Holder, b Box)
-	holder.box = b
+	holder.box = b.clone()
 end 'register'
 
 function clobber(mutates holder Holder)
@@ -318,7 +318,7 @@ function clobber(mutates holder Holder)
 end 'clobber'
 
 function main() returns ExitCode
-	let holder = Holder.create(Box.create(0))
+	var holder = Holder.create(Box.create(0))
 	let a = Box.create(1)
 	register(holder, b: a)
 	clobber(holder)
@@ -350,16 +350,16 @@ type Box
 end 'Box'
 
 function stash(mutates kept Boxes, b Box)
-	kept.push(b)
+	kept.push(b.clone())
 end 'stash'
 
 function bump(mutates kept Boxes)
-	let w = try kept.get(0) otherwise return
+	var w = try kept.get(0) otherwise return
 	w.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	let kept = Boxes.create(0)
+	var kept = Boxes.create(0)
 	let a = Box.create(1)
 	stash(kept, b: a)
 	bump(kept)
@@ -391,12 +391,12 @@ type Box
 end 'Box'
 
 function main() returns ExitCode
-	let boxes = Boxes.create(0)
-	let a = Box.create(1)
+	var boxes = Boxes.create(0)
+	var a = Box.create(1)
 	a.n = 2
 	boxes.push(a)
 	let b = a
-	let w = try boxes.get(0) otherwise return 1
+	var w = try boxes.get(0) otherwise return 1
 	w.n = 9
 	print("{b.n}\n")
 	return 0
@@ -423,13 +423,13 @@ type Box
 	end 'create'
 end 'Box'
 
-function touch(b Box) returns Box
+function touch(mutates b Box) returns Box
 	b.n = 1
-	return b
+	return b.clone()
 end 'touch'
 
 function main() returns ExitCode
-	let a = Box.create(3)
+	var a = Box.create(3)
 	let x = touch(a)
 	a.n = 5
 	print("{x.n}\n")
@@ -458,21 +458,21 @@ type Box
 end 'Box'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
+function bump(mutates b Box)
 	b.n = 9
 end 'bump'
 
-function f(p Box) returns Count
+function f(mutates p Box) returns Count
 	let x = id(p)
 	bump(p)
 	return x.n
 end 'f'
 
 function main() returns ExitCode
-	let a = Box.create(1)
+	var a = Box.create(1)
 	print("{f(a)}\n")
 	return 0
 end 'main'
@@ -600,8 +600,8 @@ type Box
 end 'Box'
 
 function keepAndReturn(mutates kept Boxes, b Box) returns Box
-	kept.push(b)
-	return b
+	kept.push(b.clone())
+	return b.clone()
 end 'keepAndReturn'
 
 function printOne(b Box)
@@ -609,7 +609,7 @@ function printOne(b Box)
 end 'printOne'
 
 function main() returns ExitCode
-	let kept = Boxes.create(0)
+	var kept = Boxes.create(0)
 	let s = Box.create(3)
 	let flag = kept.count() == 0
 	printOne(keepAndReturn(kept, b: s) if flag else s)
@@ -646,12 +646,12 @@ function matches(b Box) returns bool
 end 'matches'
 
 function take(mutates kept Boxes, b Box) returns Count
-	kept.push(b)
+	kept.push(b.clone())
 	return b.n
 end 'take'
 
 function scan() returns Count
-	let kept = Boxes.create(0)
+	var kept = Boxes.create(0)
 	var i = 0 as Count
 	while i < 3 'trips'
 		let doc = Box.create(i)
@@ -691,14 +691,14 @@ type Person
 	export var age as Count
 
 	static function create(name String) returns Self
-		return Self{name: name, age: 1}
+		return Self{name: name.clone(), age: 1}
 	end 'create'
 end 'Person'
 
 function countName(p Person) returns Count
-	let names = Names.create(0)
-	names.push(p.name)
-	return names.count() as Count
+	var names = Names.create(0)
+	names.push(p.name.clone())
+	return try names.count() as Count otherwise panic("out of range")
 end 'countName'
 
 function main() returns ExitCode
@@ -779,16 +779,16 @@ type Box
 end 'Box'
 
 function stash(mutates kept Boxes, b Box)
-	kept.push(b)
+	kept.push(b.clone())
 end 'stash'
 
 function bump(mutates kept Boxes)
-	let w = try kept.get(0) otherwise return
+	var w = try kept.get(0) otherwise return
 	w.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	let kept = Boxes.create(0)
+	var kept = Boxes.create(0)
 	let a = Box.create(1)
 	if kept.count() > 5 'never'
 		return 1
@@ -1908,7 +1908,7 @@ type Wrap
 	export var b as Box
 
 	static function create(a Box, b Box) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 end 'Wrap'
 
@@ -1916,20 +1916,20 @@ type Frozen
 	export let held as Wrap
 
 	static function create(h Wrap) returns Self
-		return Self{held: h}
+		return Self{held: h.clone()}
 	end 'create'
 end 'Frozen'
 
 function id(b Box) returns Box
-	return b
+	return b.clone()
 end 'id'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let p = Box.create(5)
+	var p = Box.create(5)
 	let fr = Frozen.create(Wrap.create(Box.create(1), b: id(p)))
 	bump(p)
 	print("{fr.held.b.n}\n")
@@ -2095,7 +2095,7 @@ type Wrap
 	export var b as Box
 
 	static function create(a Box, b Box) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 end 'Wrap'
 
@@ -2103,16 +2103,16 @@ type Frozen
 	export let held as Wrap
 
 	static function create(h Wrap) returns Self
-		return Self{held: h}
+		return Self{held: h.clone()}
 	end 'create'
 end 'Frozen'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let q = Box.create(2)
+	var q = Box.create(2)
 	bump(q)
 	let fr = Frozen.create(Wrap.create(Box.create(1), b: q))
 	print("{fr.held.b.n}\n")
@@ -2145,16 +2145,16 @@ type Wrap
 	export var b as Box
 
 	static function create(a Box, b Box) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 end 'Wrap'
 
-function bump(b Box)
-	b.n = b.n + 1
+function bump(mutates b Box)
+	b.n = try b.n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let q = Box.create(2)
+	var q = Box.create(2)
 	bump(q)
 	let w = Wrap.create(Box.create(1), b: q)
 	print("{w.b.n}\n")
@@ -2247,7 +2247,7 @@ type Holder
 	var box as Box
 
 	static function wrap(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'wrap'
 end 'Holder'
 
@@ -2290,7 +2290,7 @@ type Holder
 	var box as Box
 
 	static function wrap(box Box) returns Self
-		let built = Self{box: box}
+		let built = Self{box: box.clone()}
 		return built
 	end 'wrap'
 end 'Holder'
@@ -2415,7 +2415,7 @@ type Box
 end 'Box'
 
 function register(mutates shelf BoxArray, b Box)
-	shelf.push(b)
+	shelf.push(b.clone())
 end 'register'
 
 type Holder
@@ -2426,12 +2426,12 @@ type Holder
 	end 'peek'
 
 	static function wrap(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'wrap'
 end 'Holder'
 
 function keep() returns Count
-	let shelf = BoxArray.create(0)
+	var shelf = BoxArray.create(0)
 	let box = Box.create(1)
 	register(shelf, b: box)
 	let holder = Holder.wrap(box)

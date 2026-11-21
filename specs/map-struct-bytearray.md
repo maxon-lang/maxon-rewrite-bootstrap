@@ -81,7 +81,7 @@ type Database
 	export var sourcePaths as StringArray
 
 	static function create(sourceFiles EntryMap, sourcePaths StringArray) returns Self
-		return Self{sourceFiles: sourceFiles, sourcePaths: sourcePaths}
+		return Self{sourceFiles: sourceFiles.clone(), sourcePaths: sourcePaths.clone()}
 	end 'create'
 end 'Database'
 
@@ -96,7 +96,7 @@ function storeAndCheck(db Database, key String, data ByteArray)
 end 'storeAndCheck'
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(1)
 	arr.push(2)
 	arr.push(3)

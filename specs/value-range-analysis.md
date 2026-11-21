@@ -75,13 +75,13 @@ typealias WordArray = Array with Word
 function total(a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'sum'
-		t = t + (try a.get(i) otherwise panic("total: i < n = a.count()"))
+		t = try t + (try a.get(i) otherwise panic("total: i < n = a.count()")) otherwise panic("out of range")
 	end 'sum'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -304,6 +304,7 @@ Stack trace:
 ```
 
 <!-- test: a-two-sided-alias-keeps-its-upper-check-under-a-runtime-bound -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Control for the upper bound. `Small = int(0 to 100)` is two-sided; the counter proves the cast's lower
 check and nothing proves the upper one under a bound only known at run time. With `n = 150` the cast
 at `i = 101` is refused, so the program never reaches its return.

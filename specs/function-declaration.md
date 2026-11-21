@@ -92,7 +92,7 @@ function add() returns Integer
 end 'add'
 
 function main() returns ExitCode
-	return add()
+	return try add() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -106,11 +106,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(10, b: 20)
+	return try add(10, b: 20) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -124,7 +124,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 function quadruple(x Integer) returns Integer
@@ -132,7 +132,7 @@ function quadruple(x Integer) returns Integer
 end 'quadruple'
 
 function main() returns ExitCode
-	return quadruple(3)
+	return try quadruple(3) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -181,7 +181,7 @@ function useSecond(_ Integer, b Integer) returns Integer
 end 'useSecond'
 
 function main() returns ExitCode
-	return useSecond(10, b: 42)
+	return try useSecond(10, b: 42) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -289,9 +289,9 @@ end 'Point'
 
 function main() returns ExitCode
 	let a = Point.create(1, y: 2)
-	let b = a.clone()
+	var b = a.clone()
 	b.x = 99
-	return a.x
+	return try a.x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

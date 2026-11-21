@@ -65,7 +65,7 @@ function main() returns ExitCode
 			failed then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ function main() returns ExitCode
 			failed then sum = 42
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -427,7 +427,7 @@ function main() returns ExitCode
 			splat then sum = 22
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -502,7 +502,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -989,7 +989,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1005,7 +1005,7 @@ typealias Signed = int(-50 to 50)
 typealias SignedArray = Array with Signed
 
 function main() returns ExitCode
-	let arr = SignedArray.create(0)
+	var arr = SignedArray.create(0)
 	arr.push(-7)
 	arr.push(11)
 	arr.push(-25)
@@ -1021,7 +1021,7 @@ function main() returns ExitCode
 			emptySlot then sum = 999
 		end 'k'
 	end 'h'
-	return sum
+	return try sum as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1050,7 +1050,7 @@ function main() returns ExitCode
 			emptySlot then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1103,7 +1103,7 @@ function main() returns ExitCode
 			splat then sum = sum + 40
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1148,7 +1148,7 @@ function main() returns ExitCode
 			splat then sum = 99
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1219,11 +1219,11 @@ typealias Inner = Array with Score
 typealias Outer = Array with Inner
 
 function main() returns ExitCode
-	let outer = Outer.create(0)
+	var outer = Outer.create(0)
 	outer.push(Inner.create(0))
 	outer.push(Inner.create(0))
 	try 'work'
-		let inner = outer.get(0)
+		var inner = outer.get(0)
 		inner.push(7)
 	end 'work' otherwise (e) 'h'
 		match e 'k'
@@ -1233,7 +1233,7 @@ function main() returns ExitCode
 	end 'h'
 	let first = try outer.get(0) otherwise Inner.create(0)
 	let v = try first.get(0) otherwise -1
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1253,12 +1253,12 @@ typealias Inner = Array with Score
 typealias Outer = Array with Inner
 
 function main() returns ExitCode
-	let outer = Outer.create(0)
+	var outer = Outer.create(0)
 	outer.push(Inner.create(0))
 	outer.push(Inner.create(0))
 	try 'wrap'
 		if true 'gate'
-			let inner = outer.get(0)
+			var inner = outer.get(0)
 			inner.push(7)
 		end 'gate'
 	end 'wrap' otherwise (e) 'h'
@@ -1269,7 +1269,7 @@ function main() returns ExitCode
 	end 'h'
 	let first = try outer.get(0) otherwise Inner.create(0)
 	let v = try first.get(0) otherwise -1
-	return v as ExitCode
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1292,7 +1292,7 @@ enum MyError implements Error
 	failed
 end 'MyError'
 
-function workFunc(arr IntArray) throws MyError
+function workFunc(mutates arr IntArray) throws MyError
 	if arr.count() == 0 'empty'
 		throw MyError.failed
 	end 'empty'
@@ -2729,7 +2729,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	let item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2750,7 +2750,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let b = PointBox.create(Point.create(3))
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2835,7 +2835,7 @@ function main() returns ExitCode
 			kaboom then sum = 42
 		end 'k'
 	end 'h'
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -2889,7 +2889,7 @@ function main() returns ExitCode
 			failed then result = 55
 		end 'k'
 	end 'h'
-	return result
+	return result as ExitCode
 end 'main'
 ```
 ```exitcode

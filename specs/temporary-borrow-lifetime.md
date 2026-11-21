@@ -96,8 +96,8 @@ array is bound to no name. Before the promotion this printed `455743088879883039
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -109,7 +109,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().get(0) otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -176,8 +176,8 @@ memory. Extending the container's lifetime is what puts the two back in order.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -189,7 +189,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().get(0) otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -205,8 +205,8 @@ typealias Wide = int(i64.min to i64.max)
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -218,11 +218,11 @@ end 'make'
 
 function count() returns Wide
 	let n = try make().get(0) otherwise return 0
-	return n.count()
+	return try n.count() as Wide otherwise panic("out of range")
 end 'count'
 
 function main() returns ExitCode
-	return count()
+	return try count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -237,8 +237,8 @@ reaches it.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -252,7 +252,7 @@ function main() returns ExitCode
 	let t = true
 	let d = ByteArray.create(0)
 	let n = (try make().get(0) otherwise d) if t else d
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -269,8 +269,8 @@ typealias Wide = int(i64.min to i64.max)
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -282,9 +282,9 @@ function main() returns ExitCode
 	var total = 0 as Wide
 	for _ in 0 upto 4 'each'
 		let n = try make().get(0) otherwise ByteArray.create(0)
-		total = total + (n.count() as Wide)
+		total = try total + (n.count() as Wide) otherwise panic("out of range")
 	end 'each'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -298,8 +298,8 @@ increfs). That incref has to run while the container is still alive, which it do
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -315,7 +315,7 @@ end 'borrowOut'
 
 function main() returns ExitCode
 	let n = borrowOut()
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -332,8 +332,8 @@ typealias Wide = int(i64.min to i64.max)
 typealias Bytes = Array with ByteArray
 
 function make(n Wide) returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	for _ in 0 upto n 'fill'
 		inner.push(1)
 	end 'fill'
@@ -344,7 +344,7 @@ end 'make'
 function main() returns ExitCode
 	let a = try make(2).get(0) otherwise ByteArray.create(0)
 	let b = try make(3).get(0) otherwise ByteArray.create(0)
-	return a.count() + b.count()
+	return try a.count() + b.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -359,8 +359,8 @@ scalar read alongside changes nothing.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -372,7 +372,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().get(0) otherwise ByteArray.create(0)
-	return n.count() + make().count()
+	return try n.count() + make().count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -387,7 +387,7 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
@@ -396,8 +396,8 @@ function makeHolder() returns Holder
 end 'makeHolder'
 
 function main() returns ExitCode
-	let s = makeHolder().name
-	return s.byteLength()
+	let s = makeHolder().name.clone()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -416,7 +416,7 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
@@ -435,14 +435,14 @@ end 'makeB'
 
 function pickLength(p Pick) returns Wide
 	let s = match p 'pick'
-		first gives makeA().name
-		second gives makeB().name
+		first gives makeA().name.clone()
+		second gives makeB().name.clone()
 	end 'pick'
-	return s.byteLength()
+	return try s.byteLength() as Wide otherwise panic("out of range")
 end 'pickLength'
 
 function main() returns ExitCode
-	return pickLength(Pick.first) * 10 + pickLength(Pick.second)
+	return try pickLength(Pick.first) * 10 + pickLength(Pick.second) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -459,7 +459,7 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
@@ -472,12 +472,12 @@ function makeB() returns Holder
 end 'makeB'
 
 function pickLength(t bool) returns Wide
-	let s = makeA().name if t else makeB().name
-	return s.byteLength()
+	let s = makeA().name.clone() if t else makeB().name.clone()
+	return try s.byteLength() as Wide otherwise panic("out of range")
 end 'pickLength'
 
 function main() returns ExitCode
-	return pickLength(true) * 10 + pickLength(false)
+	return try pickLength(true) * 10 + pickLength(false) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -496,8 +496,8 @@ typealias Wide = int(i64.min to i64.max)
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -507,10 +507,10 @@ end 'make'
 
 function main() returns ExitCode
 	var n = 0 as Wide
-	while n < ((try make().get(0) otherwise ByteArray.create(0)).count() as Wide) * 100 'loop'
+	while n < (try ((try make().get(0) otherwise ByteArray.create(0)).count() as Wide) * 100 otherwise panic("out of range")) 'loop'
 		n = n + 1
 	end 'loop'
-	return n / 100
+	return try n / 100 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -525,8 +525,8 @@ floor; without it the allocator panics with `seedInUse: a use dominates its def`
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -555,7 +555,7 @@ type Holder
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Holder'
 
@@ -571,10 +571,10 @@ end 'makeWrap'
 function main() returns ExitCode
 	let w = makeWrap()
 	let s = match w 'k'
-		held(h) gives h.name
+		held(h) gives h.name.clone()
 		nothing gives "zz"
 	end 'k'
-	return s.byteLength()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -641,8 +641,8 @@ holds.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -654,7 +654,7 @@ end 'make'
 
 function main() returns ExitCode
 	let n = try make().pop() otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -671,14 +671,14 @@ typealias Wide = int(i64.min to i64.max)
 typealias Ints = Array with Wide
 
 function make() returns Ints
-	let outer = Ints.create(0)
+	var outer = Ints.create(0)
 	outer.push(41)
 	return outer
 end 'make'
 
 function main() returns ExitCode
 	let n = try make().get(0) otherwise 0
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -694,8 +694,8 @@ list (the owned values NO binding owns) and not the owned-heap bit.
 typealias Bytes = Array with ByteArray
 
 function make() returns Bytes
-	let outer = Bytes.create(0)
-	let inner = ByteArray.create(0)
+	var outer = Bytes.create(0)
+	var inner = ByteArray.create(0)
 	inner.push(1)
 	inner.push(2)
 	inner.push(3)
@@ -708,7 +708,7 @@ end 'make'
 function main() returns ExitCode
 	let held = make()
 	let n = try held.get(0) otherwise ByteArray.create(0)
-	return n.count()
+	return try n.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -350,7 +350,7 @@ type Tagged
 	end 'create'
 
 	function equals(other Self, mutates tolerance Count) returns bool
-		tolerance = tolerance + 1
+		tolerance = try tolerance + 1 otherwise panic("out of range")
 		return self.tag == other.tag
 	end 'equals'
 end 'Tagged'

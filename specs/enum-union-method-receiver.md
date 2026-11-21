@@ -151,8 +151,8 @@ union Record
 
 	function spec() returns String
 		return match self 's'
-			pass(s, _) gives s
-			fail(s, _, _) gives s
+			pass(s, _) gives s.clone()
+			fail(s, _, _) gives s.clone()
 		end 's'
 	end 'spec'
 end 'Record'
@@ -290,14 +290,14 @@ union M
 	function spin(d Depth) returns Integer
 		return match self 'k'
 			silent gives 0
-			text(s) gives 1 + self.spin((d - 1) if d > 0 else 0) if d > 0 and s.byteLength() > 0 else 1
+			text(s) gives (try 1 + self.spin((d - 1) if d > 0 else 0) otherwise panic("out of range")) if d > 0 and s.byteLength() > 0 else 1
 		end 'k'
 	end 'spin'
 end 'M'
 
 function main() returns ExitCode
 	let m = M.text("a recursively bound payload string, long enough for the heap")
-	return m.spin(4) as ExitCode
+	return try m.spin(4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -372,7 +372,7 @@ union Boxed
 	two(s String)
 
 	function giveBack() returns Boxed
-		return self
+		return self.clone()
 	end 'giveBack'
 end 'Boxed'
 
@@ -380,7 +380,7 @@ function main() returns ExitCode
 	let b = Boxed.one(3)
 	let c = b.giveBack()
 	match c 'k'
-		one(v) then return v as ExitCode
+		one(v) then return try v as ExitCode otherwise panic("out of range")
 		two then return 1
 	end 'k'
 end 'main'
@@ -493,7 +493,7 @@ end 'tagOf'
 
 function main() returns ExitCode
 	let e = Order.omega
-	return tagOf(e) as ExitCode
+	return try tagOf(e) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)

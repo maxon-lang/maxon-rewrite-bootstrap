@@ -27,13 +27,13 @@ end 'Op'
 typealias OpArray = Array with Op
 
 function main() returns ExitCode
-	let ops = OpArray.create(0)
+	var ops = OpArray.create(0)
 	ops.push(Op.add(1))
 	ops.push(Op.sub(2))
 	ops.push(Op.nop)
 	ops.push(Op.add(3))
 	ops.push(Op.sub(4))
-	return ops.count()
+	return try ops.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -55,13 +55,13 @@ end 'Op'
 typealias OpArray = Array with Op
 
 function main() returns ExitCode
-	let ops = OpArray.create(0)
+	var ops = OpArray.create(0)
 	ops.push(Op.add(10))
 	ops.push(Op.sub(20))
 	ops.push(Op.add(30))
 	let first = try ops.get(0) otherwise Op.nop
 	match first 'check'
-		add(v) then return v
+		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 99
 		nop then return 98
 	end 'check'
@@ -85,13 +85,13 @@ end 'Op'
 typealias OpArray = Array with Op
 
 function main() returns ExitCode
-	let ops = OpArray.create(0)
+	var ops = OpArray.create(0)
 	ops.push(Op.add(10))
 	ops.push(Op.sub(20))
 	ops.push(Op.add(42))
 	let last = try ops.get(2) otherwise Op.nop
 	match last 'check'
-		add(v) then return v
+		add(v) then return try v as ExitCode otherwise panic("out of range")
 		sub then return 99
 		nop then return 98
 	end 'check'
@@ -136,7 +136,7 @@ function checkMid(ops IrOpArray) returns Integer
 end 'checkMid'
 
 function main() returns ExitCode
-	let ops = IrOpArray.create(0)
+	var ops = IrOpArray.create(0)
 	ops.push(IrOp.arith(10))
 	ops.push(IrOp.arith(20))
 	ops.push(IrOp.cf(CfOp.br(99)))
@@ -187,12 +187,12 @@ type Block
 	export var terminator as IrOp
 
 	static function create(id Integer, ops IrOpArray, terminator IrOp) returns Self
-		return Self{id: id, ops: ops, terminator: terminator}
+		return Self{id: id, ops: ops.clone(), terminator: terminator.clone()}
 	end 'create'
 end 'Block'
 
 function makeBlock() returns Block
-	let b = Block.create(1, ops: IrOpArray.create(0), terminator: IrOp.cf(CfOp.br(0)))
+	var b = Block.create(1, ops: IrOpArray.create(0), terminator: IrOp.cf(CfOp.br(0)))
 	b.ops.push(IrOp.arith(10))
 	b.ops.push(IrOp.arith(20))
 	b.ops.push(IrOp.arith(30))
@@ -207,7 +207,7 @@ function main() returns ExitCode
 	let b = makeBlock()
 	let first = try b.ops.get(0) otherwise IrOp.arith(0)
 	match first 'check'
-		arith(v) then return v
+		arith(v) then return try v as ExitCode otherwise panic("out of range")
 		cf then return 99
 	end 'check'
 end 'main'

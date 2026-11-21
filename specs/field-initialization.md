@@ -73,7 +73,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.make(1, y: 41)
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -95,7 +95,7 @@ end 'Defaults'
 
 function main() returns ExitCode
 	let d = Defaults.make()
-	return d.a + d.b
+	return try d.a + d.b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -116,7 +116,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let t = Thing.make(42)
-	return t.value
+	return try t.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -139,7 +139,7 @@ end 'Mixed'
 
 function main() returns ExitCode
 	let m = Mixed.make(32)
-	return m.a + m.b
+	return try m.a + m.b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -404,7 +404,7 @@ end 'Branched'
 
 function main() returns ExitCode
 	let b = Branched.make(true)
-	return b.value
+	return b.value as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -484,7 +484,7 @@ end 'TwoReturns'
 
 function main() returns ExitCode
 	let t = TwoReturns.make(true)
-	return t.value
+	return t.value as ExitCode
 end 'main'
 ```
 ```exitcode

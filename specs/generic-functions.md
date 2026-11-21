@@ -1282,7 +1282,7 @@ b 3
 `alpha/` exports a generic `pick` and `beta/` a non-generic one, and each qualifier reaches its own.
 ```maxon
 // --- file: alpha/a.maxon
-export function pick(a T) uses T returns T
+export function pick(consumes a T) uses T returns T
 	return a
 end 'pick'
 
@@ -1290,7 +1290,7 @@ end 'pick'
 export typealias Reps = int(0 to 100)
 
 export function pick(n Reps) returns Reps
-	return n + n
+	return try n + n otherwise panic("out of range")
 end 'pick'
 
 // --- file: main.maxon
@@ -1314,11 +1314,11 @@ The pair of the case above in the other declaration order: the non-generic `pick
 export typealias Reps = int(0 to 100)
 
 export function pick(n Reps) returns Reps
-	return n + n
+	return try n + n otherwise panic("out of range")
 end 'pick'
 
 // --- file: beta/b.maxon
-export function pick(a T) uses T returns T
+export function pick(consumes a T) uses T returns T
 	return a
 end 'pick'
 

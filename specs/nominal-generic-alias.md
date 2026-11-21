@@ -85,7 +85,7 @@ typealias Xs = Array with Integer
 typealias Ys = Array with Integer
 
 function makeYs() returns Ys
-	let xs = Xs.create(0)
+	var xs = Xs.create(0)
 	xs.push(1)
 	return xs
 end 'makeYs'
@@ -1601,7 +1601,7 @@ the source's unchanged.
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
@@ -1610,7 +1610,7 @@ typealias Label = Box with String
 
 function main() returns ExitCode
 	let original = Label.create("first")
-	let copy = original.clone()
+	var copy = original.clone()
 	copy.item = "second"
 	print("{original.item} {copy.item}\n")
 	return 0

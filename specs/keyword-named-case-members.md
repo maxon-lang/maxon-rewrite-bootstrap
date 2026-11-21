@@ -805,9 +805,9 @@ function main() returns ExitCode
 	var acc = 0 as Count
 	while ((i < 2) or (i < 0)) or false 'spin'
 		if ((i == 0) or (i == 1)) and true 'inner'
-			acc = acc + 21
+			acc = try acc + 21 otherwise panic("out of range")
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'spin'
 	if acc == 42 'ok'
 		return 42

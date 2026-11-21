@@ -664,7 +664,7 @@ type Inner
 	export var values as IntArray
 
 	static function create(name String, values IntArray) returns Self
-		return Self{name: name, values: values}
+		return Self{name: name.clone(), values: values.clone()}
 	end 'create'
 end 'Inner'
 
@@ -674,15 +674,15 @@ type Outer
 	export var tags as StringArray
 
 	static function create(label String, inner Inner, tags StringArray) returns Self
-		return Self{label: label, inner: inner, tags: tags}
+		return Self{label: label.clone(), inner: inner.clone(), tags: tags.clone()}
 	end 'create'
 end 'Outer'
 
 function createOuter() returns Outer
-	let inner = Inner.create("test", values: IntArray.create(0))
+	var inner = Inner.create("test", values: IntArray.create(0))
 	inner.values.push(1)
 	inner.values.push(2)
-	let outer = Outer.create("outer", inner: inner, tags: StringArray.create(0))
+	var outer = Outer.create("outer", inner: inner, tags: StringArray.create(0))
 	outer.tags.push("tag1")
 	outer.tags.push("tag2")
 	return outer
@@ -690,7 +690,7 @@ end 'createOuter'
 
 function main() returns ExitCode
 	let outer = createOuter()
-	return try outer.inner.values.get(0) otherwise 0
+	return try (try outer.inner.values.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -724,7 +724,7 @@ function helper(x Int) returns Int throws MyError
 end 'helper'
 
 function main() returns ExitCode
-	return try helper(3) otherwise 99
+	return try (try helper(3) otherwise 99) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

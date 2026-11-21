@@ -135,9 +135,9 @@ function classify(x ExitCode) returns ExitCode
 		if i == 2 'hit'
 			continue
 		end 'hit'
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'scan'
-	return seen
+	return try seen as ExitCode otherwise panic("out of range")
 end 'classify'
 
 function main() returns ExitCode

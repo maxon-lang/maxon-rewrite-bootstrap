@@ -15,6 +15,7 @@ The stack trace is printed after the panic message and walks the frame-pointer c
 ### Simple panic with stack trace
 
 <!-- test: simple-panic -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -42,6 +43,7 @@ Stack trace:
 ### Nested call chain
 
 <!-- test: nested-calls -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -79,6 +81,7 @@ Stack trace:
 ### Panic in main directly
 
 <!-- test: panic-in-main -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -110,6 +113,7 @@ above that one-word outgoing region — so its frame pointer is word-aligned but
 still follows it to `main`.
 
 <!-- test: caller-with-a-stack-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -140,6 +144,7 @@ Stack trace:
 ```
 
 <!-- test: a-deep-panic-trace-is-complete-on-every-target -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A trace deeper than 20 frames prints every frame, innermost first, on every target.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -197,6 +202,7 @@ Stack trace:
 ```
 
 <!-- test: a-panic-trace-past-the-cap-ends-with-an-elision-line -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A trace deeper than 100 frames prints the innermost 100 and ends with the elision line, on every target.
 ```maxon
 typealias Integer = int(i64.min to i64.max)

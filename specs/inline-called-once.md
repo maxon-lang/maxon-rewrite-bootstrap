@@ -419,6 +419,7 @@ end 'main'
 ```
 
 <!-- test: a-recursive-called-once-function-stays-a-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 `main` calls `depth` once, but `depth` calls itself, so it has two sites and stays a call — into
 `main` and into itself. The trace is the ordinary one: a frame per level of the recursion.
 
@@ -611,6 +612,7 @@ end 'main'
 ```
 
 <!-- test: a-splice-keeps-a-deep-trace-under-the-frame-cap -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ⭐ **THE SPLICE IS VISIBLE IN THE TRACE ON EVERY LANE, THROUGH THE FRAME CAP.** `innermost` is a leaf with a panic, `middle`
 and `outer` are called once, so all three are spliced into `descend`, which recursion keeps a call 97 frames deep.
 The trace prints 99 physical frames and every line of them. Were the three left standing as calls, 102 physical
@@ -757,6 +759,7 @@ Stack trace:
 ```
 
 <!-- test: a-call-out-of-a-spliced-body-names-the-callee-under-it -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 A call made from INSIDE a spliced body: `spliced` is called once and spliced into `main`, and the `check` it calls
 (two sites, and a `print`, so no splice) panics. Its frame is printed above a `main` frame whose position is the
 splice, so `in spliced` stands between them exactly as it would with the call left standing.
@@ -799,6 +802,7 @@ Stack trace:
 ```
 
 <!-- test: a-call-from-the-callers-own-text-after-a-splice-names-only-the-caller -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The same two functions, with the panic reached from `main`'s OWN text after the spliced body has run a call of its
 own. The trace names `main` alone: the position the spliced call left behind is not the one the later call is
 made from.
@@ -850,283 +854,283 @@ typealias Step = int(1 to 7)
 function link0(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link1(carried, step: step) + 1
+	return try link1(carried, step: step) + 1 otherwise panic("out of range")
 end 'link0'
 
 function link1(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link2(carried, step: step) + 1
+	return try link2(carried, step: step) + 1 otherwise panic("out of range")
 end 'link1'
 
 function link2(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link3(carried, step: step) + 1
+	return try link3(carried, step: step) + 1 otherwise panic("out of range")
 end 'link2'
 
 function link3(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link4(carried, step: step) + 1
+	return try link4(carried, step: step) + 1 otherwise panic("out of range")
 end 'link3'
 
 function link4(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link5(carried, step: step) + 1
+	return try link5(carried, step: step) + 1 otherwise panic("out of range")
 end 'link4'
 
 function link5(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link6(carried, step: step) + 1
+	return try link6(carried, step: step) + 1 otherwise panic("out of range")
 end 'link5'
 
 function link6(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link7(carried, step: step) + 1
+	return try link7(carried, step: step) + 1 otherwise panic("out of range")
 end 'link6'
 
 function link7(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link8(carried, step: step) + 1
+	return try link8(carried, step: step) + 1 otherwise panic("out of range")
 end 'link7'
 
 function link8(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link9(carried, step: step) + 1
+	return try link9(carried, step: step) + 1 otherwise panic("out of range")
 end 'link8'
 
 function link9(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link10(carried, step: step) + 1
+	return try link10(carried, step: step) + 1 otherwise panic("out of range")
 end 'link9'
 
 function link10(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link11(carried, step: step) + 1
+	return try link11(carried, step: step) + 1 otherwise panic("out of range")
 end 'link10'
 
 function link11(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link12(carried, step: step) + 1
+	return try link12(carried, step: step) + 1 otherwise panic("out of range")
 end 'link11'
 
 function link12(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link13(carried, step: step) + 1
+	return try link13(carried, step: step) + 1 otherwise panic("out of range")
 end 'link12'
 
 function link13(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link14(carried, step: step) + 1
+	return try link14(carried, step: step) + 1 otherwise panic("out of range")
 end 'link13'
 
 function link14(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link15(carried, step: step) + 1
+	return try link15(carried, step: step) + 1 otherwise panic("out of range")
 end 'link14'
 
 function link15(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link16(carried, step: step) + 1
+	return try link16(carried, step: step) + 1 otherwise panic("out of range")
 end 'link15'
 
 function link16(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link17(carried, step: step) + 1
+	return try link17(carried, step: step) + 1 otherwise panic("out of range")
 end 'link16'
 
 function link17(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link18(carried, step: step) + 1
+	return try link18(carried, step: step) + 1 otherwise panic("out of range")
 end 'link17'
 
 function link18(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link19(carried, step: step) + 1
+	return try link19(carried, step: step) + 1 otherwise panic("out of range")
 end 'link18'
 
 function link19(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link20(carried, step: step) + 1
+	return try link20(carried, step: step) + 1 otherwise panic("out of range")
 end 'link19'
 
 function link20(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link21(carried, step: step) + 1
+	return try link21(carried, step: step) + 1 otherwise panic("out of range")
 end 'link20'
 
 function link21(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 1 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link22(carried, step: step) + 1
+	return try link22(carried, step: step) + 1 otherwise panic("out of range")
 end 'link21'
 
 function link22(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 2 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	var carried = running
 	if (running and 1) == 0 'even'
-		carried = running + 2
+		carried = try running + 2 otherwise panic("out of range")
 	end 'even'
-	return link23(carried, step: step) + 1
+	return try link23(carried, step: step) + 1 otherwise panic("out of range")
 end 'link22'
 
 function link23(total Count, step Step) returns Count
 	var running = total
 	for _ in 0 upto 3 'rounds'
-		running = running + (step as Count)
+		running = try running + (step as Count) otherwise panic("out of range")
 	end 'rounds'
 	return running
 end 'link23'

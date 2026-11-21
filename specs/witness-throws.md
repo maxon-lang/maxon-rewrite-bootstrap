@@ -69,7 +69,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -84,7 +84,7 @@ function main() returns ExitCode
 	let p = Point.create(3)
 	let b = PointBox.create(p)
 	let v = try b.itemDigest() otherwise 55
-	return v
+	return v as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -123,7 +123,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -138,7 +138,7 @@ function main() returns ExitCode
 	let p = Point.create(42)
 	let b = PointBox.create(p)
 	let v = try b.itemDigest() otherwise 55
-	return v
+	return v as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -178,13 +178,13 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function itemDigest() returns Code throws DigestError
 		let d = try self.item.digest()
-		return d + 1
+		return try d + 1 otherwise panic("out of range")
 	end 'itemDigest'
 end 'Box'
 
@@ -195,7 +195,7 @@ function main() returns ExitCode
 	let bad = PointBox.create(Point.create(3))
 	let a = try good.itemDigest() otherwise 0
 	let b = try bad.itemDigest() otherwise 2
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -234,7 +234,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -248,7 +248,7 @@ typealias PointBox = Box with Point
 function main() returns ExitCode
 	let good = PointBox.create(Point.create(30))
 	let bad = PointBox.create(Point.create(3))
-	return (good.itemDigest() + bad.itemDigest()) as ExitCode
+	return try (good.itemDigest() + bad.itemDigest()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -288,13 +288,13 @@ end 'Point'
 type Box uses T where T implements Namer
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function itemNameLength() returns Count throws NameError
 		let n = try self.item.name()
-		return n.byteLength() as Count
+		return try n.byteLength() as Count otherwise panic("out of range")
 	end 'itemNameLength'
 end 'Box'
 

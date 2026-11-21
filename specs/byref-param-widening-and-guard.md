@@ -30,7 +30,7 @@ end 'bump'
 
 function main() returns ExitCode
 	var v = 5 as Int
-	return bump(v)
+	return bump(v) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -51,7 +51,7 @@ end 'bump'
 
 function main() returns ExitCode
 	var v = 5 as Wide
-	return bump(v)
+	return try bump(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -59,6 +59,7 @@ end 'main'
 ```
 
 <!-- test: out-of-range-write-through-a-byref-param-still-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Reading the pointee is not the same as not reading anything, and writing through it is a door like any other:
 `bump` doubles the `Small` it was handed by reference, and the sum of two in-range values is refused where it is
 written, on the line of the write. Every door into a `Small` `var` checks what it stores, and a slot nothing wrote

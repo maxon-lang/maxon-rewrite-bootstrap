@@ -21,6 +21,12 @@ let expectMemoryPrefix = "// memory-limit:"
 
 let nativeOnlyDirective = "// native-only"
 
+// A file of this extension is a case of the fix command: a program that, fixed, must check clean and be the text of the
+// file beside it with the other extension.
+let fixCaseExtension = ".fix"
+
+let fixedExtension = ".fixed"
+
 let errorLocationSplit = " at "
 
 // The UTF-8 byte order mark: EF BB BF.
@@ -295,7 +301,7 @@ function readExpectation(program String) returns Expectation
 	return expect
 end 'readExpectation'
 
-// collectPrograms adds the source files under dir, except those under modulesRoot, which holds projects.
+// collectPrograms adds the source files and the cases of fix under dir, except those under modulesRoot, which holds projects.
 function collectPrograms(dir String, modulesRoot String, mutates files ast.StringList)
 	let dirPath = try FilePath.from(dir) otherwise panic("test: {dir} is not a path")
 	let listed = try Directory.list(dirPath) otherwise panic("test: cannot read {dir}")
@@ -305,7 +311,7 @@ function collectPrograms(dir String, modulesRoot String, mutates files ast.Strin
 			if full != modulesRoot 'program'
 				collectPrograms(full, modulesRoot: modulesRoot, files: files)
 			end 'program'
-		end 'directory' else if project.endsWithMaxon(full) 'source'
+		end 'directory' else if project.endsWithMaxon(full) or endsWithText(full, suffix: fixCaseExtension) 'source'
 			files.push(full)
 		end 'source'
 	end 'entries'
@@ -470,6 +476,10 @@ end 'onlyInterpreterErrors'
 // runTest compiles a test program and checks the result against what its directives say. The executable lives only as
 // long as the test.
 function runTest(mutates shared SharedRuntime, file String, expect Expectation, updatePositions bool) returns TestResult
+	if endsWithText(file, suffix: fixCaseExtension) 'fix'
+		let stem = file.sliceBytes(0, endPos: try file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
+		return runFixTest(file, expected: "{stem}{fixedExtension}")
+	end 'fix'
 	let exe = temporaryExecutable(file)
 	var errs = diag.ErrorList.create(0)
 	let compiled = compileForTest(shared, file: file, output: exe, errs: errs)
@@ -668,3 +678,17 @@ function checkNativeOutput(out CollectedOutput, exe String, expect Expectation) 
 	end 'stdout'
 	return TestResult.passed()
 end 'checkNativeOutput'
+
+// runFixTest is whether the fix command makes of the program at file a program that checks clean and is the text of the file
+// at expected.
+function runFixTest(file String, expected String) returns TestResult
+	let outcome = fixSource(file, text: readText(file))
+	if outcome.left != "" 'left'
+		return TestResult.failed("fixed, it still has an error {outcome.left}")
+	end 'left'
+	let wanted = withoutCarriageReturns(readText(expected), loneToo: false)
+	if outcome.files[0].text != wanted 'differs'
+		return TestResult.failed("fixed, it is not {expected}: {firstDifference(wanted, actual: outcome.files[0].text)}")
+	end 'differs'
+	return TestResult.passed()
+end 'runFixTest'

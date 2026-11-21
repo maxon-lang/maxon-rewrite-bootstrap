@@ -412,7 +412,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
@@ -423,7 +423,7 @@ function main() returns ExitCode
 		2 then result = double(20)
 		default then result = 0
 	end 'process'
-	return result as ExitCode
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -688,7 +688,7 @@ type State
 	end 'make'
 end 'State'
 
-function scan(op Op, state State)
+function scan(op Op, mutates state State)
 	match op 'm'
 		noop then break
 		mark then state.flag = true
@@ -697,7 +697,7 @@ function scan(op Op, state State)
 end 'scan'
 
 function main() returns ExitCode
-	let s = State.make()
+	var s = State.make()
 	scan(Op.mark, state: s)
 	return 1 if s.flag else 0
 end 'main'
@@ -773,21 +773,21 @@ union Op
 end 'Op'
 
 function firstByte(b ByteArray) returns Idx
-	return (try b.get(0) otherwise 0) as Idx
+	return try (try b.get(0) otherwise 0) as Idx otherwise panic("out of range")
 end 'firstByte'
 
 function nameOf(op Op) returns Idx
 	let n = match op 'pick'
-		alloc(name) gives name
+		alloc(name) gives name.clone()
 		default panic("none")
 	end 'pick'
 	return firstByte(n)
 end 'nameOf'
 
 function main() returns ExitCode
-	let b = ByteArray.create(0)
+	var b = ByteArray.create(0)
 	b.push(65)
-	return nameOf(Op.alloc(b))
+	return nameOf(Op.alloc(b)) as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -221,7 +221,7 @@ function getFirst(arr ItemArray) returns Item
 end 'getFirst'
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(99))
 	let result = getFirst(arr)
 	print("{result.value}\n")
@@ -293,7 +293,7 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -333,12 +333,12 @@ type Wrapper
 	export var data as Data
 
 	static function create(data Data) returns Self
-		return Self{data: data}
+		return Self{data: data.clone()}
 	end 'create'
 end 'Wrapper'
 
 function extractData(w Wrapper) returns Data
-	return w.data
+	return w.data.clone()
 end 'extractData'
 
 function main() returns ExitCode
@@ -372,7 +372,7 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	let arr = NodeArray.create(0)
+	var arr = NodeArray.create(0)
 	var count = 0 as Count
 	if true 'scope'
 		let n = Node.create(10)
@@ -489,7 +489,7 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(100))
 	try arr.set(0, value: Item.create(200)) otherwise panic("test invariant: set OOB")
 	let elem = try arr.get(0) otherwise Item.create(-1)
@@ -520,11 +520,11 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function fillArray() returns Integer
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(1))
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
-	return arr.count()
+	return try arr.count() as Integer otherwise panic("out of range")
 end 'fillArray'
 
 function main() returns ExitCode
@@ -557,7 +557,7 @@ type Outer
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Outer'
 
@@ -591,18 +591,18 @@ end 'Data'
 type Container
 	export var data as Data
 
-	function setData(newData Data)
-		data = newData
+	function setData(mutates self, newData Data)
+		data = newData.clone()
 	end 'setData'
 
 	static function create(data Data) returns Self
-		return Self{data: data}
+		return Self{data: data.clone()}
 	end 'create'
 end 'Container'
 
 function main() returns ExitCode
 	let old = Data.create(10)
-	let c = Container.create(old)
+	var c = Container.create(old)
 	c.setData(Data.create(20))
 	print("{c.data.value}\n")
 	return 0
@@ -730,7 +730,7 @@ function pushLocal(mutates kept ItemArray)
 end 'pushLocal'
 
 function main() returns ExitCode
-	let globalArr = ItemArray.create(0)
+	var globalArr = ItemArray.create(0)
 	pushLocal(globalArr)
 	let elem = try globalArr.get(0) otherwise Item.create(-1)
 	print("{elem.value}\n")
@@ -1021,10 +1021,10 @@ function main() returns ExitCode
 	while i < 5 'loop'
 		let c = Counter.create(i)
 		if i == 3 'brk'
-			total = total + c.val
+			total = try total + c.val otherwise panic("out of range")
 			break
 		end 'brk'
-		total = total + c.val
+		total = try total + c.val otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	print("{total}\n")
@@ -1060,7 +1060,7 @@ function main() returns ExitCode
 		if item.value == 2 'skip'
 			continue
 		end 'skip'
-		total = total + item.value
+		total = try total + item.value otherwise panic("out of range")
 	end 'loop'
 	// 0+1+3+4 = 8
 	print("{total}\n")
@@ -1158,7 +1158,7 @@ type Outer
 	export var child as Inner
 
 	static function create(child Inner) returns Self
-		return Self{child: child}
+		return Self{child: child.clone()}
 	end 'create'
 end 'Outer'
 
@@ -1194,19 +1194,19 @@ type Table
 	export var rows as RowArray
 
 	static function create(rows RowArray) returns Self
-		return Self{rows: rows}
+		return Self{rows: rows.clone()}
 	end 'create'
 end 'Table'
 
 typealias TableArray = Array with Table
 
 function main() returns ExitCode
-	let tables = TableArray.create(0)
-	let rows1 = RowArray.create(0)
+	var tables = TableArray.create(0)
+	var rows1 = RowArray.create(0)
 	rows1.push(Row.create(1))
 	rows1.push(Row.create(2))
 	tables.push(Table.create(rows1))
-	let rows2 = RowArray.create(0)
+	var rows2 = RowArray.create(0)
 	rows2.push(Row.create(3))
 	tables.push(Table.create(rows2))
 	print("{tables.count()}\n")

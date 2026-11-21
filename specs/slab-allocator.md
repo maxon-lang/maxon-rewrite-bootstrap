@@ -343,7 +343,7 @@ function countNonZero() returns Integer
 			seen = seen + 1
 		end 'nonZero'
 	end 'scan'
-	return seen
+	return seen as Integer
 end 'countNonZero'
 
 function main() returns ExitCode
@@ -560,7 +560,7 @@ function sweep() returns Integer
 			end 'value'
 		end 'bytes'
 	end 'check'
-	return bad
+	return bad as Integer
 end 'sweep'
 
 function main() returns ExitCode

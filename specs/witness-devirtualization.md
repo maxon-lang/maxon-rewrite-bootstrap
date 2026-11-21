@@ -49,7 +49,7 @@ type Square implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return self.side * self.side
+		return try self.side * self.side otherwise panic("out of range")
 	end 'area'
 end 'Square'
 
@@ -62,19 +62,19 @@ type Triangle implements Shape
 	end 'create'
 
 	function area() returns Integer
-		return (self.base * self.height) shr 1
+		return try (self.base * self.height) shr 1 otherwise panic("out of range")
 	end 'area'
 end 'Triangle'
 
 type Box uses T where T implements Shape
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
 	function doubled() returns Integer
-		return self.item.area() * 2
+		return try self.item.area() * 2 otherwise panic("out of range")
 	end 'doubled'
 end 'Box'
 
@@ -87,8 +87,8 @@ function main() returns ExitCode
 	let secondSquare = SquareBox.create(Square.create(4))
 	let firstTriangle = TriangleBox.create(Triangle.create(6, height: 5))
 	let secondTriangle = TriangleBox.create(Triangle.create(2, height: 7))
-	let total = firstSquare.doubled() + secondSquare.doubled() + firstTriangle.doubled() + secondTriangle.doubled()
-	return total as ExitCode
+	let total = try firstSquare.doubled() + secondSquare.doubled() + firstTriangle.doubled() + secondTriangle.doubled() otherwise panic("out of range")
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -141,7 +141,7 @@ end 'Odd'
 type Guard uses T where T implements Verifier
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -179,18 +179,18 @@ typealias Tally = int(0 to 1000000)
 type Slot uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	static function choose(item T, fallback T, useItem bool) returns Self
+	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
 		if useItem 'chosen'
 			return Self{item: item}
 		end 'chosen'
 		return Self{item: fallback}
 	end 'choose'
 
-	function replace(next T)
+	function replace(mutates self, consumes next T)
 		self.item = next
 	end 'replace'
 
@@ -202,10 +202,10 @@ end 'Slot'
 typealias TallySlot = Slot with Tally
 
 function intRound(seed Tally) returns Tally
-	let slot = TallySlot.create(seed)
-	slot.replace(seed + 1)
-	let other = TallySlot.choose(seed, fallback: seed + 5, useItem: seed > 1)
-	return slot.peek() + other.peek()
+	var slot = TallySlot.create(seed)
+	slot.replace(try seed + 1 otherwise panic("out of range"))
+	let other = TallySlot.choose(seed, fallback: try seed + 5 otherwise panic("out of range"), useItem: seed > 1)
+	return try slot.peek() + other.peek() otherwise panic("out of range")
 end 'intRound'
 
 function main() returns ExitCode
@@ -234,18 +234,18 @@ typealias Tally = int(0 to 1000000)
 type Slot uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	static function choose(item T, fallback T, useItem bool) returns Self
+	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
 		if useItem 'chosen'
 			return Self{item: item}
 		end 'chosen'
 		return Self{item: fallback}
 	end 'choose'
 
-	function replace(next T)
+	function replace(mutates self, consumes next T)
 		self.item = next
 	end 'replace'
 
@@ -257,10 +257,10 @@ end 'Slot'
 typealias TextSlot = Slot with String
 
 function textRound(seed Tally) returns Tally
-	let slot = TextSlot.create("first {seed}")
+	var slot = TextSlot.create("first {seed}")
 	slot.replace("second {seed}")
 	let other = TextSlot.choose("c {seed}", fallback: "dd {seed}", useItem: seed > 3)
-	return (slot.peek().byteLength() + other.peek().byteLength()) as Tally
+	return try (slot.peek().byteLength() + other.peek().byteLength()) as Tally otherwise panic("out of range")
 end 'textRound'
 
 function main() returns ExitCode
@@ -289,25 +289,25 @@ type Label
 	export var weight as Tally
 
 	static function create(text String, weight Tally) returns Self
-		return Self{text: text, weight: weight}
+		return Self{text: text.clone(), weight: weight}
 	end 'create'
 end 'Label'
 
 type Slot uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
-	static function choose(item T, fallback T, useItem bool) returns Self
+	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
 		if useItem 'chosen'
 			return Self{item: item}
 		end 'chosen'
 		return Self{item: fallback}
 	end 'choose'
 
-	function replace(next T)
+	function replace(mutates self, consumes next T)
 		self.item = next
 	end 'replace'
 
@@ -319,10 +319,10 @@ end 'Slot'
 typealias LabelSlot = Slot with Label
 
 function labelRound(seed Tally) returns Tally
-	let slot = LabelSlot.create(Label.create("a {seed}", weight: seed))
-	slot.replace(Label.create("bb {seed}", weight: seed + 1))
+	var slot = LabelSlot.create(Label.create("a {seed}", weight: seed))
+	slot.replace(Label.create("bb {seed}", weight: try seed + 1 otherwise panic("out of range")))
 	let other = LabelSlot.choose(Label.create("c {seed}", weight: 7), fallback: Label.create("dd {seed}", weight: 9), useItem: seed > 5)
-	return slot.peek().weight + other.peek().weight
+	return try slot.peek().weight + other.peek().weight otherwise panic("out of range")
 end 'labelRound'
 
 function main() returns ExitCode

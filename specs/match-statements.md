@@ -577,7 +577,7 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function double(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
@@ -588,7 +588,7 @@ function main() returns ExitCode
 		2 then result = double(20)
 		default then result = 0
 	end 'process'
-	return result as ExitCode
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1000,7 +1000,7 @@ typealias Tally = int(0 to 100)
 typealias Score = int(0 to 100)
 
 function main() returns ExitCode
-	return dispatch(1)
+	return dispatch(1) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1029,7 +1029,7 @@ function dispatch(kind Tally) returns Score
 end 'dispatch'
 
 function main() returns ExitCode
-	return dispatch(1)
+	return dispatch(1) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1673,7 +1673,7 @@ function main() returns ExitCode
 	while i < 5 'loop'
 		match i 'check'
 			3 then break 'loop'
-			default then result = result + 1
+			default then result = try result + 1 otherwise panic("out of range")
 		end 'check'
 		i = i + 1
 	end 'loop'
@@ -1692,9 +1692,9 @@ function main() returns ExitCode
 	while i < 3 'loop'
 		match i 'check'
 			1 then break
-			default then result = result + 10
+			default then result = try result + 10 otherwise panic("out of range")
 		end 'check'
-		result = result + 1
+		result = try result + 1 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	return result
@@ -1719,12 +1719,12 @@ function main() returns ExitCode
 		let s = "abc"
 		match i 'check'
 			1 then break
-			default then total = total + s.byteLength()
+			default then total = try total + s.byteLength() otherwise panic("out of range")
 		end 'check'
-		total = total + 1
+		total = try total + 1 otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1783,7 +1783,7 @@ function pick(k Count) returns Count
 end 'pick'
 
 function main() returns ExitCode
-	return pick(1) + pick(2) + pick(5) - 16
+	return try pick(1) + pick(2) + pick(5) - 16 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1825,11 +1825,11 @@ function main() returns ExitCode
 		while j < 3 'inner'
 			match j 'check'
 				1 then break 'outer'
-				default then r = r + 1
+				default then r = try r + 1 otherwise panic("out of range")
 			end 'check'
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
 	return r
 end 'main'
@@ -2155,7 +2155,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.assertUsable()
 	h.slot = Slot.filled(7)
 	h.assertUsable()

@@ -1479,7 +1479,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two(text String, k Tally) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two'
 
 function main() returns ExitCode
@@ -2652,7 +2652,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -2712,7 +2712,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function two2(k Tally, text String) returns Tally
-	return (text.byteLength() as Tally) + k
+	return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 end 'two2'
 
 function main() returns ExitCode
@@ -3158,12 +3158,12 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
 	var label = "original"
-	let items = TallyArray.create(0)
+	var items = TallyArray.create(0)
 	items.push(sum(put(label), b: label.byteLength() as Tally))
 	items.push(label.byteLength() as Tally)
 	print("ok\n")
@@ -3192,11 +3192,11 @@ type Holder
 	end 'create'
 
 	function mix(text String, k Tally) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix'
 
 	function mix2(k Tally, text String) returns Tally
-		return (text.byteLength() as Tally) + k
+		return try (text.byteLength() as Tally) + k otherwise panic("out of range")
 	end 'mix2'
 end 'Holder'
 
@@ -3206,7 +3206,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.g = "x" if put(h.g) > 0 else "y"
 	print("ok\n")
 	return 0
@@ -3592,7 +3592,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode
@@ -3634,7 +3634,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3643,8 +3643,8 @@ function put(mutates text String) returns Tally
 	return 1
 end 'put'
 
-function run(h Holder) returns ExitCode
-	let h2 = h
+function run(mutates h Holder) returns ExitCode
+	let h2 = h.clone()
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
 	return 0
@@ -3708,7 +3708,7 @@ type PB
 	export var second as String
 
 	static function build(first Tally, second String) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first, second: second.clone()}
 	end 'build'
 end 'PB'
 
@@ -3717,8 +3717,8 @@ function put(mutates text String) returns Tally
 	return 1
 end 'put'
 
-function run(h Holder) returns ExitCode
-	let h2 = h
+function run(mutates h Holder) returns ExitCode
+	let h2 = h.clone()
 	let p = PB.build(put(h.f), second: h2.g)
 	print("{p.second} {h.f}\n")
 	return 0
@@ -3755,7 +3755,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3765,8 +3765,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	var i = 0 as Tally
 	while i < 2 'loop'
 		let p = PA.build(h2.f, second: put(h.f))
@@ -3809,7 +3809,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3952,7 +3952,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -3962,8 +3962,8 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	h = h2
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
@@ -4001,7 +4001,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4011,9 +4011,9 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
-	let h3 = start
+	var h = start.clone()
+	let h2 = start.clone()
+	let h3 = start.clone()
 	h = h3
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
@@ -4101,7 +4101,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4111,12 +4111,12 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function same(holder Holder) returns Holder
-	return holder
+	return holder.clone()
 end 'same'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	h = same(h2)
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
@@ -4154,7 +4154,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4164,12 +4164,12 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function same(holder Holder) returns Holder
-	return holder
+	return holder.clone()
 end 'same'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
+	var h = start.clone()
+	let h2 = start.clone()
 	h = same(h)
 	let p = PA.build(h2.f, second: put(h.f))
 	print("{p.first} {h.f}\n")
@@ -4306,7 +4306,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4316,9 +4316,9 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let h2 = start
-	let o = h
+	var h = start.clone()
+	let h2 = start.clone()
+	var o = h
 	h = Holder.create()
 	let p = PA.build(h2.f, second: put(o.f))
 	print("{p.first} {o.f} {h.f}\n")
@@ -4394,7 +4394,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4404,9 +4404,9 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Holder) returns ExitCode
-	var h = start
-	let o = h
-	let h3 = start
+	var h = start.clone()
+	var o = h
+	let h3 = start.clone()
 	h = Holder.create()
 	let p = PA.build(h3.f, second: put(o.f))
 	print("{p.first} {o.f} {h.f}\n")
@@ -4452,7 +4452,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4462,9 +4462,9 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function run(start Wrapper) returns ExitCode
-	var w = start
-	let w2 = start
-	let o = w
+	var w = start.clone()
+	let w2 = start.clone()
+	var o = w
 	w = Wrapper.create()
 	let p = PA.build(w2.inner.f, second: put(o.inner.f))
 	print("{p.first} {o.inner.f} {w.inner.f}\n")
@@ -4493,7 +4493,7 @@ type Holder
 	export var g as String
 
 	static function create() returns Self
-		let built = Self{f: "x", g: "y"}
+		var built = Self{f: "x", g: "y"}
 		built.f = "a"
 		built.g = "b"
 		return built
@@ -4505,7 +4505,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4550,7 +4550,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4596,7 +4596,7 @@ type PA
 	export var second as Tally
 
 	static function build(first String, second Tally) returns Self
-		return Self{first: first, second: second}
+		return Self{first: first.clone(), second: second}
 	end 'build'
 end 'PA'
 
@@ -4829,7 +4829,7 @@ union Slot
 end 'Slot'
 
 function bump(mutates n Tally) returns Tally
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 	return n
 end 'bump'
 
@@ -5534,7 +5534,7 @@ type Meter
 	end 'create'
 
 	function add(text String) returns Tally
-		return self.n + (text.byteLength() as Tally)
+		return try self.n + (text.byteLength() as Tally) otherwise panic("out of range")
 	end 'add'
 end 'Meter'
 
@@ -5653,7 +5653,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function combine(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'combine'
 
 function main() returns ExitCode
@@ -5756,7 +5756,7 @@ type Gauge
 	end 'create'
 
 	function bump(mutates by Tally)
-		by = by + self.n
+		by = try by + self.n otherwise panic("out of range")
 	end 'bump'
 end 'Gauge'
 
@@ -5767,13 +5767,13 @@ type Holder
 		return Self{level: 4}
 	end 'create'
 
-	function run(gauge Gauge)
+	function run(mutates self, gauge Gauge)
 		gauge.bump(level)
 	end 'run'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.run(Gauge.create())
 	print("{h.level}\n")
 	return 0
@@ -5937,7 +5937,7 @@ function fill(mutates a StringArray, b StringArray)
 end 'fill'
 
 function main() returns ExitCode
-	let x = StringArray.create(0)
+	var x = StringArray.create(0)
 	fill(x, b: x)
 	print("{x.count()}\n")
 	return 0
@@ -6047,13 +6047,13 @@ type Holder
 	end 'create'
 
 	function settle(mutates m Coord) returns Coord
-		m = m + 1
+		m = try m + 1 otherwise panic("out of range")
 		return self.n
 	end 'settle'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(5)
+	var h = Holder.create(5)
 	let copy = h.clone()
 	print("{copy.settle(h.n)} {h.n}\n")
 	return 0
@@ -6082,12 +6082,12 @@ type Holder
 end 'Holder'
 
 function bump(mutates n Coord, text String) returns Coord
-	n = n + 1
-	return (text.byteLength() as Coord) + n
+	n = try n + 1 otherwise panic("out of range")
+	return try (text.byteLength() as Coord) + n otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	let copy = h.a.clone()
 	let k = bump(h.n, text: copy)
 	print("{k}\n")
@@ -6202,7 +6202,7 @@ function swap(mutates x Coord, mutates y Coord)
 end 'swap'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	var a = h.a
 	swap(a, y: h.b)
 	h.a = a
@@ -6382,7 +6382,7 @@ A `mutable` position lends its cell only if the callee writes the parameter. `lo
 typealias Tally = int(0 to u64.max)
 
 function look(mutates a String, b String) returns Tally
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'look'
 
 function main() returns ExitCode
@@ -6457,7 +6457,7 @@ function inner(mutates x String) returns Tally
 end 'inner'
 
 function outer(mutates a String, b String) returns Tally
-	return inner(a) + (b.byteLength() as Tally)
+	return try inner(a) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
@@ -6520,7 +6520,7 @@ function pong(mutates a String, b String, again bool) returns Tally
 	if again 'forward'
 		return ping(a, b: b, again: false)
 	end 'forward'
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'pong'
 
 function main() returns ExitCode
@@ -6546,7 +6546,7 @@ function pong(mutates a String, b String, again bool) returns Tally
 	if again 'forward'
 		return ping(a, b: b, again: false)
 	end 'forward'
-	return (a.byteLength() as Tally) + (b.byteLength() as Tally)
+	return try (a.byteLength() as Tally) + (b.byteLength() as Tally) otherwise panic("out of range")
 end 'pong'
 
 function ping(mutates a String, b String, again bool) returns Tally
@@ -7223,7 +7223,7 @@ type Token is noncopyable
 end 'Token'
 
 function bump(mutates token Token, seen Tally) returns Tally
-	token.n = token.n + seen
+	token.n = try token.n + seen otherwise panic("out of range")
 	return seen
 end 'bump'
 
@@ -7460,7 +7460,7 @@ Neither call writes its cell, so the nested hand-overs lend nothing and the stat
 typealias Tally = int(0 to u64.max)
 
 function f(mutates a String, k Tally) returns Tally
-	return (a.byteLength() as Tally) + k
+	return try (a.byteLength() as Tally) + k otherwise panic("out of range")
 end 'f'
 
 function g(mutates x String) returns Tally
@@ -7658,7 +7658,7 @@ type Token is noncopyable
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Token'
 
@@ -7695,7 +7695,7 @@ type Gauge
 	end 'create'
 
 	function look(mutates by Tally, other Tally) returns Tally
-		return by + other + self.n
+		return try by + other + self.n otherwise panic("out of range")
 	end 'look'
 end 'Gauge'
 

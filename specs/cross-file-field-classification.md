@@ -68,13 +68,13 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Gate.make(v + v)
+		return Gate.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -95,12 +95,12 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Gate.make(v + v)
+		return Gate.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -146,14 +146,14 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Gate.make(v + v)
+		return Gate.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
 	let g = Gate.twice(21)
-	return g.n
+	return g.n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -177,7 +177,7 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Gate.make(v + v)
+		return Gate.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
@@ -193,7 +193,7 @@ public function pad(a P1, _ P2, _ P3) returns P1
 end 'pad'
 
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -268,7 +268,7 @@ answer is the same one the headline gives.
 typealias Num = int(0 to 1000)
 
 function double(v Num) returns Num
-	return v + v
+	return try v + v otherwise panic("out of range")
 end 'double'
 
 // --- file: gate.maxon
@@ -282,7 +282,7 @@ end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -393,14 +393,14 @@ type Box
 	var name as String
 
 	static function make(n String) returns Box
-		return Box{name: n}
+		return Box{name: n.clone()}
 	end 'make'
 end 'Box'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let s = Box.make("hello").name
-	return s.byteLength()
+	let s = Box.make("hello").name.clone()
+	return try s.byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -431,14 +431,14 @@ type Outer
 	var inner as Inner
 
 	static function make(i Inner) returns Outer
-		return Outer{inner: i}
+		return Outer{inner: i.clone()}
 	end 'make'
 end 'Outer'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let i = Outer.make(Inner.make(3)).inner
-	return i.get()
+	let i = Outer.make(Inner.make(3)).inner.clone()
+	return try i.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -491,10 +491,10 @@ public function pad(a P1, _ P2, _ P3, _ P4) returns P1
 end 'pad'
 
 function main() returns ExitCode
-	let s = Holder.make().shape
+	let s = Holder.make().shape.clone()
 	match s 'check'
 		empty then return 0
-		solid(b) then return b.mass
+		solid(b) then return try b.mass as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```
@@ -515,7 +515,7 @@ type Bag
 	var items as IntArray
 
 	static function make() returns Bag
-		let xs = IntArray.create(0)
+		var xs = IntArray.create(0)
 		xs.push(1)
 		return Bag{items: xs}
 	end 'make'
@@ -523,8 +523,8 @@ end 'Bag'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let xs = Bag.make().items
-	return try xs.get(0) otherwise 0
+	let xs = Bag.make().items.clone()
+	return try (try xs.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -549,7 +549,7 @@ type Bag
 	var items as IntArray
 
 	static function make() returns Bag
-		let xs = IntArray.create(0)
+		var xs = IntArray.create(0)
 		xs.push(seed())
 		return Bag{items: xs}
 	end 'make'
@@ -557,8 +557,8 @@ end 'Bag'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	let xs = Bag.make().items
-	return try xs.get(0) otherwise 0
+	let xs = Bag.make().items.clone()
+	return try (try xs.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -596,7 +596,7 @@ end 'Bag'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Bag.make().n
+	return Bag.make().n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -629,7 +629,7 @@ end 'Bag'
 // --- file: main.maxon
 function main() returns ExitCode
 	let b = Bag.make()
-	return b.n
+	return b.n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -661,7 +661,7 @@ typealias Integer = int(i64.min to i64.max)
 // --- file: main.maxon
 function main() returns ExitCode
 	let b = Bag.make()
-	return b.n
+	return try b.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -679,7 +679,7 @@ and the generic type in the other.
 type Holder uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Holder'
@@ -690,7 +690,7 @@ typealias Integer = int(0 to u32.max)
 typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
-	return IntHolder.create(7).item
+	return IntHolder.create(7).item as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -706,7 +706,7 @@ on the interning order: its answer is the same at 0–7 padding aliases in the r
 type Holder uses T
 	var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Holder'
@@ -715,7 +715,7 @@ end 'Holder'
 typealias StrHolder = Holder with String
 
 function main() returns ExitCode
-	let s = StrHolder.create("hello").item
+	let s = StrHolder.create("hello").item.clone()
 	print(s)
 	return 0
 end 'main'

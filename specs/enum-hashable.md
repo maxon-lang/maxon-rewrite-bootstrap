@@ -74,7 +74,7 @@ end 'HttpStatus'
 typealias StatusMap = Map with (HttpStatus, String)
 
 function main() returns ExitCode
-	let m = StatusMap.create()
+	var m = StatusMap.create()
 	try m.insert(HttpStatus.ok, value: "OK") otherwise ignore
 	try m.insert(HttpStatus.notFound, value: "Not Found") otherwise ignore
 	if m.contains(HttpStatus.notFound) 'check'
@@ -227,7 +227,7 @@ typealias Int = int(i64.min to i64.max)
 typealias ColorMap = Map with (Color, Int)
 
 function main() returns ExitCode
-	let m = ColorMap.create()
+	var m = ColorMap.create()
 	try m.insert(Color.red, value: 10) otherwise ignore
 	try m.insert(Color.green, value: 20) otherwise ignore
 	_ = m.remove(Color.red)

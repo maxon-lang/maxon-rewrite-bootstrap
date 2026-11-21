@@ -26,9 +26,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -59,7 +59,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength()
+	return s.byteLength() as Integer
 end 'grow'
 
 function main() returns ExitCode
@@ -80,14 +80,14 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function grow(p IntArray) returns Integer
-	let a = p
+	var a = p.clone()
 	a.push(9)
-	return a.count()
+	return try a.count() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
 	let v = IntArray.create(0)
-	return grow(v) as ExitCode
+	return try grow(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -207,9 +207,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(1)
+	var arr = IntArray.create(1)
 	try arr.set(0, value: 99) otherwise panic("test invariant: set OOB")
-	return try arr.get(0) otherwise -1
+	return try (try arr.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -228,7 +228,7 @@ typealias IntArray = Array with Integer
 function main() returns ExitCode
 	let arr = IntArray.create(0)
 	let n = arr.count()
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -245,10 +245,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
 	let x = try arr.get(0) otherwise 0
-	return x
+	return try x as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -274,14 +274,14 @@ type Bag
 	end 'create'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -305,19 +305,19 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -342,7 +342,7 @@ type Buf
 	end 'grow'
 
 	function size() returns Integer
-		return s.byteLength()
+		return s.byteLength() as Integer
 	end 'size'
 end 'Buf'
 
@@ -371,19 +371,19 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -438,9 +438,9 @@ type Facts
 end 'Facts'
 
 function main() returns ExitCode
-	let facts = Facts.create()
+	var facts = Facts.create()
 	facts.counts.push(1)
-	return facts.counts.count() as ExitCode
+	return try facts.counts.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -464,9 +464,9 @@ type Facts
 end 'Facts'
 
 function main() returns ExitCode
-	let facts = Facts.create()
+	var facts = Facts.create()
 	facts.counts.push(1)
-	return facts.counts.count() as ExitCode
+	return try facts.counts.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -485,13 +485,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function pass(s IntArray) returns IntArray
-	return s
+	return s.clone()
 end 'pass'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	pass(a).push(9)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -228,13 +228,13 @@ end 'Counter'
 typealias Plain = Array with Counter
 
 function main() returns ExitCode
-	let items = Plain.create(0)
+	var items = Plain.create(0)
 	items.push(Counter.create(4))
 	let frozen = items
-	let c = try frozen.get(0) otherwise return 2
+	var c = try frozen.get(0) otherwise return 2
 	c.n = 99
 	let first = try frozen.get(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

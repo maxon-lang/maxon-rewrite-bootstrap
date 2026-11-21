@@ -213,7 +213,7 @@ function main() returns ExitCode
 	let c = make()
 	match c 'k'
 		empty then return 0
-		value(n) then return n
+		value(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'k'
 end 'main'
 ```
@@ -394,7 +394,7 @@ function readA(e BoxA) returns Integer
 end 'readA'
 
 function main() returns ExitCode
-	return readA(BoxA.num(42)) as ExitCode
+	return try readA(BoxA.num(42)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -90,7 +90,7 @@ type Named
 
 	static function create(f String, flag Integer) returns Named
 		if flag > 0 'g'
-			return Self{name: f}
+			return Self{name: f.clone()}
 		end 'g'
 		return Self{name: "fallback name padded long enough to heap allocate"}
 	end 'create'
@@ -556,7 +556,7 @@ type Holder
 	export var text as String
 
 	static function create(text String) returns Holder
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Holder'
 
@@ -895,7 +895,7 @@ function main() returns ExitCode
 		var j = 0 as Integer
 		while j < 2 'inner'
 			j = j + 1
-			s = build(100 * i + j)
+			s = build(try 100 * i + j otherwise panic("out of range"))
 		end 'inner'
 		s = build(i)
 		let u = s

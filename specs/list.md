@@ -655,7 +655,7 @@ end 'main'
 typealias StringList = List with String
 
 function testRemove()
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello world!!!!!!!!!!!!!!")
 	list.append("goodbye world!!!!!!!!!!!!!")
 	let removed = try list.removeFirst() otherwise "none"
@@ -681,7 +681,7 @@ hello world!!!!!!!!!!!!!!
 typealias StringList = List with String
 
 function testRemove() returns String
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello world!!!!!!!!!!!!!!")
 	list.append("goodbye world!!!!!!!!!!!!!")
 	return try list.removeFirst() otherwise "none"

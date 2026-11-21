@@ -208,8 +208,8 @@ type Walker
 		return Self{target: Target.none}
 	end 'create'
 
-	function aim(next Target)
-		self.target = next
+	function aim(mutates self, next Target)
+		self.target = next.clone()
 	end 'aim'
 
 	function aimed() returns bool
@@ -225,7 +225,7 @@ function fallback() returns Target
 end 'fallback'
 
 function main() returns ExitCode
-	let walker = Walker.create()
+	var walker = Walker.create()
 	walker.aim(NoTarget)
 	walker.aim(fallback())
 	let chosen = Target.named("x") if walker.aimed() else NoTarget
@@ -342,9 +342,9 @@ end 'Route'
 
 function main() returns ExitCode
 	let route = Route.create()
-	let steps = StepArray.create(0)
+	var steps = StepArray.create(0)
 	steps.push(route.first)
-	return steps.count() as ExitCode
+	return try steps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -374,9 +374,9 @@ end 'Route'
 
 function main() returns ExitCode
 	let route = Route.create()
-	let steps = StepArray.create(0)
+	var steps = StepArray.create(0)
 	steps.push(route.first)
-	return steps.count() as ExitCode
+	return try steps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

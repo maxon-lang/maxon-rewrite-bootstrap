@@ -204,7 +204,7 @@ function checkFor(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
 	pushScope(c)
 	let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
-	let local = declareLocal(c, p: p, name: name, t: varType, isVar: false, off: offsetOf(c, p: p, node: s), errs: errs)
+	let local = declareLocal(c, p: p, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
 	if local != ast.noLocal 'declared'
 		c.typing.nodeLocals.insert(s as Count, value: local)
 		checkStmts(c, p: p, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
@@ -274,7 +274,7 @@ function checkLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutate
 end 'checkLet'
 
 function bindLet(mutates c Checker, mutates p ast.Project, s ast.NodeID, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList)
-	let local = declareLocal(c, p: p, name: name, t: t, isVar: isVar, off: off, errs: errs)
+	let local = declareLocal(c, p: p, name: name, t: t, isVar: isVar, definedAt: s, off: off, errs: errs)
 	if local != ast.noLocal 'declared'
 		c.typing.nodeLocals.insert(s as Count, value: local)
 	end 'declared'
@@ -316,7 +316,7 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if value == ast.noType 'badValue'
 		return
 	end 'badValue'
-	_ = coerce(c, p: p, off: offsetOf(c, p: p, node: valueNode), src: value, target: target, wrong: wrong, errs: errs)
+	_ = coerce(c, p: p, node: valueNode, src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
 
 function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
@@ -349,7 +349,7 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	if t == ast.noType 'badValue'
 		return
 	end 'badValue'
-	_ = coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
+	_ = coerce(c, p: p, node: value, src: t, target: ret, wrong: Mismatch.returned, errs: errs)
 end 'checkReturn'
 
 // checkThrow types a throw, which fails with a case of an error enum.
@@ -462,7 +462,7 @@ function checkHandlerBinding(mutates c Checker, mutates p ast.Project, s ast.Nod
 	if handled == ast.noType 'ambiguous'
 		return
 	end 'ambiguous'
-	let local = declareLocal(c, p: p, name: binding, t: handled, isVar: false, off: offsetOf(c, p: p, node: s), errs: errs)
+	let local = declareLocal(c, p: p, name: binding, t: handled, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
 	if local == ast.noLocal 'failed'
 		return
 	end 'failed'

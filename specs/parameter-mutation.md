@@ -61,14 +61,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(dest IntArray)
+function grow(mutates dest IntArray)
 	dest.push(9)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	grow(a)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -83,14 +83,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(dest IntArray)
+function grow(mutates dest IntArray)
 	dest.push(9)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	grow(a)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -106,12 +106,12 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function total(d IntArray) returns Integer
-	return d.count()
+	return try d.count() as Integer otherwise panic("out of range")
 end 'total'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	return total(a) as ExitCode
+	return try total(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -127,18 +127,18 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function inner(d IntArray)
+function inner(mutates d IntArray)
 	d.push(7)
 end 'inner'
 
-function outer(d IntArray)
+function outer(mutates d IntArray)
 	inner(d)
 end 'outer'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	outer(a)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -160,14 +160,14 @@ type Box
 	end 'create'
 end 'Box'
 
-function bump(b Box)
+function bump(mutates b Box)
 	b.n = 99
 end 'bump'
 
 function main() returns ExitCode
-	let a = Box.create()
+	var a = Box.create()
 	bump(a)
-	return a.n as ExitCode
+	return try a.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -189,18 +189,18 @@ type Box
 	end 'create'
 end 'Box'
 
-function poke(b Box)
+function poke(mutates b Box)
 	b.n = 99
 end 'poke'
 
-function relay(b Box)
+function relay(mutates b Box)
 	poke(b)
 end 'relay'
 
 function main() returns ExitCode
-	let a = Box.create()
+	var a = Box.create()
 	relay(a)
-	return a.n as ExitCode
+	return try a.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -248,7 +248,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function rec(d IntArray, n Integer)
+function rec(mutates d IntArray, n Integer)
 	if n <= 0 'base'
 		d.push(5)
 		return
@@ -257,9 +257,9 @@ function rec(d IntArray, n Integer)
 end 'rec'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	rec(a, n: 3)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -274,7 +274,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function ping(d IntArray, n Integer)
+function ping(mutates d IntArray, n Integer)
 	if n <= 0 'base'
 		d.push(4)
 		return
@@ -282,14 +282,14 @@ function ping(d IntArray, n Integer)
 	pong(d, n: n - 1)
 end 'ping'
 
-function pong(d IntArray, n Integer)
+function pong(mutates d IntArray, n Integer)
 	ping(d, n: n)
 end 'pong'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	ping(a, n: 3)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -304,7 +304,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function ping(d IntArray, n Integer)
+function ping(mutates d IntArray, n Integer)
 	if n <= 0 'base'
 		d.push(4)
 		return
@@ -312,14 +312,14 @@ function ping(d IntArray, n Integer)
 	pong(d, n: n - 1)
 end 'ping'
 
-function pong(d IntArray, n Integer)
+function pong(mutates d IntArray, n Integer)
 	ping(d, n: n)
 end 'pong'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	ping(a, n: 3)
-	return try a.get(0) otherwise -1
+	return try (try a.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -335,14 +335,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(n Integer, dest IntArray)
+function grow(n Integer, mutates dest IntArray)
 	dest.push(n)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	grow(1, dest: a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -358,15 +358,15 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function copyInto(src IntArray, dest IntArray)
-	dest.push(src.count() as Integer)
+function copyInto(src IntArray, mutates dest IntArray)
+	dest.push(try src.count() as Integer otherwise panic("out of range"))
 end 'copyInto'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
-	let b = IntArray.create(0)
+	var b = IntArray.create(0)
 	copyInto(a, dest: b)
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -381,15 +381,15 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function copyInto(dest IntArray, src IntArray)
-	dest.push(src.count() as Integer)
+function copyInto(mutates dest IntArray, src IntArray)
+	dest.push(try src.count() as Integer otherwise panic("out of range"))
 end 'copyInto'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	let b = IntArray.create(0)
 	copyInto(a, src: b)
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -404,13 +404,13 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray) returns Integer
+function grow(mutates d IntArray) returns Integer
 	d.push(9)
-	return d.count()
+	return try d.count() as Integer otherwise panic("out of range")
 end 'grow'
 
 function main() returns ExitCode
-	return grow(IntArray.create(0)) as ExitCode
+	return try grow(IntArray.create(0)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -447,7 +447,7 @@ typealias Integer = int(i64.min to i64.max)
 
 function grow(mutates s String) returns Integer
 	s.append("XY")
-	return s.byteLength()
+	return s.byteLength() as Integer
 end 'grow'
 
 function main() returns ExitCode
@@ -518,17 +518,17 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
-function tick(c Counter)
+function tick(mutates c Counter)
 	c.bump()
 end 'tick'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	tick(c)
 	tick(c)
 	return c.n as ExitCode
@@ -551,17 +551,17 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
-function tick(c Counter)
+function tick(mutates c Counter)
 	c.bump()
 end 'tick'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	tick(c)
 	tick(c)
 	return c.n as ExitCode
@@ -585,8 +585,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
@@ -599,7 +599,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.inner.bump()
 	return h.inner.n as ExitCode
 end 'main'
@@ -621,8 +621,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
@@ -635,7 +635,7 @@ type Holder
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	h.inner.bump()
 	return h.inner.n as ExitCode
 end 'main'
@@ -658,8 +658,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
@@ -671,12 +671,12 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function nudge(t Holder)
+function nudge(mutates t Holder)
 	t.inner.bump()
 end 'nudge'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	nudge(h)
 	nudge(h)
 	return h.inner.n as ExitCode
@@ -699,8 +699,8 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
@@ -712,12 +712,12 @@ type Holder
 	end 'create'
 end 'Holder'
 
-function nudge(t Holder)
+function nudge(mutates t Holder)
 	t.inner.bump()
 end 'nudge'
 
 function main() returns ExitCode
-	let h = Holder.create()
+	var h = Holder.create()
 	nudge(h)
 	nudge(h)
 	return h.inner.n as ExitCode
@@ -758,13 +758,13 @@ position, so a global argument is not refused for being a global.
 typealias Integer = int(i64.min to i64.max)
 
 function size(s String) returns Integer
-	return s.byteLength()
+	return try s.byteLength() as Integer otherwise panic("out of range")
 end 'size'
 
 let GREETING = "hi"
 
 function main() returns ExitCode
-	return size(GREETING) as ExitCode
+	return try size(GREETING) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -779,19 +779,19 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(3)
 end 'grow'
 
 function caller(p IntArray) returns Integer
-	let a = p
+	var a = p.clone()
 	grow(a)
-	return a.count()
+	return try a.count() as Integer otherwise panic("out of range")
 end 'caller'
 
 function main() returns ExitCode
 	let v = IntArray.create(0)
-	return caller(v) as ExitCode
+	return try caller(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -806,19 +806,19 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(3)
 end 'grow'
 
 function caller(p IntArray) returns Integer
-	let a = p
+	var a = p.clone()
 	grow(a)
-	return a.count()
+	return try a.count() as Integer otherwise panic("out of range")
 end 'caller'
 
 function main() returns ExitCode
 	let v = IntArray.create(0)
-	return caller(v) as ExitCode
+	return try caller(v) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -834,18 +834,18 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function inner(d IntArray)
+function inner(mutates d IntArray)
 	d.push(7)
 end 'inner'
 
-function outer(d IntArray) returns Integer
+function outer(mutates d IntArray) returns Integer
 	inner(d)
-	return d.count()
+	return try d.count() as Integer otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
-	return outer(a) as ExitCode
+	var a = IntArray.create(0)
+	return try outer(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -866,15 +866,15 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.bump()
-	return c.n as ExitCode
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -892,15 +892,15 @@ type Counter
 		return Self{n: 0}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create()
+	var c = Counter.create()
 	c.bump()
-	return c.n as ExitCode
+	return try c.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -993,7 +993,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create()
-	return c.value() as ExitCode
+	return try c.value() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1016,19 +1016,19 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1048,19 +1048,19 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1524,7 +1524,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
@@ -1535,20 +1535,20 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add(v Integer)
+	function add(mutates self, v Integer)
 		items.push(v)
 		grow(items)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add(1)
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1565,7 +1565,7 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(d IntArray)
+function grow(mutates d IntArray)
 	d.push(9)
 end 'grow'
 
@@ -1576,19 +1576,19 @@ type Bag
 		return Self{items: IntArray.create(0)}
 	end 'create'
 
-	function add()
+	function add(mutates self)
 		grow(items)
 	end 'add'
 
 	function size() returns Integer
-		return items.count()
+		return try items.count() as Integer otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.add()
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1637,18 +1637,18 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function pass(s IntArray) returns IntArray
-	return s
+	return s.clone()
 end 'pass'
 
 function tag(p IntArray)
-	let x = pass(p)
+	var x = pass(p)
 	x.push(9)
 end 'tag'
 
 function main() returns ExitCode
 	let a = IntArray.create(0)
 	tag(a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1671,14 +1671,14 @@ type Blk
 end 'Blk'
 
 function retarget(block Blk, id Integer)
-	let target = block
+	var target = block.clone()
 	target.id = id
 end 'retarget'
 
 function main() returns ExitCode
 	let a = Blk.create(1)
 	retarget(a, id: 5)
-	return a.id as ExitCode
+	return try a.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1700,14 +1700,14 @@ type Blk
 end 'Blk'
 
 function retarget(block Blk, id Integer)
-	let target = block
+	var target = block.clone()
 	target.id = id
 end 'retarget'
 
 function main() returns ExitCode
 	let a = Blk.create(1)
 	retarget(a, id: 5)
-	return a.id as ExitCode
+	return try a.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1738,14 +1738,14 @@ type Outer
 end 'Outer'
 
 function retargetInner(outer Outer, id Integer)
-	let target = outer.inner
+	var target = outer.inner.clone()
 	target.id = id
 end 'retargetInner'
 
 function main() returns ExitCode
 	let o = Outer.create(2)
 	retargetInner(o, id: 6)
-	return o.inner.id as ExitCode
+	return try o.inner.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1775,14 +1775,14 @@ type Outer
 end 'Outer'
 
 function retargetInner(outer Outer, id Integer)
-	let target = outer.inner
+	var target = outer.inner.clone()
 	target.id = id
 end 'retargetInner'
 
 function main() returns ExitCode
 	let o = Outer.create(2)
 	retargetInner(o, id: 6)
-	return o.inner.id as ExitCode
+	return try o.inner.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1804,7 +1804,7 @@ type Blk
 end 'Blk'
 
 function retargetEither(first Blk, second Blk, which bool, id Integer)
-	let target = first if which else second
+	var target = first.clone() if which else second.clone()
 	target.id = id
 end 'retargetEither'
 
@@ -1812,7 +1812,7 @@ function main() returns ExitCode
 	let c = Blk.create(4)
 	let b = Blk.create(3)
 	retargetEither(c, second: b, which: false, id: 7)
-	return b.id as ExitCode
+	return try b.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1834,7 +1834,7 @@ type Blk
 end 'Blk'
 
 function retargetEither(first Blk, second Blk, which bool, id Integer)
-	let target = first if which else second
+	var target = first.clone() if which else second.clone()
 	target.id = id
 end 'retargetEither'
 
@@ -1842,7 +1842,7 @@ function main() returns ExitCode
 	let c = Blk.create(4)
 	let b = Blk.create(3)
 	retargetEither(c, second: b, which: false, id: 7)
-	return b.id as ExitCode
+	return try b.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1857,14 +1857,14 @@ typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function grow(dest IntArray)
+function grow(mutates dest IntArray)
 	dest.push(9)
 end 'grow'
 
 function main() returns ExitCode
-	let g = IntArray.create(0)
+	var g = IntArray.create(0)
 	grow((g))
-	return try g.get(0) otherwise -1
+	return try (try g.get(0) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

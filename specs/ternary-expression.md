@@ -296,10 +296,10 @@ function main() returns ExitCode
 	var i = 0 as FullRangeInt
 	while i < 3 'l'
 		let x = 5 if i > 0 else 9
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 		i = i + 1
 	end 'l'
-	return total
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -316,7 +316,7 @@ function main() returns ExitCode
 		let x = 5 if c else 9
 		total = total + x
 	end 'g'
-	return total
+	return total as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -349,7 +349,7 @@ function main() returns ExitCode
 	while i < (3 if lim else 1) 'l'
 		i = i + 1
 	end 'l'
-	return i
+	return try i as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -653,14 +653,14 @@ type Entry
 	export var kind as Kind
 
 	static function create(kind Kind) returns Self
-		return Self{kind: kind}
+		return Self{kind: kind.clone()}
 	end 'create'
 end 'Entry'
 
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -708,14 +708,14 @@ type Entry
 	export var kind as Kind
 
 	static function create(kind Kind) returns Self
-		return Self{kind: kind}
+		return Self{kind: kind.clone()}
 	end 'create'
 end 'Entry'
 
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -754,7 +754,7 @@ end 'Kind'
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -793,7 +793,7 @@ end 'Kind'
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -837,14 +837,14 @@ type Entry
 	export var kind as Kind
 
 	static function create(kind Kind) returns Self
-		return Self{kind: kind}
+		return Self{kind: kind.clone()}
 	end 'create'
 end 'Entry'
 
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -1035,14 +1035,14 @@ type Entry
 	export var kind as Kind
 
 	static function create(kind Kind) returns Self
-		return Self{kind: kind}
+		return Self{kind: kind.clone()}
 	end 'create'
 end 'Entry'
 
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
@@ -1055,7 +1055,7 @@ end 'record'
 
 function main() returns ExitCode
 	let e = Entry.create(Kind.value(3))
-	let out = KindArray.create(0)
+	var out = KindArray.create(0)
 	let identity = true
 	out.push(e.kind if identity else remapKind(e.kind))
 	print("{record(try out.get(0) otherwise Kind.none)}")
@@ -1099,13 +1099,13 @@ typealias Small = int(0 to 10)
 function clampOrGuard(useDefault bool, big Integer) returns Integer
 	// `big as Small` range-check-panics for big > 10; it sits in the arm that
 	// `useDefault` does NOT select, so it must never run.
-	return 5 if useDefault else (big as Small)
+	return (5 if useDefault else (try big as Small otherwise panic("out of range"))) as Integer
 end 'clampOrGuard'
 
 function main() returns ExitCode
 	let guarded = clampOrGuard(true, big: 1000) // the cast is in the arm NOT selected
 	let direct = clampOrGuard(false, big: 7)
-	return (guarded + direct) as ExitCode
+	return try (guarded + direct) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1116,7 +1116,7 @@ end 'main'
 ### The false arm is not evaluated when the condition is true
 ```maxon
 function track(result Integer, mutates count Integer) returns Integer
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return result
 end 'track'
 
@@ -1128,7 +1128,7 @@ function main() returns ExitCode
 	if x != 7 'v'
 		return 99
 	end 'v'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1139,7 +1139,7 @@ end 'main'
 ### The true arm is not evaluated when the condition is false
 ```maxon
 function track(result Integer, mutates count Integer) returns Integer
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return result
 end 'track'
 
@@ -1151,7 +1151,7 @@ function main() returns ExitCode
 	if x != 7 'v'
 		return 99
 	end 'v'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1163,7 +1163,7 @@ end 'main'
 The counterpart direction: elision must not become elimination.
 ```maxon
 function track(result Integer, mutates count Integer) returns Integer
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return result
 end 'track'
 
@@ -1175,7 +1175,7 @@ function main() returns ExitCode
 	if x != 4 'v'
 		return 99
 	end 'v'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1186,7 +1186,7 @@ end 'main'
 ### In a chain, every arm but the winner is skipped
 ```maxon
 function track(result Integer, mutates count Integer) returns Integer
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return result
 end 'track'
 
@@ -1199,7 +1199,7 @@ function main() returns ExitCode
 	if x != 2 'v'
 		return 99
 	end 'v'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1210,7 +1210,7 @@ end 'main'
 ### The condition itself is always evaluated, exactly once
 ```maxon
 function pick(mutates count FullRangeInt) returns bool
-	count = count + 1
+	count = try count + 1 otherwise panic("out of range")
 	return false
 end 'pick'
 
@@ -1220,7 +1220,7 @@ function main() returns ExitCode
 	if x != 2 'v'
 		return 99
 	end 'v'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1269,7 +1269,7 @@ type Counter
 	end 'create'
 
 	function bump() returns Integer
-		return self.n + 1
+		return try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 
 	function pick(threshold Integer) returns Integer
@@ -1280,7 +1280,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(5)
-	return c.pick(1)
+	return try c.pick(1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1302,7 +1302,7 @@ type Counter
 	end 'create'
 
 	function bump() returns Integer
-		return self.n + 1
+		return try self.n + 1 otherwise panic("out of range")
 	end 'bump'
 
 	function pick(threshold Integer) returns Integer
@@ -1313,7 +1313,7 @@ end 'Counter'
 
 function main() returns ExitCode
 	let c = Counter.create(5)
-	return c.pick(99)
+	return try c.pick(99) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1609,7 +1609,7 @@ function peekUT(x UT) returns Num
 	end 'x1'
 end 'peekUT'
 
-function idUT(x UT) returns UT
+function idUT(consumes x UT) returns UT
 	return x
 end 'idUT'
 

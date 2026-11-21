@@ -185,9 +185,9 @@ type Foo
 end 'Foo'
 
 function main() returns ExitCode
-	let arr = FooArray.create(0)
+	var arr = FooArray.create(0)
 	arr.push(Foo.create(42))
-	return arr.count() - 1
+	return try arr.count() - 1 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -204,7 +204,7 @@ type Container
 	export var items as ItemArray
 
 	static function create(items ItemArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Container'
 
@@ -219,9 +219,9 @@ type Item
 end 'Item'
 
 function main() returns ExitCode
-	let c = Container.create(ItemArray.create(0))
+	var c = Container.create(ItemArray.create(0))
 	c.items.push(Item.create(7))
-	return c.items.count()
+	return try c.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

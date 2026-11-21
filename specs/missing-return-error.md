@@ -86,7 +86,7 @@ function test(x Integer) returns Integer
 end 'test'
 
 function main() returns ExitCode
-	return test(5)
+	return try test(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -115,7 +115,7 @@ function pick(o Op) returns Code
 end 'pick'
 
 function main() returns ExitCode
-	return pick(Op.systemOp(3))
+	return pick(Op.systemOp(3)) as ExitCode
 end 'main'
 ```
 ```exitcode

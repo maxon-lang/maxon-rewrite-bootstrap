@@ -352,7 +352,7 @@ function main() returns ExitCode
 	print("{cursor.current()}\n")
 	try cursor.advance() otherwise return 98
 	print("{cursor.current()}\n")
-	return xs.count()
+	return xs.count() as ExitCode
 end 'main'
 ```
 ```stdout
@@ -497,7 +497,7 @@ function main() returns ExitCode
 	let first = cursor.current()
 	xs.clear()
 	print("{first}\n")
-	return xs.count()
+	return xs.count() as ExitCode
 end 'main'
 ```
 ```stdout

@@ -55,7 +55,7 @@ end 'Num'
 function main() returns ExitCode
 	match Num.val(5) 'check'
 		zero then return 0
-		val(n) then return n
+		val(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'
@@ -77,7 +77,7 @@ end 'Num'
 
 function main() returns ExitCode
 	match Num.val(5) 'check'
-		val(n) then return n
+		val(n) then return try n as ExitCode otherwise panic("out of range")
 		zero then return 0
 	end 'check'
 	return 0
@@ -108,7 +108,7 @@ end 'Message'
 function main() returns ExitCode
 	match Message.text("a long enough heap string to really allocate", code: 5) 'check'
 		silent then return 0
-		text(_, code) then return code
+		text(_, code) then return try code as ExitCode otherwise panic("out of range")
 	end 'check'
 	return 0
 end 'main'
@@ -249,7 +249,7 @@ function main() returns ExitCode
 	let m = Message.text("the moved payload string, long enough to be a real heap allocation")
 	let out = match m 'check'
 		silent gives "a fallback literal also long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'check'
 	print(out)
 	return 0
@@ -275,7 +275,7 @@ end 'Message'
 function main() returns ExitCode
 	let out = match Message.text("temporary scrutinee payload long enough to heap") 'check'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'check'
 	print(out)
 	return 0
@@ -307,20 +307,20 @@ type Entry
 	export var kind as Kind
 
 	static function create(kind Kind) returns Self
-		return Self{kind: kind}
+		return Self{kind: kind.clone()}
 	end 'create'
 end 'Entry'
 
 function remapKind(k Kind) returns Kind
 	return match k 'r'
 		none gives Kind.none
-		value(inner) gives Kind.value(inner + 1)
+		value(inner) gives Kind.value(try inner + 1 otherwise panic("out of range"))
 	end 'r'
 end 'remapKind'
 
 function chooseKind(e Entry, sel Id) returns Kind
 	return match sel 'c'
-		0 gives e.kind
+		0 gives e.kind.clone()
 		default gives remapKind(e.kind)
 	end 'c'
 end 'chooseKind'

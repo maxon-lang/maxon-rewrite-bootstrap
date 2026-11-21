@@ -301,8 +301,8 @@ end 'Status'
 function main() returns ExitCode
 	let s = Status.notFound
 	let n = s.rawValue
-	print("{n + 1} {n - 400} {n * 2} {n / 4} {n mod 100} {n and 7} {n shr 2}\n")
-	return ((s.rawValue - 400) * 2 + (n and 7)) as ExitCode
+	print("{try n + 1 otherwise panic("out of range")} {try n - 400 otherwise panic("out of range")} {try n * 2 otherwise panic("out of range")} {n / 4} {n mod 100} {n and 7} {n shr 2}\n")
+	return try ((s.rawValue - 400) * 2 + (n and 7)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -160,7 +160,7 @@ type Point
 
 	/// Manhattan distance from the origin.
 	function norm() returns Coord
-		return self.x + self.y
+		return try self.x + self.y otherwise panic("out of range")
 	end 'norm'
 end 'Point'
 
@@ -174,7 +174,7 @@ end 'Kind'
 
 function main() returns ExitCode
 	let p = Point.at(3, y: 4)
-	return p.norm()
+	return p.norm() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -229,7 +229,7 @@ function pick(n Code) returns Code /// a note on the header
 end 'pick'
 
 function main() returns ExitCode
-	return pick(5)
+	return pick(5) as ExitCode
 end 'main'
 ```
 ```exitcode

@@ -38,16 +38,16 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function clobber(mutates registry Boxes)
-	let w = try registry.get(0) otherwise return
+	var w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	let a = Box.create(2)
 	register(a, registry: registry)
 	clobber(registry)
@@ -87,18 +87,18 @@ end 'Tag'
 typealias Tags = Array with Tag
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function retag(mutates tags Tags)
 	tags.push(Tag.create(1))
-	let w = try tags.get(0) otherwise return
+	var w = try tags.get(0) otherwise return
 	w.t = 9
 end 'retag'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
-	let tags = Tags.create(0)
+	var registry = Boxes.create(0)
+	var tags = Tags.create(0)
 	let a = Box.create(2)
 	register(a, registry: registry)
 	retag(tags)
@@ -181,20 +181,20 @@ type Cursor
 	export var steps as Count
 
 	static function create(b Box) returns Self
-		return Self{current: b, steps: 0}
+		return Self{current: b.clone(), steps: 0}
 	end 'create'
 
-	function attach(b Box)
-		current = b
+	function attach(mutates self, b Box)
+		current = b.clone()
 	end 'attach'
 
-	function wipe()
+	function wipe(mutates self)
 		current.n = 0
 	end 'wipe'
 end 'Cursor'
 
 function main() returns ExitCode
-	let c = Cursor.create(Box.create(1))
+	var c = Cursor.create(Box.create(1))
 	let a = Box.create(2)
 	c.attach(a)
 	c.wipe()
@@ -232,7 +232,7 @@ type Reg
 end 'Reg'
 
 function build() returns Reg
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	reg.items.push(a)
 	return reg
@@ -275,13 +275,13 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function zeroBox(w Box)
+function zeroBox(mutates w Box)
 	w.n = 0
 end 'zeroBox'
 
 function build() returns Reg
-	let reg = Reg.create()
-	let a = Box.create(2)
+	var reg = Reg.create()
+	var a = Box.create(2)
 	zeroBox(a)
 	reg.items.push(a)
 	return reg
@@ -396,14 +396,14 @@ type WideHold
 	export var box as Box
 
 	static function create(wide Wide, box Box) returns Self
-		return Self{wide: wide, box: box}
+		return Self{wide: wide.clone(), box: box.clone()}
 	end 'create'
 end 'WideHold'
 
 function main() returns ExitCode
 	let w = Wide.create()
 	let a = Box.create(2)
-	let h = WideHold.create(w, box: a)
+	var h = WideHold.create(w, box: a)
 	h.wide.f69 = 3
 	print("{a.n}\n")
 	return 0
@@ -485,7 +485,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -493,12 +493,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	print("{b.n}\n")
 	touch(reg)
@@ -1198,13 +1198,13 @@ type Holder
 		return self.box.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let box = holder.grab()
 	holder.grow()
 	print("{box.n}\n")
@@ -1274,16 +1274,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Names
-		return self.names
+		return self.names.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.other.push(5)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let names = holder.grab()
 	holder.grow()
 	print("{names.count()}\n")
@@ -1461,7 +1461,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args}
+		return Self{args: args.clone()}
 	end 'create'
 end 'Edge'
 
@@ -1497,36 +1497,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open() returns Block
+	function open(mutates self) returns Block
 		let block = Block.create()
 		self.book.blocks.push(block)
 		return block
 	end 'open'
 
-	function scribble()
+	function scribble(mutates self)
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(block Block, args Args)
+function attach(mutates block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, block Block)
+function wire(world World, mutates block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(world World) returns Count
+function run(mutates world World) returns Count
 	let carried = Args.create(0)
-	let block = world.open()
+	var block = world.open()
 	world.scribble()
 	attach(block, args: carried)
-	return carried.count()
+	return try carried.count() as Count otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
-	let world = World.create()
-	let other = world.open()
+	var world = World.create()
+	var other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0
@@ -1556,16 +1556,16 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function clobber(mutates registry Boxes)
-	let w = try registry.get(0) otherwise return
+	var w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	var i = 0 as Count
 	while i < 2 'trips'
 		let r = Box.create(2)
@@ -1600,8 +1600,8 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -1613,11 +1613,11 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function stash(reg Reg, b Box)
-	reg.items.push(b)
+function stash(mutates reg Reg, b Box)
+	reg.items.push(b.clone())
 end 'stash'
 
-function bumpIt(reg Reg, b Box)
+function bumpIt(reg Reg, mutates b Box)
 	if reg.items.count() > 100 'tooMany'
 		return
 	end 'tooMany'
@@ -1625,8 +1625,8 @@ function bumpIt(reg Reg, b Box)
 end 'bumpIt'
 
 function main() returns ExitCode
-	let reg = Reg.create()
-	let a = Box.create(2)
+	var reg = Reg.create()
+	var a = Box.create(2)
 	stash(reg, b: a)
 	bumpIt(reg, b: a)
 	print("{a.n}\n")
@@ -1681,18 +1681,18 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(world World) returns Sigs
+function sigsOf(mutates world World) returns Sigs
 	let made = Sigs.create()
 	world.memo.sigs = made
 	return made
 end 'sigsOf'
 
-function fill(world World)
+function fill(mutates world World)
 	world.cache.names.upsert("k", value: 1)
 end 'fill'
 
 function main() returns ExitCode
-	let world = World.create()
+	var world = World.create()
 	let sigs = sigsOf(world)
 	fill(world)
 	print("{sigs.names.count()}\n")
@@ -1920,14 +1920,14 @@ type Box
 	end 'create'
 end 'Box'
 
-function bump(a Box, b Box)
+function bump(mutates a Box, mutates b Box)
 	a.n = 1
 	b.n = 2
 end 'bump'
 
 function main() returns ExitCode
-	let a = Box.create(0)
-	let b = Box.create(0)
+	var a = Box.create(0)
+	var b = Box.create(0)
 	bump(a, b: b)
 	print("{a.n} {b.n}\n")
 	return 0
@@ -2055,16 +2055,16 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function clobber(mutates registry Boxes)
-	let w = try registry.get(0) otherwise return
+	var w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	let a = Box.create(2)
 	register(a, registry: registry)
 	clobber(registry)
@@ -2103,17 +2103,17 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function stash(reg Reg, b Box)
-	reg.items.push(b)
+function stash(mutates reg Reg, b Box)
+	reg.items.push(b.clone())
 end 'stash'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stash(reg, b: a)
 	zeroFirst(reg)
@@ -2160,17 +2160,17 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function stash(o Outer, b Box)
-	o.inner.items.push(b)
+function stash(mutates o Outer, b Box)
+	o.inner.items.push(b.clone())
 end 'stash'
 
 function zeroFirst(o Outer)
-	let w = try o.inner.items.get(0) otherwise return
+	var w = try o.inner.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	let o = Outer.create()
+	var o = Outer.create()
 	let a = Box.create(2)
 	stash(o, b: a)
 	zeroFirst(o)
@@ -2226,12 +2226,12 @@ type Top
 end 'Top'
 
 function stash(t Top, b Box)
-	let o = t.outer
-	o.inner.items.push(b)
+	var o = t.outer.clone()
+	o.inner.items.push(b.clone())
 end 'stash'
 
 function zeroFirst(t Top)
-	let w = try t.outer.inner.items.get(0) otherwise return
+	var w = try t.outer.inner.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
@@ -2275,21 +2275,21 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function put(items Boxes, b Box)
-	items.push(b)
+function put(mutates items Boxes, b Box)
+	items.push(b.clone())
 end 'put'
 
-function stash(reg Reg, b Box)
+function stash(mutates reg Reg, b Box)
 	put(reg.items, b: b)
 end 'stash'
 
 function zeroFirst(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 0
 end 'zeroFirst'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let a = Box.create(2)
 	stash(reg, b: a)
 	zeroFirst(reg)
@@ -2484,20 +2484,20 @@ type Cursor
 	export var steps as Count
 
 	static function create(b Box) returns Self
-		return Self{current: b, steps: 0}
+		return Self{current: b.clone(), steps: 0}
 	end 'create'
 
-	function attach(b Box)
-		current = b
+	function attach(mutates self, b Box)
+		current = b.clone()
 	end 'attach'
 
-	function wipe()
+	function wipe(mutates self)
 		current.n = 0
 	end 'wipe'
 end 'Cursor'
 
 function main() returns ExitCode
-	let c = Cursor.create(Box.create(1))
+	var c = Cursor.create(Box.create(1))
 	let a = Box.create(2)
 	c.attach(a)
 	c.wipe()
@@ -2535,7 +2535,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -2543,12 +2543,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2585,7 +2585,7 @@ type Reg
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function add(n Count) returns Box
+	function add(mutates self, n Count) returns Box
 		let made = Box.create(n)
 		items.push(made)
 		return made
@@ -2593,12 +2593,12 @@ type Reg
 end 'Reg'
 
 function touch(reg Reg)
-	let w = try reg.items.get(0) otherwise return
+	var w = try reg.items.get(0) otherwise return
 	w.n = 1
 end 'touch'
 
 function main() returns ExitCode
-	let reg = Reg.create()
+	var reg = Reg.create()
 	let b = reg.add(7)
 	touch(reg)
 	print("{b.n}\n")
@@ -2630,22 +2630,22 @@ type Cursor
 	export var current as Box
 
 	static function create(seed Box) returns Self
-		return Self{current: seed}
+		return Self{current: seed.clone()}
 	end 'create'
 
-	function open(n Count) returns Box
+	function open(mutates self, n Count) returns Box
 		let made = Box.create(n)
 		current = made
 		return made
 	end 'open'
 
-	function touch()
-		current.n = current.n + 1
+	function touch(mutates self)
+		current.n = try current.n + 1 otherwise panic("out of range")
 	end 'touch'
 end 'Cursor'
 
 function main() returns ExitCode
-	let c = Cursor.create(Box.create(0))
+	var c = Cursor.create(Box.create(0))
 	let b = c.open(5)
 	c.touch()
 	print("{b.n}\n")
@@ -2710,20 +2710,20 @@ type Box
 	end 'create'
 end 'Box'
 
-function fill(rows Rows, b Box)
-	let inner = Boxes.create(0)
-	inner.push(b)
+function fill(mutates rows Rows, b Box)
+	var inner = Boxes.create(0)
+	inner.push(b.clone())
 	rows.push(inner)
 end 'fill'
 
 function wipe(rows Rows)
 	let r = try rows.get(0) otherwise return
-	let w = try r.get(0) otherwise return
+	var w = try r.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	let rows = Rows.create(0)
+	var rows = Rows.create(0)
 	let a = Box.create(2)
 	fill(rows, b: a)
 	wipe(rows)
@@ -2820,10 +2820,10 @@ type Board
 	end 'create'
 end 'Board'
 
-function place(board Board, b Box)
-	let inner = Boxes.create(0)
-	inner.push(b)
-	let rows = Rows.create(0)
+function place(mutates board Board, b Box)
+	var inner = Boxes.create(0)
+	inner.push(b.clone())
+	var rows = Rows.create(0)
 	rows.push(inner)
 	board.grid.push(rows)
 end 'place'
@@ -2831,12 +2831,12 @@ end 'place'
 function wipe(board Board)
 	let rows = try board.grid.get(0) otherwise return
 	let inner = try rows.get(0) otherwise return
-	let w = try inner.get(0) otherwise return
+	var w = try inner.get(0) otherwise return
 	w.n = 0
 end 'wipe'
 
 function main() returns ExitCode
-	let board = Board.create()
+	var board = Board.create()
 	let a = Box.create(2)
 	place(board, b: a)
 	wipe(board)
@@ -3012,17 +3012,17 @@ type Outer
 	end 'create'
 end 'Outer'
 
-function stash(o Outer, b Box)
-	o.inner.items.push(b)
+function stash(mutates o Outer, b Box)
+	o.inner.items.push(b.clone())
 end 'stash'
 
 function wipeFirst(r Reg)
-	let w = try r.items.get(0) otherwise return
+	var w = try r.items.get(0) otherwise return
 	w.n = 0
 end 'wipeFirst'
 
 function main() returns ExitCode
-	let o = Outer.create()
+	var o = Outer.create()
 	let a = Box.create(2)
 	stash(o, b: a)
 	wipeFirst(o.inner)
@@ -3152,7 +3152,7 @@ type Holder
 end 'Holder'
 
 function g(mutates holder Holder)
-	let w = try holder.items.get(0) otherwise return
+	var w = try holder.items.get(0) otherwise return
 	w.n = 5
 end 'g'
 
@@ -3161,7 +3161,7 @@ function f(mutates holder Holder)
 end 'f'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let b = Box.create(1)
 	holder.items.push(b)
 	f(holder)
@@ -3193,7 +3193,7 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{item: v}
 	end 'create'
 end 'Box'
@@ -3205,16 +3205,16 @@ typealias ViaAlias = Box with N0
 typealias Holder = Array with ViaAlias
 
 function keep(b ViaAlias) returns ViaAlias
-	return b
+	return b.clone()
 end 'keep'
 
 function clobber(mutates holder Holder)
-	let w = try holder.get(0) otherwise return
+	var w = try holder.get(0) otherwise return
 	w.item.item.n = 5
 end 'clobber'
 
 function main() returns ExitCode
-	let holder = Holder.create(0)
+	var holder = Holder.create(0)
 	let b = Box.create(Box.create(S0.create(1)))
 	let k = keep(b)
 	holder.push(k)
@@ -3554,16 +3554,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box
+		return self.box.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let box = holder.grab()
 	holder.grow()
 	print("{box.n}\n")
@@ -3593,16 +3593,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Names
-		return self.names
+		return self.names.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.names.push(5)
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let names = holder.grab()
 	holder.grow()
 	print("{names.count()}\n")
@@ -3875,7 +3875,7 @@ type Edge
 	export var args as Args
 
 	static function create(args Args) returns Self
-		return Self{args: args}
+		return Self{args: args.clone()}
 	end 'create'
 end 'Edge'
 
@@ -3911,36 +3911,36 @@ type World
 		return Self{book: Book.create(), routed: Routed.create()}
 	end 'create'
 
-	function open() returns Block
+	function open(mutates self) returns Block
 		let block = Block.create()
 		self.book.blocks.push(block)
 		return block
 	end 'open'
 
-	function scribble()
+	function scribble(mutates self)
 		self.routed.args.push(1)
 	end 'scribble'
 end 'World'
 
-function attach(block Block, args Args)
+function attach(mutates block Block, args Args)
 	block.edges.push(Edge.create(args))
 end 'attach'
 
-function wire(world World, block Block)
+function wire(world World, mutates block Block)
 	attach(block, args: world.routed.args)
 end 'wire'
 
-function run(world World) returns Count
+function run(mutates world World) returns Count
 	let carried = Args.create(0)
-	let block = world.open()
+	var block = world.open()
 	attach(block, args: carried)
 	world.scribble()
-	return carried.count()
+	return try carried.count() as Count otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode
-	let world = World.create()
-	let other = world.open()
+	var world = World.create()
+	var other = world.open()
 	wire(world, block: other)
 	print("{run(world)}\n")
 	return 0
@@ -3975,16 +3975,16 @@ type Holder
 	end 'create'
 
 	function grab() returns Box
-		return self.box
+		return self.box.clone()
 	end 'grab'
 
-	function grow()
+	function grow(mutates self)
 		self.box.n = 5
 	end 'grow'
 end 'Holder'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	let box = holder.grab()
 	holder.grow()
 	print("{box.n}\n")
@@ -4015,18 +4015,18 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function clobberAll(mutates registry Boxes)
 	for i in 0 upto registry.count() 'each'
-		let w = try registry.get(i) otherwise return
+		var w = try registry.get(i) otherwise return
 		w.n = 99
 	end 'each'
 end 'clobberAll'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	let a = Box.create(1)
 	let b = Box.create(2)
 	register(a, registry: registry)
@@ -4060,20 +4060,20 @@ type Box
 end 'Box'
 
 function register(b Box, mutates registry Boxes)
-	registry.push(b)
+	registry.push(b.clone())
 end 'register'
 
 function same(b Box) returns Box
-	return b
+	return b.clone()
 end 'same'
 
 function clobber(mutates registry Boxes)
-	let w = try registry.get(0) otherwise return
+	var w = try registry.get(0) otherwise return
 	w.n = 99
 end 'clobber'
 
 function main() returns ExitCode
-	let registry = Boxes.create(0)
+	var registry = Boxes.create(0)
 	let outer = Box.create(2)
 	var i = 0 as Count
 	while i < 2 'trips'
@@ -4109,8 +4109,8 @@ type Box
 		return Self{n: n}
 	end 'create'
 
-	function bump()
-		n = n + 1
+	function bump(mutates self)
+		n = try n + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Box'
 
@@ -4122,19 +4122,19 @@ type Reg
 	end 'create'
 end 'Reg'
 
-function stash(reg Reg, b Box)
-	reg.items.push(b)
+function stash(mutates reg Reg, b Box)
+	reg.items.push(b.clone())
 end 'stash'
 
-function touchBoth(reg Reg, b Box)
-	let w = try reg.items.get(0) otherwise return
+function touchBoth(reg Reg, mutates b Box)
+	var w = try reg.items.get(0) otherwise return
 	w.n = 5
 	b.bump()
 end 'touchBoth'
 
 function main() returns ExitCode
-	let reg = Reg.create()
-	let a = Box.create(2)
+	var reg = Reg.create()
+	var a = Box.create(2)
 	stash(reg, b: a)
 	touchBoth(reg, b: a)
 	print("{a.n}\n")
@@ -4160,7 +4160,7 @@ type Sigs
 	export var names as Names
 
 	static function create(names Names) returns Self
-		return Self{names: names}
+		return Self{names: names.clone()}
 	end 'create'
 end 'Sigs'
 
@@ -4189,18 +4189,18 @@ type World
 	end 'create'
 end 'World'
 
-function sigsOf(world World) returns Sigs
+function sigsOf(mutates world World) returns Sigs
 	let made = Sigs.create(world.cache.names)
 	world.memo.sigs = made
 	return made
 end 'sigsOf'
 
-function fill(world World)
+function fill(mutates world World)
 	world.cache.names.upsert("k", value: 1)
 end 'fill'
 
 function main() returns ExitCode
-	let world = World.create()
+	var world = World.create()
 	let sigs = sigsOf(world)
 	fill(world)
 	print("{sigs.names.count()}\n")
@@ -4937,7 +4937,7 @@ type Holder implements Sized
 	export var layout as Layout
 
 	static function create(layout Layout) returns Self
-		return Self{layout: layout}
+		return Self{layout: layout.clone()}
 	end 'create'
 
 	function size() returns Count
@@ -4962,18 +4962,18 @@ type World
 	end 'create'
 end 'World'
 
-function sizedOf(world World) returns Holder
+function sizedOf(mutates world World) returns Holder
 	let made = Holder.create(world.layout)
 	world.memo.sized = made
 	return made
 end 'sizedOf'
 
-function measure(world World)
+function measure(mutates world World)
 	world.layout.detail.size = 8
 end 'measure'
 
 function main() returns ExitCode
-	let world = World.create()
+	var world = World.create()
 	let sized = sizedOf(world)
 	measure(world)
 	print("{sized.size()}\n")
@@ -5352,24 +5352,24 @@ type Stack
 		return Self{items: Boxes.create(0)}
 	end 'create'
 
-	function push(v Box)
-		self.items.push(v)
+	function push(mutates self, v Box)
+		self.items.push(v.clone())
 	end 'push'
 
-	function popThenPush(extra Box) returns Box
+	function popThenPush(mutates self, extra Box) returns Box
 		let v = try self.items.pop() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'popThenPush'
 
-	function removeFirstOne() returns Box
+	function removeFirstOne(mutates self) returns Box
 		let v = try self.items.remove(0) otherwise panic("empty")
 		return v
 	end 'removeFirstOne'
 end 'Stack'
 
 function main() returns ExitCode
-	let s = Stack.create()
+	var s = Stack.create()
 	s.push(Box.create(7))
 	s.push(Box.create(8))
 	let a = s.popThenPush(Box.create(9))

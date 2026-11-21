@@ -39,7 +39,7 @@ type Keeper
 	export let inner as Counter
 
 	static function create(inner Counter) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Keeper'
 
@@ -51,23 +51,23 @@ type Hub
 		return Self{a: CounterArray.create(0), b: CounterArray.create(0)}
 	end 'create'
 
-	function seed(counter Counter)
-		self.a.push(counter)
-		self.b = self.a
+	function seed(mutates self, counter Counter)
+		self.a.push(counter.clone())
+		self.b = self.a.clone()
 	end 'seed'
 
-	function orphan() returns Keeper
-		let old = self.a
+	function orphan(mutates self) returns Keeper
+		let old = self.a.clone()
 		self.a = CounterArray.create(0)
 		return Keeper.create(try old.get(0) otherwise panic("seeded before"))
 	end 'orphan'
 end 'Hub'
 
 function main() returns ExitCode
-	let hub = Hub.create()
+	var hub = Hub.create()
 	hub.seed(Counter.create(4))
 	let kept = hub.orphan()
-	return kept.inner.v as ExitCode
+	return try kept.inner.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -99,7 +99,7 @@ end 'Keeper'
 
 function main() returns ExitCode
 	let kept = Keeper.made()
-	return kept.inner.v as ExitCode
+	return try kept.inner.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -183,7 +183,7 @@ type Keeper
 	export let inner as Counter
 
 	static function create(inner Counter) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Keeper'
 
@@ -194,7 +194,7 @@ end 'build'
 
 function main() returns ExitCode
 	let built = build()
-	return built.inner.v as ExitCode
+	return try built.inner.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -247,16 +247,16 @@ type Wrap
 	export let cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Wrap'
 
 function main() returns ExitCode
 	let cell = Cell.create()
 	let wrap = Wrap.create(cell)
-	let mine = cell
+	var mine = cell
 	mine.n = 7
-	return wrap.cell.n as ExitCode
+	return try wrap.cell.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -357,7 +357,7 @@ type Wrap
 	export let cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Wrap'
 
@@ -369,7 +369,7 @@ end 'register'
 function main() returns ExitCode
 	let wrap = register()
 	let cell = wrap.cell
-	return cell.n as ExitCode
+	return try cell.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -394,15 +394,15 @@ type Wrap
 	export let cell as Cell
 
 	static function create(cell Cell) returns Self
-		return Self{cell: cell}
+		return Self{cell: cell.clone()}
 	end 'create'
 end 'Wrap'
 
 function main() returns ExitCode
-	let cell = Cell.create(1)
+	var cell = Cell.create(1)
 	cell.n = 9
 	let wrap = Wrap.create(cell)
-	return wrap.cell.n as ExitCode
+	return try wrap.cell.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

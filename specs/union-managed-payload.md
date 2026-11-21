@@ -175,7 +175,7 @@ function main() returns ExitCode
 	let s = Shape.solid(Body.create(5))
 	match s 'check'
 		empty then return 0
-		solid(b) then return b.mass
+		solid(b) then return try b.mass as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```
@@ -322,7 +322,7 @@ end 'massOf'
 
 function main() returns ExitCode
 	let s = Shape.solid(Body.create(3))
-	return massOf(s) as ExitCode
+	return try massOf(s) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -368,7 +368,7 @@ function main() returns ExitCode
 		empty gives 1
 		solid(b) gives b.mass
 	end 'own'
-	return (borrowed + owned) as ExitCode
+	return try (borrowed + owned) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -398,7 +398,7 @@ end 'show'
 
 function main() returns ExitCode
 	let m = M.text("a returned-arm payload string, long enough to be a real heap allocation")
-	return show(m) as ExitCode
+	return try show(m) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -466,7 +466,7 @@ end 'Held'
 function rewrap(m M) returns Held
 	return match m 'k'
 		silent gives Held.nothing
-		text(s) gives Held.holds(s)
+		text(s) gives Held.holds(s.clone())
 	end 'k'
 end 'rewrap'
 
@@ -499,8 +499,8 @@ end 'R'
 
 function first(r R) returns String
 	return match r 's'
-		one(a) gives a
-		three(a, b, c) gives a if b.byteLength() > 0 and c.byteLength() > 0 else ""
+		one(a) gives a.clone()
+		three(a, b, c) gives a.clone() if b.byteLength() > 0 and c.byteLength() > 0 else ""
 	end 's'
 end 'first'
 
@@ -573,15 +573,15 @@ end 'Slot'
 function grab(slot Slot) returns Body
 	return match slot 'k'
 		empty gives Body.create(0)
-		filled(b) gives b
+		filled(b) gives b.clone()
 	end 'k'
 end 'grab'
 
 function main() returns ExitCode
 	let slot = Slot.filled(Body.create(5))
-	let escaped = grab(slot)
+	var escaped = grab(slot)
 	escaped.mass = 99
-	return grab(slot).mass as ExitCode
+	return try grab(slot).mass as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -643,13 +643,13 @@ end 'Slot'
 function grab(slot Slot) returns Body
 	return match slot 'k'
 		empty gives Body.create(0)
-		filled(b) gives b
+		filled(b) gives b.clone()
 	end 'k'
 end 'grab'
 
 function main() returns ExitCode
 	let slot = Slot.filled(Body.create(5))
-	let own = grab(slot).clone()
+	var own = grab(slot).clone()
 	own.mass = 99
 	print("{grab(slot).mass} {own.mass}\n")
 	return 0
@@ -697,7 +697,7 @@ function main() returns ExitCode
 	var i = 0 as Round
 	var total = 0 as Integer
 	while i < 300 'spin'
-		total = total + massOf(s)
+		total = try total + massOf(s) otherwise panic("out of range")
 		i = i + 1
 	end 'spin'
 	if total != 900 'wrong'
@@ -734,7 +734,7 @@ function main() returns ExitCode
 		silent gives 0
 		text(_, tag) gives tag
 	end 'check'
-	return code
+	return try code as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -756,7 +756,7 @@ end 'M'
 function grab(m M) returns String
 	return match m 'k'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'k'
 end 'grab'
 
@@ -801,7 +801,7 @@ end 'Shape'
 function bodyOf(s Shape) returns Body
 	return match s 'k'
 		empty gives Body.create(0)
-		solid(b) gives b
+		solid(b) gives b.clone()
 	end 'k'
 end 'bodyOf'
 
@@ -812,7 +812,7 @@ end 'makeAndExtract'
 
 function main() returns ExitCode
 	let b = makeAndExtract(37)
-	return b.mass as ExitCode
+	return try b.mass as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -833,7 +833,7 @@ end 'M'
 function grab(m M) returns String
 	return match m 'k'
 		silent gives "a fallback literal long enough to be a real heap string"
-		text(s) gives s
+		text(s) gives s.clone()
 	end 'k'
 end 'grab'
 
@@ -881,7 +881,7 @@ end 'mixed'
 
 function main() returns ExitCode
 	let m = M.text("the caller's payload string, long enough to be a real heap allocation")
-	return mixed(m) as ExitCode
+	return try mixed(m) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -912,7 +912,7 @@ function main() returns ExitCode
 	let m = Message.text("a discarded payload string long enough to be a heap one", code: 4)
 	let a = codeOf(m)
 	let b = codeOf(m)
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -944,7 +944,7 @@ function scan(m M) returns Integer
 		if n == 0 'stop'
 			return 0
 		end 'stop'
-		seen = seen + n
+		seen = try seen + n otherwise panic("out of range")
 		i = i + 1
 	end 'spin'
 	return seen
@@ -954,7 +954,7 @@ function main() returns ExitCode
 	let m = M.text("a repeatedly scanned payload string, long enough for the heap")
 	let a = scan(m)
 	print("{a}")
-	return a as ExitCode
+	return try a as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -988,7 +988,7 @@ function outer(m M) returns Integer
 		silent gives 0
 		text(s) gives 4 if s.byteLength() > 0 else 0
 	end 'k'
-	return first + inner(m)
+	return try first + inner(m) otherwise panic("out of range")
 end 'outer'
 
 function main() returns ExitCode
@@ -998,7 +998,7 @@ function main() returns ExitCode
 		silent then return 0
 		text(s) then print(s)
 	end 'own'
-	return a as ExitCode
+	return try a as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1021,7 +1021,7 @@ end 'M'
 
 function pick(m M) returns String
 	return match m 'k'
-		one(a) gives a
+		one(a) gives a.clone()
 		two gives "a rebuilt literal give long enough to be a heap string"
 		none gives "a third literal give also long enough to be a heap string"
 	end 'k'
@@ -1074,7 +1074,7 @@ function main() returns ExitCode
 	let i = Inner.loud("the inner word string, long enough to be a heap allocation")
 	let a = both(o, i: i)
 	let b = both(o, i: i)
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1105,7 +1105,7 @@ end 'depth'
 
 function main() returns ExitCode
 	let m = M.text("a re-entrantly matched payload string, long enough for the heap")
-	return depth(m) as ExitCode
+	return try depth(m) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1133,7 +1133,7 @@ function peek(m M) returns Integer
 end 'peek'
 
 function main() returns ExitCode
-	return peek(M.text("a temporary container's payload, long enough for the heap")) as ExitCode
+	return try peek(M.text("a temporary container's payload, long enough for the heap")) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1195,7 +1195,7 @@ type Holder
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Holder'
 
@@ -1259,7 +1259,7 @@ function both(a A, b B) returns Integer
 		none gives 0
 		two(body) gives body.mass
 	end 'y'
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'both'
 
 function main() returns ExitCode
@@ -1267,7 +1267,7 @@ function main() returns ExitCode
 	let b = B.two(Body.create(9))
 	let r1 = both(a, b: b)
 	let r2 = both(a, b: b)
-	return (r1 + r2) as ExitCode
+	return try (r1 + r2) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2020,7 +2020,7 @@ function main() returns ExitCode
 	let b = Body.create(5)
 	let s = Shape.solid(b)
 	print("{s}")
-	return b.mass
+	return try b.mass as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2059,7 +2059,7 @@ function main() returns ExitCode
 		empty gives 0
 		solid(b) gives b.mass
 	end 'again'
-	return first + second
+	return try first + second otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2079,7 +2079,7 @@ end 'M'
 function grab(m M) returns Integer
 	return match m 'g'
 		silent gives 0 as Integer
-		text(s) gives s.byteLength() as Integer
+		text(s) gives try s.byteLength() as Integer otherwise panic("out of range")
 	end 'g'
 end 'grab'
 
@@ -2087,7 +2087,7 @@ function main() returns ExitCode
 	let m = M.text("an owned payload string, long enough to be a real heap allocation")
 	let r = match m 'k'
 		silent gives 0 as Integer
-		text(s) gives grab(m) + (s.byteLength() as Integer)
+		text(s) gives try grab(m) + (s.byteLength() as Integer) otherwise panic("out of range")
 	end 'k'
 	print("r={r}")
 	return 0
@@ -2116,7 +2116,7 @@ function main() returns ExitCode
 		silent gives 0 as Integer
 		text gives match m 'again'
 			silent gives 1 as Integer
-			text(t) gives t.byteLength() as Integer
+			text(t) gives try t.byteLength() as Integer otherwise panic("out of range")
 		end 'again'
 	end 'k'
 	print("r={r}")
@@ -2148,14 +2148,14 @@ end 'M'
 function grab(m M) returns Integer
 	return match m 'g'
 		silent gives 0 as Integer
-		text(s) gives s.byteLength() as Integer
+		text(s) gives try s.byteLength() as Integer otherwise panic("out of range")
 	end 'g'
 end 'grab'
 
 function main() returns ExitCode
 	let m = M.text("an owned payload string, long enough to be a real heap allocation")
 	let r = match m 'k'
-		text(s) gives s.byteLength() as Integer
+		text(s) gives try s.byteLength() as Integer otherwise panic("out of range")
 		silent gives grab(m)
 	end 'k'
 	print("r={r}")
@@ -2182,7 +2182,7 @@ end 'M'
 function grab(m M) returns Integer
 	return match m 'g'
 		silent gives 0 as Integer
-		text(s) gives s.byteLength() as Integer
+		text(s) gives try s.byteLength() as Integer otherwise panic("out of range")
 	end 'g'
 end 'grab'
 
@@ -2191,7 +2191,7 @@ function main() returns ExitCode
 	let r = match m 'outer'
 		text gives match m 'inner'
 			silent gives 0 as Integer
-			text(t) gives t.byteLength() as Integer
+			text(t) gives try t.byteLength() as Integer otherwise panic("out of range")
 		end 'inner'
 		silent gives 0 as Integer
 	end 'outer'
@@ -2357,7 +2357,7 @@ type Holder
 	export var m as M
 
 	static function create(m M) returns Self
-		return Self{m: m}
+		return Self{m: m.clone()}
 	end 'create'
 end 'Holder'
 
@@ -2367,8 +2367,8 @@ function main() returns ExitCode
 	var n = 0 as Integer
 	while i < 200 'spin'
 		match h.m 'k'
-			silent then n = n + 1
-			text(s) then n = n + (s.byteLength() as Integer)
+			silent then n = try n + 1 otherwise panic("out of range")
+			text(s) then n = try n + (s.byteLength() as Integer) otherwise panic("out of range")
 		end 'k'
 		i = i + 1
 	end 'spin'
@@ -2667,13 +2667,13 @@ type Holder
 	export var ty as Ty
 
 	static function create(ty Ty) returns Self
-		return Self{ty: ty}
+		return Self{ty: ty.clone()}
 	end 'create'
 end 'Holder'
 
 function tyLen(ty Ty) returns Integer
 	return match ty 'l'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 		stringy gives 0
 	end 'l'
 end 'tyLen'
@@ -2682,7 +2682,7 @@ function main() returns ExitCode
 	let h = Holder.create(Ty.concrete("a co-owned payload string, long enough to be a real heap allocation"))
 	let borrowed = h.ty
 	let first = match borrowed 'b'
-		concrete(name) gives name.byteLength() as ExitCode
+		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		stringy gives 0
 	end 'b'
 	let second = tyLen(h.ty)
@@ -2721,7 +2721,7 @@ end 'Expr'
 function steal(e Expr) returns Integer
 	return match e 'i'
 		direct(ty) gives match ty 't'
-			concrete(name) gives name.byteLength() as Integer
+			concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 			stringy gives 0
 		end 't'
 		unresolved gives 99
@@ -2733,7 +2733,7 @@ function main() returns ExitCode
 	let stolen = steal(e)
 	let again = match e 'k'
 		direct(ty) gives match ty 'u'
-			concrete(name) gives name.byteLength() as ExitCode
+			concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 			stringy gives 0
 		end 'u'
 		unresolved gives 99
@@ -2771,7 +2771,7 @@ end 'Expr'
 
 function tyLen(ty Ty) returns Integer
 	return match ty 'l'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 		stringy gives 0
 	end 'l'
 end 'tyLen'
@@ -2787,7 +2787,7 @@ function main() returns ExitCode
 	let e = Expr.direct(Ty.concrete("a nested payload string, long enough to be a real heap allocation"))
 	let stolen = steal(e)
 	let again = match e 'k'
-		direct(ty) gives tyLen(ty) as ExitCode
+		direct(ty) gives try tyLen(ty) as ExitCode otherwise panic("out of range")
 		unresolved gives 99
 	end 'k'
 	print("stolen={stolen} again={again}")
@@ -2821,17 +2821,17 @@ end 'Ty'
 
 function tyLen(ty Ty) returns Integer
 	return match ty 'l'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 		stringy gives 0
 	end 'l'
 end 'tyLen'
 
 function main() returns ExitCode
-	let arr = TyArray.create(0)
+	var arr = TyArray.create(0)
 	arr.push(Ty.concrete("an array element payload, long enough to be a real heap allocation"))
 	let borrowed = try arr.get(0) otherwise panic("get failed")
 	let first = match borrowed 'b'
-		concrete(name) gives name.byteLength() as ExitCode
+		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		stringy gives 0
 	end 'b'
 	let second = tyLen(try arr.get(0) otherwise panic("get failed"))
@@ -2922,17 +2922,17 @@ type Holder
 	export var ty as Ty
 
 	static function create(ty Ty) returns Self
-		return Self{ty: ty}
+		return Self{ty: ty.clone()}
 	end 'create'
 end 'Holder'
 
 function getTy(h Holder) returns Ty
-	return h.ty
+	return h.ty.clone()
 end 'getTy'
 
 function tyLen(ty Ty) returns Integer
 	return match ty 'l'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 		stringy gives 0
 	end 'l'
 end 'tyLen'
@@ -2941,7 +2941,7 @@ function main() returns ExitCode
 	let h = Holder.create(Ty.concrete("a returned co-owned payload, long enough for the heap"))
 	let t = getTy(h)
 	let first = match t 'b'
-		concrete(name) gives name.byteLength() as ExitCode
+		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		stringy gives 0
 	end 'b'
 	let second = tyLen(h.ty)
@@ -3030,10 +3030,10 @@ union Wrap
 end 'Wrap'
 
 function probe(inner Inner) returns Integer
-	let w = Wrap.held(inner)
+	let w = Wrap.held(inner.clone())
 	return match w 'o'
 		held(i) gives match i 'n'
-			text(body) gives body.byteLength() as Integer
+			text(body) gives try body.byteLength() as Integer otherwise panic("out of range")
 		end 'n'
 	end 'o'
 end 'probe'
@@ -3042,7 +3042,7 @@ function main() returns ExitCode
 	let inner = Inner.text("a co-owned payload inside a sole box, long enough for the heap")
 	let n = probe(inner)
 	let again = match inner 'k'
-		text(body) gives body.byteLength() as ExitCode
+		text(body) gives try body.byteLength() as ExitCode otherwise panic("out of range")
 	end 'k'
 	print("n={n} again={again}")
 	return 0
@@ -3073,12 +3073,12 @@ end 'Wrap'
 
 function innerLen(i Inner) returns Integer
 	return match i 'n'
-		text(body) gives body.byteLength() as Integer
+		text(body) gives try body.byteLength() as Integer otherwise panic("out of range")
 	end 'n'
 end 'innerLen'
 
 function probe(inner Inner) returns Integer
-	let w = Wrap.held(inner)
+	let w = Wrap.held(inner.clone())
 	return match w 'o'
 		held(i) gives innerLen(i)
 	end 'o'
@@ -3088,7 +3088,7 @@ function main() returns ExitCode
 	let inner = Inner.text("a co-owned payload inside a sole box, long enough for the heap")
 	let n = probe(inner)
 	let again = match inner 'k'
-		text(body) gives body.byteLength() as ExitCode
+		text(body) gives try body.byteLength() as ExitCode otherwise panic("out of range")
 	end 'k'
 	print("n={n} again={again}")
 	return 0
@@ -3131,7 +3131,7 @@ function probe() returns Integer
 	let w = Wrap.held(Inner.text("a freshly built payload inside a sole box, heap-long"))
 	return match w 'o'
 		held(i) gives match i 'n'
-			text(body) gives body.byteLength() as Integer
+			text(body) gives try body.byteLength() as Integer otherwise panic("out of range")
 		end 'n'
 	end 'o'
 end 'probe'
@@ -3164,11 +3164,11 @@ union Ty
 end 'Ty'
 
 function steal(ty Ty) returns Integer
-	let list = TyList.create()
-	list.append(ty)
+	var list = TyList.create()
+	list.append(ty.clone())
 	let got = try list.removeFirst() otherwise panic("removeFirst failed")
 	return match got 'm'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 	end 'm'
 end 'steal'
 
@@ -3176,7 +3176,7 @@ function main() returns ExitCode
 	let ty = Ty.concrete("a list element payload co-owned by its caller, heap-long")
 	let n = steal(ty)
 	let again = match ty 'k'
-		concrete(name) gives name.byteLength() as ExitCode
+		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 	end 'k'
 	print("n={n} again={again}")
 	return 0
@@ -3205,11 +3205,11 @@ union Ty
 end 'Ty'
 
 function steal(ty Ty) returns Integer
-	let arr = TyArray.create(0)
-	arr.push(ty)
+	var arr = TyArray.create(0)
+	arr.push(ty.clone())
 	let got = try arr.remove(0) otherwise panic("remove failed")
 	return match got 'm'
-		concrete(name) gives name.byteLength() as Integer
+		concrete(name) gives try name.byteLength() as Integer otherwise panic("out of range")
 	end 'm'
 end 'steal'
 
@@ -3217,7 +3217,7 @@ function main() returns ExitCode
 	let ty = Ty.concrete("a list element payload co-owned by its caller, heap-long")
 	let n = steal(ty)
 	let again = match ty 'k'
-		concrete(name) gives name.byteLength() as ExitCode
+		concrete(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 	end 'k'
 	print("n={n} again={again}")
 	return 0
@@ -3256,20 +3256,20 @@ type Cell
 	export var slot as Slot
 
 	static function create(slot Slot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 
 	// Frees the box its argument was borrowed out of, BEFORE reading the argument. The
 	// `refill` allocation is what makes the freed record's reuse observable rather than benign.
-	function replaceThenMeasure(borrowed String) returns Integer
+	function replaceThenMeasure(mutates self, borrowed String) returns Integer
 		self.slot = Slot.empty(7)
 		let refill = "a fresh allocation of its own, reusing the freed record"
-		return (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer
+		return try (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer otherwise panic("out of range")
 	end 'replaceThenMeasure'
 end 'Cell'
 
 function main() returns ExitCode
-	let cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
+	var cell = Cell.create(Slot.filled("the borrowed payload, long enough to be a real heap allocation"))
 	let measured = match cell.slot 'm'
 		filled(s) gives cell.replaceThenMeasure(s)
 		empty(n) gives n
@@ -3303,12 +3303,12 @@ type Cell
 	export var slot as Slot
 
 	static function create(slot Slot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 
 	function measureOnly(borrowed String) returns Integer
 		let refill = "a fresh allocation of its own, reusing the freed record"
-		return (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer
+		return try (borrowed.byteLength() * 1000 + refill.byteLength()) as Integer otherwise panic("out of range")
 	end 'measureOnly'
 end 'Cell'
 
@@ -3522,7 +3522,7 @@ type Holder
 	export let slot as Slot
 
 	static function create(slot Slot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 end 'Holder'
 
@@ -3530,11 +3530,11 @@ type Shelf
 	export var holder as Holder
 
 	static function create(holder Holder) returns Self
-		return Self{holder: holder}
+		return Self{holder: holder.clone()}
 	end 'create'
 end 'Shelf'
 
-function measure(shelf Shelf) returns Integer
+function measure(mutates shelf Shelf) returns Integer
 	return match shelf.holder.slot 'm'
 		filled(s) gives replaceThenMeasure(s, shelf: shelf)
 		empty(n) gives n
@@ -3548,16 +3548,16 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
 end 'reuse'
 
-function replaceThenMeasure(borrowed String, shelf Shelf) returns Integer
+function replaceThenMeasure(borrowed String, mutates shelf Shelf) returns Integer
 	shelf.holder = Holder.create(Slot.empty(7))
 	return reuse(borrowed)
 end 'replaceThenMeasure'
 
 function main() returns ExitCode
-	let shelf = Shelf.create(Holder.create(Slot.filled(text(5))))
+	var shelf = Shelf.create(Holder.create(Slot.filled(text(5))))
 	let measured = measure(shelf)
 	print("measured={measured}")
 	return 0
@@ -3587,10 +3587,10 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 
-	function measure() returns Integer
+	function measure(mutates self) returns Integer
 		return match slot 'm'
 			lfilled(s) gives resetThenLen(self, s: s)
 			lempty(n) gives n
@@ -3605,16 +3605,16 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
 end 'reuse'
 
-function resetThenLen(h VarHolder, s String) returns Integer
+function resetThenLen(mutates h VarHolder, s String) returns Integer
 	h.slot = LSlot.lempty(1)
 	return reuse(s)
 end 'resetThenLen'
 
 function main() returns ExitCode
-	let vh = VarHolder.create(LSlot.lfilled(text(5)))
+	var vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.measure()
 	print("d={d}")
 	return 0
@@ -3644,10 +3644,10 @@ type VarHolder
 	export var slot as LSlot
 
 	static function create(slot LSlot) returns Self
-		return Self{slot: slot}
+		return Self{slot: slot.clone()}
 	end 'create'
 
-	function measure() returns Integer
+	function measure(mutates self) returns Integer
 		return match slot 'm'
 			lfilled(s) gives wipeThenLen(self, s: s)
 			lempty(n) gives n
@@ -3662,20 +3662,20 @@ end 'text'
 function reuse(borrowed String) returns Integer
 	let refill = "r{borrowed.byteLength()} a fresh allocation of its own, reusing the freed record, yes"
 	let again = "q{refill.byteLength()} another allocation of its own, reusing the freed record, ok"
-	return (borrowed.byteLength() * 1000 + again.byteLength()) as Integer
+	return try (borrowed.byteLength() * 1000 + again.byteLength()) as Integer otherwise panic("out of range")
 end 'reuse'
 
 function wipe(mutates u LSlot)
 	u = LSlot.lempty(1)
 end 'wipe'
 
-function wipeThenLen(h VarHolder, s String) returns Integer
+function wipeThenLen(mutates h VarHolder, s String) returns Integer
 	wipe(h.slot)
 	return reuse(s)
 end 'wipeThenLen'
 
 function main() returns ExitCode
-	let vh = VarHolder.create(LSlot.lfilled(text(5)))
+	var vh = VarHolder.create(LSlot.lfilled(text(5)))
 	let d = vh.measure()
 	print("d={d}")
 	return 0

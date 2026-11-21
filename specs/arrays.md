@@ -282,7 +282,7 @@ function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.reserve(5)
 	arr.push(42)
-	return try arr.get(0) otherwise 0
+	return (try arr.get(0) otherwise 0) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -300,7 +300,7 @@ function main() returns ExitCode
 	let arr = IntArray.create(0)
 	arr.resize(5)
 	try arr.set(0, value: 99) otherwise panic("test invariant: set OOB")
-	return try arr.get(0) otherwise 0
+	return (try arr.get(0) otherwise 0) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -315,13 +315,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	var i = 0 as Integer
 	while i < 100 'loop'
 		arr.push(i)
 		i = i + 1
 	end 'loop'
-	return try arr.get(99) otherwise -1
+	return try (try arr.get(99) otherwise -1) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -338,7 +338,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10 as Byte)
 	arr.push(20 as Byte)
 	arr.push(30 as Byte)
@@ -362,7 +362,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(1 as Byte)
 	arr.push(2 as Byte)
 	arr.push(3 as Byte)
@@ -386,13 +386,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(10 as Byte)
 	arr.push(20 as Byte)
 	arr.push(30 as Byte)
 	try arr.set(1, value: 99 as Byte) otherwise panic("test invariant: set OOB")
 	let val = try arr.get(1) otherwise 0 as Byte
-	return val
+	return val as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -409,7 +409,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(255 as Byte)
 	arr.push(0 as Byte)
 	arr.push(128 as Byte)
@@ -442,13 +442,13 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteArray.create(0)
+	var arr = ByteArray.create(0)
 	arr.push(1 as Byte)
 	arr.push(2 as Byte)
 	arr.push(3 as Byte)
 	arr.push(4 as Byte)
 	arr.push(5 as Byte)
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1272,13 +1272,13 @@ end 'Cell'
 typealias Cells = Array with Cell
 
 function main() returns ExitCode
-	let src = Cells.create(0)
+	var src = Cells.create(0)
 	src.push(Cell.create(1))
 	src.push(Cell.create(2))
-	let dest = Cells.create(0)
+	var dest = Cells.create(0)
 	dest.push(Cell.create(0))
 	dest.append(src)
-	let moved = try dest.get(1) otherwise Cell.create(-1)
+	var moved = try dest.get(1) otherwise Cell.create(-1)
 	moved.value = 99
 	let seen = try src.get(0) otherwise Cell.create(-1)
 	print("dest {moved.value} src {seen.value}\n")
@@ -2228,7 +2228,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function makeNumbers() returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -2240,7 +2240,7 @@ function main() returns ExitCode
 	let a = try nums.get(0) otherwise 0
 	let b = try nums.get(1) otherwise 0
 	let c = try nums.get(2) otherwise 0
-	return a + b + c
+	return try a + b + c otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2254,17 +2254,17 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function makeNumbers(a Integer, b Integer) returns IntArray
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(a)
 	arr.push(b)
-	arr.push(a + b)
+	arr.push(try a + b otherwise panic("out of range"))
 	return arr
 end 'makeNumbers'
 
 function main() returns ExitCode
 	let nums = makeNumbers(10, b: 20)
 	let c = try nums.get(2) otherwise 0
-	return c
+	return try c as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2476,9 +2476,9 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2491,7 +2491,7 @@ end 'main'
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("hi")
 	let s = try arr.get(0) otherwise ""
 	if s == "hi" 'match'
@@ -2520,10 +2520,10 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(9))
 	let first = try arr.get(0) otherwise Item.create(0)
-	return first.value
+	return try first.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2538,11 +2538,11 @@ typealias Byte = int(0 to 255)
 typealias ByteSlots = Array with Byte
 
 function main() returns ExitCode
-	let arr = ByteSlots.create(0)
+	var arr = ByteSlots.create(0)
 	arr.push(65)
 	arr.insert(0, value: 12)
 	try arr.set(1, value: 77) otherwise panic("test invariant: set OOB")
-	return try arr.get(1) otherwise 0
+	return (try arr.get(1) otherwise 0) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -3021,9 +3021,9 @@ typealias Byte = int(0 to 100)
 typealias Bytes = Array with Byte
 
 function main() returns ExitCode
-	let a = Bytes.create(0)
+	var a = Bytes.create(0)
 	a.push(7)
-	let b = Bytes.create(0)
+	var b = Bytes.create(0)
 	b.push(9)
 	a.append(b)
 	let first = try a.get(0) otherwise 0
@@ -4907,7 +4907,7 @@ end 'main'
 ```maxon
 function main() returns ExitCode
 	let bytes = ByteArray.create(0)
-	return bytes.count() as ExitCode
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4921,14 +4921,14 @@ typealias Wide = int(0 to u64.max)
 typealias WideArray = Array with Wide
 
 function main() returns ExitCode
-	let words = WideArray.create(5)
+	var words = WideArray.create(5)
 	try words.set(4, value: 7) otherwise return 1
 	let last = try words.get(4) otherwise 99
 	let first = try words.get(0) otherwise 99
 	if words.count() != 5 or first != 0 'wrongShape'
 		return 1
 	end 'wrongShape'
-	return last as ExitCode
+	return try last as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6184,7 +6184,7 @@ The zeroed form is one `__mm_alloc`: the record and its buffer share a box.
 ```maxon
 function main() returns ExitCode
 	let bytes = ByteArray.create(16)
-	return bytes.count() as ExitCode
+	return try bytes.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6225,9 +6225,9 @@ mm_free ArrayRecord #1
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let words = Words.create(0)
+	var words = Words.create(0)
 	words.push("abc")
-	return (words.count() * 10 + (try words.get(0) otherwise "").byteLength()) as ExitCode
+	return try (words.count() * 10 + (try words.get(0) otherwise "").byteLength()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6241,7 +6241,7 @@ type Tally
 	var total as Count
 
 	static function create(start Count) returns Tally
-		return Self{total: start + 5}
+		return Self{total: try start + 5 otherwise panic("out of range")}
 	end 'create'
 
 	function read() returns Count
@@ -6263,7 +6263,7 @@ end 'Holder'
 
 function main() returns ExitCode
 	let shared = Holder.create()
-	return shared.total() as ExitCode
+	return try shared.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -6417,7 +6417,7 @@ typealias Words = Array with MyWord
 typealias Nums = Array with MyWord
 
 function build() returns Nums
-	let ws = Words.create(0)
+	var ws = Words.create(0)
 	ws.push(1)
 	ws.push(2)
 	return ws

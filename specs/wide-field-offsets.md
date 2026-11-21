@@ -591,7 +591,7 @@ type Flags
 end 'Flags'
 
 function main() returns ExitCode
-	let f = Flags.create()
+	var f = Flags.create()
 	f.b511 = true
 	f.b512 = true
 	f.b519 = true
@@ -4746,7 +4746,7 @@ type Wide
 end 'Wide'
 
 function main() returns ExitCode
-	let w = Wide.create()
+	var w = Wide.create()
 	w.f4095 = 11
 	w.f4096 = 22
 	w.f4100 = 33

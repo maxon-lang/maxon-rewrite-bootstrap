@@ -79,11 +79,11 @@ The seventh argument is the first one that does not fit the register file.
 typealias Integer = int(i64.min to i64.max)
 
 function sum7(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns Integer
-	return a + b + c + d + e + f + g
+	return try a + b + c + d + e + f + g otherwise panic("out of range")
 end 'sum7'
 
 function main() returns ExitCode
-	return sum7(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64)
+	return try sum7(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -96,11 +96,11 @@ Two stack slots, so the second one's displacement is exercised as well as the fi
 typealias Integer = int(i64.min to i64.max)
 
 function sum8(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer, h Integer) returns Integer
-	return a + b + c + d + e + f + g + h
+	return try a + b + c + d + e + f + g + h otherwise panic("out of range")
 end 'sum8'
 
 function main() returns ExitCode
-	return sum8(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64, h: 128)
+	return try sum8(1, b: 2, c: 4, d: 8, e: 16, f: 32, g: 64, h: 128) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -197,16 +197,16 @@ caller-saved register — it is loaded once at entry and preserved like any othe
 typealias Integer = int(i64.min to i64.max)
 
 function noise(x Integer) returns Integer
-	return x + 1
+	return try x + 1 otherwise panic("out of range")
 end 'noise'
 
 function tail(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer, g Integer) returns Integer
-	let churn = noise(noise(noise(a + b + c + d + e + f)))
-	return g + churn
+	let churn = noise(noise(noise(try a + b + c + d + e + f otherwise panic("out of range"))))
+	return try g + churn otherwise panic("out of range")
 end 'tail'
 
 function main() returns ExitCode
-	return tail(1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 60)
+	return try tail(1, b: 1, c: 1, d: 1, e: 1, f: 1, g: 60) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -223,11 +223,11 @@ function countdown(n Integer, b Integer, c Integer, d Integer, e Integer, f Inte
 	if n == 0 'done'
 		return acc
 	end 'done'
-	return countdown(n - 1, b: b, c: c, d: d, e: e, f: f, acc: acc + n)
+	return countdown(try n - 1 otherwise panic("out of range"), b: b, c: c, d: d, e: e, f: f, acc: try acc + n otherwise panic("out of range"))
 end 'countdown'
 
 function main() returns ExitCode
-	return countdown(10, b: 0, c: 0, d: 0, e: 0, f: 0, acc: 0)
+	return try countdown(10, b: 0, c: 0, d: 0, e: 0, f: 0, acc: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -243,11 +243,11 @@ changes the answer rather than merely reordering it.
 typealias ByteTotal = int(0 to 100000)
 
 function joinLengths(a String, b String, c String, d String, e String, f String, g String, h String) returns ByteTotal
-	return a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength()
+	return try a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength() otherwise panic("out of range")
 end 'joinLengths'
 
 function main() returns ExitCode
-	return joinLengths("a string long enough to be heap allocated, one", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "another heap allocated string, seven", h: "hhhhhhhhhhhhhhhhhhhhhhhhh")
+	return joinLengths("a string long enough to be heap allocated, one", b: "bb", c: "ccc", d: "dddd", e: "eeeee", f: "ffffff", g: "another heap allocated string, seven", h: "hhhhhhhhhhhhhhhhhhhhhhhhh") as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -263,20 +263,20 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function totalCount(a Integer, b Integer, c Integer, d Integer, e Integer, f IntArray, g IntArray, h IntArray) returns Integer
-	return a + b + c + d + e + (f.count() as Integer) + (g.count() as Integer) + (h.count() as Integer)
+	return try a + b + c + d + e + (f.count() as Integer) + (g.count() as Integer) + (h.count() as Integer) otherwise panic("out of range")
 end 'totalCount'
 
 function main() returns ExitCode
-	let first = IntArray.create(0)
+	var first = IntArray.create(0)
 	first.push(1)
 	first.push(2)
-	let second = IntArray.create(0)
+	var second = IntArray.create(0)
 	second.push(3)
 	second.push(4)
 	second.push(5)
-	let third = IntArray.create(0)
+	var third = IntArray.create(0)
 	third.push(6)
-	return totalCount(10, b: 20, c: 30, d: 40, e: 50, f: first, g: second, h: third)
+	return try totalCount(10, b: 20, c: 30, d: 40, e: 50, f: first, g: second, h: third) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -338,11 +338,11 @@ moving the total.
 typealias Integer = int(i64.min to i64.max)
 
 function sum22(a1 Integer, a2 Integer, a3 Integer, a4 Integer, a5 Integer, a6 Integer, a7 Integer, a8 Integer, a9 Integer, a10 Integer, a11 Integer, a12 Integer, a13 Integer, a14 Integer, a15 Integer, a16 Integer, a17 Integer, a18 Integer, a19 Integer, a20 Integer, a21 Integer, a22 Integer) returns Integer
-	return a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22
+	return try a1 + a2 + a3 + a4 + a5 + a6 + a7 + a8 + a9 + a10 + a11 + a12 + a13 + a14 + a15 + a16 + a17 + a18 + a19 + a20 + a21 + a22 otherwise panic("out of range")
 end 'sum22'
 
 function main() returns ExitCode
-	return sum22(1, a2: 2, a3: 3, a4: 4, a5: 5, a6: 6, a7: 7, a8: 8, a9: 9, a10: 10, a11: 11, a12: 12, a13: 13, a14: 14, a15: 15, a16: 16, a17: 17, a18: 18, a19: 19, a20: 20, a21: 21, a22: 22)
+	return try sum22(1, a2: 2, a3: 3, a4: 4, a5: 5, a6: 6, a7: 7, a8: 8, a9: 9, a10: 10, a11: 11, a12: 12, a13: 13, a14: 14, a15: 15, a16: 16, a17: 17, a18: 18, a19: 19, a20: 20, a21: 21, a22: 22) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

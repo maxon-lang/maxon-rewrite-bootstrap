@@ -613,7 +613,7 @@ end 'setFails'
 function rangeFallible(mutates r Ranges, p ast.Project, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeRaise(r, p: p, node: site, code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why))
+			rangeRaiseFixed(r, p: p, node: site, code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, why: why), fix: tryFix(p.modules[r.modIdx].tree, e: site))
 		end 'report'
 		return
 	end 'uncovered'

@@ -32,7 +32,7 @@ type Arrived
 	export let flag as bool
 
 	static function create(body String, flag bool) returns Arrived
-		return Arrived{body: body, flag: flag}
+		return Arrived{body: body.clone(), flag: flag}
 	end 'create'
 end 'Arrived'
 
@@ -41,11 +41,11 @@ type Request
 	let path as String
 
 	static function create(path String) returns Request
-		return Request{body: "", path: path}
+		return Request{body: "", path: path.clone()}
 	end 'create'
 
-	function setBody(text String)
-		self.body = text
+	function setBody(mutates self, text String)
+		self.body = text.clone()
 	end 'setBody'
 end 'Request'
 
@@ -54,11 +54,11 @@ type Exchange
 	let parsed as Request
 
 	static function create(parsed Request) returns Exchange
-		return Exchange{stage: 0, parsed: parsed}
+		return Exchange{stage: 0, parsed: parsed.clone()}
 	end 'create'
 
-	function bump()
-		self.stage = self.stage + 1
+	function bump(mutates self)
+		self.stage = try self.stage + 1 otherwise panic("out of range")
 	end 'bump'
 end 'Exchange'
 
@@ -68,7 +68,7 @@ union Arrival
 end 'Arrival'
 
 function exchangeFor(arrived Arrived) returns Exchange
-	let request = Request.create("p")
+	var request = Request.create("p")
 	request.setBody(arrived.body)
 	return Exchange.create(request)
 end 'exchangeFor'
@@ -83,7 +83,7 @@ end 'arrive'
 function next(arrived Arrived) returns Exchange
 	let arrival = arrive(arrived)
 	match arrival 'which'
-		forExchange(exchange) then return exchange
+		forExchange(exchange) then return exchange.clone()
 		forNothing then print("none\n")
 	end 'which'
 	panic("unreachable")
@@ -91,9 +91,9 @@ end 'next'
 
 function main() returns ExitCode
 	let arrived = Arrived.create("hi", flag: false)
-	let exchange = next(arrived)
+	var exchange = next(arrived)
 	exchange.bump()
-	exchange.stage = exchange.stage + 1
+	exchange.stage = try exchange.stage + 1 otherwise panic("out of range")
 	return exchange.stage as ExitCode
 end 'main'
 ```
@@ -119,13 +119,13 @@ type Owner
 	export let settings as Settings
 
 	static function create(settings Settings) returns Owner
-		return Owner{settings: settings}
+		return Owner{settings: settings.clone()}
 	end 'create'
 end 'Owner'
 
 function main() returns ExitCode
 	let owner = Owner.create(Settings.create(1))
-	let copy = owner.settings
+	var copy = owner.settings
 	copy.level = 2
 	return copy.level as ExitCode
 end 'main'
@@ -152,7 +152,7 @@ type Owner
 	export let settings as Settings
 
 	static function create(settings Settings) returns Owner
-		return Owner{settings: settings}
+		return Owner{settings: settings.clone()}
 	end 'create'
 end 'Owner'
 

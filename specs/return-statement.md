@@ -370,7 +370,7 @@ type Box
 	export var weight as Index
 
 	static function create(name String, weight Index) returns Box
-		return Self{name: name, weight: weight}
+		return Self{name: name.clone(), weight: weight}
 	end 'create'
 end 'Box'
 
@@ -382,10 +382,10 @@ function pick(k Index) returns Box
 	let a = Box.create(build(1), weight: 1)
 	let b = Box.create(build(2), weight: 2)
 	let c = Box.create(build(3), weight: 3)
-	let d = Box.create(build(4), weight: 4)
+	var d = Box.create(build(4), weight: 4)
 	let e = Box.create(build(5), weight: 5)
 	let f = Box.create(build(6), weight: 6)
-	d.weight = d.weight + k + c.weight
+	d.weight = try d.weight + k + c.weight otherwise panic("out of range")
 	if k == 0 'zero'
 		return a
 	end 'zero'
@@ -563,7 +563,7 @@ function run(seed Index) returns Index
 		if seed == 102 'second'
 			return 2
 		end 'second'
-		if low.byteLength() + s0.byteLength() > 1000 'never'
+		if (try low.byteLength() + s0.byteLength() otherwise panic("out of range")) > 1000 'never'
 			return 9
 		end 'never'
 	end 'big'
@@ -578,7 +578,7 @@ function run(seed Index) returns Index
 	if seed == 2 'fourth'
 		return 4
 	end 'fourth'
-	if words.count() + t0.byteLength() > 1000 'unreachable'
+	if (try words.count() + t0.byteLength() otherwise panic("out of range")) > 1000 'unreachable'
 		return 9
 	end 'unreachable'
 	return 5
@@ -653,7 +653,7 @@ function run(seed Index) returns Index
 	if seed == 2 'e2'
 		return 12
 	end 'e2'
-	if a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength() + anchor.byteLength() > 1000 'unreachable'
+	if (try a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() + e.byteLength() + f.byteLength() + g.byteLength() + h.byteLength() + anchor.byteLength() otherwise panic("out of range")) > 1000 'unreachable'
 		return 9
 	end 'unreachable'
 	return 3

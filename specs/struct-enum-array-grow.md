@@ -30,16 +30,16 @@ type Block
 	export var terminator as Op
 
 	static function create(id Integer, ops IntArray, terminator Op) returns Self
-		return Self{id: id, ops: ops, terminator: terminator}
+		return Self{id: id, ops: ops.clone(), terminator: terminator.clone()}
 	end 'create'
 end 'Block'
 
 function main() returns ExitCode
-	let b = Block.create(0, ops: IntArray.create(0), terminator: Op.add(42))
+	var b = Block.create(0, ops: IntArray.create(0), terminator: Op.add(42))
 	b.ops.push(1)
 	b.ops.push(2)
 	b.ops.push(3)
-	return b.ops.count()
+	return try b.ops.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -66,18 +66,18 @@ type Function
 	export var hasTerminator as bool
 
 	static function create(name Integer, body IntArray, terminator Instruction, hasTerminator bool) returns Self
-		return Self{name: name, body: body, terminator: terminator, hasTerminator: hasTerminator}
+		return Self{name: name, body: body.clone(), terminator: terminator.clone(), hasTerminator: hasTerminator}
 	end 'create'
 end 'Function'
 
 function main() returns ExitCode
-	let f = Function.create(1, body: IntArray.create(0), terminator: Instruction.load(99), hasTerminator: true)
+	var f = Function.create(1, body: IntArray.create(0), terminator: Instruction.load(99), hasTerminator: true)
 	var i = 0 as Integer
 	while i < 20 'fill'
 		f.body.push(i)
 		i = i + 1
 	end 'fill'
-	return f.body.count()
+	return try f.body.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -99,23 +99,23 @@ type Entry
 	export var tag as Tag
 
 	static function create(id Integer, tag Tag) returns Self
-		return Self{id: id, tag: tag}
+		return Self{id: id, tag: tag.clone()}
 	end 'create'
 end 'Entry'
 
 typealias EntryArray = Array with Entry
 
 function main() returns ExitCode
-	let entries = EntryArray.create(0)
+	var entries = EntryArray.create(0)
 	var i = 0 as Integer
 	while i < 10 'fill'
-		let e = Entry.create(i, tag: Tag.number(i * 10))
+		let e = Entry.create(i, tag: Tag.number(try i * 10 otherwise panic("out of range")))
 		entries.push(e)
 		i = i + 1
 	end 'fill'
 	let last = try entries.get(9) otherwise Entry.create(0, tag: Tag.number(0))
 	match last.tag 'check'
-		number(n) then return n
+		number(n) then return try n as ExitCode otherwise panic("out of range")
 		text then return 0
 	end 'check'
 end 'main'
@@ -148,7 +148,7 @@ type IrBlock
 	export var hasTerminator as bool
 
 	static function create(id Integer, ops IrOpArray, terminator IrOp, hasTerminator bool) returns Self
-		return Self{id: id, ops: ops, terminator: terminator, hasTerminator: hasTerminator}
+		return Self{id: id, ops: ops.clone(), terminator: terminator.clone(), hasTerminator: hasTerminator}
 	end 'create'
 end 'IrBlock'
 
@@ -159,19 +159,19 @@ type Database
 	export var deps as DepArray
 
 	static function create(block IrBlock, deps DepArray) returns Self
-		return Self{block: block, deps: deps}
+		return Self{block: block.clone(), deps: deps.clone()}
 	end 'create'
 end 'Database'
 
 function main() returns ExitCode
 	let block = IrBlock.create(0, ops: IrOpArray.create(0), terminator: IrOp.cf(CfOp.br(0)), hasTerminator: false)
-	let db = Database.create(block, deps: DepArray.create(0))
+	var db = Database.create(block, deps: DepArray.create(0))
 	db.deps.push(1)
 	db.deps.push(2)
 	db.deps.push(3)
 	db.deps.push(4)
 	db.deps.push(5)
-	return db.deps.count()
+	return try db.deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -199,7 +199,7 @@ type Inner
 	export var extra as IntArray
 
 	static function create(revision Integer, items IntArray, names StringArray, extra IntArray) returns Self
-		return Self{revision: revision, items: items, names: names, extra: extra}
+		return Self{revision: revision, items: items.clone(), names: names.clone(), extra: extra.clone()}
 	end 'create'
 end 'Inner'
 
@@ -209,18 +209,18 @@ type Outer
 	export var data as IntArray
 
 	static function create(inner Inner, tag Op, data IntArray) returns Self
-		return Self{inner: inner, tag: tag, data: data}
+		return Self{inner: inner.clone(), tag: tag.clone(), data: data.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let inner = Inner.create(0, items: IntArray.create(0), names: StringArray.create(0), extra: IntArray.create(0))
-	let outer = Outer.create(inner, tag: Op.add(1), data: IntArray.create(0))
+	var outer = Outer.create(inner, tag: Op.add(1), data: IntArray.create(0))
 	outer.inner.items.push(10)
 	outer.inner.items.push(20)
 	outer.inner.items.push(30)
 	outer.data.push(100)
-	return outer.inner.items.count() + outer.data.count()
+	return try outer.inner.items.count() + outer.data.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -239,7 +239,7 @@ type Inner
 	export var value as Integer
 
 	static function create(data IntArray, value Integer) returns Self
-		return Self{data: data, value: value}
+		return Self{data: data.clone(), value: value}
 	end 'create'
 end 'Inner'
 
@@ -249,7 +249,7 @@ type Outer
 	export var deps as IntArray
 
 	static function create(first Inner, second Inner, deps IntArray) returns Self
-		return Self{first: first, second: second, deps: deps}
+		return Self{first: first.clone(), second: second.clone(), deps: deps.clone()}
 	end 'create'
 end 'Outer'
 
@@ -259,11 +259,11 @@ function makeOuter() returns Outer
 end 'makeOuter'
 
 function main() returns ExitCode
-	let o = makeOuter()
+	var o = makeOuter()
 	o.deps.push(1)
 	o.deps.push(2)
 	o.deps.push(3)
-	return o.deps.count()
+	return try o.deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -297,7 +297,7 @@ type Block
 	export var hasTerminator as bool
 
 	static function create(id Integer, label String, ops OpArray, terminator IrOp, hasTerminator bool) returns Self
-		return Self{id: id, label: label, ops: ops, terminator: terminator, hasTerminator: hasTerminator}
+		return Self{id: id, label: label.clone(), ops: ops.clone(), terminator: terminator.clone(), hasTerminator: hasTerminator}
 	end 'create'
 end 'Block'
 
@@ -306,7 +306,7 @@ type Region
 	export var nextBlockId as Integer
 
 	static function create(blocks IntArray, nextBlockId Integer) returns Self
-		return Self{blocks: blocks, nextBlockId: nextBlockId}
+		return Self{blocks: blocks.clone(), nextBlockId: nextBlockId}
 	end 'create'
 end 'Region'
 
@@ -316,7 +316,7 @@ type Func
 	export var region as Region
 
 	static function create(name String, returnType String, region Region) returns Self
-		return Self{name: name, returnType: returnType, region: region}
+		return Self{name: name.clone(), returnType: returnType.clone(), region: region.clone()}
 	end 'create'
 end 'Func'
 
@@ -326,7 +326,7 @@ type Module
 	export var functions as FuncArray
 
 	static function create(functions FuncArray) returns Self
-		return Self{functions: functions}
+		return Self{functions: functions.clone()}
 	end 'create'
 end 'Module'
 
@@ -336,7 +336,7 @@ type ModuleMemo
 	export var verifiedAt as Integer
 
 	static function create(value Module, computedAt Integer, verifiedAt Integer) returns Self
-		return Self{value: value, computedAt: computedAt, verifiedAt: verifiedAt}
+		return Self{value: value.clone(), computedAt: computedAt, verifiedAt: verifiedAt}
 	end 'create'
 end 'ModuleMemo'
 
@@ -345,7 +345,7 @@ type CodeResult
 	export var offset as Integer
 
 	static function create(code IntArray, offset Integer) returns Self
-		return Self{code: code, offset: offset}
+		return Self{code: code.clone(), offset: offset}
 	end 'create'
 end 'CodeResult'
 
@@ -355,7 +355,7 @@ type CodeMemo
 	export var verifiedAt as Integer
 
 	static function create(value CodeResult, computedAt Integer, verifiedAt Integer) returns Self
-		return Self{value: value, computedAt: computedAt, verifiedAt: verifiedAt}
+		return Self{value: value.clone(), computedAt: computedAt, verifiedAt: verifiedAt}
 	end 'create'
 end 'CodeMemo'
 
@@ -373,7 +373,7 @@ type QueryDatabase
 	export var parseMisses as Integer
 
 	static function create(currentRevision Integer, sourcePaths StringArray, allModuleCache ModuleMemo, allMidCache ModuleMemo, codeCache CodeMemo, dependencies IntArray, activeQueryStack IntArray, tokenHits Integer, tokenMisses Integer, parseHits Integer, parseMisses Integer) returns Self
-		return Self{currentRevision: currentRevision, sourcePaths: sourcePaths, allModuleCache: allModuleCache, allMidCache: allMidCache, codeCache: codeCache, dependencies: dependencies, activeQueryStack: activeQueryStack, tokenHits: tokenHits, tokenMisses: tokenMisses, parseHits: parseHits, parseMisses: parseMisses}
+		return Self{currentRevision: currentRevision, sourcePaths: sourcePaths.clone(), allModuleCache: allModuleCache.clone(), allMidCache: allMidCache.clone(), codeCache: codeCache.clone(), dependencies: dependencies.clone(), activeQueryStack: activeQueryStack.clone(), tokenHits: tokenHits, tokenMisses: tokenMisses, parseHits: parseHits, parseMisses: parseMisses}
 	end 'create'
 end 'QueryDatabase'
 
@@ -391,7 +391,7 @@ type Project
 	export var currentModule as Module
 
 	static function create(db QueryDatabase, dbInitialized bool, nextValueId Integer, parserVarNames StringArray, parserVarSlots IntArray, parserNextSlot Integer, rootPath String, isSingleFile bool, currentBlock Block, currentFunction Func, currentModule Module) returns Self
-		return Self{db: db, dbInitialized: dbInitialized, nextValueId: nextValueId, parserVarNames: parserVarNames, parserVarSlots: parserVarSlots, parserNextSlot: parserNextSlot, rootPath: rootPath, isSingleFile: isSingleFile, currentBlock: currentBlock, currentFunction: currentFunction, currentModule: currentModule}
+		return Self{db: db.clone(), dbInitialized: dbInitialized, nextValueId: nextValueId, parserVarNames: parserVarNames.clone(), parserVarSlots: parserVarSlots.clone(), parserNextSlot: parserNextSlot, rootPath: rootPath.clone(), isSingleFile: isSingleFile, currentBlock: currentBlock.clone(), currentFunction: currentFunction.clone(), currentModule: currentModule.clone()}
 	end 'create'
 end 'Project'
 
@@ -406,14 +406,14 @@ function createProject(rootPath String) returns Project
 end 'createProject'
 
 function main() returns ExitCode
-	let p = createProject("test")
+	var p = createProject("test")
 	p.db.dependencies.push(1)
 	p.db.dependencies.push(2)
 	p.db.dependencies.push(3)
 	p.db.dependencies.push(4)
 	p.db.dependencies.push(5)
 	p.db.activeQueryStack.push(10)
-	return p.db.dependencies.count() + p.db.activeQueryStack.count()
+	return try p.db.dependencies.count() + p.db.activeQueryStack.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -435,21 +435,21 @@ type Dependency
 	export var dependency as QueryKey
 
 	static function create(dependent QueryKey, dependency QueryKey) returns Self
-		return Self{dependent: dependent, dependency: dependency}
+		return Self{dependent: dependent.clone(), dependency: dependency.clone()}
 	end 'create'
 end 'Dependency'
 
 typealias DependencyArray = Array with Dependency
 
 function main() returns ExitCode
-	let deps = DependencyArray.create(0)
+	var deps = DependencyArray.create(0)
 	let d1 = Dependency.create(QueryKey.allModule, dependency: QueryKey.sourceFile("test.maxon"))
 	deps.push(d1)
 	let d2 = Dependency.create(QueryKey.codeResult, dependency: QueryKey.tokens("test.maxon"))
 	deps.push(d2)
 	let d3 = Dependency.create(QueryKey.allModule, dependency: QueryKey.sourceFile("other.maxon"))
 	deps.push(d3)
-	return deps.count()
+	return try deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -468,7 +468,7 @@ type Inner
 	export var value as Integer
 
 	static function create(items IntArray, value Integer) returns Self
-		return Self{items: items, value: value}
+		return Self{items: items.clone(), value: value}
 	end 'create'
 end 'Inner'
 
@@ -477,11 +477,11 @@ type Outer
 	export var initialized as bool
 
 	static function create(inner Inner, initialized bool) returns Self
-		return Self{inner: inner, initialized: initialized}
+		return Self{inner: inner.clone(), initialized: initialized}
 	end 'create'
 end 'Outer'
 
-function initOuter(o Outer)
+function initOuter(mutates o Outer)
 	if not o.initialized 'init'
 		o.inner = Inner.create(IntArray.create(0), value: 42)
 		o.initialized = true
@@ -489,12 +489,12 @@ function initOuter(o Outer)
 end 'initOuter'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(IntArray.create(0), value: 0), initialized: false)
+	var o = Outer.create(Inner.create(IntArray.create(0), value: 0), initialized: false)
 	initOuter(o)
 	o.inner.items.push(1)
 	o.inner.items.push(2)
 	o.inner.items.push(3)
-	return o.inner.items.count()
+	return try o.inner.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -512,7 +512,7 @@ type Module
 	export var items as IntArray
 
 	static function create(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Module'
 
@@ -521,7 +521,7 @@ type Memo
 	export var rev as Integer
 
 	static function create(value Module, rev Integer) returns Self
-		return Self{value: value, rev: rev}
+		return Self{value: value.clone(), rev: rev}
 	end 'create'
 end 'Memo'
 
@@ -530,7 +530,7 @@ type Database
 	export var deps as IntArray
 
 	static function create(memo Memo, deps IntArray) returns Self
-		return Self{memo: memo, deps: deps}
+		return Self{memo: memo.clone(), deps: deps.clone()}
 	end 'create'
 end 'Database'
 
@@ -539,7 +539,7 @@ type Project
 	export var ready as bool
 
 	static function create(db Database, ready bool) returns Self
-		return Self{db: db, ready: ready}
+		return Self{db: db.clone(), ready: ready}
 	end 'create'
 end 'Project'
 
@@ -547,24 +547,24 @@ function createModule() returns Module
 	return Module.create(IntArray.create(0))
 end 'createModule'
 
-function initProject(p Project)
+function initProject(mutates p Project)
 	if not p.ready 'init'
 		p.db = Database.create(Memo.create(createModule(), rev: 0), deps: IntArray.create(0))
 		p.ready = true
 	end 'init'
 end 'initProject'
 
-function useProject(p Project) returns Integer
+function useProject(mutates p Project) returns Integer
 	p.db.deps.push(1)
 	p.db.deps.push(2)
 	p.db.deps.push(3)
-	return p.db.deps.count()
+	return try p.db.deps.count() as Integer otherwise panic("out of range")
 end 'useProject'
 
 function main() returns ExitCode
-	let p = Project.create(Database.create(Memo.create(Module.create(IntArray.create(0)), rev: 0), deps: IntArray.create(0)), ready: false)
+	var p = Project.create(Database.create(Memo.create(Module.create(IntArray.create(0)), rev: 0), deps: IntArray.create(0)), ready: false)
 	initProject(p)
-	return useProject(p)
+	return try useProject(p) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -593,7 +593,7 @@ type Block
 	export var hasTerminator as bool
 
 	static function create(id Integer, ops OpArray, terminator IrOp, hasTerminator bool) returns Self
-		return Self{id: id, ops: ops, terminator: terminator, hasTerminator: hasTerminator}
+		return Self{id: id, ops: ops.clone(), terminator: terminator.clone(), hasTerminator: hasTerminator}
 	end 'create'
 end 'Block'
 
@@ -605,7 +605,7 @@ type QueryDatabase
 	export var extra as DepArray
 
 	static function create(revision Integer, deps DepArray, extra DepArray) returns Self
-		return Self{revision: revision, deps: deps, extra: extra}
+		return Self{revision: revision, deps: deps.clone(), extra: extra.clone()}
 	end 'create'
 end 'QueryDatabase'
 
@@ -614,7 +614,7 @@ type Project
 	export var block as Block
 
 	static function create(db QueryDatabase, block Block) returns Self
-		return Self{db: db, block: block}
+		return Self{db: db.clone(), block: block.clone()}
 	end 'create'
 end 'Project'
 
@@ -625,13 +625,13 @@ function createProject() returns Project
 end 'createProject'
 
 function main() returns ExitCode
-	let p = createProject()
+	var p = createProject()
 	p.db.deps.push(1)
 	p.db.deps.push(2)
 	p.db.deps.push(3)
 	p.db.deps.push(4)
 	p.db.deps.push(5)
-	return p.db.deps.count()
+	return try p.db.deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -29,14 +29,14 @@ type Item
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Item'
 
 typealias ItemArray = Array with Item
 
 function makeClone() returns ItemArray
-	let src = ItemArray.create(0)
+	var src = ItemArray.create(0)
 	src.push(Item.create("first clone item long enough for heap", value: 10))
 	src.push(Item.create("second clone item long enough for heap", value: 20))
 	return src.clone()
@@ -49,7 +49,7 @@ function main() returns ExitCode
 		return 99
 	end 'badCount'
 	let item = try cloned.get(1) otherwise Item.create("", value: 0)
-	return item.value
+	return try item.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -72,7 +72,7 @@ type Leaf
 	export var value as Integer
 
 	static function create(label String, value Integer) returns Self
-		return Self{label: label, value: value}
+		return Self{label: label.clone(), value: value}
 	end 'create'
 end 'Leaf'
 
@@ -80,7 +80,7 @@ type Mid
 	export var leaf as Leaf
 
 	static function create(leaf Leaf) returns Self
-		return Self{leaf: leaf}
+		return Self{leaf: leaf.clone()}
 	end 'create'
 end 'Mid'
 
@@ -88,14 +88,14 @@ type Outer
 	export var mid as Mid
 
 	static function create(mid Mid) returns Self
-		return Self{mid: mid}
+		return Self{mid: mid.clone()}
 	end 'create'
 end 'Outer'
 
 typealias OuterArray = Array with Outer
 
 function makeClone() returns OuterArray
-	let src = OuterArray.create(0)
+	var src = OuterArray.create(0)
 	src.push(Outer.create(Mid.create(Leaf.create("a nested label long enough to reach the heap", value: 7))))
 	return src.clone()
 // src and its whole three-level element graph are freed when this function returns
@@ -107,7 +107,7 @@ function main() returns ExitCode
 		return 99
 	end 'badCount'
 	let outer = try cloned.get(0) otherwise Outer.create(Mid.create(Leaf.create("", value: 0)))
-	return outer.mid.leaf.value
+	return try outer.mid.leaf.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -389,7 +389,7 @@ type Rec
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Rec'
 
@@ -398,8 +398,8 @@ typealias RecArray = Array with Rec
 typealias RecBuckets = Array with RecArray
 
 function makeClone() returns RecBuckets
-	let src = RecBuckets.create(0)
-	let bucket = RecArray.create(0)
+	var src = RecBuckets.create(0)
+	var bucket = RecArray.create(0)
 	bucket.push(Rec.create("a bucketed record name long enough to reach the heap", value: 41))
 	src.push(bucket)
 	return src.clone()
@@ -697,10 +697,10 @@ end 'Box'
 typealias Boxes = Array with Box
 
 function main() returns ExitCode
-	let a = Boxes.create(0)
+	var a = Boxes.create(0)
 	a.push(Box.create(1))
 	let b = a.clone()
-	let e = try b.get(0) otherwise return 91
+	var e = try b.get(0) otherwise return 91
 	e.n = 9
 	let first = try a.get(0) otherwise return 92
 	let second = try b.get(0) otherwise return 93

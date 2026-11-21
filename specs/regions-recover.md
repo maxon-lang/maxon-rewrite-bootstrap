@@ -2626,7 +2626,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(b Bx) returns Self
-		return Self{b: b}
+		return Self{b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -2634,18 +2634,18 @@ type Ko
 	var keep as Bx
 
 	static function create(keep Bx) returns Self
-		return Self{keep: keep}
+		return Self{keep: keep.clone()}
 	end 'create'
 end 'Ko'
 
 function stash(t Tq) returns Ko
-	let o = Ko.create(Bx.create(0))
-	o.keep = t.b
+	var o = Ko.create(Bx.create(0))
+	o.keep = t.b.clone()
 	return o
 end 'stash'
 
 function main() returns ExitCode
-	let q = Tq.create(Bx.create(2))
+	var q = Tq.create(Bx.create(2))
 	let o = stash(q)
 	q.b.n = 3
 	print("{q.b.n} {o.keep.n}\n")

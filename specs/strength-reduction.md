@@ -486,6 +486,7 @@ end 'main'
 ```
 
 <!-- test: a-reduced-division-still-meets-its-range-check -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 CONTROL. The rewrite replaces the `div` op but keeps its RESULT VALUE ID, which is what the guard
 `insertRangeChecks` had already emitted names. Give the reduced quotient back a value its ranged
 typealias excludes and that guard must still fire, at the same line and out of the same frame — a

@@ -88,7 +88,7 @@ end 'check'
 function main() returns ExitCode
 	let a = check(-1)
 	let b = check(-2)
-	return (a + b) - 14
+	return try (a + b) - 14 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

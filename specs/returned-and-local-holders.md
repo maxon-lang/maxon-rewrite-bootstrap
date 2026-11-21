@@ -55,7 +55,7 @@ type Holder
 	var box as Box
 
 	static function make(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'make'
 
 	function size() returns Count
@@ -94,13 +94,13 @@ type Holder
 	export var box as Box
 
 	static function make(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'make'
 end 'Holder'
 
 function main() returns ExitCode
 	let b = Box.create()
-	let h = Holder.make(b)
+	var h = Holder.make(b)
 	h.box.count = 5
 	print("{b.count}\n")
 	return 0
@@ -950,7 +950,7 @@ type Inner
 	var box as Box
 
 	static function make(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'make'
 
 	function size() returns Count
@@ -1103,7 +1103,7 @@ type Sig
 		return Self{names: NameArray.create(0)}
 	end 'create'
 
-	function add()
+	function add(mutates self)
 		self.names.push("x")
 	end 'add'
 
@@ -1117,12 +1117,12 @@ type Entry
 	export var signature as Sig
 
 	static function create(tag Count, signature Sig) returns Self
-		return Self{tag: tag, signature: signature}
+		return Self{tag: tag, signature: signature.clone()}
 	end 'create'
 end 'Entry'
 
 function record(tag Count, signature Sig) returns Count
-	let made = Entry.create(tag, signature: signature.clone())
+	var made = Entry.create(tag, signature: signature.clone())
 	made.signature.add()
 	return made.signature.size()
 end 'record'

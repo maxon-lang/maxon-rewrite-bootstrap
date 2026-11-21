@@ -28,9 +28,9 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function touch(cells TallyArray) returns TallyArray
+function touch(mutates cells TallyArray) returns TallyArray
 	try cells.set(0, value: (try cells.get(0) otherwise panic("get")) + 1) otherwise panic("set")
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
@@ -59,14 +59,14 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
-	let a = TallyArray.create(0)
+	var a = TallyArray.create(0)
 	a.push(1)
 	let b = touch(a)
-	let c = touch(b)
+	var c = touch(b)
 	c.push(2)
 	print("{a.count()} {b.count()} {c.count()}\n")
 	return 0
@@ -94,17 +94,17 @@ type Shelf
 		return Self{held: TallyArray.create(0)}
 	end 'create'
 
-	function keep(cells TallyArray) returns TallyArray
-		self.held = cells
-		return cells
+	function keep(mutates self, cells TallyArray) returns TallyArray
+		self.held = cells.clone()
+		return cells.clone()
 	end 'keep'
 end 'Shelf'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	var cells = TallyArray.create(0)
 	cells.push(5)
-	let again = shelf.keep(cells)
+	var again = shelf.keep(cells)
 	again.push(6)
 	cells = TallyArray.create(0)
 	print("{shelf.held.count()} {again.count()} {cells.count()}\n")
@@ -128,9 +128,9 @@ typealias TallyArray = Array with Tally
 
 function pick(cells TallyArray, keepIt bool) returns TallyArray
 	if keepIt 'keep'
-		return cells
+		return cells.clone()
 	end 'keep'
-	let fresh = TallyArray.create(0)
+	var fresh = TallyArray.create(0)
 	fresh.push(9)
 	return fresh
 end 'pick'
@@ -249,22 +249,22 @@ type Shelf
 	export var held as TallyArray
 
 	static function create() returns Shelf
-		let held = TallyArray.create(0)
+		var held = TallyArray.create(0)
 		held.push(7)
 		return Self{held: held}
 	end 'create'
 
-	function reset()
+	function reset(mutates self)
 		self.held = TallyArray.create(0)
 	end 'reset'
 end 'Shelf'
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	let seen = touch(shelf.held)
 	shelf.reset()
 	print("{try seen.get(0) otherwise 0} {shelf.held.count()}\n")
@@ -286,13 +286,13 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function first(a TallyArray, b TallyArray) returns TallyArray
+function first(a TallyArray, mutates b TallyArray) returns TallyArray
 	b.push(a.count() as Tally)
-	return a
+	return a.clone()
 end 'first'
 
 function main() returns ExitCode
-	let cells = TallyArray.create(0)
+	var cells = TallyArray.create(0)
 	cells.push(4)
 	var out = first(cells, b: cells)
 	out = first(out, b: out)
@@ -323,7 +323,7 @@ function touch(cells TallyArray) returns TallyArray throws Refused
 	if cells.count() mod 2 == 1 'odd'
 		throw Refused.odd
 	end 'odd'
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
@@ -356,13 +356,13 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
 	var a = TallyArray.create(0)
 	a.push(3)
-	let b = touch(a)
+	var b = touch(a)
 	a = TallyArray.create(0)
 	b.push(4)
 	print("{a.count()} {b.count()} {try b.get(0) otherwise 0}\n")
@@ -385,13 +385,13 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
 	var a = TallyArray.create(0)
 	a.push(3)
-	let b = touch(a)
+	var b = touch(a)
 	b.push(4)
 	b.push(5)
 	a = TallyArray.create(0)
@@ -417,11 +417,11 @@ typealias TallyArray = Array with Tally
 typealias TallyArrays = Array with TallyArray
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
-	let holder = TallyArrays.create(0)
+	var holder = TallyArrays.create(0)
 	var a = TallyArray.create(0)
 	a.push(8)
 	holder.push(touch(a))
@@ -448,15 +448,15 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function fill(cells TallyArray, count Tally)
+function fill(mutates cells TallyArray, count Tally)
 	for i in 0 upto count 'each'
 		cells.push(i)
 	end 'each'
 end 'fill'
 
-function touch(cells TallyArray) returns TallyArray
+function touch(mutates cells TallyArray) returns TallyArray
 	fill(cells, count: 1)
-	return cells
+	return cells.clone()
 end 'touch'
 
 function main() returns ExitCode
@@ -554,9 +554,9 @@ type Plain
 		return Self{hits: 0}
 	end 'create'
 
-	function bump() returns Plain
-		self.hits = self.hits + 1
-		return self
+	function bump(mutates self) returns Plain
+		self.hits = try self.hits + 1 otherwise panic("out of range")
+		return self.clone()
 	end 'bump'
 end 'Plain'
 
@@ -664,7 +664,7 @@ type Pass uses Element
 		return Self{marker: 1}
 	end 'create'
 
-	function through(item Element) returns Element
+	function through(consumes item Element) returns Element
 		return item
 	end 'through'
 end 'Pass'
@@ -733,11 +733,11 @@ typealias Tally = int(0 to u64.max)
 typealias TallyArray = Array with Tally
 
 function touch(cells TallyArray) returns TallyArray
-	return cells
+	return cells.clone()
 end 'touch'
 
 function pick(flag bool, cells TallyArray) returns TallyArray
-	var last = cells
+	var last = cells.clone()
 	if flag 'yes'
 		return last
 	end 'yes' else 'no'
@@ -815,22 +815,22 @@ type Counter
 		return Self{hits: 0, log: TallyArray.create(0)}
 	end 'create'
 
-	function bump() returns Counter
-		self.hits = self.hits + 1
+	function bump(mutates self) returns Counter
+		self.hits = try self.hits + 1 otherwise panic("out of range")
 		self.log.push(self.hits)
-		return self
+		return self.clone()
 	end 'bump'
 end 'Counter'
 
-function spin(counter Counter, laps Tally)
+function spin(mutates counter Counter, laps Tally)
 	for _ in 0 upto laps 'each'
-		counter.hits = counter.hits + 1
+		counter.hits = try counter.hits + 1 otherwise panic("out of range")
 	end 'each'
 end 'spin'
 
-function adopt(counter Counter) returns Counter
+function adopt(mutates counter Counter) returns Counter
 	spin(counter, laps: 2)
-	return counter
+	return counter.clone()
 end 'adopt'
 
 function main() returns ExitCode
@@ -864,13 +864,13 @@ typealias TallyArray = Array with Tally
 
 typealias TallyArrays = Array with TallyArray
 
-function stash(holder TallyArrays, cells TallyArray) returns TallyArray
-	holder.push(cells)
-	return cells
+function stash(mutates holder TallyArrays, cells TallyArray) returns TallyArray
+	holder.push(cells.clone())
+	return cells.clone()
 end 'stash'
 
 function main() returns ExitCode
-	let holder = TallyArrays.create(0)
+	var holder = TallyArrays.create(0)
 	var last = TallyArray.create(0)
 	for _ in 0 upto 3 'each'
 		last = stash(holder, cells: last)
@@ -957,14 +957,14 @@ typealias Tally = int(0 to u64.max)
 
 typealias TallyArray = Array with Tally
 
-function descend(cells TallyArray, depth Tally) returns TallyArray
+function descend(mutates cells TallyArray, depth Tally) returns TallyArray
 	if depth == 0 'bottom'
-		return cells
+		return cells.clone()
 	end 'bottom'
 	cells.push(depth)
-	let inner = descend(cells, depth: depth - 1)
+	var inner = descend(cells, depth: depth - 1)
 	inner.push(0)
-	return cells
+	return cells.clone()
 end 'descend'
 
 function main() returns ExitCode

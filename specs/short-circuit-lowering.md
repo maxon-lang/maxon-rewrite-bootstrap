@@ -68,7 +68,7 @@ function main() returns ExitCode
 	if t() or f() 'g'
 		code = code + 32
 	end 'g'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -94,7 +94,7 @@ function main() returns ExitCode
 	if x > 0 and y == 0 'mixed'
 		code = code + 4
 	end 'mixed'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -128,7 +128,7 @@ function main() returns ExitCode
 	if c 'c'
 		code = code + 4
 	end 'c'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -160,7 +160,7 @@ function main() returns ExitCode
 	if not (t() and f()) 'c'
 		code = code + 4
 	end 'c'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -231,7 +231,7 @@ function main() returns ExitCode
 	if eitherTrue() 'b'
 		code = code + 2
 	end 'b'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -257,13 +257,13 @@ function main() returns ExitCode
 	var n = 1 as Integer
 	var steps = 0 as Integer
 	while positive(n) and underLimit(n) 'loop'
-		n = n + 1
-		steps = steps + 1
+		n = try n + 1 otherwise panic("out of range")
+		steps = try steps + 1 otherwise panic("out of range")
 		if steps > 10 'runaway'
 			break
 		end 'runaway'
 	end 'loop'
-	return n * 10 + steps
+	return try n * 10 + steps otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -297,7 +297,7 @@ function main() returns ExitCode
 	if f() or (t() and f()) 'c'
 		code = code + 4
 	end 'c'
-	return code
+	return code as ExitCode
 end 'main'
 ```
 ```exitcode

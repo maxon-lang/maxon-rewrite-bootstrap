@@ -206,7 +206,7 @@ function main() returns ExitCode
 	let b = classify(5)
 	let c = classify(50)
 	let d = classify(200)
-	return a + b * 3 + c * 9 + d * 27
+	return try a + b * 3 + c * 9 + d * 27 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -232,7 +232,7 @@ function test(c Integer, next Integer) returns Integer
 end 'test'
 
 function main() returns ExitCode
-	return test(5, next: 0)
+	return try test(5, next: 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -258,7 +258,7 @@ function test(x Integer) returns Integer
 end 'test'
 
 function main() returns ExitCode
-	return test(5)
+	return try test(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

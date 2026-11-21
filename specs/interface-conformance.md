@@ -108,7 +108,7 @@ function main() returns ExitCode
 	let c = SimpleCounter.create(40)
 	c.increment()
 	c.increment()
-	return c.get()
+	return c.get() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -147,7 +147,7 @@ end 'Buffer'
 function main() returns ExitCode
 	let buf = Buffer.create(0)
 	buf.write(42)
-	return buf.read()
+	return buf.read() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -268,7 +268,7 @@ end 'Extended'
 
 function main() returns ExitCode
 	let e = Extended.create(42)
-	return e.getValue()
+	return try e.getValue() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -294,7 +294,7 @@ end 'Standalone'
 
 function main() returns ExitCode
 	let s = Standalone.create(42)
-	return s.get()
+	return try s.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -523,7 +523,7 @@ type Widget implements Processor
 	var v as Integer
 
 	function process(value A) returns Integer
-		return value
+		return value as Integer
 	end 'process'
 
 	static function create() returns Self
@@ -538,7 +538,7 @@ end 'seed'
 function main() returns ExitCode
 	let w = Widget.create()
 	let b = seed()
-	return w.process(b as A)
+	return try w.process(b as A) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -720,7 +720,7 @@ end 'Quiet'
 
 function main() returns ExitCode
 	let q = Quiet.create(42)
-	return q.greet(7)
+	return try q.greet(7) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

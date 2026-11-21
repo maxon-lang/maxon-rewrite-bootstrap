@@ -566,7 +566,7 @@ end 'Box'
 function main() returns ExitCode
 	let first = a.Box.create()
 	let second = b.Box.create()
-	return first.v + second.w
+	return try first.v + second.w otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1162,7 +1162,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1219,7 +1219,7 @@ end 'Holder'
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1334,7 +1334,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{value: v}
 	end 'create'
 
@@ -1347,7 +1347,7 @@ typealias Box_Integer = Box with Integer
 
 function main() returns ExitCode
 	let b = Box_Integer.create(7)
-	return b.get()
+	return try b.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1619,7 +1619,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1841,7 +1841,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1893,7 +1893,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1966,7 +1966,7 @@ end 'Held'
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -1986,7 +1986,7 @@ function main() returns ExitCode
 	let s = SBox.create("hello")
 	let m = Box_String.held(Held.create(4))
 	match m 'k'
-		silent then return s.tag()
+		silent then return s.tag() as ExitCode
 		held(h) then return s.tag() + h.n
 	end 'k'
 end 'main'
@@ -2008,7 +2008,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2028,7 +2028,7 @@ function main() returns ExitCode
 	let s = SBox.create("hello")
 	let e = Box_String.square
 	match e 'k'
-		circle then return s.tag()
+		circle then return s.tag() as ExitCode
 		square then return s.tag() + 4
 	end 'k'
 end 'main'
@@ -2053,7 +2053,7 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2161,7 +2161,7 @@ end 'A'
 type HoldC uses T where T implements C
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2173,7 +2173,7 @@ end 'HoldC'
 type HoldB uses T where T implements B_C
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2189,7 +2189,7 @@ typealias HB = HoldB with A
 function main() returns ExitCode
 	let h1 = HC.create(A_B.create())
 	let h2 = HB.create(A.create())
-	return h1.go() + h2.go() * 10
+	return try h1.go() + h2.go() * 10 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2242,7 +2242,7 @@ end 'A_B'
 type HoldB uses T where T implements B_C
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2254,7 +2254,7 @@ end 'HoldB'
 type HoldC uses T where T implements C
 	export var v as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{v: v}
 	end 'create'
 
@@ -2270,7 +2270,7 @@ typealias HC = HoldC with A_B
 function main() returns ExitCode
 	let h1 = HC.create(A_B.create())
 	let h2 = HB.create(A.create())
-	return h2.go() * 10 + h1.go()
+	return try h2.go() * 10 + h1.go() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2338,7 +2338,7 @@ end 'A'
 type HoldD uses T where T implements D
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2350,7 +2350,7 @@ end 'HoldD'
 type HoldCD uses T where T implements C_D
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2362,7 +2362,7 @@ end 'HoldCD'
 type HoldBCD uses T where T implements B_C_D
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2442,7 +2442,7 @@ end 'A_B'
 type HoldB uses T where T implements B
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2454,7 +2454,7 @@ end 'HoldB'
 type HoldBC uses T where T implements B_C
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2466,7 +2466,7 @@ end 'HoldBC'
 type HoldC uses T where T implements C
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -2642,7 +2642,7 @@ typealias Status = int(0 to 5)
 
 export function clamped() returns ExitCode
 	let s = 4 as Status
-	return s
+	return s as ExitCode
 end 'clamped'
 
 // --- file: b/b.maxon
@@ -3103,7 +3103,7 @@ typealias Container = int(0 to 5)
 
 export function useA() returns ExitCode
 	let c = 4 as Container
-	return c
+	return c as ExitCode
 end 'useA'
 
 // --- file: b/b.maxon
@@ -3757,7 +3757,7 @@ function main() returns ExitCode
 	let box = shapes.Box.make()
 	let state = crates.Box.shut
 	if state == crates.Box.shut 'closed'
-		return box.side + 12
+		return try box.side + 12 otherwise panic("out of range")
 	end 'closed'
 	return box.side
 end 'main'
@@ -3800,7 +3800,7 @@ function describeB(m b.Mode) returns ExitCode
 end 'describeB'
 
 function main() returns ExitCode
-	return describeA(a.Mode.slow) * 10 + describeB(b.Mode.warm)
+	return try describeA(a.Mode.slow) * 10 + describeB(b.Mode.warm) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

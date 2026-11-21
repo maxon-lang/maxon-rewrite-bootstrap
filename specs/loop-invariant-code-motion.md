@@ -198,7 +198,7 @@ typealias Word = int(i64.min to i64.max)
 function weighted(n Word, k Word) returns Word
 	var t = 0 as Word
 	for _ in 0 upto n 'loop'
-		t = t + k * 31 + 7
+		t = try t + k * 31 + 7 otherwise panic("out of range")
 	end 'loop'
 	return t
 end 'weighted'
@@ -206,7 +206,7 @@ end 'weighted'
 function main() returns ExitCode
 	var seed = 0 as Word
 	for i in 0 upto 4 'feed'
-		seed = seed + weighted(i, k: i + 1)
+		seed = try seed + weighted(i, k: i + 1) otherwise panic("out of range")
 	end 'feed'
 	// k*31+7 per trip, n trips: 0 + 69 + 2*100 + 3*131 = 662.
 	if seed != 662 'value'
@@ -246,19 +246,19 @@ type Cell
 	end 'of'
 end 'Cell'
 
-function drain(c Cell, budget Word) returns Word
+function drain(mutates c Cell, budget Word) returns Word
 	var trips = 0 as Word
 	var room = budget
-	while c.value + room > 0 'loop'
-		c.value = c.value - 1
-		room = room - 1
-		trips = trips + 1
+	while (try c.value + room otherwise panic("out of range")) > 0 'loop'
+		c.value = try c.value - 1 otherwise panic("out of range")
+		room = try room - 1 otherwise panic("out of range")
+		trips = try trips + 1 otherwise panic("out of range")
 	end 'loop'
 	return trips
 end 'drain'
 
 function main() returns ExitCode
-	let c = Cell.of(3)
+	var c = Cell.of(3)
 	// 3+2, 2+1, 1+0, then 0+(-1) stops: three trips, and the field reaches zero.
 	if drain(c, budget: 2) != 3 'trips'
 		return 1
@@ -295,7 +295,7 @@ function conditionalRead(c Cell, n Word) returns Word
 	var i = 0 as Word
 	while i < n 'loop'
 		if i == 3 'once'
-			t = t + c.value
+			t = try t + c.value otherwise panic("out of range")
 		end 'once'
 		i = i + 1
 	end 'loop'

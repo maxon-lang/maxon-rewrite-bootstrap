@@ -106,12 +106,12 @@ type Label
 	export var text as String
 
 	static function create(text String) returns Self
-		return Self{text: text}
+		return Self{text: text.clone()}
 	end 'create'
 end 'Label'
 
 function choose(label Label, wide Integer, flag bool) returns Integer
-	let r = (label.text.byteLength() + label.text.byteLength() + label.text.byteLength() + label.text.byteLength() > 0 and (wide + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1) as Octet > 3) if flag else false
+	let r = ((try label.text.byteLength() + label.text.byteLength() + label.text.byteLength() + label.text.byteLength() otherwise panic("out of range")) > 0 and (try (wide + 1 + 1 + 1 + 1 + 1 + 1 + 1 + 1) as Octet otherwise panic("out of range")) > 3) if flag else false
 	return 1 if r else 0
 end 'choose'
 
@@ -130,6 +130,7 @@ ok 1
 ```
 
 <!-- test: the-range-check-in-a-short-circuit-arm-still-fires -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 The same shape with a value past the range: the check is in front of its value, so the program stops at the
 cast instead of running on.
 

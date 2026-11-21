@@ -79,7 +79,7 @@ function main() returns ExitCode
 	var t = Tag.create(1)
 	t = Tag.create(2)
 	t = Tag.create(3)
-	return t.id
+	return try t.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -134,7 +134,7 @@ end 'makeToken'
 
 function main() returns ExitCode
 	let tok = makeToken(99)
-	return tok.kind
+	return try tok.kind as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -158,7 +158,7 @@ function main() returns ExitCode
 	var a = Num.create(10)
 	let b = a
 	a = Num.create(20)
-	return b.v + a.v
+	return try b.v + a.v otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -276,14 +276,14 @@ type Outer
 	export var child as Inner
 
 	static function create(child Inner) returns Self
-		return Self{child: child}
+		return Self{child: child.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let inner = Inner.create(55)
 	let outer = Outer.create(inner)
-	return outer.child.val
+	return try outer.child.val as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -307,7 +307,7 @@ type B
 	export var a as A
 
 	static function create(a A) returns Self
-		return Self{a: a}
+		return Self{a: a.clone()}
 	end 'create'
 end 'B'
 
@@ -315,13 +315,13 @@ type C
 	export var b as B
 
 	static function create(b B) returns Self
-		return Self{b: b}
+		return Self{b: b.clone()}
 	end 'create'
 end 'C'
 
 function main() returns ExitCode
 	let c = C.create(B.create(A.create(7)))
-	return c.b.a.n
+	return try c.b.a.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -344,20 +344,20 @@ end 'Payload'
 type Container
 	export var payload as Payload
 
-	function setPayload(p Payload)
-		payload = p
+	function setPayload(mutates self, p Payload)
+		payload = p.clone()
 	end 'setPayload'
 
 	static function create(payload Payload) returns Self
-		return Self{payload: payload}
+		return Self{payload: payload.clone()}
 	end 'create'
 end 'Container'
 
 function main() returns ExitCode
 	let old = Payload.create(1)
-	let c = Container.create(old)
+	var c = Container.create(old)
 	c.setPayload(Payload.create(2))
-	return c.payload.data
+	return try c.payload.data as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -380,21 +380,21 @@ end 'Val'
 type Holder
 	export var v as Val
 
-	function set(newV Val)
-		v = newV
+	function set(mutates self, newV Val)
+		v = newV.clone()
 	end 'set'
 
 	static function create(v Val) returns Self
-		return Self{v: v}
+		return Self{v: v.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Val.create(0))
+	var h = Holder.create(Val.create(0))
 	h.set(Val.create(10))
 	h.set(Val.create(20))
 	h.set(Val.create(30))
-	return h.v.n
+	return try h.v.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -417,13 +417,13 @@ end 'Node'
 typealias NodeArray = Array with Node
 
 function main() returns ExitCode
-	let arr = NodeArray.create(0)
+	var arr = NodeArray.create(0)
 	if true 'scope'
 		let n = Node.create(10)
 		arr.push(n)
 	end 'scope'
 	let got = try arr.get(0) otherwise Node.create(-1)
-	return got.id
+	return try got.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -477,11 +477,11 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(50))
 	try arr.set(0, value: Item.create(99)) otherwise panic("test invariant: set OOB")
 	let got = try arr.get(0) otherwise Item.create(-1)
-	return got.value
+	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -509,7 +509,7 @@ function main() returns ExitCode
 	arr.push(Item.create(2))
 	arr.push(Item.create(3))
 	arr.clear()
-	return arr.count()
+	return arr.count() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -532,16 +532,16 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 function fill() returns Integer
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(10))
 	arr.push(Item.create(20))
 	arr.push(Item.create(30))
-	return arr.count()
+	return try arr.count() as Integer otherwise panic("out of range")
 end 'fill'
 
 function main() returns ExitCode
 	let n = fill()
-	return n
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -602,14 +602,14 @@ end 'Val'
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let arr = ValArray.create(0)
+	var arr = ValArray.create(0)
 	arr.push(Val.create(10))
 	arr.push(Val.create(30))
 	arr.insert(1, value: Val.create(20))
 	let a = try arr.get(0) otherwise Val.create(-1)
 	let b = try arr.get(1) otherwise Val.create(-1)
 	let c = try arr.get(2) otherwise Val.create(-1)
-	return a.n + b.n + c.n
+	return try a.n + b.n + c.n otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -665,17 +665,17 @@ type Wrapper
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Wrapper'
 
 typealias WrapperArray = Array with Wrapper
 
 function main() returns ExitCode
-	let arr = WrapperArray.create(0)
+	var arr = WrapperArray.create(0)
 	arr.push(Wrapper.create(Inner.create(1)))
 	arr.push(Wrapper.create(Inner.create(2)))
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -736,10 +736,10 @@ function getFirst(arr ItemArray) returns Item
 end 'getFirst'
 
 function main() returns ExitCode
-	let arr = ItemArray.create(0)
+	var arr = ItemArray.create(0)
 	arr.push(Item.create(77))
 	let result = getFirst(arr)
-	return result.value
+	return try result.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -768,7 +768,7 @@ end 'colorCode'
 
 function main() returns ExitCode
 	let c = Color.green
-	return colorCode(c)
+	return try colorCode(c) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -802,7 +802,7 @@ end 'massOf'
 
 function main() returns ExitCode
 	let s = Shape.solid(Body.create(5))
-	return massOf(s)
+	return try massOf(s) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -885,7 +885,7 @@ typealias ItemArray = Array with Item
 function main() returns ExitCode
 	let arr = ItemArray.create(0)
 	let got = try arr.get(0) otherwise Item.create(99)
-	return got.value
+	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1075,15 +1075,15 @@ typealias CellArray = Array with Cell
 typealias Grid = Array with CellArray
 
 function main() returns ExitCode
-	let grid = Grid.create(0)
-	let row1 = CellArray.create(0)
+	var grid = Grid.create(0)
+	var row1 = CellArray.create(0)
 	row1.push(Cell.create(1))
 	row1.push(Cell.create(2))
-	let row2 = CellArray.create(0)
+	var row2 = CellArray.create(0)
 	row2.push(Cell.create(3))
 	grid.push(row1)
 	grid.push(row2)
-	return grid.count()
+	return try grid.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1109,19 +1109,19 @@ type Bucket
 	export var items as EntryArray
 
 	static function create(items EntryArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Bucket'
 
 function fill() returns Integer
-	let b = Bucket.create(EntryArray.create(0))
+	var b = Bucket.create(EntryArray.create(0))
 	b.items.push(Entry.create(10))
 	b.items.push(Entry.create(20))
-	return b.items.count()
+	return try b.items.count() as Integer otherwise panic("out of range")
 end 'fill'
 
 function main() returns ExitCode
-	return fill()
+	return try fill() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1150,7 +1150,7 @@ end 'makePair'
 
 function main() returns ExitCode
 	let p = makePair(3, y: 7)
-	return p.a + p.b
+	return try p.a + p.b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1176,7 +1176,7 @@ type Wrapper
 	export var inner as Inner
 
 	static function create(inner Inner) returns Self
-		return Self{inner: inner}
+		return Self{inner: inner.clone()}
 	end 'create'
 end 'Wrapper'
 
@@ -1187,7 +1187,7 @@ end 'wrap'
 function main() returns ExitCode
 	let i = Inner.create(5)
 	let w = wrap(i)
-	return w.inner.value
+	return try w.inner.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1200,7 +1200,7 @@ List (struct owning a managed list field) must walk and decref managed list node
 typealias StringList = List with String
 
 function main() returns ExitCode
-	let list = StringList.create()
+	var list = StringList.create()
 	list.append("hello")
 	return 0
 end 'main'
@@ -1468,11 +1468,11 @@ type Point
 end 'Point'
 
 function acceptPoint(p Point) returns Integer
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'acceptPoint'
 
 function main() returns ExitCode
-	return acceptPoint(Point.create(3, y: 4))
+	return try acceptPoint(Point.create(3, y: 4)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1603,9 +1603,9 @@ typealias Count = int(i64.min to i64.max)
 type Counter
 	export var value as Count
 
-	function increment() returns Counter
-		value = value + 1
-		return self
+	function increment(mutates self) returns Counter
+		value = try value + 1 otherwise panic("out of range")
+		return self.clone()
 	end 'increment'
 
 	static function create(value Count) returns Self
@@ -1614,9 +1614,9 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
-	return c.value
+	return try c.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1640,19 +1640,19 @@ type Wrapper
 	export var data as Data
 
 	static function create(data Data) returns Self
-		return Self{data: data}
+		return Self{data: data.clone()}
 	end 'create'
 end 'Wrapper'
 
 function extractData(w Wrapper) returns Data
-	return w.data
+	return w.data.clone()
 end 'extractData'
 
 function main() returns ExitCode
 	let d = Data.create(42)
 	let w = Wrapper.create(d)
 	let result = extractData(w)
-	return result.value
+	return try result.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1769,15 +1769,15 @@ type Outer
 	export var b as Integer
 
 	static function create(a Inner, b Integer) returns Self
-		return Self{a: a, b: b}
+		return Self{a: a.clone(), b: b}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
 	let x = Outer.create(Inner.create(42), b: 10)
-	let y = x.clone()
+	var y = x.clone()
 	y.a.value = 99
-	return x.a.value
+	return try x.a.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1846,7 +1846,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength()
+	return s.byteLength() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1987,7 +1987,7 @@ type Inner
 	export var value as Integer
 
 	static function create(items IntArray, value Integer) returns Self
-		return Self{items: items, value: value}
+		return Self{items: items.clone(), value: value}
 	end 'create'
 end 'Inner'
 
@@ -1996,11 +1996,11 @@ type Outer
 	export var initialized as bool
 
 	static function create(inner Inner, initialized bool) returns Self
-		return Self{inner: inner, initialized: initialized}
+		return Self{inner: inner.clone(), initialized: initialized}
 	end 'create'
 end 'Outer'
 
-function initOuter(o Outer)
+function initOuter(mutates o Outer)
 	if not o.initialized 'init'
 		o.inner = Inner.create(IntArray.create(0), value: 42)
 		o.initialized = true
@@ -2008,12 +2008,12 @@ function initOuter(o Outer)
 end 'initOuter'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(IntArray.create(0), value: 0), initialized: false)
+	var o = Outer.create(Inner.create(IntArray.create(0), value: 0), initialized: false)
 	initOuter(o)
 	o.inner.items.push(1)
 	o.inner.items.push(2)
 	o.inner.items.push(3)
-	return o.inner.items.count()
+	return try o.inner.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2159,18 +2159,18 @@ type Dependency
 	export var key as QueryKey
 
 	static function create(key QueryKey) returns Self
-		return Self{key: key}
+		return Self{key: key.clone()}
 	end 'create'
 end 'Dependency'
 
 typealias DependencyArray = Array with Dependency
 
 function main() returns ExitCode
-	let deps = DependencyArray.create(0)
+	var deps = DependencyArray.create(0)
 	deps.push(Dependency.create(QueryKey.sourceFile("test.maxon")))
 	deps.push(Dependency.create(QueryKey.allModule))
 	deps.push(Dependency.create(QueryKey.sourceFile("other.maxon")))
-	return deps.count()
+	return try deps.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2234,7 +2234,7 @@ function pickOr(project N, useNamed bool, fallback Tag) returns Tag
 	if useNamed 'named'
 		return Tag.named(project)
 	end 'named'
-	return fallback
+	return fallback.clone()
 end 'pickOr'
 
 function tagCode(project N, useNamed bool) returns N
@@ -2249,8 +2249,8 @@ end 'tagCode'
 function main() returns ExitCode
 	var sum = 0 as N
 	sum = sum + tagCode(3, useNamed: false)
-	sum = sum + tagCode(5, useNamed: true)
-	sum = sum + tagCode(7, useNamed: false)
+	sum = try sum + tagCode(5, useNamed: true) otherwise panic("out of range")
+	sum = try sum + tagCode(7, useNamed: false) otherwise panic("out of range")
 	print("sum={sum}\n")
 	return 0
 end 'main'
@@ -2339,7 +2339,7 @@ type Box
 	export let item as Item
 
 	static function create(item Item) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 
 	function total() returns Integer
@@ -2350,12 +2350,12 @@ end 'Box'
 function twice(item Item) returns Integer
 	let a = Box.create(item)
 	let b = Box.create(item)
-	return a.total() + b.total() + item.n
+	return try a.total() + b.total() + item.n otherwise panic("out of range")
 end 'twice'
 
 function main() returns ExitCode
 	let item = Item.create(7)
-	return twice(item)
+	return try twice(item) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2383,18 +2383,18 @@ type Holder
 	export let item as Item
 
 	static function create(item Item) returns Self
-		return Self{item: item}
+		return Self{item: item.clone()}
 	end 'create'
 
 	static function copyOf(other Holder) returns Self
-		return Self{item: other.item}
+		return Self{item: other.item.clone()}
 	end 'copyOf'
 end 'Holder'
 
 function main() returns ExitCode
 	let a = Holder.create(Item.create(5))
 	let b = Holder.copyOf(a)
-	return a.item.n + b.item.n
+	return try a.item.n + b.item.n otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2514,7 +2514,7 @@ function main() returns ExitCode
 		let inner = Box.create(42)
 		result = inner
 	end 'blk'
-	return result.value
+	return try result.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2539,7 +2539,7 @@ function main() returns ExitCode
 	var x = Pair.create(3, b: 4)
 	let y = x.clone()
 	x = Pair.create(0, b: 0)
-	return y.a + y.b
+	return try y.a + y.b otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2563,20 +2563,20 @@ end 'Inner'
 type Outer
 	export var child as Inner
 
-	function setChild(c Inner)
-		child = c
+	function setChild(mutates self, c Inner)
+		child = c.clone()
 	end 'setChild'
 
 	static function create(child Inner) returns Self
-		return Self{child: child}
+		return Self{child: child.clone()}
 	end 'create'
 end 'Outer'
 
 function main() returns ExitCode
-	let o = Outer.create(Inner.create(0))
+	var o = Outer.create(Inner.create(0))
 	let i = Inner.create(55)
 	o.setChild(i)
-	return o.child.val
+	return try o.child.val as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2605,10 +2605,10 @@ function getFirst(arr WrapperArray) returns Wrapper throws ArrayError
 end 'getFirst'
 
 function main() returns ExitCode
-	let arr = WrapperArray.create(0)
+	var arr = WrapperArray.create(0)
 	arr.push(Wrapper.create(99))
 	let w = try getFirst(arr) otherwise Wrapper.create(0)
-	return w.n
+	return try w.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2637,7 +2637,7 @@ function main() returns ExitCode
 		a = Cell.create(20)
 		result = b.value
 	end 'inner'
-	return result + a.value
+	return try result + a.value otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2661,11 +2661,11 @@ end 'Fallback'
 typealias FallbackArray = Array with Fallback
 
 function main() returns ExitCode
-	let arr = FallbackArray.create(0)
+	var arr = FallbackArray.create(0)
 	arr.push(Fallback.create(10))
 	let a = try arr.get(0) otherwise Fallback.create(99)
 	let b = try arr.get(5) otherwise Fallback.create(42)
-	return a.n + b.n
+	return try a.n + b.n otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2691,12 +2691,12 @@ function makeNum(n Integer) returns Num
 end 'makeNum'
 
 function addOne(x Num) returns Num
-	return Num.create(x.v + 1)
+	return Num.create(try x.v + 1 otherwise panic("out of range"))
 end 'addOne'
 
 function main() returns ExitCode
 	let result = addOne(makeNum(10))
-	return result.v
+	return try result.v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2724,7 +2724,7 @@ end 'readLevel'
 function main() returns ExitCode
 	let cfg = Config.create(77)
 	let l = readLevel(cfg)
-	return l + cfg.level - 77
+	return try l + cfg.level - 77 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2742,7 +2742,7 @@ type Item
 	export var id as Integer
 
 	static function create(name String, id Integer) returns Self
-		return Self{name: name, id: id}
+		return Self{name: name.clone(), id: id}
 	end 'create'
 end 'Item'
 
@@ -2763,7 +2763,7 @@ end 'findItem'
 function main() returns ExitCode
 	let item = findItem(10, b: 20, target: 20)
 	print("{item.name}\n")
-	return item.id
+	return try item.id as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2792,21 +2792,21 @@ function main() returns ExitCode
 	var result = 0 as Integer
 	var i = 0 as Integer
 	while i < 3 'outer'
-		let p = Pair.create(i, b: i * 10)
+		let p = Pair.create(i, b: try i * 10 otherwise panic("out of range"))
 		var j = 0 as Integer
 		while j < 3 'inner'
-			let q = Pair.create(j, b: j * 10)
+			let q = Pair.create(j, b: try j * 10 otherwise panic("out of range"))
 			if p.a == 1 'check'
 				if q.a == 2 'found'
-					result = p.b + q.b
+					result = try p.b + q.b otherwise panic("out of range")
 					break 'outer'
 				end 'found'
 			end 'check'
 			j = j + 1
 		end 'inner'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 	end 'outer'
-	return result
+	return try result as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -2964,7 +2964,7 @@ function scan(limit Integer, stopAt Integer) returns Integer throws ScanError
 			return total
 		end 'stop'
 		let step = try check(i)
-		total = total + step
+		total = try total + step otherwise panic("out of range")
 		print("{row}\n")
 	end 'each'
 	print("{header} done\n")
@@ -3019,11 +3019,11 @@ function firstOrDefault(arr WrapperArray) returns Wrapper
 end 'firstOrDefault'
 
 function main() returns ExitCode
-	let arr = WrapperArray.create(0)
+	var arr = WrapperArray.create(0)
 	let w = Wrapper.create(42)
 	arr.push(w)
 	let got = firstOrDefault(arr)
-	return got.value
+	return try got.value as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -3057,7 +3057,7 @@ function run(n Integer) returns Integer throws StepError
 		throw StepError.refused
 	end 'four'
 	let d = try step(n, at: 5)
-	return a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength()
+	return try a.byteLength() + b.byteLength() + c.byteLength() + d.byteLength() otherwise panic("out of range")
 end 'run'
 
 function main() returns ExitCode

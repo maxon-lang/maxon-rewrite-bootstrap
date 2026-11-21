@@ -455,11 +455,11 @@ regressed, every program in the corpus would stop compiling.
 typealias Integer = int(i64.min to i64.max)
 
 function double(n Integer) returns Integer
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 function main() returns ExitCode
-	return double(21)
+	return try double(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -60,13 +60,13 @@ typealias WordArray = Array with Word
 function total(a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 upto a.count() 'sum'
-		t = t + (try a.get(i) otherwise panic("total: i < a.count()"))
+		t = try t + (try a.get(i) otherwise panic("total: i < a.count()")) otherwise panic("out of range")
 	end 'sum'
 	return t
 end 'total'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 6 'seed'
 		a.push(i * i)
 	end 'seed'
@@ -157,18 +157,18 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function double(a WordArray, n Count) returns Word
+function double(mutates a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
 		let v = try a.get(i) otherwise panic("double: i < n <= a.count()")
 		try a.set(i, value: v * 2) otherwise panic("double: i < n <= a.count()")
-		t = t + (try a.get(i) otherwise panic("double: i < n <= a.count()"))
+		t = try t + (try a.get(i) otherwise panic("double: i < n <= a.count()")) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'double'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i + 1)
 	end 'seed'
@@ -193,13 +193,13 @@ typealias WordArray = Array with Word
 function walk(a WordArray, n Count) returns Word
 	var t = 0 as Word
 	for i in 0 upto n 'each'
-		t = t + (try a.get(i) otherwise 99)
+		t = try t + (try a.get(i) otherwise 99) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'walk'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 5 'seed'
 		a.push(i)
 	end 'seed'
@@ -225,13 +225,13 @@ typealias WordArray = Array with Word
 function overrun(a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 to a.count() 'each'
-		t = t + (try a.get(i) otherwise 1000)
+		t = try t + (try a.get(i) otherwise 1000) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'overrun'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i)
 	end 'seed'
@@ -293,17 +293,17 @@ typealias Word = int(i64.min to i64.max)
 
 typealias WordArray = Array with Word
 
-function growAndSum(a WordArray) returns Word
+function growAndSum(mutates a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 upto a.count() 'each'
-		a.push(i as Word)
-		t = t + (try a.get(i) otherwise 1000)
+		a.push(try i as Word otherwise panic("out of range"))
+		t = try t + (try a.get(i) otherwise 1000) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'growAndSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	for i in 0 upto 4 'seed'
 		a.push(i + 10)
 	end 'seed'
@@ -335,13 +335,13 @@ function nextSum(a WordArray) returns Word
 	var t = 0 as Word
 	for i in 0 upto a.count() 'each'
 		let j = i + 1
-		t = t + (try a.get(j) otherwise 1000)
+		t = try t + (try a.get(j) otherwise 1000) otherwise panic("out of range")
 	end 'each'
 	return t
 end 'nextSum'
 
 function main() returns ExitCode
-	let a = WordArray.create(0)
+	var a = WordArray.create(0)
 	a.push(10)
 	a.push(20)
 	a.push(30)

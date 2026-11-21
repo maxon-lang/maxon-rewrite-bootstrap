@@ -342,7 +342,7 @@ function classify(p bool, q bool, n Word) returns Word
 	if p 'first'
 		flag = 0
 	end 'first' else if q 'second'
-		flag = n - 5
+		flag = try n - 5 otherwise panic("out of range")
 	end 'second' else 'third'
 		flag = 0
 	end 'third'
@@ -425,7 +425,7 @@ function bump(p bool, n Word) returns Word
 		acc = 7
 	end 'no'
 	if flag != 0 'nz'
-		acc = acc + 1
+		acc = try acc + 1 otherwise panic("out of range")
 	end 'nz'
 	return acc
 end 'bump'
@@ -474,7 +474,7 @@ end 'f'
 function main() returns ExitCode
 	var t = 0 as Word
 	for i in 0 upto 4 'each'
-		t = t + f(i mod 2 == 0, n: i)
+		t = try t + f(i mod 2 == 0, n: i) otherwise panic("out of range")
 	end 'each'
 	if t != 8 'total'
 		return 1
@@ -519,7 +519,7 @@ end 'f'
 function main() returns ExitCode
 	var t = 0 as Word
 	for i in 0 upto 4 'each'
-		t = t + f(i mod 2 == 0, q: i > 1, n: i)
+		t = try t + f(i mod 2 == 0, q: i > 1, n: i) otherwise panic("out of range")
 	end 'each'
 	if t != 8 'total'
 		return 1

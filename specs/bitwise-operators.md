@@ -495,11 +495,11 @@ this case pins are both present, in ONE program.
 typealias Num = int(i64.min to i64.max)
 
 function shiftLeft(value Num, count Num) returns Num
-	return value shl count
+	return try value shl count otherwise panic("out of range")
 end 'shiftLeft'
 
 function shiftRight(value Num, count Num) returns Num
-	return value shr count
+	return try value shr count otherwise panic("out of range")
 end 'shiftRight'
 
 function main() returns ExitCode
@@ -526,6 +526,7 @@ end 'main'
 ```
 
 <!-- test: shift-by-negative-runtime-count-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 Go: *"if the shift count is negative at run time, a run-time panic occurs"*. A COMPILE-TIME negative count is
 E2054 (`shl-count-negative`, above); a run-time one reaches
 `Parser.emitNegativeShiftCountGuard` — a compare, a two-way branch and a panic block, emitted AHEAD of the
@@ -875,7 +876,7 @@ function shrConst(v Num) returns Num
 end 'shrConst'
 
 function shrDynamic(v Num, d Num) returns Num
-	return v shr d
+	return try v shr d otherwise panic("out of range")
 end 'shrDynamic'
 
 function shrPastWidth(v Num) returns Num
@@ -1003,21 +1004,21 @@ typealias U32 = int(0 to 4294967295)
 typealias Num = int(i64.min to i64.max)
 
 function shlBy(v Num, d Num) returns Num
-	return v shl d
+	return try v shl d otherwise panic("out of range")
 end 'shlBy'
 
 function shrBy(v Num, d Num) returns Num
-	return v shr d
+	return try v shr d otherwise panic("out of range")
 end 'shrBy'
 
 function main() returns ExitCode
 	// NARROW SIGNED. The shift moves bits out of the declared type's width; that is legal, and the
 	// answer needs all 64.
 	let narrow = -8 as I32
-	if (narrow shl 29) as Num != shlBy(-8, d: 29) 'signedFoldVsEmitted'
+	if (try (narrow shl 29) as Num otherwise panic("out of range")) != shlBy(-8, d: 29) 'signedFoldVsEmitted'
 		return 1
 	end 'signedFoldVsEmitted'
-	if (narrow shl 29) as Num != -4294967296 'signedValue'
+	if (try (narrow shl 29) as Num otherwise panic("out of range")) != -4294967296 'signedValue'
 		return 2
 	end 'signedValue'
 	// A count above the narrow type's width. A 32-bit shift instruction takes its count mod 32, so
@@ -1030,7 +1031,7 @@ function main() returns ExitCode
 	end 'signedCountValue'
 	// NARROW UNSIGNED. Zero-filling, and still 64 bits wide.
 	let wide = 4294967295 as U32
-	if (wide shl 33) as Num != shlBy(4294967295, d: 33) 'unsignedFoldVsEmitted'
+	if (try (wide shl 33) as Num otherwise panic("out of range")) != shlBy(4294967295, d: 33) 'unsignedFoldVsEmitted'
 		return 5
 	end 'unsignedFoldVsEmitted'
 	if (wide shr 4) as Num != shrBy(4294967295, d: 4) 'unsignedShrFoldVsEmitted'
@@ -1042,7 +1043,7 @@ function main() returns ExitCode
 	// A bare `int`, which never narrowed and so was always right. Here to show the ranged cases now
 	// agree with it rather than merely with each other.
 	let plain = -8 as Num
-	if plain shl 29 != (narrow shl 29) as Num 'rangedAgreesWithPlain'
+	if plain shl 29 != (try (narrow shl 29) as Num otherwise panic("out of range")) 'rangedAgreesWithPlain'
 		return 8
 	end 'rangedAgreesWithPlain'
 	return 42
@@ -1401,7 +1402,7 @@ takes. Two different arms of one question, and neither implies the other.
 function main() returns ExitCode
 	var seen = 0 as Count
 	for n in 68 upto 72 'each'
-		if 7 shl n != 0 'shl'
+		if (try 7 shl n otherwise panic("out of range")) != 0 'shl'
 			return 1
 		end 'shl'
 		if 1024 shr n != 0 'shr'
@@ -1434,21 +1435,21 @@ typealias Bits = int(0 to 63)
 
 function shlLowByte(n Bits) returns Num
 	let b = 200 as Byte
-	return b shl n
+	return try (b shl n) as Num otherwise panic("out of range")
 end 'shlLowByte'
 
 function shlTopByte(n Bits) returns Num
 	let b = 255 as Byte
-	return b shl n
+	return try (b shl n) as Num otherwise panic("out of range")
 end 'shlTopByte'
 
 function shrLowByte(n Bits) returns Num
 	let b = 200 as Byte
-	return b shr n
+	return (b shr n) as Num
 end 'shrLowByte'
 
 function bits(step Num) returns Bits
-	return step as Bits
+	return try step as Bits otherwise panic("out of range")
 end 'bits'
 
 function main() returns ExitCode
@@ -1491,7 +1492,7 @@ function main() returns ExitCode
 	var top = 0 as FullRangeInt
 	for i in 0 upto 2 'boundary'
 		let n = (i * 63) as Bits
-		top = top + (1 shl n)
+		top = try top + (1 shl n) otherwise panic("out of range")
 	end 'boundary'
 	if top != -9223372036854775807 'topSum'
 		return 2
@@ -1684,19 +1685,19 @@ typealias Byte = int(0 to u8.max)
 typealias Bits = int(0 to 63)
 
 function shlByteByBits(b Byte, n Bits) returns Num
-	return b shl n
+	return try (b shl n) as Num otherwise panic("out of range")
 end 'shlByteByBits'
 
 function shrByteByBits(b Byte, n Bits) returns Num
-	return b shr n
+	return (b shr n) as Num
 end 'shrByteByBits'
 
 function byteOf(step Num) returns Byte
-	return (step * 100) as Byte
+	return try (step * 100) as Byte otherwise panic("out of range")
 end 'byteOf'
 
 function bitsOf(step Num) returns Bits
-	return (step * 5) as Bits
+	return try (step * 5) as Bits otherwise panic("out of range")
 end 'bitsOf'
 
 function main() returns ExitCode
@@ -1727,7 +1728,7 @@ typealias Integer = int(i64.min to i64.max)
 function main() returns ExitCode
 	var t = 0 as Integer
 	for i in 0 upto 64 'l'
-		t = t + (1 shl i)
+		t = try t + (1 shl i) otherwise panic("out of range")
 	end 'l'
 	print("t={t}\n")
 	return 0
@@ -1749,7 +1750,7 @@ typealias Nibbles = int(1 to 3)
 typealias Steps = int(0 to 20)
 
 function rowShift(value Num, row Row) returns Num
-	return value shl (row * 16)
+	return try value shl (row * 16) otherwise panic("out of range")
 end 'rowShift'
 
 function nibbleShift(value Num, nibbles Nibbles) returns Num
@@ -1757,11 +1758,11 @@ function nibbleShift(value Num, nibbles Nibbles) returns Num
 end 'nibbleShift'
 
 function sumShift(value Num, a Steps, b Steps) returns Num
-	return value shl (a + b)
+	return try value shl (a + b) otherwise panic("out of range")
 end 'sumShift'
 
 function pastShift(value Num, a Steps) returns Num
-	return value shl (a * 4)
+	return try value shl (a * 4) otherwise panic("out of range")
 end 'pastShift'
 
 function main() returns ExitCode
@@ -1837,11 +1838,11 @@ typealias Small = int(0 to 100)
 typealias Num = int(i64.min to i64.max)
 
 function complementHalf(b Small) returns Num
-	return (not b) / 2
+	return try (not b) / 2 otherwise panic("out of range")
 end 'complementHalf'
 
 function complementShift(b Small) returns Num
-	return (not b) shr 1
+	return try ((not b) shr 1) as Num otherwise panic("out of range")
 end 'complementShift'
 
 function main() returns ExitCode
@@ -2046,7 +2047,7 @@ function fetch(b Small) returns Small throws ArrayError
 end 'fetch'
 
 function half(b Small) returns Num
-	let d = try fetch(b) otherwise b - 10
+	let d = try fetch(b) otherwise try b - 10 otherwise panic("out of range")
 	return (d / 2) as Num
 end 'half'
 

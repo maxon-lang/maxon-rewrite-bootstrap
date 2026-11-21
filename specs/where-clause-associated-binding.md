@@ -510,24 +510,24 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
 	function twice() returns Integer
-		return self.s.size() * 2
+		return try self.s.size() * 2 otherwise panic("out of range")
 	end 'twice'
 end 'Holder'
 

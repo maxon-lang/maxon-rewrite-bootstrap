@@ -209,19 +209,19 @@ function countSet(bits BoolArray) returns Tally
 	var n = 0 as Tally
 	for i in 0 upto bits.count() 'each'
 		if (try bits.get(i) otherwise false) 'set'
-			n = n + 1
+			n = try n + 1 otherwise panic("out of range")
 		end 'set'
 	end 'each'
 	return n
 end 'countSet'
 
 function main() returns ExitCode
-	let b = BoolArray.create(0)
+	var b = BoolArray.create(0)
 	b.push(true)
 	b.push(false)
 	b.push(true)
 	b.push(true)
-	return countSet(b)
+	return countSet(b) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -341,13 +341,13 @@ function risky(ok bool) returns Item throws Fail
 end 'risky'
 
 function choose(fallback Item, ok bool) returns Integer
-	let got = try risky(ok) otherwise fallback
+	let got = try risky(ok) otherwise fallback.clone()
 	return got.n
 end 'choose'
 
 function main() returns ExitCode
 	let f = Item.create(5)
-	return (choose(f, ok: false) + choose(f, ok: true)) as ExitCode
+	return try (choose(f, ok: false) + choose(f, ok: true)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -404,7 +404,7 @@ function pick() returns Wide
 end 'pick'
 
 function main() returns ExitCode
-	return pick() as ExitCode
+	return try pick() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

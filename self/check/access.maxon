@@ -75,7 +75,7 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, rt ast.Type
 	if t == ast.noType 'badValue'
 		return false
 	end 'badValue'
-	if not coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{typeName}'"), errs: errs) 'badType'
+	if not coerce(c, p: p, node: value, src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{typeName}'"), errs: errs) 'badType'
 		return false
 	end 'badType'
 	ordered[index] = value
@@ -119,7 +119,7 @@ function checkIndex(mutates c Checker, mutates p ast.Project, e ast.NodeID, muta
 	if argTy == ast.noType 'badIndex'
 		return ast.noType
 	end 'badIndex'
-	if not coerce(c, p: p, off: offsetOf(c, p: p, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
+	if not coerce(c, p: p, node: arg, src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
 		return ast.noType
 	end 'badType'
 	return typeElemType(p, ownerTy: t)

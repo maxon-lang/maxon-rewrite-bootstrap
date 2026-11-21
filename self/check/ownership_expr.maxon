@@ -51,7 +51,8 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "an element of a collection that is not stored in a variable cannot be moved out of it into {dest.text()}; bind the collection to a variable and take the element out of it, or copy it")
 		end 'element' else if ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'part'
 			let advice = copyAdvice(o, p: p, t: t, ifCopyable: "copy it with '.clone()'", fallback: "")
-			fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "a part of a temporary value cannot be moved out of it into {dest.text()}, because the temporary is dropped when the statement ends; {advice}")
+			let fix = cloneFixIf(o, p: p, e: e, t: t)
+			failFixed(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "a part of a temporary value cannot be moved out of it into {dest.text()}, because the temporary is dropped when the statement ends; {advice}", fix: fix)
 		end 'part'
 		return out
 	end 'fresh'
@@ -63,12 +64,14 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	end 'frozen'
 	if isBorrowed(o.c.typing.locals[path.root as Count]) 'borrowed'
 		let advice = copyAdvice(o, p: p, t: t, ifCopyable: "use '{text}.clone()' to give it its own copy", fallback: "")
-		fail(o, p: p, site: site, code: diag.errMoveOutOfBorrow, msg: "'{text}' is borrowed, not owned, so it cannot be moved into {dest.text()}; {advice}")
+		let fix = borrowedMoveFix(o, p: p, e: e, t: t, path: path)
+		failFixed(o, p: p, site: site, code: diag.errMoveOutOfBorrow, msg: "'{text}' is borrowed, not owned, so it cannot be moved into {dest.text()}; {advice}", fix: fix)
 		return out
 	end 'borrowed'
 	if path.crossesElement() 'element'
 		let advice = copyAdvice(o, p: p, t: t, ifCopyable: "use '{text}.clone()'", fallback: "take it out of the collection with its remove method")
-		fail(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is, or lies inside, an element of a collection, which owns it, so it cannot be moved out of it into {dest.text()}; {advice}")
+		let fix = cloneFixIf(o, p: p, e: e, t: t)
+		failFixed(o, p: p, site: site, code: diag.errMoveOutOfField, msg: "'{text}' is, or lies inside, an element of a collection, which owns it, so it cannot be moved out of it into {dest.text()}; {advice}", fix: fix)
 		return out
 	end 'element'
 	if path.steps.count() > 0 'part'
@@ -81,6 +84,19 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	requireNotProjected(o, p: p, path: path, site: site)
 	return withFact(out, fact: OwnFact.make(path.root, site: site, kind: OwnFactKind.factMoved, dest: dest))
 end 'consume'
+
+// borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, and otherwise,
+// for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
+function borrowedMoveFix(mutates o Ownership, mutates p ast.Project, e ast.NodeID, t ast.TypeID, path AccessPath) returns diag.Fix
+	if canCopy(o, p: p, t: t) 'copy'
+		return cloneFix(p.modules[o.c.modIdx].tree, e: e)
+	end 'copy'
+	let root = o.c.typing.locals[path.root as Count].clone()
+	if root.isParam and not root.isSelf and root.conv == ast.Convention.convLet and path.steps.count() == 0 'whole'
+		return conventionFix(p.modules[o.c.modIdx].tree, param: root.definedAt, keyword: fixKindConsumes)
+	end 'whole'
+	return diag.Fix.none()
+end 'borrowedMoveFix'
 
 // requireWritable refuses a change to a place that is not mutable, and one that a match binding still borrows.
 function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath)
@@ -96,11 +112,11 @@ function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U
 		return
 	end 'projected'
 	if root.isSelf and not isMutableLocal(root) 'self'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'")
+		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt))
 		return
 	end 'self'
 	if root.isParam and root.conv == ast.Convention.convLet 'let'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
+		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var", fix: conventionFix(p.modules[o.c.modIdx].tree, param: root.definedAt, keyword: fixKindMutates))
 		return
 	end 'let'
 	if root.isParam and ast.ownsValue(root.conv) 'owns'
@@ -108,7 +124,7 @@ function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U
 		return
 	end 'owns'
 	if not isMutableLocal(root) 'immutable'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let; declare it with 'var'")
+		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let; declare it with 'var'", fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt))
 		return
 	end 'immutable'
 	for i in 0 upto path.steps.count() 'steps'

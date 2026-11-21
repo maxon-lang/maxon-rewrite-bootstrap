@@ -87,11 +87,11 @@ error E3012: specs/unused-parameters/multiple-unused.maxon:5:37: unused variable
 typealias Integer = int(i64.min to i64.max)
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 
 function main() returns ExitCode
-	return add(5, b: 10)
+	return try add(5, b: 10) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -105,11 +105,11 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function multiply(a Integer, b Integer) returns Integer
-	return a * b
+	return try a * b otherwise panic("out of range")
 end 'multiply'
 
 function main() returns ExitCode
-	return multiply(7, b: 6)
+	return try multiply(7, b: 6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

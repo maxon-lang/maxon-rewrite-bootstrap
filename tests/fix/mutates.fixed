@@ -1,0 +1,19 @@
+// A parameter whose fields are written is declared mutates.
+type Counter
+	var n as Count
+
+	static function make(n Count) returns Counter
+		return Counter{n: n}
+	end 'make'
+end 'Counter'
+
+function reset(mutates c Counter)
+	c.n = 0
+end 'reset'
+
+function main() returns ExitCode
+	var c = Counter.make(5)
+	reset(c)
+	print("{c.n}\n")
+	return 0
+end 'main'

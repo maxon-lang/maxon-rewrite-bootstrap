@@ -193,13 +193,13 @@ type Row
 	end 'create'
 end 'Row'
 
-function fill(r Row)
+function fill(mutates r Row)
 	r.n = 7
 	r.items.push(3)
 end 'fill'
 
 function main() returns ExitCode
-	let r = Row.create(1)
+	var r = Row.create(1)
 	fill(r)
 	print("{r.n} {r.items.count()}\n")
 	return 0
@@ -219,7 +219,7 @@ typealias Count = int(0 to 100)
 
 function bumped(n Count) returns Count
 	var m = n
-	m = m + 1
+	m = try m + 1 otherwise panic("out of range")
 	return m
 end 'bumped'
 
@@ -263,7 +263,7 @@ hey hey!
 typealias Count = int(0 to 100)
 
 function bump(mutates n Count)
-	n = n + 1
+	n = try n + 1 otherwise panic("out of range")
 end 'bump'
 
 function main() returns ExitCode

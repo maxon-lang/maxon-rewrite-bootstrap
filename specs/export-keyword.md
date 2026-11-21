@@ -162,7 +162,7 @@ function helper() returns Integer
 end 'helper'
 
 function main() returns ExitCode
-	return helper()
+	return try helper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -291,9 +291,9 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
-	return try arr.get(0) otherwise 0
+	return try (try arr.get(0) otherwise 0) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -329,7 +329,7 @@ function privateHelper() returns Integer
 end 'privateHelper'
 
 function main() returns ExitCode
-	return privateHelper()
+	return try privateHelper() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1304,7 +1304,7 @@ end 'InternalPoint'
 
 function main() returns ExitCode
 	let p = InternalPoint.create(20, y: 22)
-	return p.x + p.y
+	return try p.x + p.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

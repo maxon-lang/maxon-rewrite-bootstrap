@@ -94,7 +94,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 42 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -108,7 +108,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 0 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -122,7 +122,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 255 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -136,7 +136,7 @@ typealias Byte = int(0 to u8.max)
 
 function main() returns ExitCode
 	let b = 100 as Byte
-	return b
+	return b as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -792,7 +792,7 @@ typealias Score = int(0 to 100)
 let passMark = 50 as Score
 
 function bonus(score Score) returns Score
-	return score + 1
+	return try score + 1 otherwise panic("out of range")
 end 'bonus'
 
 function main() returns ExitCode
@@ -867,7 +867,7 @@ end 'show'
 function main() returns ExitCode
 	let half = 60 as Score
 	if CommandLine.args().count() > 5 'many'
-		if show(half * 2) > 0 'shown'
+		if show(try half * 2 otherwise panic("out of range")) > 0 'shown'
 			return 1
 		end 'shown'
 	end 'many'
@@ -1136,7 +1136,7 @@ end 'seed'
 function main() returns ExitCode
 	let b = seed()
 	let i = b as Integer
-	return asInteger(i)
+	return try asInteger(i) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1188,9 +1188,9 @@ function takes(b Bytes) returns Wide
 end 'takes'
 
 function main() returns ExitCode
-	let a = Bytes.create(0)
+	var a = Bytes.create(0)
 	a.push(7)
-	return takes(a)
+	return takes(a) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -1612,7 +1612,7 @@ end 'seed'
 
 function main() returns ExitCode
 	let w = seed()
-	let n = w as Narrow
+	let n = try w as Narrow otherwise panic("out of range")
 	let back = n as Wide
 	print("n={n} back={back}")
 	return 0

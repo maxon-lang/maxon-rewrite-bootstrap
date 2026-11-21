@@ -443,17 +443,17 @@ function classify(x Num, n Num) returns Num
 	end 'first'
 	var i = 0 as Num
 	while i < n 'loop'
-		acc = acc + i
+		acc = try acc + i otherwise panic("out of range")
 		i = i + 1
 	end 'loop'
 	if small 'second'
-		acc = acc + 100
+		acc = try acc + 100 otherwise panic("out of range")
 	end 'second'
 	return acc
 end 'classify'
 
 function main() returns ExitCode
-	return classify(3, n: 4)
+	return try classify(3, n: 4) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

@@ -2598,7 +2598,7 @@ let baseReg = Reg.rdx
 let aliasOfBase = baseReg
 
 function ordinalOf(r Reg) returns Integer
-	return r.ordinal
+	return try r.ordinal as Integer otherwise panic("out of range")
 end 'ordinalOf'
 
 function main() returns ExitCode
@@ -2629,11 +2629,11 @@ end 'Status'
 let backed = Status.notFound
 
 function rawOf(s Status) returns Integer
-	return s.rawValue
+	return try s.rawValue as Integer otherwise panic("out of range")
 end 'rawOf'
 
 function ordOf(s Status) returns Integer
-	return s.ordinal
+	return try s.ordinal as Integer otherwise panic("out of range")
 end 'ordOf'
 
 function main() returns ExitCode
@@ -2665,7 +2665,7 @@ let boxedCase = Boxed.plain
 function main() returns ExitCode
 	return match boxedCase 'k'
 		plain gives 0
-		withPayload(n) gives n as ExitCode
+		withPayload(n) gives try n as ExitCode otherwise panic("out of range")
 	end 'k'
 end 'main'
 ```
@@ -2752,12 +2752,12 @@ function tagOf(b Boxed) returns Integer
 end 'tagOf'
 
 function main() returns ExitCode
-	let xs = BoxedArray.create(0)
+	var xs = BoxedArray.create(0)
 	var i = 0 as Integer
 	var sum = 0 as Integer
 	while i < 4 'each'
 		xs.push(sentinel)
-		sum = sum + tagOf(sentinel)
+		sum = try sum + tagOf(sentinel) otherwise panic("out of range")
 		i = i + 1
 	end 'each'
 	let first = try xs.get(0) otherwise Boxed.plain

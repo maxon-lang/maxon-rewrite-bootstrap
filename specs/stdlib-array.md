@@ -140,7 +140,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(42)
 	let val = try arr.get(0) otherwise -1
 	if val != 42 'check'
@@ -162,7 +162,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -185,7 +185,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -217,7 +217,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -270,7 +270,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -422,7 +422,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	if arr.isEmpty() == false 'e1'
 		return 1
 	end 'e1'
@@ -477,7 +477,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	let val = try arr.get(5) otherwise -1
 	if val == -1 'check'
@@ -616,7 +616,7 @@ Push string literals into an array and retrieve them.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("hello")
 	arr.push("world")
 	if arr.count() != 2 'cnt'
@@ -643,7 +643,7 @@ Push longer string literals (heap-allocated) into an array.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("hello this is a longer string")
 	arr.push("world this is also a longer string")
 	if arr.count() != 2 'cnt'
@@ -670,7 +670,7 @@ Push string variables into an array.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	let s1 = "first"
 	let s2 = "second"
 	arr.push(s1)
@@ -722,7 +722,7 @@ Get strings from array using get method.
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("one")
 	arr.push("two")
 	arr.push("three")
@@ -745,7 +745,7 @@ Verify string array memory is properly managed (no leaks).
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("test string one")
 	arr.push("test string two")
 	arr.push("test string three")
@@ -817,7 +817,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.push(30)
@@ -853,7 +853,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(30)
 	arr.push(40)
@@ -885,7 +885,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.insert(2, value: 30)
@@ -912,7 +912,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.insert(0, value: 42)
 	if arr.count() != 1 'cnt'
 		return 1
@@ -937,7 +937,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	arr.insert(100, value: 30)
@@ -964,7 +964,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(30)
 	arr.push(50)
@@ -1156,7 +1156,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(10)
 	arr.push(20)
 	let removed = try arr.remove(5) otherwise -1
@@ -1179,7 +1179,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	let removed = try arr.remove(0) otherwise -1
 	if removed == -1 'check'
 		return 0
@@ -1246,7 +1246,7 @@ typealias Int = int(i64.min to i64.max)
 typealias IntArray = Array with Int
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.insert(0, value: 30)
 	arr.insert(0, value: 10)
 	arr.insert(1, value: 20)
@@ -1286,7 +1286,7 @@ Insert a string into the middle of a string array. Verifies shiftRight handles r
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("alpha")
 	arr.push("gamma")
 	arr.insert(1, value: "beta")
@@ -1316,7 +1316,7 @@ Remove a string from the middle of a string array. Verifies shiftLeft handles re
 typealias StringArray = Array with String
 
 function main() returns ExitCode
-	let arr = StringArray.create(0)
+	var arr = StringArray.create(0)
 	arr.push("x")
 	arr.push("y")
 	arr.push("z")

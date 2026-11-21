@@ -38,12 +38,12 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	let v = h.box
 	h.box.n = 5
 	print("{v.n}\n")
@@ -64,7 +64,7 @@ end 'main'
 typealias Count = int(0 to 1000)
 
 function next(view Count) returns Count
-	return view + 1
+	return try view + 1 otherwise panic("out of range")
 end 'next'
 
 function main() returns ExitCode
@@ -147,14 +147,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
-	let v = h.box
+	var v = h.box
 	v.n = 2
 	print("{h.box.n}\n")
 	return 0
@@ -187,14 +187,14 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
-	let other = Holder.create(Box.create(2))
-	let boxes = Boxes.create(0)
+	var h = Holder.create(Box.create(1))
+	var other = Holder.create(Box.create(2))
+	var boxes = Boxes.create(0)
 	h.box.n = 3
 	let v = h.box
 	other.box = v
@@ -230,17 +230,17 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function stash(b Box, mutates kept Boxes)
-	kept.push(b)
+	kept.push(b.clone())
 end 'stash'
 
 function main() returns ExitCode
-	let kept = Boxes.create(0)
-	let h = Holder.create(Box.create(1))
+	var kept = Boxes.create(0)
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	let v = h.box
 	stash(v, kept: kept)
@@ -273,17 +273,17 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function first(h Holder) returns Box
-	let v = h.box
+	let v = h.box.clone()
 	return v
 end 'first'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	print("{first(h).n}\n")
 	return 0
@@ -314,21 +314,21 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
 function pick(b Box) returns Box
-	return b
+	return b.clone()
 end 'pick'
 
 function first(h Holder) returns Box
-	let v = h.box
+	let v = h.box.clone()
 	return pick(v)
 end 'first'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	print("{first(h).n}\n")
 	return 0
@@ -359,18 +359,18 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
-function bump(b Box)
+function bump(mutates b Box)
 	b.n = 9
 end 'bump'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
-	let v = h.box
+	var v = h.box
 	bump(v)
 	print("{h.box.n}\n")
 	return 0
@@ -401,7 +401,7 @@ type Holder
 	export var box as Box
 
 	static function create(box Box) returns Self
-		return Self{box: box}
+		return Self{box: box.clone()}
 	end 'create'
 end 'Holder'
 
@@ -409,7 +409,7 @@ type Pin
 	let box as Box
 
 	static function over(h Holder) returns Self
-		let v = h.box
+		let v = h.box.clone()
 		return Self{box: v}
 	end 'over'
 
@@ -419,7 +419,7 @@ type Pin
 end 'Pin'
 
 function main() returns ExitCode
-	let h = Holder.create(Box.create(1))
+	var h = Holder.create(Box.create(1))
 	h.box.n = 3
 	let pin = Pin.over(h)
 	print("{pin.value()}\n")

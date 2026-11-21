@@ -904,9 +904,9 @@ function grow(mutates d IntArray)
 end 'grow'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	grow(a)
-	return a.count() as ExitCode
+	return try a.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -927,10 +927,10 @@ function total(d IntArray) returns Count
 end 'total'
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(1)
 	a.push(2)
-	return total(a) as ExitCode
+	return try total(a) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

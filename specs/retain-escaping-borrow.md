@@ -60,7 +60,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -76,7 +76,7 @@ function main() returns ExitCode
 	if true 'reassign'
 		b = PointBox.create(Point.create(3, y: 4))
 	end 'reassign'
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -112,7 +112,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -129,7 +129,7 @@ function main() returns ExitCode
 		let pInner = Point.create(3, y: 4)
 		b = PointBox.create(pInner)
 	end 'reassign'
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -165,7 +165,7 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 
@@ -184,7 +184,7 @@ function main() returns ExitCode
 		b = PointBox.create(pIn)
 		i = i + 1
 	end 'loop'
-	return b.itemDigest()
+	return b.itemDigest() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -214,7 +214,7 @@ end 'Point'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{item: v}
 	end 'create'
 end 'Box'
@@ -256,7 +256,7 @@ end 'Point'
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{item: v}
 	end 'create'
 end 'Box'
@@ -267,7 +267,7 @@ function main() returns ExitCode
 	let p = Point.create(7)
 	let b = PointBox.create(p)
 	print("{b.item.x}")
-	return p.getX() - 7
+	return try p.getX() - 7 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -288,7 +288,7 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function create(v T) returns Self
+	static function create(consumes v T) returns Self
 		return Self{item: v}
 	end 'create'
 end 'Box'
@@ -328,11 +328,11 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -340,7 +340,7 @@ end 'Box'
 typealias PointBox = Box with Point
 
 function main() returns ExitCode
-	let b = PointBox.create(Point.create(7))
+	var b = PointBox.create(Point.create(7))
 	b.replace(Point.create(9))
 	print("{b.saved.x}\n")
 	return 0
@@ -371,15 +371,15 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 
-	function keep()
+	function keep(mutates self)
 		self.replace(self.saved)
 	end 'keep'
 end 'Box'
@@ -388,7 +388,7 @@ typealias PointBox = Box with Point
 
 function main() returns ExitCode
 	let kept = Point.create(4)
-	let b = PointBox.create(Point.create(1))
+	var b = PointBox.create(Point.create(1))
 	b.replace(kept)
 	b.replace(Point.create(2))
 	b.replace(kept)
@@ -425,17 +425,17 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	static function rebuilt(first Element, second Element) returns Self
-		let built = Self.create(first)
+	static function rebuilt(consumes first Element, consumes second Element) returns Self
+		var built = Self.create(first)
 		built.saved = second
 		return built
 	end 'rebuilt'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -445,7 +445,7 @@ typealias PointBox = Box with Point
 function main() returns ExitCode
 	let b = PointBox.rebuilt(Point.create(1), second: Point.create(2))
 	print("{b.saved.x}\n")
-	let c = PointBox.create(Point.create(0))
+	var c = PointBox.create(Point.create(0))
 	for round in 1 to 50 'rounds'
 		c.replace(Point.create((round * 7) as Coord))
 	end 'rounds'
@@ -480,11 +480,11 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
@@ -496,9 +496,9 @@ typealias TextBox = Box with String
 typealias SmallBox = Box with Small
 
 function main() returns ExitCode
-	let p = PointBox.create(Point.create(1))
-	let t = TextBox.create("one")
-	let s = SmallBox.create(1)
+	var p = PointBox.create(Point.create(1))
+	var t = TextBox.create("one")
+	var s = SmallBox.create(1)
 	p.replace(Point.create(2))
 	t.replace("two")
 	s.replace(2)
@@ -533,11 +533,11 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function rotate(other Self)
+	function rotate(mutates self, mutates other Self)
 		let held = other.saved
 		other.saved = self.saved
 		self.saved = held
@@ -547,8 +547,8 @@ end 'Box'
 typealias PointBox = Box with Point
 
 function main() returns ExitCode
-	let b = PointBox.create(Point.create(1))
-	let c = PointBox.create(Point.create(2))
+	var b = PointBox.create(Point.create(1))
+	var c = PointBox.create(Point.create(2))
 	b.rotate(c)
 	print("{b.saved.x} {c.saved.x}\n")
 	return 0
@@ -567,11 +567,11 @@ The same rotation over a managed `String` instantiation.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function rotate(other Self)
+	function rotate(mutates self, mutates other Self)
 		let held = other.saved
 		other.saved = self.saved
 		self.saved = held
@@ -581,8 +581,8 @@ end 'Box'
 typealias TextBox = Box with String
 
 function main() returns ExitCode
-	let b = TextBox.create("one")
-	let c = TextBox.create("two")
+	var b = TextBox.create("one")
+	var c = TextBox.create("two")
 	b.rotate(c)
 	print("{b.saved} {c.saved}\n")
 	return 0
@@ -611,11 +611,11 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function swapWith(other Self)
+	function swapWith(mutates self, mutates other Self)
 		let held = self.saved
 		self.saved = other.saved
 		other.saved = held
@@ -625,8 +625,8 @@ end 'Box'
 typealias PointBox = Box with Point
 
 function main() returns ExitCode
-	let b = PointBox.create(Point.create(1))
-	let c = PointBox.create(Point.create(2))
+	var b = PointBox.create(Point.create(1))
+	var c = PointBox.create(Point.create(2))
 	b.swapWith(c)
 	print("{b.saved.x} {c.saved.x}\n")
 	return 0
@@ -770,11 +770,11 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		saved = next
 	end 'replace'
 end 'Box'
@@ -784,8 +784,8 @@ typealias PointBox = Box with Point
 typealias TextBox = Box with String
 
 function main() returns ExitCode
-	let points = PointBox.create(Point.create(1))
-	let texts = TextBox.create("one")
+	var points = PointBox.create(Point.create(1))
+	var texts = TextBox.create("one")
 	let keptPoint = Point.create(7)
 	let keptText = "seven"
 	for _ in 0 upto 20 'swap'

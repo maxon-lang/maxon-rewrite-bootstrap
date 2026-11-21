@@ -314,7 +314,7 @@ end 'main'
 typealias Num = int(i64.min to i64.max)
 
 function lookalike(x Num) returns Num
-	return (x shl 8) or (x shr 56)
+	return (try x shl 8 otherwise panic("out of range")) or (x shr 56)
 end 'lookalike'
 
 function main() returns ExitCode

@@ -231,7 +231,7 @@ function main() returns ExitCode
 	let out = ByteArray.create(0)
 	utf8AppendCodepoint(65, out: out)
 	utf8AppendCodepoint(55296, out: out)
-	return out.count()
+	return out.count() as ExitCode
 end 'main'
 ```
 ```exitcode

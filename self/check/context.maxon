@@ -209,6 +209,11 @@ export function checkFail(modID diag.ModuleID, off diag.U32, consumes code Strin
 	diag.pushSiteError(errs, code: code, message: msg, module: modID, offset: off)
 end 'checkFail'
 
+// checkFailFixed is checkFail for an error whose message names the change that fix makes.
+export function checkFailFixed(modID diag.ModuleID, off diag.U32, consumes code String, consumes msg String, consumes fix diag.Fix, mutates errs diag.ErrorList)
+	diag.pushFixedError(errs, code: code, message: msg, module: modID, offset: off, fix: fix)
+end 'checkFailFixed'
+
 // isMutableLocal is whether the local, and the fields reached through it, may be assigned.
 function isMutableLocal(l ast.LocalEntry) returns bool
 	return l.isVar or (l.isParam and ast.isByAddress(l.conv))
@@ -336,7 +341,10 @@ export union Mismatch
 	end 'words'
 end 'Mismatch'
 
-export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
+// coerce requires the value of node, of type src, where a target is needed. An integer of another type is fixed by a cast
+// to the target, which is what the language converts with.
+export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
+	let off = offsetOf(c, p: p, node: node)
 	if src == ast.noType or target == ast.noType 'okErr'
 		return true
 	end 'okErr'
@@ -356,10 +364,15 @@ export function coerce(c Checker, mutates p ast.Project, off diag.U32, src ast.T
 	if typeIsAnonInt(p.types, t: src) and dk == ast.TypeKind.intRange 'aFit'
 		let sName = ast.typeName(p.types, t: src)
 		let tName = ast.typeName(p.types, t: target)
-		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: sName, castable: true), errs: errs)
+		checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: sName, castable: true), fix: castFix(p.modules[c.modIdx].tree, e: node, target: tName), errs: errs)
 		return false
 	end 'aFit'
-	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(ast.typeName(p.types, t: target), got: ast.typeName(p.types, t: src), castable: false), errs: errs)
+	let tName = ast.typeName(p.types, t: target)
+	var fix = diag.Fix.none()
+	if sk == ast.TypeKind.intRange and dk == ast.TypeKind.intRange 'integers'
+		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
+	end 'integers'
+	checkFailFixed(c.modID, off: off, code: diag.errTypeMismatch, msg: wrong.words(tName, got: ast.typeName(p.types, t: src), castable: false), fix: fix, errs: errs)
 	return false
 end 'coerce'
 

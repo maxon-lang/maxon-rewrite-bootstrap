@@ -1,0 +1,13 @@
+// A borrowed value of a type that can be copied is copied where it would be moved.
+type Named
+	var name as String
+
+	static function make(name String) returns Named
+		return Named{name: name.clone()}
+	end 'make'
+end 'Named'
+
+function main() returns ExitCode
+	print("{Named.make("a").name}\n")
+	return 0
+end 'main'

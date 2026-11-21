@@ -648,7 +648,7 @@ end 'id'
 
 function main() returns ExitCode
 	let x = id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(id(0))))))))))))))))))))))))))))))))
-	return x
+	return x as ExitCode
 end 'main'
 ```
 ```exitcode

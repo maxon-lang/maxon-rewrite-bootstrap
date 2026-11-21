@@ -96,9 +96,10 @@ function bindLocal(mutates c Checker, p ast.Project, consumes entry ast.LocalEnt
 	return id
 end 'bindLocal'
 
-// declareLocal makes a variable of the code being checked.
-function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeID, isVar bool, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
-	var entry = ast.LocalEntry.make(name.clone(), ty: t, isVar: isVar, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
+// declareLocal makes a variable of the code being checked, which the statement definedAt declares, or 0 for a binding of a
+// match.
+function declareLocal(mutates c Checker, p ast.Project, name String, t ast.TypeID, isVar bool, definedAt ast.NodeID, off diag.U32, mutates errs diag.ErrorList) returns ast.LocalID
+	var entry = ast.LocalEntry.make(name.clone(), ty: t, isVar: isVar, isParam: false, conv: ast.Convention.convLet, definedAt: definedAt)
 	entry.slot = try c.nextSlot as ast.SlotIndex otherwise panic("too many locals in one function")
 	let id = bindLocal(c, p: p, entry: entry, off: off, errs: errs)
 	if id != ast.noLocal 'declared'
@@ -401,7 +402,7 @@ function bindCase(mutates c Checker, mutates p ast.Project, pattern ast.NodeID, 
 			continue 'payload'
 		end 'ignored'
 		let payloadTy = ast.payloadType(p.types, owner: st, caseIndex: caseIdx, index: i)
-		let id = declareLocal(c, p: p, name: bindingName, t: payloadTy, isVar: false, off: off, errs: errs)
+		let id = declareLocal(c, p: p, name: bindingName, t: payloadTy, isVar: false, definedAt: 0 as ast.NodeID, off: off, errs: errs)
 		if id == ast.noLocal 'failed'
 			return false
 		end 'failed'
@@ -431,7 +432,7 @@ function checkLiteralPattern(mutates c Checker, mutates p ast.Project, pattern a
 		if isConstInt(p, t: st) 'constSubject'
 			expected = p.builtins.anon64Ty
 		end 'constSubject'
-		_ = coerce(c, p: p, off: offsetOf(c, p: p, node: value), src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
+		_ = coerce(c, p: p, node: value, src: t, target: expected, wrong: Mismatch.expectedGot, errs: errs)
 		return
 	end 'integer'
 	checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "a pattern of {nameOfType(p, t: t)} cannot match {nameOfType(p, t: st)}", errs: errs)

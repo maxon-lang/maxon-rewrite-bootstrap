@@ -83,7 +83,7 @@ hello
 ```maxon
 function main() returns ExitCode
 	let args = CommandLine.args()
-	return args.count()
+	return try args.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

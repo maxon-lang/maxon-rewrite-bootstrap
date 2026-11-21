@@ -27,7 +27,7 @@ type Shelf
 	export var items as TallyArray
 
 	static function create() returns Self
-		let items = TallyArray.create(0)
+		var items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{items: items}
@@ -38,20 +38,20 @@ type Pair
 	export var first as TallyArray
 	export let second as Tally
 
-	static function build(shelf Shelf) returns Self
-		return Self{first: shelf.items, second: replace(shelf)}
+	static function build(mutates shelf Shelf) returns Self
+		return Self{first: shelf.items.clone(), second: replace(shelf)}
 	end 'build'
 end 'Pair'
 
-function replace(shelf Shelf) returns Tally
-	let fresh = TallyArray.create(0)
+function replace(mutates shelf Shelf) returns Tally
+	var fresh = TallyArray.create(0)
 	fresh.push(99)
 	shelf.items = fresh
 	return 1
 end 'replace'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	let pair = Pair.build(shelf)
 	print("{pair.first.count()} {try pair.first.get(0) otherwise 0} {pair.second}\n")
 	return 0
@@ -76,7 +76,7 @@ type Shelf
 	export var items as TallyArray
 
 	static function create() returns Self
-		let items = TallyArray.create(0)
+		var items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{items: items}
@@ -88,19 +88,19 @@ union Parcel
 	filled(items TallyArray, tag Tally)
 end 'Parcel'
 
-function replace(shelf Shelf) returns Tally
-	let fresh = TallyArray.create(0)
+function replace(mutates shelf Shelf) returns Tally
+	var fresh = TallyArray.create(0)
 	fresh.push(99)
 	shelf.items = fresh
 	return 1
 end 'replace'
 
-function pack(shelf Shelf) returns Parcel
-	return Parcel.filled(shelf.items, tag: replace(shelf))
+function pack(mutates shelf Shelf) returns Parcel
+	return Parcel.filled(shelf.items.clone(), tag: replace(shelf))
 end 'pack'
 
 function main() returns ExitCode
-	let shelf = Shelf.create()
+	var shelf = Shelf.create()
 	let parcel = pack(shelf)
 	match parcel 'parcel'
 		empty then print("empty\n")
@@ -285,16 +285,16 @@ type Holder
 	export var slot as Slot
 
 	static function create() returns Self
-		let items = TallyArray.create(0)
+		var items = TallyArray.create(0)
 		items.push(11)
 		items.push(22)
 		return Self{slot: Slot.filled(items)}
 	end 'create'
 end 'Holder'
 
-function readAfterReplacing(holder Holder, items TallyArray)
+function readAfterReplacing(mutates holder Holder, items TallyArray)
 	holder.slot = Slot.empty
-	let other = TallyArray.create(0)
+	var other = TallyArray.create(0)
 	other.push(7)
 	other.push(8)
 	other.push(9)
@@ -302,7 +302,7 @@ function readAfterReplacing(holder Holder, items TallyArray)
 end 'readAfterReplacing'
 
 function main() returns ExitCode
-	let holder = Holder.create()
+	var holder = Holder.create()
 	match holder.slot 'slot'
 		empty then print("empty\n")
 		filled(items) then readAfterReplacing(holder, items: items)
@@ -750,7 +750,7 @@ function put(mutates text String) returns Tally
 end 'put'
 
 function sum(a Tally, b Tally) returns Tally
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'sum'
 
 function main() returns ExitCode

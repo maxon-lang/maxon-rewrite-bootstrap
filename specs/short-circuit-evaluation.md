@@ -41,7 +41,7 @@ Short-circuit semantics compose through chains of `and`/`or` expressions. In
 <!-- test: and-skips-right-when-left-false -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -51,7 +51,7 @@ function main() returns ExitCode
 	if result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -61,7 +61,7 @@ end 'main'
 <!-- test: and-evaluates-right-when-left-true -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -71,7 +71,7 @@ function main() returns ExitCode
 	if not result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -81,7 +81,7 @@ end 'main'
 <!-- test: or-skips-right-when-left-true -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -91,7 +91,7 @@ function main() returns ExitCode
 	if not result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -101,7 +101,7 @@ end 'main'
 <!-- test: or-evaluates-right-when-left-false -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -111,7 +111,7 @@ function main() returns ExitCode
 	if not result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -121,7 +121,7 @@ end 'main'
 <!-- test: and-chain-short-circuits-on-first-false -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -131,7 +131,7 @@ function main() returns ExitCode
 	if result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -141,7 +141,7 @@ end 'main'
 <!-- test: or-chain-short-circuits-on-first-true -->
 ```maxon
 function trackAndReturn(result bool, mutates sideEffectCount FullRangeInt) returns bool
-	sideEffectCount = sideEffectCount + 1
+	sideEffectCount = try sideEffectCount + 1 otherwise panic("out of range")
 	return result
 end 'trackAndReturn'
 
@@ -151,7 +151,7 @@ function main() returns ExitCode
 	if not result 'r'
 		return 99
 	end 'r'
-	return sideEffectCount
+	return try sideEffectCount as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -209,7 +209,7 @@ function main() returns ExitCode
 	if setFlag(1, trace: trace) and setFlag(2, trace: trace) 'never'
 		return 99
 	end 'never'
-	return trace as ExitCode
+	return try trace as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -219,12 +219,12 @@ end 'main'
 <!-- test: short-circuit-in-while-condition -->
 ```maxon
 function check(mutates trace FullRangeInt) returns bool
-	trace = trace + 1
+	trace = try trace + 1 otherwise panic("out of range")
 	return trace < 3
 end 'check'
 
 function alwaysFalse(mutates trace FullRangeInt) returns bool
-	trace = trace + 100
+	trace = try trace + 100 otherwise panic("out of range")
 	return false
 end 'alwaysFalse'
 
@@ -233,7 +233,7 @@ function main() returns ExitCode
 	while check(trace) and alwaysFalse(trace) 'loop'
 		return 99
 	end 'loop'
-	return trace
+	return try trace as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -243,17 +243,17 @@ end 'main'
 <!-- test: nested-short-circuit -->
 ```maxon
 function a(mutates calls FullRangeInt) returns bool
-	calls = calls + 1
+	calls = try calls + 1 otherwise panic("out of range")
 	return true
 end 'a'
 
 function b(mutates calls FullRangeInt) returns bool
-	calls = calls + 10
+	calls = try calls + 10 otherwise panic("out of range")
 	return false
 end 'b'
 
 function c(mutates calls FullRangeInt) returns bool
-	calls = calls + 100
+	calls = try calls + 100 otherwise panic("out of range")
 	return true
 end 'c'
 
@@ -262,7 +262,7 @@ function main() returns ExitCode
 	let inner = b(calls) or c(calls)
 	let result = a(calls) and inner
 	if result 'r'
-		return calls as ExitCode
+		return try calls as ExitCode otherwise panic("out of range")
 	end 'r'
 	return 99
 end 'main'

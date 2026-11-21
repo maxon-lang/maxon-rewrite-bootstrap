@@ -114,7 +114,7 @@ function main() returns ExitCode
 	let c = Container.two(1, b: 2)
 	match c 'check'
 		empty then return 1
-		two(_, b) then return b as ExitCode
+		two(_, b) then return try b as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```

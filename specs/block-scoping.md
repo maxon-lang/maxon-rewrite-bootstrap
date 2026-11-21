@@ -222,7 +222,7 @@ function main() returns ExitCode
 		inner.resize(5)
 		try inner.set(0, value: 20) otherwise panic("test invariant: set OOB")
 	end 'block'
-	return try outer.get(0) otherwise 0
+	return (try outer.get(0) otherwise 0) as ExitCode
 end 'main'
 ```
 ```exitcode

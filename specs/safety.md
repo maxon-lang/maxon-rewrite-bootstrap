@@ -783,6 +783,7 @@ every door that carries a value into a slot whose type excludes zero checks the 
 lands, and the `divide-by-zero-premise-enforced-at-*` cases below pin each door.
 
 <!-- test: divide-by-zero-premise-enforced-at-the-callee-entry -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⭐ A runtime zero is refused AT `divide`'S PARAMETER — the `idiv` it would have reached is still bare
 `d` excludes 0, so the divide is proven safe and compiles to the unguarded `idiv` — no throw, no `try`.
 The proof is the CALLER's to keep, and the entry guard holds it to it: the guard fires at line 9,
@@ -891,6 +892,7 @@ Stack trace:
 ```
 
 <!-- test: array-element-premise-enforced-at-the-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⭐ THE LAST DOOR: a runtime zero is refused at the `push`, not at the `idiv`
 
 The entry guard closes the call-argument door at the CALLEE's entry, and cannot reach this one — an element
@@ -973,6 +975,7 @@ the rebind checks the value it stores — so the merge holds only values its typ
 `divide-by-a-loop-carried-divisor-panics-at-the-rebind` below pins it. No producer crosses no door.
 
 <!-- test: negative-range-cast-guard-fires-before-the-divide -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A zero cast into a wholly-negative divisor range is refused at the CAST, not at the `idiv`
 `int(-100 to -1)` excludes `0`, so `100 / d` is a bare `idiv` with no `try` spellable — correct, given
 the declared type. The guard the language promises therefore has to be the thing that stops a runtime
@@ -1116,6 +1119,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-a-loop-carried-divisor-panics-at-the-rebind -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### ⚠⚠ A LOOP-CARRIED DIVISOR IS GUARDED AT ITS REBIND
 
 A `var` declared from a `NonZero` and then REASSIGNED inside a loop merges at the loop header. Both edges
@@ -1152,6 +1156,7 @@ Stack trace:
 ```
 
 <!-- test: unbounded-recursion-panics-with-stack-overflow -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 <!-- unsupported-targets: wasm32-wasi -->
 ### Unbounded recursion panics `stack overflow`
 A recursion with no base case outgrows its thread's stack. The program stops with the standard fault
@@ -1662,6 +1667,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-var-assignment -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is assigned to a `NonZero` `var`
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1691,6 +1697,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-field-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is stored in a `NonZero` field
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1728,6 +1735,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-array-set -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused at `Array.set`
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1761,6 +1769,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-array-insert -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused at `Array.insert`
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1859,6 +1868,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-a-union-payload -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is built into a `NonZero` union payload
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1893,6 +1903,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-struct-literal -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it initialises a `NonZero` field in a struct literal
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1930,6 +1941,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-a-generic-payload -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is stored in a generic record instantiated over `NonZero`
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1968,6 +1980,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-map-key-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is stored as a `Map` key
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2030,6 +2043,7 @@ Stack trace:
 ```
 
 <!-- test: divide-by-zero-premise-enforced-at-the-list-append -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 #### A runtime zero is refused where it is appended to a `List`
 ```maxon
 typealias Integer = int(i64.min to i64.max)

@@ -143,6 +143,7 @@ end 'main'
 ```
 
 <!-- test: a-signed-negative-into-an-unsigned-quantity-panics -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### ⭐ THE THESIS — a signed negative into an unsigned QUANTITY panics
 The same value, the same value set, the same eight bytes as the case above, and the opposite verdict —
 because `Count` says it holds a QUANTITY. `opaque` launders the `-1` past the compile-time refusal so
@@ -670,7 +671,7 @@ end 'main'
 typealias Count = int(0 to u64.max)
 
 function topBit(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'topBit'
 
 function main() returns ExitCode
@@ -694,8 +695,8 @@ type Tally
 	export var total as Count
 
 	static function create(one Count) returns Tally
-		let t = Self{total: one shl 62}
-		t.total = one shl 63
+		var t = Self{total: try one shl 62 otherwise panic("out of range")}
+		t.total = try one shl 63 otherwise panic("out of range")
 		return t
 	end 'create'
 end 'Tally'
@@ -837,6 +838,7 @@ cc07060504030201
 ```
 
 <!-- test: a-shift-past-a-narrower-unsigned-ceiling-is-still-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### A shift past a narrower unsigned ceiling is still refused
 The admission is the FULL-unsigned range's alone. An alias with a real upper bound keeps both of its
 checks, whichever operation produced the value.
@@ -864,6 +866,7 @@ Stack trace:
 ```
 
 <!-- test: a-loop-carried-signed-accumulator-is-still-refused-at-an-unsigned-quantity-return -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### A loop-carried SIGNED accumulator is still refused at an unsigned-quantity return
 What the merge admits is decided by the domain it was DECLARED over, so a signed accumulator keeps its
 underflow check however many times the loop turns.
@@ -994,6 +997,7 @@ error E3005: <fragment>:12:11: Value 5 is outside the range of 'AboveTen' (int(1
 ```
 
 <!-- test: a-narrower-unsigned-topped-parameter-keeps-its-entry-guard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### A narrower unsigned-topped range keeps its entry guard for a value that wears it without proving it
 `a - a` is a difference of `AboveTen`s, so it wears the alias and proves nothing about it; here it is `0`, below the floor. No cast stands at the call, so the guard that refuses it is `show`'s own, at its entry.
 ```maxon
@@ -1021,6 +1025,7 @@ Stack trace:
 ```
 
 <!-- test: a-subtraction-on-an-unsigned-quantity-argument-panics-at-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### A subtraction on an unsigned quantity can go below 0, so it is checked at the call
 `c - 5` wears `Count`, but a subtraction is not a source that cannot go negative. Only an unsigned value
 itself, or a shift, `and`, `or`, `+` or `*` of such values, reaches a full-unsigned quantity unchecked.
@@ -1459,7 +1464,7 @@ function take(c Count) returns Count
 end 'take'
 
 function top(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
 function main() returns ExitCode
@@ -1485,7 +1490,7 @@ function take(c Count) returns Count
 end 'take'
 
 function top(one Count) returns Count
-	return one shl 63
+	return try one shl 63 otherwise panic("out of range")
 end 'top'
 
 function main() returns ExitCode
@@ -1664,6 +1669,7 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-subtraction-that-borrows-is-refused-at-a-return -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and a real borrow is refused, at a return
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1689,6 +1695,7 @@ Stack trace:
 ```
 
 <!-- test: an-unsigned-subtraction-that-borrows-is-refused-at-a-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and at a store
 ```maxon
 typealias Count = int(0 to u64.max)
@@ -1765,6 +1772,7 @@ error E3005: specs/raw-bit-patterns/an-unsigned-difference-that-borrows-is-refus
 ```
 
 <!-- test: an-unsigned-difference-that-borrows-is-refused-at-run-time -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ### …and at run time
 ```maxon
 typealias Count = int(0 to u64.max)

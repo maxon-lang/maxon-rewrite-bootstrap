@@ -60,8 +60,8 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		self.count = self.count + 1
+	function increment(mutates self)
+		self.count = try self.count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function get() returns Integer
@@ -74,10 +74,10 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
 	c.increment()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -92,8 +92,8 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function get() returns Integer
@@ -106,11 +106,11 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(0)
+	var c = Counter.create(0)
 	c.increment()
 	c.increment()
 	c.increment()
-	return c.get()
+	return try c.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -125,8 +125,8 @@ typealias Integer = int(i64.min to i64.max)
 type Accumulator
 	var total as Integer
 
-	function add(value Integer)
-		self.total = self.total + value
+	function add(mutates self, value Integer)
+		self.total = try self.total + value otherwise panic("out of range")
 	end 'add'
 
 	function getTotal() returns Integer
@@ -139,11 +139,11 @@ type Accumulator
 end 'Accumulator'
 
 function main() returns ExitCode
-	let acc = Accumulator.create(0)
+	var acc = Accumulator.create(0)
 	acc.add(10)
 	acc.add(20)
 	acc.add(12)
-	return acc.getTotal()
+	return try acc.getTotal() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -160,10 +160,10 @@ type Point
 	var y as Integer
 
 	function sum() returns Integer
-		return self.x + self.y
+		return try self.x + self.y otherwise panic("out of range")
 	end 'sum'
 
-	function setX(newX Integer)
+	function setX(mutates self, newX Integer)
 		self.x = newX
 	end 'setX'
 
@@ -174,7 +174,7 @@ end 'Point'
 
 function main() returns ExitCode
 	let p = Point.create(10, y: 32)
-	return p.sum()
+	return try p.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -189,8 +189,8 @@ typealias Integer = int(i64.min to i64.max)
 type Value
 	var n as Integer
 
-	function double()
-		self.n = self.n * 2
+	function double(mutates self)
+		self.n = try self.n * 2 otherwise panic("out of range")
 	end 'double'
 
 	function get() returns Integer
@@ -203,9 +203,9 @@ type Value
 end 'Value'
 
 function main() returns ExitCode
-	let v = Value.create(21)
+	var v = Value.create(21)
 	v.double()
-	return v.get()
+	return try v.get() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -222,7 +222,7 @@ type Rectangle
 	var height as Integer
 
 	function area() returns Integer
-		return width * height
+		return try width * height otherwise panic("out of range")
 	end 'area'
 
 	static function create(width Integer, height Integer) returns Self
@@ -232,7 +232,7 @@ end 'Rectangle'
 
 function main() returns ExitCode
 	let r = Rectangle.create(6, height: 7)
-	return r.area()
+	return try r.area() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

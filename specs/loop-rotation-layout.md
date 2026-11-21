@@ -108,7 +108,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 0, start: 100)
+	return sumFrom(a, n: 0, start: 100) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -135,7 +135,7 @@ function main() returns ExitCode
 	for i in 7 to 9 'seed'
 		a.push(i)
 	end 'seed'
-	return sumFrom(a, n: 1, start: 100)
+	return sumFrom(a, n: 1, start: 100) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -167,7 +167,7 @@ function main() returns ExitCode
 	for i in 0 upto 9 'seed'
 		a.push(i)
 	end 'seed'
-	return grid(a, rows: 3, width: 3)
+	return grid(a, rows: 3, width: 3) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -203,7 +203,7 @@ function main() returns ExitCode
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return oddSum(a, n: 8)
+	return oddSum(a, n: 8) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -240,7 +240,7 @@ function main() returns ExitCode
 	for i in 1 to 8 'seed'
 		a.push(i)
 	end 'seed'
-	return weightedSum(a, n: 8)
+	return weightedSum(a, n: 8) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -263,15 +263,15 @@ function staircase(n Word) returns Word
 	while i < n 'outer'
 		i = i + 1
 		while j < i 'inner'
-			t = t + j
+			t = try t + j otherwise panic("out of range")
 			j = j + 1
 		end 'inner'
 	end 'outer'
-	return t + 30
+	return try t + 30 otherwise panic("out of range")
 end 'staircase'
 
 function main() returns ExitCode
-	return staircase(5)
+	return try staircase(5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -299,7 +299,7 @@ function main() returns ExitCode
 	for i in 1 to 4 'seed'
 		a.push(i)
 	end 'seed'
-	return clampedSum(a, n: 7)
+	return clampedSum(a, n: 7) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -329,7 +329,7 @@ function main() returns ExitCode
 	for i in 1 to 3 'seed'
 		a.push(i)
 	end 'seed'
-	return walkDown(a, start: 1)
+	return walkDown(a, start: 1) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -406,7 +406,7 @@ function main() returns ExitCode
 	a.push(4)
 	a.push(-1)
 	a.push(5)
-	return firstNegative(a, n: 4)
+	return firstNegative(a, n: 4) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -458,7 +458,7 @@ typealias Small = int(0 to 100)
 function spinTo(limit Small) returns Small
 	var i = 0 as Small
 	while true 'spin'
-		i = i + 1
+		i = try i + 1 otherwise panic("out of range")
 		if i == limit 'done'
 			break
 		end 'done'
@@ -485,9 +485,9 @@ function stepTo(limit Small) returns Small
 	var i = 0 as Small
 	while true 'spin'
 		if i mod 2 == 0 'evenStep'
-			i = i + 3
+			i = try i + 3 otherwise panic("out of range")
 		end 'evenStep' else 'oddStep'
-			i = i + 1
+			i = try i + 1 otherwise panic("out of range")
 		end 'oddStep'
 		if i >= limit 'done'
 			break

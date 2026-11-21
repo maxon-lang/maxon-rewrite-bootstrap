@@ -772,13 +772,13 @@ type Holder
 	end 'create'
 
 	function mine() returns Box
-		return self.own
+		return self.own.clone()
 	end 'mine'
 end 'Holder'
 
 function main() returns ExitCode
 	let holder = Holder.create()
-	let picked = holder.mine()
+	var picked = holder.mine()
 	picked.n = 9
 	print("{holder.mine().n}\n")
 	return 0

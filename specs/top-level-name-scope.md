@@ -229,11 +229,11 @@ block scope is untouched by the directory's namespace.
 let width = 7
 
 function double(n ExitCode) returns ExitCode
-	return n * 2
+	return try n * 2 otherwise panic("out of range")
 end 'double'
 
 function pair(width ExitCode, double ExitCode) returns ExitCode
-	return width + double
+	return try width + double otherwise panic("out of range")
 end 'pair'
 
 function inner() returns ExitCode
@@ -242,7 +242,7 @@ function inner() returns ExitCode
 end 'inner'
 
 function main() returns ExitCode
-	return pair(double(width), double: 1) + inner()
+	return try pair(double(width), double: 1) + inner() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

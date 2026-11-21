@@ -60,11 +60,11 @@ typealias Integer = int(i64.min to i64.max)
 
 function main() returns ExitCode
 	let x = 3
-	return 5 + add(x, b: 4)
+	return try 5 + add(x, b: 4) otherwise panic("out of range")
 end 'main'
 
 function add(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'add'
 ```
 ```exitcode

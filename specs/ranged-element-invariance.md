@@ -107,16 +107,16 @@ typealias Small = int(0 to 100)
 
 typealias SmallCol = Array with Small
 
-function bump(col SmallCol, by Small)
+function bump(mutates col SmallCol, by Small)
 	let old = try col.get(0) otherwise panic("get")
 	try col.set(0, value: old + by) otherwise panic("set")
 end 'bump'
 
 function main() returns ExitCode
-	let a = SmallCol.create(0)
+	var a = SmallCol.create(0)
 	a.push(40)
 	bump(a, by: 2)
-	return try a.get(0) otherwise panic("get")
+	return (try a.get(0) otherwise panic("get")) as ExitCode
 end 'main'
 ```
 ```exitcode

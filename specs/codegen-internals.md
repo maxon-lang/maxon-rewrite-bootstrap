@@ -72,10 +72,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	arr.push(1)
 	arr.push(2)
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -90,10 +90,10 @@ typealias IntArray = Array with Integer
 
 function main() returns ExitCode
 	if true 'outer'
-		let outer_arr = IntArray.create(0)
+		var outer_arr = IntArray.create(0)
 		outer_arr.push(100)
 		if true 'inner'
-			let inner_arr = IntArray.create(0)
+			var inner_arr = IntArray.create(0)
 			inner_arr.push(200)
 		end 'inner'
 	end 'outer'
@@ -111,13 +111,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 function main() returns ExitCode
-	let arr = IntArray.create(0)
+	var arr = IntArray.create(0)
 	var i = 0 as Integer
 	while i < 10 'loop'
 		arr.push(i)
 		i = i + 1
 	end 'loop'
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -175,7 +175,7 @@ function main() returns ExitCode
 		s.append(a)
 		i = i + 1
 	end 'loop'
-	return s.byteLength()
+	return s.byteLength() as ExitCode
 end 'main'
 ```
 ```exitcode

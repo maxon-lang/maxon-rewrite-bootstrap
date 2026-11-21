@@ -43,7 +43,7 @@ end 'Named'
 
 function describe(n Named) returns String
 	return match n 'show'
-		named(name) gives name
+		named(name) gives name.clone()
 		anonymous gives "none"
 	end 'show'
 end 'describe'
@@ -190,7 +190,7 @@ end 'Named'
 type Box uses T
 	export var item as T
 
-	static function create(item T) returns Self
+	static function create(consumes item T) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Box'
@@ -200,7 +200,7 @@ typealias NamedBox = Box with Named
 function main() returns ExitCode
 	let boxed = NamedBox.create(Named.named("generic"))
 	return match boxed.item 'kind'
-		named(name) gives name.byteLength() as ExitCode
+		named(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		anonymous gives 0
 	end 'kind'
 end 'main'
@@ -226,7 +226,7 @@ end 'Wide'
 function main() returns ExitCode
 	let w = Wide.p7("boxed")
 	return match w 'kind'
-		p7(value) gives value.byteLength() as ExitCode
+		p7(value) gives try value.byteLength() as ExitCode otherwise panic("out of range")
 		p0 or
 		p1 or
 		p2 or
@@ -256,7 +256,7 @@ end 'Narrow'
 function main() returns ExitCode
 	let w = Narrow.text("word")
 	return match w 'kind'
-		text(value) gives value.byteLength() as ExitCode
+		text(value) gives try value.byteLength() as ExitCode otherwise panic("out of range")
 		c0 or
 		c1 or
 		c2 or
@@ -302,7 +302,7 @@ function main() returns ExitCode
 	let a = Named.named("clone me")
 	let b = a.clone()
 	return match b 'kind'
-		named(name) gives name.byteLength() as ExitCode
+		named(name) gives try name.byteLength() as ExitCode otherwise panic("out of range")
 		anonymous gives 0
 	end 'kind'
 end 'main'
@@ -389,8 +389,8 @@ type Scanner
 		return peek(self.comments)
 	end 'note'
 
-	function takeComments() returns Log
-		let taken = self.comments
+	function takeComments(mutates self) returns Log
+		let taken = self.comments.clone()
 		self.comments = Log.discarded
 		return taken
 	end 'takeComments'
@@ -400,12 +400,12 @@ type Lexed
 	export let comments as Log
 
 	static function create(comments Log) returns Self
-		return Self{comments: comments}
+		return Self{comments: comments.clone()}
 	end 'create'
 end 'Lexed'
 
 function main() returns ExitCode
-	let scanner = Scanner.create(true)
+	var scanner = Scanner.create(true)
 	let n = scanner.note()
 	print("{n}")
 	let log = scanner.takeComments()
@@ -833,7 +833,7 @@ function main() returns ExitCode
 		named(name) gives name.byteLength()
 		anonymous gives 0
 	end 'read'
-	return (a + b) as ExitCode
+	return try (a + b) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1009,7 +1009,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1042,13 +1042,13 @@ function weigh(w Wide) returns Weight
 		done gives 20
 		failed gives 30
 		skipped gives 40
-		text(value) gives value.byteLength() as Weight + 100
+		text(value) gives try value.byteLength() as Weight + 100 otherwise panic("out of range")
 		point(at) gives at.x
-		bytes(data) gives data.count() as Weight + 200
-		label(value) gives value.byteLength() as Weight + 300
-		spot(at) gives at.x * 2
-		blob(data) gives data.count() as Weight + 400
-		other(at) gives at.x + 500
+		bytes(data) gives try data.count() as Weight + 200 otherwise panic("out of range")
+		label(value) gives try value.byteLength() as Weight + 300 otherwise panic("out of range")
+		spot(at) gives try at.x * 2 otherwise panic("out of range")
+		blob(data) gives try data.count() as Weight + 400 otherwise panic("out of range")
+		other(at) gives try at.x + 500 otherwise panic("out of range")
 	end 'wide'
 end 'weigh'
 
@@ -1074,7 +1074,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1098,18 +1098,18 @@ function weigh(w Wide) returns Weight
 		done gives 20
 		failed gives 30
 		skipped gives 40
-		text(value) gives value.byteLength() as Weight + 100
+		text(value) gives try value.byteLength() as Weight + 100 otherwise panic("out of range")
 		point(at) gives at.x
-		bytes(data) gives data.count() as Weight + 200
-		label(value) gives value.byteLength() as Weight + 300
-		spot(at) gives at.x * 2
-		blob(data) gives data.count() as Weight + 400
-		other(at) gives at.x + 500
+		bytes(data) gives try data.count() as Weight + 200 otherwise panic("out of range")
+		label(value) gives try value.byteLength() as Weight + 300 otherwise panic("out of range")
+		spot(at) gives try at.x * 2 otherwise panic("out of range")
+		blob(data) gives try data.count() as Weight + 400 otherwise panic("out of range")
+		other(at) gives try at.x + 500 otherwise panic("out of range")
 	end 'wide'
 end 'weigh'
 
 function expect(actual Weight, wanted Weight, failures ExitCode) returns ExitCode
-	return failures if actual == wanted else failures + 1
+	return failures if actual == wanted else (try failures + 1 otherwise panic("out of range"))
 end 'expect'
 
 function main() returns ExitCode
@@ -1201,7 +1201,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1339,7 +1339,7 @@ type Point
 	export let label as String
 
 	static function create(x Weight, label String) returns Self
-		return Self{x: x, label: label}
+		return Self{x: x, label: label.clone()}
 	end 'create'
 end 'Point'
 
@@ -1363,13 +1363,13 @@ function weigh(w Wide) returns Weight
 		done or
 		failed or
 		skipped gives 1
-		text(value) gives value.byteLength() as Weight
-		label(value) gives value.byteLength() as Weight
+		text(value) gives try value.byteLength() as Weight otherwise panic("out of range")
+		label(value) gives try value.byteLength() as Weight otherwise panic("out of range")
 		point(at) gives at.x
 		spot(at) gives at.x
 		other(at) gives at.x
-		bytes(data) gives data.count() as Weight
-		blob(data) gives data.count() as Weight
+		bytes(data) gives try data.count() as Weight otherwise panic("out of range")
+		blob(data) gives try data.count() as Weight otherwise panic("out of range")
 	end 'wide'
 end 'weigh'
 
@@ -1553,7 +1553,7 @@ end 'lookup'
 
 function main() returns ExitCode
 	let sum = lookup("idle") + lookup("done") + lookup("failed") + lookup("skipped") + lookup("eight") + lookup("nine") + lookup("ten") + lookup("text") + lookup("nothing")
-	return sum
+	return sum as ExitCode
 end 'main'
 ```
 ```exitcode

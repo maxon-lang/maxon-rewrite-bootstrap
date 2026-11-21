@@ -103,6 +103,8 @@ typealias SpecFenceList = Array with SpecFence
 // test that runs.
 type SpecTest
 	var name as String
+	// markerEnd is where the line after the test's marker starts.
+	var markerEnd as Count
 	// skips are the kinds of skip line that the conversion wrote, and directives the other comment lines.
 	var skips as ast.StringList
 	var directives as ast.StringList
@@ -113,7 +115,7 @@ type SpecTest
 	var fences as SpecFenceList
 
 	static function make(consumes name String) returns SpecTest
-		return SpecTest{name: name, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0)}
+		return SpecTest{name: name, markerEnd: 0, skips: ast.StringList.create(0), directives: ast.StringList.create(0), positionsMoved: false, hasSource: false, sourceStart: 0, sourceFinish: 0, fences: SpecFenceList.create(0)}
 	end 'make'
 end 'SpecTest'
 
@@ -197,6 +199,7 @@ function parseSpec(text String) returns SpecTests
 					tests.push(exchange(current, value: SpecTest.make("")))
 				end 'previous'
 				current = SpecTest.make(commentText(text.sliceBytes(offsetBy(lineStart, by: testMarkerPrefix.byteLength()), endPos: contentEnd)))
+				current.markerEnd = minCount(offsetBy(lineEnd, by: 1), b: n)
 				reading = true
 			end 'marker' else if reading 'directive'
 				addComment(current, line: text.sliceBytes(offsetBy(lineStart, by: commentPrefix.byteLength()), endPos: contentEnd))
@@ -421,17 +424,25 @@ function fenceText(test SpecTest, text String, base String) returns table.Option
 	return table.Option.some(text.sliceBytes(found.start, endPos: found.finish))
 end 'fenceText'
 
-// SourceSection is one file of a multi-file block: its name, its text and the number that its lines are counted from in the
-// merged block that the expectations were written against.
+// SourceSection is one file of a multi-file block: its name, its text, where the text is in the block, and the number that
+// its lines are counted from in the merged block that the expectations were written against.
 type SourceSection
 	var name as String
 	var text as String
+	var start as Count
 	var lineOffset as Count
 
-	static function make(consumes name String, consumes text String, lineOffset Count) returns SourceSection
-		return SourceSection{name: name, text: text, lineOffset: lineOffset}
+	static function make(consumes name String, consumes text String, start Count, lineOffset Count) returns SourceSection
+		return SourceSection{name: name, text: text, start: start, lineOffset: lineOffset}
 	end 'make'
 end 'SourceSection'
+
+// sectionOf is the section of the block that is the text from start until finish, trimmed.
+function sectionOf(name String, source String, start Count, finish Count, lineOffset Count) returns SourceSection
+	let raw = source.sliceBytes(start, endPos: finish)
+	let leading = try raw.byteLength() - trimLeft(raw).byteLength() otherwise 0 as Count
+	return SourceSection.make(name.clone(), text: trimSpace(raw), start: offsetBy(start, by: leading), lineOffset: lineOffset)
+end 'sectionOf'
 
 typealias SourceSections = Array with SourceSection
 
@@ -454,7 +465,7 @@ function splitSections(source String) returns SourceSections
 		end 'scan'
 		if matchesAt(source, at: at, needle: fileSectionPrefix) 'marker'
 			if haveMarker 'flush'
-				sections.push(SourceSection.make(name.clone(), text: trimSpace(source.sliceBytes(bodyStart, endPos: at)), lineOffset: offset))
+				sections.push(sectionOf(name, source: source, start: bodyStart, finish: at, lineOffset: offset))
 			end 'flush'
 			haveMarker = true
 			name = trimSpace(source.sliceBytes(offsetBy(at, by: fileSectionPrefix.byteLength()), endPos: lineEnd))
@@ -465,7 +476,7 @@ function splitSections(source String) returns SourceSections
 		at = offsetBy(lineEnd, by: 1)
 	end 'lines'
 	if haveMarker 'last'
-		sections.push(SourceSection.make(name.clone(), text: trimSpace(source.sliceBytes(bodyStart, endPos: n)), lineOffset: offset))
+		sections.push(sectionOf(name, source: source, start: minCount(bodyStart, b: n), finish: n, lineOffset: offset))
 	end 'last'
 	return sections
 end 'splitSections'

@@ -92,7 +92,7 @@ function divLive(a Integer, b NonZero, x Integer) returns Integer
 end 'divLive'
 
 function main() returns ExitCode
-	return divLive(10, b: 2, x: 5)
+	return divLive(10, b: 2, x: 5) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -107,13 +107,13 @@ typealias Integer = int(i64.min to i64.max)
 typealias NonZero = int(1 to i64.max)
 
 function modLive(a Integer, b NonZero, x Integer) returns Integer
-	let preserved = x + 1
+	let preserved = try x + 1 otherwise panic("out of range")
 	let result = try (a mod (b as Integer)) otherwise panic("b is never zero")
-	return result + preserved
+	return try result + preserved otherwise panic("out of range")
 end 'modLive'
 
 function main() returns ExitCode
-	return modLive(10, b: 3, x: 5)
+	return try modLive(10, b: 3, x: 5) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -136,7 +136,7 @@ function divLoop(n Integer) returns Integer
 end 'divLoop'
 
 function main() returns ExitCode
-	return divLoop(5)
+	return divLoop(5) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -161,7 +161,7 @@ function divCall(a Integer, b NonZero) returns Integer
 end 'divCall'
 
 function main() returns ExitCode
-	return divCall(10, b: 2)
+	return divCall(10, b: 2) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -182,7 +182,7 @@ function multiDiv(a Integer, b NonZero, c Integer, d NonZero) returns Integer
 end 'multiDiv'
 
 function main() returns ExitCode
-	return multiDiv(10, b: 2, c: 20, d: 4)
+	return multiDiv(10, b: 2, c: 20, d: 4) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -195,23 +195,23 @@ end 'main'
 typealias Integer = int(i64.min to i64.max)
 
 function manyVars(a Integer, b Integer, c Integer, d Integer, e Integer, f Integer) returns Integer
-	let v1 = a + 1
-	let v2 = b + 2
-	let v3 = c + 3
-	let v4 = d + 4
-	let v5 = e + 5
-	let v6 = f + 6
-	let v7 = v1 + v2
-	let v8 = v3 + v4
-	let v9 = v5 + v6
-	let v10 = v7 + v8
-	let v11 = v9 + v10
-	let v12 = v11 + v1 + v2 + v3 + v4 + v5 + v6
+	let v1 = try a + 1 otherwise panic("out of range")
+	let v2 = try b + 2 otherwise panic("out of range")
+	let v3 = try c + 3 otherwise panic("out of range")
+	let v4 = try d + 4 otherwise panic("out of range")
+	let v5 = try e + 5 otherwise panic("out of range")
+	let v6 = try f + 6 otherwise panic("out of range")
+	let v7 = try v1 + v2 otherwise panic("out of range")
+	let v8 = try v3 + v4 otherwise panic("out of range")
+	let v9 = try v5 + v6 otherwise panic("out of range")
+	let v10 = try v7 + v8 otherwise panic("out of range")
+	let v11 = try v9 + v10 otherwise panic("out of range")
+	let v12 = try v11 + v1 + v2 + v3 + v4 + v5 + v6 otherwise panic("out of range")
 	return v12
 end 'manyVars'
 
 function main() returns ExitCode
-	return manyVars(1, b: 2, c: 3, d: 4, e: 5, f: 6)
+	return try manyVars(1, b: 2, c: 3, d: 4, e: 5, f: 6) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

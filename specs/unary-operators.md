@@ -52,7 +52,7 @@ end 'base'
 
 function main() returns ExitCode
 	let r = base()
-	return -r + 12
+	return try -r + 12 otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

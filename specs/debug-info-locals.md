@@ -73,7 +73,7 @@ function coloured(seed Tick) returns Tick
 	var rounds = 0 as Tick
 	while rounds < 3 'mix'
 		carry = (carry + step) mod 97
-		step = step + rounds
+		step = try step + rounds otherwise panic("out of range")
 		rounds = rounds + 1
 	end 'mix'
 	return carry
@@ -130,9 +130,9 @@ typealias Tick = int(0 to 1000)
 function pick(flag bool, lo Tick, hi Tick) returns Tick
 	var chosen = 0 as Tick
 	if flag 'takeHigh'
-		chosen = hi + 1
+		chosen = try hi + 1 otherwise panic("out of range")
 	end 'takeHigh' else 'takeLow'
-		chosen = lo + 2
+		chosen = try lo + 2 otherwise panic("out of range")
 	end 'takeLow'
 	return chosen
 end 'pick'
@@ -163,7 +163,7 @@ typealias Tick = int(0 to 1000)
 type Accum uses T
 	export var seed as T
 
-	static function create(seed T) returns Self
+	static function create(consumes seed T) returns Self
 		return Self{seed: seed}
 	end 'create'
 
@@ -173,7 +173,7 @@ type Accum uses T
 		var rounds = 0 as Tick
 		while rounds < 3 'roll'
 			total = (total + step) mod 91
-			step = step + rounds
+			step = try step + rounds otherwise panic("out of range")
 			rounds = rounds + 1
 		end 'roll'
 		return total

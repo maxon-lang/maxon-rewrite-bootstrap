@@ -1,0 +1,16 @@
+// A parameter of a type that cannot be copied, stored whole, is taken with consumes.
+type Box uses T
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+end 'Box'
+
+typealias Text = Box with String
+
+function main() returns ExitCode
+	let b = Text.make("x")
+	print("{b.item}\n")
+	return 0
+end 'main'

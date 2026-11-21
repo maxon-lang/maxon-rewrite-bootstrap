@@ -62,10 +62,10 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push(42)
 	let v = try b.items.get(0) otherwise 0
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -91,10 +91,10 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.create()
+	var b = Bag.create()
 	b.items.push(42)
 	let v = try b.items.get(0) otherwise 0
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,16 +111,16 @@ type Bag
 	export var items = IntArray.create(0)
 
 	static function createWith(items IntArray) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'createWith'
 end 'Bag'
 
 function main() returns ExitCode
-	let pre = IntArray.create(0)
+	var pre = IntArray.create(0)
 	pre.push(7)
 	let b = Bag.createWith(pre)
 	let v = try b.items.get(0) otherwise 0
-	return v
+	return try v as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -142,12 +142,12 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let a = Bag.create()
-	let b = Bag.create()
+	var a = Bag.create()
+	var b = Bag.create()
 	a.items.push(1)
 	a.items.push(2)
 	b.items.push(9)
-	return a.items.count() * 10 + b.items.count()
+	return try a.items.count() * 10 + b.items.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -177,7 +177,7 @@ end 'Shape'
 
 function main() returns ExitCode
 	let s = Shape.create()
-	return s.origin.x + s.origin.y
+	return try s.origin.x + s.origin.y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -289,7 +289,7 @@ end 'Ledger'
 
 function main() returns ExitCode
 	let l = Ledger.create()
-	return l.total.n
+	return l.total.n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -346,9 +346,9 @@ type Bag
 end 'Bag'
 
 function main() returns ExitCode
-	let b = Bag.createWithTotal(5)
+	var b = Bag.createWithTotal(5)
 	b.items.push(10)
-	return b.total + (b.items.count() as Integer)
+	return try b.total + (b.items.count() as Integer) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -371,7 +371,7 @@ end 'Bag'
 
 function main() returns ExitCode
 	let b = Bag.create()
-	return b.items.count()
+	return try b.items.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

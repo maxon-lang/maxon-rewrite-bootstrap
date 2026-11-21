@@ -100,7 +100,7 @@ type Gate
 	export var n as Num
 
 	static function two(a Num, b Num) returns Gate
-		return Self{n: a + b}
+		return Self{n: try a + b otherwise panic("out of range")}
 	end 'two'
 
 	function twin() returns Num
@@ -109,7 +109,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.two(40, b: 1).twin()
+	return Gate.two(40, b: 1).twin() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -131,12 +131,12 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Self.make(v + v)
+		return Self.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -210,7 +210,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(42).twin()
+	return Gate.make(42).twin() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -261,11 +261,11 @@ typealias Num = int(0 to 1000)
 type Box uses T
 	export var v as T
 
-	static function make(x T) returns Self
+	static function make(consumes x T) returns Self
 		return Self{v: x}
 	end 'make'
 
-	static function twice(x T) returns Self
+	static function twice(consumes x T) returns Self
 		return Self.make(x)
 	end 'twice'
 end 'Box'
@@ -273,7 +273,7 @@ end 'Box'
 typealias IntBox = Box with Num
 
 function main() returns ExitCode
-	return IntBox.twice(42).v
+	return IntBox.twice(42).v as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -581,7 +581,7 @@ function main() returns ExitCode
 	let m = Msg.silent
 	let n = m.shout()
 	return match n 'k'
-		text(s) gives s.byteLength() as ExitCode
+		text(s) gives try s.byteLength() as ExitCode otherwise panic("out of range")
 		silent gives 1
 	end 'k'
 end 'main'
@@ -614,7 +614,7 @@ type Gate
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(0).arg()
+	return Gate.make(0).arg() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -638,12 +638,12 @@ type Gate
 
 	function twin() returns Num
 		let Gate = 1
-		return Self.make(41).n + Gate
+		return try Self.make(41).n + Gate otherwise panic("out of range")
 	end 'twin'
 end 'Gate'
 
 function main() returns ExitCode
-	return Gate.make(0).twin()
+	return Gate.make(0).twin() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -660,7 +660,7 @@ typealias Num = int(0 to 1000)
 type Holder uses T
 	export var v as T
 
-	static function make(x T) returns Self
+	static function make(consumes x T) returns Self
 		return Self{v: x}
 	end 'make'
 
@@ -672,7 +672,7 @@ end 'Holder'
 typealias NumHolder = Holder with Num
 
 function main() returns ExitCode
-	return NumHolder.make(42).twin()
+	return NumHolder.make(42).twin() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -695,13 +695,13 @@ type Gate
 	end 'make'
 
 	static function twice(v Num) returns Gate
-		return Self.make(v + v)
+		return Self.make(try v + v otherwise panic("out of range"))
 	end 'twice'
 end 'Gate'
 
 // --- file: main.maxon
 function main() returns ExitCode
-	return Gate.twice(21).n
+	return Gate.twice(21).n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -983,7 +983,7 @@ function main() returns ExitCode
 	let m = Msg.silent
 	let n = m.shout(1)
 	return match n 'k'
-		text(s) gives s.byteLength() as ExitCode
+		text(s) gives try s.byteLength() as ExitCode otherwise panic("out of range")
 		silent gives 1
 	end 'k'
 end 'main'

@@ -90,7 +90,7 @@ end 'Value'
 
 function main() returns ExitCode
 	let v = Value.create()
-	return v.n
+	return try v.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -111,9 +111,9 @@ type Value
 end 'Value'
 
 function main() returns ExitCode
-	let v = Value.create()
+	var v = Value.create()
 	v.n = 42
-	return v.n
+	return v.n as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -135,7 +135,7 @@ end 'Config'
 
 function main() returns ExitCode
 	let c = Config.create()
-	return c.version
+	return try c.version as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -150,8 +150,8 @@ typealias Integer = int(i64.min to i64.max)
 type Counter
 	var count as Integer
 
-	function increment()
-		count = count + 1
+	function increment(mutates self)
+		count = try count + 1 otherwise panic("out of range")
 	end 'increment'
 
 	function getCount() returns Integer
@@ -164,10 +164,10 @@ type Counter
 end 'Counter'
 
 function main() returns ExitCode
-	let c = Counter.create(40)
+	var c = Counter.create(40)
 	c.increment()
 	c.increment()
-	return c.getCount()
+	return try c.getCount() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -194,7 +194,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let b = Box.create(20, s: 22)
-	return b.value + b.getSecret()
+	return try b.value + b.getSecret() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -217,7 +217,7 @@ end 'Value'
 
 function main() returns ExitCode
 	let v = Value.create()
-	return v.private
+	return try v.private as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -263,13 +263,13 @@ type Simple
 	end 'make'
 
 	function sum() returns Integer
-		return x + y
+		return try x + y otherwise panic("out of range")
 	end 'sum'
 end 'Simple'
 
 function main() returns ExitCode
 	let s = Simple.make(20, b: 22)
-	return s.sum()
+	return try s.sum() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

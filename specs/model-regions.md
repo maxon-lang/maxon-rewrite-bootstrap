@@ -26,7 +26,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd13
 	var t as Tk13
 
-	static function create(t Tk13) returns Self
+	static function create(consumes t Tk13) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd13'
@@ -36,7 +36,7 @@ type Rd13
 	var pos as Num
 
 	static function create(bytes Bt13, pos Num) returns Self
-		return Self{bytes: bytes, pos: pos}
+		return Self{bytes: bytes.clone(), pos: pos}
 	end 'create'
 end 'Rd13'
 
@@ -74,7 +74,7 @@ end 'pickT13'
 
 function f13_3(p0 Tk13, p1 Rd13, p2 Hd13, c Num) returns Rd13
 	keepX13(p2, tV: pickT13(p0, c: c), c: 0)
-	return p1
+	return p1.clone()
 end 'f13_3'
 
 function main() returns ExitCode
@@ -99,7 +99,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -151,7 +151,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -199,7 +199,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -241,7 +241,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -288,7 +288,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -324,7 +324,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -405,7 +405,7 @@ typealias Num = int(i64.min to i64.max)
 type Hd
 	var t as Tk
 
-	static function create(t Tk) returns Self
+	static function create(consumes t Tk) returns Self
 		return Self{t: t}
 	end 'create'
 end 'Hd'
@@ -675,12 +675,12 @@ type Th
 	var t as Tk
 	var pos as Num
 
-	static function create(t Tk, pos Num) returns Self
+	static function create(consumes t Tk, pos Num) returns Self
 		return Self{t: t, pos: pos}
 	end 'create'
 end 'Th'
 
-function wrap(tV Tk) returns Th
+function wrap(consumes tV Tk) returns Th
 	return Th.create(tV, pos: 0)
 end 'wrap'
 
@@ -714,17 +714,17 @@ type Plain
 	var h as Bt
 
 	static function create(h Bt) returns Self
-		return Self{h: h}
+		return Self{h: h.clone()}
 	end 'create'
 end 'Plain'
 
 function leak(p Plain) returns Bt
-	return p.h
+	return p.h.clone()
 end 'leak'
 
 function main() returns ExitCode
 	let x = Plain.create(Bt.create(1))
-	let a = leak(x)
+	var a = leak(x)
 	a.b = 5
 	return 0
 end 'main'
@@ -2624,7 +2624,7 @@ type Tm is noncopyable
 		return Self{n: n}
 	end 'create'
 
-	function bump()
+	function bump(mutates self)
 		self.n = 2
 	end 'bump'
 end 'Tm'
@@ -2632,14 +2632,14 @@ end 'Tm'
 type Km
 	var k as Tm
 
-	static function create(k Tm) returns Self
+	static function create(consumes k Tm) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Km'
 
-function f(t Tm, h Km)
+function f(consumes t Tm, h Km)
 	_ = h
-	let u = t
+	var u = t
 	u.bump()
 end 'f'
 
@@ -3517,7 +3517,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -3530,7 +3530,7 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
@@ -3539,7 +3539,7 @@ function n(t Tq) returns Num
 end 'n'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let z = n((q if 1 != 0 else q))
 	q.b.n = z
 	return 0
@@ -3642,7 +3642,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -3650,12 +3650,12 @@ function rdQ(t Tq) returns Num
 	return t.n
 end 'rdQ'
 
-function wrT(t Tq)
+function wrT(mutates t Tq)
 	t.n = 7
 end 'wrT'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let q2 = Tq.create(1, b: Bx.create(2))
 	_ = rdQ((q if 1 != 0 else q2))
 	wrT(q)
@@ -3904,7 +3904,7 @@ function pa(xs TcArray) returns Num
 end 'pa'
 
 function main() returns ExitCode
-	let xs = TcArray.create(0)
+	var xs = TcArray.create(0)
 	xs.push(Tc.create(1))
 	_ = pa(xs)
 	return 0
@@ -5053,14 +5053,14 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
-	let u = t
+	var u = t
 	u.n = 3
 end 'f'
 
@@ -5093,12 +5093,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	var u = t
 	u.n = 3
@@ -5135,16 +5135,16 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	let u = t
 	let w = u
-	let x = w
+	var x = w
 	x.n = 1
 end 'f'
 
@@ -5177,12 +5177,12 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	var u = Tk.create(0)
 	u = t
@@ -5218,7 +5218,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -5227,7 +5227,7 @@ function rdTk(x Tk)
 	_ = x.n
 end 'rdTk'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	let u = t
 	rdTk(u)
@@ -5263,7 +5263,7 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
@@ -5272,10 +5272,10 @@ function lg(x Num) returns Num
 	return x
 end 'lg'
 
-function f(t Tk, h Kp)
+function f(consumes t Tk, h Kp)
 	_ = h
 	if lg(1) != 0 'i1'
-		let u = t
+		var u = t
 		u.n = 2
 	end 'i1'
 end 'f'
@@ -5313,8 +5313,8 @@ type Mm
 		return Self{n: n}
 	end 'create'
 
-	function g(t Tk)
-		let u = t
+	function g(consumes t Tk)
+		var u = t
 		u.n = 2
 	end 'g'
 end 'Mm'
@@ -5348,13 +5348,13 @@ end 'Tk'
 type Kp
 	var k as Tk
 
-	static function create(k Tk) returns Self
+	static function create(consumes k Tk) returns Self
 		return Self{k: k}
 	end 'create'
 end 'Kp'
 
-function fs(t Tk)
-	let u = t
+function fs(consumes t Tk)
+	var u = t
 	u.n = 3
 end 'fs'
 
@@ -5847,7 +5847,7 @@ function g(mutates b Bx)
 end 'g'
 
 function main() returns ExitCode
-	let b = Bx.create(1)
+	var b = Bx.create(1)
 	g(b)
 	_ = b.n
 	return 0
@@ -5876,7 +5876,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 end 'Tq'
 
@@ -5885,7 +5885,7 @@ function n(t Tq) returns Num
 end 'n'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let z = n(q)
 	q.b.n = z
 	return 0
@@ -5914,7 +5914,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -5922,7 +5922,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -5931,7 +5931,7 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
@@ -5940,7 +5940,7 @@ function size(t Tq) returns Num
 end 'size'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let q2 = Tq.create(1, b: Bx.create(2))
 	_ = Tq.create(1, b: Bx.create(2))
 	let r = size((q if 1 != 0 else q2))
@@ -5971,7 +5971,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -5979,7 +5979,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -5988,19 +5988,19 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
 function part(t Tq) returns Bx
-	return t.b
+	return t.b.clone()
 end 'part'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let q2 = Tq.create(1, b: Bx.create(2))
 	_ = Tq.create(1, b: Bx.create(2))
-	let r = part((q if 1 != 0 else q2))
+	var r = part((q if 1 != 0 else q2))
 	r.n = 4
 	q.n = 3
 	return 0
@@ -6029,7 +6029,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -6037,7 +6037,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -6046,25 +6046,25 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
 type Wq is noncopyable
 	var q as Tq
 
-	static function create(q Tq) returns Self
+	static function create(consumes q Tq) returns Self
 		return Self{q: q}
 	end 'create'
 end 'Wq'
 
-function keepW(t Tq) returns Wq
+function keepW(consumes t Tq) returns Wq
 	return Wq.create(t)
 end 'keepW'
 
 function main() returns ExitCode
 	let qV = Tq.create(1, b: Bx.create(2))
-	let w = keepW(qV)
+	var w = keepW(qV)
 	w.q.n = 4
 	return 0
 end 'main'
@@ -6092,7 +6092,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -6100,7 +6100,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -6109,17 +6109,17 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
 function rdPart(t Tq) returns Num
-	let x = t.b
+	let x = t.b.clone()
 	return x.n
 end 'rdPart'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let r = rdPart(q)
 	q.n = r
 	return 0
@@ -6148,7 +6148,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -6156,7 +6156,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -6165,16 +6165,16 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
 function part(t Tq) returns Bx
-	return t.b
+	return t.b.clone()
 end 'part'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	_ = part(q)
 	q.n = 3
 	return 0
@@ -6203,7 +6203,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -6211,7 +6211,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -6220,17 +6220,17 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
-function stPart(t Tq, o Ko)
-	o.keep = t.b
+function stPart(t Tq, mutates o Ko)
+	o.keep = t.b.clone()
 end 'stPart'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
-	let o = Ko.create(Bx.create(0), n: 0)
+	var q = Tq.create(1, b: Bx.create(2))
+	var o = Ko.create(Bx.create(0), n: 0)
 	stPart(q, o: o)
 	q.n = 3
 	return 0
@@ -6259,7 +6259,7 @@ type Tq is noncopyable
 	var b as Bx
 
 	static function create(n Num, b Bx) returns Self
-		return Self{n: n, b: b}
+		return Self{n: n, b: b.clone()}
 	end 'create'
 
 	function mkK() returns Ko
@@ -6267,7 +6267,7 @@ type Tq is noncopyable
 	end 'mkK'
 
 	function part() returns Bx
-		return self.b
+		return self.b.clone()
 	end 'part'
 end 'Tq'
 
@@ -6276,21 +6276,21 @@ type Ko
 	var n as Num
 
 	static function create(keep Bx, n Num) returns Self
-		return Self{keep: keep, n: n}
+		return Self{keep: keep.clone(), n: n}
 	end 'create'
 end 'Ko'
 
 function part(t Tq) returns Bx
-	return t.b
+	return t.b.clone()
 end 'part'
 
 function rdPart(t Tq) returns Num
-	let x = t.b
+	let x = t.b.clone()
 	return x.n
 end 'rdPart'
 
 function main() returns ExitCode
-	let q = Tq.create(1, b: Bx.create(2))
+	var q = Tq.create(1, b: Bx.create(2))
 	let a = rdPart(q)
 	q.n = a
 	_ = part(q)

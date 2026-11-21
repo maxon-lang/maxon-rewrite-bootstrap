@@ -349,7 +349,7 @@ function main() returns ExitCode
 	let c = Container.value(42)
 	match c 'check'
 		empty then return 1
-		value(n) then return n
+		value(n) then return try n as ExitCode otherwise panic("out of range")
 	end 'check'
 end 'main'
 ```

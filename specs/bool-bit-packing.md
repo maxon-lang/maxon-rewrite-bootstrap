@@ -21,7 +21,7 @@ A *constant* bool-array literal (e.g. `[true, false, true]`) is lowered to a bit
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
@@ -50,7 +50,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(false)
 	arr.push(false)
 	arr.push(false)
@@ -71,7 +71,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	var i = 0 as Count
 	while i < 9 'push'
 		arr.push(false)
@@ -100,7 +100,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	var i = 0 as Count
 	while i < 100 'push'
 		arr.push(i < 50)
@@ -111,7 +111,7 @@ function main() returns ExitCode
 	while j < 100 'count'
 		let v = try arr.get(j) otherwise false
 		if v 'inc'
-			count = count + 1
+			count = try count + 1 otherwise panic("out of range")
 		end 'inc'
 		j = j + 1
 	end 'count'
@@ -127,7 +127,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(true)
 	arr.insert(1, value: false)
@@ -156,7 +156,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
@@ -272,11 +272,11 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
-	return arr.count()
+	return try arr.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -288,7 +288,7 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
 	arr.push(true)
@@ -297,7 +297,7 @@ function main() returns ExitCode
 	if popped 'p'
 		sum = sum + 1
 	end 'p'
-	return sum * 10 + arr.count()
+	return try sum * 10 + arr.count() otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -309,10 +309,10 @@ end 'main'
 typealias BoolArray = Array with bool
 
 function main() returns ExitCode
-	let arr = BoolArray.create(0)
+	var arr = BoolArray.create(0)
 	arr.push(true)
 	arr.push(false)
-	let copy = arr.clone()
+	var copy = arr.clone()
 	try copy.set(0, value: false) otherwise panic("test invariant: set OOB")
 	let orig = try arr.get(0) otherwise false
 	let cloned = try copy.get(0) otherwise true

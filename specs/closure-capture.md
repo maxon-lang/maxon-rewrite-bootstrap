@@ -2271,7 +2271,7 @@ type Holder
 	export let outcome as Outcome
 
 	static function create(outcome Outcome) returns Self
-		return Self{outcome: outcome}
+		return Self{outcome: outcome.clone()}
 	end 'create'
 
 	function label() returns String

@@ -291,7 +291,7 @@ above it, so it returns on that path. Its result is discarded here — a bare-ca
 legal position for a value-returning function — and control must continue past it.
 ```maxon
 function maybeFatal(b bool, mutates calls Integer) returns Integer
-	calls = calls + 1
+	calls = try calls + 1 otherwise panic("out of range")
 	if b 'y'
 		return 5
 	end 'y'
@@ -302,7 +302,7 @@ function main() returns ExitCode
 	var calls = 0 as Integer
 	_ = maybeFatal(true, calls: calls)
 	print("back in main\n")
-	return calls - 1
+	return try calls - 1 otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -591,7 +591,7 @@ function pick(b bool) returns Integer throws FatalError
 end 'pick'
 
 function main() returns ExitCode
-	return try pick(true) otherwise 99
+	return (try pick(true) otherwise 99) as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -625,7 +625,7 @@ function pick(b bool) returns Integer throws FatalError
 end 'pick'
 
 function main() returns ExitCode
-	return try pick(false) otherwise 99
+	return try (try pick(false) otherwise 99) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

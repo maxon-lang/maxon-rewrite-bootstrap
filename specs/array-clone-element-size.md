@@ -139,16 +139,16 @@ typealias MidCol = Array with Mid
 typealias WideCol = Array with Wide
 
 function main() returns ExitCode
-	let n = NarrowCol.create(0)
+	var n = NarrowCol.create(0)
 	n.push(1)
 	n.push(2)
-	let m = MidCol.create(0)
+	var m = MidCol.create(0)
 	m.push(3)
 	m.push(4)
-	let w = WideCol.create(0)
+	var w = WideCol.create(0)
 	w.push(5)
 	w.push(6)
-	let nc = n.clone()
+	var nc = n.clone()
 	let mc = m.clone()
 	let wc = w.clone()
 	let n0 = try nc.get(0) otherwise 0
