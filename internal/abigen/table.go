@@ -67,6 +67,27 @@ var layouts = []layoutConst{
 	{"closureCapturesOffset", 3, false, toSelfIR | toSelfBack,
 		"where the box of a closure holds what it captured, a word each, in the order of its body's captures."},
 
+	// An interface value is the box of a value of a type that implements the interface, and the address of the table of
+	// that type's code for the interface: a word each, the box owned like a record's.
+	{"ifaceTableOffset", 0, false, toSelfIR | toSelfBack,
+		"where the box of an interface value holds the address of its table."},
+	{"ifaceValueOffset", 1, false, toSelfIR | toSelfBack,
+		"where the box of an interface value holds the value, which it owns unless it lends it to a call."},
+	{"ifaceBoxBytes", 2, false, toSelfIR | toSelfBack,
+		"the size of the box of an interface value."},
+	// A table is code: an entry is a jump to the routine or the method, padded to a word, so calling an entry is calling
+	// what it jumps to, with the arguments as they are.
+	{"tableEntryBytes", 1, false, toSelfBack,
+		"the size of an entry of the table of an interface value."},
+	{"tableDropEntry", 0, true, toSelfBack,
+		"the entry of a table that drops the value the box holds."},
+	{"tableCopyEntry", 1, true, toSelfBack,
+		"the entry of a table that copies the value the box holds, for an interface whose values are Copyable."},
+	{"tableTypeEntry", 2, true, toSelfBack,
+		"the entry of a table that gives the address that names the type of the value the box holds, which a cast to a type compares."},
+	{"tableFirstMethod", 3, true, toSelfBack,
+		"the entry of the first method of a table, the methods following in the order the interface requires them."},
+
 	{"byteBytes", 1, true, toRuntime | toSelfBack,
 		"the size of an element of a byte array."},
 	{"bytesFirstCapacity", 16, true, toRuntime,

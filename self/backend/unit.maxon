@@ -402,6 +402,12 @@ export type Asm
 		self.noteSymbolFixup(symbol)
 	end 'callSymbol'
 
+	// jmpSymbol jumps to a function or a routine that this unit or another one defines.
+	export function jmpSymbol(mutates self, symbol String)
+		encodeJmpRel32(code, rel: 0)
+		self.noteSymbolFixup(symbol)
+	end 'jmpSymbol'
+
 	// callRegister calls the code at the address a register holds.
 	export function callRegister(mutates self, reg X64Register)
 		encodeCallReg(code, reg: reg)
@@ -564,6 +570,12 @@ export type CodeUnit
 	export function defineData(mutates self, symbol String, size Count)
 		dataSymbols.push(SymbolDef.make(symbol.clone(), offset: data.reserve(size), instance: false))
 	end 'defineData'
+
+	// defineSharedData reserves data that every unit that names it defines, of which the link keeps one, as it does of an
+	// instance: the address is what names the thing, whichever unit's is kept.
+	export function defineSharedData(mutates self, symbol String, size Count)
+		dataSymbols.push(SymbolDef.make(symbol.clone(), offset: data.reserve(size), instance: true))
+	end 'defineSharedData'
 end 'CodeUnit'
 
 export typealias UnitList = Array with CodeUnit

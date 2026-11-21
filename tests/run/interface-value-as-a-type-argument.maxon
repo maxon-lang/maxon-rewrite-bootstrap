@@ -1,0 +1,43 @@
+//> 6
+//> 4
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	var side as Integer
+
+	static function make(side Integer) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Integer
+		return side
+	end 'area'
+end 'Square'
+
+function twice(s T) uses T returns Integer where T implements Shape
+	return try s.area() * 2 otherwise 0
+end 'twice'
+
+type Holder uses T where T implements Shape
+	var item as T
+
+	static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	function area() returns Integer
+		return item.area()
+	end 'area'
+end 'Holder'
+
+function main() returns ExitCode
+	let a = Square.make(3) as Shape
+	print("{twice(a)}\n")
+	let h = Holder.make(Square.make(4) as Shape)
+	print("{h.area()}\n")
+	return 0
+end 'main'

@@ -1,4 +1,7 @@
-extension shapes.Meter implements names.Namer
+export interface Quiet extends names.Namer
+end 'Quiet'
+
+extension shapes.Meter implements Quiet
 	function name() returns String
 		return "b"
 	end 'name'

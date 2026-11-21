@@ -1,0 +1,12 @@
+export interface Quiet extends names.Namer
+end 'Quiet'
+
+extension shapes.Meter implements Quiet
+	function name() returns String
+		return "quiet"
+	end 'name'
+end 'Meter'
+
+export function tag() returns String
+	return "quiet"
+end 'tag'

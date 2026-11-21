@@ -693,6 +693,9 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if typeHasKind(p, t: target, kind: ast.TypeKind.funcTy) 'function'
 		return checkFunctionCast(c, p: p, e: e, operand: operand, target: target, errs: errs)
 	end 'function'
+	if typeHasKind(p, t: target, kind: ast.TypeKind.interfaceTy) 'interface'
+		return checkInterfaceCast(c, p: p, e: e, operand: operand, target: target, errs: errs)
+	end 'interface'
 	let toFloat = typeHasKind(p, t: target, kind: ast.TypeKind.floatRange)
 	let toInt = typeHasKind(p, t: target, kind: ast.TypeKind.intRange)
 	if not toInt and not toFloat and not castTargetIsRefused(p, target: target) 'notNumber'
@@ -704,6 +707,9 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 		return ast.noType
 	end 'badSource'
 	setOperand(c, node: e, operand: src)
+	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
+		return checkRecoveryCast(c, p: p, e: e, src: src, target: target, errs: errs)
+	end 'recovered'
 	if not toInt and not toFloat 'refused'
 		if sameType(p.types, a: src, b: target) or assignable(p, src: src, dst: target) 'identity'
 			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, t: target)} is not supported by minimaxon", errs: errs)

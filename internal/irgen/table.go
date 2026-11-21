@@ -27,6 +27,7 @@ const (
 	kErrorReg             // the register that receives the error of a call of a function that throws
 	kBody                 // a body of the function's Bodies: a behaviour's or a closure's
 	kCases                // cases of the function's Cases, from the field to the count in Count
+	kTable                // a table of the function's Tables: the table of an interface value
 )
 
 // field is a field of a record. An instruction has dst, a, b, c, imm, sub and flags; a terminator value, target, other,
@@ -137,6 +138,9 @@ var enums = []enum{
 		{"NonNegative", "NonNegative"}, {"SignedAtLeast", "SignedAtLeast"}, {"SignedAtMost", "SignedAtMost"},
 		{"UnsignedAtLeast", "UnsignedAtLeast"}, {"UnsignedAtMost", "UnsignedAtMost"}, {"NonZero", "NonZero"},
 	}},
+	{Name: "ReceiverConv", Prefix: "Receiver", Doc: "ReceiverConv is how a CallWitness gives the method the value the box holds: lent, as a receiver that is let\n// or mutates takes a value, or moved out of the box, which is freed.", Cases: []enumCase{
+		{"Lent", "lent"}, {"Moved", "moved"},
+	}},
 	{Name: "RawWidth", Prefix: "Width", Doc: "RawWidth is how many bits a LoadRaw or a StoreRaw moves.", Cases: []enumCase{
 		{"8", "8"}, {"16", "16"}, {"32", "32"}, {"64", "64"},
 	}},
@@ -148,7 +152,7 @@ type flag struct {
 }
 
 var flags = []flag{
-	{"Borrow", "Borrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing."},
+	{"Borrow", "Borrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, and on a\n// Box that only lends the value it holds."},
 	{"Unsigned", "Unsigned is on a Bin or a Cmp that treats its operands as unsigned."},
 	{"Checked", "Checked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to its\n// failure block instead of to the next instruction."},
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
@@ -260,6 +264,18 @@ var ops = []op{
 	{Name: "CallValue", Doc: "CallValue calls the closure that is the first of Args with all of Args: the code it holds takes the closure\n// first, to read what it captured, and a named function's code ignores it.",
 		Result: optionalResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees},
 		Text: "callvalue({Args})"},
+	{Name: "Box", Doc: "Box gives a new interface value: a box of the address of the table Table and the value Value, which the box owns\n// unless Borrow is set.",
+		Result: valueResult, Operands: []operand{{Name: "Table", Kind: kTable, Field: fC}, reg("Value", fA), {Name: "Borrow", Kind: kFlag, Field: fFlags, Flag: "Borrow", Text: " borrow"}},
+		Effects: []effect{effCalls, effAllocates}, Text: "box {Table}, {Value}{Borrow}"},
+	{Name: "FreeBox", Doc: "FreeBox frees the box of an interface value that only lends its value, which its owner keeps.",
+		Operands: []operand{reg("Box", fA)}, Effects: []effect{effWrites, effCalls, effFrees}, Text: "freebox {Box}"},
+	{Name: "CallWitness", Doc: "CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with\n// the value the box holds, given as Recv says, and the rest of Args.",
+		Result: optionalResult,
+		Operands: []operand{{Name: "Recv", Kind: kEnum, Field: fSub, Enum: "ReceiverConv"}, {Name: "Slot", Kind: kInt, Field: fC}, argsOp,
+			{Name: "ErrReg", Kind: kErrorReg, Field: fImm, Flag: "Throws", Text: " error "}},
+		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "callwitness.{Recv} {Slot}({Args}){ErrReg}"},
+	{Name: "IsType", Doc: "IsType gives 1 when the interface value Src holds a value of the type Ty, and 0 when it holds one of another type.",
+		Result: valueResult, Operands: []operand{reg("Src", fA), typeOp}, Effects: []effect{effReads, effCalls}, Text: "istype {Src} {Ty}"},
 	{Name: "Drop", Doc: "Drop drops the value in Src, of type Ty.",
 		Operands: []operand{reg("Src", fA), typeOp}, Effects: []effect{effCalls, effFrees}, Text: "drop {Src} {Ty}"},
 	{Name: "DropSlot", Doc: "DropSlot drops what a slot owns, of type Ty, and leaves it empty.",

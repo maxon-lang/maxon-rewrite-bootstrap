@@ -34,6 +34,29 @@ function addFunction(mutates prog Program, mutates paths CountLists, p ast.Proje
 	end 'bodies'
 end 'addFunction'
 
+// addTables indexes the tables of the interface values that a function and the bodies in it make, once each, with the
+// function of each method, which every module that boxes such a value has lowered.
+function addTables(mutates prog Program, f ir.IrFunction)
+	for i in 0 upto f.tables.count() 'tables'
+		if not prog.tables.has(f.tables[i].symbol) 'new'
+			var methods = CountList.create(0)
+			for j in 0 upto f.tables[i].methods.count() 'methods'
+				let fi = match consumes prog.fnByFunc.get(f.tables[i].methods[j] as Count) 'fn'
+					some(index) gives index
+					none gives panic("interp: a method of a table has no IR")
+				end 'fn'
+				methods.push(fi)
+			end 'methods'
+			prog.tables.insert(f.tables[i].symbol.clone(), value: prog.tableMethods.count())
+			prog.tableMethods.push(methods)
+			prog.tableTypes.push(f.tables[i].concrete)
+		end 'new'
+	end 'tables'
+	for b in 0 upto f.bodies.count() 'bodies'
+		addTables(prog, f: f.bodies[b])
+	end 'bodies'
+end 'addTables'
+
 // prepareProgram indexes the functions of a program by their declarations, the first that the modules lower for each: an
 // instance that several modules need is lowered by each, and the first is the one that runs.
 function prepareProgram(mutates prog Program, mutates paths CountLists, p ast.Project, modules ModuleFunctions, entry ast.FuncID)
@@ -52,6 +75,11 @@ function prepareProgram(mutates prog Program, mutates paths CountLists, p ast.Pr
 			addFunction(prog, paths: paths, p: p, f: modules[m][k], path: path, convs: convsOf(p, decl: decl))
 		end 'functions'
 	end 'modules'
+	for m in 0 upto modules.count() 'tableModules'
+		for k in 0 upto modules[m].count() 'tableFunctions'
+			addTables(prog, f: modules[m][k])
+		end 'tableFunctions'
+	end 'tableModules'
 	prog.mainFn = match consumes prog.fnByFunc.get(entry as Count) 'main'
 		some(fi) gives fi
 		none gives panic("interp: main has no IR")

@@ -1,0 +1,124 @@
+//> 4 5 100 lent 9
+//> grown 7
+//> held 3 then 9
+//> small 1 big 2
+//> 7 doubled 14
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+	function grow(mutates self, by Integer)
+end 'Shape'
+
+type Square implements Shape
+	var side as Integer
+
+	static function create(side Integer) returns Self
+		return Self{side: side}
+	end 'create'
+
+	function area() returns Integer
+		return try side * side otherwise panic("overflow")
+	end 'area'
+
+	function grow(mutates self, by Integer)
+		side = try side + by otherwise panic("overflow")
+	end 'grow'
+end 'Square'
+
+type Strip implements Shape
+	var length as Integer
+	var name as String
+
+	static function create(length Integer) returns Self
+		return Self{length: length, name: "strip"}
+	end 'create'
+
+	function area() returns Integer
+		return length
+	end 'area'
+
+	function grow(mutates self, by Integer)
+		length = try length + by otherwise panic("overflow")
+	end 'grow'
+end 'Strip'
+
+enum Dot implements Shape
+	small
+	big
+
+	function area() returns Integer
+		return 1 if self == Dot.small else 2
+	end 'area'
+
+	function grow(mutates self, by Integer)
+		_ = by
+	end 'grow'
+end 'Dot'
+
+typealias Shapes = Array with Shape
+
+interface Doubler
+	function doubled() returns Integer
+end 'Doubler'
+
+extension int implements Doubler
+	function doubled() returns Integer
+		return try (self * 2) as Integer otherwise panic("overflow")
+	end 'doubled'
+end 'int'
+
+// A field of an interface type holds the box, which a new value replaces.
+type Holder
+	var shape as Shape
+
+	static function create(consumes shape Shape) returns Self
+		return Self{shape: shape}
+	end 'create'
+
+	function replace(mutates self, consumes other Shape) returns Integer
+		self.shape = other
+		return self.shape.area()
+	end 'replace'
+end 'Holder'
+
+// A parameter that borrows its interface value is lent a box around the caller's value.
+function describe(item Shape) returns Integer
+	return item.area()
+end 'describe'
+
+// A result of an interface type is a value of either type, boxed where it is returned.
+function make(big bool) returns Shape
+	if big 'big'
+		return Square.create(10)
+	end 'big'
+	return Strip.create(3)
+end 'make'
+
+function name(d Shape) returns String
+	return "small" if d.area() == 1 else "big"
+end 'name'
+
+function main() returns ExitCode
+	var shapes = Shapes.create(0)
+	shapes.push(Square.create(2))
+	shapes.push(Strip.create(5))
+	shapes.push(make(true))
+	var line = ""
+	for s in shapes 'each'
+		line = "{line}{s.area()} "
+	end 'each'
+	let sq = Square.create(3)
+	print("{line}lent {describe(sq)}\n")
+	var g = make(false)
+	g.grow(4)
+	print("grown {g.area()}\n")
+	var h = Holder.create(Strip.create(3))
+	let before = h.shape.area()
+	print("held {before} then {h.replace(sq)}\n")
+	print("{name(Dot.small)} {Dot.small.area()} {name(Dot.big)} {Dot.big.area()}\n")
+	let seven = 7 as Integer
+	let d = seven as Doubler
+	print("{seven} doubled {d.doubled()}\n")
+	return 0
+end 'main'

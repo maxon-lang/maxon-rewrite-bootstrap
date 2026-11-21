@@ -1,0 +1,26 @@
+export interface Shape
+	function area() returns Count
+end 'Shape'
+
+export typealias Shapes = Array with Shape
+
+export type Square implements Shape
+	var side as Count
+
+	export static function make(side Count) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Count
+		return try side * side otherwise panic("overflow")
+	end 'area'
+end 'Square'
+
+// total calls through values that other modules boxed, each with the table of its own conformance.
+export function total(xs Shapes) returns Count
+	var sum = 0 as Count
+	for s in xs 'each'
+		sum = try sum + s.area() otherwise panic("overflow")
+	end 'each'
+	return sum
+end 'total'

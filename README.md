@@ -526,10 +526,13 @@ other:
 | an instance given a conformance outside its type argument's module | `lib::describe[shapes::Meter] using app`, the module of each conformance after `using` |
 | a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))`, `stdlib::FixedArray with 3 Int=int(...)` |
 | a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
+| the table of an interface value | `table export::Square as shapes::Shape by export`, with the module of the conformance after `by` |
+| the word that names a type at run time | `type export::Square` |
 | a runtime entry or global | `runtime::alloc` (the link name of the runtime function that defines the entry), `rt.entry` and `g.heap` (what the entry stub and the linker define) |
 
 An integer type is named by its alias and its range, since the code for it depends on nothing else. The kinds of symbol cannot
-meet: a function's name has `::` before any space, and a routine's starts with `drop ` or `copy `. The text of a function in
+meet: a function's name has `::` before any space, and a routine's starts with `drop ` or `copy `, a table's with `table `
+and the name of a type with `type `. The text of a function in
 the IR (`--emit-ir`) and in a message is its plain symbol (`ir.funcSymbol`).
 
 ## Build cache (planned)
@@ -602,6 +605,7 @@ what a later pass such as reference counting or an optimization changes.
 | floats | `fadd`, `fsub`, `fmul`, `fdiv`, `fcmp`, `fsqrt`, `fround`, `ffloor`, `fceil`, `itof` (`.u` for unsigned), `ftoi` (see "Floats") |
 | calls | `call`, `runtime` (a runtime entry, with the `routine` a cown's entry stores), `alloc`, `when`, `callvalue` (see "Function values in the IR") |
 | function values | `closure`, `funcvalue` (see "Function values in the IR") |
+| interface values | `box`, `freebox`, `callwitness`, `istype` (see "Interface values in the IR") |
 | ownership | `drop`, `dropslot`, `dropat`, `move`, `moveat`, `copy` (see "Drops") |
 | the runtime only | `loadraw.W`, `storeraw.W`, `globaladdr`, `import` (see "The runtime") |
 
@@ -719,6 +723,33 @@ the same two routines (`backend.dropClosure`, `copyClosure`), and the drop routi
 body (`backend.emitCaptureDrop`), named `captures` and the body's symbol, since its types are the body's and no function
 type names them. Natively the count is a plain word: there are no threads. A closure that owns a value which only the
 interpreter can drop (a map, a list, a pool, a frozen value, a cown) is refused natively like one that drops it.
+
+### Interface values in the IR
+
+An interface value is one word, the address of a box of two words: the address of a **table** and the value, a word as any
+value is (`internal/abigen`'s `iface*` rows). The table belongs to the concrete type, the interface and the module of the
+conformance the value was boxed with, so its link name says all three (`table export::Square as shapes::Shape by
+export`), and it is static code in the image: an entry of a word for each of the routine that drops the value, the one
+that copies it (where the interface extends `Copyable`), the one that names its type, and then each method the
+interface requires, its own and then those of the interfaces it extends (`ast.requirementsOf`). An entry is a jump to the
+routine or the method, so calling the entry is calling it with the arguments as they are. The program is closed, so no
+table is made at run time: every module that boxes a value with a conformance writes the table in its unit, and the link
+keeps one, as it does an instance.
+
+| Instruction | Does |
+|---|---|
+| `%r = box table, %v` | a new interface value of the table and `%v`, which it owns: the value moved in, or a scalar |
+| `%r = box table, %v borrow` | the same, lending `%v` to a call that borrows it, which its owner keeps |
+| `freebox %r` | frees a box that lends its value, and nothing it holds: where the statement that made it ends |
+| `%r = callwitness.lent n(%b, %x)` | calls the method in place `n` of the table of `%b` with the value it holds and the arguments; a receiver that is `let` or `mutates` is lent the value, as a record's is |
+| `%r = callwitness.moved n(%b, %x)` | the same for a receiver that is `consumes` or `destructs`: the value leaves the box, which is freed |
+| `%r = istype %b T` | 1 when `%b` holds a value of the type `T`: the entry that names its type gives the address of the word of data named for `T` (`type` and its link name), which every unit that names it defines and the link keeps once |
+
+Dropping an interface value calls its table's drop entry with the value and frees the box, and copying it makes a box of
+the same table and the copy its copy entry makes: one routine for every interface type, since the table knows the type.
+A scalar is dropped by nothing and copied as it is. The interpreter keeps the box as a record of two words, the table as
+its index among the program's tables, and owns, lends, drops and copies it by shape, as it does any record. The value of a
+type that only the interpreter runs is refused natively where it is boxed.
 
 ### Drops
 
@@ -1451,8 +1482,8 @@ end 'wrap'
   for a method those of its type (`E3916` for any other), each once (`E3006`). A type, an enum or a union says which interfaces it implements with `implements`
   too: `type Square implements Shape, Named`. An interface lists method signatures, each
   with its receiver convention (`mutates self`, `consumes self`, `destructs self`, or none for a `let` receiver), and may name `Self`. It
-  is a bound and nothing else: it is not the type of a value (`E3905`), and an alias, `String` or `bool` cannot
-  implement one. A requirement may be `static function`, which the type provides as a static function (a method in its
+  bounds a type parameter, and is the type of a value as well (see "Interface values"), unless a requirement names `Self`
+  or is static (`E3905`); an alias, `String` or `bool` cannot implement one in its declaration. A requirement may be `static function`, which the type provides as a static function (a method in its
   place is `E3016`, as is the other way round); as in maxon it has no receiver to dispatch on, so a call of it through a
   type parameter, `T.make()` or `x.make()`, is `E3116`, and `T.make` as a value is `E2078`: it is called on a concrete
   type. A type parameter's name stands for the parameter in an expression, over a declaration of that name. A method
@@ -1544,6 +1575,57 @@ end 'wrap'
   reaches such a function finds the runaway for itself, and the program gets one error: the one of the first module in module
   order that has it, at the first call in its walk that asks for the too deep instance. That is
   the recursive call inside the generic whenever the growth is in one call, the case that one error covers however many modules use it.
+
+### Interface values
+
+An interface is the type of a value as well as a bound: a value of `Shape` holds a value of any type that implements it,
+and a call of a method that `Shape` requires runs the method of the type it holds, as in Go. It has Hylo's ownership: the
+interface value owns what it holds and moves like a record.
+
+```
+typealias Shapes = Array with Shape
+
+function describe(item Shape) returns Count
+	return item.area()
+end 'describe'
+
+function main() returns ExitCode
+	var shapes = Shapes.create(0)
+	shapes.push(Square.create(2))
+	let sq = Square.create(3)
+	print("{describe(sq)}\n")
+	let back = try shapes.pop() otherwise panic("empty")
+	let square = try back as Square otherwise panic("not a square")
+	return 0
+end 'main'
+```
+
+- **Putting a value in one.** A value of a type that implements the interface goes where a value of it is expected (a
+  parameter, a field, an element, a `return`, an assignment, a branch) and is put in one there, and so does a cast to
+  the interface (`sq as Shape`). Whether the type implements the interface is the conformance seen from the module where
+  the value is put in it (see "Extensions"), checked in the verify stage (`E3005` with maxon's wording, `E3941` for two),
+  and the interface value keeps that conformance wherever it goes. A float cannot be put in one, an interface value is
+  not put in a value of another interface, even one it extends (`E3005`; a cast between two is maxon's `E3009`), and a
+  constant of an interface type is `E2015`.
+- **Ownership.** A value that is consumed there (a binding, a `consumes` parameter, a field, a `return`) moves into the
+  interface value under the rules of "Ownership", so a borrowed one is `E3900`; a `let` parameter is lent the caller's
+  value for the call, and the caller keeps it. A `mutates` or `sets` parameter of an interface type takes only an
+  interface value (`E3005`), since the callee could put a value of another type there. Dropping an interface value drops
+  what it holds, so the type must be `Droppable` (`E3919`). `clone()` of one is allowed where the interface extends
+  `Copyable` (`interface Shape extends Copyable`), which every type that implements it must then be (`E3918`); otherwise
+  it is `E3918`, as for any value that cannot be copied. A method that `mutates self` is called through a place the code
+  may change, as on a record (`E2013`). Interface values are not compared (`E3005`).
+- **Getting the value back.** `x as Square` takes the value out of the interface value `x`, which the cast consumes, when
+  it holds a `Square`, and fails with `CastError.otherType` when it holds a value of another type, so a `try` covers it
+  (`E3057`), as any operation that can fail. A type that does not implement the interface is `E3009`.
+- **Which interfaces.** One whose requirement names `Self`, or is static, is a bound and nothing else (`E3905`, in the
+  verify stage, when every interface has its requirements); one with associated types is a value type with them bound
+  (`Seq with Integer`).
+- **In a generic.** An interface value meets a bound of its own interface (another, even one it extends, is `E3017`), so
+  a generic instantiated at one (`twice(a)` with `a` a `Shape` value, `Holder with Shape`) calls through its table where
+  the body calls through the bound. A call with a value of the concrete type is an instance of its own, monomorphized as
+  any instance is. A parameter written with an interface type is a value of it, whatever the argument: a method and a
+  requirement take no type parameters of their own, so one mechanism serves functions, methods and requirements.
 
 ### Tuples
 
@@ -1725,8 +1807,14 @@ call, which instantiates the generic, and that conformance travels with the inst
 are the ones the module of the conformance sees, and a generic that passes its `T` on to another passes the
 conformance it was given, not one its own module sees. So a module may give a generic of a module that cannot see its
 extension the type that the extension makes conform. Two conformances of one type to one interface seen at one place
-are `E3941`: at an extension whose module sees another (the type's body among them), and at a call that instantiates a
-generic where the module sees two. An instance is its generic, its type arguments and the module of each conformance
+are `E3941`: at an extension whose module sees another (the type's body among them), at the second of two extensions of
+one module that say it, and at a call that instantiates a generic where the module sees two. As in Hylo, a module gives a
+conformance to other modules only if it declares the type or the interface: one of a type of another module to an
+interface of another module (an orphan) holds in the module that writes it alone, so it cannot change what a type means
+to an interface where neither is its own. A built-in type and a built-in interface are declared by no module of the
+program, so a conformance of one to the other never leaves its module. Two bounds of one type parameter that both
+extend one interface, met by conformances of two modules, are `E3941` at the call that instantiates the generic, since
+each module sees its own methods for the interface they share. An instance is its generic, its type arguments and the module of each conformance
 it was given: two modules that instantiate one generic at one type with conformances of their own get an instance
 each, with a link name each (see "Link names"), and with one conformance they share it. A conformance that a method of
 a generic type needs for a bound of the type is the one seen from the module of the call, and a call through a bound
@@ -2197,7 +2285,8 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   declare are scoped as Hylo scopes them, where maxon sees every extension from every directory of the program: an
   extension is seen only from its own module and the modules that name it, a bound is met by the conformance seen from
   the module that instantiates the generic and passes it on with the instance, two extensions seen at one call that add
-  one method name are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A method
+  one method name are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A module
+  that declares neither the type nor the interface gives its conformance to no other module (Hylo's orphan rule). A method
   that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
   extension's method, reported when the modules are verified.
 - Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as
@@ -2211,6 +2300,16 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   tests that read an alias made by `let b = a`, a string's identity after `.clone()` or the identity of a constant do not
   hold here (`.clone()` of a `String` is the same object).
 - A keyword is not a case name: maxon's `end` as the case of an enum, a union or an arm is a syntax error here.
+- Interface values (see "Interface values"): maxon's interface value refers to the value it was made from, which the
+  program shares; here the box owns the value, which moves into it (a borrowed one takes `.clone()` or `consumes`), and a
+  `let` parameter is lent the caller's value for the call. It is one word, the box of the value and its table, where
+  maxon's is two (the value and the table), so none of maxon's refusals that the second word makes are here: an interface
+  type in a function type, a closure's parameter, a tuple element, a requirement's parameter or result, a container's
+  element and the result of a function that throws are all allowed. A parameter of an interface type is a value of it
+  whatever the argument, where maxon monomorphizes the function for a concrete argument. `clone()` of one needs the
+  interface to extend `Copyable`, which an interface may do and a type may not. maxon has no way to get the value back;
+  here `try x as Square` takes it out of the box and fails with `CastError.otherType`, an error of minimaxon's own, where
+  the box holds another type. A `mutates` parameter of an interface type takes only an interface value.
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

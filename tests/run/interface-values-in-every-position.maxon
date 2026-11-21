@@ -1,0 +1,65 @@
+//> 14 15 42 14 18
+typealias Integer = int(i64.min to i64.max)
+
+interface Doubler
+	function doubled() returns Integer
+end 'Doubler'
+
+extension int implements Doubler
+	function doubled() returns Integer
+		return try (self * 2) as Integer otherwise panic("overflow")
+	end 'doubled'
+end 'int'
+
+interface Visitor
+	function visit(d Doubler) returns Integer
+end 'Visitor'
+
+type Adder implements Visitor
+	var base as Integer
+
+	static function make(base Integer) returns Self
+		return Self{base: base}
+	end 'make'
+
+	function visit(d Doubler) returns Integer
+		return try base + d.doubled() otherwise panic("overflow")
+	end 'visit'
+end 'Adder'
+
+enum Fail implements Error
+	no
+end 'Fail'
+
+typealias Apply = function(Doubler) returns Integer
+
+function pick(ok bool) returns Doubler throws Fail
+	if not ok 'no'
+		throw Fail.no
+	end 'no'
+	return 21
+end 'pick'
+
+function seven(ok bool) returns Integer throws Fail
+	if not ok 'no'
+		throw Fail.no
+	end 'no'
+	return 7
+end 'seven'
+
+// A try that passes the failure on gives the value that goes in the box.
+function passed(ok bool) returns Doubler throws Fail
+	return try seven(ok)
+end 'passed'
+
+function main() returns ExitCode
+	let d = 7 as Doubler
+	let v = Adder.make(1) as Visitor
+	let pair = (v, 3 as Integer)
+	let f = function(x Doubler) gives x.doubled()
+	let g = try pick(true) otherwise panic("failed")
+	let h = try passed(true) otherwise panic("failed")
+	let missing = try passed(false) otherwise 9 as Doubler
+	print("{d.doubled()} {pair.0.visit(d)} {f(g)} {h.doubled()} {missing.doubled()}\n")
+	return 0
+end 'main'

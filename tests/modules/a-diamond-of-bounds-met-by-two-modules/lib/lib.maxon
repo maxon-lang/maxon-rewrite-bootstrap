@@ -1,0 +1,4 @@
+// Both bounds extend Namer, so the call of name finds the methods of whichever conformance meets them.
+export function both(x T) uses T returns String where T implements loud.Loud and quiet.Quiet
+	return x.name()
+end 'both'

@@ -160,6 +160,26 @@ export function argTypeMismatchCast(label String, expected String, got String) r
 	return "argument type mismatch for {label}: expected '{expected}', got '{got}' — cast the argument with 'as {expected}'"
 end 'argTypeMismatchCast'
 
+// The text of errTypeMismatch for: type '{got}' does not implement interface '{iface}'
+export function notConforming(got String, iface String) returns String
+	return "type '{got}' does not implement interface '{iface}'"
+end 'notConforming'
+
+// The text of errTypeMismatch for: argument type mismatch for {label}: type '{got}' does not implement interface '{iface}'
+export function argNotConforming(label String, got String, iface String) returns String
+	return "argument type mismatch for {label}: type '{got}' does not implement interface '{iface}'"
+end 'argNotConforming'
+
+// The text of errTypeMismatch for: cannot assign to {place}: type '{got}' does not implement interface '{iface}'
+export function assignNotConforming(place String, got String, iface String) returns String
+	return "cannot assign to {place}: type '{got}' does not implement interface '{iface}'"
+end 'assignNotConforming'
+
+// The text of errTypeMismatch for: return type mismatch: type '{got}' does not implement interface '{iface}'
+export function returnNotConforming(got String, iface String) returns String
+	return "return type mismatch: type '{got}' does not implement interface '{iface}'"
+end 'returnNotConforming'
+
 // The text of errTypeMismatch for: Cannot return '{got}' from function declared to return '{expected}'
 export function returnTypeMismatch(got String, expected String) returns String
 	return "Cannot return '{got}' from function declared to return '{expected}'"

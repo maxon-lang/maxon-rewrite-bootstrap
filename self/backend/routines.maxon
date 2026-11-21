@@ -301,6 +301,10 @@ function emitDrop(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		dropClosure(u)
 		return
 	end 'function'
+	if kind == ast.TypeKind.interfaceTy 'interface'
+		dropInterfaceValue(u)
+		return
+	end 'interface'
 	panic("routines: no drop routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
 end 'emitDrop'
 
@@ -330,6 +334,10 @@ function emitCopy(mutates u CodeUnit, mutates p ast.Project, ty ast.TypeID)
 		copyClosure(u)
 		return
 	end 'function'
+	if kind == ast.TypeKind.interfaceTy 'interface'
+		copyInterfaceValue(u)
+		return
+	end 'interface'
 	panic("routines: no copy routine for {ast.typeName(p.types, t: ty)}, which the driver should have refused")
 end 'emitCopy'
 
@@ -453,6 +461,103 @@ function dropClosure(mutates u CodeUnit)
 	u.asm.bind(done)
 	routineEpilogue(u)
 end 'dropClosure'
+
+// tableEntryAddress puts in rax the address of an entry of the table of the interface value that rcx is.
+function tableEntryAddress(mutates u CodeUnit, entry Count)
+	u.asm.load(rax, base: rcx, disp: imm32Of(ifaceTableOffset))
+	u.asm.addImm(rax, imm: imm32Of(try entry * tableEntryBytes otherwise panic("routines: a table past memory")))
+end 'tableEntryAddress'
+
+// dropInterfaceValue drops the value the box holds by the entry of its table that drops it, and frees the box. Every
+// interface type has this one routine, since the table knows the type of the value.
+function dropInterfaceValue(mutates u CodeUnit)
+	let done = u.asm.newLabel()
+	routinePrologue(u, locals: 0)
+	returnIfEmpty(u, done: done)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
+	u.asm.push(rdx)
+	tableEntryAddress(u, entry: tableDropEntry)
+	u.asm.callRegister(rax)
+	u.asm.addImm(rsp, imm: wordBytes)
+	freeArgument(u)
+	u.asm.bind(done)
+	routineEpilogue(u)
+end 'dropInterfaceValue'
+
+// copyInterfaceValue is a new box of the same table and a copy of the value, which the entry of the table that copies it
+// makes.
+function copyInterfaceValue(mutates u CodeUnit)
+	routinePrologue(u, locals: 1)
+	allocate(u, bytes: ifaceBoxBytes)
+	u.asm.store(rbp, disp: routineLocal0, src: rax)
+	u.asm.load(rcx, base: rbp, disp: routineArg)
+	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceTableOffset))
+	u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rdx)
+	u.asm.load(rdx, base: rcx, disp: imm32Of(ifaceValueOffset))
+	u.asm.push(rdx)
+	tableEntryAddress(u, entry: tableCopyEntry)
+	u.asm.callRegister(rax)
+	u.asm.addImm(rsp, imm: wordBytes)
+	u.asm.load(rcx, base: rbp, disp: routineLocal0)
+	u.asm.store(rcx, disp: imm32Of(ifaceValueOffset), src: rax)
+	u.asm.mov(rax, src: rcx)
+	routineEpilogue(u)
+end 'copyInterfaceValue'
+
+// emitTable writes the table of an interface value, a section of code of an entry for each of its routines and methods:
+// a jump to it, padded to tableEntryBytes. An entry is called as what it jumps to is, so it passes the arguments on as
+// they are. Every unit that boxes such a value writes the table, and the link keeps one, as it does an instance. A scalar
+// is dropped by nothing and copied as it is, and the copy of a value that no copy of the interface value can reach traps.
+// typeNameSymbol is the symbol of the word of data whose address names the type t at run time. It starts with a word and a
+// space, as a routine's does, so it names no function.
+export function typeNameSymbol(p ast.Project, t ast.TypeID) returns String
+	return "type {ast.typeLinkName(p, t: t)}"
+end 'typeNameSymbol'
+
+export function emitTable(mutates u CodeUnit, mutates p ast.Project, t ir.WitnessTable, typeSymbol String)
+	u.beginSection()
+	u.defineFunction(t.symbol, instance: true)
+	let managed = ast.isManagedType(p.types, t: t.concrete)
+	var start = u.asm.pos()
+	if managed 'drop'
+		u.asm.jmpSymbol(u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: t.concrete))
+	end 'drop' else 'nothing'
+		u.asm.ret()
+	end 'nothing'
+	padEntry(u, start: start)
+	start = u.asm.pos()
+	if not ast.reachesInterface(p.types, have: t.iface, want: p.builtins.copyableTy) 'uncopied'
+		u.asm.ud2()
+	end 'uncopied' else if managed 'copy'
+		u.asm.jmpSymbol(u.needed.symbol(p, kind: RoutineKind.copyRoutine, ty: t.concrete))
+	end 'copy' else 'same'
+		u.asm.load(rax, base: rsp, disp: imm32Of(wordBytes))
+		u.asm.ret()
+	end 'same'
+	padEntry(u, start: start)
+	start = u.asm.pos()
+	u.asm.leaSymbol(rax, symbol: typeSymbol)
+	u.asm.ret()
+	padEntry(u, start: start)
+	for i in 0 upto t.methods.count() 'methods'
+		start = u.asm.pos()
+		u.asm.jmpSymbol(ast.funcLinkName(p, fid: t.methods[i]))
+		padEntry(u, start: start)
+	end 'methods'
+end 'emitTable'
+
+// padEntry fills an entry of a table that started at start up to tableEntryBytes with returns, which no code
+// reaches.
+function padEntry(mutates u CodeUnit, start Count)
+	let finish = try start + tableEntryBytes otherwise panic("routines: a table past memory")
+	if u.asm.pos() > finish 'long'
+		panic("routines: an entry of a table is longer than tableEntryBytes")
+	end 'long'
+	while u.asm.pos() < finish 'pad'
+		u.asm.ret()
+	end 'pad'
+end 'padEntry'
 
 // copyClosure is another function value that shares the closure: its count goes up by 1.
 function copyClosure(mutates u CodeUnit)

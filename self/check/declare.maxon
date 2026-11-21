@@ -152,15 +152,16 @@ end 'optOutAdvice'
 // declareConforms records the interfaces that a declaration implements. Copyable and Droppable are no interface to
 // implement, since every type has them unless it opts out or holds a part that lacks them.
 function declareConforms(mutates c Checker, mutates p ast.Project, interfaces diag.U32, nt ast.TypeID, mutates errs diag.ErrorList)
-	let named = conformedInterfaces(c, p: p, interfaces: interfaces, errs: errs)
+	let named = conformedInterfaces(c, p: p, interfaces: interfaces, capabilities: false, errs: errs)
 	for i in 0 upto named.count() 'each'
 		p.types.entries[nt as Count].conforms.push(named[i])
 	end 'each'
 end 'declareConforms'
 
-// conformedInterfaces are the interfaces a declaration or an extension names after 'implements', up to the first that is not
-// one.
-function conformedInterfaces(mutates c Checker, mutates p ast.Project, interfaces diag.U32, mutates errs diag.ErrorList) returns ast.TypeIDList
+// conformedInterfaces are the interfaces a declaration or an extension names after 'implements', or an interface after
+// 'extends', up to the first that is not one. Only an interface names a capability, which every type that implements it
+// then has, so that each value of it has it too.
+function conformedInterfaces(mutates c Checker, mutates p ast.Project, interfaces diag.U32, capabilities bool, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var named = ast.TypeIDList.create(0)
 	let mark = errs.count()
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(interfaces) 'each'
@@ -169,7 +170,7 @@ function conformedInterfaces(mutates c Checker, mutates p ast.Project, interface
 		if failedSince(errs, mark: mark) 'failed'
 			return named
 		end 'failed'
-		if p.builtins.isCapability(iface) 'capability'
+		if p.builtins.isCapability(iface) and not capabilities 'capability'
 			let name = p.types.entries[iface as Count].name.clone()
 			checkFail(c.modID, off: offsetOf(c, p: p, node: tr), code: diag.errCapabilityMisuse, msg: "'{name}' is not implemented by saying so: every type has it unless it opts out or holds a part that lacks it; remove it from 'implements'{optOutAdvice(p, iface: iface)}", errs: errs)
 			continue 'each'

@@ -113,12 +113,17 @@ type Program
 	var fnTakesClosure as BoolList
 	var fnCaptureOwned as Array with BoolList
 	var fnByFunc as table.IntMap with Count
+	// tables are the tables of the interface values that the program makes, by their symbols, and tableMethods the
+	// functions of each table's methods.
+	var tables as table.StringMap with Count
+	var tableMethods as CountLists
+	var tableTypes as ast.TypeIDList
 	var infos as Infos
 	var infoBuilt as BoolList
 	var mainFn as Count
 
 	static function new() returns Program
-		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnTakesClosure: BoolList.create(0), fnCaptureOwned: Array.create(0), fnByFunc: table.IntMap.new(), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
+		var p = Program{symbols: ast.StringList.create(0), fnSlots: CountList.create(0), fnRegs: CountList.create(0), fnConvs: CountLists.create(0), fnChildren: CountLists.create(0), fnTakesClosure: BoolList.create(0), fnCaptureOwned: Array.create(0), fnByFunc: table.IntMap.new(), tables: table.StringMap.new(), tableMethods: CountLists.create(0), tableTypes: ast.TypeIDList.create(0), infos: Infos.create(0), infoBuilt: BoolList.create(0), mainFn: 0}
 		p.add("", slots: 0, regs: 0, convs: CountList.create(0))
 		return p
 	end 'new'

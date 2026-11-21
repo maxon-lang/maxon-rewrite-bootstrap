@@ -1,4 +1,7 @@
-extension shapes.Meter implements names.Namer
+export interface Loud extends names.Namer
+end 'Loud'
+
+extension shapes.Meter implements Loud
 	function name() returns String
 		return "a"
 	end 'name'

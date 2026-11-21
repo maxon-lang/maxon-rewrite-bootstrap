@@ -54,6 +54,8 @@ end 'win64ArgRegister'
 
 typealias CalleeSymbols = table.IntMap with String
 
+typealias TableSet = table.StringMap with bool
+
 // Codegen writes one module's functions into its unit. The visitors get no project, so what the instructions of the
 // function name by a handle that only the project can spell is looked up once, before the function is visited.
 type Codegen implements ir.InstrVisitor, ir.TermVisitor
@@ -66,9 +68,17 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 	var canThrow as bool
 	// symbol is the link name of the function being written, which the bodies of its closures are named after.
 	var fnSymbol as String
+	// tables are the tables of interface values that the unit has, and due the ones the function being written names
+	// that the unit does not have yet, which are written after it.
+	var tables as TableSet
+	var due as ir.WitnessTableList
+	// typeNames are the symbols of the data that names each type that the unit's tables hold and its casts test, which
+	// the unit defines once each.
+	var typeNames as TableSet
+	var typeSymbols as CalleeSymbols
 
 	static function new() returns Codegen
-		return Codegen{u: CodeUnit.new(), next: ir.noBlock, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: ""}
+		return Codegen{u: CodeUnit.new(), next: ir.noBlock, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new()}
 	end 'new'
 
 	function get(mutates self, f ir.IrFunction, r X64Register, v ir.Reg)
@@ -87,11 +97,22 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		for i in 0 upto f.callees.count() 'callees'
 			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkName(p, fid: f.callees[i]))
 		end 'callees'
+		for i in 0 upto f.tables.count() 'tables'
+			if not tables.has(f.tables[i].symbol) 'new'
+				tables.insert(f.tables[i].symbol.clone(), value: true)
+				due.push(f.tables[i].clone())
+				_ = self.typeName(p, t: f.tables[i].concrete)
+			end 'new'
+		end 'tables'
 		for k in 0 upto f.instrs.count() 'instrs'
 			let op = f.instrs[k].op
 			if op == ir.Opcode.opDrop 'drop'
 				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropTy(f, x: f.instrs[k]))
-			end 'drop' else if op == ir.Opcode.opDropSlot 'dropSlot'
+			end 'drop' else if op == ir.Opcode.opIsType 'isType'
+				let ty = ir.isTypeTy(f, x: f.instrs[k])
+				let named = self.typeName(p, t: ty)
+				typeSymbols.insert(ty as Count, value: named)
+			end 'isType' else if op == ir.Opcode.opDropSlot 'dropSlot'
 				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropSlotTy(f, x: f.instrs[k]))
 			end 'dropSlot' else if op == ir.Opcode.opDropAt 'dropAt'
 				_ = u.needed.symbol(p, kind: RoutineKind.dropRoutine, ty: ir.dropAtTy(f, x: f.instrs[k]))
@@ -100,6 +121,17 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 			end 'copy'
 		end 'instrs'
 	end 'prepare'
+
+	// typeName is the symbol of the word of data whose address names the type t, for the table of a value of it and the cast
+	// that tests for it, defined in the unit once.
+	function typeName(mutates self, p ast.Project, t ast.TypeID) returns String
+		let symbol = typeNameSymbol(p, t: t)
+		if not typeNames.has(symbol) 'new'
+			typeNames.insert(symbol.clone(), value: true)
+			u.defineSharedData(symbol, size: wordBytes)
+		end 'new'
+		return symbol
+	end 'typeName'
 
 	// zeroManagedSlots empties every slot that can own a value, so a drop of a slot that was moved from, or never assigned, finds
 	// 0 and does nothing. A scalar slot is never dropped and is left as it is, and so is a register, which is always written
@@ -774,6 +806,78 @@ type Codegen implements ir.InstrVisitor, ir.TermVisitor
 		u.asm.store(rax, disp: imm32Of(closureDropOffset), src: rcx)
 	end 'closureBox'
 
+	// visitBox makes an interface value: a box of the address of the table and the value.
+	function visitBox(mutates self, f ir.IrFunction, x ir.Instr)
+		u.asm.movImm(rax, imm: try ifaceBoxBytes as FullRangeInt otherwise panic("backend: a box past memory"))
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
+		u.asm.addImm(rsp, imm: wordBytes)
+		self.put(f, v: x.dst, r: rax)
+		u.asm.leaSymbol(rcx, symbol: ir.boxTable(f, x: x).symbol)
+		u.asm.store(rax, disp: imm32Of(ifaceTableOffset), src: rcx)
+		self.get(f, r: rcx, v: ir.boxValue(x))
+		u.asm.store(rax, disp: imm32Of(ifaceValueOffset), src: rcx)
+	end 'visitBox'
+
+	// visitIsType calls the entry of the table that names the type of the value the box holds, and compares what it gives
+	// with the name of the type the cast wants.
+	function visitIsType(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.isTypeSrc(x))
+		u.asm.load(rax, base: rax, disp: imm32Of(ifaceTableOffset))
+		u.asm.addImm(rax, imm: imm32Of(try tableTypeEntry * tableEntryBytes otherwise panic("backend: a table past memory")))
+		u.asm.callRegister(rax)
+		let symbol = match typeSymbols.get(ir.isTypeTy(f, x: x) as Count) 'named'
+			some(name) gives name.clone()
+			none panic("backend: a cast to a type that prepare did not name")
+		end 'named'
+		u.asm.leaSymbol(rcx, symbol: symbol)
+		u.asm.cmp(rax, right: rcx)
+		u.asm.setccByte(X64CondCode.equal, reg: rax)
+		self.put(f, v: x.dst, r: rax)
+	end 'visitIsType'
+
+	// visitFreeBox frees the box of an interface value that lends its value.
+	function visitFreeBox(mutates self, f ir.IrFunction, x ir.Instr)
+		self.get(f, r: rax, v: ir.freeBoxBox(x))
+		u.asm.push(rax)
+		u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
+		u.asm.addImm(rsp, imm: wordBytes)
+	end 'visitFreeBox'
+
+	// visitCallWitness calls the entry of a method in the table of an interface value, which jumps to the method, with the
+	// value the box holds first and the other arguments. A method that consumes the value takes it out of
+	// the box, which is freed once the method has returned.
+	function visitCallWitness(mutates self, f ir.IrFunction, x ir.Instr)
+		let start = ir.callWitnessArgsStart(x)
+		let count = ir.callWitnessArgsCount(x)
+		let conv = ir.callWitnessRecv(x)
+		self.get(f, r: rax, v: f.args[start])
+		u.asm.load(rcx, base: rax, disp: imm32Of(ifaceValueOffset))
+		u.asm.push(rcx)
+		for i in 1 upto count 'args'
+			self.get(f, r: rax, v: f.args[try start + i otherwise panic("backend: an argument past the pool")])
+			u.asm.push(rax)
+		end 'args'
+		self.get(f, r: rax, v: f.args[start])
+		u.asm.load(rax, base: rax, disp: imm32Of(ifaceTableOffset))
+		u.asm.addImm(rax, imm: imm32Of(try (tableFirstMethod + ir.callWitnessSlot(x)) * tableEntryBytes otherwise panic("backend: a table past memory")))
+		u.asm.callRegister(rax)
+		u.asm.addImm(rsp, imm: imm32Of(try count * wordBytes otherwise panic("backend: more arguments than memory")))
+		if x.dst != ir.noReg 'gives'
+			self.put(f, v: x.dst, r: rax)
+		end 'gives'
+		match ir.callWitnessErrReg(x) 'throws'
+			some(err) then self.put(f, v: err, r: errorReg)
+			none then _ = 0
+		end 'throws'
+		if conv == ir.ReceiverConv.receiverMoved 'consumed'
+			self.get(f, r: rax, v: f.args[start])
+			u.asm.push(rax)
+			u.asm.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
+			u.asm.addImm(rsp, imm: wordBytes)
+		end 'consumed'
+	end 'visitCallWitness'
+
 	// visitCallValue calls the code a closure holds with every argument, the closure first: the body of a closure reads
 	// its captures from it, and the code of a named function never reaches it, since it is the farthest from the return
 	// address.
@@ -895,9 +999,13 @@ function ownsCaptures(body ir.IrFunction) returns bool
 end 'ownsCaptures'
 
 // emitFunctionTree writes the code of a function with the link name symbol, and of the bodies of its closures, each with
-// the routine that drops what its closure owns.
+// the routine that drops what its closure owns, and the tables that they name and the unit does not have yet.
 function emitFunctionTree(mutates g Codegen, mutates p ast.Project, f ir.IrFunction, symbol String, instance bool)
 	emitFunction(g, p: p, f: f, symbol: symbol, instance: instance)
+	let due = exchange(g.due, value: ir.WitnessTableList.create(0))
+	for i in 0 upto due.count() 'tables'
+		emitTable(g.u, p: p, t: due[i], typeSymbol: typeNameSymbol(p, t: due[i].concrete))
+	end 'tables'
 	for i in 0 upto f.bodies.count() 'bodies'
 		let body = bodySymbol(symbol, index: i)
 		emitFunctionTree(g, p: p, f: f.bodies[i], symbol: body, instance: instance)

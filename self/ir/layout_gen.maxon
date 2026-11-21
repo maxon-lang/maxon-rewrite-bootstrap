@@ -8,3 +8,12 @@ export let tagOffset = 0 as Count
 
 // closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
 export let closureCapturesOffset = 24 as Count
+
+// ifaceTableOffset is where the box of an interface value holds the address of its table.
+export let ifaceTableOffset = 0 as Count
+
+// ifaceValueOffset is where the box of an interface value holds the value, which it owns unless it lends it to a call.
+export let ifaceValueOffset = 8 as Count
+
+// ifaceBoxBytes is the size of the box of an interface value.
+export let ifaceBoxBytes = 16 as Count

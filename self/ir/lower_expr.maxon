@@ -30,9 +30,16 @@ end 'exprIn'
 // failure before then drops it (see failure).
 function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let ty = exprType(p, module: l.module, node: e)
+	let iface = ast.boxedTo(p.typings[l.mi], node: e)
+	let applied = applyType(l, p: p, t: ty)
+	let boxes = iface != ast.noType and not standsForInterface(p, t: applied)
 	let branches = isBranching(p.modules[l.mi].tree.kindOf(e))
 	if p.types.entries[ty as Count].kind == ast.TypeKind.constInt and not branches 'constant'
-		return konst(l, value: wordOf(p.types.entries[ty as Count].minVal))
+		let c = konst(l, value: wordOf(p.types.entries[ty as Count].minVal))
+		if boxes 'boxedConstant'
+			return lowerBoxed(l, p: p, e: e, v: c, ty: ty, iface: iface)
+		end 'boxedConstant'
+		return c
 	end 'constant'
 	if p.types.entries[ty as Count].kind == ast.TypeKind.constFloat and not branches 'floatConstant'
 		return konst(l, value: floatWord(ast.floatLowBits(p.types, t: ty)))
@@ -43,27 +50,38 @@ function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) retur
 	let mark = l.pending.count()
 	var v = visitExpr(l, p: p, e: e)
 	popPending(l, n: mark)
+	if boxes 'boxed'
+		return lowerBoxed(l, p: p, e: e, v: v, ty: ty, iface: iface)
+	end 'boxed'
 	if regKind(l, v: v) != IrKind.kindManaged 'scalar'
 		return v
 	end 'scalar'
 	let consumed = isConsumed(p, module: l.module, node: e)
-	if not ast.isStorage(p.modules[l.mi].tree, typing: p.typings[l.mi], node: e) 'fresh'
-		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
-			ownTemp(l, p: p, v: v, t: ty)
-		end 'temporary'
-	end 'fresh' else if consumed and ast.sharesOnCopy(p.types, t: ty) 'shared'
-		v = copyValue(l, p: p, site: siteOf(l, p: p, node: e), v: v, t: ty)
-	end 'shared' else 'place'
-		if consumed and not isWholeLocal(l, p: p, e: e) and not isField(l, p: p, e: e) 'moved'
-			panic("lower: an element or a part of a temporary is moved out at offset {p.modules[l.mi].tree.startOf(e)} of module {l.module}; the ownership pass should have refused it")
-		end 'moved'
-	end 'place'
+	v = settle(l, p: p, e: e, v: v, ty: ty, consumed: consumed)
 	if consumed and not isImmortal(l, p: p, e: e) 'inFlight'
 		let dropTy = dropType(l, p: p, t: ty)
 		l.pending.push(PendingDrop.ofReg(v, ty: dropTy))
 	end 'inFlight'
 	return v
 end 'lowerExpr'
+
+// settle gives the managed value v of e its owner, as far as the expression decides: a fresh value that is not consumed is
+// a temporary of the statement, and a consumed place that shares on copy is copied.
+function settle(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, v Reg, ty ast.TypeID, consumed bool) returns Reg
+	if not ast.isStorage(p.modules[l.mi].tree, typing: p.typings[l.mi], node: e) 'fresh'
+		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
+			ownTemp(l, p: p, v: v, t: ty)
+		end 'temporary'
+		return v
+	end 'fresh'
+	if consumed and ast.sharesOnCopy(p.types, t: ty) 'shared'
+		return copyValue(l, p: p, site: siteOf(l, p: p, node: e), v: v, t: ty)
+	end 'shared'
+	if consumed and not isWholeLocal(l, p: p, e: e) and not isField(l, p: p, e: e) 'moved'
+		panic("lower: an element or a part of a temporary is moved out at offset {p.modules[l.mi].tree.startOf(e)} of module {l.module}; the ownership pass should have refused it")
+	end 'moved'
+	return v
+end 'settle'
 
 // isBranching is whether an expression of the kind picks a branch by a value it computes, so that its type can be one
 // constant that its branches agree on while the condition, the subject or an arm that panics still has to run.
@@ -285,9 +303,14 @@ end 'visitStructLitExpr'
 
 function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let inner = ast.castExprE(p.modules[l.mi].tree, id: e)
+	let castTy = exprType(p, module: l.module, node: e)
+	if isRecoveryCast(l, p: p, e: e) 'recovered'
+		return lowerRecoveryCast(l, p: p, e: e, inner: inner, target: castTy)
+	end 'recovered'
 	let v = lowerExpr(l, p: p, e: inner)
-	if ast.isFunctionType(p.types, t: exprType(p, module: l.module, node: e)) 'function'
-		// A function cast changes only the type: the value is the operand's, which the ownership pass gave it.
+	if ast.isFunctionType(p.types, t: castTy) or p.types.entries[castTy as Count].kind == ast.TypeKind.interfaceTy 'function'
+		// A function cast changes only the type, and a cast to an interface is the box that its operand was put in: the
+		// value is the operand's, which the ownership pass gave it.
 		return v
 	end 'function'
 	let fails = arithInfoAt(p, module: l.module, node: e).fails
@@ -452,7 +475,11 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 	if kind != ast.CallKind.callBound and p.funcs.entries[c.info.fn as Count].intrinsic != ast.Intrinsic.intrNone 'intrinsic'
 		return lowerIntrinsic(l, p: p, c: c)
 	end 'intrinsic'
-	let target = callee(l, p: p, node: node, info: c.info, receiver: c.receiver)
+	let iface = witnessInterface(p, module: l.module, receiver: c.receiver, info: c.info, bindParams: l.bindParams, bindArgs: l.bindArgs)
+	var target = ast.noFunc
+	if iface == ast.noType 'direct'
+		target = callee(l, p: p, node: node, info: c.info, receiver: c.receiver)
+	end 'direct'
 	let base = l.args.count()
 	let places = l.writeBacks.count()
 	if c.receiver != 0 'receiver'
@@ -461,12 +488,14 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 	end 'receiver'
 	pushOrderedArgs(l, p: p, c: c)
 	let dst = callResult(l, p: p, node: node)
-	var errTy = p.funcs.entries[target as Count].errTy
+	var errTy = ast.noType
 	if kind == ast.CallKind.callBound 'bound'
 		errTy = p.funcs.entries[c.info.method as Count].errTy
-	end 'bound'
+	end 'bound' else 'target'
+		errTy = p.funcs.entries[target as Count].errTy
+	end 'target'
 	if errTy == ast.noType 'plain'
-		emitCall(l, dst: dst, target: target, args: argsSince(l, base: base))
+		emitCallOf(l, p: p, c: c, iface: iface, dst: dst, target: target, args: argsSince(l, base: base), err: noReg)
 		popArgs(l, n: base)
 		writeBack(l, p: p, mark: places)
 	end 'plain' else 'throwing'
@@ -475,7 +504,7 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 			errKind = IrKind.kindManaged
 		end 'union'
 		let err = newReg(l, kind: errKind)
-		emitThrowingCall(l, dst: dst, target: target, args: argsSince(l, base: base), err: err)
+		emitCallOf(l, p: p, c: c, iface: iface, dst: dst, target: target, args: argsSince(l, base: base), err: err)
 		popArgs(l, n: base)
 		// What the callee wrote to an element before it failed stays written, as it would through the element's own
 		// address.
@@ -495,6 +524,27 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 	end 'none'
 	return dst
 end 'lowerCall'
+
+// emitCallOf emits the call that a call site makes with args, the receiver first: of the function target, or through the
+// table of the interface value that is the receiver, when iface is its interface; err is noReg for a call that cannot
+// fail.
+function emitCallOf(mutates l Lowerer, mutates p ast.Project, c CallSite, iface ast.TypeID, dst Reg, target ast.FuncID, args RegList, err Reg)
+	if iface != ast.noType 'witness'
+		let slot = ast.requirementSlot(p.types, iface: iface, sig: c.info.method)
+		var rest = RegList.create(0)
+		for i in 1 upto args.count() 'rest'
+			rest.push(args[i])
+		end 'rest'
+		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err)
+		emit(l, i: instr)
+		return
+	end 'witness'
+	if err == noReg 'plain'
+		emitCall(l, dst: dst, target: target, args: args)
+		return
+	end 'plain'
+	emitThrowingCall(l, dst: dst, target: target, args: args, err: err)
+end 'emitCallOf'
 
 function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) returns Reg
 	let c = callSite(l, p: p, node: node)

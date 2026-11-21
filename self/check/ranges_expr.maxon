@@ -5,6 +5,8 @@ union Unchecked
 	index(method String, count Count)
 	operation(op String, fails Byte, node ast.NodeID, ty ast.TypeID)
 	cast(ty ast.TypeID)
+	// recovered is a cast of a value of the interface iface to the type ty, which fails when it holds another.
+	recovered(iface ast.TypeID, ty ast.TypeID)
 	// returned is a return whose value is converted to ty, the declared type of the function.
 	returned(ty ast.TypeID, value ast.NodeID)
 	// thrown is a throw, which needs no try: no error names it.
@@ -735,6 +737,7 @@ function uncheckedNode(why Unchecked, site ast.NodeID) returns ast.NodeID
 		index(_, _) gives site
 		operation(_, _, _, _) gives site
 		cast(_) gives site
+		recovered(_, _) gives site
 		thrown gives site
 	end 'why'
 end 'uncheckedNode'
@@ -748,6 +751,7 @@ function uncheckedFix(p ast.Project, t ast.Tree, why Unchecked, site ast.NodeID)
 		index(_, _) gives tryFix(t, e: site)
 		operation(_, _, _, _) gives tryFix(t, e: site)
 		cast(_) gives tryFix(t, e: site)
+		recovered(_, _) gives tryFix(t, e: site)
 		thrown gives tryFix(t, e: site)
 	end 'why'
 end 'uncheckedFix'
@@ -759,6 +763,7 @@ function uncheckedText(r Ranges, p ast.Project, why Unchecked) returns String
 		index(method, count) gives "{diag.throwingCallRequiresTry(method)} — its index is not proven inside the fixed array's {count} elements; wrap it as `try … otherwise …`, or give the index a ranged type within `int(0 to {ast.I128.fromCount(count).sub(ast.I128.one()).toString()})`"
 		operation(op, fails, node, ty) gives "{failureText(p, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
 		cast(ty) gives castText(p, ty: ty)
+		recovered(iface, ty) gives "the value of '{nameOfType(p, t: iface)}' may hold a value of another type than '{nameOfType(p, t: ty)}', and then the cast fails with CastError.otherType; handle the failure with 'try'"
 		returned(ty, _) gives castText(p, ty: ty)
 		thrown panic("ranges: a throw is always covered")
 	end 'why'
@@ -851,9 +856,19 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
 	let v = rangeEval(r, p: p, e: operand)
 	let ty = typeOf(r, e: e)
-	if ast.isFunctionType(p.types, t: ty) 'function'
+	if ast.isFunctionType(p.types, t: ty) or typeHasKind(p, t: ty, kind: ast.TypeKind.interfaceTy) 'function'
 		return noSpan()
 	end 'function'
+	let src = typeOf(r, e: operand)
+	if typeHasKind(p, t: src, kind: ast.TypeKind.interfaceTy) 'recovered'
+		if not isDead(r, s: r.st) 'live'
+			rangeFallible(r, p: p, site: e, err: p.builtins.castErrorTy, why: Unchecked.recovered(src, ty: ty))
+		end 'live'
+		if typeHasKind(p, t: ty, kind: ast.TypeKind.intRange) 'integer'
+			return typeSpan(p.types, t: ty)
+		end 'integer'
+		return noSpan()
+	end 'recovered'
 	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 

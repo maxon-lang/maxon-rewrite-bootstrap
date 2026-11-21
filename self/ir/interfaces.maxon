@@ -1,0 +1,170 @@
+// Interface values in the IR (README, "Interface values"): a box of two words, the address of a table and the value. The
+// table is that of the value's type for the interface, by the conformance that the module where the value is boxed sees,
+// and holds a method for each requirement of the interface, in the order of ast.requirementsOf.
+
+// tableWord starts the link name of a table, which no function's link name starts with, as a routine's starts with its
+// kind.
+let tableWord = "table"
+
+// tableConcrete is the type whose table a value of the type t is boxed with: t itself, but an integer constant is a value
+// of the integer type that its extensions add methods to.
+function tableConcrete(p ast.Project, t ast.TypeID) returns ast.TypeID
+	if p.types.entries[t as Count].kind == ast.TypeKind.constInt 'constant'
+		return p.builtins.anon64Ty
+	end 'constant'
+	return t
+end 'tableConcrete'
+
+// standsForInterface is whether a value of the type t, with the code's type parameters bound, is an interface value
+// already, which a place of an interface takes as it is.
+function standsForInterface(p ast.Project, t ast.TypeID) returns bool
+	return p.types.entries[t as Count].kind == ast.TypeKind.interfaceTy
+end 'standsForInterface'
+
+// witnessTable is the table that a value of the type src, written at site in the code of module, is boxed with to be a
+// value of iface, with the code's type parameters bound: the conformance is the one the code was given for a type
+// parameter, and for any other type the one that module sees. It is none after it refused a conformance that the module
+// does not see, or sees twice, which the verify stage reports first wherever the type is known there.
+export function witnessTable(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, src ast.TypeID, iface ast.TypeID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with WitnessTable
+	let applied = ast.substituteType(p.types, t: src, params: bindParams, args: bindArgs)
+	let concrete = tableConcrete(p, t: applied)
+	let wanted = ast.substituteType(p.types, t: iface, params: bindParams, args: bindArgs)
+	var conformance = module
+	if p.types.entries[src as Count].kind == ast.TypeKind.typeParam 'passed'
+		conformance = passedWitness(p, enclosing: bindWitnesses, param: src, iface: wanted)
+	end 'passed' else 'seen'
+		let mark = errs.count()
+		let concreteName = ast.typeName(p.types, t: concrete)
+		let ifaceName = ast.typeName(p.types, t: wanted)
+		match consumes ast.conformanceSource(p, from: module, t: concrete, iface: wanted) 'source'
+			found(c) then conformance = c.module
+			ambiguous(first, second) then pushInstanceError(p, module: module, site: site, code: diag.errAmbiguousConformance, message: ast.ambiguousConformanceText(p, from: module, typeName: concreteName, ifaceName: ifaceName, first: first, second: second), errs: errs)
+			absent then pushInstanceError(p, module: module, site: site, code: diag.errTypeMismatch, message: diag.notConforming(concreteName, iface: ifaceName), errs: errs)
+		end 'source'
+		if errs.count() > mark 'refused'
+			return table.Option.none
+		end 'refused'
+	end 'seen'
+	let reqs = ast.requirementsOf(p.types, iface: wanted)
+	var methods = ast.FuncIDList.create(0)
+	for i in 0 upto reqs.count() 'methods'
+		let name = p.funcs.entries[reqs[i].sig as Count].name.clone()
+		match consumes witnessFor(p, module: module, site: site, recv: concrete, name: name, conformance: conformance, errs: errs) 'method'
+			some(fid) then methods.push(fid)
+			none then return table.Option.none
+		end 'method'
+	end 'methods'
+	let symbol = "{tableWord} {ast.typeLinkName(p, t: concrete)} as {ast.typeLinkName(p, t: wanted)} by {ast.moduleLinkPath(p, modID: conformance)}"
+	return table.Option.some(WitnessTable.make(symbol, concrete: concrete, iface: wanted, methods: methods))
+end 'witnessTable'
+
+// tableOfBox is the table that lowering boxes the value of e with, which the module's instances were found for.
+function tableOfBox(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, src ast.TypeID, iface ast.TypeID) returns WitnessTable
+	var refused = diag.ErrorList.create(0)
+	match consumes witnessTable(p, module: l.module, site: e, src: src, iface: iface, bindParams: l.bindParams, bindArgs: l.bindArgs, bindWitnesses: l.bindWitnesses, errs: refused) 'table'
+		some(t) then return checkedTable(l, p: p, t: t)
+		none then panic("lower: a value was boxed with a conformance that its module's instances refused")
+	end 'table'
+end 'tableOfBox'
+
+function checkedTable(l Lowerer, p ast.Project, consumes t WitnessTable) returns WitnessTable
+	for i in 0 upto t.methods.count() 'methods'
+		_ = checkedCallee(l, p: p, target: t.methods[i])
+	end 'methods'
+	return t
+end 'checkedTable'
+
+// lowerBoxed lowers the value v of e, of the type ty, put in a value of the interface iface. A value that is consumed moves
+// into a new box, which is in flight to what takes it, and a scalar is copied into one, which is a temporary where nothing
+// takes it. A managed value that is only borrowed, a place or a temporary, is lent: the box holds it without owning it
+// for as long as the statement, and is freed alone where the statement ends, its owner keeping the value.
+function lowerBoxed(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, v Reg, ty ast.TypeID, iface ast.TypeID) returns Reg
+	let table = tableOfBox(l, p: p, e: e, src: ty, iface: iface)
+	requireNative(l, p: p, site: siteOf(l, p: p, node: e), t: table.concrete)
+	let consumed = isConsumed(p, module: l.module, node: e)
+	var value = v
+	let managed = regKind(l, v: v) == IrKind.kindManaged
+	if managed 'settle'
+		value = settle(l, p: p, e: e, v: v, ty: ty, consumed: consumed)
+	end 'settle'
+	let lends = managed and not consumed
+	let box = newReg(l, kind: IrKind.kindManaged)
+	let instr = l.b.box(box, t: table, src: value, borrow: lends)
+	emit(l, i: instr)
+	if lends 'lent'
+		let top = pred(l.scopes.count())
+		l.scopes[top].drops.push(PendingDrop.ofLent(box))
+	end 'lent' else if consumed 'inFlight'
+		let dropTy = dropType(l, p: p, t: iface)
+		l.pending.push(PendingDrop.ofReg(box, ty: dropTy))
+	end 'inFlight' else 'temporary'
+		ownTemp(l, p: p, v: box, t: iface)
+	end 'temporary'
+	return box
+end 'lowerBoxed'
+
+// isRecoveryCast is whether the cast e takes a value of a type out of an interface value.
+function isRecoveryCast(l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	let castTy = exprType(p, module: l.module, node: e)
+	if p.types.entries[castTy as Count].kind == ast.TypeKind.interfaceTy 'boxes'
+		return false
+	end 'boxes'
+	let operandTy = exprType(p, module: l.module, node: ast.castExprE(p.modules[l.mi].tree, id: e))
+	return p.types.entries[operandTy as Count].kind == ast.TypeKind.interfaceTy
+end 'isRecoveryCast'
+
+// lowerRecoveryCast takes the value out of the interface value inner, which the cast consumes, when the box holds a value
+// of the type target, and frees the box; otherwise the cast fails with CastError.otherType, and the box is dropped with
+// what it holds, as any value in flight is where an operation fails.
+function lowerRecoveryCast(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, inner ast.NodeID, target ast.TypeID) returns Reg
+	let mark = l.pending.count()
+	let box = lowerExpr(l, p: p, e: inner)
+	let ty = applyType(l, p: p, t: target)
+	let iface = applyType(l, p: p, t: exprType(p, module: l.module, node: inner))
+	let holds = newReg(l, kind: IrKind.kindScalar)
+	let typed = l.b.typed(ty)
+	emit(l, i: newIsType(holds, src: box, ty: typed))
+	let fail = failure(l, p: p, errorCase: ast.errorCastOtherType, err: noReg, errDrop: ast.noType)
+	let pass = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(holds, ifTrue: pass, ifFalse: fail))
+	l.cur = pass
+	let addr = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newFieldAddr(addr, obj: box, offset: ifaceValueOffset))
+	let kind = kindOf(l, p: p, t: ty)
+	let v = newReg(l, kind: kind)
+	if kind == IrKind.kindManaged 'managed'
+		emit(l, i: newMoveAt(v, addr: addr))
+	end 'managed' else 'scalar'
+		emit(l, i: newLoadAt(v, addr: addr))
+	end 'scalar'
+	let dropTy = dropType(l, p: p, t: iface)
+	emitDropReg(l, src: box, ty: dropTy)
+	popPending(l, n: mark)
+	return v
+end 'lowerRecoveryCast'
+
+// receiverConv is how a call through an interface value gives the method the value its box holds, for a method whose
+// receiver has the convention conv.
+function receiverConv(conv ast.Convention) returns ReceiverConv
+	return match conv 'c'
+		convLet gives ReceiverConv.receiverLent
+		convMutates gives ReceiverConv.receiverLent
+		convConsumes gives ReceiverConv.receiverMoved
+		convDestructs gives ReceiverConv.receiverMoved
+		convSets gives panic("lower: a method takes its receiver as 'sets'")
+	end 'c'
+end 'receiverConv'
+
+// witnessInterface is the interface of the value a call through a bound is made on, with the code's type parameters
+// bound, or none for a call that runs the method of a type the code knows.
+export function witnessInterface(mutates p ast.Project, module diag.ModuleID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.TypeID
+	if info.kind != ast.CallKind.callBound 'other'
+		return ast.noType
+	end 'other'
+	let received = ast.substituteType(p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
+	let recv = ast.contentType(p.types, t: received)
+	if standsForInterface(p, t: recv) 'interface'
+		return recv
+	end 'interface'
+	return ast.noType
+end 'witnessInterface'

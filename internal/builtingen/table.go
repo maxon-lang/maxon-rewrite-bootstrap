@@ -230,6 +230,11 @@ var enumTypes = []enumType{
 		{"exhausted", "ErrorIterationExhausted"},
 		{"atStart", "ErrorIterationAtStart"},
 	}},
+	// CastError is minimaxon's own: what a cast of an interface value to a type fails with when the value holds one of
+	// another type, where maxon has no such cast.
+	{Key: "CastError", Name: "CastError", Cases: []enumCase{
+		{"otherType", "ErrorCastOtherType"},
+	}},
 }
 
 // capabilities are the interfaces a bound can name and no declaration implements: a type has one by its parts.

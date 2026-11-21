@@ -1,0 +1,10 @@
+function main() returns ExitCode
+	var xs = shapes.Shapes.create(0)
+	xs.push(shapes.Square.make(3))
+	xs.push(extra.Circle.make(1))
+	xs.push(extra.circle(2))
+	print("{shapes.total(xs)}\n")
+	return 0
+end 'main'
+
+//> 24

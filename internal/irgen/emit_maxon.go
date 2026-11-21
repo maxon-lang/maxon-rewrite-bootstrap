@@ -76,6 +76,8 @@ func maxonType(x operand) string {
 		return "ast.TypeID"
 	case kCallee, kRoutine:
 		return "ast.FuncID"
+	case kTable:
+		return "WitnessTable"
 	}
 	fail("operand %s has no single Maxon type", x.Name)
 	return ""
@@ -85,6 +87,11 @@ func isList(x operand) bool { return x.Kind == kRegs || x.Kind == kMoreRegs || x
 
 func toCount(expr, what string) string {
 	return fmt.Sprintf("try %s as Count otherwise panic(\"ir: %s is out of range\")", expr, what)
+}
+
+// toField is a count converted to the type of the field that holds it.
+func toField(f field, expr, what string) string {
+	return fmt.Sprintf("try %s as %s otherwise panic(\"ir: %s is out of range\")", expr, maxonFieldType[f], what)
 }
 
 func toWord(expr, what string) string {
@@ -114,6 +121,8 @@ func maxonRead(o op, x operand) string {
 		return "f.typeAt(" + fld + ")"
 	case kCallee, kRoutine:
 		return "f.calleeAt(" + fld + ")"
+	case kTable:
+		return "f.tableAt(" + fld + ")"
 	case kErrorReg:
 		return fmt.Sprintf("try %s as Reg otherwise panic(\"ir: %s is out of range\")", fld, what)
 	}
@@ -244,7 +253,7 @@ func maxonParams(x operand) []string {
 		return []string{n + "Count Index"}
 	case kCases:
 		return []string{n + "First Index", n + "Count Index"}
-	case kText, kType, kCallee, kRoutine:
+	case kText, kType, kCallee, kRoutine, kTable:
 		return []string{n + " Index"}
 	}
 	return []string{n + " " + maxonType(x)}
@@ -257,7 +266,7 @@ func maxonSets(w *writer, o op, x operand) {
 		w.p("\tif %s '%s'\n\t\tr.flags = r.flags or %s\n\tend '%s'\n", cond, n, maxonFlag(x.Flag), n)
 	}
 	switch x.Kind {
-	case kReg, kBlock, kWord, kText, kType, kCallee, kRoutine:
+	case kReg, kBlock, kWord, kText, kType, kCallee, kRoutine, kTable:
 		w.p("\tr.%s = %s\n", x.Field, n)
 	case kRegs:
 		w.p("\tr.%s = %sStart\n\tr.%s = %sCount\n", x.Field, n, x.Count, n)
@@ -266,7 +275,7 @@ func maxonSets(w *writer, o op, x operand) {
 	case kMoreRegs:
 		w.p("\tr.%s = %sCount\n", x.Field, n)
 	case kSlot, kInt, kBody:
-		w.p("\tr.%s = %s\n", x.Field, toWord(n, what))
+		w.p("\tr.%s = %s\n", x.Field, toField(x.Field, n, what))
 	case kSymbol:
 		w.p("\tr.%s = %s\n", x.Field, toWord("rtCode("+n+")", what))
 	case kEnum:
@@ -516,6 +525,8 @@ func maxonText(o op, x operand, unwrap bool) string {
 		return "{funcSymbol(p, fid: " + get + ")}"
 	case kBody:
 		return "{f.bodyName(" + get + ")}"
+	case kTable:
+		return "{" + get + ".symbol}"
 	}
 	fail("operand %s has no Maxon text", x.Name)
 	return ""

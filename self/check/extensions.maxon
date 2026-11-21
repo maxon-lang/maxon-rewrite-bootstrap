@@ -112,7 +112,7 @@ function declareExtension(mutates c Checker, mutates p ast.Project, xd ast.Exten
 	end 'failed'
 	let key = ast.extensionKey(p, t: nt).unwrap()
 	bindExtensionParams(c, p: p, xd: xd, nt: nt)
-	let interfaces = conformedInterfaces(c, p: p, interfaces: xd.conforms, errs: errs)
+	let interfaces = conformedInterfaces(c, p: p, interfaces: xd.conforms, capabilities: false, errs: errs)
 	for i in 0 upto interfaces.count() 'conforms'
 		p.modules[c.modIdx].extConforms.push(ast.ExtConform.make(key, iface: interfaces[i], site: xd.id))
 	end 'conforms'
@@ -139,12 +139,31 @@ export function checkExtensionConformances(mutates c Checker, mutates p ast.Proj
 		if failedSince(errs, mark: mark) 'ambiguous'
 			continue 'each'
 		end 'ambiguous'
+		if not requireOnceInModule(c, p: p, index: i, errs: errs) 'twice'
+			continue 'each'
+		end 'twice'
 		var missing = ast.StringList.create(0)
 		var wrong = ast.StringList.create(0)
 		checkInterface(c, p: p, site: entry.site, nt: entry.owner, iface: entry.iface, missing: missing, wrong: wrong, errs: errs)
 		failIncomplete(c, p: p, site: entry.site, typeName: ast.typeName(p.types, t: entry.owner), missing: missing, wrong: wrong, errs: errs)
 	end 'each'
 end 'checkExtensionConformances'
+
+// requireOnceInModule refuses the index-th conformance that the module's extensions declare where an earlier one of them
+// says the same: one of the type to the same interface, or to one that this one extends or that extends it, which would
+// give the type two sets of methods for one interface.
+function requireOnceInModule(mutates c Checker, mutates p ast.Project, index Count, mutates errs diag.ErrorList) returns bool
+	let entry = p.modules[c.modIdx].extConforms[index].clone()
+	for j in 0 upto index 'earlier'
+		let other = p.modules[c.modIdx].extConforms[j].clone()
+		if other.owner == entry.owner and (ast.extendsInterface(p.types, have: other.iface, want: entry.iface) or ast.extendsInterface(p.types, have: entry.iface, want: other.iface)) 'same'
+			let typeName = ast.typeName(p.types, t: entry.owner)
+			checkFail(c.modID, off: offsetOf(c, p: p, node: entry.site), code: diag.errAmbiguousConformance, msg: "'{typeName}' implements {spelled(c, p: p, iface: entry.iface)} twice in {ast.describeModule(p, modID: c.modID)}: by this extension and by an earlier one, which already says '{typeName}' implements {spelled(c, p: p, iface: other.iface)}; remove one of them", errs: errs)
+			return false
+		end 'same'
+	end 'earlier'
+	return true
+end 'requireOnceInModule'
 
 // verifyExtensions refuses a method that an extension adds under the name of one the type's own body declares. The type may
 // be declared in another module, so this waits for the verify stage, when its methods are declared.

@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{other.inside()} {names.describe(shapes.Meter.make(2))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3017 at 2:27

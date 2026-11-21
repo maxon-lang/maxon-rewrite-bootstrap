@@ -1,0 +1,6 @@
+function main() returns ExitCode
+	print("{loud.tag()} {quiet.tag()} {lib.both(shapes.Meter.make(1))}\n")
+	return 0
+end 'main'
+
+// expect-error: E3941 at 2:37

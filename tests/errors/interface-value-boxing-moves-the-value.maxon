@@ -1,0 +1,42 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	var side as Integer
+
+	static function make(side Integer) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Integer
+		return side
+	end 'area'
+end 'Square'
+
+type Plain
+	var n as Integer
+
+	static function make(n Integer) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Plain'
+
+type Holder
+	var shape as Shape
+
+	static function make(consumes shape Shape) returns Self
+		return Self{shape: shape}
+	end 'make'
+end 'Holder'
+
+function main() returns ExitCode
+	let sq = Square.make(1)
+	let h = Holder.make(sq)
+	let n = sq.area()
+	return 0
+end 'main'
+
+// expect-error: E3102 at 38:10

@@ -1,0 +1,9 @@
+typealias MeterTag = lib.Tag with shapes.Meter
+
+// main names no module whose conformance says Meter implements Namer, so the type's own bound is not met here.
+function main() returns ExitCode
+	print("{MeterTag.make(shapes.Meter.make(1)).text()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3017 at 1:22

@@ -1,0 +1,11 @@
+export type Tag uses T where T implements names.Namer
+	export var item as T
+
+	export static function make(consumes item T) returns Self
+		return Self{item: item}
+	end 'make'
+
+	export function text() returns String
+		return item.name()
+	end 'text'
+end 'Tag'

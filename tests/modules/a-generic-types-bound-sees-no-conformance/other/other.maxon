@@ -1,0 +1,8 @@
+export interface Loud extends names.Namer
+end 'Loud'
+
+extension shapes.Meter implements Loud
+	function name() returns String
+		return "meter {n}"
+	end 'name'
+end 'Meter'

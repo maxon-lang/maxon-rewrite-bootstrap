@@ -48,7 +48,7 @@ function id(consumes a T) uses T returns T
 	return a
 end 'id'
 
-function area(s Shape) returns Score
+function area(s Equal) returns Score
 	return 1
 end 'area'
 
@@ -57,3 +57,7 @@ function main() returns ExitCode
 end 'main'
 
 // expect-error: E3905 at 51:17
+
+interface Equal
+	function equals(other Self) returns bool
+end 'Equal'

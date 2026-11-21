@@ -970,6 +970,19 @@ export function funcShapeSpelling(tt TypeTable, t TypeID) returns String
 	return String.from(b)
 end 'funcShapeSpelling'
 
+// mentionsType is whether the type t is target or an instance with target anywhere in its arguments.
+export function mentionsType(tt TypeTable, t TypeID, target TypeID) returns bool
+	if t == target 'same'
+		return true
+	end 'same'
+	for i in 0 upto tt.entries[t as Count].typeArgs.count() 'each'
+		if mentionsType(tt, t: tt.entries[t as Count].typeArgs[i], target: target) 'inside'
+			return true
+		end 'inside'
+	end 'each'
+	return false
+end 'mentionsType'
+
 // mentionsTypeParam is whether the type is a type parameter or an instance with one anywhere in its arguments.
 export function mentionsTypeParam(tt TypeTable, t TypeID) returns bool
 	if tt.entries[t as Count].kind == TypeKind.typeParam 'param'
@@ -1122,7 +1135,7 @@ export function isManagedType(tt TypeTable, t TypeID) returns bool
 		constFloat gives false
 		enumTy gives false
 		builtinHandle gives false
-		interfaceTy gives false
+		interfaceTy gives true
 	end 'k'
 end 'isManagedType'
 

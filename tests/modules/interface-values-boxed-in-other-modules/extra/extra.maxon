@@ -1,0 +1,19 @@
+export type Circle
+	var r as Count
+
+	export static function make(r Count) returns Self
+		return Self{r: r}
+	end 'make'
+end 'Circle'
+
+// A module that declares a type may say in an extension that it implements another module's interface, and the
+// conformance is seen wherever the module is named.
+extension Circle implements shapes.Shape
+	function area() returns Count
+		return try 3 * r * r otherwise panic("overflow")
+	end 'area'
+end 'Circle'
+
+export function circle(r Count) returns shapes.Shape
+	return Circle.make(r)
+end 'circle'

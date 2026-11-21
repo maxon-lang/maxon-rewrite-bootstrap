@@ -193,7 +193,7 @@ end 'declareUnionMembers'
 // types, which its requirements would have to take from the child's, and one that extends the interface again is a cycle.
 function declareParentInterfaces(mutates c Checker, mutates p ast.Project, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
 	let off = offsetOf(c, p: p, node: ifd.id)
-	let parents = conformedInterfaces(c, p: p, interfaces: ifd.parents, errs: errs)
+	let parents = conformedInterfaces(c, p: p, interfaces: ifd.parents, capabilities: true, errs: errs)
 	for i in 0 upto parents.count() 'each'
 		let parent = parents[i]
 		let parentName = p.types.entries[parent as Count].name.clone()

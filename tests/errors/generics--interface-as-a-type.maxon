@@ -62,10 +62,14 @@ function total(a T, b T) uses T returns Score where T implements Shape
 end 'total'
 
 // expect-error: E3905 at 65:14
-function f(s Shape)
+function f(s Maker)
 	print("x")
 end 'f'
 
 function main() returns ExitCode
 	return 0
 end 'main'
+
+interface Maker
+	static function make() returns Score
+end 'Maker'

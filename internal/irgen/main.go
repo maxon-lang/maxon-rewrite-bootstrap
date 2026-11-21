@@ -74,7 +74,7 @@ var kindFields = map[kind][]field{
 	kRegs:     {fA},
 	kMoreRegs: {fC},
 	kSlot:     {fImm},
-	kInt:      {fImm},
+	kInt:      {fImm, fC},
 	kWord:     {fImm},
 	kSymbol:   {fImm},
 	kEnum:     {fSub},
@@ -88,6 +88,7 @@ var kindFields = map[kind][]field{
 	kErrorReg: {fImm},
 	kBody:     {fImm},
 	kCases:    {fFirst},
+	kTable:    {fC},
 }
 
 // check refuses a table that the generator cannot make consistent code of.
@@ -166,7 +167,7 @@ func optional(x operand) bool {
 // usesPool is whether an operand indexes a pool of the function, which only the builder appends to.
 func usesPool(x operand) bool {
 	switch x.Kind {
-	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBody, kCases:
+	case kRegs, kMoreRegs, kText, kType, kCallee, kRoutine, kBody, kCases, kTable:
 		return true
 	}
 	return false

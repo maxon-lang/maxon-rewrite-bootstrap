@@ -234,6 +234,34 @@ export type Builder
 		return newWhen(behaviour, cownsStart: start, cownsCount: regOf(cowns.count()), capturesCount: indexOf(captures.count()))
 	end 'whenInstr'
 
+	// table adds the table of an interface value to the function, once however many boxes name it.
+	function table(mutates self, consumes t WitnessTable) returns Index
+		for i in 0 upto f.tables.count() 'known'
+			if f.tables[i].symbol == t.symbol 'same'
+				return indexOf(i)
+			end 'same'
+		end 'known'
+		let n = f.tables.count()
+		f.tables.push(t)
+		return indexOf(n)
+	end 'table'
+
+	// box makes an interface value of the table t and the value in src, which the box owns, or only lends when borrow is
+	// set.
+	export function box(mutates self, dst Reg, consumes t WitnessTable, src Reg, borrow bool) returns Instr
+		return newBox(dst, table: self.table(t), value: src, borrow: borrow)
+	end 'box'
+
+	// callWitness calls the method in place slot of the table of the interface value recv, with the value it holds given as
+	// conv says, and args; err is noReg for a method that does not throw.
+	export function callWitness(mutates self, dst Reg, conv ReceiverConv, slot Count, recv Reg, args RegList, err Reg) returns Instr
+		var all = RegList.create(0)
+		all.push(recv)
+		all.append(args)
+		let start = self.arguments(all)
+		return newCallWitness(dst, recv: conv, slot: slot, argsStart: start, argsCount: regOf(all.count()), errReg: err)
+	end 'callWitness'
+
 	// drop drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old
 	// value of a place just read. Dropping a value drops what it owns, deeply by type, and a place that holds no value
 	// is dropped as a no-op, so a drop at the end of a scope needs no knowledge of the path that led there.

@@ -144,6 +144,22 @@ type Machine implements ir.InstrVisitor, ir.TermVisitor
 		try execWhen(vm, f: f, x: x) otherwise ignore
 	end 'visitWhen'
 
+	function visitBox(mutates self, f ir.IrFunction, x ir.Instr)
+		try execBox(vm, f: f, x: x) otherwise ignore
+	end 'visitBox'
+
+	function visitFreeBox(mutates self, f ir.IrFunction, x ir.Instr)
+		try execFreeBox(vm, x: x) otherwise ignore
+	end 'visitFreeBox'
+
+	function visitCallWitness(mutates self, f ir.IrFunction, x ir.Instr)
+		try execCallWitness(vm, f: f, x: x) otherwise ignore
+	end 'visitCallWitness'
+
+	function visitIsType(mutates self, f ir.IrFunction, x ir.Instr)
+		try execIsType(vm, f: f, x: x) otherwise ignore
+	end 'visitIsType'
+
 	function visitDrop(mutates self, f ir.IrFunction, x ir.Instr)
 		try execDrop(vm, x: x) otherwise ignore
 	end 'visitDrop'

@@ -44,10 +44,16 @@ export function methodIn(m Module, owner TypeID, name String) returns FuncID
 	return noFunc
 end 'methodIn'
 
-function conformsInModule(tt TypeTable, m Module, owner TypeID, iface TypeID) returns bool
+// conformsInModule is whether an extension of the module m says the type owner implements iface, or an interface that
+// extends it. Seen from another module, only a conformance that m may give counts: one of a type or to an interface
+// that m declares (Hylo's rule for orphans), so a module cannot change what a type it does not own means to an interface
+// it does not own anywhere but in itself.
+function conformsInModule(p Project, m Module, owner TypeID, iface TypeID, outside bool) returns bool
 	for i in 0 upto m.extConforms.count() 'each'
-		if m.extConforms[i].owner == owner and extendsInterface(tt, have: m.extConforms[i].iface, want: iface) 'hit'
-			return true
+		if m.extConforms[i].owner == owner and extendsInterface(p.types, have: m.extConforms[i].iface, want: iface) 'hit'
+			if not outside or declaringModule(p, t: owner) == m.id or declaringModule(p, t: m.extConforms[i].iface) == m.id 'given'
+				return true
+			end 'given'
 		end 'hit'
 	end 'each'
 	return false
@@ -104,8 +110,8 @@ export union ConformanceLookup
 end 'ConformanceLookup'
 
 // conformanceSource is the declaration that says t implements iface (or an interface that extends it) where code in the
-// module from sees it: the type's own declaration, which is seen wherever the type is, or an extension of from or of a
-// module from names. The standard library sees no extension.
+// module from sees it: the type's own declaration, which is seen wherever the type is, or an extension of from, or of a
+// module from names that declares the type or the interface. The standard library sees no extension.
 export function conformanceSource(mutates p Project, from diag.ModuleID, t TypeID, iface TypeID) returns ConformanceLookup
 	var seen = ConformanceList.create(0)
 	if declaresConformance(p, t: t, iface: iface) 'body'
@@ -114,12 +120,12 @@ export function conformanceSource(mutates p Project, from diag.ModuleID, t TypeI
 	let key = extensionKey(p, t: t)
 	if key.isSome() and from != diag.stdlibID 'extensions'
 		let owner = key.unwrap()
-		if conformsInModule(p.types, m: p.modules[modIndex(from)], owner: owner, iface: iface) 'own'
+		if conformsInModule(p, m: p.modules[modIndex(from)], owner: owner, iface: iface, outside: false) 'own'
 			seen.push(Conformance.make(from, inBody: false))
 		end 'own'
 		for i in 0 upto p.resolutions[modIndex(from)].deps.count() 'deps'
 			let dep = p.resolutions[modIndex(from)].deps[i].module
-			if dep != from and conformsInModule(p.types, m: p.modules[modIndex(dep)], owner: owner, iface: iface) 'hit'
+			if dep != from and conformsInModule(p, m: p.modules[modIndex(dep)], owner: owner, iface: iface, outside: true) 'hit'
 				seen.push(Conformance.make(dep, inBody: false))
 			end 'hit'
 		end 'deps'
@@ -231,3 +237,56 @@ export function witnessSuffix(p Project, fid FuncID) returns String
 	end 'own'
 	return " {witnessLinkWord} {joinNames(paths, sep: ", ")}"
 end 'witnessSuffix'
+
+// A Requirement is a method that an interface requires, with the interface that declares it, which is the interface
+// itself or one it extends: its signature is read over that interface's 'Self' and associated types.
+export type Requirement
+	export var iface as TypeID
+	export var sig as FuncID
+
+	export static function make(iface TypeID, sig FuncID) returns Requirement
+		return Requirement{iface: iface, sig: sig}
+	end 'make'
+end 'Requirement'
+
+export typealias RequirementList = Array with Requirement
+
+// requirementsOf are the methods an interface requires, its own and then those of the interfaces it extends, each once.
+// An instance of a generic interface reads them from its declaration. Their order is the order of the methods in the
+// table of an interface value, so a call through one and the table agree on where each method is.
+export function requirementsOf(tt TypeTable, iface TypeID) returns RequirementList
+	var out = RequirementList.create(0)
+	collectRequirements(tt, iface: iface, out: out)
+	return out
+end 'requirementsOf'
+
+function collectRequirements(tt TypeTable, iface TypeID, mutates out RequirementList)
+	let orig = originOf(tt, t: iface)
+	for i in 0 upto tt.entries[orig as Count].sigs.count() 'own'
+		let sig = tt.entries[orig as Count].sigs[i]
+		if not requirementIndex(out, sig: sig).isSome() 'new'
+			out.push(Requirement.make(iface, sig: sig))
+		end 'new'
+	end 'own'
+	for i in 0 upto tt.entries[orig as Count].conforms.count() 'parents'
+		collectRequirements(tt, iface: tt.entries[orig as Count].conforms[i], out: out)
+	end 'parents'
+end 'collectRequirements'
+
+// requirementIndex is the place of the requirement sig among reqs, or none.
+export function requirementIndex(reqs RequirementList, sig FuncID) returns table.Option with Count
+	for i in 0 upto reqs.count() 'each'
+		if reqs[i].sig == sig 'hit'
+			return table.Option.some(i)
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'requirementIndex'
+
+// requirementSlot is the place of the requirement sig in the table of a value of the interface iface.
+export function requirementSlot(tt TypeTable, iface TypeID, sig FuncID) returns Count
+	match consumes requirementIndex(requirementsOf(tt, iface: iface), sig: sig) 'slot'
+		some(i) then return i
+		none then panic("a call through a value of '{typeName(tt, t: iface)}' names a method that it does not require")
+	end 'slot'
+end 'requirementSlot'

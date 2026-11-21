@@ -425,6 +425,9 @@ export typealias NodeIDList = Array with NodeID
 
 export typealias NodeUsesMap = table.IntMap with NodeIDList
 
+// NodeBoxMap is, for each expression whose value is put in an interface value, the interface.
+export typealias NodeBoxMap = table.IntMap with TypeID
+
 // expansionOf is the statements that the check made a destructuring or a tuple assignment out of, in the order they run.
 export function expansionOf(tp Typing, node NodeID) returns NodeIDList
 	return match consumes tp.expansions.get(node as Count) 'hit'
@@ -454,6 +457,9 @@ export type Typing
 	export var funcUses as NodeUsesMap
 	export var fieldUses as NodeUsesMap
 	export var consumed as NodeBoolMap
+	// boxes are the expressions whose value goes where an interface value is expected, each with that interface: the value
+	// moves into the box of an interface value there, or the box lends it where the place only borrows.
+	export var boxes as NodeBoxMap
 	// declared is whether the declare stage reached the module, which is what gives its nodes their results: a module that it
 	// did not reach has none.
 	export var declared as bool
@@ -479,7 +485,8 @@ export type Typing
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, declared: false}
+		let bx = NodeBoxMap.new()
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, boxes: bx, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID
@@ -494,6 +501,14 @@ end 'Typing'
 export function setNodeType(mutates tp Typing, node NodeID, ty TypeID)
 	tp.types.insert(node as Count, value: ty)
 end 'setNodeType'
+
+// boxedTo is the interface that the value of node is put in an interface value of, or none.
+export function boxedTo(tp Typing, node NodeID) returns TypeID
+	return match tp.boxes.get(node as Count) 'box'
+		some(iface) gives iface
+		none gives noType
+	end 'box'
+end 'boxedTo'
 
 export function nodeType(tp Typing, node NodeID) returns TypeID
 	return tp.types.at(node as Count)

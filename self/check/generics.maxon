@@ -113,7 +113,10 @@ function checkInterface(mutates c Checker, mutates p ast.Project, site ast.NodeI
 		failAt(c, p: p, node: site, code: diag.errConformance, msg: diag.unboundAssociatedType(p.types.entries[orig as Count].name, associated: associated, interfaceName: p.types.entries[ifaceOrig as Count].name), errs: errs)
 		return
 	end 'unbound'
-	let reqs = requirementsOf(p, iface: iface)
+	if not requireCapabilities(c, p: p, site: site, nt: nt, iface: iface, errs: errs) 'capability'
+		return
+	end 'capability'
+	let reqs = ast.requirementsOf(p.types, iface: iface)
 	for j in 0 upto reqs.count() 'sigs'
 		let mark = errs.count()
 		requireImplements(c, p: p, site: site, nt: orig, own: own, iface: reqs[j].iface, sig: reqs[j].sig, inherited: reqs[j].iface != iface, missing: missing, wrong: wrong, errs: errs)
@@ -122,6 +125,24 @@ function checkInterface(mutates c Checker, mutates p ast.Project, site ast.NodeI
 		end 'failed'
 	end 'sigs'
 end 'checkInterface'
+
+// requireCapabilities refuses a type that implements an interface that extends Copyable or Droppable without having it,
+// since every value of the interface has what the interface extends.
+function requireCapabilities(mutates c Checker, mutates p ast.Project, site ast.NodeID, nt ast.TypeID, iface ast.TypeID, mutates errs diag.ErrorList) returns bool
+	let ifaceName = p.types.entries[ast.originOf(p.types, t: iface) as Count].name.clone()
+	let copies = ast.reachesInterface(p.types, have: iface, want: p.builtins.copyableTy)
+	if copies or ast.reachesInterface(p.types, have: iface, want: p.builtins.droppableTy) 'extends'
+		let capName = "Copyable" if copies else "Droppable"
+		let own = ast.selfType(p.types, declTy: nt)
+		let lacking = lacksCap(c, p: p, wantCopy: copies, t: own)
+		if lacking.missing 'lacks'
+			let code = diag.errNotCopyable if copies else diag.errNotDroppable
+			failAt(c, p: p, node: site, code: code, msg: "'{nameOfType(p, t: own)}' cannot implement {ifaceName}, which extends {capName}: {lackWhyText(p.types, info: lacking, capName: capName)}; {lackFixText(p.types, info: lacking, capName: capName)}", errs: errs)
+			return false
+		end 'lacks'
+	end 'extends'
+	return true
+end 'requireCapabilities'
 
 // requireImplements files what an implementation lacks of one requirement: the requirement when the method is missing,
 // with the interface it comes from when it is inherited, and the method beside the requirement when its signature differs.
@@ -160,54 +181,11 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	wrong.push("{signatureText(p, name: p.funcs.entries[m as Count].name, isStatic: p.funcs.entries[m as Count].isStatic, specs: p.funcs.entries[m as Count].params, ret: p.funcs.entries[m as Count].retTy, err: p.funcs.entries[m as Count].errTy)} (expected {wanted})")
 end 'requireImplements'
 
-// A Requirement is a method that an interface requires, with the interface that declares it, which is the interface
-// itself or one it extends: its signature is read over that interface's 'Self' and associated types.
-type Requirement
-	var iface as ast.TypeID
-	var sig as ast.FuncID
-
-	static function make(iface ast.TypeID, sig ast.FuncID) returns Requirement
-		return Requirement{iface: iface, sig: sig}
-	end 'make'
-end 'Requirement'
-
-typealias RequirementList = Array with Requirement
-
-// requirementsOf are the methods an interface requires, its own and then those of the interfaces it extends, each once.
-// An instance of a generic interface reads them from its declaration.
-function requirementsOf(p ast.Project, iface ast.TypeID) returns RequirementList
-	var out = RequirementList.create(0)
-	collectRequirements(p, iface: iface, out: out)
-	return out
-end 'requirementsOf'
-
-function collectRequirements(p ast.Project, iface ast.TypeID, mutates out RequirementList)
-	let orig = ast.originOf(p.types, t: iface)
-	for i in 0 upto p.types.entries[orig as Count].sigs.count() 'own'
-		let sig = p.types.entries[orig as Count].sigs[i]
-		if not hasRequirement(out, sig: sig) 'new'
-			out.push(Requirement.make(iface, sig: sig))
-		end 'new'
-	end 'own'
-	for i in 0 upto p.types.entries[orig as Count].conforms.count() 'parents'
-		collectRequirements(p, iface: p.types.entries[orig as Count].conforms[i], out: out)
-	end 'parents'
-end 'collectRequirements'
-
-function hasRequirement(reqs RequirementList, sig ast.FuncID) returns bool
-	for i in 0 upto reqs.count() 'each'
-		if reqs[i].sig == sig 'hit'
-			return true
-		end 'hit'
-	end 'each'
-	return false
-end 'hasRequirement'
-
 // requirementsNamed are the requirements of that name that an interface has: one, or none, or two where an interface
 // declares again a requirement of one it extends.
-function requirementsNamed(p ast.Project, iface ast.TypeID, name String) returns RequirementList
-	let reqs = requirementsOf(p, iface: iface)
-	var out = RequirementList.create(0)
+function requirementsNamed(p ast.Project, iface ast.TypeID, name String) returns ast.RequirementList
+	let reqs = ast.requirementsOf(p.types, iface: iface)
+	var out = ast.RequirementList.create(0)
 	for i in 0 upto reqs.count() 'each'
 		if p.funcs.entries[reqs[i].sig as Count].name == name 'hit'
 			out.push(reqs[i].clone())
@@ -217,7 +195,7 @@ function requirementsNamed(p ast.Project, iface ast.TypeID, name String) returns
 end 'requirementsNamed'
 
 // requirementText is a requirement as maxon names it beside another: its interface and its signature.
-function requirementText(p ast.Project, req Requirement) returns String
+function requirementText(p ast.Project, req ast.Requirement) returns String
 	let f = req.sig as Count
 	return "{p.types.entries[req.iface as Count].name}.{signatureText(p, name: p.funcs.entries[f].name, isStatic: p.funcs.entries[f].isStatic, specs: p.funcs.entries[f].params, ret: p.funcs.entries[f].retTy, err: p.funcs.entries[f].errTy)}"
 end 'requirementText'
@@ -318,6 +296,14 @@ function requireConforms(mutates c Checker, mutates p ast.Project, off diag.U32,
 		end 'lacks'
 		return
 	end 'structural'
+	if typeHasKind(p, t: arg, kind: ast.TypeKind.interfaceTy) 'interfaceValue'
+		// A value of an interface meets a bound of that interface: a call through the bound runs the method of the value it
+		// holds, through its table. Of another interface, even one it extends, it has no table.
+		if not sameType(p.types, a: arg, b: iface) 'other'
+			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the interface value type '{argName}' must be {ifaceName} for '{paramName}', but a value of an interface meets a bound of that interface alone: pass a value of a type that implements {ifaceName}, or put it in a {ifaceName} value", errs: errs)
+		end 'other'
+		return
+	end 'interfaceValue'
 	if typeHasKind(p, t: arg, kind: ast.TypeKind.typeParam) 'parameter'
 		if not boundsExtend(p, bounds: boundsOfParam(p, boundedFn: c.boundedFn, paramTy: arg), iface: iface) 'unbounded'
 			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type parameter '{argName}' is not known to be {ifaceName}, which the type argument for '{paramName}' must be: add the bound, '{argName} implements {ifaceName}'", errs: errs)
@@ -457,7 +443,7 @@ end 'lacksMethod'
 // missingMethods names the methods of the interface that the type lacks, for the error that asks it to declare one.
 function missingMethods(c Checker, p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
 	var missing = ast.StringList.create(0)
-	let reqs = requirementsOf(p, iface: iface)
+	let reqs = ast.requirementsOf(p.types, iface: iface)
 	for i in 0 upto reqs.count() 'each'
 		let sig = reqs[i].sig
 		let name = p.funcs.entries[sig as Count].name.clone()

@@ -33,5 +33,29 @@ export let closureDropOffset = 16
 // closureCapturesOffset is where the box of a closure holds what it captured, a word each, in the order of its body's captures.
 export let closureCapturesOffset = 24
 
+// ifaceTableOffset is where the box of an interface value holds the address of its table.
+export let ifaceTableOffset = 0
+
+// ifaceValueOffset is where the box of an interface value holds the value, which it owns unless it lends it to a call.
+export let ifaceValueOffset = 8
+
+// ifaceBoxBytes is the size of the box of an interface value.
+export let ifaceBoxBytes = 16
+
+// tableEntryBytes is the size of an entry of the table of an interface value.
+export let tableEntryBytes = 8
+
+// tableDropEntry is the entry of a table that drops the value the box holds.
+export let tableDropEntry = 0
+
+// tableCopyEntry is the entry of a table that copies the value the box holds, for an interface whose values are Copyable.
+export let tableCopyEntry = 1
+
+// tableTypeEntry is the entry of a table that gives the address that names the type of the value the box holds, which a cast to a type compares.
+export let tableTypeEntry = 2
+
+// tableFirstMethod is the entry of the first method of a table, the methods following in the order the interface requires them.
+export let tableFirstMethod = 3
+
 // byteBytes is the size of an element of a byte array.
 export let byteBytes = 1

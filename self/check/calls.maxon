@@ -400,7 +400,7 @@ end 'callOnTypeParam'
 
 // boundRequirement is the first requirement of that name among the bounds of the type parameter param, or one whose sig
 // is none.
-function boundRequirement(p ast.Project, boundedFn ast.FuncID, param ast.TypeID, name String) returns Requirement
+function boundRequirement(p ast.Project, boundedFn ast.FuncID, param ast.TypeID, name String) returns ast.Requirement
 	let bounds = boundsOfParam(p, boundedFn: boundedFn, paramTy: param)
 	for i in 0 upto bounds.count() 'each'
 		let named = requirementsNamed(p, iface: bounds[i], name: name)
@@ -408,7 +408,7 @@ function boundRequirement(p ast.Project, boundedFn ast.FuncID, param ast.TypeID,
 			return named[0].clone()
 		end 'hit'
 	end 'each'
-	return Requirement.make(ast.noType, sig: ast.noFunc)
+	return ast.Requirement.make(ast.noType, sig: ast.noFunc)
 end 'boundRequirement'
 
 // callOnType types a call written on a type's name: a case of a union that carries a payload, or a static function.
@@ -445,6 +445,9 @@ function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	if typeHasKind(p, t: content, kind: ast.TypeKind.typeParam) 'parameter'
 		return boundCall(c, p: p, call: call, param: content, receiver: receiver, name: name, errs: errs)
 	end 'parameter'
+	if typeHasKind(p, t: content, kind: ast.TypeKind.interfaceTy) 'interface'
+		return witnessCall(c, p: p, call: call, iface: content, receiver: receiver, name: name, errs: errs)
+	end 'interface'
 	let mark = errs.count()
 	let method = methodOf(c, p: p, t: content, name: name, node: call, errs: errs)
 	if failedSince(errs, mark: mark) 'ambiguous'

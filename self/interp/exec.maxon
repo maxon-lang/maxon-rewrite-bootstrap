@@ -637,6 +637,94 @@ function execFuncValue(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	vm.setRef(x.dst, o: o)
 end 'execFuncValue'
 
+// The box of an interface value is a record of two words: the table, which the interpreter names by its index among the
+// program's tables, and the value.
+let boxTableWord = (ir.ifaceTableOffset / wordBytes) as Count
+
+let boxValueWord = (ir.ifaceValueOffset / wordBytes) as Count
+
+// execBox makes an interface value. It owns the value, which must be in flight, or holds a value it lends as it is.
+function execBox(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let symbol = ir.boxTable(f, x: x).symbol.clone()
+	let index = match consumes vm.prog.tables.get(symbol) 'table'
+		some(i) gives i
+		none gives panic("interp: the table {symbol} was not indexed")
+	end 'table'
+	let o = newBox(vm, words: ir.ifaceBoxBytes / wordBytes)
+	vm.h.cellN[vm.h.field(o, i: boxTableWord)] = try index as ir.Word otherwise panic("interp: a table past a word")
+	let c = vm.h.field(o, i: boxValueWord)
+	let src = ir.boxValue(x)
+	if ir.boxBorrow(x) 'lent'
+		_ = try live(vm, o: vm.ref(src), what: "a value that an interface value borrows")
+		let at = vm.regAt(src)
+		vm.h.cellN[c] = vm.regN[at]
+		vm.h.cellR[c] = vm.regR[at]
+	end 'lent' else 'owned'
+		try store(vm, f: f, c: c, src: src, what: "the box of an interface value")
+	end 'owned'
+	vm.setRef(x.dst, o: o)
+end 'execBox'
+
+// execFreeBox frees the box of an interface value that lends its value, which stays with its owner.
+function execFreeBox(mutates vm Vm, x ir.Instr) throws Halt
+	let o = try live(vm, o: vm.ref(ir.freeBoxBox(x)), what: "freeing the box of an interface value")
+	let c = vm.h.field(o, i: boxValueWord)
+	vm.h.cellN[c] = 0
+	vm.h.cellR[c] = 0
+	try drop(vm, o: o)
+end 'execFreeBox'
+
+// execCallWitness calls the method of the table of an interface value: the receiver is the value the box holds, lent
+// or moved out of the box, which is then freed, as the method takes it.
+function execCallWitness(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let start = ir.callWitnessArgsStart(x)
+	let count = ir.callWitnessArgsCount(x)
+	let o = try live(vm, o: vm.ref(f.args[start]), what: "a call through an interface value")
+	let index = try vm.h.cellN[vm.h.field(o, i: boxTableWord)] as Count otherwise panic("interp: an interface value with no table")
+	let callee = vm.prog.tableMethods[index][ir.callWitnessSlot(x)]
+	let c = vm.h.field(o, i: boxValueWord)
+	clearArguments(vm)
+	let conv = ir.callWitnessRecv(x)
+	vm.argN.push(vm.h.cellN[c])
+	vm.argR.push(vm.h.cellR[c])
+	if conv == ir.ReceiverConv.receiverMoved 'moved'
+		if vm.h.refOf(c) != 0 'object'
+			try changed(vm, c: c, o: 0)
+			_ = try release(vm, c: c, what: "a call that consumes the value of an interface value")
+		end 'object'
+		vm.h.cellN[c] = 0
+		vm.h.cellR[c] = 0
+		try drop(vm, o: o)
+	end 'moved'
+	for i in 1 upto count 'args'
+		let r = f.args[try start + i otherwise panic("interp: an argument past the pool")]
+		let at = vm.regAt(r)
+		vm.argN.push(vm.regN[at])
+		vm.argR.push(vm.regR[at])
+		try checkArgument(vm, f: f, callee: callee, i: i, r: r)
+	end 'args'
+	try requireDisjoint(vm, callee: callee, count: count)
+	let call = vm.curIdx
+	closeWindows(vm, call: call)
+	var err = -1 as ir.Word
+	if ir.callWitnessHasErrReg(x) 'throws'
+		err = x.imm
+	end 'throws'
+	vm.post = true
+	try enterFrame(vm, fn: callee, dst: x.dst as ir.Word, err: err)
+end 'execCallWitness'
+
+// execIsType tests the type of the value an interface value holds, which its table names.
+function execIsType(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let o = try live(vm, o: vm.ref(ir.isTypeSrc(x)), what: "a cast of an interface value")
+	let index = try vm.h.cellN[vm.h.field(o, i: boxTableWord)] as Count otherwise panic("interp: an interface value with no table")
+	if vm.prog.tableTypes[index] == ir.isTypeTy(f, x: x) 'same'
+		vm.setNum(x.dst, n: 1)
+	end 'same' else 'other'
+		vm.setNum(x.dst, n: 0)
+	end 'other'
+end 'execIsType'
+
 // clearArguments empties the arguments of the call being made.
 function clearArguments(mutates vm Vm)
 	while vm.argN.count() > 0 'each'

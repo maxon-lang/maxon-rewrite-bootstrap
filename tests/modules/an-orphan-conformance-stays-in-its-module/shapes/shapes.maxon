@@ -1,0 +1,7 @@
+export type Meter
+	export var n as Count
+
+	export static function make(n Count) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Meter'

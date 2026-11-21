@@ -255,7 +255,7 @@ let linkSeparator = "::"
 let intLinkAliasMark = "="
 
 // moduleLinkPath is how a link name names the module that declares something.
-function moduleLinkPath(p Project, modID diag.ModuleID) returns String
+export function moduleLinkPath(p Project, modID diag.ModuleID) returns String
 	if modID == diag.stdlibID 'std'
 		return stdlibQualifier
 	end 'std'
@@ -359,7 +359,7 @@ end 'intLinkName'
 let extensionLinkWord = "extension"
 
 // declaringModule is the module that declares the type t, which is the standard library for one that has no declaration.
-function declaringModule(p Project, t TypeID) returns diag.ModuleID
+export function declaringModule(p Project, t TypeID) returns diag.ModuleID
 	let origin = p.types.entries[t as Count].effectiveOrigin()
 	if p.types.entries[origin as Count].hasDecl 'declared'
 		return p.types.entries[origin as Count].decl.module

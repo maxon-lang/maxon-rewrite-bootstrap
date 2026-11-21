@@ -1,0 +1,67 @@
+//> 2 2
+//> 2
+//> not a square
+//> 0
+//> 2
+//> true
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape extends Copyable
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	export var side as Integer
+	export var name as String
+
+	static function make(side Integer, consumes name String) returns Self
+		return Self{side: side, name: name}
+	end 'make'
+
+	function area() returns Integer
+		return side
+	end 'area'
+end 'Square'
+
+type Circle implements Shape
+	export var r as Integer
+
+	static function make(r Integer) returns Self
+		return Self{r: r}
+	end 'make'
+
+	function area() returns Integer
+		return r
+	end 'area'
+end 'Circle'
+
+enum Dot implements Shape
+	small
+	big
+
+	function area() returns Integer
+		return 1 if self == Dot.small else 2
+	end 'area'
+end 'Dot'
+
+function sideOf(consumes s Shape) returns Integer
+	let sq = try s as Square otherwise (failure) 'notSquare'
+		print("not a square\n")
+		return 0
+	end 'notSquare'
+	return sq.side
+end 'sideOf'
+
+function main() returns ExitCode
+	let a = Square.make(2, name: "two") as Shape
+	let b = a.clone()
+	print("{a.area()} {b.area()}\n")
+	print("{sideOf(b)}\n")
+	print("{sideOf(Circle.make(5))}\n")
+	let d = Dot.big as Shape
+	print("{d.area()}\n")
+	let e = d.clone()
+	let back = try e as Dot otherwise Dot.small
+	print("{back == Dot.big}\n")
+	return 0
+end 'main'

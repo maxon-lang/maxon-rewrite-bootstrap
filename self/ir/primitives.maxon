@@ -897,6 +897,11 @@ function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visit
 	if kind == ast.TypeKind.funcTy 'function'
 		return false
 	end 'function'
+	// An interface value is dropped by the table of the type it holds, and boxing a value of a type that holds such a part
+	// is refused natively where it is boxed.
+	if kind == ast.TypeKind.interfaceTy 'interface'
+		return false
+	end 'interface'
 	if kind == ast.TypeKind.builtinArray 'array'
 		return holdsInterpreterOnly(p, t: elementType(p, bt: t), visiting: visiting)
 	end 'array'

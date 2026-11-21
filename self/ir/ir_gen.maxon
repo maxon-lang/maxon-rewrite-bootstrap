@@ -57,6 +57,10 @@ export enum Opcode
 	opClosure
 	opFuncValue
 	opCallValue
+	opBox
+	opFreeBox
+	opCallWitness
+	opIsType
 	opDrop
 	opDropSlot
 	opDropAt
@@ -422,6 +426,44 @@ export function guardKindOf(code Byte) returns GuardKind
 	end 'code'
 end 'guardKindOf'
 
+// ReceiverConv is how a CallWitness gives the method the value the box holds: lent, as a receiver that is let
+// or mutates takes a value, or moved out of the box, which is freed.
+export enum ReceiverConv
+	receiverLent
+	receiverMoved
+end 'ReceiverConv'
+
+// receiverConvText is how the printer writes a ReceiverConv.
+export function receiverConvText(v ReceiverConv) returns String
+	if v == ReceiverConv.receiverLent 'receiverLent'
+		return "lent"
+	end 'receiverLent'
+	if v == ReceiverConv.receiverMoved 'receiverMoved'
+		return "moved"
+	end 'receiverMoved'
+	panic("ir: a ReceiverConv with no text")
+end 'receiverConvText'
+
+// receiverConvCode is the number an instruction holds a ReceiverConv as, the one Go's ReceiverConv has.
+export function receiverConvCode(v ReceiverConv) returns Byte
+	if v == ReceiverConv.receiverLent 'receiverLent'
+		return 0 as Byte
+	end 'receiverLent'
+	if v == ReceiverConv.receiverMoved 'receiverMoved'
+		return 1 as Byte
+	end 'receiverMoved'
+	panic("ir: a ReceiverConv with no number")
+end 'receiverConvCode'
+
+// receiverConvOf is the ReceiverConv an instruction holds as a number.
+export function receiverConvOf(code Byte) returns ReceiverConv
+	return match code 'code'
+		0 gives ReceiverConv.receiverLent
+		1 gives ReceiverConv.receiverMoved
+		default panic("ir: a number that is no ReceiverConv")
+	end 'code'
+end 'receiverConvOf'
+
 // RawWidth is how many bits a LoadRaw or a StoreRaw moves.
 export enum RawWidth
 	width8
@@ -475,7 +517,8 @@ export function rawWidthOf(code Byte) returns RawWidth
 	end 'code'
 end 'rawWidthOf'
 
-// flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing.
+// flagBorrow is on a StoreSlot whose slot only names a part of the match subject for the arm, and owns nothing, and on a
+// Box that only lends the value it holds.
 export let flagBorrow = 1 as Byte
 
 // flagUnsigned is on a Bin or a Cmp that treats its operands as unsigned.
@@ -604,6 +647,18 @@ export function opEffects(op Opcode) returns Count
 	if op == Opcode.opCallValue 'opCallValue'
 		return 31
 	end 'opCallValue'
+	if op == Opcode.opBox 'opBox'
+		return 12
+	end 'opBox'
+	if op == Opcode.opFreeBox 'opFreeBox'
+		return 22
+	end 'opFreeBox'
+	if op == Opcode.opCallWitness 'opCallWitness'
+		return 31
+	end 'opCallWitness'
+	if op == Opcode.opIsType 'opIsType'
+		return 5
+	end 'opIsType'
 	if op == Opcode.opDrop 'opDrop'
 		return 20
 	end 'opDrop'
@@ -1004,6 +1059,51 @@ export function newCallValue(dst Reg, argsStart Reg, argsCount Reg) returns Inst
 	r.b = argsCount
 	return r
 end 'newCallValue'
+
+// Box gives a new interface value: a box of the address of the table Table and the value Value, which the box owns
+// unless Borrow is set.
+export function newBox(dst Reg, table Index, value Reg, borrow bool) returns Instr
+	var r = Instr.make(Opcode.opBox)
+	r.dst = dst
+	r.c = table
+	r.a = value
+	if borrow 'borrow'
+		r.flags = r.flags or flagBorrow
+	end 'borrow'
+	return r
+end 'newBox'
+
+// FreeBox frees the box of an interface value that only lends its value, which its owner keeps.
+export function newFreeBox(box Reg) returns Instr
+	var r = Instr.make(Opcode.opFreeBox)
+	r.a = box
+	return r
+end 'newFreeBox'
+
+// CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with
+// the value the box holds, given as Recv says, and the rest of Args.
+export function newCallWitness(dst Reg, recv ReceiverConv, slot Count, argsStart Reg, argsCount Reg, errReg Reg) returns Instr
+	var r = Instr.make(Opcode.opCallWitness)
+	r.dst = dst
+	r.sub = receiverConvCode(recv)
+	r.c = try slot as Index otherwise panic("ir: callWitness slot is out of range")
+	r.a = argsStart
+	r.b = argsCount
+	if errReg != noReg 'errReg'
+		r.flags = r.flags or flagThrows
+		r.imm = errReg as Word
+	end 'errReg'
+	return r
+end 'newCallWitness'
+
+// IsType gives 1 when the interface value Src holds a value of the type Ty, and 0 when it holds one of another type.
+export function newIsType(dst Reg, src Reg, ty Index) returns Instr
+	var r = Instr.make(Opcode.opIsType)
+	r.dst = dst
+	r.a = src
+	r.c = ty
+	return r
+end 'newIsType'
 
 // Drop drops the value in Src, of type Ty.
 export function newDrop(src Reg, ty Index) returns Instr
@@ -1443,6 +1543,59 @@ export function callValueArgsCount(x Instr) returns Count
 	return try x.b as Count otherwise panic("ir: callValue args is out of range")
 end 'callValueArgsCount'
 
+export function boxTable(f IrFunction, x Instr) returns WitnessTable
+	return f.tableAt(x.c)
+end 'boxTable'
+
+export function boxValue(x Instr) returns Reg
+	return x.a
+end 'boxValue'
+
+export function boxBorrow(x Instr) returns bool
+	return (x.flags and flagBorrow) != 0
+end 'boxBorrow'
+
+export function freeBoxBox(x Instr) returns Reg
+	return x.a
+end 'freeBoxBox'
+
+export function callWitnessRecv(x Instr) returns ReceiverConv
+	return receiverConvOf(x.sub)
+end 'callWitnessRecv'
+
+export function callWitnessSlot(x Instr) returns Count
+	return try x.c as Count otherwise panic("ir: callWitness slot is out of range")
+end 'callWitnessSlot'
+
+// callWitnessArgsStart is where the args of a CallWitness start in their pool.
+export function callWitnessArgsStart(x Instr) returns Count
+	return try x.a as Count otherwise panic("ir: callWitness args is out of range")
+end 'callWitnessArgsStart'
+
+// callWitnessArgsCount is how many args a CallWitness has.
+export function callWitnessArgsCount(x Instr) returns Count
+	return try x.b as Count otherwise panic("ir: callWitness args is out of range")
+end 'callWitnessArgsCount'
+
+export function callWitnessHasErrReg(x Instr) returns bool
+	return (x.flags and flagThrows) != 0
+end 'callWitnessHasErrReg'
+
+export function callWitnessErrReg(x Instr) returns table.Option with Reg
+	if not callWitnessHasErrReg(x) 'absent'
+		return table.Option.none
+	end 'absent'
+	return table.Option.some(try x.imm as Reg otherwise panic("ir: callWitness errReg is out of range"))
+end 'callWitnessErrReg'
+
+export function isTypeSrc(x Instr) returns Reg
+	return x.a
+end 'isTypeSrc'
+
+export function isTypeTy(f IrFunction, x Instr) returns ast.TypeID
+	return f.typeAt(x.c)
+end 'isTypeTy'
+
 export function dropSrc(x Instr) returns Reg
 	return x.a
 end 'dropSrc'
@@ -1635,6 +1788,21 @@ export function instrDef(x Instr) returns table.Option with Reg
 		end 'none'
 		return table.Option.some(x.dst)
 	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		return table.Option.some(x.dst)
+	end 'opBox'
+	if x.op == Opcode.opFreeBox 'opFreeBox'
+		return table.Option.none
+	end 'opFreeBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		if x.dst == noReg 'none'
+			return table.Option.none
+		end 'none'
+		return table.Option.some(x.dst)
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		return table.Option.some(x.dst)
+	end 'opIsType'
 	if x.op == Opcode.opDrop 'opDrop'
 		return table.Option.none
 	end 'opDrop'
@@ -1757,6 +1925,18 @@ export function instrFail(x Instr) returns table.Option with BlockID
 	if x.op == Opcode.opCallValue 'opCallValue'
 		return table.Option.none
 	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		return table.Option.none
+	end 'opBox'
+	if x.op == Opcode.opFreeBox 'opFreeBox'
+		return table.Option.none
+	end 'opFreeBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		return table.Option.none
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		return table.Option.none
+	end 'opIsType'
 	if x.op == Opcode.opDrop 'opDrop'
 		return table.Option.none
 	end 'opDrop'
@@ -1813,6 +1993,10 @@ export interface InstrVisitor
 	function visitClosure(mutates self, f IrFunction, x Instr)
 	function visitFuncValue(mutates self, f IrFunction, x Instr)
 	function visitCallValue(mutates self, f IrFunction, x Instr)
+	function visitBox(mutates self, f IrFunction, x Instr)
+	function visitFreeBox(mutates self, f IrFunction, x Instr)
+	function visitCallWitness(mutates self, f IrFunction, x Instr)
+	function visitIsType(mutates self, f IrFunction, x Instr)
 	function visitDrop(mutates self, f IrFunction, x Instr)
 	function visitDropSlot(mutates self, f IrFunction, x Instr)
 	function visitDropAt(mutates self, f IrFunction, x Instr)
@@ -1955,6 +2139,22 @@ export function visitInstr(mutates visitor V, f IrFunction, x Instr) uses V wher
 		visitor.visitCallValue(f, x: x)
 		return
 	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		visitor.visitBox(f, x: x)
+		return
+	end 'opBox'
+	if x.op == Opcode.opFreeBox 'opFreeBox'
+		visitor.visitFreeBox(f, x: x)
+		return
+	end 'opFreeBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		visitor.visitCallWitness(f, x: x)
+		return
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		visitor.visitIsType(f, x: x)
+		return
+	end 'opIsType'
 	if x.op == Opcode.opDrop 'opDrop'
 		visitor.visitDrop(f, x: x)
 		return
@@ -2156,6 +2356,26 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opCallValue 'opCallValue'
 		return "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
 	end 'opCallValue'
+	if x.op == Opcode.opBox 'opBox'
+		var text = "{resultText(x.dst)}box {boxTable(f, x: x).symbol}, %{boxValue(x)}"
+		if boxBorrow(x) 'borrow'
+			text = "{text} borrow"
+		end 'borrow'
+		return text
+	end 'opBox'
+	if x.op == Opcode.opFreeBox 'opFreeBox'
+		return "freebox %{freeBoxBox(x)}"
+	end 'opFreeBox'
+	if x.op == Opcode.opCallWitness 'opCallWitness'
+		var text = "{resultText(x.dst)}callwitness.{receiverConvText(callWitnessRecv(x))} {callWitnessSlot(x)}({f.regsText(callWitnessArgsStart(x), count: callWitnessArgsCount(x))})"
+		if callWitnessHasErrReg(x) 'errReg'
+			text = "{text} error %{callWitnessErrReg(x).unwrap()}"
+		end 'errReg'
+		return text
+	end 'opCallWitness'
+	if x.op == Opcode.opIsType 'opIsType'
+		return "{resultText(x.dst)}istype %{isTypeSrc(x)} {ast.typeName(p.types, t: isTypeTy(f, x: x))}"
+	end 'opIsType'
 	if x.op == Opcode.opDrop 'opDrop'
 		return "drop %{dropSrc(x)} {ast.typeName(p.types, t: dropTy(f, x: x))}"
 	end 'opDrop'

@@ -118,6 +118,7 @@ export enum LackReason
 	lackDestructor
 	lackUnbounded
 	lackMutatesCaptures
+	lackInterface
 end 'LackReason'
 
 export type LackStep
@@ -167,6 +168,8 @@ export type Checker
 	export var typing as ast.Typing
 	export var pendingCalls as PendingCallList
 	export var pendingBounds as PendingBoundList
+	export var pendingBoxes as PendingBoxList
+	export var pendingValueTypes as PendingValueTypeList
 	export var callers as ast.FuncIDList
 	export var callersSeen as BoolIntMap
 	export var fn as ast.FuncID
@@ -218,7 +221,7 @@ export type Checker
 	export static function make(modID diag.ModuleID, consumes typing ast.Typing) returns Checker
 		let mIdx = ast.modIndex(modID)
 		let csMap = BoolIntMap.new()
-		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
+		return Checker{modID: modID, modIdx: mIdx, typing: typing, pendingCalls: PendingCallList.create(0), pendingBounds: PendingBoundList.create(0), pendingBoxes: PendingBoxList.create(0), pendingValueTypes: PendingValueTypeList.create(0), callers: ast.FuncIDList.create(0), callersSeen: csMap, fn: ast.noFunc, rootFn: ast.noFunc, boundedFn: ast.noFunc, owner: ast.noType, allowCalls: false, constName: "", dead: false, expect: ast.noType, literalWide: false, scopes: ScopeList.create(0), blocks: BlockFrameList.create(0), nextSlot: 0 as Count, whens: 0 as Count, outers: Array.create(0), bFrames: Array.create(0), inBehaviour: false, bareNumbers: false, inClosure: false, activeBehIdx: 0 as Count, isFieldDefault: false, defaultFieldKey: 0 as Count, hasOmitted: false, omittedCall: 0 as ast.NodeID, omittedArgIdx: 0 as Count, capKnown: LackMap.new(), capVisiting: VisitMap.new(), tries: Array.create(0), bindings: Array.create(0), statement: 0 as ast.NodeID, usesNode: 0 as ast.NodeID, usesField: false, hasUses: false, recorded: ast.NodeIDList.create(0), fnLocals: ast.LocalIDList.create(0)}
 	end 'make'
 end 'Checker'
 
@@ -390,6 +393,17 @@ export union Mismatch
 		end 'm'
 	end 'words'
 
+	// conformWords is the refusal of a value put where an interface value is expected whose type does not implement the
+	// interface.
+	export function conformWords(got String, iface String) returns String
+		return match self 'm'
+			expectedGot gives diag.notConforming(got, iface: iface)
+			argument(label) gives diag.argNotConforming(label, got: got, iface: iface)
+			assignment(place, _) gives diag.assignNotConforming(place, got: got, iface: iface)
+			returned gives diag.returnNotConforming(got, iface: iface)
+		end 'm'
+	end 'conformWords'
+
 	// opaqueWords is the refusal of a value of a type parameter where a concrete type is needed.
 	export function opaqueWords(expected String) returns String
 		return match self 'm'
@@ -424,7 +438,7 @@ end 'Mismatch'
 // coerce requires the value of node, of type src, where a target is needed, and reports a refusal at the offset at, which is
 // where maxon points for the place that needs the value. An integer of another type is fixed by a cast
 // to the target, which is what the language converts with.
-export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
+export function coerce(mutates c Checker, mutates p ast.Project, node ast.NodeID, at diag.U32, src ast.TypeID, target ast.TypeID, wrong Mismatch, mutates errs diag.ErrorList) returns bool
 	if src == ast.noType or target == ast.noType 'okErr'
 		return true
 	end 'okErr'
@@ -433,6 +447,9 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	end 'ok'
 	let sk = p.types.entries[src as Count].kind
 	let dk = p.types.entries[target as Count].kind
+	if dk == ast.TypeKind.interfaceTy and sk != ast.TypeKind.interfaceTy 'interface'
+		return boxInto(c, p: p, node: node, at: at, src: src, iface: target, wrong: wrong, errs: errs)
+	end 'interface'
 	if dk == ast.TypeKind.floatRange and (ast.isFloatType(p.types, t: src) or ast.isIntType(p.types, t: src)) 'float'
 		floatMismatch(c, p: p, node: node, at: at, src: src, target: target, wrong: wrong, errs: errs)
 		return false
@@ -780,6 +797,12 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 		end 'ok'
 		return LackInfo.fail(LackStep.root(t, reason: LackReason.lackUnbounded))
 	end 'tp'
+	if k == ast.TypeKind.interfaceTy 'interface'
+		if wantCopy and not ast.reachesInterface(p.types, have: t, want: p.builtins.copyableTy) 'notCopyable'
+			return LackInfo.fail(LackStep.root(t, reason: LackReason.lackInterface))
+		end 'notCopyable'
+		return LackInfo.ok()
+	end 'interface'
 	var capTag = "D"
 	if wantCopy 'cpTag'
 		capTag = "C"
@@ -870,7 +893,9 @@ export function lackWhyText(tt ast.TypeTable, info LackInfo, capName String) ret
 			buf.append("'{oName}' has a destructor".toByteArray())
 		end 'dtor' else if r == LackReason.lackMutatesCaptures 'captures'
 			buf.append("'{oName}' mutates captures, so its closure holds state that only one owner may change".toByteArray())
-		end 'captures' else 'unb'
+		end 'captures' else if r == LackReason.lackInterface 'interface'
+			buf.append("a '{oName}' value holds a value of any type that implements '{oName}', which need not be Copyable".toByteArray())
+		end 'interface' else 'unb'
 			buf.append("the type parameter '{oName}' is not known to be {capName}".toByteArray())
 		end 'unb'
 	end 'each'
@@ -893,6 +918,9 @@ export function lackFixText(tt ast.TypeTable, info LackInfo, capName String) ret
 	if r == LackReason.lackMutatesCaptures 'captures'
 		return "pass it 'mutates' to share its use"
 	end 'captures'
+	if r == LackReason.lackInterface 'interface'
+		return "declare 'interface {oName} extends Copyable', so that only a Copyable type implements it"
+	end 'interface'
 	return ""
 end 'lackFixText'
 
@@ -1056,9 +1084,7 @@ export function resolveTypeRef(mutates c Checker, mutates p ast.Project, tr ast.
 	let t = resolveNamedTypeRef(c, p: p, tr: tr, selfTy: selfTy, errs: errs)
 	if t != ast.noType and p.types.entries[t as Count].kind == ast.TypeKind.interfaceTy 'ifTy'
 		let off = p.modules[c.modIdx].tree.startOf(tr)
-		let tName = ast.typeRefName(p.modules[c.modIdx].tree, id: tr)
-		checkFail(c.modID, off: off, code: diag.errInterfaceAsType, msg: "'{tName}' is an interface, which only bounds a type parameter: declare a type parameter with 'uses T where T implements {tName}' and use T as the type", errs: errs)
-		return ast.noType
+		c.pendingValueTypes.push(PendingValueType.make(off, iface: t, written: ast.typeRefName(p.modules[c.modIdx].tree, id: tr)))
 	end 'ifTy'
 	return t
 end 'resolveTypeRef'

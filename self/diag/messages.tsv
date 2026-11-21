@@ -38,6 +38,10 @@ assignMismatch	ErrTypeMismatch	cannot assign a value of type '{got}' to {place},
 assignMismatchCast	ErrTypeMismatch	cannot assign a value of type '{got}' to {place}, which holds '{expected}' — cast the value with 'as {expected}'
 argTypeMismatch	ErrTypeMismatch	argument type mismatch for {label}: expected '{expected}', got '{got}'
 argTypeMismatchCast	ErrTypeMismatch	argument type mismatch for {label}: expected '{expected}', got '{got}' — cast the argument with 'as {expected}'
+notConforming	ErrTypeMismatch	type '{got}' does not implement interface '{iface}'
+argNotConforming	ErrTypeMismatch	argument type mismatch for {label}: type '{got}' does not implement interface '{iface}'
+assignNotConforming	ErrTypeMismatch	cannot assign to {place}: type '{got}' does not implement interface '{iface}'
+returnNotConforming	ErrTypeMismatch	return type mismatch: type '{got}' does not implement interface '{iface}'
 returnTypeMismatch	ErrTypeMismatch	Cannot return '{got}' from function declared to return '{expected}'
 returnValueFromVoid	ErrTypeMismatch	type mismatch: '{name}' declares no return type, so it cannot return a value
 builtinArgNamed	ErrBuiltinArgNamed	a builtin's arguments are all positional and cannot be named ('name:' labels a parameter, and a builtin has no declaration to have one)

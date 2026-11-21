@@ -282,7 +282,7 @@ export let errSetNotInitialized = "E3903"
 // An argument for a 'sets' parameter already has a value.
 export let errSetArgument = "E3904"
 
-// An interface names the type of a value instead of bounding a type parameter.
+// An interface that cannot be the type of a value, since a requirement names Self or is static, names one.
 export let errInterfaceAsType = "E3905"
 
 // A generic function instantiates itself with a type argument that grows without end.

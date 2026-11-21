@@ -1,0 +1,10 @@
+// other declares neither Meter nor Namer, so its conformance holds in other alone.
+extension shapes.Meter implements names.Namer
+	function name() returns String
+		return "meter {n}"
+	end 'name'
+end 'Meter'
+
+export function inside() returns String
+	return names.describe(shapes.Meter.make(1))
+end 'inside'

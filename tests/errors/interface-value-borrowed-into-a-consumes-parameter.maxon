@@ -1,0 +1,43 @@
+typealias Integer = int(i64.min to i64.max)
+
+interface Shape
+	function area() returns Integer
+end 'Shape'
+
+type Square implements Shape
+	var side as Integer
+
+	static function make(side Integer) returns Self
+		return Self{side: side}
+	end 'make'
+
+	function area() returns Integer
+		return side
+	end 'area'
+end 'Square'
+
+type Plain
+	var n as Integer
+
+	static function make(n Integer) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Plain'
+
+type Holder
+	var shape as Shape
+
+	static function make(consumes shape Shape) returns Self
+		return Self{shape: shape}
+	end 'make'
+end 'Holder'
+
+function keep(s Shape) returns Holder
+	return Holder.make(s)
+end 'keep'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3900 at 36:21
