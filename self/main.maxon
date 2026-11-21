@@ -568,6 +568,7 @@ function selfTest()
 	testIr()
 	testBodies()
 	testInterp()
+	testFormat()
 	print("self: all checks passed\n")
 end 'selfTest'
 

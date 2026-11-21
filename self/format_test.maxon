@@ -1,0 +1,92 @@
+// The formatter's test: sources written wrongly on purpose, so they cannot be .maxon files (the lexer refuses them, and
+// the corpus is held in the one layout by `fmt --check`), each with the text the formatter writes for it.
+
+function formatText(text String, label String) returns String
+	return match consumes syntax.formatSource("{label}.maxon", text: text) 'result'
+		formatted(done) gives done
+		refused(errors) panic("{label}: the formatter refused: {errors[0].format()}")
+	end 'result'
+end 'formatText'
+
+// expectLayout checks the layout written for input, and that formatting the output again changes nothing.
+function expectLayout(label String, input String, expected String)
+	let got = formatText(input, label: label)
+	assertEqStr(got, expected: expected, label: label)
+	assertEqStr(formatText(got, label: label), expected: expected, label: "{label} again")
+end 'expectLayout'
+
+// expectRefusal checks that the formatter refuses input for something it cannot lay out, and so writes nothing.
+function expectRefusal(label String, input String, expectedMessage String)
+	match syntax.formatSource("{label}.maxon", text: input) 'result'
+		formatted(_) then panic("{label}: expected the error '{expectedMessage}', but the formatter wrote a layout")
+		refused(errors) then checkErrorMessage(errors[0].message, expected: expectedMessage, label: label)
+	end 'result'
+end 'expectRefusal'
+
+function testFormatWhitespace()
+	expectLayout("spaces and tabs between tokens", input: "let   x =\t1 +   2\n", expected: "let x = 1 + 2\n")
+	expectLayout("missing spaces around operators and after commas", input: "let x=a+b*c\nlet y=f(a,b)\n", expected: "let x = a + b * c\n\nlet y = f(a, b)\n")
+	expectLayout("spaces where tokens join", input: "let y = f (a , b )\nlet z = a . b\nlet w = - 1\n", expected: "let y = f(a, b)\n\nlet z = a.b\n\nlet w = -1\n")
+	expectLayout("trailing whitespace", input: "let x = 1  \t\n", expected: "let x = 1\n")
+	expectLayout("carriage returns", input: "let x = 1\r\n\r\nlet y = 2\r\n", expected: "let x = 1\n\nlet y = 2\n")
+	expectLayout("no final newline", input: "let x = 1", expected: "let x = 1\n")
+	expectLayout("byte order mark", input: "﻿let x = 1\n", expected: "let x = 1\n")
+	expectLayout("empty and blank files", input: "", expected: "")
+	expectLayout("only blank lines", input: "\n \n\t\n", expected: "")
+end 'testFormatWhitespace'
+
+function testFormatBlankLines()
+	expectLayout("missing blank line between declarations", input: "let a = 1\nlet b = 2\nlet c = 3\n", expected: "let a = 1\n\nlet b = 2\n\nlet c = 3\n")
+	expectLayout("extra blank lines between declarations", input: "let a = 1\n\n\n\nlet b = 2\n", expected: "let a = 1\n\nlet b = 2\n")
+	expectLayout("blank lines at the start and the end of the file", input: "\n\nlet a = 1\n\n\n", expected: "let a = 1\n")
+	expectLayout("blank line with tabs and spaces", input: "let a = 1\n\t \t\nlet b = 2\n", expected: "let a = 1\n\nlet b = 2\n")
+	expectLayout("blank lines inside a function", input: "function f()\n\n\tlet a = 1\n\n\tlet b = 2\nend 'f'\n", expected: "function f()\n\tlet a = 1\n\tlet b = 2\nend 'f'\n")
+	expectLayout("blank line between fields and before the first method", input: "type T\n\n\tvar a as T\n\n\tvar b as T\n\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\nend 'T'\n", expected: "type T\n\tvar a as T\n\tvar b as T\n\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\nend 'T'\n")
+	expectLayout("blank lines before methods", input: "type T\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\n\tfunction g()\n\t\tlet x = 1\n\tend 'g'\n\n\n\tstatic function h()\n\t\tlet x = 1\n\tend 'h'\nend 'T'\n", expected: "type T\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\n\n\tfunction g()\n\t\tlet x = 1\n\tend 'g'\n\n\tstatic function h()\n\t\tlet x = 1\n\tend 'h'\nend 'T'\n")
+	expectLayout("an interface has no blank lines", input: "interface I\n\tfunction f()\n\n\tfunction g()\nend 'I'\n", expected: "interface I\n\tfunction f()\n\tfunction g()\nend 'I'\n")
+end 'testFormatBlankLines'
+
+function testFormatComments()
+	expectLayout("comment lines are indented like the line after them", input: "function f()\n// first\n\t\t// second\n\tlet a = 1\n  // third\n\tlet b = 2\n\t\t// at the end\nend 'f'\n  // before the end label\n", expected: "function f()\n\t// first\n\t// second\n\tlet a = 1\n\t// third\n\tlet b = 2\n// at the end\nend 'f'\n\n// before the end label\n")
+	expectLayout("comment after code is one space away", input: "let a = 1// no space\nlet b = 2    // many spaces\nlet c = 3\t// a tab\n", expected: "let a = 1 // no space\n\nlet b = 2 // many spaces\n\nlet c = 3 // a tab\n")
+	expectLayout("comment text keeps its own spacing and loses trailing whitespace", input: "//   spaced   out  \nlet a = 1  \n", expected: "//   spaced   out\nlet a = 1\n")
+	expectLayout("comment paragraphs keep their blank line, and doubled blank lines collapse", input: "// one\n\n\n// two\nlet a = 1\n\n\n// three\n\n// four\nlet b = 2\n", expected: "// one\n\n// two\nlet a = 1\n\n// three\n\n// four\nlet b = 2\n")
+	expectLayout("a comment after a declaration gets its blank line", input: "let a = 1\n// then\nlet b = 2\n", expected: "let a = 1\n\n// then\nlet b = 2\n")
+	expectLayout("a comment before a method goes after its blank line", input: "type T\n\tvar a as T\n\t// about f\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\nend 'T'\n", expected: "type T\n\tvar a as T\n\n\t// about f\n\tfunction f()\n\t\tlet x = 1\n\tend 'f'\nend 'T'\n")
+	expectLayout("comments at the end of the file", input: "let a = 1\n// last\n\n\n// really last\n\n", expected: "let a = 1\n\n// last\n\n// really last\n")
+	expectLayout("a file of comments only", input: "\n\n  // one\n\n\n// two  \n\n", expected: "// one\n\n// two\n")
+	expectLayout("doc comments and directives are comments", input: "/// docs\nfunction main() returns ExitCode\n\t//> out\n\t// expect-exit:   1\n\treturn 0\nend 'main'\n", expected: "/// docs\nfunction main() returns ExitCode\n\t//> out\n\t// expect-exit:   1\n\treturn 0\nend 'main'\n")
+end 'testFormatComments'
+
+function testFormatStrings()
+	expectLayout("a string keeps its spaces and its slashes", input: "let s =   \"a   b // c\"  // end\n", expected: "let s = \"a   b // c\" // end\n")
+	expectLayout("interpolations are formatted too", input: "let s = \"\{ a+b \} and \{f( x,y )\}\"\n", expected: "let s = \"\{a + b\} and \{f(x, y)\}\"\n")
+	expectLayout("nested interpolations", input: "let s = \"\{f(\"\{ x+1 \}\")\}\"\n", expected: "let s = \"\{f(\"\{x + 1\}\")\}\"\n")
+end 'testFormatStrings'
+
+function testFormatRefusals()
+	expectRefusal("indented with spaces", input: "function f()\n  let a = 1\nend 'f'\n", expectedMessage: "a line is indented with a space; indent with tabs only")
+	expectRefusal("indented too deep", input: "function f()\n\t\tlet a = 1\nend 'f'\n", expectedMessage: "a line is indented more than one tab deeper than the line above")
+	expectRefusal("a line break inside parentheses", input: "let a = f(1,\n2)\n", expectedMessage: "a line breaks inside parentheses; keep what they hold on one line")
+	expectRefusal("a block comment", input: "/* no */\nlet a = 1\n", expectedMessage: "a block comment is not allowed; write // comments on their own lines or after code")
+	expectRefusal("a syntax error", input: "let = 1\n", expectedMessage: "Expected a name but got '='")
+	expectRefusal("an unterminated string", input: "let a = \"x\n", expectedMessage: "unterminated string literal")
+end 'testFormatRefusals'
+
+function testFormatMarkdown()
+	let doc = "Prose  with `let  x=1` kept.\n\n```maxon\nlet a=1\nlet b = 2\n```\n\n```\nlet   c = 3\n```\n\n```powershell\nlet   d = 4\n```\n\n```maxon\nlet = broken\n```\n\n```maxon\nlet e = 5\n```\n"
+	let expected = "Prose  with `let  x=1` kept.\n\n```maxon\nlet a = 1\n\nlet b = 2\n```\n\n```\nlet c = 3\n```\n\n```powershell\nlet   d = 4\n```\n\n```maxon\nlet = broken\n```\n\n```maxon\nlet e = 5\n```\n"
+	assertEqStr(syntax.formatMarkdown("a.md", text: doc), expected: expected, label: "markdown blocks that are programs")
+	let crlfDoc = "text\r\n```maxon\r\nlet a=1\r\n```\r\n"
+	let crlfExpected = "text\r\n```maxon\r\nlet a = 1\r\n```\r\n"
+	assertEqStr(syntax.formatMarkdown("a.md", text: crlfDoc), expected: crlfExpected, label: "markdown carriage returns")
+end 'testFormatMarkdown'
+
+function testFormat()
+	testFormatWhitespace()
+	testFormatBlankLines()
+	testFormatComments()
+	testFormatStrings()
+	testFormatRefusals()
+	testFormatMarkdown()
+end 'testFormat'
