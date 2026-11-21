@@ -1,6 +1,6 @@
 # Compile time of `self/`
 
-An uncached `minimaxon build self --timings` with the Go compiler, best of several runs, one row per stage
+One uncached `minimaxon build self --timings` with the Go compiler, one row per stage
 (`.\selftime.ps1 -Note <stage>`). Total is wall time; check and generate are task time summed over the modules.
 
 | Date | Commit | Stage | `self/` lines | Total ms | Check ms | Generate ms |

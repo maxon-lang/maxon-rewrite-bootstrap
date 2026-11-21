@@ -123,7 +123,7 @@ After each task's commit, record how long the Go compiler takes to build `self/`
 .\selftime.ps1 -Note '<stage>: <task>'
 ```
 
-It appends a row (best of several uncached builds) to `docs/self-compile-times.md`; the row goes into the next commit.
+It appends a row (one uncached build) to `docs/self-compile-times.md`; the row goes into the next commit.
 Report the number with the task, and say so when it jumps: a jump is looked into only for an algorithmic blow-up.
 
 ## Brief template
