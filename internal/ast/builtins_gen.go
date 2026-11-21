@@ -89,6 +89,7 @@ const (
 	IntrinsicCommandLineArgs
 	IntrinsicProcessEnvironmentVariable
 	IntrinsicProcessExecutablePath
+	IntrinsicProcessId
 	IntrinsicFilePathFrom
 	IntrinsicFilePathToString
 	IntrinsicFileReadText
@@ -203,6 +204,7 @@ func (op Intrinsic) RuntimeOnly() bool {
 		IntrinsicCommandLineArgs,
 		IntrinsicProcessEnvironmentVariable,
 		IntrinsicProcessExecutablePath,
+		IntrinsicProcessId,
 		IntrinsicFilePathFrom,
 		IntrinsicFilePathToString,
 		IntrinsicFileReadText,
@@ -584,6 +586,7 @@ func (b *Builtins) declareTable() {
 		f := b.method(b.Process, IntrinsicProcessExecutablePath, "executablePath", true, ConvLet, b.FilePath)
 		f.ErrorType = b.ProcessIntrospectionError
 	}
+	b.method(b.Process, IntrinsicProcessId, "id", true, ConvLet, b.Count)
 	{
 		f := b.method(b.FilePath, IntrinsicFilePathFrom, "from", true, ConvLet, SelfType(b.FilePath), param("path", StringTy, ConvLet))
 		f.ErrorType = b.FilePathError

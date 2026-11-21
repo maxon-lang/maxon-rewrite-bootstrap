@@ -1,10 +1,10 @@
 export let usageExitCode = 2 as ExitCode
 
-export let notImplementedExitCode = 6 as ExitCode
-
 let diagnosticsExitCode = 1 as ExitCode
 
 let emitIrFlag = "--emit-ir"
+
+let emitMapFlag = "--emit-map"
 
 let countAllocationsFlag = "--count-allocations"
 
@@ -14,74 +14,107 @@ let executableExtension = ".exe"
 
 let irExtension = ".ir"
 
+let mapExtension = ".map"
+
 typealias CommandNames = Array with String
 
-// goOnlyCommands are the commands of the Go compiler that this one does not have yet. They are told apart from an
-// unknown command so that the corpus runner counts a test that needs one as not yet supported instead of failed.
-function goOnlyCommands() returns CommandNames
-	var names = CommandNames.create(0)
-	names.push("rewrite")
-	names.push("qualify")
-	names.push("rename")
-	names.push("cache")
-	return names
-end 'goOnlyCommands'
-
 export function usage() returns String
-	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [dir]                            run the corpus of tests (default: the nearest tests directory)\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir. --count-allocations builds executables that count their live\nheap boxes and fail at exit with code 99 if any is left (development only).\n"
+	return "usage:\n  build <file.maxon|dir> [-o out.exe]   compile to a Windows x64 executable\n  run <file.maxon|dir>                  compile and run\n  check <file.maxon|dir>                report diagnostics only\n  test [--update-positions] [dir]       run the corpus of tests (default: the nearest tests directory)\n  interp <file.maxon|dir> [--seed=N]    run under the tracking interpreter (development only)\n  fuzz [--seed=N] [--count=N] [--schedules=N] [--keep=DIR] [--native] [--dump]\n                                        write random programs, check them and run them under the interpreter (development only)\n  rewrite --keyword=old=new <path>...   rename a keyword in the .maxon files and the code in the .md files under the paths\n  fmt [--check] <path>...               put the .maxon files and the Maxon code in the .md files in the one layout\n  qualify <dir>...                      write the module before each name of another module's declaration in the projects\n  rename [--prelude=f,...] [--rules=file] <rule>... <program>...\n                                        rename built-in types and method calls by what the checker resolved\n  selftest                              run the compiler's own tests\n\n--emit-ir writes the IR beside the executable, as <out>.ir; --emit-map writes the map of its code symbols, as <out>.map, which\ncmd/sample profiles with. --count-allocations builds executables that count their live heap boxes and fail at exit with\ncode 99 if any is left (development only). --update-positions makes test rewrite the position of an expect-error whose code\nwas reported at another place.\n"
 end 'usage'
 
-function isGoOnlyCommand(name String) returns bool
-	let names = goOnlyCommands()
-	for i in 0 upto names.count() 'each'
-		if names[i] == name 'found'
-			return true
-		end 'found'
-	end 'each'
+// absentFlagPrefixes start the flags that other compilers of the language have and this one does not.
+function absentFlagPrefixes() returns CommandNames
+	var prefixes = CommandNames.create(0)
+	prefixes.push("--timings")
+	prefixes.push("--trace=")
+	prefixes.push("--jobs=")
+	prefixes.push("--no-cache")
+	prefixes.push("--with=")
+	return prefixes
+end 'absentFlagPrefixes'
+
+// absentCommands are the commands that other compilers of the language have and this one does not.
+function absentCommands() returns CommandNames
+	var names = CommandNames.create(0)
+	names.push("cache")
+	return names
+end 'absentCommands'
+
+// hasAbsentFlag is whether some argument is a flag that this compiler does not have, and says so.
+function hasAbsentFlag(args Array with String) returns bool
+	let prefixes = absentFlagPrefixes()
+	for i in 1 upto args.count() 'args'
+		for j in 0 upto prefixes.count() 'prefixes'
+			if hasPrefix(args[i], prefix: prefixes[j]) 'absent'
+				printError("the flag '{args[i]}' does not exist in this compiler\n{usage()}")
+				return true
+			end 'absent'
+		end 'prefixes'
+	end 'args'
 	return false
-end 'isGoOnlyCommand'
+end 'hasAbsentFlag'
 
 // Options say how a program is compiled to an executable.
 type Options
 	// emitIr writes the IR of every function beside the executable, as <output>.ir.
 	var emitIr as bool
+	// emitMap writes the map of the executable's code symbols beside it, as <output>.map.
+	var emitMap as bool
 	// countAllocations makes the executable count its live heap boxes and fail at exit if any is left.
 	var countAllocations as bool
 
 	static function new() returns Options
-		return Options{emitIr: false, countAllocations: false}
+		return Options{emitIr: false, emitMap: false, countAllocations: false}
 	end 'new'
 end 'Options'
 
 // run is the compiler's command line; args holds the program's own name first, as CommandLine.args() gives it. The flags
 // may stand anywhere after it.
 export function run(args Array with String) returns ExitCode
+	if hasAbsentFlag(args) 'absentFlag'
+		return usageExitCode
+	end 'absentFlag'
 	var options = Options.new()
 	var rest = CommandNames.create(0)
 	for i in 1 upto args.count() 'flags'
 		if args[i] == emitIrFlag 'emitIr'
 			options.emitIr = true
-		end 'emitIr' else if args[i] == countAllocationsFlag 'count'
+		end 'emitIr' else if args[i] == emitMapFlag 'emitMap'
+			options.emitMap = true
+		end 'emitMap' else if args[i] == countAllocationsFlag 'count'
 			options.countAllocations = true
 		end 'count' else 'argument'
 			rest.push(args[i].clone())
 		end 'argument'
 	end 'flags'
-	if rest.count() >= 1 and rest[0] == "test" 'test'
-		return testCommand(rest)
-	end 'test'
-	if rest.count() >= 1 and rest[0] == "fuzz" 'fuzz'
-		return fuzzCommand(rest)
-	end 'fuzz'
-	if rest.count() < 2 'bare'
-		if rest.count() == 1 and isGoOnlyCommand(rest[0]) 'later'
-			printError("the command '{rest[0]}' is not implemented yet\n")
-			return notImplementedExitCode
-		end 'later'
+	if rest.count() == 0 'bare'
 		printError(usage())
 		return usageExitCode
 	end 'bare'
 	let command = rest[0].clone()
+	if isAbsentCommand(command) 'absentCommand'
+		printError("the command '{command}' does not exist in this compiler\n{usage()}")
+		return usageExitCode
+	end 'absentCommand'
+	if command == "test" 'test'
+		return testCommand(rest)
+	end 'test'
+	if command == "fuzz" 'fuzz'
+		return fuzzCommand(rest)
+	end 'fuzz'
+	if command == "rewrite" 'rewrite'
+		return rewriteCommand(rest)
+	end 'rewrite'
+	if command == "qualify" 'qualify'
+		return qualifyCommand(rest)
+	end 'qualify'
+	if command == "rename" 'rename'
+		return renameCommand(rest)
+	end 'rename'
+	if rest.count() < 2 'unnamed'
+		printError(usage())
+		return usageExitCode
+	end 'unnamed'
 	let path = rest[1].clone()
 	if command == "check" 'check'
 		return compilePath(path, output: "", options: options)
@@ -102,13 +135,19 @@ export function run(args Array with String) returns ExitCode
 	if command == "interp" 'interp'
 		return interpCommand(rest)
 	end 'interp'
-	if isGoOnlyCommand(command) 'later'
-		printError("the command '{command}' is not implemented yet\n")
-		return notImplementedExitCode
-	end 'later'
 	printError(usage())
 	return usageExitCode
 end 'run'
+
+function isAbsentCommand(name String) returns bool
+	let names = absentCommands()
+	for i in 0 upto names.count() 'each'
+		if names[i] == name 'found'
+			return true
+		end 'found'
+	end 'each'
+	return false
+end 'isAbsentCommand'
 
 // defaultOutput is the executable a build of path makes when no -o names one: the path without its extension and with the
 // executable's.
@@ -158,7 +197,8 @@ function runProgram(path String, options Options) returns ExitCode
 	return out.exitCode()
 end 'runProgram'
 
-// temporaryExecutable is where run builds the program at path: in the temporary directory, named after the program.
+// temporaryExecutable is where run builds the program at path: in the temporary directory, named after the process and the
+// program, so that two compilers running at once never write the same file.
 function temporaryExecutable(path String) returns String
 	let dir = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
 	let name = defaultOutput(path)
@@ -166,7 +206,7 @@ function temporaryExecutable(path String) returns String
 	while at > 0 and not isSeparator(name.byteAt(try at - 1 otherwise 0)) 'back'
 		at = try at - 1 otherwise 0
 	end 'back'
-	return "{dir}\\minimaxon-run-{name.sliceBytes(at, endPos: name.byteLength())}"
+	return "{dir}\\minimaxon-run-{Process.id()}-{name.sliceBytes(at, endPos: name.byteLength())}"
 end 'temporaryExecutable'
 
 // checkPath runs the front end over the project at path and prints its diagnostics.

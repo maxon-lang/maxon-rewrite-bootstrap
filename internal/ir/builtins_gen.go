@@ -82,6 +82,7 @@ const (
 	RtOsEnvironmentVariable               // (name String, error) -> String
 	RtOsExecutablePath                    // (error) -> String: the full path of the running executable
 	RtOsCurrentPath                       // () -> String: the working directory, panicking when Windows cannot give it
+	RtOsProcessId                         // () -> Count: the id of the running process
 	RtOsPathFrom                          // (path String, error) -> String: the path with the native separator for the other one
 	RtOsReadText                          // (path String, error) -> String
 	RtOsWriteText                         // (path String, content String, error)
@@ -165,6 +166,7 @@ var rtNames = [...]string{
 	RtOsEnvironmentVariable: "rt.os.environmentVariable",
 	RtOsExecutablePath:      "rt.os.executablePath",
 	RtOsCurrentPath:         "rt.os.currentPath",
+	RtOsProcessId:           "rt.os.processId",
 	RtOsPathFrom:            "rt.os.pathFrom",
 	RtOsReadText:            "rt.os.readText",
 	RtOsWriteText:           "rt.os.writeText",
@@ -261,6 +263,7 @@ var rtUnits = [...]RtUnit{
 	RtOsEnvironmentVariable: RtUnitOs,
 	RtOsExecutablePath:      RtUnitOs,
 	RtOsCurrentPath:         RtUnitOs,
+	RtOsProcessId:           RtUnitOs,
 	RtOsPathFrom:            RtUnitOs,
 	RtOsReadText:            RtUnitOs,
 	RtOsWriteText:           RtUnitOs,
@@ -322,6 +325,7 @@ var rtFunctions = [...]*RtFunction{
 	RtOsEnvironmentVariable: {Name: "osEnvironmentVariable", Symbol: "runtime::osEnvironmentVariable", Params: []RtParam{{Conv: ast.ConvLet, Name: "name", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsExecutablePath:      {Name: "osExecutablePath", Symbol: "runtime::osExecutablePath", Params: []RtParam{{Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsCurrentPath:         {Name: "osCurrentPath", Symbol: "runtime::osCurrentPath", Params: []RtParam{}, Result: "String"},
+	RtOsProcessId:           {Name: "osProcessId", Symbol: "runtime::osProcessId", Params: []RtParam{}, Result: "Count"},
 	RtOsPathFrom:            {Name: "osPathFrom", Symbol: "runtime::osPathFrom", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsReadText:            {Name: "osReadText", Symbol: "runtime::osReadText", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "String"},
 	RtOsWriteText:           {Name: "osWriteText", Symbol: "runtime::osWriteText", Params: []RtParam{{Conv: ast.ConvLet, Name: "path", Type: "String"}, {Conv: ast.ConvLet, Name: "content", Type: "String"}, {Conv: ast.ConvLet, Name: "errorAddress", Type: "Count"}}, Result: "Void"},
@@ -344,7 +348,7 @@ func (r Rt) Function() (*RtFunction, bool) {
 }
 
 // RtFunctions are the entries that the runtime's source defines, in the table's order.
-var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks, RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove, RtBytesNew, RtBytesLen, RtBytesGet, RtBytesSet, RtBytesInsert, RtBytesRemove, RtBytesAppend, RtBytesAppendStr, RtBytesToString, RtOsArgs, RtOsEnvironmentVariable, RtOsExecutablePath, RtOsCurrentPath, RtOsPathFrom, RtOsReadText, RtOsWriteText, RtOsWriteBinary, RtOsRename, RtOsDelete, RtOsIsDirectory, RtOsCreateDirectory, RtOsList, RtOsRun}
+var RtFunctions = []Rt{RtAlloc, RtFree, RtWrite, RtPanic, RtConcat, RtItoa, RtStreq, RtStrLen, RtStrByteAt, RtStrSlice, RtPanicIndex, RtCheckLeaks, RtArrayNew, RtArrayLen, RtArrayElem, RtArrayInsert, RtArrayRemove, RtBytesNew, RtBytesLen, RtBytesGet, RtBytesSet, RtBytesInsert, RtBytesRemove, RtBytesAppend, RtBytesAppendStr, RtBytesToString, RtOsArgs, RtOsEnvironmentVariable, RtOsExecutablePath, RtOsCurrentPath, RtOsProcessId, RtOsPathFrom, RtOsReadText, RtOsWriteText, RtOsWriteBinary, RtOsRename, RtOsDelete, RtOsIsDirectory, RtOsCreateDirectory, RtOsList, RtOsRun}
 
 // intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.
 func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
@@ -461,6 +465,8 @@ func (l *Lowerer) intrinsicCall(c call, recv V, args []V) V {
 		return l.lowerProcessEnvironmentVariable(c, recv, args)
 	case ast.IntrinsicProcessExecutablePath:
 		return l.lowerProcessExecutablePath(c, recv, args)
+	case ast.IntrinsicProcessId:
+		return l.lowerProcessId(c, recv, args)
 	case ast.IntrinsicFilePathFrom:
 		return l.lowerFilePathFrom(c, recv, args)
 	case ast.IntrinsicFilePathToString:
@@ -576,6 +582,7 @@ func ownsOperands(op ast.Intrinsic) bool {
 		ast.IntrinsicCommandLineArgs,
 		ast.IntrinsicProcessEnvironmentVariable,
 		ast.IntrinsicProcessExecutablePath,
+		ast.IntrinsicProcessId,
 		ast.IntrinsicFilePathFrom,
 		ast.IntrinsicFilePathToString,
 		ast.IntrinsicFileReadText,

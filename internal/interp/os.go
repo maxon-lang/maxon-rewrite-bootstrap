@@ -94,6 +94,10 @@ func (vm *vm) entryOsCurrentPath(c *runtimeCall) {
 	c.set(value{ref: vm.newString(dir)})
 }
 
+func (vm *vm) entryOsProcessId(c *runtimeCall) {
+	c.set(value{n: int64(os.Getpid())})
+}
+
 func (vm *vm) entryOsPathFrom(c *runtimeCall) {
 	path := vm.text(c.arg(0), "a path")
 	for i := range len(path) {

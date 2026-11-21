@@ -1,0 +1,113 @@
+// The rewrite command renames a keyword in the .maxon files and in the code of the .md files under some paths, by token. It
+// runs before Maxon.g4 changes, while the keyword is still one.
+
+let keywordFlagPrefix = "--keyword="
+
+let keywordSeparator = "="
+
+// markdownSkipText is what a report of skipped Markdown code says after the count.
+let markdownSkipText = "code spans or blocks that do not lex, first"
+
+// Rename is the keyword to rename and what to rename it to.
+type Rename
+	var old as String
+	var replacement as String
+
+	static function make(consumes old String, consumes replacement String) returns Rename
+		return Rename{old: old, replacement: replacement}
+	end 'make'
+end 'Rename'
+
+// splitRename is the rename that the text after --keyword= says, old=new, or nothing when it has no = or leaves old or new
+// empty.
+function splitRename(text String) returns table.Option with Rename
+	var at = 0 as Count
+	while at < text.byteLength() and text.sliceBytes(at, endPos: (try at + keywordSeparator.byteLength() otherwise text.byteLength())) != keywordSeparator 'scan'
+		at = try at + 1 otherwise panic("rewrite: a flag longer than memory")
+	end 'scan'
+	if at >= text.byteLength() 'unseparated'
+		return table.Option.none
+	end 'unseparated'
+	let old = text.sliceBytes(0, endPos: at)
+	let replacement = text.sliceBytes(try at + keywordSeparator.byteLength() otherwise panic("rewrite: a flag longer than memory"), endPos: text.byteLength())
+	if old == "" or replacement == "" 'empty'
+		return table.Option.none
+	end 'empty'
+	return table.Option.some(Rename.make(old, replacement: replacement))
+end 'splitRename'
+
+// rewriteCommand is the rewrite command: rest holds its name, --keyword=old=new and the paths.
+function rewriteCommand(rest CommandNames) returns ExitCode
+	if rest.count() < 3 or not hasPrefix(rest[1], prefix: keywordFlagPrefix) 'usage'
+		printError(usage())
+		return usageExitCode
+	end 'usage'
+	let spelled = rest[1].sliceBytes(keywordFlagPrefix.byteLength(), endPos: rest[1].byteLength())
+	var paths = ast.StringList.create(0)
+	for i in 2 upto rest.count() 'paths'
+		paths.push(rest[i].clone())
+	end 'paths'
+	return match consumes splitRename(spelled) 'rename'
+		some(rename) gives renameKeyword(rename, paths: paths)
+		none gives usageFailure()
+	end 'rename'
+end 'rewriteCommand'
+
+function usageFailure() returns ExitCode
+	printError(usage())
+	return usageExitCode
+end 'usageFailure'
+
+// renameKeyword renames the keyword in every .maxon and .md file under paths, and reports the files it could not lex, which
+// it leaves alone.
+function renameKeyword(rename Rename, paths ast.StringList) returns ExitCode
+	if not ast.isReserved(rename.old) 'reserved'
+		printError("'{rename.old}' is not a keyword of the current grammar: rename it before changing Maxon.g4\n")
+		return usageExitCode
+	end 'reserved'
+	var files = ast.StringList.create(0)
+	if not collectSourceFilesOf(paths, files: files) 'unreadable'
+		return diagnosticsExitCode
+	end 'unreadable'
+	var renamed = 0 as Count
+	var changedFiles = 0 as Count
+	var skipped = 0 as Count
+	for i in 0 upto files.count() 'files'
+		let file = files[i].clone()
+		let filePath = try FilePath.from(file) otherwise panic("rewrite: {file} is not a path")
+		let text = try File.readText(filePath) otherwise panic("rewrite: cannot read {file}")
+		var edits = syntax.Edits.create(0)
+		if endsWithText(file, suffix: markdownExtension) 'markdown'
+			let found = syntax.markdownKeywordEdits(file, text: text, old: rename.old, replacement: rename.replacement)
+			if found.refused > 0 'refused'
+				print("skipped  {found.refused} {markdownSkipText} {found.firstRefusal[0].format()}\n")
+				skipped = try skipped + found.refused otherwise panic("rewrite: more skips than memory")
+			end 'refused'
+			edits = found.edits.clone()
+		end 'markdown' else 'maxon'
+			var errs = diag.ErrorList.create(0)
+			var failed = false
+			try 'lex'
+				edits = syntax.keywordEdits(syntax.sourceOf(text.clone(), path: file), old: rename.old, replacement: rename.replacement, errs: errs)
+			end 'lex' otherwise 'refused'
+				failed = true
+			end 'refused'
+			if failed 'unlexed'
+				// A file the lexer refuses, such as a test of a lexer error, matters only if it may hold the keyword.
+				if holdsText(text, needle: rename.old) 'holds'
+					print("skipped  {errs[0].format()}\n")
+					skipped = increment(skipped)
+				end 'holds'
+				continue 'files'
+			end 'unlexed'
+		end 'maxon'
+		if edits.count() == 0 'unchanged'
+			continue 'files'
+		end 'unchanged'
+		try File.writeText(filePath, content: syntax.applyEdits(text, edits: edits)) otherwise panic("rewrite: cannot write {file}")
+		renamed = try renamed + edits.count() otherwise panic("rewrite: more edits than memory")
+		changedFiles = increment(changedFiles)
+	end 'files'
+	print("renamed {renamed} uses of '{rename.old}' in {changedFiles} files; {skipped} files or Markdown code spans that may hold it could not be lexed\n")
+	return 0
+end 'renameKeyword'

@@ -239,6 +239,10 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryOsCurrentPath(vm, f: f, x: x)
 		return
 	end 'rtOsCurrentPath'
+	if symbol == ir.Rt.rtOsProcessId 'rtOsProcessId'
+		try entryOsProcessId(vm, f: f, x: x)
+		return
+	end 'rtOsProcessId'
 	if symbol == ir.Rt.rtOsPathFrom 'rtOsPathFrom'
 		try entryOsPathFrom(vm, f: f, x: x)
 		return

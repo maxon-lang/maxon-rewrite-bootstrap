@@ -350,6 +350,11 @@ function osCurrentPath() returns String
 	return text
 end 'osCurrentPath'
 
+// osProcessId is the id of the running process, which Windows answers as a DWORD.
+function osProcessId() returns Count
+	return dword(__Raw.callImport0("GetCurrentProcessId"))
+end 'osProcessId'
+
 // osPathFrom is a path with the native separator in place of the other one, which refuses a character that Windows does
 // not allow in a path.
 function osPathFrom(path String, errorAddress Count) returns String

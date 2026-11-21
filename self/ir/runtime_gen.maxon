@@ -73,6 +73,7 @@ export enum Rt
 	rtOsEnvironmentVariable
 	rtOsExecutablePath
 	rtOsCurrentPath
+	rtOsProcessId
 	rtOsPathFrom
 	rtOsReadText
 	rtOsWriteText
@@ -297,6 +298,9 @@ export function rtSymbol(r Rt) returns String
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
 		return "runtime::osCurrentPath"
 	end 'rtOsCurrentPath'
+	if r == Rt.rtOsProcessId 'rtOsProcessId'
+		return "runtime::osProcessId"
+	end 'rtOsProcessId'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
 		return "runtime::osPathFrom"
 	end 'rtOsPathFrom'
@@ -542,6 +546,9 @@ export function rtText(r Rt) returns String
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
 		return "rt.os.currentPath"
 	end 'rtOsCurrentPath'
+	if r == Rt.rtOsProcessId 'rtOsProcessId'
+		return "rt.os.processId"
+	end 'rtOsProcessId'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
 		return "rt.os.pathFrom"
 	end 'rtOsPathFrom'
@@ -787,35 +794,38 @@ export function rtCode(r Rt) returns Count
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
 		return 70
 	end 'rtOsCurrentPath'
-	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
+	if r == Rt.rtOsProcessId 'rtOsProcessId'
 		return 71
+	end 'rtOsProcessId'
+	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
+		return 72
 	end 'rtOsPathFrom'
 	if r == Rt.rtOsReadText 'rtOsReadText'
-		return 72
+		return 73
 	end 'rtOsReadText'
 	if r == Rt.rtOsWriteText 'rtOsWriteText'
-		return 73
+		return 74
 	end 'rtOsWriteText'
 	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
-		return 74
+		return 75
 	end 'rtOsWriteBinary'
 	if r == Rt.rtOsRename 'rtOsRename'
-		return 75
+		return 76
 	end 'rtOsRename'
 	if r == Rt.rtOsDelete 'rtOsDelete'
-		return 76
+		return 77
 	end 'rtOsDelete'
 	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
-		return 77
+		return 78
 	end 'rtOsIsDirectory'
 	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
-		return 78
+		return 79
 	end 'rtOsCreateDirectory'
 	if r == Rt.rtOsList 'rtOsList'
-		return 79
+		return 80
 	end 'rtOsList'
 	if r == Rt.rtOsRun 'rtOsRun'
-		return 80
+		return 81
 	end 'rtOsRun'
 	panic("ir: rtNone has no number")
 end 'rtCode'
@@ -893,16 +903,17 @@ export function rtOf(code Count) returns Rt
 		68 gives Rt.rtOsEnvironmentVariable
 		69 gives Rt.rtOsExecutablePath
 		70 gives Rt.rtOsCurrentPath
-		71 gives Rt.rtOsPathFrom
-		72 gives Rt.rtOsReadText
-		73 gives Rt.rtOsWriteText
-		74 gives Rt.rtOsWriteBinary
-		75 gives Rt.rtOsRename
-		76 gives Rt.rtOsDelete
-		77 gives Rt.rtOsIsDirectory
-		78 gives Rt.rtOsCreateDirectory
-		79 gives Rt.rtOsList
-		80 gives Rt.rtOsRun
+		71 gives Rt.rtOsProcessId
+		72 gives Rt.rtOsPathFrom
+		73 gives Rt.rtOsReadText
+		74 gives Rt.rtOsWriteText
+		75 gives Rt.rtOsWriteBinary
+		76 gives Rt.rtOsRename
+		77 gives Rt.rtOsDelete
+		78 gives Rt.rtOsIsDirectory
+		79 gives Rt.rtOsCreateDirectory
+		80 gives Rt.rtOsList
+		81 gives Rt.rtOsRun
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
@@ -1130,6 +1141,9 @@ export function rtUnit(r Rt) returns RtUnit
 	if r == Rt.rtOsCurrentPath 'rtOsCurrentPath'
 		return RtUnit.rtUnitOs
 	end 'rtOsCurrentPath'
+	if r == Rt.rtOsProcessId 'rtOsProcessId'
+		return RtUnit.rtUnitOs
+	end 'rtOsProcessId'
 	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
 		return RtUnit.rtUnitOs
 	end 'rtOsPathFrom'
@@ -1299,50 +1313,52 @@ export function rtFunctions(b ast.Builtins) returns RtFunctionList
 	fns.push(RtFunction.make(Rt.rtOsExecutablePath, name: "osExecutablePath", params: params28, result: b.stringTy))
 	let params29 = RtParamList.create(0)
 	fns.push(RtFunction.make(Rt.rtOsCurrentPath, name: "osCurrentPath", params: params29, result: b.stringTy))
-	var params30 = RtParamList.create(0)
-	params30.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params30.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsPathFrom, name: "osPathFrom", params: params30, result: b.stringTy))
+	let params30 = RtParamList.create(0)
+	fns.push(RtFunction.make(Rt.rtOsProcessId, name: "osProcessId", params: params30, result: b.countTy))
 	var params31 = RtParamList.create(0)
 	params31.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
 	params31.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsReadText, name: "osReadText", params: params31, result: b.stringTy))
+	fns.push(RtFunction.make(Rt.rtOsPathFrom, name: "osPathFrom", params: params31, result: b.stringTy))
 	var params32 = RtParamList.create(0)
 	params32.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params32.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.stringTy))
 	params32.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsWriteText, name: "osWriteText", params: params32, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsReadText, name: "osReadText", params: params32, result: b.stringTy))
 	var params33 = RtParamList.create(0)
 	params33.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params33.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.countTy))
+	params33.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.stringTy))
 	params33.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsWriteBinary, name: "osWriteBinary", params: params33, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsWriteText, name: "osWriteText", params: params33, result: b.voidTy))
 	var params34 = RtParamList.create(0)
-	params34.push(RtParam.make(ast.Convention.convLet, name: "source", ty: b.stringTy))
-	params34.push(RtParam.make(ast.Convention.convLet, name: "destination", ty: b.stringTy))
+	params34.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
+	params34.push(RtParam.make(ast.Convention.convLet, name: "content", ty: b.countTy))
 	params34.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsRename, name: "osRename", params: params34, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsWriteBinary, name: "osWriteBinary", params: params34, result: b.voidTy))
 	var params35 = RtParamList.create(0)
-	params35.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
+	params35.push(RtParam.make(ast.Convention.convLet, name: "source", ty: b.stringTy))
+	params35.push(RtParam.make(ast.Convention.convLet, name: "destination", ty: b.stringTy))
 	params35.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsDelete, name: "osDelete", params: params35, result: b.voidTy))
+	fns.push(RtFunction.make(Rt.rtOsRename, name: "osRename", params: params35, result: b.voidTy))
 	var params36 = RtParamList.create(0)
 	params36.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtOsIsDirectory, name: "osIsDirectory", params: params36, result: b.boolTy))
+	params36.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsDelete, name: "osDelete", params: params36, result: b.voidTy))
 	var params37 = RtParamList.create(0)
 	params37.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	fns.push(RtFunction.make(Rt.rtOsCreateDirectory, name: "osCreateDirectory", params: params37, result: b.boolTy))
+	fns.push(RtFunction.make(Rt.rtOsIsDirectory, name: "osIsDirectory", params: params37, result: b.boolTy))
 	var params38 = RtParamList.create(0)
 	params38.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
-	params38.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsList, name: "osList", params: params38, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsCreateDirectory, name: "osCreateDirectory", params: params38, result: b.boolTy))
 	var params39 = RtParamList.create(0)
-	params39.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
-	params39.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
-	params39.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
-	params39.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
-	params39.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params39.push(RtParam.make(ast.Convention.convLet, name: "path", ty: b.stringTy))
 	params39.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
-	fns.push(RtFunction.make(Rt.rtOsRun, name: "osRun", params: params39, result: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsList, name: "osList", params: params39, result: b.countTy))
+	var params40 = RtParamList.create(0)
+	params40.push(RtParam.make(ast.Convention.convLet, name: "executable", ty: b.stringTy))
+	params40.push(RtParam.make(ast.Convention.convLet, name: "arguments", ty: b.countTy))
+	params40.push(RtParam.make(ast.Convention.convLet, name: "deadlineMs", ty: b.countTy))
+	params40.push(RtParam.make(ast.Convention.convLet, name: "stdout", ty: b.countTy))
+	params40.push(RtParam.make(ast.Convention.convLet, name: "stderr", ty: b.countTy))
+	params40.push(RtParam.make(ast.Convention.convLet, name: "errorAddress", ty: b.countTy))
+	fns.push(RtFunction.make(Rt.rtOsRun, name: "osRun", params: params40, result: b.countTy))
 	return fns
 end 'rtFunctions'

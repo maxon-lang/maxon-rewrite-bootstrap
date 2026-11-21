@@ -84,6 +84,20 @@ function isReadable(path String) returns bool
 	end 'read'
 end 'isReadable'
 
+// collectSourceFilesOf adds to files the .maxon and .md files at paths, each a file or a directory to search, sorted by path. It
+// says which path cannot be read and gives false when one cannot.
+function collectSourceFilesOf(paths ast.StringList, mutates files ast.StringList) returns bool
+	for i in 0 upto paths.count() 'roots'
+		if not isReadable(paths[i]) 'unreadable'
+			printError("cannot read {paths[i]}\n")
+			return false
+		end 'unreadable'
+		collectSourceFiles(paths[i], files: files)
+	end 'roots'
+	project.sortStrings(files)
+	return true
+end 'collectSourceFilesOf'
+
 function containsPath(paths ast.StringList, path String) returns bool
 	for i in 0 upto paths.count() 'each'
 		if paths[i] == path 'same'
@@ -117,14 +131,9 @@ end 'formatCommand'
 // error.
 function formatFiles(paths ast.StringList, check bool) returns ExitCode
 	var files = ast.StringList.create(0)
-	for i in 0 upto paths.count() 'roots'
-		if not isReadable(paths[i]) 'unreadable'
-			printError("cannot read {paths[i]}\n")
-			return diagnosticsExitCode
-		end 'unreadable'
-		collectSourceFiles(paths[i], files: files)
-	end 'roots'
-	project.sortStrings(files)
+	if not collectSourceFilesOf(paths, files: files) 'unreadable'
+		return diagnosticsExitCode
+	end 'unreadable'
 	var changed = 0 as Count
 	var refused = 0 as Count
 	var layoutTests = 0 as Count

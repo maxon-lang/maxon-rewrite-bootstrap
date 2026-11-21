@@ -164,6 +164,7 @@ export enum Intrinsic
 	intrCommandLineArgs
 	intrProcessEnvironmentVariable
 	intrProcessExecutablePath
+	intrProcessId
 	intrFilePathFrom
 	intrFilePathToString
 	intrFileReadText
@@ -684,6 +685,7 @@ function declareProcessMethods(mutates tt TypeTable, mutates ft FuncTable, mutat
 	ft.entries[f2 as Count].errTy = b.processIntrospectionErrorTy
 	let f3 = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessExecutablePath, name: "executablePath", isStatic: true, selfConv: Convention.convLet, ret: b.filePathTy, params: ParamSpecList.create(0))
 	ft.entries[f3 as Count].errTy = b.processIntrospectionErrorTy
+	_ = registerMethodOn(tt, ft: ft, std: std, owner: b.processTy, op: Intrinsic.intrProcessId, name: "id", isStatic: true, selfConv: Convention.convLet, ret: b.countTy, params: ParamSpecList.create(0))
 end 'declareProcessMethods'
 
 function declareFilePathMethods(mutates tt TypeTable, mutates ft FuncTable, mutates std Module, mutates b Builtins, mutates funcMap FuncIDMap)

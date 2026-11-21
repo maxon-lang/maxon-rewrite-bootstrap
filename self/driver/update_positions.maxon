@@ -1,0 +1,25 @@
+// moveExpectedError rewrites the expect-error directive of program, a file or a project directory, from old to replacement.
+function moveExpectedError(program String, old String, replacement String)
+	var files = ast.StringList.create(0)
+	if project.isDirectoryPath(program) 'project'
+		projectSources(program, files: files)
+	end 'project' else 'single'
+		files.push(program.clone())
+	end 'single'
+	let oldLine = "{expectErrorPrefix} {old}"
+	let newLine = "{expectErrorPrefix} {replacement}"
+	for i in 0 upto files.count() 'files'
+		let path = try FilePath.from(files[i]) otherwise panic("test: {files[i]} is not a path")
+		let text = try File.readText(path) otherwise panic("test: cannot read {files[i]}")
+		let found = findText(text, needle: oldLine)
+		if found.isSome() 'found'
+			let at = found.unwrap()
+			let stop = try at + oldLine.byteLength() otherwise panic("test: {files[i]} is too long")
+			let moved = "{text.sliceBytes(0, endPos: at)}{newLine}{text.sliceBytes(stop, endPos: text.byteLength())}"
+			try File.writeText(path, content: moved) otherwise panic("test: cannot write {files[i]}")
+			print("moved  {files[i]}: {old} -> {replacement}\n")
+			return
+		end 'found'
+	end 'files'
+	panic("test: no file of {program} holds '{oldLine}'")
+end 'moveExpectedError'

@@ -1,0 +1,1313 @@
+// The rename command rewrites built-in types and calls of built-in methods in programs by what the checker resolved each
+// name to, never by its text: `append` on an array is renamed by a rule for Array.append, and `append` on a list is left
+// alone. A rule is one of
+//
+//	old=New                  a built-in type, wherever a type or an expression names it
+//	Owner.old=new            a built-in method of Owner (a type of the table, or String), at every call of it
+//	.old=new                 the deep copy that every type has, whose name is old (.copy=clone renamed it)
+//	Owner.old=new(template)  the call's name and arguments, written again from the template, in which {param} is the
+//	                         text of the argument for that parameter of the old signature
+//	Owner.old=...{call}...   the whole call, receiver and all, written again from the template, in parentheses where it is
+//	                         an operand: Array.pop=try {call} otherwise panic("empty"); {self} in it is the text of the
+//	                         receiver, and {param} the argument's: String.byteAt={self}[{index}]
+//	Owner.old.m=...{call}... as the one before, for a call followed by '.m()', which the template replaces too
+//	old()=template           a built-in free function: the whole call written again from the template, {param} as above,
+//	                         as when the table makes one a static method: readFile()=File.readText({path})
+//	old().m=template         as the one before, for a call followed by '.m()', which the template replaces too
+//	Owner.old=?              lists the calls instead of rewriting them
+//
+// A program is a file or a project directory as check takes it; a file of cases ("// case: name" lines) is checked case by
+// case, each after the --prelude files, as the unit tests read it. --rules=FILE reads rules from a file, one to a line.
+// What the checker did not reach, because the program stops at an error first, is listed so it can be renamed by hand.
+
+let preludeFlagPrefix = "--prelude="
+
+let rulesFlagPrefix = "--rules="
+
+let caseMarker = "// case: "
+
+let ruleSeparator = "="
+
+let memberSeparator = "."
+
+let argumentsOpen = "("
+
+// listRule, as what a rule writes, lists the calls it matches instead of renaming them.
+let listRule = "?"
+
+// freeCallMark ends the name of a free function in a rule.
+let freeCallMark = "()"
+
+// The names that stand for the whole call and for its receiver in a template, and the text that writes each.
+let callPlaceholderName = "call"
+
+let selfPlaceholderName = "self"
+
+let callPlaceholder = "\{call\}"
+
+let selfPlaceholder = "\{self\}"
+
+// The file name the source of a case is given, which no file has.
+let caseFileName = "case.maxon"
+
+let openParenByte = 40 as Byte
+
+let closeParenByte = 41 as Byte
+
+let openBracketByte = 91 as Byte
+
+let closeBracketByte = 93 as Byte
+
+let openBraceByte = 123 as Byte
+
+let closeBraceByte = 125 as Byte
+
+let quoteByte = 34 as Byte
+
+let equalsByte = 61 as Byte
+
+let underscoreByte = 95 as Byte
+
+let lowerAByte = 97 as Byte
+
+let lowerZByte = 122 as Byte
+
+let upperAByte = 65 as Byte
+
+let upperZByte = 90 as Byte
+
+// returnWord ends a statement that a template may write in place of a call.
+let returnWord = "return"
+
+// Cut is a text split at the first of a separator: what comes before it and what comes after it.
+type Cut
+	var head as String
+	var tail as String
+
+	static function make(consumes head String, consumes tail String) returns Cut
+		return Cut{head: head, tail: tail}
+	end 'make'
+end 'Cut'
+
+// indexOfText is where needle first stands in text from the byte from on.
+function indexOfText(text String, needle String, from Count) returns table.Option with Count
+	var at = from
+	while at < text.byteLength() 'scan'
+		if matchesAt(text, at: at, needle: needle) 'found'
+			return table.Option.some(at)
+		end 'found'
+		at = increment(at)
+	end 'scan'
+	return table.Option.none
+end 'indexOfText'
+
+// cutText is text split at the first separator in it, or nothing when it has none.
+function cutText(text String, separator String) returns table.Option with Cut
+	let found = indexOfText(text, needle: separator, from: 0)
+	if not found.isSome() 'none'
+		return table.Option.none
+	end 'none'
+	let at = found.unwrap()
+	let tailStart = try at + separator.byteLength() otherwise panic("rename: a rule longer than memory")
+	return table.Option.some(Cut.make(text.sliceBytes(0, endPos: at), tail: text.sliceBytes(tailStart, endPos: text.byteLength())))
+end 'cutText'
+
+// RenameRule is one rule: what it renames, and what it writes instead.
+type RenameRule
+	var owner as String
+	var old as String
+	var isType as bool
+	var newName as String
+	// template, when not empty, replaces the name and the arguments of the call, or with {call} in it the whole call.
+	var template as String
+	// suffix, when not empty, is a method with no arguments that the call must be followed by, as in
+	// Array.pop.unwrap=...: the rule then replaces the call of it too.
+	var suffix as String
+	// free is whether old is a built-in free function, whose whole call the template replaces.
+	var free as bool
+
+	static function new() returns RenameRule
+		return RenameRule{owner: "", old: "", isType: false, newName: "", template: "", suffix: "", free: false}
+	end 'new'
+end 'RenameRule'
+
+typealias RenameRules = Array with RenameRule
+
+// parseRenameRule is the rule that text writes, or nothing when it is no rule.
+function parseRenameRule(text String) returns table.Option with RenameRule
+	let split = cutText(text, separator: ruleSeparator)
+	if not split.isSome() 'noSeparator'
+		return table.Option.none
+	end 'noSeparator'
+	let sides = split.unwrap()
+	if sides.head == "" or sides.tail == "" 'empty'
+		return table.Option.none
+	end 'empty'
+	var rule = RenameRule.new()
+	rule.newName = sides.tail.clone()
+	let args = cutText(sides.tail, separator: argumentsOpen)
+	if args.isSome() or holdsText(sides.tail, needle: "\{") 'templated'
+		if args.isSome() 'named'
+			let name = args.unwrap()
+			rule.newName = name.head.clone()
+		end 'named'
+		rule.template = sides.tail.clone()
+	end 'templated'
+	let free = cutText(sides.head, separator: freeCallMark)
+	if free.isSome() 'freeCandidate'
+		let call = free.unwrap()
+		if not holdsText(call.head, needle: memberSeparator) 'freeFunction'
+			rule.free = true
+			rule.old = call.head.clone()
+			if call.tail != "" 'suffixed'
+				if not hasPrefix(call.tail, prefix: memberSeparator) 'noDot'
+					return table.Option.none
+				end 'noDot'
+				rule.suffix = call.tail.sliceBytes(1, endPos: call.tail.byteLength())
+			end 'suffixed'
+			if call.head != "" and rule.template != "" 'valid'
+				return table.Option.some(rule)
+			end 'valid'
+			return table.Option.none
+		end 'freeFunction'
+	end 'freeCandidate'
+	let member = cutText(sides.head, separator: memberSeparator)
+	if not member.isSome() 'typeRule'
+		rule.isType = true
+		rule.old = sides.head.clone()
+		if rule.template == "" 'plain'
+			return table.Option.some(rule)
+		end 'plain'
+		return table.Option.none
+	end 'typeRule'
+	let names = member.unwrap()
+	rule.owner = names.head.clone()
+	let suffixed = cutText(names.tail, separator: memberSeparator)
+	if suffixed.isSome() 'withSuffix'
+		let parts = suffixed.unwrap()
+		rule.old = parts.head.clone()
+		rule.suffix = parts.tail.clone()
+	end 'withSuffix' else 'plainMethod'
+		rule.old = names.tail.clone()
+	end 'plainMethod'
+	if rule.old != "" 'valid'
+		return table.Option.some(rule)
+	end 'valid'
+	return table.Option.none
+end 'parseRenameRule'
+
+// TemplatePart is a part of what a template writes: literal text, or the text of an argument, which is itself written with the
+// edits inside it.
+type TemplatePart
+	var literal as String
+	var begin as Count
+	var until as Count
+	var isArg as bool
+
+	static function text(consumes literal String) returns TemplatePart
+		return TemplatePart{literal: literal, begin: 0 as Count, until: 0 as Count, isArg: false}
+	end 'text'
+
+	static function argument(begin Count, until Count) returns TemplatePart
+		return TemplatePart{literal: "", begin: begin, until: until, isArg: true}
+	end 'argument'
+end 'TemplatePart'
+
+typealias TemplateParts = Array with TemplatePart
+
+// RenameEdit replaces the text of a file from begin until until, with text, or with the parts of a template.
+type RenameEdit
+	var begin as Count
+	var until as Count
+	var text as String
+	var parts as TemplateParts
+	var templated as bool
+
+	static function replace(begin Count, until Count, consumes text String) returns RenameEdit
+		return RenameEdit{begin: begin, until: until, text: text, parts: TemplateParts.create(0), templated: false}
+	end 'replace'
+
+	static function write(begin Count, until Count, consumes parts TemplateParts) returns RenameEdit
+		return RenameEdit{begin: begin, until: until, text: "", parts: parts, templated: true}
+	end 'write'
+end 'RenameEdit'
+
+typealias RenameEdits = Array with RenameEdit
+
+typealias RenameEditLists = Array with RenameEdits
+
+// EditSlots are where each edit of a file is in its list, by the offset it begins at.
+typealias EditSlots = table.IntMap with Count
+
+typealias EditSlotLists = Array with EditSlots
+
+// RenameSite is a place in a file that the rules rename.
+type RenameSite
+	var file as String
+	var edit as RenameEdit
+	// missed, when not empty, is a name the rules would rename at edit.begin that could not be placed.
+	var missed as String
+
+	static function rename(consumes file String, consumes edit RenameEdit) returns RenameSite
+		return RenameSite{file: file, edit: edit, missed: ""}
+	end 'rename'
+
+	static function miss(consumes file String, at Count, consumes name String) returns RenameSite
+		return RenameSite{file: file, edit: RenameEdit.replace(at, until: at, text: ""), missed: name}
+	end 'miss'
+end 'RenameSite'
+
+typealias RenameSites = Array with RenameSite
+
+// Located is a place in a file of a module: the file's index, and the offset in the file.
+type Located
+	var file as Count
+	var local as Count
+
+	static function make(file Count, local Count) returns Located
+		return Located{file: file, local: local}
+	end 'make'
+end 'Located'
+
+// ModuleText is the text of the files of a module, as the edits are made on it.
+type ModuleText
+	var spans as ast.FileSpanList
+	var texts as ast.StringList
+
+	static function new() returns ModuleText
+		return ModuleText{spans: ast.FileSpanList.create(0), texts: ast.StringList.create(0)}
+	end 'new'
+
+	// at is where the offset of the module's text is in the files.
+	function at(offset Count) returns Located
+		let file = ast.findFileIndex(spans, offset: try offset as diag.U32 otherwise panic("rename: an offset past U32"))
+		return Located.make(file, local: try offset - (spans[file].start as Count) otherwise panic("rename: an offset before its file"))
+	end 'at'
+end 'ModuleText'
+
+// ArgSpan is where an argument's text is in a file.
+type ArgSpan
+	var begin as Count
+	var until as Count
+
+	static function make(begin Count, until Count) returns ArgSpan
+		return ArgSpan{begin: begin, until: until}
+	end 'make'
+end 'ArgSpan'
+
+typealias ArgSpans = table.StringMap with ArgSpan
+
+typealias SpanList = Array with ArgSpan
+
+// Segment maps a run of the checked file's text to where it came from.
+type Segment
+	var file as String
+	var begin as Count
+	var length as Count
+	var origin as Count
+
+	static function make(consumes file String, begin Count, length Count, origin Count) returns Segment
+		return Segment{file: file, begin: begin, length: length, origin: origin}
+	end 'make'
+end 'Segment'
+
+typealias Segments = Array with Segment
+
+// readSourceText is the text of the file at path.
+function readSourceText(path String) returns String
+	let file = try FilePath.from(path) otherwise panic("rename: {path} is not a path")
+	return try File.readText(file) otherwise panic("rename: cannot read {path}")
+end 'readSourceText'
+
+// isNameByte is whether c may be in a name.
+function isNameByte(c Byte) returns bool
+	return c == underscoreByte or (c >= lowerAByte and c <= lowerZByte) or (c >= upperAByte and c <= upperZByte) or (c >= zeroByte and c <= nineByte)
+end 'isNameByte'
+
+// skipName is where the name at at ends.
+function skipName(src String, at Count) returns Count
+	var stop = at
+	while stop < src.byteLength() and isNameByte(src.byteAt(stop)) 'name'
+		stop = increment(stop)
+	end 'name'
+	return stop
+end 'skipName'
+
+// hasName is whether the name at at is name, and not only starts with it.
+function hasName(src String, at Count, name String) returns bool
+	return matchesAt(src, at: at, needle: name) and skipName(src, at: at) == (try at + name.byteLength() otherwise panic("rename: a name past memory"))
+end 'hasName'
+
+function isOpenBracket(c Byte) returns bool
+	return c == openParenByte or c == openBracketByte or c == openBraceByte
+end 'isOpenBracket'
+
+function isCloseBracket(c Byte) returns bool
+	return c == closeParenByte or c == closeBracketByte or c == closeBraceByte
+end 'isCloseBracket'
+
+// skipGroup is the offset after the bracket that closes the one at at, past strings and the groups inside.
+function skipGroup(src String, at Count) returns Count
+	var depth = 0 as Count
+	var stop = at
+	while stop < src.byteLength() 'scan'
+		let c = src.byteAt(stop)
+		if isOpenBracket(c) 'open'
+			depth = increment(depth)
+		end 'open' else if isCloseBracket(c) 'close'
+			if depth > 0 'inside'
+				depth = try depth - 1 otherwise panic("rename: no group is open")
+				if depth == 0 'closed'
+					return increment(stop)
+				end 'closed'
+			end 'inside'
+		end 'close' else if c == quoteByte 'string'
+			stop = skipString(src, at: stop)
+			continue 'scan'
+		end 'string'
+		stop = increment(stop)
+	end 'scan'
+	return stop
+end 'skipGroup'
+
+// skipString is the offset after the string literal at at, whose interpolations are skipped as groups.
+function skipString(src String, at Count) returns Count
+	var stop = increment(at)
+	while stop < src.byteLength() 'scan'
+		let c = src.byteAt(stop)
+		if c == backslashByte 'escape'
+			stop = try stop + 2 otherwise panic("rename: a string past memory")
+			continue 'scan'
+		end 'escape'
+		if c == quoteByte 'close'
+			return increment(stop)
+		end 'close'
+		if c == openBraceByte 'interpolation'
+			stop = skipGroup(src, at: stop)
+			continue 'scan'
+		end 'interpolation'
+		stop = increment(stop)
+	end 'scan'
+	return stop
+end 'skipString'
+
+function skipPrimary(src String, at Count) returns Count
+	if at >= src.byteLength() 'end'
+		return at
+	end 'end'
+	let c = src.byteAt(at)
+	if c == quoteByte 'string'
+		return skipString(src, at: at)
+	end 'string'
+	if isOpenBracket(c) 'group'
+		return skipGroup(src, at: at)
+	end 'group'
+	return skipName(src, at: at)
+end 'skipPrimary'
+
+// chainNames are the offsets of the names after each '.' of the postfix chain that starts at start.
+function chainNames(src String, start Count) returns CountList
+	var names = CountList.create(0)
+	var at = skipPrimary(src, at: start)
+	while at < src.byteLength() 'chain'
+		let c = src.byteAt(at)
+		if c == dotByte and increment(at) < src.byteLength() and isNameByte(src.byteAt(increment(at))) 'member'
+			names.push(increment(at))
+			at = skipName(src, at: increment(at))
+		end 'member' else if isOpenBracket(c) and c != openBraceByte 'call'
+			at = skipGroup(src, at: at)
+		end 'call' else if c == openBraceByte 'literal'
+			at = skipGroup(src, at: at)
+		end 'literal' else 'end'
+			return names
+		end 'end'
+	end 'chain'
+	return names
+end 'chainNames'
+
+// isPostfix is whether a template is one postfix chain, a name with its steps and calls, which stays one operand where it is
+// written.
+function isPostfix(template String) returns bool
+	var at = skipPrimary(template, at: 0)
+	while at < template.byteLength() 'chain'
+		let c = template.byteAt(at)
+		if c == dotByte and increment(at) < template.byteLength() and isNameByte(template.byteAt(increment(at))) 'member'
+			at = skipName(template, at: increment(at))
+		end 'member' else if isOpenBracket(c) 'group'
+			at = skipGroup(template, at: at)
+		end 'group' else 'other'
+			return false
+		end 'other'
+	end 'chain'
+	return true
+end 'isPostfix'
+
+function isBlankByte(c Byte) returns bool
+	return c == spaceByte or c == tabByte or c == newlineByte
+end 'isBlankByte'
+
+// trimSpan is the span of src from begin until until without the blanks around it.
+function trimSpan(src String, begin Count, until Count) returns ArgSpan
+	var first = begin
+	var last = until
+	while first < last and isBlankByte(src.byteAt(first)) 'left'
+		first = increment(first)
+	end 'left'
+	while last > first and isBlankByte(src.byteAt(try last - 1 otherwise panic("rename: no byte before the first"))) 'right'
+		last = try last - 1 otherwise panic("rename: no byte before the first")
+	end 'right'
+	return ArgSpan.make(first, until: last)
+end 'trimSpan'
+
+// splitArgs are the spans of the comma-separated arguments in src from begin until until.
+function splitArgs(src String, begin Count, until Count) returns SpanList
+	var out = SpanList.create(0)
+	if trimSpace(src.sliceBytes(begin, endPos: until)) == "" 'none'
+		return out
+	end 'none'
+	var from = begin
+	var at = begin
+	while at < until 'scan'
+		let c = src.byteAt(at)
+		if isOpenBracket(c) 'group'
+			at = skipGroup(src, at: at)
+			continue 'scan'
+		end 'group'
+		if c == quoteByte 'string'
+			at = skipString(src, at: at)
+			continue 'scan'
+		end 'string'
+		if c == commaByte 'comma'
+			out.push(trimSpan(src, begin: from, until: at))
+			from = increment(at)
+		end 'comma'
+		at = increment(at)
+	end 'scan'
+	out.push(trimSpan(src, begin: from, until: until))
+	return out
+end 'splitArgs'
+
+// labelEnd is where the value of a labelled argument starts, after its 'label: '.
+function labelEnd(src String, at Count) returns Count
+	var stop = skipName(src, at: at)
+	if stop < src.byteLength() and src.byteAt(stop) == colonByte 'colon'
+		stop = increment(stop)
+	end 'colon'
+	while stop < src.byteLength() and src.byteAt(stop) == spaceByte 'blanks'
+		stop = increment(stop)
+	end 'blanks'
+	return stop
+end 'labelEnd'
+
+// needsParens is whether an expression written in place of src from begin until until needs parentheses to stay one operand:
+// it does unless it is all of an argument, an interpolation, a value given to a name, a return or an expression statement.
+function needsParens(src String, begin Count, until Count) returns bool
+	var before = begin
+	while before > 0 and (src.byteAt(try before - 1 otherwise panic("rename: no byte before the first")) == spaceByte or src.byteAt(try before - 1 otherwise panic("rename: no byte before the first")) == tabByte) 'beforeBlanks'
+		before = try before - 1 otherwise panic("rename: no byte before the first")
+	end 'beforeBlanks'
+	var after = until
+	while after < src.byteLength() and (src.byteAt(after) == spaceByte or src.byteAt(after) == tabByte) 'afterBlanks'
+		after = increment(after)
+	end 'afterBlanks'
+	var open = before == 0
+	if not open 'previous'
+		let last = src.byteAt(try before - 1 otherwise panic("rename: no byte before the first"))
+		open = last == equalsByte or last == openParenByte or last == commaByte or last == openBraceByte or last == colonByte or last == newlineByte
+		if not open and before >= returnWord.byteLength() 'returned'
+			open = src.sliceBytes(try before - returnWord.byteLength() otherwise panic("rename: no byte before the first"), endPos: before) == returnWord
+		end 'returned'
+	end 'previous'
+	var closed = after == src.byteLength()
+	if not closed 'next'
+		let first = src.byteAt(after)
+		closed = first == closeParenByte or first == commaByte or first == closeBraceByte or first == carriageReturnByte or first == newlineByte
+	end 'next'
+	return not open or not closed
+end 'needsParens'
+
+// templateParts is what a template writes: its text, and the text of the argument that each placeholder in it names. It gives
+// nothing when a placeholder names no argument.
+function templateParts(template String, args ArgSpans) returns table.Option with TemplateParts
+	var parts = TemplateParts.create(0)
+	var at = 0 as Count
+	while at < template.byteLength() 'scan'
+		var open = at
+		while open < template.byteLength() and template.byteAt(open) != openBraceByte 'findOpen'
+			open = increment(open)
+		end 'findOpen'
+		if open == template.byteLength() 'rest'
+			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: template.byteLength())))
+			break 'scan'
+		end 'rest'
+		var closing = open
+		while closing < template.byteLength() and template.byteAt(closing) != closeBraceByte 'findClose'
+			closing = increment(closing)
+		end 'findClose'
+		if closing == template.byteLength() 'unclosed'
+			return table.Option.none
+		end 'unclosed'
+		if open > at 'literal'
+			parts.push(TemplatePart.text(template.sliceBytes(at, endPos: open)))
+		end 'literal'
+		let found = args.get(template.sliceBytes(increment(open), endPos: closing))
+		if not found.isSome() 'unknown'
+			return table.Option.none
+		end 'unknown'
+		let span = found.unwrap()
+		parts.push(TemplatePart.argument(span.begin, until: span.until))
+		at = increment(closing)
+	end 'scan'
+	return table.Option.some(parts)
+end 'templateParts'
+
+// withParens is parts with parentheses around them.
+function withParens(parts TemplateParts) returns TemplateParts
+	var wrapped = TemplateParts.create(0)
+	wrapped.push(TemplatePart.text("("))
+	wrapped.append(parts)
+	wrapped.push(TemplatePart.text(")"))
+	return wrapped
+end 'withParens'
+
+// ChainLeaf is the expression a chain of member steps, calls and subscripts starts from, and how many member steps lie
+// between it and the chain's end.
+type ChainLeaf
+	var node as ast.NodeID
+	var steps as Count
+
+	static function make(node ast.NodeID, steps Count) returns ChainLeaf
+		return ChainLeaf{node: node, steps: steps}
+	end 'make'
+end 'ChainLeaf'
+
+function chainLeaf(t ast.Tree, start ast.NodeID) returns ChainLeaf
+	var node = start
+	var steps = 0 as Count
+	var leaf = false
+	while not leaf 'chain'
+		let kind = t.kindOf(node)
+		if kind == ast.NodeKind.memberExpr 'member'
+			steps = increment(steps)
+			node = ast.memberExprObj(t, id: node)
+		end 'member' else if kind == ast.NodeKind.callExpr 'call'
+			node = ast.callExprCallee(t, id: node)
+		end 'call' else if kind == ast.NodeKind.indexExpr 'index'
+			node = ast.indexExprObj(t, id: node)
+		end 'index' else 'found'
+			leaf = true
+		end 'found'
+	end 'chain'
+	return ChainLeaf.make(node, steps: steps)
+end 'chainLeaf'
+
+// Scan is what the rules rename in one module: the project that the compile checked as far as it went, the module, the text of
+// its files and the rules.
+type Scan
+	var module as Count
+	var text as ModuleText
+	var rules as RenameRules
+
+	static function make(module Count, consumes text ModuleText, consumes rules RenameRules) returns Scan
+		return Scan{module: module, text: text, rules: rules}
+	end 'make'
+end 'Scan'
+
+// miss is the site of a name that the rules would rename at the offset local of the file, which could not be placed.
+function missAt(s Scan, file Count, at Count, consumes name String) returns RenameSites
+	var sites = RenameSites.create(0)
+	sites.push(RenameSite.miss(s.text.spans[file].path.clone(), at: at, name: name))
+	return sites
+end 'missAt'
+
+// nodeName is the name a type reference, a name or a member step writes, or "".
+function nodeName(t ast.Tree, id ast.NodeID) returns String
+	let kind = t.kindOf(id)
+	if kind == ast.NodeKind.typeRef 'typeRef'
+		return ast.typeRefName(t, id: id)
+	end 'typeRef'
+	if kind == ast.NodeKind.nameExpr 'nameExpr'
+		return ast.nameExprName(t, id: id)
+	end 'nameExpr'
+	if kind == ast.NodeKind.memberExpr 'memberExpr'
+		return ast.memberExprName(t, id: id)
+	end 'memberExpr'
+	return ""
+end 'nodeName'
+
+// typeName is the sites that rename the type that a type reference or a name writes, when it is a built-in one that a rule names.
+function typeName(p ast.Project, s Scan, id ast.NodeID, name String, qualifiers Count) returns RenameSites
+	for r in 0 upto s.rules.count() 'rules'
+		if not s.rules[r].isType or s.rules[r].old != name 'other'
+			continue 'rules'
+		end 'other'
+		let decl = p.resolutions[s.module].decls.get(id as Count)
+		if not decl.isSome() 'unbound'
+			return RenameSites.create(0)
+		end 'unbound'
+		if decl.unwrap().module != diag.stdlibID 'user'
+			return RenameSites.create(0)
+		end 'user'
+		let place = s.text.at(p.modules[s.module].tree.startOf(id) as Count)
+		var at = place.local
+		for _ in 0 upto qualifiers 'qualifiers'
+			let dot = indexOfText(s.text.texts[place.file], needle: memberSeparator, from: at)
+			if not dot.isSome() 'noDot'
+				return missAt(s, file: place.file, at: at, name: name.clone())
+			end 'noDot'
+			at = increment(dot.unwrap())
+		end 'qualifiers'
+		if not hasName(s.text.texts[place.file], at: at, name: name) 'moved'
+			return missAt(s, file: place.file, at: at, name: name.clone())
+		end 'moved'
+		var sites = RenameSites.create(0)
+		sites.push(RenameSite.rename(s.text.spans[place.file].path.clone(), edit: RenameEdit.replace(at, until: try at + name.byteLength() otherwise panic("rename: a name past memory"), text: s.rules[r].newName.clone())))
+		return sites
+	end 'rules'
+	return RenameSites.create(0)
+end 'typeName'
+
+// builtinMethod is the method name of the built-in type that a rule names, or of String.
+function builtinMethod(p ast.Project, owner String, name String) returns table.Option with ast.FuncID
+	if owner == "String" 'string'
+		return p.builtins.stringMethods.get(name)
+	end 'string'
+	let ty = p.builtins.stdlibTypeMap.get(owner)
+	if not ty.isSome() 'unknown'
+		panic("rename: {owner} is no built-in type with methods")
+	end 'unknown'
+	return p.types.entries[ty.unwrap() as Count].findMethod(name)
+end 'builtinMethod'
+
+// rulesFor are the rules that rename a call of the method name, as the checker resolved the call.
+function rulesFor(p ast.Project, s Scan, info ast.CallInfo, name String) returns CountList
+	var found = CountList.create(0)
+	for r in 0 upto s.rules.count() 'rules'
+		if s.rules[r].isType or s.rules[r].free or s.rules[r].old != name 'other'
+			continue 'rules'
+		end 'other'
+		if s.rules[r].owner == "" 'copy'
+			if info.kind == ast.CallKind.callCopy 'isCopy'
+				found.push(r)
+			end 'isCopy'
+			continue 'rules'
+		end 'copy'
+		if info.fn == ast.noFunc or info.intrinsic == ast.Intrinsic.intrNone 'user'
+			continue 'rules'
+		end 'user'
+		let method = builtinMethod(p, owner: s.rules[r].owner, name: name)
+		if method.isSome() and p.funcs.entries[method.unwrap() as Count].intrinsic == info.intrinsic 'same'
+			found.push(r)
+		end 'same'
+	end 'rules'
+	return found
+end 'rulesFor'
+
+// callInfoOf is what the checker found of the call, which is unresolved when it did not reach the call.
+function callInfoOf(p ast.Project, module Count, id ast.NodeID) returns ast.CallInfo
+	let found = p.typings[module].calls.get(id as Count)
+	if found.isSome() 'known'
+		return found.unwrap()
+	end 'known'
+	return ast.CallInfo.make(ast.CallKind.callUnresolved, fn: ast.noFunc, receiverTy: ast.noType)
+end 'callInfoOf'
+
+// argTexts are the spans of the arguments of a call whose parentheses are at open and before close, by the name of the
+// parameter of the old signature each is given to. It gives nothing when the arguments are not the ones the call writes.
+function argTexts(p ast.Project, s Scan, src String, id ast.NodeID, info ast.CallInfo, open Count, close Count) returns table.Option with ArgSpans
+	let args = splitArgs(src, begin: increment(open), until: try close - 1 otherwise panic("rename: a call closed before it opened"))
+	let argsRef = ast.callExprArgsRef(p.modules[s.module].tree, id: id)
+	let written = p.modules[s.module].tree.listLen(argsRef)
+	if args.count() != written 'count'
+		return table.Option.none
+	end 'count'
+	var spans = ArgSpans.new()
+	for i in 0 upto info.paramSpecs.count() 'specs'
+		if i >= info.ordered.count() 'ordered'
+			break 'specs'
+		end 'ordered'
+		for j in 0 upto written 'written'
+			let arg = p.modules[s.module].tree.listAt(argsRef, index: j) as ast.NodeID
+			if ast.argValue(p.modules[s.module].tree, id: arg) == info.ordered[i] 'value'
+				var first = args[j].begin
+				if ast.argLabel(p.modules[s.module].tree, id: arg) != "" 'labelled'
+					first = labelEnd(src, at: first)
+				end 'labelled'
+				spans.insert(info.paramSpecs[i].name.clone(), value: ArgSpan.make(first, until: args[j].until))
+			end 'value'
+		end 'written'
+	end 'specs'
+	return table.Option.some(spans)
+end 'argTexts'
+
+// suffixText is the call that a rule's suffix names, as the source writes it.
+function suffixText(rule RenameRule) returns String
+	return "{memberSeparator}{rule.suffix}{freeCallMark}"
+end 'suffixText'
+
+// callSites is the sites that rename a call: of a built-in free function that a rule names, or of a method that a rule names.
+function callSites(p ast.Project, s Scan, id ast.NodeID) returns RenameSites
+	let info = callInfoOf(p, module: s.module, id: id)
+	let callee = ast.callExprCallee(p.modules[s.module].tree, id: id)
+	let calleeKind = p.modules[s.module].tree.kindOf(callee)
+	if calleeKind == ast.NodeKind.nameExpr 'free'
+		return freeCallSites(p, s: s, id: id, info: info, callee: callee)
+	end 'free'
+	if calleeKind != ast.NodeKind.memberExpr 'notMember'
+		return RenameSites.create(0)
+	end 'notMember'
+	let name = ast.memberExprName(p.modules[s.module].tree, id: callee)
+	let candidates = rulesFor(p, s: s, info: info, name: name)
+	if candidates.count() == 0 'unruled'
+		if info.kind == ast.CallKind.callUnresolved 'unresolved'
+			for r in 0 upto s.rules.count() 'others'
+				if not s.rules[r].isType and not s.rules[r].free and s.rules[r].old == name 'named'
+					let place = s.text.at(p.modules[s.module].tree.startOf(id) as Count)
+					return missAt(s, file: place.file, at: place.local, name: "{memberSeparator}{name}")
+				end 'named'
+			end 'others'
+		end 'unresolved'
+		return RenameSites.create(0)
+	end 'unruled'
+	let leaf = chainLeaf(p.modules[s.module].tree, start: ast.memberExprObj(p.modules[s.module].tree, id: callee))
+	let place = s.text.at(p.modules[s.module].tree.startOf(leaf.node) as Count)
+	let file = place.file
+	let start = place.local
+	if s.rules[candidates[0]].newName == listRule 'list'
+		var lineEnd = start
+		while lineEnd < s.text.texts[file].byteLength() and s.text.texts[file].byteAt(lineEnd) != newlineByte 'line'
+			lineEnd = increment(lineEnd)
+		end 'line'
+		return missAt(s, file: file, at: start, name: "list {name}: {s.text.texts[file].sliceBytes(start, endPos: lineEnd)}")
+	end 'list'
+	let names = chainNames(s.text.texts[file], start: start)
+	var steps = leaf.steps
+	if p.modules[s.module].tree.kindOf(leaf.node) == ast.NodeKind.nameExpr 'qualified'
+		let leafName = ast.nameExprName(p.modules[s.module].tree, id: leaf.node)
+		if not hasName(s.text.texts[file], at: start, name: leafName) 'moduleLeaf'
+			// Resolution made the leaf of a qualified name, 'module.Name', which starts at the module.
+			for j in 0 upto names.count() 'names'
+				if hasName(s.text.texts[file], at: names[j], name: leafName) 'found'
+					steps = try steps + j + 1 otherwise panic("rename: a chain past memory")
+					break 'names'
+				end 'found'
+			end 'names'
+		end 'moduleLeaf'
+	end 'qualified'
+	if steps >= names.count() or not hasName(s.text.texts[file], at: names[steps], name: name) 'misplaced'
+		return missAt(s, file: file, at: start, name: "{memberSeparator}{name}")
+	end 'misplaced'
+	let at = names[steps]
+	let nameEnd = try at + name.byteLength() otherwise panic("rename: a name past memory")
+	if nameEnd >= s.text.texts[file].byteLength() or s.text.texts[file].byteAt(nameEnd) != openParenByte 'noCall'
+		return missAt(s, file: file, at: at, name: "{memberSeparator}{name}")
+	end 'noCall'
+	let close = skipGroup(s.text.texts[file], at: nameEnd)
+	var chosen = s.rules.count()
+	for c in 0 upto candidates.count() 'choose'
+		if s.rules[candidates[c]].suffix == "" or hasPrefixAt(s.text.texts[file], at: close, prefix: suffixText(s.rules[candidates[c]])) 'matches'
+			chosen = candidates[c]
+			break 'choose'
+		end 'matches'
+	end 'choose'
+	if chosen == s.rules.count() 'none'
+		return RenameSites.create(0)
+	end 'none'
+	var sites = RenameSites.create(0)
+	if s.rules[chosen].template == "" 'plain'
+		sites.push(RenameSite.rename(s.text.spans[file].path.clone(), edit: RenameEdit.replace(at, until: nameEnd, text: s.rules[chosen].newName.clone())))
+		return sites
+	end 'plain'
+	let found = argTexts(p, s: s, src: s.text.texts[file], id: id, info: info, open: nameEnd, close: close)
+	if not found.isSome() 'unplaced'
+		return missAt(s, file: file, at: at, name: "{memberSeparator}{name}")
+	end 'unplaced'
+	var spans = found.unwrap()
+	if holdsText(s.rules[chosen].template, needle: callPlaceholder) or holdsText(s.rules[chosen].template, needle: selfPlaceholder) 'whole'
+		var spanEnd = close
+		if s.rules[chosen].suffix != "" 'suffixed'
+			spanEnd = try close + suffixText(s.rules[chosen]).byteLength() otherwise panic("rename: a call past memory")
+		end 'suffixed'
+		spans.insert(callPlaceholderName.clone(), value: ArgSpan.make(start, until: close))
+		// The receiver is what the chain writes before the '.' of the method.
+		spans.insert(selfPlaceholderName.clone(), value: ArgSpan.make(start, until: try at - 1 otherwise panic("rename: a method before its receiver")))
+		let whole = templateParts(s.rules[chosen].template, args: spans)
+		if not whole.isSome() 'badTemplate'
+			return missAt(s, file: file, at: at, name: "{memberSeparator}{name}")
+		end 'badTemplate'
+		var parts = whole.unwrap()
+		if needsParens(s.text.texts[file], begin: start, until: spanEnd) 'parens'
+			parts = withParens(parts)
+		end 'parens'
+		sites.push(RenameSite.rename(s.text.spans[file].path.clone(), edit: RenameEdit.write(start, until: spanEnd, parts: parts)))
+		return sites
+	end 'whole'
+	let written = templateParts(s.rules[chosen].template, args: spans)
+	if not written.isSome() 'badTemplate'
+		return missAt(s, file: file, at: at, name: "{memberSeparator}{name}")
+	end 'badTemplate'
+	sites.push(RenameSite.rename(s.text.spans[file].path.clone(), edit: RenameEdit.write(at, until: close, parts: written.unwrap())))
+	return sites
+end 'callSites'
+
+// hasPrefixAt is whether the text from at on starts with prefix.
+function hasPrefixAt(text String, at Count, prefix String) returns bool
+	return matchesAt(text, at: at, needle: prefix)
+end 'hasPrefixAt'
+
+// freeCallSites rewrites a call of a built-in free function that a rule names: the whole call, and the method after it that
+// the rule's suffix names.
+function freeCallSites(p ast.Project, s Scan, id ast.NodeID, info ast.CallInfo, callee ast.NodeID) returns RenameSites
+	let name = ast.nameExprName(p.modules[s.module].tree, id: callee)
+	var candidates = CountList.create(0)
+	for r in 0 upto s.rules.count() 'rules'
+		if s.rules[r].free and s.rules[r].old == name 'named'
+			candidates.push(r)
+		end 'named'
+	end 'rules'
+	if candidates.count() == 0 'unruled'
+		return RenameSites.create(0)
+	end 'unruled'
+	let place = s.text.at(p.modules[s.module].tree.startOf(callee) as Count)
+	let file = place.file
+	let at = place.local
+	if info.fn == ast.noFunc or info.intrinsic == ast.Intrinsic.intrNone or p.funcs.entries[info.fn as Count].module != diag.stdlibID 'notBuiltin'
+		if info.kind == ast.CallKind.callUnresolved 'unresolved'
+			return missAt(s, file: file, at: at, name: "{name}{freeCallMark}")
+		end 'unresolved'
+		return RenameSites.create(0)
+	end 'notBuiltin'
+	let nameEnd = try at + name.byteLength() otherwise panic("rename: a name past memory")
+	if not hasName(s.text.texts[file], at: at, name: name) or nameEnd >= s.text.texts[file].byteLength() or s.text.texts[file].byteAt(nameEnd) != openParenByte 'misplaced'
+		return missAt(s, file: file, at: at, name: "{name}{freeCallMark}")
+	end 'misplaced'
+	let close = skipGroup(s.text.texts[file], at: nameEnd)
+	for c in 0 upto candidates.count() 'candidates'
+		let rule = s.rules[candidates[c]].clone()
+		var spanEnd = close
+		if rule.suffix != "" 'suffixed'
+			if not hasPrefixAt(s.text.texts[file], at: close, prefix: suffixText(rule)) 'absent'
+				continue 'candidates'
+			end 'absent'
+			spanEnd = try close + suffixText(rule).byteLength() otherwise panic("rename: a call past memory")
+		end 'suffixed'
+		let found = argTexts(p, s: s, src: s.text.texts[file], id: id, info: info, open: nameEnd, close: close)
+		var parts = TemplateParts.create(0)
+		var placed = false
+		if found.isSome() 'args'
+			let written = templateParts(rule.template, args: found.unwrap())
+			if written.isSome() 'template'
+				parts = written.unwrap()
+				placed = true
+			end 'template'
+		end 'args'
+		if not placed 'unplaced'
+			return missAt(s, file: file, at: at, name: "{name}{freeCallMark}")
+		end 'unplaced'
+		if needsParens(s.text.texts[file], begin: at, until: spanEnd) and not isPostfix(rule.template) 'parens'
+			parts = withParens(parts)
+		end 'parens'
+		var sites = RenameSites.create(0)
+		sites.push(RenameSite.rename(s.text.spans[file].path.clone(), edit: RenameEdit.write(at, until: spanEnd, parts: parts)))
+		return sites
+	end 'candidates'
+	return RenameSites.create(0)
+end 'freeCallSites'
+
+// moduleSites is what the rules rename in a module of the project.
+function moduleSites(p ast.Project, s Scan) returns RenameSites
+	var sites = RenameSites.create(0)
+	let nodes = p.modules[s.module].tree.records.count()
+	if not p.typings[s.module].declared 'unnumbered'
+		// The compile stopped before the declare stage, so nothing is resolved: the module's names are listed.
+		for n in 1 upto nodes 'names'
+			let id = try n as ast.NodeID otherwise panic("rename: more nodes than a node id holds")
+			for r in 0 upto s.rules.count() 'rules'
+				let name = nodeName(p.modules[s.module].tree, id: id)
+				if name != "" and name == s.rules[r].old 'named'
+					let place = s.text.at(p.modules[s.module].tree.startOf(id) as Count)
+					sites.append(missAt(s, file: place.file, at: place.local, name: name))
+				end 'named'
+			end 'rules'
+		end 'names'
+		return sites
+	end 'unnumbered'
+	for n in 1 upto nodes 'nodes'
+		let id = try n as ast.NodeID otherwise panic("rename: more nodes than a node id holds")
+		let kind = p.modules[s.module].tree.kindOf(id)
+		if kind == ast.NodeKind.typeRef 'typeRef'
+			let qualifiers = p.modules[s.module].tree.listLen(ast.typeRefQualifierRef(p.modules[s.module].tree, id: id))
+			sites.append(typeName(p, s: s, id: id, name: ast.typeRefName(p.modules[s.module].tree, id: id), qualifiers: qualifiers))
+		end 'typeRef' else if kind == ast.NodeKind.nameExpr 'nameExpr'
+			sites.append(typeName(p, s: s, id: id, name: ast.nameExprName(p.modules[s.module].tree, id: id), qualifiers: 0))
+		end 'nameExpr' else if kind == ast.NodeKind.callExpr 'callExpr'
+			sites.append(callSites(p, s: s, id: id))
+		end 'callExpr'
+	end 'nodes'
+	return sites
+end 'moduleSites'
+
+// Renamer is what a rename has found: the rules, the edits by file, where each begins so that a place that several cases check
+// is renamed once, and how many places could not be placed.
+type Renamer
+	var rules as RenameRules
+	var files as ast.StringList
+	var edits as RenameEditLists
+	var index as EditSlotLists
+	var fileIndex as table.StringMap with Count
+	var missed as Count
+
+	static function new(consumes rules RenameRules) returns Renamer
+		return Renamer{rules: rules, files: ast.StringList.create(0), edits: RenameEditLists.create(0), index: EditSlotLists.create(0), fileIndex: table.StringMap.new(), missed: 0 as Count}
+	end 'new'
+
+	// store keeps the edit of a file; an edit at the offset of an earlier one replaces it.
+	function store(mutates self, file String, edit RenameEdit)
+		var slot = files.count()
+		if fileIndex.has(file) 'known'
+			slot = fileIndex.get(file).unwrap()
+		end 'known' else 'fresh'
+			files.push(file.clone())
+			edits.push(RenameEdits.create(0))
+			index.push(EditSlots.new())
+			fileIndex.insert(file.clone(), value: slot)
+		end 'fresh'
+		let held = index[slot].get(edit.begin)
+		if held.isSome() 'again'
+			edits[slot][held.unwrap()] = edit.clone()
+		end 'again' else 'first'
+			index[slot].insert(edit.begin, value: edits[slot].count())
+			edits[slot].push(edit.clone())
+		end 'first'
+	end 'store'
+end 'Renamer'
+
+// report lists a place that was not renamed.
+function reportMissed(file String, at Count, name String)
+	let src = readSourceText(file)
+	var line = 1 as Count
+	var lineStart = 0 as Count
+	for i in 0 upto at 'lines'
+		if src.byteAt(i) == newlineByte 'newline'
+			line = increment(line)
+			lineStart = increment(i)
+		end 'newline'
+	end 'lines'
+	let col = try at - lineStart + 1 otherwise panic("rename: a column before its line")
+	print("unplaced {file}:{line}:{col}: '{name}'\n")
+end 'reportMissed'
+
+// segmentOf is the index of the segment that holds the edit, or nothing when none does.
+function segmentOf(segments Segments, e RenameEdit) returns table.Option with Count
+	for s in 0 upto segments.count() 'segments'
+		let stop = try segments[s].begin + segments[s].length otherwise panic("rename: a segment past memory")
+		if e.begin >= segments[s].begin and e.until <= stop 'inside'
+			return table.Option.some(s)
+		end 'inside'
+	end 'segments'
+	return table.Option.none
+end 'segmentOf'
+
+// shifted is the offset of the checked text at the place its segment came from.
+function shifted(offset Count, segment Segment) returns Count
+	return try (offset - segment.begin) + segment.origin otherwise panic("rename: an offset before its segment")
+end 'shifted'
+
+// movedEdit is the edit with its offsets, and those of the arguments in it, moved to where the segment came from.
+function movedEdit(e RenameEdit, segment Segment) returns RenameEdit
+	var moved = e.clone()
+	moved.begin = shifted(e.begin, segment: segment)
+	moved.until = shifted(e.until, segment: segment)
+	for i in 0 upto moved.parts.count() 'parts'
+		if moved.parts[i].isArg 'argument'
+			moved.parts[i].begin = shifted(moved.parts[i].begin, segment: segment)
+			moved.parts[i].until = shifted(moved.parts[i].until, segment: segment)
+		end 'argument'
+	end 'parts'
+	return moved
+end 'movedEdit'
+
+// notePlaces keeps the edits of the sites that the checked program has, and lists the places that could not be placed.
+// segments, when it has any, map the one file the program is back to the files it was made of.
+function notePlaces(mutates r Renamer, sites RenameSites, segments Segments, mapped bool)
+	for i in 0 upto sites.count() 'sites'
+		var file = sites[i].file.clone()
+		var edit = sites[i].edit.clone()
+		if mapped 'map'
+			let found = segmentOf(segments, e: edit)
+			if not found.isSome() 'outside'
+				continue 'sites'
+			end 'outside'
+			let segment = segments[found.unwrap()].clone()
+			file = segment.file.clone()
+			edit = movedEdit(edit, segment: segment)
+		end 'map'
+		if sites[i].missed != "" 'missed'
+			reportMissed(file, at: edit.begin, name: sites[i].missed)
+			r.missed = increment(r.missed)
+			continue 'sites'
+		end 'missed'
+		r.store(file, edit: edit)
+	end 'sites'
+end 'notePlaces'
+
+// textOfModule reads the files of a module; the file named virtualFile has the text virtualText instead of the disk's.
+function textOfModule(m ast.Module, virtualFile String, virtualText String) returns ModuleText
+	var text = ModuleText.new()
+	for i in 0 upto m.files.count() 'files'
+		text.spans.push(m.files[i].clone())
+		if virtualFile != "" and m.files[i].path == virtualFile 'virtual'
+			text.texts.push(virtualText.clone())
+		end 'virtual' else 'disk'
+			text.texts.push(readSourceText(m.files[i].path))
+		end 'disk'
+	end 'files'
+	return text
+end 'textOfModule'
+
+// checkProgram compiles the program as far as it goes and notes the edits of what it resolved. virtualText, when the file is
+// the one of a case, is the source that stands in for it.
+function checkProgram(mutates r Renamer, path String, virtualText String, segments Segments, mapped bool)
+	var errs = diag.ErrorList.create(0)
+	var p = ast.Project.new("")
+	if mapped 'case'
+		project.loadSourceInto(p, path: path, text: virtualText, errs: errs)
+	end 'case' else 'program'
+		if not project.loadProjectInto(p, rootPath: path, errs: errs) 'loaded'
+			return
+		end 'loaded'
+	end 'program'
+	if errs.count() > 0 and p.modules.count() == 0 'unloaded'
+		return
+	end 'unloaded'
+	_ = frontEnd(p, makesProgram: false, errs: errs)
+	for m in 0 upto p.modules.count() 'modules'
+		var rules = RenameRules.create(0)
+		for i in 0 upto r.rules.count() 'rules'
+			rules.push(r.rules[i].clone())
+		end 'rules'
+		var virtualFile = ""
+		if mapped 'virtual'
+			virtualFile = path.clone()
+		end 'virtual'
+		let s = Scan.make(m, text: textOfModule(p.modules[m], virtualFile: virtualFile, virtualText: virtualText), rules: rules)
+		notePlaces(r, sites: moduleSites(p, s: s), segments: segments, mapped: mapped)
+	end 'modules'
+end 'checkProgram'
+
+// splitCases is where each case of a file of cases is in its text, as the offsets of its first and its end, or the whole text
+// for a file of one program.
+function splitCases(text String) returns SpanList
+	var starts = CountList.create(0)
+	var at = 0 as Count
+	while at < text.byteLength() 'lines'
+		if matchesAt(text, at: at, needle: caseMarker) 'marker'
+			starts.push(at)
+		end 'marker'
+		let next = indexOfText(text, needle: "\n", from: at)
+		if not next.isSome() 'last'
+			break 'lines'
+		end 'last'
+		at = increment(next.unwrap())
+	end 'lines'
+	var cases = SpanList.create(0)
+	if starts.count() == 0 'whole'
+		cases.push(ArgSpan.make(0, until: text.byteLength()))
+		return cases
+	end 'whole'
+	for i in 0 upto starts.count() 'cases'
+		var stop = text.byteLength()
+		if increment(i) < starts.count() 'following'
+			stop = starts[increment(i)]
+		end 'following'
+		// The blank lines between cases belong to neither.
+		while stop >= 2 and stop - 1 > starts[i] and text.byteAt(try stop - 1 otherwise panic("rename: no byte before the first")) == newlineByte and text.byteAt(try stop - 2 otherwise panic("rename: no byte before the first")) == newlineByte 'blank'
+			stop = try stop - 1 otherwise panic("rename: no byte before the first")
+		end 'blank'
+		cases.push(ArgSpan.make(starts[i], until: stop))
+	end 'cases'
+	return cases
+end 'splitCases'
+
+// renameProgram checks a program, a file or a project directory, or a file of cases each after the preludes.
+function renameProgram(mutates r Renamer, path String, preludes ast.StringList) returns bool
+	let isDirectory = project.isDirectoryPath(path)
+	if not isDirectory and not isReadable(path) 'missing'
+		printError("cannot read {path}\n")
+		return false
+	end 'missing'
+	var text = ""
+	if not isDirectory 'file'
+		text = readSourceText(path)
+	end 'file'
+	if isDirectory or (not holdsText(text, needle: caseMarker) and preludes.count() == 0) 'whole'
+		checkProgram(r, path: path, virtualText: "", segments: Segments.create(0), mapped: false)
+		return true
+	end 'whole'
+	var head = ""
+	var segments = Segments.create(0)
+	for i in 0 upto preludes.count() 'preludes'
+		if not isReadable(preludes[i]) 'unreadable'
+			printError("cannot read {preludes[i]}\n")
+			return false
+		end 'unreadable'
+		let prelude = readSourceText(preludes[i])
+		segments.push(Segment.make(preludes[i].clone(), begin: head.byteLength(), length: prelude.byteLength(), origin: 0))
+		head = "{head}{prelude}\n"
+	end 'preludes'
+	let cases = splitCases(text)
+	for c in 0 upto cases.count() 'cases'
+		let source = "{head}{text.sliceBytes(cases[c].begin, endPos: cases[c].until)}"
+		var caseSegments = segments.clone()
+		caseSegments.push(Segment.make(path.clone(), begin: head.byteLength(), length: try cases[c].until - cases[c].begin otherwise panic("rename: a case that ends before it starts"), origin: cases[c].begin))
+		checkProgram(r, path: caseFileName, virtualText: source, segments: caseSegments, mapped: true)
+	end 'cases'
+	return true
+end 'renameProgram'
+
+function sortedByBegin(edits RenameEdits) returns RenameEdits
+	var sorted = RenameEdits.create(0)
+	for i in 0 upto edits.count() 'each'
+		sorted.push(edits[i].clone())
+		var j = i
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise panic("rename: no edit before the first")
+			if sorted[j].begin < sorted[prev].begin 'swap'
+				let current = sorted[j].clone()
+				sorted[j] = sorted[prev].clone()
+				sorted[prev] = current
+				j = prev
+			end 'swap' else 'done'
+				break 'shift'
+			end 'done'
+		end 'shift'
+	end 'each'
+	return sorted
+end 'sortedByBegin'
+
+// withinSpan are the edits from the index from on that lie inside the span.
+function withinSpan(edits RenameEdits, from Count, begin Count, until Count) returns RenameEdits
+	var found = RenameEdits.create(0)
+	for i in from upto edits.count() 'each'
+		if edits[i].begin >= begin and edits[i].until <= until 'inside'
+			found.push(edits[i].clone())
+		end 'inside'
+	end 'each'
+	return found
+end 'withinSpan'
+
+// renderSpan writes the text from begin until until with the edits, outermost first; an edit inside a template's argument is
+// written with it.
+function renderSpan(text String, begin Count, until Count, edits RenameEdits) returns String
+	var out = ByteArray.create(0)
+	var at = begin
+	for i in 0 upto edits.count() 'edits'
+		if edits[i].begin < at or edits[i].until > until 'skipped'
+			continue 'edits'
+		end 'skipped'
+		out.append(text.sliceBytes(at, endPos: edits[i].begin).toByteArray())
+		if not edits[i].templated 'plain'
+			out.append(edits[i].text.toByteArray())
+		end 'plain' else 'template'
+			let inner = withinSpan(edits, from: increment(i), begin: 0, until: text.byteLength())
+			for q in 0 upto edits[i].parts.count() 'parts'
+				if edits[i].parts[q].isArg 'argument'
+					let nested = withinSpan(inner, from: 0, begin: edits[i].parts[q].begin, until: edits[i].parts[q].until)
+					out.append(renderSpan(text, begin: edits[i].parts[q].begin, until: edits[i].parts[q].until, edits: nested).toByteArray())
+				end 'argument' else 'literal'
+					out.append(edits[i].parts[q].literal.toByteArray())
+				end 'literal'
+			end 'parts'
+		end 'template'
+		at = edits[i].until
+	end 'edits'
+	out.append(text.sliceBytes(at, endPos: until).toByteArray())
+	return String.from(out)
+end 'renderSpan'
+
+// renderEdits writes text with the edits.
+function renderEdits(text String, edits RenameEdits) returns String
+	return renderSpan(text, begin: 0, until: text.byteLength(), edits: sortedByBegin(edits))
+end 'renderEdits'
+
+// readRuleFile adds the rules that the file holds, one to a line, to ruleTexts.
+function readRuleFile(path String, mutates ruleTexts ast.StringList) returns bool
+	if not isReadable(path) 'unreadable'
+		printError("cannot read {path}\n")
+		return false
+	end 'unreadable'
+	let lines = splitLines(readSourceText(path))
+	for i in 0 upto lines.count() 'lines'
+		let line = trimSpace(lines[i])
+		if line != "" 'rule'
+			ruleTexts.push(line)
+		end 'rule'
+	end 'lines'
+	return true
+end 'readRuleFile'
+
+// splitPreludes adds the files that a --prelude flag names, which are separated by commas, to preludes.
+function splitPreludes(list String, mutates preludes ast.StringList)
+	var begin = 0 as Count
+	for at in 0 upto list.byteLength() 'scan'
+		if list.byteAt(at) == commaByte 'separator'
+			preludes.push(list.sliceBytes(begin, endPos: at))
+			begin = increment(at)
+		end 'separator'
+	end 'scan'
+	preludes.push(list.sliceBytes(begin, endPos: list.byteLength()))
+end 'splitPreludes'
+
+// renameCommand is the rename command: rest holds its name, then the rules, the flags and the programs.
+function renameCommand(rest CommandNames) returns ExitCode
+	var ruleTexts = ast.StringList.create(0)
+	var preludes = ast.StringList.create(0)
+	var programs = ast.StringList.create(0)
+	for i in 1 upto rest.count() 'arguments'
+		if hasPrefix(rest[i], prefix: rulesFlagPrefix) 'rules'
+			if not readRuleFile(rest[i].sliceBytes(rulesFlagPrefix.byteLength(), endPos: rest[i].byteLength()), ruleTexts: ruleTexts) 'unreadable'
+				return diagnosticsExitCode
+			end 'unreadable'
+		end 'rules' else if hasPrefix(rest[i], prefix: preludeFlagPrefix) 'prelude'
+			splitPreludes(rest[i].sliceBytes(preludeFlagPrefix.byteLength(), endPos: rest[i].byteLength()), preludes: preludes)
+		end 'prelude' else if holdsText(rest[i], needle: ruleSeparator) 'rule'
+			ruleTexts.push(rest[i].clone())
+		end 'rule' else 'program'
+			programs.push(rest[i].clone())
+		end 'program'
+	end 'arguments'
+	var rules = RenameRules.create(0)
+	for i in 0 upto ruleTexts.count() 'parse'
+		let parsed = parseRenameRule(ruleTexts[i])
+		if not parsed.isSome() 'noRule'
+			printError("rename: \"{ruleTexts[i]}\" is no rule\n")
+			return usageExitCode
+		end 'noRule'
+		rules.push(parsed.unwrap())
+	end 'parse'
+	if rules.count() == 0 or programs.count() == 0 'usage'
+		printError(usage())
+		return usageExitCode
+	end 'usage'
+	var r = Renamer.new(rules)
+	for i in 0 upto programs.count() 'programs'
+		if not renameProgram(r, path: programs[i], preludes: preludes) 'failed'
+			return diagnosticsExitCode
+		end 'failed'
+	end 'programs'
+	var names = r.files.clone()
+	project.sortStrings(names)
+	var changed = 0 as Count
+	for i in 0 upto names.count() 'files'
+		let at = r.fileIndex.get(names[i]).unwrap()
+		let text = readSourceText(names[i])
+		let out = renderEdits(text, edits: r.edits[at])
+		if out != text 'differs'
+			let path = try FilePath.from(names[i]) otherwise panic("rename: {names[i]} is not a path")
+			try File.writeText(path, content: out) otherwise panic("rename: cannot write {names[i]}")
+			changed = increment(changed)
+		end 'differs'
+	end 'files'
+	print("renamed in {changed} files; {r.missed} places were not checked and are listed above\n")
+	return 0
+end 'renameCommand'

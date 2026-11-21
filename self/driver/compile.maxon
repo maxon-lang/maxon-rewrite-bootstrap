@@ -243,7 +243,11 @@ function generate(mutates p ast.Project, first Count, checked check.Checked, mut
 		return generated
 	end 'refused'
 	let out = try FilePath.from(output) otherwise panic("driver: the output {output} is not a path")
-	try backend.compileProgram(p, modules: generated.modules, ready: ready, entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out) otherwise panic("driver: cannot write {output}")
+	var symbolMap = ""
+	if options.emitMap 'emitMap'
+		symbolMap = "{output}{mapExtension}"
+	end 'emitMap'
+	try backend.compileProgram(p, modules: generated.modules, ready: ready, entry: checked.entry, options: backend.RuntimeOptions.make(options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {output}")
 	return generated
 end 'generate'
 

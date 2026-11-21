@@ -1,0 +1,209 @@
+// The qualify command writes, in each project, the module path before every name that is written without one and that names
+// a declaration of another module, which a program must qualify. A name is taken to mean what Maxon's bare lookup finds: the
+// root module's declaration, else the one exported declaration of that name in the project. It reports the names it cannot
+// place and leaves them alone, and leaves a project that does not parse alone.
+
+// Qualification is a bare name of another module's declaration in a file, and the module path to write before it.
+type Qualification
+	var offset as Count
+	var qualifier as String
+
+	static function make(offset Count, consumes qualifier String) returns Qualification
+		return Qualification{offset: offset, qualifier: qualifier}
+	end 'make'
+end 'Qualification'
+
+typealias Qualifications = Array with Qualification
+
+typealias QualificationLists = Array with Qualifications
+
+// ProjectQualifications are the qualifications of a project's files, by file, and how many names it could not place.
+type ProjectQualifications
+	var files as ast.StringList
+	var found as QualificationLists
+	var index as table.StringMap with Count
+	var missed as Count
+
+	static function new() returns ProjectQualifications
+		return ProjectQualifications{files: ast.StringList.create(0), found: QualificationLists.create(0), index: table.StringMap.new(), missed: 0 as Count}
+	end 'new'
+
+	function add(mutates self, file String, offset Count, qualifier String)
+		var at = files.count()
+		if index.has(file) 'known'
+			at = match consumes index.get(file) 'slot'
+				some(slot) gives slot
+				none panic("qualify: a file that is known and has no slot")
+			end 'slot'
+		end 'known' else 'fresh'
+			files.push(file.clone())
+			found.push(Qualifications.create(0))
+			index.insert(file.clone(), value: at)
+		end 'fresh'
+		found[at].push(Qualification.make(offset, qualifier: qualifier.clone()))
+	end 'add'
+end 'ProjectQualifications'
+
+// Owner says which module a bare name of another module's declaration means: none when no other module declares it, an
+// empty qualifier when more than one could be meant.
+type Owner
+	var declared as bool
+	var qualifier as String
+
+	static function none() returns Owner
+		return Owner{declared: false, qualifier: ""}
+	end 'none'
+
+	static function ambiguous() returns Owner
+		return Owner{declared: true, qualifier: ""}
+	end 'ambiguous'
+
+	static function of(consumes qualifier String) returns Owner
+		return Owner{declared: true, qualifier: qualifier}
+	end 'of'
+end 'Owner'
+
+// isExportedBy is whether the module declares an exported declaration of the name.
+function isExportedBy(p ast.Project, module ast.Module, name String) returns bool
+	return match module.names.get(name) 'declared'
+		some(ordinal) gives ast.declLevel(p, ref: ast.DeclRef.make(module.id, ordinal: ordinal)) != ast.Visibility.unexported
+		none gives false
+	end 'declared'
+end 'isExportedBy'
+
+// owningModule is the qualifier of the declaration a bare name in module m means.
+function owningModule(p ast.Project, m diag.ModuleID, name String) returns Owner
+	let root = ast.modIndex(p.rootModule)
+	if p.modules[root].names.has(name) and m != p.rootModule 'root'
+		return Owner.of(ast.qualifierOf(p.modules[root]))
+	end 'root'
+	var found = 0 as Count
+	var qualifier = ""
+	for i in 0 upto p.modules.count() 'modules'
+		if p.modules[i].id != m and p.modules[i].id != p.rootModule and isExportedBy(p, module: p.modules[i], name: name) 'other'
+			found = increment(found)
+			qualifier = ast.qualifierOf(p.modules[i])
+		end 'other'
+	end 'modules'
+	if found == 0 'none'
+		return Owner.none()
+	end 'none'
+	if found == 1 'one'
+		return Owner.of(qualifier)
+	end 'one'
+	return Owner.ambiguous()
+end 'owningModule'
+
+// projectQualifications finds the qualifications of the project's files, by file. It leaves the errors that kept it from
+// finding them in errs.
+function projectQualifications(dir String, mutates errs diag.ErrorList) returns ProjectQualifications
+	var result = ProjectQualifications.new()
+	var p = ast.Project.new("")
+	if not project.loadProjectInto(p, rootPath: dir, errs: errs) 'loaded'
+		ast.locateAllErrors(p.modules, errs: errs)
+		return result
+	end 'loaded'
+	if errs.count() > 0 'broken'
+		ast.locateAllErrors(p.modules, errs: errs)
+		return result
+	end 'broken'
+	var ignored = diag.ErrorList.create(0)
+	resolve.resolveFrom(p, first: 0, errs: ignored)
+	for m in 0 upto p.modules.count() 'modules'
+		for i in 0 upto p.resolutions[m].unbound.count() 'names'
+			let name = p.resolutions[m].unbound[i].name.clone()
+			let offset = p.resolutions[m].unbound[i].offset
+			let owner = owningModule(p, m: p.modules[m].id, name: name)
+			if not owner.declared 'ours'
+				continue 'names'
+			end 'ours'
+			if owner.qualifier == "" 'ambiguous'
+				let place = ast.locateModuleOffset(p.modules[m], offset: offset)
+				print("unplaced {place.file}:{place.line}:{place.col}: '{name}' is declared by more than one module\n")
+				result.missed = increment(result.missed)
+				continue 'names'
+			end 'ambiguous'
+			let file = ast.findFileIndex(p.modules[m].files, offset: offset)
+			let start = p.modules[m].files[file].start as Count
+			result.add(p.modules[m].files[file].path, offset: try (offset as Count) - start otherwise panic("qualify: a name before its file"), qualifier: owner.qualifier)
+		end 'names'
+	end 'modules'
+	return result
+end 'projectQualifications'
+
+// orderedByOffset is the qualifications in the order of their offsets, which keeps the order of those at one offset.
+function orderedByOffset(items Qualifications) returns Qualifications
+	var sorted = Qualifications.create(0)
+	for i in 0 upto items.count() 'each'
+		sorted.push(items[i].clone())
+		var j = i
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise panic("qualify: no entry before the first")
+			if sorted[j].offset < sorted[prev].offset 'swap'
+				let current = sorted[j].clone()
+				sorted[j] = sorted[prev].clone()
+				sorted[prev] = current
+				j = prev
+			end 'swap' else 'done'
+				break 'shift'
+			end 'done'
+		end 'shift'
+	end 'each'
+	return sorted
+end 'orderedByOffset'
+
+// applyQualifications writes each qualifier and a dot before the name at its offset, once for each offset.
+function applyQualifications(file String, items Qualifications) returns bool
+	let path = try FilePath.from(file) otherwise return false
+	let text = try File.readText(path) otherwise return false
+	let sorted = orderedByOffset(items)
+	var out = ByteArray.create(0)
+	var at = 0 as Count
+	for i in 0 upto sorted.count() 'each'
+		if i > 0 and sorted[try i - 1 otherwise panic("qualify: no entry before the first")].offset == sorted[i].offset 'same'
+			continue 'each'
+		end 'same'
+		out.append(text.sliceBytes(at, endPos: sorted[i].offset).toByteArray())
+		out.append("{sorted[i].qualifier}.".toByteArray())
+		at = sorted[i].offset
+	end 'each'
+	out.append(text.sliceBytes(at, endPos: text.byteLength()).toByteArray())
+	try File.writeText(path, content: String.from(out)) otherwise return false
+	return true
+end 'applyQualifications'
+
+// qualifyCommand is the qualify command: rest holds its name and the projects.
+function qualifyCommand(rest CommandNames) returns ExitCode
+	if rest.count() < 2 'usage'
+		printError(usage())
+		return usageExitCode
+	end 'usage'
+	var qualified = 0 as Count
+	var files = 0 as Count
+	var unplaced = 0 as Count
+	for d in 1 upto rest.count() 'projects'
+		var errs = diag.ErrorList.create(0)
+		let found = projectQualifications(rest[d], errs: errs)
+		if errs.count() > 0 'skipped'
+			print("skipped  {rest[d]}: {errs[0].format()}\n")
+			continue 'projects'
+		end 'skipped'
+		unplaced = try unplaced + found.missed otherwise panic("qualify: more names than memory")
+		var names = found.files.clone()
+		project.sortStrings(names)
+		for f in 0 upto names.count() 'files'
+			let at = match consumes found.index.get(names[f]) 'slot'
+				some(slot) gives slot
+				none panic("qualify: a file without qualifications")
+			end 'slot'
+			if not applyQualifications(names[f], items: found.found[at]) 'failed'
+				printError("cannot write {names[f]}\n")
+				return diagnosticsExitCode
+			end 'failed'
+			qualified = try qualified + found.found[at].count() otherwise panic("qualify: more names than memory")
+			files = increment(files)
+		end 'files'
+	end 'projects'
+	print("qualified {qualified} names in {files} files; {unplaced} names could not be placed\n")
+	return 0
+end 'qualifyCommand'

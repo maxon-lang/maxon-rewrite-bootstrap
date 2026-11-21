@@ -30,6 +30,7 @@ const (
 	impGetCurrentDirectoryA    = 27
 	impGetTickCount64          = 28
 	impTerminateProcess        = 29
+	impGetCurrentProcessId     = 30
 
 	winGenericRead             = 0x80000000
 	winGenericWrite            = 0x40000000
@@ -627,6 +628,14 @@ func (g *osUnit) emitOsCurrentPath() {
 	a.LeaData(Rax, g.dataBytes.String(currentPathFailed))
 	a.Push(Rax)
 	a.Call(g.rtPanic)
+}
+
+// rt.os.processId() -> Count
+func (g *osUnit) emitOsProcessId() {
+	g.startWinFrame(0)
+	// It gives a DWORD in eax, which leaves the rest of rax zero.
+	g.asm.CallImport(impGetCurrentProcessId)
+	g.epilogue()
 }
 
 // rt.os.pathFrom(path String, error) -> String

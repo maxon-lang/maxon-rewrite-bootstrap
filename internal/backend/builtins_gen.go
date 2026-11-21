@@ -78,6 +78,8 @@ func (g *osUnit) defineEntries() {
 	g.emitOsExecutablePath()
 	g.u.DefineCode(ir.RtOsCurrentPath.String())
 	g.emitOsCurrentPath()
+	g.u.DefineCode(ir.RtOsProcessId.String())
+	g.emitOsProcessId()
 	g.u.DefineCode(ir.RtOsPathFrom.String())
 	g.emitOsPathFrom()
 	g.u.DefineCode(ir.RtOsReadText.String())

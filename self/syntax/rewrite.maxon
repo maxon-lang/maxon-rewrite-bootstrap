@@ -1,0 +1,175 @@
+// Edit replaces the text of a source from begin until until with replacement. Refactorings produce edits rather than
+// rewritten text, so the command line applies them to files and a language server can send them to an editor as they are.
+export type Edit
+	export var begin as Count
+	export var until as Count
+	export var replacement as String
+
+	export static function make(begin Count, until Count, consumes replacement String) returns Edit
+		return Edit{begin: begin, until: until, replacement: replacement}
+	end 'make'
+end 'Edit'
+
+export typealias Edits = Array with Edit
+
+let keywordKindPrefix = "kw_"
+
+// requireKeyword stops the compiler when word is not a keyword of the current grammar: once the grammar no longer reserves
+// it, a use of it cannot be told from a name.
+function requireKeyword(word String)
+	if not ast.isReserved(word) 'reserved'
+		panic("'{word}' is not a keyword of the current grammar: rename it before changing Maxon.g4")
+	end 'reserved'
+end 'requireKeyword'
+
+// collectKeyword appends an edit for every keyword token in toks, which start in the file of the index, that reads old,
+// looking into interpolations.
+function collectKeyword(src Source, file Count, toks Tokens, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
+	var current = file
+	let kindName = "{keywordKindPrefix}{old}"
+	for i in 0 upto toks.count() 'tokens'
+		let kind = toks[i].kind
+		if kind == TokenKind.fileEnd 'fileEnd'
+			current = after(current)
+		end 'fileEnd' else if kind.name == kindName 'keyword'
+			edits.push(Edit.make(toks[i].start as Count, until: toks[i].endOffset(), replacement: replacement.clone()))
+		end 'keyword' else if kind == TokenKind.string 'string'
+			var reader = stringReaderAt(src, file: current, open: toks[i].start as Count, collect: true)
+			_ = try reader.read(src, errs: errs)
+			for p in 0 upto reader.parts.count() 'parts'
+				match reader.parts[p] 'part'
+					text(run, begin, raw) then _ = 0
+					expr(begin, until) then try collectInterpolation(src, file: current, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
+				end 'part'
+			end 'parts'
+		end 'string'
+	end 'tokens'
+end 'collectKeyword'
+
+// collectInterpolation is collectKeyword for the expression of an interpolation, which stands from begin until until.
+function collectInterpolation(src Source, file Count, begin Count, until Count, old String, replacement String, mutates edits Edits, mutates errs diag.ErrorList) throws SyntaxError
+	let toks = try lexInterpolation(src, errs: errs, file: file, begin: begin, until: until, lenient: false)
+	try collectKeyword(src, file: file, toks: toks, old: old, replacement: replacement, edits: edits, errs: errs)
+end 'collectInterpolation'
+
+// keywordEdits renames every use of the keyword old in src to replacement, in text order. It works on tokens, so a name, a
+// label, a comment or a string's text that happens to read old is left alone, while a keyword inside an interpolation is
+// renamed. A file the lexer refuses throws, with its error in errs.
+export function keywordEdits(src Source, old String, replacement String, mutates errs diag.ErrorList) returns Edits throws SyntaxError
+	requireKeyword(old)
+	var edits = Edits.create(0)
+	let toks = try lexSource(src, errs: errs, lenient: false)
+	try collectKeyword(src, file: 0, toks: toks, old: old, replacement: replacement, edits: edits, errs: errs)
+	return edits
+end 'keywordEdits'
+
+// keywordEditsInLine is keywordEdits for a fragment that is not a file: the text of src from begin until until, part of one
+// line of the file of the index, lexed with no layout of its own, as an interpolation is.
+export function keywordEditsInLine(src Source, file Count, begin Count, until Count, old String, replacement String, mutates errs diag.ErrorList) returns Edits throws SyntaxError
+	requireKeyword(old)
+	var edits = Edits.create(0)
+	try collectInterpolation(src, file: file, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
+	return edits
+end 'keywordEditsInLine'
+
+// applyEdits is text with edits, which are in text order and do not overlap, applied.
+export function applyEdits(text String, edits Edits) returns String
+	var out = ByteArray.create(0)
+	var at = 0 as Count
+	for i in 0 upto edits.count() 'edits'
+		if edits[i].begin < at 'overlap'
+			panic("edits overlap or are out of order at offset {edits[i].begin}")
+		end 'overlap'
+		appendRange(out, text: text, begin: at, until: edits[i].begin)
+		out.append(edits[i].replacement.toByteArray())
+		at = edits[i].until
+	end 'edits'
+	appendRange(out, text: text, begin: at, until: text.byteLength())
+	return String.from(out)
+end 'applyEdits'
+
+// MarkdownEdits are the edits of a Markdown document, how many of its code spans and blocks the lexer refused although they
+// hold the keyword, and the first of those refusals, so the caller can point at what it may have to change by hand.
+export type MarkdownEdits
+	export var edits as Edits
+	export var refused as Count
+	// firstRefusal is empty or holds the one first error.
+	export var firstRefusal as diag.ErrorList
+
+	static function new() returns MarkdownEdits
+		return MarkdownEdits{edits: Edits.create(0), refused: 0 as Count, firstRefusal: diag.ErrorList.create(0)}
+	end 'new'
+end 'MarkdownEdits'
+
+// holdsBytes is whether the text from begin until until holds needle.
+function holdsBytes(text String, begin Count, until Count, needle String) returns bool
+	let width = needle.byteLength()
+	let room = try until - begin otherwise panic("a range ends before it starts")
+	if width > room 'short'
+		return false
+	end 'short'
+	let last = try until - width otherwise panic("a range is shorter than its needle")
+	var at = begin
+	while at <= last 'starts'
+		if text.sliceBytes(at, endPos: try at + width otherwise until) == needle 'found'
+			return true
+		end 'found'
+		at = after(at)
+	end 'starts'
+	return false
+end 'holdsBytes'
+
+// linesBefore is how many lines end before offset at.
+function linesBefore(text String, at Count) returns Count
+	var lines = 0 as Count
+	for i in 0 upto at 'each'
+		if text.byteAt(i) == byteNewline 'newline'
+			lines = after(lines)
+		end 'newline'
+	end 'each'
+	return lines
+end 'linesBefore'
+
+// markdownKeywordEdits renames the keyword old to replacement in the Maxon of a Markdown document: its inline code spans and
+// its fenced blocks tagged maxon or not tagged. Prose is left alone, since a word there may be English. A span or block the
+// lexer refuses, such as IR text or a command, is left alone too.
+export function markdownKeywordEdits(file String, text String, old String, replacement String) returns MarkdownEdits
+	var result = MarkdownEdits.new()
+	let src = sourceOf(text.clone(), path: file)
+	let ranges = scanMarkdown(text, spans: true)
+	for i in 0 upto ranges.count() 'ranges'
+		let begin = ranges[i].span.begin
+		let until = ranges[i].span.until
+		var errs = diag.ErrorList.create(0)
+		var found = Edits.create(0)
+		var failed = false
+		try 'rename'
+			if ranges[i].block 'block'
+				// A block is lexed as a file of its own, so its offsets are moved to where it stands in the document.
+				let blockSource = sourceOf(text.sliceBytes(begin, endPos: until), path: file)
+				let local = try keywordEdits(blockSource, old: old, replacement: replacement, errs: errs)
+				for e in 0 upto local.count() 'moved'
+					found.push(Edit.make(try local[e].begin + begin otherwise panic("a source offset overflows"), until: try local[e].until + begin otherwise panic("a source offset overflows"), replacement: local[e].replacement.clone()))
+				end 'moved'
+			end 'block' else 'span'
+				found = try keywordEditsInLine(src, file: 0, begin: begin, until: until, old: old, replacement: replacement, errs: errs)
+			end 'span'
+		end 'rename' otherwise 'refused'
+			failed = true
+		end 'refused'
+		if not failed 'renamed'
+			result.edits.append(found)
+		end 'renamed' else if holdsBytes(text, begin: begin, until: until, needle: old) 'refusal'
+			result.refused = after(result.refused)
+			if result.firstRefusal.count() == 0 'first'
+				var refusal = errs[0].clone()
+				if ranges[i].block 'lines'
+					// A block's lines count from its start.
+					refusal.line = try refusal.line + linesBefore(text, at: begin) otherwise panic("a line number overflows")
+				end 'lines'
+				result.firstRefusal.push(refusal)
+			end 'first'
+		end 'refusal'
+	end 'ranges'
+	return result
+end 'markdownKeywordEdits'

@@ -170,6 +170,9 @@ export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.I
 	if op == ast.Intrinsic.intrProcessExecutablePath 'intrProcessExecutablePath'
 		return lowerProcessExecutablePath(l, p: p, c: c, recv: recv, args: args)
 	end 'intrProcessExecutablePath'
+	if op == ast.Intrinsic.intrProcessId 'intrProcessId'
+		return lowerProcessId(l, p: p, c: c, recv: recv, args: args)
+	end 'intrProcessId'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return lowerFilePathFrom(l, p: p, c: c, recv: recv, args: args)
 	end 'intrFilePathFrom'
@@ -442,6 +445,9 @@ export function ownsOperands(op ast.Intrinsic) returns bool
 	if op == ast.Intrinsic.intrProcessExecutablePath 'intrProcessExecutablePath'
 		return false
 	end 'intrProcessExecutablePath'
+	if op == ast.Intrinsic.intrProcessId 'intrProcessId'
+		return false
+	end 'intrProcessId'
 	if op == ast.Intrinsic.intrFilePathFrom 'intrFilePathFrom'
 		return false
 	end 'intrFilePathFrom'

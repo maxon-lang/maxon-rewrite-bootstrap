@@ -8,7 +8,8 @@ export type ErrorLocation
 	end 'make'
 end 'ErrorLocation'
 
-function findFileIndex(files FileSpanList, offset diag.U32) returns Count
+// findFileIndex is the index of the file that holds offset.
+export function findFileIndex(files FileSpanList, offset diag.U32) returns Count
 	let n = files.count()
 	if n <= 1 'one'
 		return 0 as Count
@@ -83,7 +84,7 @@ export function locateSite(mods ModuleList, site diag.Site) returns ErrorLocatio
 end 'locateSite'
 
 // qualifierOf is how a name is qualified by the module that declares it.
-function qualifierOf(m Module) returns String
+export function qualifierOf(m Module) returns String
 	if m.path == "" 'root'
 		return rootQualifier
 	end 'root'

@@ -312,10 +312,52 @@ function isMaxonFence(text String, begin Count, until Count) returns bool
 	return first == last or text.sliceBytes(first, endPos: last) == maxonFenceTag
 end 'isMaxonFence'
 
-// scanMarkdown finds the Maxon in a Markdown document: the text of each fenced block that is tagged maxon or not tagged,
-// as offsets into the text.
-function scanMarkdown(text String) returns Spans
-	var blocks = Spans.create(0)
+// CodeRange is a range of a Markdown document that holds Maxon: a fenced block, whose text is a file of its own, or with
+// block unset an inline code span, which is part of one line.
+type CodeRange
+	var span as Span
+	var block as bool
+
+	static function make(begin Count, until Count, block bool) returns CodeRange
+		return CodeRange{span: Span.make(begin, until: until), block: block}
+	end 'make'
+end 'CodeRange'
+
+typealias CodeRanges = Array with CodeRange
+
+// indexOfByte is the offset of the first c from at until until, or until when there is none.
+function indexOfByte(text String, c Byte, at Count, until Count) returns Count
+	var stop = at
+	while stop < until and text.byteAt(stop) != c 'scan'
+		stop = after(stop)
+	end 'scan'
+	return stop
+end 'indexOfByte'
+
+// scanSpans adds to ranges each non-empty inline code span of the line from begin until until.
+function scanSpans(text String, begin Count, until Count, mutates ranges CodeRanges)
+	var at = begin
+	while at < until 'spans'
+		let open = indexOfByte(text, c: byteBacktick, at: at, until: until)
+		if open == until 'noOpen'
+			return
+		end 'noOpen'
+		let spanBegin = after(open)
+		let close = indexOfByte(text, c: byteBacktick, at: spanBegin, until: until)
+		if close == until 'noClose'
+			return
+		end 'noClose'
+		if close > spanBegin 'filled'
+			ranges.push(CodeRange.make(spanBegin, until: close, block: false))
+		end 'filled'
+		at = after(close)
+	end 'spans'
+end 'scanSpans'
+
+// scanMarkdown finds the Maxon in a Markdown document, in text order: the text of each fenced block that is tagged maxon
+// or not tagged, and with spans the inline code spans too, as offsets into the text.
+function scanMarkdown(text String, spans bool) returns CodeRanges
+	var found = CodeRanges.create(0)
 	let length = text.byteLength()
 	var at = 0 as Count
 	while at < length 'lines'
@@ -328,14 +370,17 @@ function scanMarkdown(text String) returns Spans
 			end 'block'
 			let closing = closingFence(text, begin: blockBegin)
 			if isMaxonFence(text, begin: after(after(after(first))), until: lineEnd) 'maxon'
-				blocks.push(Span.make(blockBegin, until: closing.begin))
+				found.push(CodeRange.make(blockBegin, until: closing.begin, block: true))
 			end 'maxon'
 			at = closing.until
 			continue 'lines'
 		end 'fence'
+		if spans 'inline'
+			scanSpans(text, begin: at, until: lineEnd, ranges: found)
+		end 'inline'
 		at = after(lineEnd)
 	end 'lines'
-	return blocks
+	return found
 end 'scanMarkdown'
 
 // closingFence finds the fence that closes a block whose text starts at begin: it gives where the block's text ends (the
@@ -361,13 +406,15 @@ end 'closingFence'
 // formatMarkdown returns the Markdown document text with the Maxon in its fenced blocks formatted: a block tagged maxon
 // or not tagged that is a whole program. Prose, other blocks and blocks that do not parse stay as they are.
 export function formatMarkdown(file String, text String) returns String
-	let blocks = scanMarkdown(text)
+	let blocks = scanMarkdown(text, spans: false)
 	var out = ByteArray.create(0)
 	var at = 0 as Count
 	for i in 0 upto blocks.count() 'blocks'
-		appendRange(out, text: text, begin: at, until: blocks[i].begin)
-		out.append(formattedBlock(file, block: text.sliceBytes(blocks[i].begin, endPos: blocks[i].until)).toByteArray())
-		at = blocks[i].until
+		let begin = blocks[i].span.begin
+		let until = blocks[i].span.until
+		appendRange(out, text: text, begin: at, until: begin)
+		out.append(formattedBlock(file, block: text.sliceBytes(begin, endPos: until)).toByteArray())
+		at = until
 	end 'blocks'
 	appendRange(out, text: text, begin: at, until: text.byteLength())
 	return String.from(out)

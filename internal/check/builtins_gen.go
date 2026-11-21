@@ -72,6 +72,7 @@ func (c *Checker) checkIntrinsicArgs(call ast.CallExpr, target *ast.FuncDecl, or
 		ast.IntrinsicCommandLineArgs,
 		ast.IntrinsicProcessEnvironmentVariable,
 		ast.IntrinsicProcessExecutablePath,
+		ast.IntrinsicProcessId,
 		ast.IntrinsicFilePathFrom,
 		ast.IntrinsicFilePathToString,
 		ast.IntrinsicFileReadText,

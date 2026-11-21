@@ -116,6 +116,22 @@ function bareLookup(r Resolver, p ast.Project, name String) returns LookupResult
 	return LookupResult.miss()
 end 'bareLookup'
 
+// bareLookupAt is bareLookup that records a name it does not find, written at off, as unbound.
+function bareLookupAt(mutates r Resolver, p ast.Project, name String, off diag.U32) returns LookupResult
+	let found = bareLookup(r, p: p, name: name)
+	if not found.found 'unbound'
+		recordUnbound(r, name: name, off: off)
+	end 'unbound'
+	return found
+end 'bareLookupAt'
+
+// recordUnbound notes a bare name that nothing declares, unless it names a primitive type, which declares nothing.
+function recordUnbound(mutates r Resolver, name String, off diag.U32)
+	if not isPrimTypeName(name) 'named'
+		r.res.unbound.push(ast.UnboundName.make(name.clone(), offset: off))
+	end 'named'
+end 'recordUnbound'
+
 function isModuleRoot(p ast.Project, name String) returns bool
 	if name == ast.rootQualifier or name == ast.stdlibQualifier 'special'
 		return true
@@ -335,7 +351,7 @@ function resolveUnqualDeclType(mutates r Resolver, p ast.Project, tr ast.NodeID,
 	if isPrimTypeName(tName) 'prim'
 		return
 	end 'prim'
-	let lr = bareLookup(r, p: p, name: tName)
+	let lr = bareLookupAt(r, p: p, name: tName, off: off)
 	match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 		some(ref) then checkTypeKindAndBind(r, p: p, tr: tr, ref: ref, tName: tName, off: off, errs: errs)
 		none then _ = 0
@@ -612,7 +628,7 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	end 'root'
 	if not isNameBound(r, name: n) 'free'
 		let off = r.tree.startOf(id)
-		let lr = bareLookup(r, p: p, name: n)
+		let lr = bareLookupAt(r, p: p, name: n, off: off)
 		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 			some(ref) then r.res.bindDecl(id, d: ref)
 			none then _ = 0
@@ -659,6 +675,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		end 'keepBare'
 	end 'hasBare'
 	if not isModuleRoot(p, name: headName) 'notRoot'
+		recordUnbound(r, name: headName, off: r.tree.startOf(cur))
 		return
 	end 'notRoot'
 	var names = ast.StringList.create(0)
@@ -776,7 +793,7 @@ function resolveStructLitExpr(mutates r Resolver, p ast.Project, id ast.NodeID, 
 	let tName = ast.structLitExprTypeName(r.tree, id: id)
 	if tName != "Self" 'named'
 		let off = r.tree.startOf(id)
-		let lr = bareLookup(r, p: p, name: tName)
+		let lr = bareLookupAt(r, p: p, name: tName, off: off)
 		match consumes takeLookup(r, p: p, lr: lr, off: off, errs: errs) 'hit'
 			some(ref) then r.res.bindDecl(id, d: ref)
 			none then _ = 0

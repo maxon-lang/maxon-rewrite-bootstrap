@@ -128,6 +128,8 @@ func (vm *vm) runEntry(c *runtimeCall) {
 		vm.entryOsExecutablePath(c)
 	case ir.RtOsCurrentPath:
 		vm.entryOsCurrentPath(c)
+	case ir.RtOsProcessId:
+		vm.entryOsProcessId(c)
 	case ir.RtOsPathFrom:
 		vm.entryOsPathFrom(c)
 	case ir.RtOsReadText:

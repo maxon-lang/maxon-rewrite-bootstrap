@@ -62,6 +62,7 @@ export function rtImports() returns NameList
 	names.push("GetCurrentDirectoryA")
 	names.push("GetTickCount64")
 	names.push("TerminateProcess")
+	names.push("GetCurrentProcessId")
 	return names
 end 'rtImports'
 

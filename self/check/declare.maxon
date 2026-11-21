@@ -427,6 +427,7 @@ end 'declareTypeParamBounds'
 // paramsOk is what declareTypeParamBounds gave.
 export function declareModule(mutates c Checker, mutates p ast.Project, paramsOk ByteArray, mutates errs diag.ErrorList) returns ast.FuncIDList
 	var declared = ast.FuncIDList.create(0)
+	c.typing.declared = true
 	for i in 0 upto p.modules[c.modIdx].decls.count() 'decls'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many declarations")
 		declareDecl(c, p: p, ord: ord, paramsOk: paramsOk[i] == 1, declared: declared, errs: errs)

@@ -135,8 +135,19 @@ function newLinkUnit(u CodeUnit) returns LinkUnit
 	return LinkUnit.make(sections, sectionStarts: sectionStarts, pieces: pieces, liveCode: falses(sectionCount), liveData: falses(pieceCount), codeAt: zeros(sectionCount), dataAt: zeros(pieceCount), targets: zeros(u.asm.symbolFixups.count()), dataPieces: zeros(u.asm.dataFixups.count()))
 end 'newLinkUnit'
 
-// link is the executable of the units, with the code reachable from the entry symbol.
-export function link(units UnitList, entry String) returns PeImage
+// Linked is the executable of a link, and the map of its code's symbols when the link was asked for one.
+export type Linked
+	export var image as PeImage
+	export var symbolMap as String
+
+	static function make(consumes image PeImage, consumes symbolMap String) returns Linked
+		return Linked{image: image, symbolMap: symbolMap}
+	end 'make'
+end 'Linked'
+
+// link is the executable of the units, with the code reachable from the entry symbol. With mapsSymbols it also gives the
+// map of the code's symbols (see symbolMapText).
+export function link(units UnitList, entry String, mapsSymbols bool) returns Linked
 	var links = LinkUnitList.create(0)
 	for i in 0 upto units.count() 'units'
 		links.push(newLinkUnit(units[i]))
@@ -171,6 +182,10 @@ export function link(units UnitList, entry String) returns PeImage
 		imports.push(names[i].clone())
 	end 'imports'
 	var image = buildPeImage(sizes.code, dataSize: sizes.data, dll: rtDll, imports: imports, entryOffset: finalOffset(links, t: start))
+	var symbolMap = ""
+	if mapsSymbols 'map'
+		symbolMap = symbolMapText(links, units: units, symbols: symbols, defined: defined, textRva: image.textRva, codeSize: sizes.code)
+	end 'map'
 	var code = ByteArray.create(sizes.code)
 	var data = ByteArray.create(sizes.data)
 	for i in 0 upto links.count() 'copy'
@@ -178,8 +193,96 @@ export function link(units UnitList, entry String) returns PeImage
 	end 'copy'
 	placeCode(image, at: 0, bytes: code)
 	placeData(image, at: 0, bytes: data)
-	return image
+	return Linked.make(image, symbolMap: symbolMap)
 end 'link'
+
+// MapEntry is one function or routine in the executable's code, as the symbol map lists it.
+type MapEntry
+	var rva as Count
+	var symbol as String
+
+	static function make(rva Count, consumes symbol String) returns MapEntry
+		return MapEntry{rva: rva, symbol: symbol}
+	end 'make'
+end 'MapEntry'
+
+typealias MapEntryList = Array with MapEntry
+
+let mapHexDigits = 8 as Count
+
+let bitsPerHexDigit = 4 as Count
+
+let hexLetterOffset = 87 as Count
+
+let digitOffset = 48 as Count
+
+let decimalBase = 10 as Count
+
+let hexDigitMask = 15 as Count
+
+// appendHex appends value as mapHexDigits lowercase hexadecimal digits.
+function appendHex(mutates text ByteArray, value Count)
+	for i in 0 upto mapHexDigits 'digits'
+		let shift = try (mapHexDigits - 1 - i) * bitsPerHexDigit otherwise panic("link: a digit before the first")
+		let digit = (value shr shift) and hexDigitMask
+		if digit < decimalBase 'number'
+			text.push(try (digitOffset + digit) as Byte otherwise panic("link: a digit past a byte"))
+		end 'number' else 'letter'
+			text.push(try (hexLetterOffset + digit) as Byte otherwise panic("link: a digit past a byte"))
+		end 'letter'
+	end 'digits'
+end 'appendHex'
+
+// symbolMapText is, for every function and routine the executable keeps, its RVA, its size and its symbol, one per line in
+// address order, so that a profiler (cmd/sample) can name the code an address is in. A symbol's size runs to the next
+// symbol, so it takes in the padding after it.
+function symbolMapText(links LinkUnitList, units UnitList, symbols SymbolIds, defined LinkTargetList, textRva Count, codeSize Count) returns String
+	var entries = MapEntryList.create(0)
+	for u in 0 upto links.count() 'units'
+		for i in 0 upto units[u].codeSymbols.count() 'symbols'
+			let id = try links[u].firstID + i otherwise panic("link: more symbols than memory")
+			let t = defined[id].clone()
+			if lookupSymbol(symbols, symbol: units[u].codeSymbols[i].symbol) == id and links[u].liveCode[t.part] 'kept'
+				entries.push(MapEntry.make(try textRva + finalOffset(links, t: t) otherwise panic("link: code past memory"), symbol: units[u].codeSymbols[i].symbol.clone()))
+			end 'kept'
+		end 'symbols'
+	end 'units'
+	sortMapEntries(entries)
+	var text = ByteArray.create(0)
+	for i in 0 upto entries.count() 'entries'
+		var finish = (try textRva + codeSize otherwise panic("link: code past memory")) as Count
+		let next = try i + 1 otherwise panic("link: more symbols than memory")
+		if next < entries.count() 'following'
+			finish = entries[next].rva
+		end 'following'
+		appendHex(text, value: entries[i].rva)
+		text.push(32 as Byte)
+		appendHex(text, value: try finish - entries[i].rva otherwise panic("link: symbols out of order"))
+		text.push(32 as Byte)
+		text.append(entries[i].symbol.toByteArray())
+		text.push(10 as Byte)
+	end 'entries'
+	return String.from(text)
+end 'symbolMapText'
+
+// sortMapEntries orders the entries by address, keeping the order of those at the same one. The code is laid out in the
+// order the entries are found in, so they are sorted already unless a unit defines its symbols out of order.
+function sortMapEntries(mutates entries MapEntryList)
+	for i in 1 upto entries.count() 'insert'
+		var j = i
+		while j > 0 'shift'
+			let prev = try j - 1 otherwise panic("link: no entry before the first")
+			if entries[j].rva < entries[prev].rva 'swap'
+				let current = entries[j].clone()
+				entries[j] = entries[prev].clone()
+				entries[prev] = current
+				j = prev
+			end 'swap' else 'done'
+				break 'shift'
+			end 'done'
+		end 'shift'
+	end 'insert'
+end 'sortMapEntries'
 
 typealias SymbolIds = table.StringMap with Count
 

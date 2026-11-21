@@ -151,6 +151,10 @@ func (l *Lowerer) lowerProcessExecutablePath(c call, _ V, _ []V) V {
 	return l.builtinRecord(l.ty(c.CallExpr.Expr()), text)
 }
 
+func (l *Lowerer) lowerProcessId(c call, _ V, _ []V) V {
+	return l.entry(c.CallExpr.Position(), RtOsProcessId, KindScalar)
+}
+
 func (l *Lowerer) lowerDirectoryCurrentPath(c call, _ V, _ []V) V {
 	return l.builtinRecord(l.ty(c.CallExpr.Expr()), l.entry(c.CallExpr.Position(), RtOsCurrentPath, KindManaged))
 }

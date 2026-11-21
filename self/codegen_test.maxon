@@ -248,8 +248,8 @@ function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, c
 	modules.push(fns.clone())
 	var ready = backend.UnitList.create(0)
 	ready.push(runtimeUnit(count))
-	let image = backend.buildProgram(p, modules: modules, ready: ready, entry: entry, options: backend.RuntimeOptions.make(count))
-	runPeImage(image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
+	let linked = backend.buildProgram(p, modules: modules, ready: ready, entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
+	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
 end 'runIr'
 
 // arithmeticMain returns 42 by way of every operator, a check, a guard and a branch; it returns 1 when one of them is wrong.

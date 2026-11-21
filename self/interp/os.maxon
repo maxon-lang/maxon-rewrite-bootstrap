@@ -88,6 +88,10 @@ function entryOsCurrentPath(mutates vm Vm, f ir.IrFunction, x ir.Instr)
 	giveRef(vm, x: x, o: made)
 end 'entryOsCurrentPath'
 
+function entryOsProcessId(mutates vm Vm, f ir.IrFunction, x ir.Instr)
+	giveNum(vm, x: x, n: try Process.id() as ir.Word otherwise panic("interp: the process id is past a word"))
+end 'entryOsProcessId'
+
 function entryOsPathFrom(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let at = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a path")
 	let text = vm.h.texts[at].clone()
