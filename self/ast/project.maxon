@@ -364,7 +364,8 @@ function declaringModule(p Project, t TypeID) returns diag.ModuleID
 end 'declaringModule'
 
 // funcLinkName is the link name of a function: the module and the name of a free function, with the type arguments of an
-// instance, and the type and the name of a method, in parentheses where the type is an instance.
+// instance, and the type and the name of a method, in parentheses where the type is an instance; an instance given a
+// conformance outside its type argument's module ends with the modules of its conformances.
 export function funcLinkName(p Project, fid FuncID) returns String
 	let name = p.funcs.entries[fid as Count].name.clone()
 	let owner = p.funcs.entries[fid as Count].ownerTy
@@ -376,13 +377,13 @@ export function funcLinkName(p Project, fid FuncID) returns String
 		end 'instance'
 		let declaring = p.funcs.entries[fid as Count].module
 		if declaring != declaringModule(p, t: owner) 'extension'
-			return "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{extensionLinkWord} {text}"
+			return "{moduleLinkPath(p, modID: declaring)}{linkSeparator}{extensionLinkWord} {text}{witnessSuffix(p, fid: fid)}"
 		end 'extension'
-		return text
+		return "{text}{witnessSuffix(p, fid: fid)}"
 	end 'method'
 	let base = "{moduleLinkPath(p, modID: p.funcs.entries[fid as Count].module)}{linkSeparator}{name}"
 	if p.funcs.entries[fid as Count].typeArgs.count() > 0 'instance'
-		return "{base}[{joinNames(typeLinkNames(p, args: p.funcs.entries[fid as Count].typeArgs), sep: ", ")}]"
+		return "{base}[{joinNames(typeLinkNames(p, args: p.funcs.entries[fid as Count].typeArgs), sep: ", ")}]{witnessSuffix(p, fid: fid)}"
 	end 'instance'
 	return base
 end 'funcLinkName'

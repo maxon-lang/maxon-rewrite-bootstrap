@@ -1,0 +1,9 @@
+extension shapes.Meter implements names.Namer
+	function name() returns String
+		return "a {n}"
+	end 'name'
+end 'Meter'
+
+export function show(m shapes.Meter) returns String
+	return "{lib.describe(m)} {lib.outer(m)}"
+end 'show'

@@ -109,6 +109,8 @@ ErrTakeApartDestructible	E3922	-	A value of a type with destructors is taken apa
 ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
 ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
+ErrAmbiguousConformance	E3941	-	Two declarations that a module sees say one type implements one interface.
+ErrAmbiguousExtension	E3942	-	A call names a method that two extensions the calling module sees add to the type.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

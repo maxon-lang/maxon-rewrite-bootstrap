@@ -1,0 +1,7 @@
+export interface Namer
+	function name() returns String
+end 'Namer'
+
+export function inner(x T) uses T returns String where T implements Namer
+	return "[{x.name()}]"
+end 'inner'

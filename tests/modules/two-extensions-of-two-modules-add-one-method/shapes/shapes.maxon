@@ -1,0 +1,9 @@
+export typealias Length = int(0 to 1000)
+
+export type Counter
+	export var n as Length
+
+	export static function make(n Length) returns Self
+		return Self{n: n}
+	end 'make'
+end 'Counter'

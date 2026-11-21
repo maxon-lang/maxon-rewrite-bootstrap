@@ -220,29 +220,42 @@ function methodNamed(p ast.Project, t ast.TypeID, name String) returns ast.FuncI
 	end 'method'
 end 'methodNamed'
 
-// methodOf is the method of that name that a value of type t has for the code of the module being checked: the one the
-// declaration of the type has, else one that an extension adds, which the module's own extensions and those of the modules
-// it names can. It is none for a type that has none.
-function methodOf(c Checker, p ast.Project, t ast.TypeID, name String) returns ast.FuncID
+// methodLookup is what the name finds among the methods of a value of type t for the code of the module being checked:
+// the method the declaration of the type has, else what the extensions that the module sees add, which are its own and
+// those of the modules it names.
+function methodLookup(c Checker, p ast.Project, t ast.TypeID, name String) returns ast.MethodLookup
 	var own = methodNamed(p, t: t, name: name)
 	if t == p.builtins.stringTy 'string'
 		own = stringMethodNamed(p, name: name)
 	end 'string'
 	if own != ast.noFunc 'declared'
-		return own
+		return ast.MethodLookup.found(own)
 	end 'declared'
 	match consumes ast.extensionKey(p, t: t) 'key'
-		some(owner) then return extensionMethodOf(c, p: p, owner: owner, name: name)
-		none then return ast.noFunc
+		some(owner) then return ast.extensionMethod(p, from: c.modID, owner: owner, name: name)
+		none then return ast.MethodLookup.absent
 	end 'key'
+end 'methodLookup'
+
+// methodOf is the method that the name finds for a value of type t, or none. Two methods that extensions add under the
+// name are ambiguous, which it refuses at node.
+function methodOf(c Checker, p ast.Project, t ast.TypeID, name String, node ast.NodeID, mutates errs diag.ErrorList) returns ast.FuncID
+	match consumes methodLookup(c, p: p, t: t, name: name) 'lookup'
+		absent then return ast.noFunc
+		found(fid) then return fid
+		ambiguous(first, second) then failAmbiguousMethod(c, p: p, node: node, t: t, name: name, first: first, second: second, errs: errs)
+	end 'lookup'
+	return ast.noFunc
 end 'methodOf'
 
-function extensionMethodOf(c Checker, p ast.Project, owner ast.TypeID, name String) returns ast.FuncID
-	match consumes ast.extensionMethod(p, from: c.modID, owner: owner, name: name) 'found'
-		some(fid) then return fid
-		none then return ast.noFunc
-	end 'found'
-end 'extensionMethodOf'
+// failAmbiguousMethod refuses a name that two extensions the module sees add to the type t. A call has no spelling that
+// names the method through its module, so one of them has to go or take another name.
+function failAmbiguousMethod(c Checker, p ast.Project, node ast.NodeID, t ast.TypeID, name String, first ast.FuncID, second ast.FuncID, mutates errs diag.ErrorList)
+	let typeName = nameOfType(p, t: t)
+	let firstModule = ast.describeModule(p, modID: p.funcs.entries[first as Count].module)
+	let secondModule = ast.describeModule(p, modID: p.funcs.entries[second as Count].module)
+	failAt(c, p: p, node: node, code: diag.errAmbiguousExtension, msg: "'{typeName}.{name}' is ambiguous here: an extension in {firstModule} and an extension in {secondModule} both add '{name}' to '{typeName}', and {ast.describeModule(p, modID: c.modID)} sees both; a call cannot name the method through its module, so rename or remove one of the two", errs: errs)
+end 'failAmbiguousMethod'
 
 // stringMethodNamed is the method of String of that name, or none.
 function stringMethodNamed(p ast.Project, name String) returns ast.FuncID
@@ -311,7 +324,11 @@ function callMember(mutates c Checker, mutates p ast.Project, call ast.NodeID, c
 end 'callMember'
 
 function callStringStatic(mutates c Checker, mutates p ast.Project, call ast.NodeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	let sf = methodOf(c, p: p, t: p.builtins.stringTy, name: name)
+	let mark = errs.count()
+	let sf = methodOf(c, p: p, t: p.builtins.stringTy, name: name, node: call, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	if sf != ast.noFunc and p.funcs.entries[sf as Count].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sf, hasGiven: false, given: ast.TypeIDList.create(0), errs: errs)
 	end 'static'
@@ -360,7 +377,11 @@ function callOnType(mutates c Checker, mutates p ast.Project, call ast.NodeID, n
 	if p.types.entries[nt as Count].kind == ast.TypeKind.unionTy and p.types.entries[ast.originOf(p.types, t: nt) as Count].findCase(name).isSome() 'union'
 		return unionConstructor(c, p: p, call: call, ut: nt, caseName: name, errs: errs)
 	end 'union'
-	let sm = methodOf(c, p: p, t: nt, name: name)
+	let mark = errs.count()
+	let sm = methodOf(c, p: p, t: nt, name: name, node: call, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	if sm != ast.noFunc and p.funcs.entries[sm as Count].isStatic 'static'
 		return callFunction(c, p: p, call: call, kind: ast.CallKind.callStatic, target: sm, hasGiven: p.types.entries[nt as Count].typeArgs.count() > 0, given: p.types.entries[nt as Count].typeArgs.clone(), errs: errs)
 	end 'static'
@@ -379,7 +400,11 @@ function callOnValue(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 	if typeHasKind(p, t: content, kind: ast.TypeKind.typeParam) 'parameter'
 		return boundCall(c, p: p, call: call, param: content, receiver: receiver, name: name, errs: errs)
 	end 'parameter'
-	let method = methodOf(c, p: p, t: content, name: name)
+	let mark = errs.count()
+	let method = methodOf(c, p: p, t: content, name: name, node: call, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	if method != ast.noFunc and not p.funcs.entries[method as Count].isStatic 'instance'
 		return callMethod(c, p: p, call: call, receiver: receiver, content: content, method: method, name: name, errs: errs)
 	end 'instance'

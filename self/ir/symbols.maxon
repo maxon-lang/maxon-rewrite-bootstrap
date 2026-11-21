@@ -1,5 +1,6 @@
 // funcSymbol is the name of a function in the IR text and in a report: the plain name of a free function, the instance
-// of a generic one with its type arguments, and a method with the type it belongs to.
+// of a generic one with its type arguments (and the modules of its conformances, as its link name has them), and a method
+// with the type it belongs to.
 export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
 	let name = p.funcs.entries[fid as Count].name.clone()
 	let owner = p.funcs.entries[fid as Count].ownerTy
@@ -17,11 +18,12 @@ export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
 			b.append(ast.typeName(p.types, t: p.funcs.entries[fid as Count].typeArgs[i]).toByteArray())
 		end 'each'
 		b.push(93 as Byte)
+		b.append(ast.witnessSuffix(p, fid: fid).toByteArray())
 		return String.from(b)
 	end 'free'
 	let ownerName = ast.typeName(p.types, t: owner)
 	if p.types.entries[owner as Count].typeArgs.count() > 0 'instance'
-		return "({ownerName}).{name}"
+		return "({ownerName}).{name}{ast.witnessSuffix(p, fid: fid)}"
 	end 'instance'
 	return "{ownerName}.{name}"
 end 'funcSymbol'

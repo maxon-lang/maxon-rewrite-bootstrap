@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let c = shapes.Counter.make(21)
+	print("{c.twice()} {other.size(c)} {tools.unused()}\n")
+	return 0
+end 'main'
+
+//> 42 21 0

@@ -1,0 +1,9 @@
+extension shapes.Meter implements names.Namer
+	function name() returns String
+		return "b"
+	end 'name'
+end 'Meter'
+
+export function tag() returns String
+	return "b"
+end 'tag'

@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let m = shapes.Meter.make(5)
+	print("{a.show(m)} {b.show(m)}\n")
+	return 0
+end 'main'
+
+//> <a 5> [a 5] <b 5> [b 5]

@@ -509,6 +509,7 @@ other:
 | a function | `geometry::area`, `export::main` |
 | a method | `export::Counter.inc`, `(export::Box with stdlib::Count).make` |
 | an instance of a generic function | `export::swap[stdlib::Count, export::Counter]` |
+| an instance given a conformance outside its type argument's module | `lib::describe[shapes::Meter] using app`, the module of each conformance after `using` |
 | a type | `export::Counter`, `export::Box with (geometry::Shape, Count=int(0 to 18446744073709551615))` |
 | a drop or copy routine | `drop export::Counter`, `copy stdlib::Array with export::Tree` |
 | a runtime entry or global | `runtime::alloc` (the link name of the runtime function that defines the entry), `rt.entry` and `g.heap` (what the entry stub and the linker define) |
@@ -1695,12 +1696,27 @@ declares no field, destructor or `typealias`, and takes no `where` clause. A met
 the type's, and is `E3006` if the type's body or another extension of the same module declares the name.
 
 An extension's declarations belong to the module that writes it, never to the extended type's module, so each module's
-stages stay independent. A call `x.m()` finds the type's own method, then the methods that extensions add in the
-module of the call and in the modules it names (the ones its resolve recorded as dependencies); the standard library sees
-none. A method has its own visibility (`export`, `public`, or its module's only); a modifier on the block
-(`export extension`) is accepted and has no meaning. A call through a bound is resolved after the
-check from every module's extensions. A method that an extension adds to a type of another module has a link name of its
-own module (see "Link names"), so two modules may add one name to a type.
+stages stay independent. As in Hylo, an extension and the conformances it declares are scoped: they are seen from the
+module that writes the extension and from the modules that name it (the ones its resolve recorded as dependencies), and
+the standard library sees none. A call `x.m()` finds the type's own method, then the methods that the extensions seen
+from the module of the call add. Two of those that add one name are ambiguous, `E3942` at the call, whichever module
+they are in: no order of search chooses, and since a call cannot name a method through its module, one of them has to be
+removed or renamed. A method has its own visibility (`export`, `public`, or its module's only); a modifier on the block
+(`export extension`) is accepted and has no meaning. A method that an extension adds to a type of another module has a
+link name of its own module (see "Link names"), so two modules may add one name to a type.
+
+A type implements an interface where a declaration that says so is seen: its own body, seen wherever the type is, or an
+extension seen as above. A bound (`where T implements I`) is met by the conformance seen from the module that makes the
+call, which instantiates the generic, and that conformance travels with the instance: the methods that meet the bound
+are the ones the module of the conformance sees, and a generic that passes its `T` on to another passes the
+conformance it was given, not one its own module sees. So a module may give a generic of a module that cannot see its
+extension the type that the extension makes conform. Two conformances of one type to one interface seen at one place
+are `E3941`: at an extension whose module sees another (the type's body among them), and at a call that instantiates a
+generic where the module sees two. An instance is its generic, its type arguments and the module of each conformance
+it was given: two modules that instantiate one generic at one type with conformances of their own get an instance
+each, with a link name each (see "Link names"), and with one conformance they share it. A conformance that a method of
+a generic type needs for a bound of the type is the one seen from the module of the call, and a call through a bound
+that reaches such a method where that module sees none is `E3017` when the module's instances are found.
 
 An extension of a built-in generic type names its parameters as the built-in table does (`T` for `Array`, not maxon's
 `Element`). An extension of a typealias is `E2015`, one of an unknown name is `E3011`.
@@ -2081,13 +2097,13 @@ are not supported.
   `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
 - `extension`: there is no extension of an interface (no default method for every conformer, no associated types), no
   conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `FixedArray`, `Set`,
-  `Iterable`, `Iterator` or other library types the compiler does not have. A call finds the methods that extensions add
-  only from the module that writes the extension and the modules that name it; maxon finds them from every directory of
-  the program, so an extension that no module of the call's dependencies names is not seen, and a conformance an extension
-  declares counts for a bound only where its module is visible in the same way. A method that an extension declares under
-  the name of a method in the body of a type of another module is `E3006` at the extension's method, reported when
-  the modules are verified, and two extensions of different modules adding one name is not an error: the call's own
-  module first, then the modules it names in module order, decide.
+  `Iterable`, `Iterator` or other library types the compiler does not have. Extensions and the conformances they
+  declare are scoped as Hylo scopes them, where maxon sees every extension from every directory of the program: an
+  extension is seen only from its own module and the modules that name it, a bound is met by the conformance seen from
+  the module that instantiates the generic and passes it on with the instance, two extensions seen at one call that add
+  one method name are `E3942`, and two conformances of one type to one interface seen at one place are `E3941`. A method
+  that an extension declares under the name of a method in the body of a type of another module is `E3006` at the
+  extension's method, reported when the modules are verified.
 - Grapheme clusters follow UAX #29 from the Unicode 16.0.0 tables (without GB9c), where maxon's own rules join only the
   marks in a few ranges; a string of other Extend, SpacingMark or Prepend code points counts fewer clusters here. The views
   of a string (`bytes()`, `codepoints()`, `utf16()`) and their iterators hold a copy of the string rather than viewing it.

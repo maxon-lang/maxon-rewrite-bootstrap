@@ -133,7 +133,11 @@ function requireImplements(c Checker, mutates p ast.Project, site ast.NodeID, nt
 	let sigName = p.funcs.entries[sig as Count].name.clone()
 	let typeName = p.types.entries[nt as Count].name.clone()
 	let ifaceName = p.types.entries[iface as Count].name.clone()
-	let m = methodOf(c, p: p, t: nt, name: sigName)
+	let mark = errs.count()
+	let m = methodOf(c, p: p, t: nt, name: sigName, node: site, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return
+	end 'ambiguous'
 	if m != ast.noFunc and p.funcs.entries[m as Count].bounds.count() > 0 'ownBounds'
 		failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
 		return
@@ -233,21 +237,6 @@ function requirementArgs(p ast.Project, iface ast.TypeID, own ast.TypeID) return
 	args.append(p.types.entries[iface as Count].typeArgs)
 	return args
 end 'requirementArgs'
-
-// declaresConformance is whether the declaration of t says it implements iface, with t's type arguments in what it binds.
-function declaresConformance(mutates p ast.Project, t ast.TypeID, iface ast.TypeID) returns bool
-	let orig = ast.originOf(p.types, t: t)
-	let conforms = ast.cloneTypeArgs(p.types.entries[orig as Count].conforms)
-	let params = ast.cloneTypeArgs(p.types.entries[orig as Count].typeParams)
-	let args = ast.typeArgsOf(p.types, t: t)
-	for i in 0 upto conforms.count() 'each'
-		let have = ast.substituteType(p.types, t: conforms[i], params: params, args: args)
-		if ast.extendsInterface(p.types, have: have, want: iface) 'hit'
-			return true
-		end 'hit'
-	end 'each'
-	return false
-end 'declaresConformance'
 
 // conformanceTo is the instance of the interface origin that the declaration of t says it implements, at t's type
 // arguments, or none.
@@ -359,9 +348,15 @@ end 'typeIn'
 // requireDeclared refuses a nominal type argument whose declaration does not say it implements the interface.
 function requireDeclared(c Checker, mutates p ast.Project, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
 	let orig = ast.originOf(p.types, t: arg)
-	if declaresConformance(p, t: arg, iface: iface) or implementsByExtension(c, p: p, arg: arg, iface: iface) 'declared'
+	let mark = errs.count()
+	match consumes ast.conformanceSource(p, from: c.modID, t: arg, iface: iface) 'source'
+		found(_) then return
+		ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: off, typeName: nameOfType(p, t: arg), ifaceName: spelled(c, p: p, iface: iface), first: first, second: second, errs: errs)
+		absent then _ = 0
+	end 'source'
+	if failedSince(errs, mark: mark) 'ambiguous'
 		return
-	end 'declared'
+	end 'ambiguous'
 	let argName = nameOfType(p, t: arg)
 	let paramName = nameOfType(p, t: param)
 	let ifaceName = p.types.entries[iface as Count].name.clone()
@@ -376,6 +371,11 @@ function requireDeclared(c Checker, mutates p ast.Project, off diag.U32, arg ast
 	end 'builtIn'
 	checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "'{argName}' must be {ifaceName} for '{paramName}': declare '{declarationWord(p, t: arg)} {p.types.entries[orig as Count].name} implements {spelled(c, p: p, iface: iface)}'{missingMethods(c, p: p, t: arg, iface: iface)}", errs: errs)
 end 'requireDeclared'
+
+// failAmbiguousConformance refuses a type argument that two declarations the module sees say implements the interface.
+function failAmbiguousConformance(c Checker, p ast.Project, off diag.U32, typeName String, ifaceName String, first ast.Conformance, second ast.Conformance, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: off, code: diag.errAmbiguousConformance, msg: ast.ambiguousConformanceText(p, from: c.modID, typeName: typeName, ifaceName: ifaceName, first: first, second: second), errs: errs)
+end 'failAmbiguousConformance'
 
 // failBindingDisagrees refuses a type argument whose declaration implements the bound's interface, but binds one of its
 // associated types otherwise than the bound says.
@@ -417,14 +417,6 @@ function extensionTargetName(p ast.Project, t ast.TypeID) returns String
 	return p.types.entries[ast.originOf(p.types, t: t) as Count].name.clone()
 end 'extensionTargetName'
 
-// implementsByExtension is whether an extension that the module sees says the type arg implements iface.
-function implementsByExtension(c Checker, p ast.Project, arg ast.TypeID, iface ast.TypeID) returns bool
-	match consumes ast.extensionKey(p, t: arg) 'key'
-		some(owner) then return ast.extensionConforms(p, from: c.modID, owner: owner, iface: iface)
-		none then return false
-	end 'key'
-end 'implementsByExtension'
-
 // spelled is how code in this module names an interface: qualified when another module declares it.
 function spelled(c Checker, p ast.Project, iface ast.TypeID) returns String
 	let name = p.types.entries[iface as Count].name.clone()
@@ -452,6 +444,16 @@ function declarationWord(p ast.Project, t ast.TypeID) returns String
 	panic("{ast.typeName(p.types, t: t)} is not declared as a type, enum or union")
 end 'declarationWord'
 
+// lacksMethod is whether the name finds no method of the kind that the type t could implement a requirement with. Two
+// that extensions add are there, and refused where the conformance is used.
+function lacksMethod(c Checker, p ast.Project, t ast.TypeID, name String, isStatic bool) returns bool
+	match consumes methodLookup(c, p: p, t: t, name: name) 'lookup'
+		absent then return true
+		found(fid) then return p.funcs.entries[fid as Count].isStatic != isStatic
+		ambiguous(_, _) then return false
+	end 'lookup'
+end 'lacksMethod'
+
 // missingMethods names the methods of the interface that the type lacks, for the error that asks it to declare one.
 function missingMethods(c Checker, p ast.Project, t ast.TypeID, iface ast.TypeID) returns String
 	var missing = ast.StringList.create(0)
@@ -459,8 +461,7 @@ function missingMethods(c Checker, p ast.Project, t ast.TypeID, iface ast.TypeID
 	for i in 0 upto reqs.count() 'each'
 		let sig = reqs[i].sig
 		let name = p.funcs.entries[sig as Count].name.clone()
-		let m = methodOf(c, p: p, t: t, name: name)
-		if m == ast.noFunc or p.funcs.entries[m as Count].isStatic != p.funcs.entries[sig as Count].isStatic 'lacking'
+		if lacksMethod(c, p: p, t: t, name: name, isStatic: p.funcs.entries[sig as Count].isStatic) 'lacking'
 			missing.push(name)
 		end 'lacking'
 	end 'each'

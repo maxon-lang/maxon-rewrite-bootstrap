@@ -244,6 +244,22 @@ end 'ExtConform'
 
 export typealias ExtConformList = Array with ExtConform
 
+// A Witness is the conformance that an instance of a generic function uses for one bound of its type parameters: the
+// parameter and the interface as the generic declares them, and the module whose declaration says the type argument
+// implements it (the type's own module for its body). The methods that meet the bound are those that module sees, so
+// two instances given conformances of different modules are two instances.
+export type Witness
+	export var paramTy as TypeID
+	export var ifaceTy as TypeID
+	export var module as diag.ModuleID
+
+	export static function make(paramTy TypeID, ifaceTy TypeID, module diag.ModuleID) returns Witness
+		return Witness{paramTy: paramTy, ifaceTy: ifaceTy, module: module}
+	end 'make'
+end 'Witness'
+
+export typealias WitnessList = Array with Witness
+
 export type TypeEntry
 	export var id as TypeID
 	export var kind as TypeKind
@@ -350,12 +366,14 @@ export type FuncEntry
 	export var errTy as TypeID
 	export var genericOrigin as FuncID
 	export var typeArgs as TypeIDList
+	// witnesses are, on an instance, the conformances it was given for the bounds of its type parameters.
+	export var witnesses as WitnessList
 	export var intrinsic as Intrinsic
 	export var linkName as String
 	export var bodyRef as diag.U32
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, isClosure: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), witnesses: WitnessList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32}
 	end 'make'
 end 'FuncEntry'
 
@@ -587,6 +605,15 @@ export function instanceKey(origin TypeID, args TypeIDList) returns String
 	end 'each'
 	return String.from(b)
 end 'instanceKey'
+
+// funcInstanceKey is instanceKey with the modules of the conformances an instance of a function is given.
+function funcInstanceKey(origin FuncID, args TypeIDList, witnesses WitnessList) returns String
+	var b = instanceKey(origin as TypeID, args: args).toByteArray()
+	for i in 0 upto witnesses.count() 'each'
+		b.append(";{witnesses[i].module}".toByteArray())
+	end 'each'
+	return String.from(b)
+end 'funcInstanceKey'
 
 export function instantiateType(mutates tt TypeTable, origin TypeID, args TypeIDList) returns TypeID
 	let baseOrigin = tt.entries[origin as Count].effectiveOrigin()
@@ -1100,11 +1127,13 @@ export function allocFunc(mutates ft FuncTable, consumes f FuncEntry) returns Fu
 	return id
 end 'allocFunc'
 
-export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, origin FuncID, args TypeIDList) returns FuncID
+// instantiateFunc is the instance of the generic function origin at the type arguments args, given the conformances
+// witnesses for its bounds: one instance for each.
+export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, origin FuncID, args TypeIDList, witnesses WitnessList) returns FuncID
 	if args.count() == 0 'none'
 		return origin
 	end 'none'
-	let key = instanceKey(origin as TypeID, args: args)
+	let key = funcInstanceKey(origin, args: args, witnesses: witnesses)
 	match ft.instCache.get(key) 'hit'
 		some(id) then return id
 		none then _ = 0
@@ -1124,6 +1153,7 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	inst.errTy = ft.entries[origin as Count].errTy
 	inst.genericOrigin = origin
 	inst.typeArgs = cloneTypeArgs(args)
+	inst.witnesses = witnesses.clone()
 	let origParams = cloneTypeArgs(ft.entries[origin as Count].generics)
 	if ft.entries[origin as Count].ownerTy != noType 'own'
 		inst.ownerTy = substituteType(tt, t: ft.entries[origin as Count].ownerTy, params: origParams, args: args)

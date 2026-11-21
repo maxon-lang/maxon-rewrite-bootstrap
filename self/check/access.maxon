@@ -272,7 +272,10 @@ function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
-	let method = methodOf(c, p: p, t: named, name: member)
+	let method = methodOf(c, p: p, t: named, name: member, node: e, errs: errs)
+	if failedSince(errs, mark: mark) 'ambiguous'
+		return ast.noType
+	end 'ambiguous'
 	if method != ast.noFunc 'method'
 		let spelled = "{writtenType(c, p: p, obj: obj)}.{member}"
 		let words = diag.methodAsFunctionValue(spelled) if p.funcs.entries[method as Count].isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)

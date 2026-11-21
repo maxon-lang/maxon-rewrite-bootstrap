@@ -564,14 +564,21 @@ function callResult(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) r
 end 'callResult'
 
 // callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
-// missing one is a compiler bug: the executable would depend on another module having made the instance.
+// missing one, or one refused, is a compiler bug: the executable would depend on another module having made the instance.
 function callee(mutates l Lowerer, mutates p ast.Project, node ast.NodeID, info ast.CallInfo, receiver ast.NodeID) returns ast.FuncID
-	let target = resolveTarget(p, module: l.module, receiver: receiver, info: info, bindParams: l.bindParams, bindArgs: l.bindArgs)
+	var refused = diag.ErrorList.create(0)
+	match consumes resolveTarget(p, module: l.module, site: node, receiver: receiver, info: info, bindParams: l.bindParams, bindArgs: l.bindArgs, bindWitnesses: l.bindWitnesses, errs: refused) 'resolved'
+		some(fid) then return checkedCallee(l, p: p, target: fid)
+		none then panic("lower: a call was refused after its module's instances were found")
+	end 'resolved'
+end 'callee'
+
+function checkedCallee(l Lowerer, p ast.Project, target ast.FuncID) returns ast.FuncID
 	if p.funcs.entries[target as Count].genericOrigin != ast.noFunc and not l.instances.has(target) 'missing'
 		panic("lower: {funcSymbol(p, fid: target)} was not found among the instances of the module")
 	end 'missing'
 	return target
-end 'callee'
+end 'checkedCallee'
 
 // boxBytes is the size of a record or union box: a word per field (one for a box with none), and a first word for a
 // union's case index. The backend sizes the boxes it copies with it, so a copy has the layout lowering gives a value.

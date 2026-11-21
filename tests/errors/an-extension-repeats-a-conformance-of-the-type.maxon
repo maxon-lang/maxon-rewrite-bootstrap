@@ -1,0 +1,23 @@
+interface Sizer
+	function size() returns Count
+end 'Sizer'
+
+type Meter implements Sizer
+	var n as Count
+
+	function size() returns Count
+		return n
+	end 'size'
+end 'Meter'
+
+extension Meter implements Sizer
+	function doubled() returns Count
+		return try n * 2 otherwise panic("overflow")
+	end 'doubled'
+end 'Meter'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3941 at 13:11

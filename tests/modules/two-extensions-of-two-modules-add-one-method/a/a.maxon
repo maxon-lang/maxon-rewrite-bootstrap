@@ -1,0 +1,9 @@
+extension shapes.Counter
+	export function label() returns shapes.Length
+		return 1
+	end 'label'
+end 'Counter'
+
+export function one() returns shapes.Length
+	return 1
+end 'one'

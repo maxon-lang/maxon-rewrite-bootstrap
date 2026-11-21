@@ -48,18 +48,20 @@ end 'applyAll'
 
 // resolveCall is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
 // the instance of a generic one, or for a call through a bound the method of the type that stands in for the parameter.
-export function resolveCall(mutates p ast.Project, module diag.ModuleID, node ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.FuncID
-	return resolveTarget(p, module: module, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: node, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs)
+// bindWitnesses are the conformances that the code around the call was given. It is none after it refused an instance
+// whose conformance the module of the call does not see.
+export function resolveCall(mutates p ast.Project, module diag.ModuleID, node ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	return resolveTarget(p, module: module, site: node, receiver: ast.callReceiver(p.modules[ast.modIndex(module)].tree, e: node, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
 end 'resolveCall'
 
-// resolveTarget is resolveCall for a call whose object is already known.
-export function resolveTarget(mutates p ast.Project, module diag.ModuleID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.FuncID
+// resolveTarget is resolveCall for a call at site whose object is already known.
+export function resolveTarget(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'direct'
 		if p.funcs.entries[info.fn as Count].generics.count() == 0 'plain'
-			return info.fn
+			return table.Option.some(info.fn)
 		end 'plain'
 		let args = applyAll(p.types, ts: info.typeArgs, params: bindParams, args: bindArgs)
-		return ast.instantiateFunc(p.funcs, tt: p.types, origin: info.fn, args: args)
+		return instantiateWith(p, module: module, site: site, origin: info.fn, written: info.typeArgs, args: args, enclosing: bindWitnesses, errs: errs)
 	end 'direct'
 	if info.kind == ast.CallKind.callBound 'bound'
 		// A frozen receiver lends its contents, so the method is the one of the type it holds.
@@ -68,11 +70,13 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, recei
 		let origin = p.types.entries[recv as Count].effectiveOrigin()
 		let name = p.funcs.entries[info.method as Count].name.clone()
 		match consumes p.types.entries[origin as Count].findMethod(name) 'found'
-			some(method) then return instantiateMethod(p, method: method, recv: recv)
+			some(method) then return instantiateMethod(p, module: module, site: site, method: method, recv: recv, errs: errs)
 			none then _ = 0
 		end 'found'
+		let param = ast.contentType(p.types, t: info.receiverTy)
+		let conformance = passedWitness(p, enclosing: bindWitnesses, param: param, iface: p.funcs.entries[info.method as Count].ownerTy)
 		match consumes ast.extensionKey(p, t: recv) 'key'
-			some(owner) then return instantiateMethod(p, method: ast.anyExtensionMethod(p, owner: owner, name: name).unwrap(), recv: recv)
+			some(owner) then return instantiateMethod(p, module: module, site: site, method: witnessMethod(p, from: conformance, owner: owner, name: name), recv: recv, errs: errs)
 			none then _ = 0
 		end 'key'
 		panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the bound that declares it")
@@ -80,18 +84,87 @@ export function resolveTarget(mutates p ast.Project, module diag.ModuleID, recei
 	panic("call kind {info.kind.name} has no function to resolve")
 end 'resolveTarget'
 
+// witnessMethod is the method of that name that an extension adds to the type owner where the module from, which declares
+// the conformance a bound uses, sees it; the check of the conformance found it there.
+function witnessMethod(p ast.Project, from diag.ModuleID, owner ast.TypeID, name String) returns ast.FuncID
+	match consumes ast.extensionMethod(p, from: from, owner: owner, name: name) 'lookup'
+		found(fid) then return fid
+		absent then panic("the conformance of {ast.typeName(p.types, t: owner)} in {ast.describeModule(p, modID: from)} has no method '{name}'")
+		ambiguous(_, _) then panic("the conformance of {ast.typeName(p.types, t: owner)} in {ast.describeModule(p, modID: from)} has two methods '{name}'")
+	end 'lookup'
+end 'witnessMethod'
+
+// passedWitness is the module of the conformance that the code around a call was given for its type parameter param to an
+// interface that is iface or extends it.
+function passedWitness(p ast.Project, enclosing ast.WitnessList, param ast.TypeID, iface ast.TypeID) returns diag.ModuleID
+	let want = ast.originOf(p.types, t: iface)
+	for i in 0 upto enclosing.count() 'each'
+		if enclosing[i].paramTy == param and ast.reachesInterface(p.types, have: enclosing[i].ifaceTy, want: want) 'hit'
+			return enclosing[i].module
+		end 'hit'
+	end 'each'
+	panic("no conformance was given for {ast.typeName(p.types, t: param)} implements {ast.typeName(p.types, t: iface)}")
+end 'passedWitness'
+
+// instantiateWith is the instance of the generic origin at args, given a conformance for each of its bounds: where the call
+// wrote a type parameter of the code around it (written), the conformance that code was given travels on, and for any other
+// type argument it is the one that the module of the call sees. It is none after it refused a conformance the module does
+// not see, or sees twice.
+function instantiateWith(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, origin ast.FuncID, written ast.TypeIDList, args ast.TypeIDList, enclosing ast.WitnessList, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
+	let slots = ast.boundSlots(p, fn: origin)
+	let generics = ast.cloneTypeArgs(p.funcs.entries[origin as Count].generics)
+	var witnesses = ast.WitnessList.create(0)
+	for i in 0 upto slots.count() 'slots'
+		let gi = indexOfParam(generics, param: slots[i].paramTy)
+		let declared = slots[i].ifaceTy
+		if p.types.entries[written[gi] as Count].kind == ast.TypeKind.typeParam 'passed'
+			let passedIface = ast.substituteType(p.types, t: declared, params: generics, args: written)
+			witnesses.push(ast.Witness.make(slots[i].paramTy, ifaceTy: declared, module: passedWitness(p, enclosing: enclosing, param: written[gi], iface: passedIface)))
+			continue 'slots'
+		end 'passed'
+		let iface = ast.substituteType(p.types, t: declared, params: generics, args: args)
+		let argName = ast.typeName(p.types, t: args[gi])
+		let ifaceName = ast.typeName(p.types, t: iface)
+		let mark = errs.count()
+		match consumes ast.conformanceSource(p, from: module, t: args[gi], iface: iface) 'source'
+			found(c) then witnesses.push(ast.Witness.make(slots[i].paramTy, ifaceTy: declared, module: c.module))
+			ambiguous(first, second) then pushInstanceError(p, module: module, site: site, code: diag.errAmbiguousConformance, message: ast.ambiguousConformanceText(p, from: module, typeName: argName, ifaceName: ifaceName, first: first, second: second), errs: errs)
+			absent then pushInstanceError(p, module: module, site: site, code: diag.errBoundNotMet, message: "'{argName}' must implement {ifaceName} for '{funcSymbol(p, fid: origin)}', but {ast.describeModule(p, modID: module)}, which makes this call, sees no declaration that says so: declare 'extension {argName} implements {ifaceName}' in it or in a module it names", errs: errs)
+		end 'source'
+		if errs.count() > mark 'unmet'
+			return table.Option.none
+		end 'unmet'
+	end 'slots'
+	return table.Option.some(ast.instantiateFunc(p.funcs, tt: p.types, origin: origin, args: args, witnesses: witnesses))
+end 'instantiateWith'
+
+function pushInstanceError(p ast.Project, module diag.ModuleID, site ast.NodeID, consumes code String, consumes message String, mutates errs diag.ErrorList)
+	diag.pushSiteError(errs, code: code, message: message, module: module, offset: p.modules[ast.modIndex(module)].tree.reportStartOf(site))
+end 'pushInstanceError'
+
+// indexOfParam is where the type parameter param is among the generics of a function.
+function indexOfParam(generics ast.TypeIDList, param ast.TypeID) returns Count
+	for i in 0 upto generics.count() 'each'
+		if generics[i] == param 'hit'
+			return i
+		end 'hit'
+	end 'each'
+	panic("a bound names a type parameter its function does not have")
+end 'indexOfParam'
+
 // instantiateMethod is a method of the type recv: itself, or for one of a generic type the instance for the type's
-// arguments.
-function instantiateMethod(mutates p ast.Project, method ast.FuncID, recv ast.TypeID) returns ast.FuncID
+// arguments, with the conformances that the module of the call sees.
+function instantiateMethod(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, method ast.FuncID, recv ast.TypeID, mutates errs diag.ErrorList) returns table.Option with ast.FuncID
 	if p.funcs.entries[method as Count].generics.count() == 0 'plain'
-		return method
+		return table.Option.some(method)
 	end 'plain'
 	let args = ast.cloneTypeArgs(p.types.entries[recv as Count].typeArgs)
-	return ast.instantiateFunc(p.funcs, tt: p.types, origin: method, args: args)
+	return instantiateWith(p, module: module, site: site, origin: method, written: args, args: args, enclosing: ast.WitnessList.create(0), errs: errs)
 end 'instantiateMethod'
 
-// visitUses finds the instances that the calls a function records need, a for's calls of the iteration protocol among them, with the type parameters of the code bound.
-function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+// visitUses finds the instances that the calls a function records need, a for's calls of the iteration protocol among them,
+// with the type parameters of the code bound and the conformances it was given.
+function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	let node = p.funcs.entries[fn as Count].nodeID
 	var recorded = ast.NodeIDList.create(0)
 	match consumes p.typings[ast.modIndex(module)].funcUses.get(node as Count) 'recorded'
@@ -103,7 +176,7 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 		if p.modules[ast.modIndex(module)].tree.kindOf(site) == ast.NodeKind.forStmt 'loop'
 			let calls = iterationInfoAt(p, module: module, node: site).calls()
 			for j in 0 upto calls.count() 'calls'
-				let target = resolveTarget(p, module: module, receiver: 0 as ast.NodeID, info: calls[j], bindParams: bindParams, bindArgs: bindArgs)
+				let target = resolveTarget(p, module: module, site: site, receiver: 0 as ast.NodeID, info: calls[j], bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
 				if not noteInstance(p, module: module, site: site, target: target, found: found, errs: errs) 'deepLoop'
 					return false
 				end 'deepLoop'
@@ -111,7 +184,7 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 			continue 'each'
 		end 'loop'
 		let info = callInfoAt(p, module: module, node: site)
-		let target = resolveCall(p, module: module, node: site, info: info, bindParams: bindParams, bindArgs: bindArgs)
+		let target = resolveCall(p, module: module, node: site, info: info, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: bindWitnesses, errs: errs)
 		if not noteInstance(p, module: module, site: site, target: target, found: found, errs: errs) 'deep'
 			return false
 		end 'deep'
@@ -120,8 +193,15 @@ function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, b
 end 'visitUses'
 
 // noteInstance adds the instance a call at site runs to those found, when it is a new one, and says whether its type
-// arguments are finite.
-function noteInstance(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+// arguments are finite. A target that is none was refused already.
+function noteInstance(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, consumes target table.Option with ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	if not target.isSome() 'refused'
+		return false
+	end 'refused'
+	return noteFound(p, module: module, site: site, target: target.unwrap(), found: found, errs: errs)
+end 'noteInstance'
+
+function noteFound(mutates p ast.Project, module diag.ModuleID, site ast.NodeID, target ast.FuncID, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
 	if p.funcs.entries[target as Count].genericOrigin == ast.noFunc or found.has(target) 'known'
 		return true
 	end 'known'
@@ -133,7 +213,7 @@ function noteInstance(mutates p ast.Project, module diag.ModuleID, site ast.Node
 		panic("{funcSymbol(p, fid: target)} is a generic of the standard library, which has no body to lower")
 	end 'std'
 	return true
-end 'noteInstance'
+end 'noteFound'
 
 // findInstances finds the instances of generic functions that one module needs, which is the code that lowering has to
 // make once for each, in that module's unit. It starts from the calls in the module's functions that are not generic, and
@@ -151,7 +231,7 @@ export function findInstances(mutates p ast.Project, callers ast.FuncIDList, mut
 		let fn = callers[i]
 		if p.funcs.entries[fn as Count].generics.count() == 0 'plain'
 			let owner = p.funcs.entries[fn as Count].module
-			if not visitUses(p, module: owner, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), found: found, errs: errs) 'deep'
+			if not visitUses(p, module: owner, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), bindWitnesses: ast.WitnessList.create(0), found: found, errs: errs) 'deep'
 				return found
 			end 'deep'
 		end 'plain'
@@ -163,7 +243,8 @@ export function findInstances(mutates p ast.Project, callers ast.FuncIDList, mut
 		let params = ast.cloneTypeArgs(p.funcs.entries[origin as Count].generics)
 		let args = ast.cloneTypeArgs(p.funcs.entries[instance as Count].typeArgs)
 		let owner = p.funcs.entries[origin as Count].module
-		if not visitUses(p, module: owner, fn: origin, bindParams: params, bindArgs: args, found: found, errs: errs) 'deep'
+		let witnesses = p.funcs.entries[instance as Count].witnesses.clone()
+		if not visitUses(p, module: owner, fn: origin, bindParams: params, bindArgs: args, bindWitnesses: witnesses, found: found, errs: errs) 'deep'
 			return found
 		end 'deep'
 		next = succ(next)

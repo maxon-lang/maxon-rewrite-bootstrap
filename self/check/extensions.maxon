@@ -94,7 +94,7 @@ function addExtensionMethod(mutates c Checker, mutates p ast.Project, m ast.Func
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: "'{cloneMethod}' is built in for every type; name the method something else", errs: errs)
 		return
 	end 'clone'
-	if ast.methodOfModule(p.modules[c.modIdx], owner: key, name: m.name).isSome() 'dup'
+	if ast.methodIn(p.modules[c.modIdx], owner: key, name: m.name) != ast.noFunc 'dup'
 		checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateMethod(m.name, typeName: ast.typeName(p.types, t: key)), errs: errs)
 		return
 	end 'dup'
@@ -125,10 +125,20 @@ function declareExtension(mutates c Checker, mutates p ast.Project, xd ast.Exten
 end 'declareExtension'
 
 // checkExtensionConformances checks each interface the module's extensions say a type implements against the type's methods,
-// which are the type's own and those that extensions add.
+// which are the type's own and those that extensions add, and refuses one that another declaration the module sees says
+// too: a type has one conformance to an interface wherever it is used.
 export function checkExtensionConformances(mutates c Checker, mutates p ast.Project, mutates errs diag.ErrorList)
 	for i in 0 upto p.modules[c.modIdx].extConforms.count() 'each'
 		let entry = p.modules[c.modIdx].extConforms[i].clone()
+		let mark = errs.count()
+		match consumes ast.conformanceSource(p, from: c.modID, t: entry.owner, iface: entry.iface) 'source'
+			ambiguous(first, second) then failAmbiguousConformance(c, p: p, off: offsetOf(c, p: p, node: entry.site), typeName: ast.typeName(p.types, t: entry.owner), ifaceName: spelled(c, p: p, iface: entry.iface), first: first, second: second, errs: errs)
+			found(_) then _ = 0
+			absent then panic("the conformance of an extension of {ast.typeName(p.types, t: entry.owner)} is not seen from its own module")
+		end 'source'
+		if failedSince(errs, mark: mark) 'ambiguous'
+			continue 'each'
+		end 'ambiguous'
 		var missing = ast.StringList.create(0)
 		var wrong = ast.StringList.create(0)
 		checkInterface(c, p: p, site: entry.site, nt: entry.owner, iface: entry.iface, missing: missing, wrong: wrong, errs: errs)

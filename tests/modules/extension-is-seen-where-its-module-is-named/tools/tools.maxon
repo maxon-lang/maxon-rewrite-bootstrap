@@ -1,0 +1,9 @@
+extension shapes.Counter
+	export function twice() returns shapes.Length
+		return try n * 2 otherwise panic("overflow")
+	end 'twice'
+end 'Counter'
+
+export function unused() returns shapes.Length
+	return 0
+end 'unused'

@@ -47,7 +47,7 @@ end 'lowerBehaviour'
 // function around it. It has a builder of its own, and what it needs of the program is the function's around it.
 function lowerNested(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, consumes name String) returns IrFunction
 	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
-	begin(inner, p: p, fn: fn, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), name: name)
+	begin(inner, p: p, fn: fn, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), bindWitnesses: l.bindWitnesses.clone(), name: name)
 	let body = lowerBody(inner, p: p)
 	l.instances = exchange(inner.instances, value: InstanceSet.new())
 	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays

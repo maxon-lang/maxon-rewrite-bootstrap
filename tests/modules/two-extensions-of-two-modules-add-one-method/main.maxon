@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let c = shapes.Counter.make(21)
+	print("{a.one()} {b.two()} {c.label()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3942 at 3:32

@@ -1,7 +1,7 @@
 // begin starts the IR of a function, forgetting the one before it. bindParams and bindArgs give the type parameters their
-// arguments; they are the function's own when it is an instance of a generic function, and the ones of the function around
-// it for the body of a behaviour.
-export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, consumes name String)
+// arguments, and bindWitnesses the conformances for their bounds; they are the function's own when it is an instance of a
+// generic function, and the ones of the function around it for the body of a behaviour.
+export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, bindWitnesses ast.WitnessList, consumes name String)
 	let paramCount = try p.funcs.entries[fn as Count].params.count() + ast.leadingParams(p.funcs.entries[fn as Count]) otherwise panic("ir: too many parameters")
 	l.b.start(fn, name: name, paramCount: paramCount)
 	l.fn = fn
@@ -14,6 +14,7 @@ export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, b
 	setModule(l, m: own)
 	l.bindParams = bindParams.clone()
 	l.bindArgs = bindArgs.clone()
+	l.bindWitnesses = bindWitnesses.clone()
 	l.jumps = JumpFrameList.create(0)
 	l.scopes = ScopeList.create(0)
 	l.ownerSlots = OwnerSlotList.create(0)
@@ -585,7 +586,7 @@ export function lowerFunction(mutates p ast.Project, fn ast.FuncID, mutates inst
 		bindParams = ast.cloneTypeArgs(p.funcs.entries[origin as Count].generics)
 		bindArgs = ast.cloneTypeArgs(p.funcs.entries[fn as Count].typeArgs)
 	end 'instance'
-	begin(l, p: p, fn: fn, bindParams: bindParams, bindArgs: bindArgs, name: "")
+	begin(l, p: p, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: p.funcs.entries[fn as Count].witnesses.clone(), name: "")
 	let f = lowerBody(l, p: p)
 	instances = exchange(l.instances, value: InstanceSet.new())
 	return f

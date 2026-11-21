@@ -178,6 +178,8 @@ export type Lowerer
 	// through them.
 	export var bindParams as ast.TypeIDList
 	export var bindArgs as ast.TypeIDList
+	// bindWitnesses are the conformances the instance was given for the bounds of its type parameters.
+	export var bindWitnesses as ast.WitnessList
 	export var jumps as JumpFrameList
 	export var cur as BlockID
 	export var scopes as ScopeList
@@ -202,7 +204,7 @@ export type Lowerer
 	export var writeBacks as WriteBackList
 
 	export static function new(consumes instances InstanceSet) returns Lowerer
-		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), bindWitnesses: ast.WitnessList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), operators: OperatorFrameList.create(0), writeBacks: WriteBackList.create(0)}
 	end 'new'
 end 'Lowerer'
 
