@@ -1018,9 +1018,9 @@ holds every double, the infinities and NaN among them. A float is an IEEE-754 do
 - Any other float operation gives `FullRangeFloat`, which fits any alias of the whole range; a narrower alias takes it
   through `as`, which fails with `overflow` where the value may lie outside (`try x as Ratio otherwise 0.0`), and so does a
   `return` that converts. A float never becomes an integer implicitly (`E3009`) or by `as` (`E3009`): `trunc` does.
-- `/` fails with `divisionByZero` where the divisor may be 0 (a constant that is not 0, or an alias whose range excludes
-  it, needs no `try`); `inf` and NaN arising any other way are ordinary values, and a comparison with a NaN holds only for
-  `!=`. `-x` flips the sign bit. There is no float `mod`.
+- `/` is IEEE-754's and never fails, so it needs no `try`: `x / 0.0` is an infinity of the sign of x and of the zero, and
+  `0.0 / 0.0` is NaN, as constants fold and as the hardware computes. `inf` and NaN are ordinary values, and a comparison
+  with a NaN holds only for `!=`. `-x` flips the sign bit. There is no float `mod`.
 - The built-in functions `trunc(x)` (a `FullRangeInt`, toward zero), `round` (ties to even), `floor`, `ceil`, `sqrt`,
   `abs`, `min(a, b)` and `max(a, b)` take their arguments by place, as maxon's do (`E2067` for a label).
 - A float prints as maxon prints one: the shortest decimal that reads back as the same double, always with a fraction and
@@ -1955,8 +1955,9 @@ compares its tokens with the input's, so a formatter bug is an internal error an
 - Floats (see "Floats") have no interval analysis: an operation over a float that is not a constant gives `FullRangeFloat`,
   where maxon carries the interval of its operands, so a value maxon proves fits a narrower float alias needs `try ... as`
   here. A float `as` and a `return` to a narrower float alias that may not fit fail with `ArithmeticError.overflow` (a NaN
-  too), as an integer's do, where maxon traps; a division whose divisor may be 0 fails with `divisionByZero`, as maxon's
-  throws. The float functions take a float or an integer constant, not a value of an integer alias, which is cast first.
+  too), as an integer's do, where maxon traps. Float division by 0 is IEEE's (an infinity or NaN), where maxon's throws
+  `divisionByZero` and refuses a constant zero divisor (`E3103`). The float functions take a float or an integer constant,
+  not a value of an integer alias, which is cast first.
   There is no float `match` pattern, map key or interface conformance, no `float.fromString`, no `Math`, no format
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.

@@ -510,13 +510,6 @@ end 'rangeOperator'
 // one, is one the code cannot reach.
 function rangeOperate(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
 	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
-	if op == "/" and ast.isFloatType(p.types, t: typeOf(r, e: e)) 'floatQuotient'
-		let divisor = typeOf(r, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: e))
-		if floatMayBeZero(p, t: divisor) 'mayBeZero'
-			rangeFail(r, p: p, e: e, fails: ast.failDivZero, why: Unchecked.operation(op.clone(), fails: ast.failDivZero, node: e, ty: typeOf(r, e: e)))
-		end 'mayBeZero'
-		return noSpan()
-	end 'floatQuotient'
 	if isComparisonOp(op) or not ast.isIntType(p.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'

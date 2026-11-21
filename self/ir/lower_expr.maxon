@@ -950,7 +950,7 @@ function lowerOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, l
 	end 'string'
 	let c = lowerExpr(l, p: p, e: right)
 	if ast.isFloatType(p.types, t: arith.operand) 'float'
-		return floatOperator(l, p: p, e: e, op: op, left: left, right: c, fails: arith.fails)
+		return floatOperator(l, p: p, e: e, op: op, left: left, right: c)
 	end 'float'
 	let unsigned = ast.isUnsignedInt(p.types, t: arith.operand)
 	if isCmpOpText(op) 'cmp'

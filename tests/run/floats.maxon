@@ -12,8 +12,8 @@ function area(radius Real) returns Real
 	return 3.14159 * radius * radius
 end 'area'
 
-function share(part Real, whole Real) returns Real throws ArithmeticError
-	return try part / whole
+function share(part Real, whole Real) returns Real
+	return part / whole
 end 'share'
 
 function clamp(r Real) returns Ratio
@@ -31,7 +31,9 @@ function main() returns ExitCode
 	print("{trunc(-2.7)} {round(2.5)} {round(3.5)} {floor(-2.5)} {ceil(2.1)} {sqrt(2.0)} {abs(-5.5)}\n")
 	print("{clamp(0.25)} {clamp(7.0)}\n")
 	let zero = 0.0 as Real
-	print("{try share(1.0, whole: zero) otherwise -1.0} {try share(1.0, whole: 4.0) otherwise -1.0}\n")
+	print("{share(1.0, whole: zero)} {share(-1.0, whole: zero)} {share(1.0, whole: -zero)} {share(1.0, whole: 4.0)}\n")
+	let undefined = share(zero, whole: zero)
+	print("{undefined} {undefined == undefined} {undefined != undefined} {1.0 / 0.0} {-1.0 / 0.0} {0.0 / 0.0} {x / 0.0}\n")
 	let big = 18446744073709551615 as Count
 	let nan = sqrt(-1.0)
 	print("{big as Real} {(r * 1.0e308) * 10.0} {nan} {nan == nan} {nan != nan} {nan < 1.0}\n")
@@ -44,6 +46,7 @@ end 'main'
 //> true true false false true -2.0
 //> -2 2.0 4.0 -3.0 3.0 1.4142135623730951 5.5
 //> 0.25 1.0
-//> -1.0 0.25
+//> inf -inf -inf 0.25
+//> nan false true inf -inf nan inf
 //> 18446744073709552000.0 inf nan false true false
 // expect-exit: 3

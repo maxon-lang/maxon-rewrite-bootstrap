@@ -92,10 +92,6 @@ function checkFloatOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, op
 	setOperand(c, node: e, operand: p.builtins.anonFloatTy)
 	let lConst = isConstFloat(p, t: l) or isConstInt(p, t: l)
 	let rConst = isConstFloat(p, t: r) or isConstInt(p, t: r)
-	if op == "/" and rConst and ast.floatIsZero(constantBits(p, t: r)) 'byZero'
-		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
-		return ast.noType
-	end 'byZero'
 	if lConst and rConst 'folded'
 		return ast.internConstFloat(p.types, bits: foldFloat(op, a: constantBits(p, t: l), b: constantBits(p, t: r)))
 	end 'folded'
@@ -188,21 +184,6 @@ export function floatConversionFails(p ast.Project, src ast.TypeID, dst ast.Type
 	end 'integer'
 	return ast.failBelow or ast.failAbove
 end 'floatConversionFails'
-
-// floatMayBeZero is whether a divisor of the type may be 0, so that a float division by it can fail.
-export function floatMayBeZero(p ast.Project, t ast.TypeID) returns bool
-	let k = p.types.entries[t as Count].kind
-	if k == ast.TypeKind.constFloat or k == ast.TypeKind.constInt 'constant'
-		return ast.floatIsZero(constantBits(p, t: t))
-	end 'constant'
-	if k == ast.TypeKind.floatRange 'range'
-		return ast.floatRangeHolds(p.types, t: t, bits: 0)
-	end 'range'
-	if k == ast.TypeKind.intRange 'integer'
-		return p.types.entries[t as Count].minVal.le(ast.I128.zero()) and p.types.entries[t as Count].maxVal.ge(ast.I128.zero())
-	end 'integer'
-	panic("check: a divisor of {ast.typeName(p.types, t: t)} is no number")
-end 'floatMayBeZero'
 
 // floatRangeText is how the range analysis's errors write a float range.
 export function floatRangeText(p ast.Project, t ast.TypeID) returns String
