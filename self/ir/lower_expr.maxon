@@ -439,7 +439,11 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 		popArgs(l, n: base)
 		writeBack(l, p: p, mark: places)
 	end 'plain' else 'throwing'
-		let err = newReg(l, kind: IrKind.kindScalar)
+		var errKind = IrKind.kindScalar
+		if ast.isUnionError(p.types, t: errTy) 'union'
+			errKind = IrKind.kindManaged
+		end 'union'
+		let err = newReg(l, kind: errKind)
 		emitThrowingCall(l, dst: dst, target: target, args: argsSince(l, base: base), err: err)
 		popArgs(l, n: base)
 		// What the callee wrote to an element before it failed stays written, as it would through the element's own
@@ -450,7 +454,8 @@ function lowerCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns
 		let ok = l.b.newBlock()
 		let zero = konst(l, value: 0 as Word)
 		let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
-		let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+		let errDrop = errorDropType(l, p: p, t: errTy)
+		let stub = failure(l, p: p, errorCase: 0 as Count, err: err, errDrop: errDrop)
 		l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
 		l.cur = ok
 	end 'throwing'
@@ -630,20 +635,6 @@ function caseNames(p ast.Project, t ast.TypeID) returns ast.StringList
 	return names
 end 'caseNames'
 
-// caseTexts is how each case of an enum is interpolated, as maxon does: the raw value of an enum that gives its cases
-// values, and the name of any other.
-function caseTexts(p ast.Project, t ast.TypeID) returns ast.StringList
-	let origin = p.types.entries[t as Count].effectiveOrigin()
-	if not p.types.entries[origin as Count].hasExplicitRaw 'named'
-		return caseNames(p, t: t)
-	end 'named'
-	var texts = ast.StringList.create(0)
-	for i in 0 upto p.types.entries[origin as Count].cases.count() 'each'
-		texts.push(p.types.entries[origin as Count].cases[i].rawValue.toString())
-	end 'each'
-	return texts
-end 'caseTexts'
-
 function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let member = memberInfoAt(p, module: l.module, node: e)
 	let obj = ast.memberExprObj(p.modules[l.mi].tree, id: e)
@@ -670,18 +661,14 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	if kind == ast.MemberKind.memberEnumRaw 'enumRaw'
 		let et = exprType(p, module: l.module, node: obj)
 		let v = lowerExpr(l, p: p, e: obj)
-		if p.types.entries[et as Count].hasExplicitRaw 'explicit'
-			let count = p.types.entries[et as Count].cases.count()
-			let sel = selectStart(l, kind: IrKind.kindScalar, index: v, count: count)
-			for i in 0 upto count 'each'
-				selectArm(l, s: sel, i: i)
-				let raw = konst(l, value: wordOf(p.types.entries[et as Count].cases[i].rawValue))
-				selectStore(l, s: sel, v: raw)
-			end 'each'
-			return selectEnd(l, s: sel)
-		end 'explicit'
-		return v
+		return rawValueOf(l, p: p, t: et, index: v)
 	end 'enumRaw'
+	if kind == ast.MemberKind.memberUnionRaw 'unionRaw'
+		let ut = exprType(p, module: l.module, node: obj)
+		let u = lowerExpr(l, p: p, e: obj)
+		let tag = tagReg(l, box: u)
+		return rawValueOf(l, p: p, t: ut, index: tag)
+	end 'unionRaw'
 	if kind == ast.MemberKind.memberUnionOrdinal 'unionOrdinal'
 		let u = lowerExpr(l, p: p, e: obj)
 		return tagReg(l, box: u)
@@ -693,6 +680,31 @@ function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID)
 	end 'unionName'
 	panic("lower: unresolved member")
 end 'visitMemberExpr'
+
+// rawValueOf is the raw value of the case of the enum or union type t that index says: the index itself for integers that the
+// cases did not write, and otherwise the raw value of each case, chosen by a switch.
+function rawValueOf(mutates l Lowerer, p ast.Project, t ast.TypeID, index Reg) returns Reg
+	let origin = p.types.entries[t as Count].effectiveOrigin()
+	let kind = p.types.entries[origin as Count].rawKind
+	if kind == ast.RawKind.string 'string'
+		var texts = ast.StringList.create(0)
+		for i in 0 upto p.types.entries[origin as Count].cases.count() 'texts'
+			texts.push(p.types.entries[origin as Count].cases[i].rawText.clone())
+		end 'texts'
+		return names(l, index: index, names: texts)
+	end 'string'
+	if kind == ast.RawKind.integer and not p.types.entries[origin as Count].hasExplicitRaw 'ordinal'
+		return index
+	end 'ordinal'
+	let count = p.types.entries[origin as Count].cases.count()
+	let sel = selectStart(l, kind: IrKind.kindScalar, index: index, count: count)
+	for i in 0 upto count 'each'
+		selectArm(l, s: sel, i: i)
+		let raw = konst(l, value: wordOf(p.types.entries[origin as Count].cases[i].rawValue))
+		selectStore(l, s: sel, v: raw)
+	end 'each'
+	return selectEnd(l, s: sel)
+end 'rawValueOf'
 
 // names is the name of the case that index says, as a string of the executable.
 function names(mutates l Lowerer, index Reg, names ast.StringList) returns Reg
@@ -780,15 +792,7 @@ end 'plainText'
 
 // partsText is the text of the parts of a literal that has no interpolation.
 function partsText(l Lowerer, p ast.Project, partsRef diag.U32) returns String
-	let count = p.modules[l.mi].tree.strPartCount(partsRef)
-	if count == 1 'one'
-		return p.modules[l.mi].tree.strPartText(partsRef, index: 0 as Count)
-	end 'one'
-	var text = ByteArray.create(0)
-	for i in 0 upto count 'parts'
-		text.append(p.modules[l.mi].tree.strPartText(partsRef, index: i).toByteArray())
-	end 'parts'
-	return String.from(text)
+	return ast.strPartsText(p.modules[l.mi].tree, partsRef: partsRef)
 end 'partsText'
 
 // visitByteStrLit is a new byte array with the bytes of a byte string literal, copied from its text in the executable's data.
@@ -849,6 +853,10 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 	let applied = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
 	let t = ast.contentType(p.types, t: applied)
 	let kind = p.types.entries[t as Count].kind
+	let spec = formatSpecOf(p.modules[l.mi].tree, partsRef: partsRef, index: index)
+	if t == p.builtins.stringTy and spec.quotes 'quoted'
+		return quotedText(l, v: v, spec: spec)
+	end 'quoted'
 	if t == p.builtins.stringTy 'string'
 		if isImmortal(l, p: p, e: e) 'immortal'
 			return TextPart.make(v, owner: TextOwner.textImmortal)
@@ -861,6 +869,12 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 		texts.push("true")
 		return TextPart.make(names(l, index: v, names: texts), owner: TextOwner.textImmortal)
 	end 'bool'
+	if (kind == ast.TypeKind.constInt or kind == ast.TypeKind.intRange) and spec.present 'formattedInt'
+		return formattedInt(l, p: p, v: v, signed: not rendersUnsigned(p, t: t), spec: spec)
+	end 'formattedInt'
+	if (kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange) and spec.present 'formattedFloat'
+		return formattedFloat(l, p: p, v: v, spec: spec)
+	end 'formattedFloat'
 	if kind == ast.TypeKind.constInt 'constant'
 		let flag = konst(l, value: 0 as Word)
 		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flag)), owner: TextOwner.textFresh)
@@ -876,8 +890,11 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 	if kind == ast.TypeKind.constFloat or kind == ast.TypeKind.floatRange 'float'
 		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v)), owner: TextOwner.textFresh)
 	end 'float'
+	if kind == ast.TypeKind.enumTy and p.types.entries[t as Count].hasExplicitRaw 'rawEnum'
+		return rawText(l, p: p, t: t, index: v, spec: spec)
+	end 'rawEnum'
 	if kind == ast.TypeKind.enumTy 'enum'
-		return TextPart.make(names(l, index: v, names: caseTexts(p, t: t)), owner: TextOwner.textImmortal)
+		return TextPart.make(names(l, index: v, names: caseNames(p, t: t)), owner: TextOwner.textImmortal)
 	end 'enum'
 	if kind == ast.TypeKind.unionTy 'union'
 		let tag = tagReg(l, box: v)
@@ -885,6 +902,40 @@ function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, in
 	end 'union'
 	panic("lower: cannot interpolate {ast.typeName(p.types, t: exprType(p, module: l.module, node: e))}")
 end 'strPart'
+
+// rawText is the text of an enum value whose cases write raw values, which is its raw value as the type of the raw value
+// writes it: the digits of an integer, the shortest spelling of a float, or the string itself.
+function rawText(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, index Reg, spec ast.FormatSpec) returns TextPart
+	let raw = rawValueOf(l, p: p, t: t, index: index)
+	let kind = p.types.entries[t as Count].rawKind
+	if kind == ast.RawKind.string 'string'
+		return TextPart.make(raw, owner: TextOwner.textImmortal)
+	end 'string'
+	if kind == ast.RawKind.float 'float'
+		if spec.present 'floatSpec'
+			return formattedFloat(l, p: p, v: raw, spec: spec)
+		end 'floatSpec'
+		return TextPart.make(runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(raw)), owner: TextOwner.textFresh)
+	end 'float'
+	if spec.present 'intSpec'
+		return formattedInt(l, p: p, v: raw, signed: true, spec: spec)
+	end 'intSpec'
+	let signed = konst(l, value: 0 as Word)
+	return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(raw, b: signed)), owner: TextOwner.textFresh)
+end 'rawText'
+
+// formatSpecOf is the format specifier of a part of a string literal, which asks for nothing for a part that has none. The
+// parser refused a specifier that does not read, so every one reads here.
+function formatSpecOf(t ast.Tree, partsRef diag.U32, index Count) returns ast.FormatSpec
+	let text = t.strPartFormat(partsRef, index: index)
+	if text.byteLength() == 0 'none'
+		return ast.FormatSpec.absent()
+	end 'none'
+	return match consumes ast.parseFormatSpec(text) 'spec'
+		some(s) gives s
+		none panic("ir: the format specifier '{text}' was not read by the parser")
+	end 'spec'
+end 'formatSpecOf'
 
 function binOpOfText(op String) returns BinOp
 	return match op 'op'
@@ -1004,11 +1055,11 @@ function lowerOperator(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, l
 	let binOp = binOpOfText(op)
 	let fails = arith.fails
 	if hasFail(fails, flag: ast.failDivZero) 'zero'
-		let fail = failure(l, p: p, errorCase: ast.errorDivisionByZero, err: noReg)
+		let fail = failure(l, p: p, errorCase: ast.errorDivisionByZero, err: noReg, errDrop: ast.noType)
 		emit(l, i: newGuard(c, kind: GuardKind.guardNonZero, bound: 0 as Word, fail: fail))
 	end 'zero'
 	if hasFail(fails, flag: ast.failShift) 'shift'
-		let fail = failure(l, p: p, errorCase: ast.errorNegativeShift, err: noReg)
+		let fail = failure(l, p: p, errorCase: ast.errorNegativeShift, err: noReg, errDrop: ast.noType)
 		emit(l, i: newGuard(c, kind: GuardKind.guardNonNegative, bound: 0 as Word, fail: fail))
 	end 'shift'
 	let overflow = overflowTo(l, p: p, fails: fails)
@@ -1030,7 +1081,7 @@ function overflowTo(mutates l Lowerer, p ast.Project, fails Byte) returns BlockI
 	if (fails and (ast.failOverflow or ast.failBelow or ast.failAbove)) == 0 'fits'
 		return noBlock
 	end 'fits'
-	return failure(l, p: p, errorCase: ast.errorOverflow, err: noReg)
+	return failure(l, p: p, errorCase: ast.errorOverflow, err: noReg, errDrop: ast.noType)
 end 'overflowTo'
 
 function flip(mutates l Lowerer, boolean Reg) returns Reg

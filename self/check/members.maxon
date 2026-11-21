@@ -52,6 +52,85 @@ function aliasOrTypeName(p ast.Project, ref ast.DeclRef, t ast.TypeID) returns S
 	end 'd'
 end 'aliasOrTypeName'
 
+// RawState is the raw values of the cases of an enum or a union read so far: what they are, which the first case settles
+// (a case that writes none is an integer), and the integer that the next case without one has.
+type RawState
+	var kind as ast.RawKind
+	var started as bool
+	var next as ast.I128
+	// value, text and explicit are the raw value of the case read last: its integer or the bits of its float, the text of its
+	// string, and whether it wrote one.
+	var value as ast.I128
+	var text as String
+	var explicit as bool
+
+	static function new() returns RawState
+		return RawState{kind: ast.RawKind.integer, started: false, next: ast.I128.zero(), value: ast.I128.zero(), text: "", explicit: false}
+	end 'new'
+end 'RawState'
+
+// readRaw reads the raw value that a case writes, or the integer that counts up for a case that writes none, into st, and
+// refuses one that is not of the kind the first case settled or that another case of the type has. It gives whether it did
+// not refuse.
+function readRaw(mutates c Checker, mutates p ast.Project, tid ast.TypeID, raw ast.NodeID, off diag.U32, mutates st RawState, mutates errs diag.ErrorList) returns bool
+	st.explicit = raw != 0
+	var kind = ast.RawKind.integer
+	if st.explicit and p.modules[c.modIdx].tree.kindOf(raw) == ast.NodeKind.floatLit 'float'
+		kind = ast.RawKind.float
+	end 'float' else if st.explicit and p.modules[c.modIdx].tree.kindOf(raw) == ast.NodeKind.strLit 'string'
+		kind = ast.RawKind.string
+	end 'string'
+	if st.started and st.kind != kind 'mismatch'
+		checkFail(c.modID, off: off, code: diag.errEnumRawValueTypeMismatch, msg: diag.rawValueTypeMismatch(st.kind.noun(), got: kind.noun()), errs: errs)
+		return false
+	end 'mismatch'
+	st.started = true
+	st.kind = kind
+	var shown = ""
+	if kind == ast.RawKind.integer 'integer'
+		st.value = st.next.clone()
+		if st.explicit 'written'
+			st.value = ast.intLitValue(p.modules[c.modIdx].tree, id: raw)
+		end 'written'
+		st.next = st.value.add(ast.I128.one())
+		st.text = ""
+		shown = st.value.toString()
+	end 'integer' else if kind == ast.RawKind.float 'floatKind'
+		let bits = ast.floatLitBits(p.modules[c.modIdx].tree, id: raw)
+		st.value = ast.I128.fromCount(bits)
+		st.text = ""
+		shown = ast.floatDiagnosticText(bits)
+	end 'floatKind' else 'stringKind'
+		let parts = ast.strLitPartsRef(p.modules[c.modIdx].tree, id: raw)
+		if not p.modules[c.modIdx].tree.strIsPlain(parts) 'interpolated'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: raw), code: diag.errRawValueNotLiteral, msg: "a raw value is a constant: write the string without an interpolated value", errs: errs)
+			return false
+		end 'interpolated'
+		st.value = ast.I128.zero()
+		st.text = ast.strPartsText(p.modules[c.modIdx].tree, partsRef: parts)
+		shown = st.text.clone()
+	end 'stringKind'
+	for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
+		let other = p.types.entries[tid as Count].cases[j].clone()
+		if other.rawValue.eq(st.value) and other.rawText == st.text 'same'
+			checkFail(c.modID, off: off, code: diag.errEnumDuplicateRawValue, msg: diag.duplicateRawValue(shown), errs: errs)
+			return false
+		end 'same'
+	end 'rawDup'
+	return true
+end 'readRaw'
+
+// pushRawCase adds the case that readRaw has read to the type, with the payload it has.
+function pushRawCase(mutates p ast.Project, tid ast.TypeID, consumes name String, consumes payload ast.CaseFieldList, st RawState)
+	var info = ast.CaseInfo.make(name, payload: payload, hasRaw: st.explicit, rawValue: st.value.clone())
+	info.rawText = st.text.clone()
+	p.types.entries[tid as Count].cases.push(info)
+	p.types.entries[tid as Count].rawKind = st.kind
+	if st.explicit 'explicit'
+		p.types.entries[tid as Count].hasExplicitRaw = true
+	end 'explicit'
+end 'pushRawCase'
+
 // declareEnumMembers declares the cases of an enum, each with the raw value it writes or else the one after the case
 // before.
 function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.EnumDecl, tid ast.TypeID, mutates errs diag.ErrorList)
@@ -60,7 +139,7 @@ function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.Enu
 	if failedSince(errs, mark: mark) 'conforms'
 		return
 	end 'conforms'
-	var next = ast.I128.zero()
+	var st = RawState.new()
 	for i in 0 upto ed.cases.count() 'each'
 		let cs = ed.cases[i].clone()
 		let off = offsetOf(c, p: p, node: cs.id)
@@ -68,22 +147,10 @@ function declareEnumMembers(mutates c Checker, mutates p ast.Project, ed ast.Enu
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
-		var raw = next.clone()
-		let explicit = cs.raw != 0
-		if explicit 'written'
-			raw = ast.intLitValue(p.modules[c.modIdx].tree, id: cs.raw)
-		end 'written'
-		for j in 0 upto p.types.entries[tid as Count].cases.count() 'rawDup'
-			if p.types.entries[tid as Count].cases[j].rawValue.eq(raw) 'same'
-				checkFail(c.modID, off: off, code: diag.errEnumDuplicateRawValue, msg: diag.duplicateRawValue(raw.toString()), errs: errs)
-				return
-			end 'same'
-		end 'rawDup'
-		if explicit 'explicitRaw'
-			p.types.entries[tid as Count].hasExplicitRaw = true
-		end 'explicitRaw'
-		p.types.entries[tid as Count].cases.push(ast.CaseInfo.make(cs.name.clone(), payload: ast.CaseFieldList.create(0), hasRaw: explicit, rawValue: raw.clone()))
-		next = raw.add(ast.I128.one())
+		if not readRaw(c, p: p, tid: tid, raw: cs.raw, off: off, st: st, errs: errs) 'refused'
+			return
+		end 'refused'
+		pushRawCase(p, tid: tid, name: cs.name.clone(), payload: ast.CaseFieldList.create(0), st: st)
 	end 'each'
 end 'declareEnumMembers'
 
@@ -95,6 +162,7 @@ function declareUnionMembers(mutates c Checker, mutates p ast.Project, ud ast.Un
 		return
 	end 'conforms'
 	let selfTy = ast.selfType(p.types, declTy: tid)
+	var st = RawState.new()
 	for i in 0 upto ud.cases.count() 'each'
 		let cs = ud.cases[i].clone()
 		if p.types.entries[tid as Count].findCase(cs.name).isSome() 'dup'
@@ -114,7 +182,10 @@ function declareUnionMembers(mutates c Checker, mutates p ast.Project, ud ast.Un
 			end 'badType'
 			payload.push(ast.CaseFieldInfo.make(f.name.clone(), ty: t))
 		end 'fields'
-		p.types.entries[tid as Count].cases.push(ast.CaseInfo.make(cs.name.clone(), payload: payload, hasRaw: false, rawValue: ast.I128.zero()))
+		if not readRaw(c, p: p, tid: tid, raw: cs.raw, off: offsetOf(c, p: p, node: cs.id), st: st, errs: errs) 'refused'
+			return
+		end 'refused'
+		pushRawCase(p, tid: tid, name: cs.name.clone(), payload: payload, st: st)
 	end 'each'
 end 'declareUnionMembers'
 

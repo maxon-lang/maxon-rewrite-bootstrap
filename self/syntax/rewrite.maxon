@@ -39,7 +39,7 @@ function collectKeyword(src Source, file Count, toks Tokens, old String, replace
 			for p in 0 upto reader.parts.count() 'parts'
 				match reader.parts[p] 'part'
 					text(run, begin, raw) then _ = 0
-					expr(begin, until) then try collectInterpolation(src, file: current, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
+					expr(begin, until, _, _) then try collectInterpolation(src, file: current, begin: begin, until: until, old: old, replacement: replacement, edits: edits, errs: errs)
 				end 'part'
 			end 'parts'
 		end 'string'

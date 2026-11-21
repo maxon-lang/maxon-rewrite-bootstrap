@@ -336,8 +336,7 @@ function unknownCase(c Checker, off diag.U32, word String, member String, mutate
 	return ast.noType
 end 'unknownCase'
 
-// checkValueMember types a field of a record value, and '.name', '.ordinal' and '.rawValue' of an enum value and '.name' and
-// '.ordinal' of a union value.
+// checkValueMember types a field of a record value, and '.name', '.ordinal' and '.rawValue' of an enum or a union value.
 function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
 	let content = ast.contentType(p.types, t: t)
@@ -348,7 +347,7 @@ function checkValueMember(mutates c Checker, mutates p ast.Project, e ast.NodeID
 		return checkFieldMember(c, p: p, e: e, rt: content, member: member, errs: errs)
 	end 'field'
 	let k = kindOfType(p, t: t)
-	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal")) 'builtinMember'
+	if (k == ast.TypeKind.enumTy and (member == "name" or member == "ordinal" or member == "rawValue")) or (k == ast.TypeKind.unionTy and (member == "name" or member == "ordinal" or member == "rawValue")) 'builtinMember'
 		return builtinMemberType(c, p: p, e: e, t: t, member: member, errs: errs)
 	end 'builtinMember'
 	if typeIsNominal(p.types, t: t) and methodNamed(p, t: t, name: member) != ast.noFunc 'method'
@@ -386,7 +385,10 @@ function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeI
 			kind = ast.MemberKind.memberEnumOrdinal
 		end 'enumOrdinal'
 	end 'ordinal' else if member == "rawValue" 'raw'
-		kind = ast.MemberKind.memberEnumRaw
+		kind = ast.MemberKind.memberUnionRaw
+		if isEnum 'enumRaw'
+			kind = ast.MemberKind.memberEnumRaw
+		end 'enumRaw'
 		result = rawValueType(p, t: t)
 	end 'raw' else if isEnum 'enumName'
 		kind = ast.MemberKind.memberEnumName
@@ -395,9 +397,16 @@ function builtinMemberType(mutates c Checker, mutates p ast.Project, e ast.NodeI
 	return result
 end 'builtinMemberType'
 
-// rawValueType is the type of the raw value of an enum: a Count, or a FullRangeInt where a case has a negative one.
+// rawValueType is the type of the raw value of an enum or a union: a String or a FullRangeFloat for the strings and floats
+// the cases write, and for integers a Count, or a FullRangeInt where a case has a negative one.
 function rawValueType(p ast.Project, t ast.TypeID) returns ast.TypeID
 	let orig = ast.originOf(p.types, t: t)
+	if p.types.entries[orig as Count].rawKind == ast.RawKind.string 'string'
+		return p.builtins.stringTy
+	end 'string'
+	if p.types.entries[orig as Count].rawKind == ast.RawKind.float 'float'
+		return p.builtins.fullRangeFloatTy
+	end 'float'
 	for i in 0 upto p.types.entries[orig as Count].cases.count() 'each'
 		if p.types.entries[orig as Count].cases[i].rawValue.isNeg() 'negative'
 			return p.builtins.fullRangeIntTy

@@ -416,7 +416,7 @@ end 'returnStmtOwn'
 // throwStmtOwn is a failure that always happens: it goes to the innermost try's handler, or with none out of the
 // function.
 function throwStmtOwn(mutates o Ownership, mutates p ast.Project, st ast.NodeID, consumes s OwnState) returns OwnState
-	let out = eval(o, p: p, e: ast.throwStmtValue(p.modules[o.c.modIdx].tree, id: st), s: s)
+	let out = consume(o, p: p, e: ast.throwStmtValue(p.modules[o.c.modIdx].tree, id: st), dest: OwnDest.of(OwnDestKind.destReturn), s: s)
 	let added = enterTry(o, handles: false)
 	failure(o, p: p, site: offsetOfOwn(o, p: p, node: st), s: out)
 	if added 'added'

@@ -1,0 +1,7 @@
+function main() returns ExitCode
+	let n = 1
+	print("{n:99999999999}\n")
+	return 0
+end 'main'
+
+// expect-error: E2011 at 3:11

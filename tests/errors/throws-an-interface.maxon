@@ -1,0 +1,9 @@
+function work() returns Count throws Error
+	return 1
+end 'work'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3113 at 1:10

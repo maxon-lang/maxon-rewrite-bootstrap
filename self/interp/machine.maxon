@@ -229,28 +229,45 @@ function execRet(mutates vm Vm, f ir.IrFunction, t ir.Term) throws Halt
 	endWindows(vm)
 	let src = ir.retValue(t)
 	if isManaged(f, r: src) 'managed'
-		let o = vm.ref(src)
-		if o == 0 'moved'
-			throw violation(vm, kind: movedUse, message: "the function returns a value that was moved out or never assigned")
-		end 'moved'
-		try requireLive(vm, o: o, what: "returned")
-		if not vm.h.oImmortal[o] and vm.h.oOwner[o] != 0 'owned'
-			let message = "the function returns {objectText(vm, o: o)}, which {cellText(vm, c: vm.h.oOwner[o])} still owns: a return moves its value"
-			throw violation(vm, kind: ownership, message: message)
-		end 'owned'
+		try requireHandedOn(vm, src: src, verb: "returns")
 	end 'managed'
 	try requireSlotsDropped(vm, f: f)
 	let at = vm.regAt(src)
 	let n = vm.regN[at]
 	let r = vm.regR[at]
-	leaveFrame(vm, n: n, r: r, err: 0)
+	leaveFrame(vm, n: n, r: r, err: 0, errRef: 0)
 end 'execRet'
 
+// requireHandedOn is a violation unless the managed register src holds a live value that nothing owns, which a return
+// or a throw moves to the caller; verb is what the function does with it.
+function requireHandedOn(mutates vm Vm, src ir.Reg, verb String) throws Halt
+	let o = vm.ref(src)
+	if o == 0 'moved'
+		throw violation(vm, kind: movedUse, message: "the function {verb} a value that was moved out or never assigned")
+	end 'moved'
+	try requireLive(vm, o: o, what: "handed on")
+	if not vm.h.oImmortal[o] and vm.h.oOwner[o] != 0 'owned'
+		let message = "the function {verb} {objectText(vm, o: o)}, which {cellText(vm, c: vm.h.oOwner[o])} still owns: a {verb} moves its value"
+		throw violation(vm, kind: ownership, message: message)
+	end 'owned'
+end 'requireHandedOn'
+
+// managedErrorMark is the number that the error register of a call holds while it holds the box of an error union, which
+// a branch on the register reads as an error.
+let managedErrorMark = 1 as ir.Word
+
+// execThrow hands the error to the caller: a case plus 1, or the box of an error union, which the caller then owns.
 function execThrow(mutates vm Vm, f ir.IrFunction, t ir.Term) throws Halt
 	endWindows(vm)
+	let src = ir.throwErr(t)
+	var err = vm.num(src)
+	if isManaged(f, r: src) 'managed'
+		try requireHandedOn(vm, src: src, verb: "throws")
+		err = managedErrorMark
+	end 'managed'
 	try requireSlotsDropped(vm, f: f)
-	let err = vm.num(ir.throwErr(t))
-	leaveFrame(vm, n: 0, r: 0, err: err)
+	let errRef = vm.regR[vm.regAt(src)]
+	leaveFrame(vm, n: 0, r: 0, err: err, errRef: errRef)
 end 'execThrow'
 
 // enterFrame makes a call of a function with the arguments in argN and argR; its result goes to the register dst of the caller
@@ -319,8 +336,9 @@ function loadTop(mutates vm Vm)
 	vm.post = vm.fr.post[top]
 end 'loadTop'
 
-// leaveFrame ends the frame that runs, giving the value n and r to its caller, and the error.
-function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word)
+// leaveFrame ends the frame that runs, giving the value n and r to its caller, and the error: its number err and, for an
+// error union, the box errRef.
+function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word, errRef ir.Word)
 	let serial = vm.top
 	let dst = vm.fr.retDst[serial]
 	let errReg = vm.fr.retErr[serial]
@@ -343,7 +361,7 @@ function leaveFrame(mutates vm Vm, n ir.Word, r ir.Word, err ir.Word)
 	if errReg >= 0 'throws'
 		let at = try vm.regBase + (errReg as Count) otherwise panic("interp: a register past memory")
 		vm.regN[at] = err
-		vm.regR[at] = 0
+		vm.regR[at] = errRef
 	end 'throws'
 end 'leaveFrame'
 

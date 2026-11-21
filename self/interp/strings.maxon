@@ -65,6 +65,25 @@ function entryStrTrim(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveText(vm, x: x, text: stringTrim(text, trimStart: argNum(vm, f: f, x: x, i: 1) != 0, trimEnd: argNum(vm, f: f, x: x, i: 2) != 0))
 end 'entryStrTrim'
 
+function entryFmtInt(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	giveText(vm, x: x, text: formatInteger(countArg(vm, f: f, x: x, i: 0), radix: countArg(vm, f: f, x: x, i: 1), flags: countArg(vm, f: f, x: x, i: 2), width: countArg(vm, f: f, x: x, i: 3)))
+end 'entryFmtInt'
+
+function entryFmtPad(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a number field")
+	giveText(vm, x: x, text: formatPadded(text, width: countArg(vm, f: f, x: x, i: 1), zeroFill: argNum(vm, f: f, x: x, i: 2) != 0))
+end 'entryFmtPad'
+
+function entryFmtQuoted(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a quoted text")
+	giveText(vm, x: x, text: formatQuoted(text, single: argNum(vm, f: f, x: x, i: 1) != 0, width: countArg(vm, f: f, x: x, i: 2)))
+end 'entryFmtQuoted'
+
+function entryFmtFixed(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let magnitude = try stringArg(vm, f: f, x: x, i: 0, what: "a fixed float")
+	giveText(vm, x: x, text: formatFixed(magnitude, negative: argNum(vm, f: f, x: x, i: 1) != 0, precision: countArg(vm, f: f, x: x, i: 2)))
+end 'entryFmtFixed'
+
 function entryStrMapCase(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let text = try stringArg(vm, f: f, x: x, i: 0, what: "a string case")
 	giveText(vm, x: x, text: stringMapCase(text, upper: argNum(vm, f: f, x: x, i: 1) != 0))

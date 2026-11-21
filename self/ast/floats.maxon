@@ -975,6 +975,26 @@ export function floatText(bits Count) returns String
 	return "{sign}{fixedDisplay(d)}"
 end 'floatText'
 
+// floatExactText is the exact decimal of the magnitude of a double, written with its point and no exponent, always with
+// a fraction, or "inf" or "nan" for a double that is not finite.
+export function floatExactText(bits Count) returns String
+	let magnitude = bits and floatMagnitudeMask
+	if floatIsNaN(bits) 'nan'
+		return "nan"
+	end 'nan'
+	if floatIsInfinite(bits) 'inf'
+		return "inf"
+	end 'inf'
+	if magnitude == 0 'zero'
+		return "0.0"
+	end 'zero'
+	let d = exactDecimal(bigOf(significandOf(magnitude) as Count), e: exponentOf(magnitude) as FullRangeInt)
+	if d.scale >= (try d.digits.count() as FullRangeInt otherwise panic("floats: a decimal is past the word")) 'whole'
+		return "{fixedDisplay(d)}.0"
+	end 'whole'
+	return fixedDisplay(d)
+end 'floatExactText'
+
 // floatDiagnosticText is the text of a double in a diagnostic, as maxon's: no fraction on a whole number, scientific
 // notation past the scales from -3 to 17, and the bits of a double that is not finite.
 export function floatDiagnosticText(bits Count) returns String

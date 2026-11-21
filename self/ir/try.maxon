@@ -22,8 +22,10 @@ export function leaveTry(mutates l Lowerer)
 end 'leaveTry'
 
 // failure is the block an operation goes to when it fails with the error errorCase, or with the error in the register err
-// (a case plus 1, as a function that throws gives it) when that is not noReg.
-export function failure(mutates l Lowerer, p ast.Project, errorCase Count, err Reg) returns BlockID
+// when that is not noReg: a case plus 1, as a function that throws an enum gives it, or the box of an error union, whose
+// drop type is then errDrop (noType for an enum, see errorDropType). The box is the failure's own, which a handler that
+// names no error drops.
+export function failure(mutates l Lowerer, p ast.Project, errorCase Count, err Reg, errDrop ast.TypeID) returns BlockID
 	if l.handlers.count() == 0 'unhandled'
 		panic("lower: an operation of {funcSymbol(p, fid: l.fn)} that can fail is outside every try; the range analysis should have refused it")
 	end 'unhandled'
@@ -42,7 +44,13 @@ export function failure(mutates l Lowerer, p ast.Project, errorCase Count, err R
 	end 'propagates' else 'handled'
 		dropPending(l, first: h.pending, past: l.pending.count())
 		unwindTo(l, p: p, depth: h.depth, mark: h.mark)
-		if h.binding != noSlot 'binding'
+		if errDrop != ast.noType 'union'
+			if h.binding != noSlot 'unionBinding'
+				emit(l, i: newStoreSlot(slotIndex(h.binding), src: error, borrow: false))
+			end 'unionBinding' else 'unionDropped'
+				emitDrop(l, d: PendingDrop.ofReg(error, ty: errDrop))
+			end 'unionDropped'
+		end 'union' else if h.binding != noSlot 'binding'
 			var v = noReg
 			if error == noReg 'literal'
 				v = konst(l, value: try errorCase as Word otherwise panic("ir: an error case is out of range"))
@@ -82,17 +90,34 @@ end 'unwindTo'
 // visitThrowStmt lowers a throw: a failure with the error its value is a case of, which goes to the innermost try's
 // handler, or with none out of the function.
 function visitThrowStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
-	let err = newReg(l, kind: IrKind.kindScalar)
-	let value = lowerExpr(l, p: p, e: ast.throwStmtValue(p.modules[l.mi].tree, id: s))
-	let one = konst(l, value: 1 as Word)
-	emit(l, i: newBin(err, op: BinOp.binAdd, left: value, right: one, unsigned: false, fail: noBlock))
+	let valueNode = ast.throwStmtValue(p.modules[l.mi].tree, id: s)
+	let thrown = exprType(p, module: l.module, node: valueNode)
+	let mark = l.pending.count()
+	let value = lowerExpr(l, p: p, e: valueNode)
+	// The throw takes the value: a failure from here on hands it to the caller or to a handler, and drops nothing of it.
+	popPending(l, n: mark)
+	var err = value
+	if not ast.isUnionError(p.types, t: thrown) 'case'
+		err = newReg(l, kind: IrKind.kindScalar)
+		let one = konst(l, value: 1 as Word)
+		emit(l, i: newBin(err, op: BinOp.binAdd, left: value, right: one, unsigned: false, fail: noBlock))
+	end 'case'
 	let added = enterPropagating(l)
-	let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+	let errDrop = errorDropType(l, p: p, t: thrown)
+	let stub = failure(l, p: p, errorCase: 0 as Count, err: err, errDrop: errDrop)
 	seal(l, t: newJump(stub))
 	if added 'leave'
 		leaveTry(l)
 	end 'leave'
 end 'visitThrowStmt'
+
+// errorDropType is the type that drops the error of the type t, which is noType for an enum: its errors are numbers.
+export function errorDropType(mutates l Lowerer, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
+	if not ast.isUnionError(p.types, t: t) 'enum'
+		return ast.noType
+	end 'enum'
+	return dropType(l, p: p, t: t)
+end 'errorDropType'
 
 // tryBindingSlot is the slot of the error that the handler of the try at node names, noSlot for one that names none.
 function tryBindingSlot(l Lowerer, p ast.Project, node ast.NodeID) returns Index
@@ -120,7 +145,7 @@ function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	leaveTry(l)
 	goTo(l, target: join)
 	l.cur = handler
-	lowerBlock(l, p: p, ref: ast.tryStmtHandlerRef(p.modules[l.mi].tree, id: s))
+	lowerBlockOwning(l, p: p, ref: ast.tryStmtHandlerRef(p.modules[l.mi].tree, id: s), owned: localOfNode(p, module: l.module, node: s))
 	goTo(l, target: join)
 	l.cur = join
 end 'visitTryStmt'
@@ -149,7 +174,7 @@ function visitIfTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
 	goTo(l, target: join)
 	l.cur = failed
 	if ast.ifTryStmtHasElse(p.modules[l.mi].tree, id: s) 'else'
-		lowerBlock(l, p: p, ref: ast.ifTryStmtElseRef(p.modules[l.mi].tree, id: s))
+		lowerBlockOwning(l, p: p, ref: ast.ifTryStmtElseRef(p.modules[l.mi].tree, id: s), owned: localOfNode(p, module: l.module, node: call))
 	end 'else'
 	goTo(l, target: join)
 	l.cur = join
@@ -179,7 +204,7 @@ function visitTryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) re
 		leaveTry(l)
 		goTo(l, target: join)
 		l.cur = onFailure
-		lowerBlock(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler))
+		lowerBlockOwning(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler), owned: localOfNode(p, module: l.module, node: e))
 		goTo(l, target: join)
 		return konst(l, value: 0 as Word)
 	end 'handler'
@@ -225,7 +250,7 @@ function lowerThrough(mutates l Lowerer, mutates p ast.Project, t ast.NodeID) re
 	let thr = ast.tryExprThr(p.modules[l.mi].tree, id: t)
 	let handler = ast.tryExprHandler(p.modules[l.mi].tree, id: t)
 	if handler != 0 'handler'
-		lowerBlock(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler))
+		lowerBlockOwning(l, p: p, ref: ast.handlerBlockBodyRef(p.modules[l.mi].tree, id: handler), owned: localOfNode(p, module: l.module, node: t))
 	end 'handler' else if ret != 0 'ret'
 		visitReturnStmt(l, p: p, s: ret)
 	end 'ret' else if brk != 0 'brk'

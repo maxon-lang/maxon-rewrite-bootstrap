@@ -534,7 +534,7 @@ function strLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxEr
 	for i in 0 upto parts.count() 'each'
 		match parts[i] 'part'
 			text(run, begin, raw) then addTextPart(p, parts: b, text: run, begin: begin, raw: raw)
-			expr(begin, until) then b.interpolation(try parseInterpolationAt(p, begin: begin, until: until, formatted: formatted))
+			expr(begin, until, specBegin, specUntil) then try addInterpolation(p, parts: b, begin: begin, until: until, specBegin: specBegin, specUntil: specUntil, formatted: formatted)
 		end 'part'
 	end 'each'
 	if p.formatting 'format'
@@ -542,6 +542,23 @@ function strLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxEr
 	end 'format'
 	return b.finish(p.tree)
 end 'strLitParts'
+
+// addInterpolation adds the interpolation from begin to until, with the format specifier from specBegin to specUntil
+// when it has one, to the parts of a string literal. A width or a precision past the bound of a specifier is refused.
+function addInterpolation(mutates p Parser, mutates parts ast.StrPartsBuilder, begin Count, until Count, specBegin Count, specUntil Count, mutates formatted ast.StringList) throws SyntaxError
+	let node = try parseInterpolationAt(p, begin: begin, until: until, formatted: formatted)
+	if specUntil == specBegin 'plain'
+		parts.interpolation(node)
+		return
+	end 'plain'
+	let spec = p.src.text.sliceBytes(specBegin, endPos: specUntil)
+	if not ast.parseFormatSpec(spec).isSome() 'overflow'
+		let file = p.fileNumber()
+		p.errors.push(p.src.errorAt(diag.errIntegerLiteralRange, message: diag.formatFieldOverflow(spec, bound: "{ast.formatFieldBound}"), file: file, offset: until))
+		throw SyntaxError.refused
+	end 'overflow'
+	parts.formatted(p.tree, e: node, spec: spec)
+end 'addInterpolation'
 
 // byteStrLitParts reads the byte string literal that t is: its bytes are one part, which is a string of them.
 function byteStrLitParts(mutates p Parser, t Token) returns diag.U32 throws SyntaxError
@@ -553,7 +570,7 @@ function byteStrLitParts(mutates p Parser, t Token) returns diag.U32 throws Synt
 	for i in 0 upto parts.count() 'each'
 		match parts[i] 'part'
 			text(run, begin, raw) then addTextPart(p, parts: b, text: run, begin: begin, raw: raw)
-			expr(begin, until) then panic("a byte string holds an interpolation at {begin} to {until}")
+			expr(begin, until, _, _) then panic("a byte string holds an interpolation at {begin} to {until}")
 		end 'part'
 	end 'each'
 	return b.finish(p.tree)

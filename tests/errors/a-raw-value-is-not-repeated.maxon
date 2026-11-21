@@ -1,0 +1,10 @@
+enum Dup
+	first = "x"
+	second = "x"
+end 'Dup'
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3031 at 3:2

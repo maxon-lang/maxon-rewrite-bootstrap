@@ -122,7 +122,7 @@ function addFunction(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, f
 	if failedSince(errs, mark: mark) 'badReturn'
 		return
 	end 'badReturn'
-	let err = errorOf(c, p: p, throwsRef: f.throwsRef, specs: specs, errs: errs)
+	let err = errorOf(c, p: p, site: f.id, throwsRef: f.throwsRef, specs: specs, errs: errs)
 	if failedSince(errs, mark: mark) 'badThrows'
 		return
 	end 'badThrows'

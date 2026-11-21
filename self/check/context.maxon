@@ -268,6 +268,16 @@ export function typeIsNamedInt(tt ast.TypeTable, t ast.TypeID) returns bool
 	return tt.entries[t as Count].kind == ast.TypeKind.intRange and tt.entries[t as Count].name != ""
 end 'typeIsNamedInt'
 
+// valueOutOfRange is the error for a value that the range of the integer type target does not hold, which names the
+// range as the alias was declared: int(low to high) or bits(n).
+export function valueOutOfRange(p ast.Project, value String, target ast.TypeID) returns String
+	let alias = ast.typeName(p.types, t: target)
+	if ast.isBitPattern(p.types, t: target) 'pattern'
+		return diag.patternLiteralOutOfRange(value, alias: alias, width: "{p.types.entries[target as Count].bitsWidth}")
+	end 'pattern'
+	return diag.literalOutOfRange(value, alias: alias, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString())
+end 'valueOutOfRange'
+
 export function intRangeHolds(tt ast.TypeTable, dst ast.TypeID, v ast.I128) returns bool
 	return v.ge(tt.entries[dst as Count].minVal) and v.le(tt.entries[dst as Count].maxVal)
 end 'intRangeHolds'
@@ -437,7 +447,7 @@ export function coerce(c Checker, mutates p ast.Project, node ast.NodeID, at dia
 	end 'lossy'
 	let tName = ast.typeName(p.types, t: target)
 	if (sk == ast.TypeKind.constInt or typeIsAnonInt(p.types, t: src)) and dk == ast.TypeKind.intRange 'valueFit'
-		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(offendingBound(p, src: src, target: target), alias: tName, low: p.types.entries[target as Count].minVal.toString(), high: p.types.entries[target as Count].maxVal.toString()), errs: errs)
+		checkFail(c.modID, off: at, code: diag.errTypeMismatch, msg: valueOutOfRange(p, value: offendingBound(p, src: src, target: target), target: target), errs: errs)
 		return false
 	end 'valueFit'
 	if sk == ast.TypeKind.typeParam and dk != ast.TypeKind.typeParam 'opaque'

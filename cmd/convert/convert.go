@@ -877,9 +877,6 @@ func transformTypeOrUnionHeader(line *sourceLine, kwIdx int, warn func(*sourceLi
 	if kwIdx+3 < len(toks) && toks[kwIdx+2].text == "is" && toks[kwIdx+3].text == "unique" {
 		toks[kwIdx+3].text = "noncopyable"
 	}
-	if toks[kwIdx].text == "union" && implementsError(toks[kwIdx+2:]) {
-		warn(line, "union errors are not supported in minimaxon; an error is an enum")
-	}
 	transformWhereInSlice(toks, kwIdx+2, line, warn)
 }
 
@@ -893,23 +890,6 @@ func hasUsesClause(header []token) bool {
 func isRangeTypealias(toks []token, kwIdx int) bool {
 	eqIdx := findToken(toks, kwIdx+1, "=")
 	return eqIdx >= 0 && eqIdx+1 < len(toks) && toks[eqIdx+1].text == "int"
-}
-
-// implementsError reports whether a declaration header's conformance list names Error.
-func implementsError(toks []token) bool {
-	implIdx := slices.IndexFunc(toks, func(t token) bool { return t.kind == tokIdent && t.text == "implements" })
-	if implIdx < 0 {
-		return false
-	}
-	for _, t := range toks[implIdx+1:] {
-		if t.kind == tokIdent && t.text == "where" {
-			break
-		}
-		if t.kind == tokIdent && t.text == "Error" {
-			return true
-		}
-	}
-	return false
 }
 
 func transformEnumHeader(line *sourceLine, kwIdx int, warn func(*sourceLine, string)) {
@@ -1067,10 +1047,6 @@ func transformTypealias(line *sourceLine, kwIdx int, warn func(*sourceLine, stri
 
 	// Check unsupported typealias RHS forms.
 	switch rhs[0].text {
-	case "bits":
-		if len(rhs) > 1 && rhs[1].text == "(" {
-			warn(line, "bits(...) typealiases are not supported in minimaxon")
-		}
 	case "function":
 		line.code = append(toks[:eqIdx+1:eqIdx+1], rewriteFunctionType(rhs, line, warn)...)
 		return
@@ -1114,12 +1090,20 @@ func checkEnumCase(line *sourceLine, warn func(*sourceLine, string)) {
 	if eqIdx < 0 || eqIdx+1 >= len(line.code) {
 		return
 	}
+	checkRawValue(line, eqIdx, warn)
+}
+
+// checkRawValue warns of the raw value after the = at eqIdx unless it is a literal minimaxon holds: an integer, a float or
+// a string. A character literal, which the lexer reads as a label, gets the warning of every character literal.
+func checkRawValue(line *sourceLine, eqIdx int, warn func(*sourceLine, string)) {
 	val := line.code[eqIdx+1]
 	if val.text == "-" && eqIdx+2 < len(line.code) {
 		val = line.code[eqIdx+2]
 	}
-	if val.kind != tokInt {
-		warn(line, "non-integer enum raw values are not supported in minimaxon")
+	switch val.kind {
+	case tokInt, tokFloat, tokString, tokLabel:
+	default:
+		warn(line, "struct-backed and function-backed raw values are not supported in minimaxon")
 	}
 }
 
@@ -1129,7 +1113,7 @@ func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
 		return
 	}
 	depth := 0
-	for _, t := range line.code {
+	for i, t := range line.code {
 		switch t.text {
 		case "(":
 			depth++
@@ -1139,7 +1123,7 @@ func checkUnionCase(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "=":
 			if depth == 0 {
-				warn(line, "explicit raw values on union cases are not supported in minimaxon")
+				checkRawValue(line, i, warn)
 			}
 		}
 		if t.kind == tokIdent && isCapabilityWord(t.text) {
@@ -1198,10 +1182,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 		case tokByteString:
 			if !strings.HasSuffix(t.text, "\"") || len(t.text) < 3 {
 				warn(line, "a byte string literal that spans lines is not supported in minimaxon")
-			}
-		case tokString:
-			if hasFormatSpecifier(t.text) {
-				warn(line, "string interpolation format specifiers are not supported in minimaxon")
 			}
 		case tokLabel:
 			if isCharLiteralPosition(toks, i) {
@@ -1624,47 +1604,6 @@ func hasRangeKeyword(toks []token) bool {
 				depth--
 			}
 		case "to", "upto":
-			if depth == 0 {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-// hasFormatSpecifier reports whether a string literal contains an interpolation with a top-level ':spec'.
-func hasFormatSpecifier(s string) bool {
-	i, n := 1, len(s)-1
-	for i < n {
-		switch s[i] {
-		case '\\':
-			i += 2
-		case '{':
-			end := scanInterp(s, i)
-			if interpHasColon(s[i+1 : end-1]) {
-				return true
-			}
-			i = end
-		default:
-			i++
-		}
-	}
-	return false
-}
-
-func interpHasColon(expr string) bool {
-	depth := 0
-	for i := 0; i < len(expr); i++ {
-		switch expr[i] {
-		case '"':
-			i = scanString(expr, i) - 1
-		case '(', '[', '{':
-			depth++
-		case ')', ']', '}':
-			if depth > 0 {
-				depth--
-			}
-		case ':':
 			if depth == 0 {
 				return true
 			}

@@ -1,0 +1,53 @@
+typealias Integer = int(i64.min to i64.max)
+
+union MyError implements Error
+	notFound(code Integer)
+	named(text String)
+	failed
+end 'MyError'
+
+function mayFail(n Integer) returns Integer throws MyError
+	if n == 1 'one'
+		throw MyError.notFound(42)
+	end 'one'
+	if n == 2 'two'
+		throw MyError.named("two")
+	end 'two'
+	if n == 3 'three'
+		throw MyError.failed
+	end 'three'
+	return n
+end 'mayFail'
+
+function relay(n Integer) returns Integer throws MyError
+	let v = try mayFail(n)
+	return v + 100 if v < 1000 else v
+end 'relay'
+
+function main() returns ExitCode
+	var result = 0 as Integer
+	try relay(1) otherwise (e) 'handler'
+		match e 'check'
+			notFound(code) then result = code
+			named(text) then result = 7
+			failed then result = 1
+		end 'check'
+	end 'handler'
+	print("{result}\n")
+	try relay(2) otherwise (e) 'second'
+		match e 'check'
+			notFound(code) then result = code
+			named(text) then print("named {text}\n")
+			failed then result = 1
+		end 'check'
+	end 'second'
+	let ok = try relay(5) otherwise 0
+	let dropped = try relay(3) otherwise 9
+	print("{ok} {dropped}\n")
+	try relay(2) otherwise ignore
+	return 0
+end 'main'
+
+//> 42
+//> named two
+//> 105 9

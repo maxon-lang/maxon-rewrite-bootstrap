@@ -39,6 +39,57 @@ end 'Counter'
 `,
 		},
 		{
+			name: "string and float raw values of an enum and a union convert without a warning",
+			in: `enum ContentType
+    json = "application/json"
+    html = "text/html"
+end 'ContentType'
+
+union Reading
+    exact(n Count) = 1.5
+    rough = -2.5
+end 'Reading'
+`,
+			want: `enum ContentType
+	json = "application/json"
+	html = "text/html"
+end 'ContentType'
+
+union Reading
+	exact(n Count) = 1.5
+	rough = -2.5
+end 'Reading'
+`,
+		},
+		{
+			name: "a bits typealias and a union error convert without a warning",
+			in: `typealias Word = bits(64)
+
+union ParseFault implements Error
+    bad(code Count)
+    worse
+end 'ParseFault'
+`,
+			want: `typealias Word = bits(64)
+
+union ParseFault implements Error
+	bad(code Count)
+	worse
+end 'ParseFault'
+`,
+		},
+		{
+			name: "a format specifier in a string interpolation converts without a warning",
+			in: `function f(n Count)
+    print("{n:04x} {n:8.2}")
+end 'f'
+`,
+			want: `function f(n Count)
+	print("{n:04x} {n:8.2}")
+end 'f'
+`,
+		},
+		{
 			name: "a conditional try converts without a warning",
 			in: `function f(s String)
     if let digit = try parse(s) 'parsed'
@@ -440,9 +491,9 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			wantTodo: "a block handler ('otherwise (e) 'label'') inside brackets",
 		},
 		{
-			name:     "union error",
-			in:       "union ParseFault implements Error\n\tbad(code Count)\n\tworse\nend 'ParseFault'\n",
-			wantTodo: "union errors",
+			name:     "function-backed enum raw value",
+			in:       "enum Op\n\tdoubleOp = doubleFn\nend 'Op'\n",
+			wantTodo: "struct-backed and function-backed raw values",
 		},
 		{
 			name:     "empty array literal",
@@ -483,11 +534,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "hash if",
 			in:       "#if os(Windows)\nlet x = 1\n#endif\n",
 			wantTodo: "conditional compilation",
-		},
-		{
-			name:     "format specifier in string interpolation",
-			in:       "function f(n Count)\n\tprint(\"{n:04x}\")\nend 'f'\n",
-			wantTodo: "format specifiers",
 		},
 		{
 			name:     "reserved word collision",

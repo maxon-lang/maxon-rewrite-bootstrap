@@ -1,0 +1,90 @@
+typealias Integer = int(i64.min to i64.max)
+
+union Inner implements Error
+	bad(text String)
+	worse(code Integer)
+end 'Inner'
+
+union Outer implements Error
+	wrapped(inner Inner)
+	plain
+end 'Outer'
+
+function risky(n Integer) returns Integer throws Inner
+	if n == 1 'bad'
+		throw Inner.bad("bad one")
+	end 'bad'
+	if n == 2 'worse'
+		throw Inner.worse(7)
+	end 'worse'
+	return n
+end 'risky'
+
+function wrap(n Integer) returns Integer throws Outer
+	let v = try risky(n) otherwise (e) 'convert'
+		throw Outer.wrapped(e)
+	end 'convert'
+	return v
+end 'wrap'
+
+function rethrow(n Integer) returns Integer throws Inner
+	let v = try risky(n) otherwise (e) 'again'
+		print("rethrowing\n")
+		throw e
+	end 'again'
+	return v
+end 'rethrow'
+
+function describe(e Inner) returns Integer
+	return match e 'k'
+		bad(text) gives (try text.byteLength() as Integer otherwise 0)
+		worse(code) gives code
+	end 'k'
+end 'describe'
+
+function main() returns ExitCode
+	try wrap(1) otherwise (e) 'outer'
+		match e 'k'
+			wrapped(inner) then print("wrapped {describe(inner)}\n")
+			plain then print("plain\n")
+		end 'k'
+	end 'outer'
+	try rethrow(2) otherwise (e) 'again'
+		print("caught {describe(e)}\n")
+	end 'again'
+	if let v = try risky(3) 'ok'
+		print("ok {v}\n")
+	end 'ok' else (e) 'no'
+		print("failed\n")
+	end 'no'
+	if let v = try risky(1) 'ok2'
+		print("ok {v}\n")
+	end 'ok2' else (e) 'no2'
+		print("failed {describe(e)}\n")
+	end 'no2'
+	try 'both'
+		let a = risky(3)
+		let b = risky(2)
+		print("{a} {b}\n")
+	end 'both' otherwise (e) 'blk'
+		match e 'x'
+			bad(text) then print("block {text}\n")
+			worse(code) then print("block {code}\n")
+		end 'x'
+	end 'blk'
+	let w = try risky(1) otherwise (e) 'unmatched'
+		print("not looked at\n")
+		return 3
+	end 'unmatched'
+	print("{w}\n")
+	return 0
+end 'main'
+
+// expect-exit: 3
+//> wrapped 7
+//> rethrowing
+//> caught 7
+//> ok 3
+//> failed 7
+//> block 7
+//> not looked at

@@ -391,9 +391,10 @@ export type UnionCaseDecl
 	export var id as NodeID
 	export var name as String
 	export var fields as ParamList
+	export var raw as NodeID
 
 	export static function make(id NodeID) returns UnionCaseDecl
-		return UnionCaseDecl{id: id, name: "", fields: ParamList.create(0)}
+		return UnionCaseDecl{id: id, name: "", fields: ParamList.create(0), raw: 0 as NodeID}
 	end 'make'
 end 'UnionCaseDecl'
 

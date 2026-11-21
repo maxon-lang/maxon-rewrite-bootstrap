@@ -539,3 +539,258 @@ function stringMapCase(text String, upper bool) returns String
 	end 'each'
 	return "{result}{text.sliceBytes(done, endPos: size)}"
 end 'stringMapCase'
+
+// The text of an interpolation's format specifier, `{value:08x}` (internal/builtingen's Fmt entries). A width is a minimum:
+// text that is wider is never cut. A fill goes after a sign when it is zeros and before it when it is spaces.
+
+let fmtDigitsLower = "0123456789abcdef"
+
+let fmtDigitsUpper = "0123456789ABCDEF"
+
+// The bits of the flags of an integer: a decimal one is signed, a letter is upper case, and the field is filled with zeros.
+let fmtSigned = 1 as Count
+
+let fmtUppercase = 2 as Count
+
+let fmtZeroFill = 4 as Count
+
+let fmtSignBit = 9223372036854775808 as Count
+
+let fmtMinus = 45 as Byte
+
+let fmtPoint = 46 as Byte
+
+let fmtZeroDigit = 48 as Byte
+
+let fmtFive = 53 as Byte
+
+let fmtNine = 57 as Byte
+
+let fmtDoubleQuote = 34 as Byte
+
+let fmtSingleQuote = 39 as Byte
+
+let fmtBackslash = 92 as Byte
+
+let fmtOpenBrace = 123 as Byte
+
+let fmtCloseBrace = 125 as Byte
+
+let fmtDelete = 127 as Byte
+
+let fmtTab = 9 as Byte
+
+let fmtNewline = 10 as Byte
+
+let fmtReturn = 13 as Byte
+
+let fmtFirstPrintable = 32 as Byte
+
+// formatRepeated is the unit written count times, built by doubling.
+function formatRepeated(unit String, count Count) returns String
+	var text = ""
+	var block = unit.clone()
+	var remaining = count
+	while remaining > 0 'halve'
+		if remaining mod 2 == 1 'take'
+			text = "{text}{block}"
+		end 'take'
+		remaining = remaining / 2
+		if remaining > 0 'grow'
+			block = "{block}{block}"
+		end 'grow'
+	end 'halve'
+	return text
+end 'formatRepeated'
+
+// formatField is a sign and the digits of a number in a field of at least width columns, which zeros fill after the sign
+// and spaces fill before it.
+function formatField(sign String, digits String, width Count, zeroFill bool) returns String
+	let used = strAdd(sign.byteLength(), right: digits.byteLength())
+	if width <= used 'wideEnough'
+		return "{sign}{digits}"
+	end 'wideEnough'
+	let fill = strSub(width, right: used)
+	if zeroFill 'zeros'
+		return "{sign}{formatRepeated("0", count: fill)}{digits}"
+	end 'zeros'
+	return "{formatRepeated(" ", count: fill)}{sign}{digits}"
+end 'formatField'
+
+// formatInteger is the word n in the base radix, in a field of at least width columns. A signed number that has its top
+// bit set is negative and writes a sign before its magnitude; any other word is the pattern of its bits.
+function formatInteger(n Count, radix Count, flags Count, width Count) returns String
+	var negative = false
+	var magnitude = n
+	if (flags and fmtSigned) != 0 and n >= fmtSignBit 'negative'
+		negative = true
+		magnitude = strAdd(not n, right: 1)
+	end 'negative'
+	var letters = fmtDigitsLower
+	if (flags and fmtUppercase) != 0 'upper'
+		letters = fmtDigitsUpper
+	end 'upper'
+	var digits = ""
+	var rest = magnitude
+	var more = true
+	while more 'places'
+		let digit = try rest mod radix otherwise panic("a radix is not 0")
+		digits = "{letters.sliceBytes(digit, endPos: strAdd(digit, right: 1))}{digits}"
+		rest = try rest / radix otherwise panic("a radix is not 0")
+		more = rest > 0
+	end 'places'
+	var sign = ""
+	if negative 'minus'
+		sign = "-"
+	end 'minus'
+	return formatField(sign, digits: digits, width: width, zeroFill: (flags and fmtZeroFill) != 0)
+end 'formatInteger'
+
+// formatPadded is the text of a number, which may start with a minus, in a field of at least width columns.
+function formatPadded(text String, width Count, zeroFill bool) returns String
+	let size = text.byteLength()
+	if size > 0 and text.byteAt(0) == fmtMinus 'signed'
+		return formatField("-", digits: text.sliceBytes(1, endPos: size), width: width, zeroFill: zeroFill)
+	end 'signed'
+	return formatField("", digits: text, width: width, zeroFill: zeroFill)
+end 'formatPadded'
+
+// formatEscape is how a quoted text spells the byte b, or "" for a byte that is written as it is.
+function formatEscape(b Byte, single bool) returns String
+	if b == fmtBackslash 'backslash'
+		return "\\\\"
+	end 'backslash'
+	if single and b == fmtSingleQuote 'single'
+		return "\\'"
+	end 'single'
+	if not single and b == fmtDoubleQuote 'double'
+		return "\\\""
+	end 'double'
+	if not single and b == fmtOpenBrace 'open'
+		return "\\\{"
+	end 'open'
+	if not single and b == fmtCloseBrace 'close'
+		return "\\\}"
+	end 'close'
+	if b == fmtNewline 'newline'
+		return "\\n"
+	end 'newline'
+	if b == fmtReturn 'return'
+		return "\\r"
+	end 'return'
+	if b == fmtTab 'tab'
+		return "\\t"
+	end 'tab'
+	if b < fmtFirstPrintable or b == fmtDelete 'control'
+		let high = (b as Count) / 16
+		let low = (b as Count) mod 16
+		return "\\u00{fmtDigitsUpper.sliceBytes(high, endPos: strAdd(high, right: 1))}{fmtDigitsUpper.sliceBytes(low, endPos: strAdd(low, right: 1))}"
+	end 'control'
+	return ""
+end 'formatEscape'
+
+// formatQuoted is the text written as a literal, between double quotes, or single quotes where single, with the escapes a
+// literal spells, in a field of at least width columns that spaces fill before it.
+function formatQuoted(text String, single bool, width Count) returns String
+	var mark = "\""
+	if single 'singleMark'
+		mark = "'"
+	end 'singleMark'
+	let size = text.byteLength()
+	var quoted = ""
+	var done = 0 as Count
+	for i in 0 upto size 'each'
+		let escape = formatEscape(text.byteAt(i), single: single)
+		if escape.byteLength() > 0 'escaped'
+			quoted = "{quoted}{text.sliceBytes(done, endPos: i)}{escape}"
+			done = strAdd(i, right: 1)
+		end 'escaped'
+	end 'each'
+	quoted = "{mark}{quoted}{text.sliceBytes(done, endPos: size)}{mark}"
+	let columns = stringCount(quoted)
+	if width <= columns 'wideEnough'
+		return quoted
+	end 'wideEnough'
+	return "{formatRepeated(" ", count: strSub(width, right: columns))}{quoted}"
+end 'formatQuoted'
+
+// fmtDigitValue is the value of a byte that is a decimal digit.
+function fmtDigitValue(digit Byte) returns Count
+	return try (digit - fmtZeroDigit) as Count otherwise panic("a digit is not below 0")
+end 'fmtDigitValue'
+
+// formatIncremented is the decimal digits one greater, which has one more digit where they were all 9.
+function formatIncremented(digits String) returns String
+	var at = digits.byteLength()
+	while at > 0 'carry'
+		at = strSub(at, right: 1)
+		let digit = digits.byteAt(at)
+		if digit != fmtNine 'stops'
+			let next = strAdd(fmtDigitValue(digit), right: 1)
+			return "{digits.sliceBytes(0, endPos: at)}{fmtDigitsLower.sliceBytes(next, endPos: strAdd(next, right: 1))}{formatRepeated("0", count: strSub(digits.byteLength(), right: strAdd(at, right: 1)))}"
+		end 'stops'
+	end 'carry'
+	return "1{formatRepeated("0", count: digits.byteLength())}"
+end 'formatIncremented'
+
+// formatFixed is a float written with exactly precision places after the point, from the exact decimal of its magnitude
+// (ftoaExact) rounded half to even, with a minus where it is negative. An infinity and a NaN have no places.
+function formatFixed(magnitude String, negative bool, precision Count) returns String
+	if magnitude == "nan" 'nan'
+		return "nan"
+	end 'nan'
+	var sign = ""
+	if negative 'minus'
+		sign = "-"
+	end 'minus'
+	if magnitude == "inf" 'inf'
+		return "{sign}inf"
+	end 'inf'
+	let size = magnitude.byteLength()
+	var point = size
+	for i in 0 upto size 'find'
+		if magnitude.byteAt(i) == fmtPoint and point == size 'found'
+			point = i
+		end 'found'
+	end 'find'
+	let whole = magnitude.sliceBytes(0, endPos: point)
+	var fraction = ""
+	if point < size 'fraction'
+		fraction = magnitude.sliceBytes(strAdd(point, right: 1), endPos: size)
+	end 'fraction'
+	let places = fraction.byteLength()
+	if places <= precision 'exact'
+		if precision == 0 'none'
+			return "{sign}{whole}"
+		end 'none'
+		return "{sign}{whole}.{fraction}{formatRepeated("0", count: strSub(precision, right: places))}"
+	end 'exact'
+	let kept = fraction.sliceBytes(0, endPos: precision)
+	let next = fraction.byteAt(precision)
+	var up = next > fmtFive
+	if next == fmtFive 'tie'
+		for i in strAdd(precision, right: 1) upto places 'below'
+			if fraction.byteAt(i) != fmtZeroDigit 'more'
+				up = true
+			end 'more'
+		end 'below'
+		if not up 'even'
+			var last = fmtZeroDigit
+			if precision > 0 'keptDigit'
+				last = kept.byteAt(strSub(precision, right: 1))
+			end 'keptDigit' else if whole.byteLength() > 0 'wholeDigit'
+				last = whole.byteAt(strSub(whole.byteLength(), right: 1))
+			end 'wholeDigit'
+			up = fmtDigitValue(last) mod 2 == 1
+		end 'even'
+	end 'tie'
+	var digits = "{whole}{kept}"
+	if up 'round'
+		digits = formatIncremented(digits)
+	end 'round'
+	if precision == 0 'wholeOnly'
+		return "{sign}{digits}"
+	end 'wholeOnly'
+	let cut = strSub(digits.byteLength(), right: precision)
+	return "{sign}{digits.sliceBytes(0, endPos: cut)}.{digits.sliceBytes(cut, endPos: digits.byteLength())}"
+end 'formatFixed'

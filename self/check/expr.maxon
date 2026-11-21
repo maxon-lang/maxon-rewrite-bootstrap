@@ -453,6 +453,14 @@ function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 	if word == ast.noType 'noWord'
 		return ast.noType
 	end 'noWord'
+	let pattern = wordPatternOf(p, l: l, r: r)
+	if pattern != ast.noType 'pattern'
+		setOperand(c, node: e, operand: pattern)
+		if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'patternExpected'
+			return want
+		end 'patternExpected'
+		return pattern
+	end 'pattern'
 	setOperand(c, node: e, operand: word)
 	if typeHasKind(p, t: want, kind: ast.TypeKind.intRange) 'expected'
 		return want
@@ -461,6 +469,18 @@ function checkIntegerOp(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 	let exact = computed.span.clone()
 	return exactType(p, word: word, lo: exact.lo, hi: exact.hi)
 end 'checkIntegerOp'
+
+// wordPatternOf is the bits(64) type that an arithmetic operation on the operand types l and r computes in, which wraps
+// where another unsigned type fails, or noType where neither operand is one.
+function wordPatternOf(p ast.Project, l ast.TypeID, r ast.TypeID) returns ast.TypeID
+	if ast.isWordPattern(p.types, t: l) 'left'
+		return l
+	end 'left'
+	if ast.isWordPattern(p.types, t: r) 'right'
+		return r
+	end 'right'
+	return ast.noType
+end 'wordPatternOf'
 
 function foldedType(mutates c Checker, mutates p ast.Project, off diag.U32, rightOff diag.U32, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let a = p.types.entries[l as Count].minVal.clone()
@@ -543,6 +563,9 @@ function checkNot(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.
 end 'checkNot'
 
 function checkNegation(mutates c Checker, mutates p ast.Project, off diag.U32, t ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	if ast.isWordPattern(p.types, t: t) 'pattern'
+		return t
+	end 'pattern'
 	if ast.isUnsignedInt(p.types, t: t) 'unsigned'
 		checkFail(c.modID, off: off, code: diag.errUnsignedNegation, msg: diag.unsignedNegation(nameOfType(p, t: t)), errs: errs)
 		return ast.noType
@@ -635,9 +658,7 @@ function checkCast(mutates c Checker, mutates p ast.Project, e ast.NodeID, mutat
 	if isConstInt(p, t: src) 'constant'
 		let value = p.types.entries[src as Count].minVal.clone()
 		if not intRangeHolds(p.types, dst: target, v: value) 'doesNotFit'
-			let lo = p.types.entries[target as Count].minVal.toString()
-			let hi = p.types.entries[target as Count].maxVal.toString()
-			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.literalOutOfRange(value.toString(), alias: nameOfType(p, t: target), low: lo, high: hi), errs: errs)
+			checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: valueOutOfRange(p, value: value.toString(), target: target), errs: errs)
 			return ast.noType
 		end 'doesNotFit'
 		return target

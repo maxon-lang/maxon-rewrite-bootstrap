@@ -168,13 +168,23 @@ end 'selfReg'
 
 // lowerBlock lowers the live statements of a block, which owns the locals they declare.
 function lowerBlock(mutates l Lowerer, mutates p ast.Project, ref diag.U32)
+	lowerBlockOwning(l, p: p, ref: ref, owned: ast.noLocal)
+end 'lowerBlock'
+
+// lowerBlockOwning lowers a block that ends the local owned, which the code before it gave a value: the error that a
+// handler names, when the error is a value of a union. A local that holds a number needs no drop.
+function lowerBlockOwning(mutates l Lowerer, mutates p ast.Project, ref diag.U32, owned ast.LocalID)
 	pushScope(l, block: true)
+	if owned != ast.noLocal 'owned'
+		let sym = localEntry(p, module: l.fnModule, id: owned)
+		ownLocal(l, p: p, slot: slotOf(sym), t: sym.ty)
+	end 'owned'
 	let n = ast.liveCount(p.modules[l.mi].tree, ref: ref)
 	for i in 0 upto n 'each'
 		lowerStmt(l, p: p, s: p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID)
 	end 'each'
 	popScope(l, p: p)
-end 'lowerBlock'
+end 'lowerBlockOwning'
 
 // lowerStmt lowers a statement, which owns the temporaries it makes: they are dropped when it ends, and every value it
 // computes for something to take has been taken by then.

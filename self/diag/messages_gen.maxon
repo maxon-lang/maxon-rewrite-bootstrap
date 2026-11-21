@@ -190,6 +190,16 @@ export function literalOutOfRange(value String, alias String, low String, high S
 	return "Value {value} is outside the range of '{alias}' (int({low} to {high}))"
 end 'literalOutOfRange'
 
+// The text of errTypeMismatch for: Value {value} is outside the range of '{alias}' (bits({width}))
+export function patternLiteralOutOfRange(value String, alias String, width String) returns String
+	return "Value {value} is outside the range of '{alias}' (bits({width}))"
+end 'patternLiteralOutOfRange'
+
+// The text of errIllegalBitWidth for: 'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold
+export function illegalBitWidth(width String) returns String
+	return "'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold"
+end 'illegalBitWidth'
+
 // The text of errTypeMismatch for: Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound
 export function emptyIntegerRange(low String, high String) returns String
 	return "Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound"
@@ -214,6 +224,16 @@ end 'operandTypeMismatch'
 export function nonBoolCondition(keyword String, got String) returns String
 	return "'{keyword}' requires a bool condition, got '{got}'"
 end 'nonBoolCondition'
+
+// The text of errThrowsNotAnErrorEnum for: 'throws {declared}' names an INTERFACE. A caught error is decoded off the DECLARED clause, and an interface declares no case to decode — a payload-carrying conformer arrives as a heap box pointer that would be read back as an ordinal and never released. Name the error enum or union this function actually throws
+export function throwsNamesAnInterface(declared String) returns String
+	return "'throws {declared}' names an INTERFACE. A caught error is decoded off the DECLARED clause, and an interface declares no case to decode — a payload-carrying conformer arrives as a heap box pointer that would be read back as an ordinal and never released. Name the error enum or union this function actually throws"
+end 'throwsNamesAnInterface'
+
+// The text of errThrowsNotAnErrorEnum for: 'throws {declared}' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
+export function throwsNamesNoError(declared String) returns String
+	return "'throws {declared}' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into"
+end 'throwsNamesNoError'
 
 // The text of errTypeMismatch for: throw requires an error enum value
 export function thrownValueNotAnErrorEnum() returns String
@@ -275,10 +295,20 @@ export function duplicateEnumCase(caseName String) returns String
 	return "duplicate enum case: '{caseName}'"
 end 'duplicateEnumCase'
 
+// The text of errIntegerLiteralRange for: A width or precision in format specifier '{spec}' is larger than {bound}
+export function formatFieldOverflow(spec String, bound String) returns String
+	return "A width or precision in format specifier '{spec}' is larger than {bound}"
+end 'formatFieldOverflow'
+
 // The text of errEnumDuplicateRawValue for: duplicate raw value: '{rawValue}'
 export function duplicateRawValue(rawValue String) returns String
 	return "duplicate raw value: '{rawValue}'"
 end 'duplicateRawValue'
+
+// The text of errEnumRawValueTypeMismatch for: raw value type mismatch: 'expected {expected}, got {got}'
+export function rawValueTypeMismatch(expected String, got String) returns String
+	return "raw value type mismatch: 'expected {expected}, got {got}'"
+end 'rawValueTypeMismatch'
 
 // The text of errEnumUnknownCase for: unknown {kindWord} case: '{caseName}'
 export function enumUnknownCase(kindWord String, caseName String) returns String

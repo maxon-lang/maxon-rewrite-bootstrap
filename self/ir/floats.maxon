@@ -71,7 +71,7 @@ function floatConverted(mutates l Lowerer, mutates p ast.Project, v Reg, e ast.N
 	if (fails and (ast.failBelow or ast.failAbove)) == 0 'fits'
 		return d
 	end 'fits'
-	let fail = failure(l, p: p, errorCase: ast.errorOverflow, err: noReg)
+	let fail = failure(l, p: p, errorCase: ast.errorOverflow, err: noReg, errDrop: ast.noType)
 	let lo = konst(l, value: floatWord(ast.floatLowBits(p.types, t: target)))
 	let atLeast = newReg(l, kind: IrKind.kindScalar)
 	emit(l, i: newFCmp(atLeast, op: CmpOp.cmpGe, left: d, right: lo))

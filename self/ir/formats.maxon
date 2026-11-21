@@ -1,0 +1,85 @@
+// The lowering of an interpolation with a format specifier, `{value:08x}`: the runtime entries that write a number in a field,
+// a float with a number of places, and a quoted text. What the specifier means depends on the type of the value, and every
+// reading of it is ast.parseFormatSpec's.
+
+// The bits of the flags of formatInteger (runtime/textops.maxon).
+let flagSigned = 1 as Word
+
+let flagUppercase = 2 as Word
+
+let flagZeroFill = 4 as Word
+
+function countWord(n Count) returns Word
+	return try n as Word otherwise panic("ir: a format width past a word")
+end 'countWord'
+
+function argsOf4(a Reg, b Reg, c Reg, d Reg) returns RegList
+	var xs = argsOf3(a, b: b, c: c)
+	xs.push(d)
+	return xs
+end 'argsOf4'
+
+// rendersUnsigned is whether a value of the type is written as the unsigned number its bits make: a range that has no
+// negative value and reaches past i64.max, or a constant that does.
+function rendersUnsigned(p ast.Project, t ast.TypeID) returns bool
+	if p.types.entries[t as Count].kind == ast.TypeKind.constInt 'constant'
+		return not p.types.entries[t as Count].minVal.fitsI64()
+	end 'constant'
+	return ast.isUnsignedInt(p.types, t: t)
+end 'rendersUnsigned'
+
+// formattedInt is the text of an integer in the base and the field that the specifier says. A base that is not decimal
+// writes the bit pattern and no sign, and a decimal one writes a sign only for a type that may be negative: the signedness
+// is the type's, and never read off the top bit.
+function formattedInt(mutates l Lowerer, mutates p ast.Project, v Reg, signed bool, spec ast.FormatSpec) returns TextPart
+	var flags = 0 as Word
+	if signed and spec.spellsASign() 'signed'
+		flags = flags or flagSigned
+	end 'signed'
+	if spec.uppercase 'upper'
+		flags = flags or flagUppercase
+	end 'upper'
+	if spec.zeroFill 'zeros'
+		flags = flags or flagZeroFill
+	end 'zeros'
+	let radix = konst(l, value: countWord(spec.radix))
+	let flagsReg = konst(l, value: flags)
+	let width = konst(l, value: countWord(spec.width))
+	return TextPart.make(runtime(l, symbol: Rt.rtFmtInt, kind: IrKind.kindManaged, args: argsOf4(v, b: radix, c: flagsReg, d: width)), owner: TextOwner.textFresh)
+end 'formattedInt'
+
+// formattedFloat is the text of a double with the places the specifier asks for, or the shortest text that reads back as it
+// where it asks for none, in the field it says.
+function formattedFloat(mutates l Lowerer, mutates p ast.Project, v Reg, spec ast.FormatSpec) returns TextPart
+	let string = p.builtins.stringTy
+	var text = noReg
+	if spec.hasPrecision 'fixed'
+		let exact = runtime(l, symbol: Rt.rtFtoaExact, kind: IrKind.kindManaged, args: argsOf1(v))
+		let zero = konst(l, value: 0 as Word)
+		let negative = compare(l, op: CmpOp.cmpLt, a: v, b: zero, unsigned: false)
+		let places = konst(l, value: countWord(spec.precision))
+		text = runtime(l, symbol: Rt.rtFmtFixed, kind: IrKind.kindManaged, args: argsOf3(exact, b: negative, c: places))
+		dropValue(l, p: p, v: exact, t: string)
+	end 'fixed' else 'shortest'
+		text = runtime(l, symbol: Rt.rtFtoa, kind: IrKind.kindManaged, args: argsOf1(v))
+	end 'shortest'
+	if spec.width == 0 'unpadded'
+		return TextPart.make(text, owner: TextOwner.textFresh)
+	end 'unpadded'
+	let width = konst(l, value: countWord(spec.width))
+	var fill = 0 as Word
+	if spec.zeroFill 'zeros'
+		fill = 1
+	end 'zeros'
+	let fillReg = konst(l, value: fill)
+	let padded = runtime(l, symbol: Rt.rtFmtPad, kind: IrKind.kindManaged, args: argsOf3(text, b: width, c: fillReg))
+	dropValue(l, p: p, v: text, t: string)
+	return TextPart.make(padded, owner: TextOwner.textFresh)
+end 'formattedFloat'
+
+// quotedText is a String written as a literal, in the field the specifier says.
+function quotedText(mutates l Lowerer, v Reg, spec ast.FormatSpec) returns TextPart
+	let single = konst(l, value: 0 as Word)
+	let width = konst(l, value: countWord(spec.width))
+	return TextPart.make(runtime(l, symbol: Rt.rtFmtQuoted, kind: IrKind.kindManaged, args: argsOf3(v, b: single, c: width)), owner: TextOwner.textFresh)
+end 'quotedText'

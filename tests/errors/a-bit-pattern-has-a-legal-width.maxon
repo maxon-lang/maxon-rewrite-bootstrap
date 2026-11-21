@@ -1,0 +1,7 @@
+typealias Odd = bits(5)
+
+function main() returns ExitCode
+	return 0
+end 'main'
+
+// expect-error: E3148 at 1:22

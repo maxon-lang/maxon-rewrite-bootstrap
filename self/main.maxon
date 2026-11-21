@@ -102,7 +102,7 @@ function testErrors()
 	expectError("let x = (\n1)\n", expectedMessage: "a line breaks inside parentheses; keep what they hold on one line", label: "breakInParens")
 	expectError("let x = 0x\n", expectedMessage: "incomplete integer", label: "incompleteHex")
 	expectError("let s = \"oops\n", expectedMessage: "unterminated string literal", label: "unterminatedStr")
-	expectError("let s = \"\{x:04x\}\"\n", expectedMessage: "format specifiers are not supported by minimaxon", label: "formatSpec")
+	expectError("let s = \"\{x:04x\"\n", expectedMessage: "unterminated interpolation in string literal", label: "unterminatedFormatSpec")
 	expectError("let s = \"\}\"\n", expectedMessage: "a '\}' in a string is written '\\\}'", label: "bareBrace")
 end 'testErrors'
 

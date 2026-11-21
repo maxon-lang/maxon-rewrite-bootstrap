@@ -117,6 +117,9 @@ export let errEnumDuplicateCase = "E3030"
 // Two cases of an enum have the same raw value.
 export let errEnumDuplicateRawValue = "E3031"
 
+// The raw values of an enum or a union are not all of one kind: integers, floats or strings.
+export let errEnumRawValueTypeMismatch = "E3032"
+
 // A name is not a case of its enum or union.
 export let errEnumUnknownCase = "E3034"
 
@@ -174,7 +177,7 @@ export let errDivisionByZero = "E3103"
 // An array is created with zeroed elements of a type that has no zero value.
 export let errZeroOutsideElement = "E3106"
 
-// A 'throws' clause names something other than an enum.
+// A 'throws' clause names something other than an enum or a union.
 export let errThrowsNotAnErrorEnum = "E3113"
 
 // A method call on a type parameter names a method that more than one of its bounds declares.
@@ -188,6 +191,9 @@ export let errIfTryDiscardsResult = "E3124"
 
 // A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
 export let errBoundBindingDisagrees = "E3133"
+
+// A bits(n) typealias has a width the language does not have.
+export let errIllegalBitWidth = "E3148"
 
 // A source file outside the runtime calls a __Raw intrinsic.
 export let errRawIntrinsicOutsideRuntime = "E3152"
@@ -299,6 +305,9 @@ export let errThrows = "E3924"
 
 // A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
 export let errClosureBorrow = "E3925"
+
+// A raw value is a string with an interpolated value, which a case cannot hold.
+export let errRawValueNotLiteral = "E3940"
 
 // A type contains itself.
 export let errTypeCycle = "E4014"

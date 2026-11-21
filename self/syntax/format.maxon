@@ -112,7 +112,7 @@ type Formatter
 		for i in 0 upto parts.count() 'each'
 			match parts[i] 'part'
 				text(run, begin, raw) then _ = 0
-				expr(begin, until) then interpolations.push(Span.make(begin, until: until))
+				expr(begin, until, _, _) then interpolations.push(Span.make(begin, until: until))
 			end 'part'
 		end 'each'
 		var literal = ByteArray.create(0)

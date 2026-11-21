@@ -519,15 +519,26 @@ function rangeOperate(mutates r Ranges, p ast.Project, e ast.NodeID, l Span, rs 
 	end 'unsigned'
 	let computed = arithmetic(op, l: l, r: rs, word: word)
 	var exact = computed.span.clone()
+	var fails = computed.fails
+	if ast.isWordPattern(p.types, t: arithOf(r, e: e).operand) and wraps(op) 'wrapping'
+		exact = unsignedWord()
+		fails = fails and (ast.failDivZero or ast.failShift)
+	end 'wrapping'
 	match bound 'bound'
 		some(b) then exact = withinBound(exact, bound: b)
 		none then _ = 0
 	end 'bound'
-	if op == "-" and not isDead(r, s: r.st) 'difference'
+	if op == "-" and not isDead(r, s: r.st) and not ast.isWordPattern(p.types, t: arithOf(r, e: e).operand) 'difference'
 		exact.lo = rangeDifferenceLow(r, p: p, e: e, low: exact.lo)
 	end 'difference'
-	return rangeResult(r, p: p, e: e, op: op, exact: exact, fails: computed.fails, word: word)
+	return rangeResult(r, p: p, e: e, op: op, exact: exact, fails: fails, word: word)
 end 'rangeOperate'
+
+// wraps is whether an operation on a bits(64) pattern is computed modulo 2^64, as against failing past the word: an
+// addition, a subtraction, a product, and a left shift, which drops the bits shifted past the word.
+function wraps(op String) returns bool
+	return op == "+" or op == "-" or op == "*" or op == "shl"
+end 'wraps'
 
 // withinBound is an exact result cut to a bound, unless no value of it lies within the bound.
 function withinBound(exact Span, bound Span) returns Span
@@ -746,6 +757,11 @@ function rangeUnaryExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns S
 		word = unsignedWord()
 	end 'unsigned'
 	var exact = Span.make(v.hi.neg(), hi: v.lo.neg())
+	if op == "-" and ast.isWordPattern(p.types, t: t) 'wrappingNegation'
+		// The negation of a bit pattern wraps modulo 2^64, so it is a pattern too.
+		word = unsignedWord()
+		exact = unsignedWord()
+	end 'wrappingNegation'
 	if op == "not" 'not'
 		// The bits of a value flipped: -v - 1 in a signed word, and u64.max - v in an unsigned one.
 		if unsigned 'unsignedNot'
@@ -768,6 +784,25 @@ function rangeCastExpr(mutates r Ranges, p ast.Project, e ast.NodeID) returns Sp
 	return rangeConverted(r, p: p, e: e, v: v, src: typeOf(r, e: operand), ty: ty, why: Unchecked.cast(ty))
 end 'rangeCastExpr'
 
+// reinterpreted is the span of a value of the span v and the type src once it is converted to ty, before ty's range is
+// applied. A bits(64) pattern and an integer type that holds every signed word are two readings of the same 64 bits, so
+// a conversion between them changes the value and never fails; any other conversion keeps the value.
+function reinterpreted(p ast.Project, v Span, src ast.TypeID, ty ast.TypeID) returns Span
+	let word = unsignedWord()
+	if ast.isWordPattern(p.types, t: ty) and v.lo.isNeg() 'toPattern'
+		return word
+	end 'toPattern'
+	let target = typeSpan(p.types, t: ty)
+	if ast.isWordPattern(p.types, t: src) and signedWord().within(target) and v.hi.gt(ast.I128.i64Max()) 'toSigned'
+		if v.lo.gt(ast.I128.i64Max()) 'wholly'
+			let wrap = ast.I128.u64Max().add(ast.I128.one())
+			return Span.make(v.lo.sub(wrap), hi: v.hi.sub(wrap))
+		end 'wholly'
+		return signedWord()
+	end 'toSigned'
+	return v.clone()
+end 'reinterpreted'
+
 // rangeConverted is the conversion of the value of the span v to ty, at the node e that records how it can fail.
 function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, src ast.TypeID, ty ast.TypeID, why Unchecked) returns Span
 	if ast.isFloatType(p.types, t: ty) 'float'
@@ -775,13 +810,14 @@ function rangeConverted(mutates r Ranges, p ast.Project, e ast.NodeID, v Span, s
 		return noSpan()
 	end 'float'
 	let t = typeSpan(p.types, t: ty)
+	let seen = reinterpreted(p, v: v, src: src, ty: ty)
 	var fails = ast.failNone
-	if v.lo.lt(t.lo) 'below'
+	if seen.lo.lt(t.lo) and not ast.isWordPattern(p.types, t: ty) 'below'
 		fails = fails or ast.failBelow
 	end 'below'
-	if v.hi.gt(t.hi) 'above'
+	if seen.hi.gt(t.hi) and not ast.isWordPattern(p.types, t: ty) 'above'
 		fails = fails or ast.failAbove
 	end 'above'
 	rangeFail(r, p: p, e: e, fails: fails, why: why)
-	return v.clamp(t)
+	return seen.clamp(t)
 end 'rangeConverted'

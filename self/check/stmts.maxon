@@ -660,17 +660,17 @@ function checkReturn(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	_ = coerce(c, p: p, node: value, at: offsetOf(c, p: p, node: s), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
 end 'checkReturn'
 
-// checkThrow types a throw, which fails with a case of an error enum.
+// checkThrow types a throw, which fails with a case of an error enum or a value of an error union.
 function checkThrow(mutates c Checker, mutates p ast.Project, s ast.NodeID, mutates errs diag.ErrorList)
 	let value = ast.throwStmtValue(p.modules[c.modIdx].tree, id: s)
 	let e = checkExpr(c, p: p, e: value, errs: errs)
 	if e == ast.noType 'badValue'
 		return
 	end 'badValue'
-	if not typeHasKind(p, t: e, kind: ast.TypeKind.enumTy) 'notEnum'
+	if not ast.isErrorType(p.types, t: e) 'notError'
 		failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
 		return
-	end 'notEnum'
+	end 'notError'
 	recordFailure(c, e: e)
 end 'checkThrow'
 

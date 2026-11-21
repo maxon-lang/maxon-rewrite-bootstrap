@@ -41,6 +41,7 @@ export enum MemberKind
 	memberEnumRaw
 	memberUnionName
 	memberUnionOrdinal
+	memberUnionRaw
 	memberLimit
 end 'MemberKind'
 

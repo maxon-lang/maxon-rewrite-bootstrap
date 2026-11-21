@@ -1,0 +1,44 @@
+enum ContentType
+	json = "application/json"
+	html = "text/html"
+end 'ContentType'
+
+enum Threshold
+	low = 0.1
+	high = -2.5
+end 'Threshold'
+
+enum Level
+	low = 3
+	mid
+	high = 10
+end 'Level'
+
+union Instr
+	add(dest Count, src Count) = 5
+	nop = 7
+	other
+end 'Instr'
+
+union Named
+	first(text String) = "alpha"
+	second = "beta"
+end 'Named'
+
+function main() returns ExitCode
+	let c = ContentType.html
+	print("{c.rawValue} {ContentType.json.rawValue} {c.ordinal} {c.name}\n")
+	print("{Threshold.low.rawValue} {Threshold.high.rawValue}\n")
+	print("{Level.mid.rawValue}\n")
+	let i = Instr.add(1, src: 2)
+	print("{i.rawValue} {i.ordinal} {Instr.nop.rawValue} {Instr.other.rawValue}\n")
+	let n = Named.first("x")
+	print("{n.rawValue} {Named.second.rawValue}\n")
+	return 0
+end 'main'
+
+//> text/html application/json 1 html
+//> 0.1 -2.5
+//> 4
+//> 5 0 7 8
+//> alpha beta

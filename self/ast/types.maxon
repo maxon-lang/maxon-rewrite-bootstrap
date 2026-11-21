@@ -143,14 +143,34 @@ end 'CaseFieldInfo'
 
 export typealias CaseFieldList = Array with CaseFieldInfo
 
+// RawKind is what the raw values of an enum or a union are: the integers that count up from the case before, or the floats
+// and the strings that every case writes.
+export enum RawKind
+	integer
+	float
+	string
+
+	// noun is how a message names the kind, as maxon does.
+	export function noun() returns String
+		return match self 'k'
+			integer gives "int"
+			float gives "float"
+			string gives "String"
+		end 'k'
+	end 'noun'
+end 'RawKind'
+
 export type CaseInfo
 	export var name as String
 	export var payload as CaseFieldList
 	export var hasRaw as bool
+	// rawValue is the integer of a case, or the bits of its float.
 	export var rawValue as I128
+	// rawText is the text of the case whose raw value is a string.
+	export var rawText as String
 
 	export static function make(consumes name String, consumes payload CaseFieldList, hasRaw bool, consumes rawValue I128) returns CaseInfo
-		return CaseInfo{name: name, payload: payload, hasRaw: hasRaw, rawValue: rawValue}
+		return CaseInfo{name: name, payload: payload, hasRaw: hasRaw, rawValue: rawValue, rawText: ""}
 	end 'make'
 end 'CaseInfo'
 
@@ -231,6 +251,8 @@ export type TypeEntry
 	export var inferred as bool
 	export var minVal as I128
 	export var maxVal as I128
+	// bitsWidth is the width of a bits(n) typealias, a raw bit pattern, and 0 for every other type.
+	export var bitsWidth as Count
 	export var hasDecl as bool
 	export var decl as DeclRef
 	export var isNoncopyable as bool
@@ -243,6 +265,7 @@ export type TypeEntry
 	export var fields as FieldInfoList
 	export var cases as CaseInfoList
 	export var hasExplicitRaw as bool
+	export var rawKind as RawKind
 	export var methods as MethodRefList
 	export var sigs as FuncIDList
 	export var boundIface as TypeID
@@ -261,7 +284,7 @@ export type TypeEntry
 
 	export static function make(kind TypeKind, consumes name String) returns TypeEntry
 		let z = I128.zero()
-		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, supertype: noType}
+		return TypeEntry{id: noType, kind: kind, name: name, inferred: false, minVal: z.clone(), maxVal: z, bitsWidth: 0 as Count, hasDecl: false, decl: DeclRef.make(0 as diag.ModuleID, ordinal: 0 as DeclOrdinal), isNoncopyable: false, origin: noType, declaring: false, typeParams: TypeIDList.create(0), typeArgs: TypeIDList.create(0), conforms: TypeIDList.create(0), bounds: ParamBoundList.create(0), fields: FieldInfoList.create(0), cases: CaseInfoList.create(0), hasExplicitRaw: false, rawKind: RawKind.integer, methods: MethodRefList.create(0), sigs: FuncIDList.create(0), boundIface: noType, dropFunc: noFunc, selfParam: noType, paramConvs: ConventionList.create(0), isTuple: false, mutatesCaptures: false, isBrand: false, supertype: noType}
 	end 'make'
 
 	export function findMethod(methodName String) returns table.Option with FuncID
@@ -870,6 +893,40 @@ export function isIntType(tt TypeTable, t TypeID) returns bool
 	let k = tt.entries[t as Count].kind
 	return k == TypeKind.intRange or k == TypeKind.constInt
 end 'isIntType'
+
+// isBitPattern is whether the type is that of a bits(n) typealias, a raw bit pattern.
+export function isBitPattern(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	return tt.entries[t as Count].bitsWidth != 0
+end 'isBitPattern'
+
+// isWordPattern is whether the type is that of a bits(64) typealias: a pattern as wide as the word that arithmetic
+// computes in, so that its operations wrap and every integer converts to it.
+export function isWordPattern(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	return tt.entries[t as Count].bitsWidth == 64
+end 'isWordPattern'
+
+// isErrorType is whether a function can throw the type: an enum, whose case is the error, or a union, whose value is.
+export function isErrorType(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	return tt.entries[t as Count].kind == TypeKind.enumTy or tt.entries[t as Count].kind == TypeKind.unionTy
+end 'isErrorType'
+
+// isUnionError is whether the type is an error union: its error is a heap box that the failing function hands to its
+// caller, which owns it, and not a case number.
+export function isUnionError(tt TypeTable, t TypeID) returns bool
+	if t == noType 'no'
+		return false
+	end 'no'
+	return tt.entries[t as Count].kind == TypeKind.unionTy
+end 'isUnionError'
 
 export function isUnsignedInt(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'

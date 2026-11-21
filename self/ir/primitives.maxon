@@ -64,7 +64,7 @@ end 'failUnlessBegin'
 
 // failUnlessEnd fails with the case errorCase of the error the operation throws, and goes on in the block ok.
 function failUnlessEnd(mutates l Lowerer, p ast.Project, errorCase Count, ok BlockID)
-	let stub = failure(l, p: p, errorCase: errorCase, err: noReg)
+	let stub = failure(l, p: p, errorCase: errorCase, err: noReg, errDrop: ast.noType)
 	seal(l, t: newJump(stub))
 	l.cur = ok
 end 'failUnlessEnd'

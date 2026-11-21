@@ -219,25 +219,34 @@ function returnOf(mutates c Checker, mutates p ast.Project, returnsRef ast.NodeI
 	return resolveTypeRef(c, p: p, tr: returnsRef, selfTy: selfTy, errs: errs)
 end 'returnOf'
 
-// errorOf is the error a function's 'throws' names, or none for a function that throws nothing. An error is an enum:
-// its value is a case, which comes back from a call in a register.
-function errorOf(mutates c Checker, mutates p ast.Project, throwsRef ast.NodeID, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.TypeID
+// errorOf is the error a function's 'throws' names, or none for a function that throws nothing. An error is an enum, whose
+// case comes back from a call in a register, or a union, whose box does. A clause that names neither is refused at the
+// function's name, as maxon does.
+function errorOf(mutates c Checker, mutates p ast.Project, site ast.NodeID, throwsRef ast.NodeID, specs ast.ParamSpecList, mutates errs diag.ErrorList) returns ast.TypeID
 	if throwsRef == 0 'none'
 		return ast.noType
 	end 'none'
-	let mark = errs.count()
-	let t = resolveTypeRef(c, p: p, tr: throwsRef, selfTy: ast.noType, errs: errs)
-	if failedSince(errs, mark: mark) 'failed'
+	let off = offsetOf(c, p: p, node: site)
+	var unresolved = diag.ErrorList.create(0)
+	var t = ast.noType
+	if not ast.typeRefIsTuple(p.modules[c.modIdx].tree, id: throwsRef) 'named'
+		t = resolveNamedTypeRef(c, p: p, tr: throwsRef, selfTy: ast.noType, errs: unresolved)
+	end 'named'
+	if t == ast.noType 'unresolved'
+		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeRefName(p.modules[c.modIdx].tree, id: throwsRef)), errs: errs)
 		return ast.noType
-	end 'failed'
-	let off = offsetOf(c, p: p, node: throwsRef)
-	if p.types.entries[t as Count].kind != ast.TypeKind.enumTy 'notEnum'
-		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: "'throws {ast.typeName(p.types, t: t)}' names no enum, and an error is a case of one: name an 'enum ... implements Error' with a case for each failure", errs: errs)
+	end 'unresolved'
+	if p.types.entries[t as Count].kind == ast.TypeKind.interfaceTy 'interface'
+		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesAnInterface(ast.typeName(p.types, t: t)), errs: errs)
 		return ast.noType
-	end 'notEnum'
+	end 'interface'
+	if not ast.isErrorType(p.types, t: t) 'notError'
+		checkFail(c.modID, off: off, code: diag.errThrowsNotAnErrorEnum, msg: diag.throwsNamesNoError(ast.typeName(p.types, t: t)), errs: errs)
+		return ast.noType
+	end 'notError'
 	for i in 0 upto specs.count() 'each'
 		if specs[i].conv == ast.Convention.convSets 'sets'
-			checkFail(c.modID, off: off, code: diag.errThrows, msg: "a failure would leave the 'sets' parameter '{specs[i].name}' set or not, which its caller cannot tell: return the value instead, or catch the failures in the function", errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, node: throwsRef), code: diag.errThrows, msg: "a failure would leave the 'sets' parameter '{specs[i].name}' set or not, which its caller cannot tell: return the value instead, or catch the failures in the function", errs: errs)
 			return ast.noType
 		end 'sets'
 	end 'each'
@@ -276,7 +285,7 @@ function declareSignature(mutates c Checker, mutates p ast.Project, it ast.TypeI
 	if failedSince(errs, mark: mark) 'badReturn'
 		return
 	end 'badReturn'
-	fn.errTy = errorOf(c, p: p, throwsRef: m.throwsRef, specs: fn.params, errs: errs)
+	fn.errTy = errorOf(c, p: p, site: m.id, throwsRef: m.throwsRef, specs: fn.params, errs: errs)
 	if failedSince(errs, mark: mark) 'badThrows'
 		return
 	end 'badThrows'

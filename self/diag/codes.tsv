@@ -45,6 +45,7 @@ ErrBoundNotMet	E3017	semanticWhereConstraintViolation	A type argument does not m
 ErrUnknownField	E3018	semanticUnknownField	A field access names a field the type does not have.
 ErrEnumDuplicateCase	E3030	enumDuplicateCase	An enum declares a case name twice.
 ErrEnumDuplicateRawValue	E3031	enumDuplicateRawValue	Two cases of an enum have the same raw value.
+ErrEnumRawValueTypeMismatch	E3032	enumRawValueTypeMismatch	The raw values of an enum or a union are not all of one kind: integers, floats or strings.
 ErrEnumUnknownCase	E3034	enumUnknownCase	A name is not a case of its enum or union.
 ErrEnumWrongBindingCount	E3035	enumWrongBindingCount	A match pattern binds a different number of values than its case carries.
 ErrCallArgCountMismatch	E3036	callArgCountMismatch	A call passes a different number of arguments than the callee takes.
@@ -64,11 +65,12 @@ ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is u
 ErrUseAfterMove	E3102	useAfterMove	A name is read after its value was moved out of it.
 ErrDivisionByZero	E3103	semanticDivisionByZero	A division or 'mod' has a constant zero divisor.
 ErrZeroOutsideElement	E3106	semanticArrayResizeManagedElement	An array is created with zeroed elements of a type that has no zero value.
-ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum.
+ErrThrowsNotAnErrorEnum	E3113	throwsTypeNotAnErrorEnum	A 'throws' clause names something other than an enum or a union.
 ErrAmbiguousBound	E3114	semanticAmbiguousWitnessDispatch	A method call on a type parameter names a method that more than one of its bounds declares.
 ErrStaticRequirementNotDispatchable	E3116	semanticStaticRequirementNotDispatchable	A static requirement of an interface is called through a type parameter, which has no receiver to dispatch on.
 ErrIfTryDiscardsResult	E3124	ifTryDiscardsResult	An 'if try' with no binding tests a call that returns a value, which it discards.
 ErrBoundBindingDisagrees	E3133	semanticWhereConstraintBindingDisagreement	A type argument implements its bound's interface, but binds an associated type to another type than the bound names.
+ErrIllegalBitWidth	E3148	semanticIllegalBitWidth	A bits(n) typealias has a width the language does not have.
 ErrRawIntrinsicOutsideRuntime	E3152	rawIntrinsicOutsideRuntimeTier	A source file outside the runtime calls a __Raw intrinsic.
 ErrExposesHiddenType	E3167	semanticSignatureTypeLessVisibleThanDeclaration	A declaration's signature names a type less visible than the declaration.
 ErrAliasRangeDoesNotFit	E3178	aliasImplementsRangeDoesNotFit	A typealias implements one whose range does not hold its own, or that is over another primitive or signedness.
@@ -106,6 +108,7 @@ ErrCapabilityMisuse	E3921	-	An argument naming a type's capability is wrong for 
 ErrTakeApartDestructible	E3922	-	A value of a type with destructors is taken apart outside them.
 ErrThrows	E3924	-	A function that takes a 'sets' parameter declares 'throws'.
 ErrClosureBorrow	E3925	-	A function value that holds a borrow escapes it: it is stored, returned, consumed, copied or captured by something that may outlive the borrow.
+ErrRawValueNotLiteral	E3940	-	A raw value is a string with an interpolated value, which a case cannot hold.
 ErrTypeCycle	E4014	irTypeCycle	A type contains itself.
 ErrUnsupported	E9000	-	A construct the compiler does not support yet.
 ErrInterpreterOnly	E9900	-	A construct only the interpreter runs, so no native code is made for it.

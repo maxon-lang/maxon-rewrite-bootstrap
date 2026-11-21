@@ -1,0 +1,30 @@
+typealias Word = bits(64)
+
+typealias Half = bits(32)
+
+typealias Integer = int(i64.min to i64.max)
+
+function mix(a Word, b Word) returns Word
+	return a * 3 + b - (a shl 4) + (a xor b)
+end 'mix'
+
+function narrow(n Integer) returns Half
+	return try n as Half otherwise panic("does not fit 32 bits")
+end 'narrow'
+
+function main() returns ExitCode
+	let all = u64.max as Word
+	let minusOne = -1 as Integer
+	print("{all} {all as Integer} {minusOne as Word}\n")
+	let m = mix(all, b: 5)
+	print("{m} {m shr 60} {-m} {not m} {all + 1}\n")
+	print("{narrow(4294967295) as Word}\n")
+	let wide = 0xFFFFFFFF00000000 as Word
+	print("{try wide as Half otherwise 7}\n")
+	return 0
+end 'main'
+
+//> 18446744073709551615 -1 18446744073709551615
+//> 12 0 18446744073709551604 18446744073709551603 0
+//> 4294967295
+//> 7

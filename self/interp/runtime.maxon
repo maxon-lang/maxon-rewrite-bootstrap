@@ -126,6 +126,11 @@ function entryFtoa(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	giveRef(vm, x: x, o: made)
 end 'entryFtoa'
 
+function entryFtoaExact(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
+	let made = newString(vm, text: ast.floatExactText(bitsOf(argNum(vm, f: f, x: x, i: 0))))
+	giveRef(vm, x: x, o: made)
+end 'entryFtoaExact'
+
 function entryStreq(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 	let a = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 0), what: "a comparison")
 	let b = try textIndex(vm, o: argRef(vm, f: f, x: x, i: 1), what: "a comparison")

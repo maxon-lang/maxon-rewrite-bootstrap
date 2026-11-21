@@ -122,7 +122,7 @@ function failing(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst R
 	let err = load(l, slot: errSlot)
 	let ok = l.b.newBlock()
 	let clear = isZero(l, v: err)
-	let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+	let stub = failure(l, p: p, errorCase: 0 as Count, err: err, errDrop: ast.noType)
 	l.b.terminate(l.cur, t: newBranch(clear, ifTrue: ok, ifFalse: stub))
 	l.cur = ok
 	return dst

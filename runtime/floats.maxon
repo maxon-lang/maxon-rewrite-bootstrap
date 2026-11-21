@@ -344,6 +344,36 @@ function ftoa(bits Count) returns String
 	return text
 end 'ftoa'
 
+// ftoaExact is the exact decimal of the magnitude of the double of the bits, written with its point and no exponent, always
+// with a fraction, or "inf" or "nan" for a double that is not finite.
+function ftoaExact(bits Count) returns String
+	let magnitude = bits and floatMagnitudeBits
+	if magnitude > floatInfinity 'nan'
+		return "nan"
+	end 'nan'
+	if magnitude == floatInfinity 'inf'
+		return "inf"
+	end 'inf'
+	if magnitude == 0 'zero'
+		return "0.0"
+	end 'zero'
+	let scratch = alloc(floatScratchBytes)
+	let field = (magnitude shr floatFractionBits) and floatFieldMask
+	var m = magnitude and floatFractionMask
+	var e = -1074 as FullRangeInt
+	if field != 0 'normal'
+		m = m + floatLeadingBit
+		e = (field as FullRangeInt) - 1075
+	end 'normal'
+	let exact = __Raw.wrappingAdd(scratch, right: floatExactOffset)
+	let exactAll = floatExactDigits(scratch, m: m, e: e, out: exact)
+	let exactScale = floatScaleOf(exactAll, e: e)
+	let exactCount = floatSignificant(exact, count: exactAll)
+	let text = floatTextOf(false, digits: exact, count: exactCount, scale: exactScale, word: "")
+	free(scratch)
+	return text
+end 'ftoaExact'
+
 // floatTextOf is a new string of the sign and either the word, or the count digits at digits with the scale, written
 // with a point: 0.000ddd, ddd000.0 or dd.ddd.
 function floatTextOf(negative bool, digits Count, count Count, scale FullRangeInt, word String) returns String

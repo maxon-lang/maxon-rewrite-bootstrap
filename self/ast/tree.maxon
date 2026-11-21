@@ -41,12 +41,16 @@ end 'textRef'
 
 // The parts of a string literal are pairs of words in the tree's list array: an interpolated expression is
 // partExprTag and its node, text that an escape changed is partDecodedTag and its index in the tree's strings, and a
-// run of the module's text is its length plus partRunTag and its offset.
+// run of the module's text is its length plus partRunTag and its offset. An interpolated expression with a format
+// specifier is partFormatTag plus the index in the tree's strings of the specifier's text, and its node, so that every tag
+// from partFormatTag up is an interpolation and a run is shorter than it.
 let partExprTag = 0 as diag.U32
 
 let partDecodedTag = 1 as diag.U32
 
 let partRunTag = 2 as diag.U32
+
+let partFormatTag = 2147483648 as diag.U32
 
 // StrPartsBuilder makes the parts of a string literal in a tree.
 export type StrPartsBuilder
@@ -58,7 +62,11 @@ export type StrPartsBuilder
 
 	// run adds a run of the module's text, from offset to offset+length.
 	export function run(mutates self, offset diag.U32, length diag.U32)
-		words.push(try length + partRunTag otherwise panic("a string part exceeds U32"))
+		let tag = try (length + partRunTag) as diag.U32 otherwise panic("a string part exceeds U32")
+		if tag >= partFormatTag 'long'
+			panic("a string part exceeds 2 GB")
+		end 'long'
+		words.push(tag)
 		words.push(offset)
 	end 'run'
 
@@ -73,6 +81,12 @@ export type StrPartsBuilder
 		words.push(partExprTag)
 		words.push(e as diag.U32)
 	end 'interpolation'
+
+	// formatted adds an interpolated expression with the text of its format specifier.
+	export function formatted(mutates self, mutates t Tree, e NodeID, consumes spec String)
+		words.push(try partFormatTag + t.addString(spec) otherwise panic("a format specifier index exceeds U32"))
+		words.push(e as diag.U32)
+	end 'formatted'
 
 	// finish adds the parts to the tree and gives the reference that names them.
 	export function finish(consumes self, mutates t Tree) returns diag.U32
@@ -272,8 +286,17 @@ export type Tree
 
 	export function strPartIsExpr(partsRef diag.U32, index Count) returns bool
 		let tag = self.listAt(partsRef, index: try index * 2 otherwise panic("strPart index"))
-		return tag == partExprTag
+		return tag == partExprTag or tag >= partFormatTag
 	end 'strPartIsExpr'
+
+	// strPartFormat is the text of the format specifier of an interpolated part, and "" for a part that has none.
+	export function strPartFormat(partsRef diag.U32, index Count) returns String
+		let tag = self.listAt(partsRef, index: try index * 2 otherwise panic("strPart index"))
+		if tag < partFormatTag 'none'
+			return ""
+		end 'none'
+		return strings[try (tag - partFormatTag) as Count otherwise panic("strPart format tag")].clone()
+	end 'strPartFormat'
 
 	export function strPartExpr(partsRef diag.U32, index Count) returns NodeID
 		let arg = self.listAt(partsRef, index: try index * 2 + 1 otherwise panic("strPart index"))

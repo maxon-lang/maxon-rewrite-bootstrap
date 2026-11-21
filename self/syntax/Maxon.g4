@@ -177,7 +177,14 @@ enumDecl
     ;
 
 enumCaseDecl
-    : name=(Name | 'from') ('=' raw=intLit)?
+    : name=(Name | 'from') ('=' raw=rawValue)?
+    ;
+
+// A raw value is a literal: an integer, a float or a string with no interpolation, which the checker holds to.
+rawValue returns [Expr value]
+    : value=intLit
+    | value=floatLit
+    | value=strLit
     ;
 
 unionDecl
@@ -187,12 +194,12 @@ unionDecl
     ;
 
 unionCaseDecl
-    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')?
+    : name=(Name | 'from') (^'(' (fields+=param (',' fields+=param)*)? ')')? ('=' raw=rawValue)?
     ;
 
 aliasDecl
     : visibility=('export' | 'public')? 'typealias' name=Name '='
-      ( ('int' | number=Name) ^'(' low=bound (inclusive='to' | 'upto') high=bound ')' ('implements' parent=typeRef)?
+      ( ('int' | number=Name) ^'(' low=bound ((inclusive='to' | 'upto') high=bound)? ')' ('implements' parent=typeRef)?
       | fn=funcType
       | instance=aliasInstance
       )

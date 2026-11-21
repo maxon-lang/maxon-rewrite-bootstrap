@@ -140,10 +140,11 @@ end 'Token'
 export typealias Tokens = Array with Token
 
 // StrPart is a part of a string literal: a run of its text, which is the module's text from begin when raw and text an
-// escape changed otherwise, or an interpolation, the offsets of its expression in the module text.
+// escape changed otherwise, or an interpolation, the offsets of its expression in the module text and those of the format
+// specifier after its colon, which are the same where it has none.
 export union StrPart
 	text(text String, begin Count, raw bool)
-	expr(begin Count, until Count)
+	expr(begin Count, until Count, specBegin Count, specUntil Count)
 end 'StrPart'
 
 export typealias StrParts = Array with StrPart
@@ -921,7 +922,10 @@ type StringReader
 		let start = pos
 		var nest = 0 as Count
 		var parens = 0 as FullRangeInt
-		while pos < limit and src.text.byteAt(pos) != byteNewline and not (src.text.byteAt(pos) == byteRBrace and nest == 0) 'scan'
+		var exprEnd = start
+		var specBegin = start
+		var specified = false
+		while pos < limit and src.text.byteAt(pos) != byteNewline and not (src.text.byteAt(pos) == byteRBrace and nest == 0) and not specified 'scan'
 			let ch = src.text.byteAt(pos)
 			if ch == byteLBrace 'open'
 				nest = after(nest)
@@ -932,8 +936,14 @@ type StringReader
 			end 'group' else if ch == byteRParen or ch == byteRBracket 'ungroup'
 				parens = try parens - 1 otherwise panic("the parentheses nest too deep")
 			end 'ungroup' else if ch == byteColon and parens == 0 and nest == 0 'format'
-				errs.push(src.errorAt(diag.errUnsupported, message: "format specifiers are not supported by minimaxon", file: file, offset: pos))
-				throw SyntaxError.refused
+				// The specifier is the bytes up to the brace that ends the interpolation, which no construct of its own owns.
+				exprEnd = pos
+				specBegin = after(pos)
+				pos = specBegin
+				while pos < limit and src.text.byteAt(pos) != byteNewline and src.text.byteAt(pos) != byteRBrace 'specifier'
+					pos = after(pos)
+				end 'specifier'
+				specified = true
 			end 'format' else if ch == byteQuote 'string'
 				pos = after(pos)
 				while pos < limit and src.text.byteAt(pos) != byteQuote and src.text.byteAt(pos) != byteNewline 'inner'
@@ -943,13 +953,19 @@ type StringReader
 					pos = after(pos)
 				end 'inner'
 			end 'string'
-			pos = after(pos)
+			if not specified 'next'
+				pos = after(pos)
+			end 'next'
 		end 'scan'
 		if pos >= limit or src.text.byteAt(pos) != byteRBrace 'unterminated'
 			throw self.fail(src, errs: errs, message: "unterminated interpolation in string literal", at: start)
 		end 'unterminated'
+		if not specified 'whole'
+			exprEnd = pos
+			specBegin = pos
+		end 'whole'
 		if collect 'collect'
-			parts.push(StrPart.expr(start, until: pos))
+			parts.push(StrPart.expr(start, until: exprEnd, specBegin: specBegin, specUntil: pos))
 		end 'collect'
 		pos = after(pos)
 		run = pos

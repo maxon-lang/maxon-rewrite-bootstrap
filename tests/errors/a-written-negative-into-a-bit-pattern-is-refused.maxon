@@ -1,0 +1,8 @@
+typealias Word = bits(64)
+
+function main() returns ExitCode
+	let w = -1 as Word
+	return 0
+end 'main'
+
+// expect-error: E3005 at 4:13

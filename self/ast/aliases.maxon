@@ -105,6 +105,10 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: "the ranged typealias '{ad.name}' is declared in a generic type, where each instance would have a type of its own, which this compiler does not implement: declare it outside the type", module: ref.module, offset: off)
 		return
 	end 'perInstance'
+	if ad.high.id == (0 as NodeID) 'noHigh'
+		declareBitsAlias(p, ref: ref, ad: ad, errs: errs)
+		return
+	end 'noHigh'
 	if ad.number == "float" 'float'
 		declareFloatAlias(p, ref: ref, ad: ad, errs: errs)
 		return
@@ -141,6 +145,55 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.decl = ref.clone()
 	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
 end 'declareRangeAlias'
+
+// bitsKeyword is the name of a typealias of a raw bit pattern: bits(64), whose width is its only argument.
+let bitsKeyword = "bits"
+
+// legalBitWidths are the widths of a bit pattern: those a slot or a sub-byte packed field can hold.
+let legalBitWidths = [1 as Count, 2 as Count, 4 as Count, 8 as Count, 16 as Count, 32 as Count, 64 as Count]
+
+// isLegalBitWidth is whether a bits(n) typealias can have the width n.
+export function isLegalBitWidth(width I128) returns bool
+	for i in 0 upto legalBitWidths.count() 'each'
+		if width.eq(I128.fromCount(legalBitWidths[i])) 'hit'
+			return true
+		end 'hit'
+	end 'each'
+	return false
+end 'isLegalBitWidth'
+
+// boundText is a bound as it was written.
+function boundText(b Bound) returns String
+	var text = b.value.toString()
+	if b.sized != "" 'sized'
+		text = "{b.sized}.{b.limit}"
+	end 'sized'
+	if b.negative 'negative'
+		return "-{text}"
+	end 'negative'
+	return text
+end 'boundText'
+
+// declareBitsAlias gives a typealias of a bit pattern its type: an unsigned integer of the pattern's width, which every
+// bit pattern of that width is a value of. A range written with one argument, other than bits, is a syntax error.
+function declareBitsAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
+	let modIdx = modIndex(ref.module)
+	if ad.number != bitsKeyword 'notBits'
+		diag.pushSiteError(errs, code: diag.errExpectedToken, message: diag.expectedToken("'to' or 'upto'", got: ")"), module: ref.module, offset: p.modules[modIdx].tree.startOf(ad.low.id))
+		return
+	end 'notBits'
+	if ad.low.sized != "" or ad.low.negative or not isLegalBitWidth(ad.low.value) 'illegal'
+		diag.pushSiteError(errs, code: diag.errIllegalBitWidth, message: diag.illegalBitWidth(boundText(ad.low)), module: ref.module, offset: p.modules[modIdx].tree.startOf(ad.low.id))
+		return
+	end 'illegal'
+	let width = ad.low.value.lo
+	var e = TypeEntry.make(TypeKind.intRange, name: ad.name.clone())
+	e.maxVal = I128.fromCount(u64MaxCount shr (try 64 - width otherwise 0 as Count))
+	e.bitsWidth = width
+	e.hasDecl = true
+	e.decl = ref.clone()
+	p.declTypes.insert(declKey(ref), value: allocType(p.types, e: e))
+end 'declareBitsAlias'
 
 // declareFloatAlias gives a typealias of a float range its type, whose bounds are doubles: a float or an integer
 // literal, or the limit of f64 or f32.

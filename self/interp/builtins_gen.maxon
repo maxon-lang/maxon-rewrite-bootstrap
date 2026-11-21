@@ -27,6 +27,26 @@ function runtimeEntry(mutates vm Vm, f ir.IrFunction, x ir.Instr) throws Halt
 		try entryFtoa(vm, f: f, x: x)
 		return
 	end 'rtFtoa'
+	if symbol == ir.Rt.rtFtoaExact 'rtFtoaExact'
+		try entryFtoaExact(vm, f: f, x: x)
+		return
+	end 'rtFtoaExact'
+	if symbol == ir.Rt.rtFmtInt 'rtFmtInt'
+		try entryFmtInt(vm, f: f, x: x)
+		return
+	end 'rtFmtInt'
+	if symbol == ir.Rt.rtFmtPad 'rtFmtPad'
+		try entryFmtPad(vm, f: f, x: x)
+		return
+	end 'rtFmtPad'
+	if symbol == ir.Rt.rtFmtQuoted 'rtFmtQuoted'
+		try entryFmtQuoted(vm, f: f, x: x)
+		return
+	end 'rtFmtQuoted'
+	if symbol == ir.Rt.rtFmtFixed 'rtFmtFixed'
+		try entryFmtFixed(vm, f: f, x: x)
+		return
+	end 'rtFmtFixed'
 	if symbol == ir.Rt.rtStreq 'rtStreq'
 		try entryStreq(vm, f: f, x: x)
 		return

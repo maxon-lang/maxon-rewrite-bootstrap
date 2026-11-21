@@ -942,8 +942,9 @@ and nothing else.
 
 ## The subset
 
-- `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer raw values), `union`
-  (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = float(a to b)` (see "Floats"), either with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in a type's body), a top-level
+- `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer, float and string raw values, see
+  "Raw values"), `union` (payloads, methods, explicit tags), `interface`, `typealias X = int(a to|upto b)`,
+  `typealias X = bits(n)` (see "Bit patterns"), `typealias X = float(a to b)` (see "Floats"), either range with `implements Parent` (see "Integers"), `typealias X = Box with Count` (also in a type's body), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
   and a method of either can be a destructor (`function commit(destructs self)`), which takes both (see "Capabilities and
@@ -1025,6 +1026,24 @@ any value of the parent. The parent is a ranged typealias, `int` or `float` (`E2
 (one that holds a negative value) only under a signed one (`E3178`); a chain that comes back to the alias is `E3091`. The
 built-in `Count` is a subtype of `ElementIndex`.
 
+### Bit patterns
+
+`typealias Word = bits(64)` declares a raw bit pattern: a hash, a mask, an address. It is an unsigned integer alias of the
+width's range (`int(0 to 2^n - 1)`) with maxon's rules for a pattern, which differ from a quantity's where a quantity has a
+door that refuses what a pattern admits. The widths are 1, 2, 4, 8, 16, 32 and 64, and any other is `E3148`; a `bits` with
+no `(` is the unknown type it names, and a literal below 0 is `E3005` (`Value -1 is outside the range of 'Word'
+(bits(64))`).
+
+- `+`, `-`, `*`, `shl` and unary `-` over a `bits(64)` wrap modulo 2^64 and never fail, so they need no `try` (the
+  operands are one alias or a literal, as always); `/` and `mod` have their divisor's failure; `not`, `and`, `or`, `xor`
+  and `shr` keep the alias, and `shr` fills with zeros. An operation that is given another integer type to produce is
+  checked against it as for any alias.
+- A cast to a `bits(64)` from any integer never fails and keeps the bits (`-1 as Word` of a variable is `u64.max`), and a
+  cast from a `bits(64)` to an integer type that holds every signed word reinterprets them (`u64.max as Word as Integer` is
+  `-1`); a cast to a narrower pattern or to a smaller range is checked like any other, so `bits(64)` into
+  `int(0 to i64.max)` fails for a value with bit 63 set.
+- A pattern narrower than a word has the checked arithmetic of the unsigned range of its width.
+
 ### Floats
 
 `typealias Ratio = float(0.0 to 1.0)` declares a float alias: its bounds are float or integer literals or `f64.min`,
@@ -1055,8 +1074,9 @@ between the midpoints to its neighbours. Natively a float is a word like any oth
 
 ### Errors of the program
 
-A failure that a caller should handle is an error: a case of an enum that implements the built-in interface `Error`.
-A function or an interface's method declares the one error it throws after its `returns`, and fails with `throw`:
+A failure that a caller should handle is an error: a case of an enum that implements the built-in interface `Error`, or a
+value of a union that does, which carries the data of the failure. A function or an interface's method declares the one error
+it throws after its `returns`, and fails with `throw`:
 
 ```maxon
 typealias Amount = int(i64.min to i64.max)
@@ -1125,11 +1145,18 @@ end 'forms'
   on every path) gives the `try` its expression's value; one that runs off its end gives none, so the `try` is a
   statement of its own (`E3059`, as for `otherwise ignore`). A block handler inside brackets, as in an argument, and
   in a constant, is not supported.
-- `throws` names an enum (`E3113`); a value that is not one cannot be thrown (`E3005`). `otherwise ignore` gives no
+- `throws` names an enum or a union, and not an interface or anything else (`E3113`); a value that is neither cannot be
+  thrown (`E3005`). `otherwise ignore` gives no
   value, so its `try` is a statement of its own (`E3059`).
 - An error comes back from the call as a value: the function returns it beside its result, its case plus 1 in a
   register and 0 for none (`rdx` in the executable), and the call is followed by one branch on it. There are no unwind
-  tables and nothing is allocated for an error; a failure drops what it leaves as any other exit does.
+  tables and nothing is allocated for an error of an enum; a failure drops what it leaves as any other exit does.
+- A union error is a heap box like any union value, and the register holds the box, which 0 means none: a `throw` of a
+  value moves it out of the function, and the caller owns it from the call. A handler that names it (`(e)`) owns the
+  box as a local of its block, which it may `match` on (the payloads are borrowed there), pass on, wrap
+  (`throw Outer.wrapped(e)`) or `throw e` again; every other handler (`otherwise 0`, `ignore`, a `try` block with no name,
+  an `if try` with no binding) drops it where the failure leaves. `throw` moves its value, as `return` does, so throwing a
+  field that stays in use needs `.clone()`.
 - A built-in that can fail throws maxon's error enum for it, which the stdlib declares: `ArrayError` and `MapError` for
   the collections (see "Primitives"), and the errors of the OS functions (see "The OS"). Its call is covered by a `try`
   like any other, and its failure takes the same register and branch.
@@ -1783,6 +1810,29 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   that contains itself through an array (`var kids as Array with Tree` in `Tree`) is fine, natively too: its drop and
   its copy are routines that call themselves.
 
+### Raw values
+
+A case of an enum, and of a union, may write a raw value after `=`: an integer, a float or a string with no interpolation.
+The first case settles what they are and every later one agrees (`E3032`: `raw value type mismatch: 'expected int, got
+float'`), where a case that writes none is an integer, the one after the case before it, from 0; no two cases have the same
+value (`E3031`). `.rawValue` has the type of the values: a `Count` or a `FullRangeInt` for integers, a `FullRangeFloat`, a
+`String`. An enum is stored as its case's index, so a raw value is found by a switch on it, and a union value's tag is its
+case's index while its `.rawValue` is the tag the case writes (`add(dest Id) = 5`), and its `.ordinal` the index.
+Interpolating an enum value that has raw values writes the raw value, and an enum with none the name of the case.
+
+### Format specifiers
+
+`{value:spec}` in an interpolation writes an integer, a float or a `String` in a field, as maxon does; the specifier is the
+bytes up to the `}` and is read once, by `ast.parseFormatSpec`. For an integer it is `[0][width][base]`: a leading `0` fills
+with zeros after the sign, the width is a minimum, and the base is `x`, `X`, `o` or `b`, where decimal (any other letter, `d`
+among them) writes a sign only for a type that may be negative and the others write the bit pattern of the 64-bit word; for
+a float `[0][width][.precision]`: the places are rounded half to even from the exact value of the double, and without them
+the shortest text that reads back as it, with the sign before the fill and `inf` and `nan` as they are; for a `String`
+`[width]q` writes it as a literal with the escapes `\"`, `\\`, `\{`, `\}`, `\n`, `\r`, `\t` and `\u00XX` of the other control
+characters, padded on the left with spaces. A width or a precision past `u32.max` is `E2011`. The text is made by
+`formatInteger`, `formatPadded`, `formatQuoted` and `formatFixed` of `runtime/textops.maxon`, which the interpreter shares,
+from the exact decimal of the double that `ftoaExact` writes (`runtime/floats.maxon`, `ast.floatExactText`).
+
 ### Text
 
 A `String` is its UTF-8 bytes. Besides the byte operations, it has maxon's methods that read it by grapheme cluster: `count()`
@@ -2041,13 +2091,25 @@ are not supported.
   a frozen value, a cown and a behaviour have no native code: the interpreter counts a frozen value and a cown, schedules
   behaviours, and fails a program that leaks a value. A native program that is not built with `--count-allocations` cannot
   tell that it leaked, and a program that panics or traps does not free what it holds.
-- Errors (see "Errors of the program"): an error is an enum, not a union with payloads; a `try` block's handler names
+- Errors (see "Errors of the program"): a `try` block's handler names
   one error, not the combined error of several (refused with `E3059`), and has no terminal `otherwise panic(...)` or
   `otherwise throws ...` form; there is no block handler `otherwise (e) 'label'` on a `try` expression
   inside brackets and no `default throws` in a match. Maxon's `E3168` (a `throws` that nothing throws) and
   `E3083` (a `try` block with nothing that throws) are not raised, so a sharper range analysis never breaks a program. A `try` covers every
   operation of its expression, not one call, and a condition that rules a failure out is a proof the compiler checks
-  (see "Checked arithmetic").
+  (see "Checked arithmetic"). Maxon's `E3161` (a handler of a union error must match it exactly once) is not raised: the
+  handler owns the error as a local and a `try` block's handler still has to `match` it (`E3084`). A `throw` moves its
+  value as a `return` does, where maxon shares it, so `throw holder.fault` takes the field out of `holder`.
+- Bit patterns (see "Bit patterns"): only a `bits(64)` wraps; `bits(8)` and the other widths have the checked arithmetic of their
+  range, and `int(5)` is a syntax error (`E2010`) where `bits(5)` is `E3148`. A cast to the alias a value already has is
+  not refused as unneeded (`E3010`), as for every other alias.
+- Raw values (see "Raw values"): integer, float and string raw values of an enum, and an integer, float or string tag on a
+  union case; a case written with a record, a function or a character has none yet, and `fromRawValue`, `allCases`,
+  `unionCases`, comparing a case with its raw value and using it where a number is expected are the library's and are not
+  here. An enum whose cases write raw values interpolates its raw value, as maxon's does, and one that writes none its name.
+- A format specifier (see "Format specifiers") reads the integers, floats and Strings, and leaves any other value as it is:
+  there is no `FormattedStringable`, so `{c:verbose}` of a type of the program is not interpolated, and no `Character` to
+  quote. An empty specifier (`{x:}`) is no specifier.
 - A `return` converts an integer to the function's declared integer type with no cast where the range analysis proves that
   it fits, and the value that may not fit is `E3057` (see "Integers"). Maxon converts every `return` implicitly and checks
   it at run time, trapping where the value does not fit, so a function that returns an `ExitCode` can return any
@@ -2074,7 +2136,7 @@ are not supported.
   specifier for a float, and no `f32` storage. `trunc` of a NaN or of a double past the word gives `i64.min`, as x64's
   `cvttsd2si` does.
 - No alias subtyping (an alias implementing another), characters, async, services, region capabilities (`isolated`, `immutable`, `modify`), static fields, default
-  parameters, format specifiers, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
+  parameters, or `#if`. The memory model of [docs/regions.md](docs/regions.md) is implemented: owned
   values, the primitives, frozen values, cowns and behaviours (see "Ownership", "Primitives" and
   "Immutable values, cowns and behaviours"), with an interpreter that runs all of it and a native backend that runs
   only the array. `freeze` is a function here, `when` is a statement that takes cowns and gives names to their values,

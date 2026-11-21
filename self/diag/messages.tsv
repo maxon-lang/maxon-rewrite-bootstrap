@@ -44,11 +44,15 @@ builtinArgNamed	ErrBuiltinArgNamed	a builtin's arguments are all positional and 
 floatOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (float({low} to {high}))
 lossyFloatConversion	ErrUnsafeCast	cannot implicitly convert 'float' to '{alias}': the conversion is lossy and must be explicit — use trunc(x) to truncate toward zero (or round/floor/ceil)
 literalOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (int({low} to {high}))
+patternLiteralOutOfRange	ErrTypeMismatch	Value {value} is outside the range of '{alias}' (bits({width}))
+illegalBitWidth	ErrIllegalBitWidth	'bits({width})' is not a legal width: bits(n) takes 1, 2, 4, 8, 16, 32 or 64 — the widths a slot or a sub-byte packed field can hold
 emptyIntegerRange	ErrTypeMismatch	Integer range 'int({low} to {high})' is empty: its upper bound is below its lower bound
 unrepresentableIntegerRange	ErrTypeMismatch	Integer range cannot span both negative values and above i64.max: 'int({low} to {high})' is not representable in 64 bits; use 'i64.min to i64.max' or '0 to u64.max' instead
 comparisonTypeMismatch	ErrTypeMismatch	type mismatch: 'cannot compare {left} with {right}'
 operandTypeMismatch	ErrTypeMismatch	operator '{op}' requires both operands to be the same type (both bool or both int)
 nonBoolCondition	ErrTypeMismatch	'{keyword}' requires a bool condition, got '{got}'
+throwsNamesAnInterface	ErrThrowsNotAnErrorEnum	'throws {declared}' names an INTERFACE. A caught error is decoded off the DECLARED clause, and an interface declares no case to decode — a payload-carrying conformer arrives as a heap box pointer that would be read back as an ordinal and never released. Name the error enum or union this function actually throws
+throwsNamesNoError	ErrThrowsNotAnErrorEnum	'throws {declared}' names no declared enum or union. A caught error is decoded off the DECLARED clause, so the clause has to name the type whose cases it decodes into
 thrownValueNotAnErrorEnum	ErrTypeMismatch	throw requires an error enum value
 bareIntType	ErrTypeMismatch	Cannot use bare 'int' as a type. Define a typealias with range constraints, e.g., typealias MyInt = int(0 to 100)
 bareFloatType	ErrTypeMismatch	Cannot use bare 'float' as a type. Define a typealias with range constraints, e.g., typealias MyFloat = float(0.0 to 1.0)
@@ -61,7 +65,9 @@ missingReturn	ErrMissingReturn	missing return statement: '{name}'
 returnWithoutValue	ErrMissingReturn	missing return value: '{name}' declares a return type, so every 'return' must carry a value
 unknownField	ErrUnknownField	type '{typeName}' has no field named '{fieldName}'
 duplicateEnumCase	ErrEnumDuplicateCase	duplicate enum case: '{caseName}'
+formatFieldOverflow	ErrIntegerLiteralRange	A width or precision in format specifier '{spec}' is larger than {bound}
 duplicateRawValue	ErrEnumDuplicateRawValue	duplicate raw value: '{rawValue}'
+rawValueTypeMismatch	ErrEnumRawValueTypeMismatch	raw value type mismatch: 'expected {expected}, got {got}'
 enumUnknownCase	ErrEnumUnknownCase	unknown {kindWord} case: '{caseName}'
 enumWrongBindingCount	ErrEnumWrongBindingCount	wrong binding count: '{caseName}' expects {expected} associated value(s), got {got}
 argArityMismatch	ErrCallArgCountMismatch	'{callee}' expects {expected} argument(s) but {got} were provided
