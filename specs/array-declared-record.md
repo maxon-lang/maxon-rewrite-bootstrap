@@ -122,7 +122,6 @@ the library tier (`<!-- tier: stdlib -->`).
 ## Tests
 
 <!-- test: the-empty-literal-is-the-empty-container -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Self{}` inside `type Array` builds the EMPTY container, which is the answer `<InnerAlias>{}` already
 gets: the sole field IS the record, so an empty literal leaves no slot unwritten.
@@ -135,7 +134,6 @@ would have worked too and would have tested the declaration rather than the lite
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -165,7 +163,6 @@ end 'main'
 ```
 
 <!-- test: the-literal-is-an-identity-on-the-buffer -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Self{managed: m}` allocates nothing — it is the buffer, renamed. The adopted array and the buffer
 therefore agree on `length@8` because it is the same word, and the refcount balances: a run that
@@ -174,7 +171,6 @@ took one owner too few or too many would exit **101**, not print.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -206,7 +202,6 @@ end 'main'
 ```
 
 <!-- test: a-static-returning-self-is-the-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **A `static function … returns Self` that builds the container needs the enclosing instance's
 layout descriptor, and it may only source one by returning `Self`.** With `Self` resolving to the
@@ -218,7 +213,6 @@ the answer is a real one and not merely a compile.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -248,7 +242,6 @@ end 'main'
 ```
 
 <!-- test: clone-through-the-inline-buffer-gives-independent-storage -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE STRIDE.** `clone()`'s body reads `managed` and slices it, and the inline-`managed` read used
 to mint a BYTE view of an 8-byte-wide buffer. The copy is exercised at a width where that lie is
@@ -257,7 +250,6 @@ observable — the elements read back, and the two arrays grow independently.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral, Cloneable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -299,14 +291,12 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-clones-and-balances -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same clone over a MANAGED element. Every element is a refcounted pointer, so a copy that took
 the wrong number of references exits **101** rather than answering — which is what makes the printed
 answer the leak check as well as the value check.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral, Cloneable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -344,7 +334,6 @@ end 'main'
 ```
 
 <!-- test: self-in-an-interface-requirement-matches-the-declaration -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Cloneable.clone() returns Self` and `BuiltinArrayLiteral.init(…) returns Self` are matched against a
 declaration whose `Self` is an INSTANCE. The comparison and the diagnostic both spell it as the
@@ -353,7 +342,6 @@ declaration writes it.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral, Cloneable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -385,7 +373,6 @@ end 'main'
 ```
 
 <!-- test: error.a-second-field-under-the-name-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE HAZARD THE ADMISSION IS STRUCTURAL FOR.** The identity hands back the buffer, so a second
@@ -393,7 +380,6 @@ declared field would be dropped at construction and then read past the record's 
 drop cascades. The refusal names the SHAPE, because the name is not what is wrong here.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 	export var frozen as bool
@@ -440,7 +426,6 @@ error E2015: <fragment>:8:10: Unsupported: `Array` implements `BuiltinArrayLiter
 ```
 
 <!-- test: a-generic-conformer-of-another-name-is-the-record-too -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE STRUCTURAL ADMISSION'S BOUNDARY, AND THE NAME IS NOT WHERE IT LIES.** This
 declaration is generic over one parameter and its sole field IS a `__ManagedMemory` over that parameter
@@ -454,7 +439,6 @@ and the identity would hand back a value of a type `Self` is not.
 typealias Num = int(0 to 1000)
 
 type Bag uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -482,7 +466,6 @@ end 'main'
 ```
 
 <!-- test: a-conformer-of-another-name-owns-its-managed-elements -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **AND ITS OWNERSHIP CASCADE IS ITS OWN.** The record identity decides the drop callee and the element
 descriptor, so a conformer admitted by SHAPE has to carry managed elements as correctly as the corpus's
@@ -491,7 +474,6 @@ instance. A leak or a double free here would exit 101 rather than fail an expect
 case pushes owned strings and reads one back.
 ```maxon
 type Bag uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -524,7 +506,6 @@ beta
 
 <!-- test: a-conformer-of-another-name-and-the-library-array-are-two-records-in-one-program -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **TWO RECORDS, TWO GIDS, ONE PROGRAM — which is what the fold being per-DECLARATION rather than
 per-compile buys.** `Bag with String` is `Bag`'s own instance and `"a,bb,ccc".split(",")` is the corpus
@@ -532,7 +513,6 @@ array's, and both carry the compiler's synthesized surface because both declarat
 single canonical fold target would merge them.
 ```maxon
 type Bag uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -586,7 +566,6 @@ error E2015: <fragment>:6:10: Unsupported: `Holder` implements `BuiltinArrayLite
 ```
 
 <!-- test: a-declared-member-off-the-roster-is-served-from-the-corpus -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **A MEMBER THE DECLARATION CARRIES AND THE ROSTER DOES NOT IS AN ORDINARY CALL TO AN ORDINARY DECLARED
 FUNCTION.** `at` is not one of the members the compiler synthesizes, and the call is served from the declaration
@@ -596,7 +575,6 @@ declaration whose record the compiler owns.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -627,7 +605,6 @@ end 'main'
 ```
 
 <!-- test: the-self-spelling-of-a-corpus-served-member-reaches-the-same-body -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The `self.` spelling of the call above, made from inside the declaration's own body. It is the spelling
 that reaches `dispatchMethodOnReceiver`, and it is served exactly as the call above is — the two
@@ -636,7 +613,6 @@ spellings of one member agree about whether the member exists at all.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -671,7 +647,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-call-to-a-roster-member-takes-the-roster -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE ROSTER-WINS ORDER APPLIES TO THE BARE SPELLING TOO.** `self.get(i)` reaches the synthesized
 arm, and so does a BARE `get(i)` in the same body, so one member has one meaning however it is written.
@@ -684,7 +659,6 @@ return type can be compared against.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -721,7 +695,6 @@ end 'main'
 
 <!-- test: a-bare-roster-member-inside-an-extension-body-resolves -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An `extension` body's bare `count()` / `get(i)` is the same rule one declaration over, and it is what
 `stdlib/Array.maxon`'s `containsSequence(sequence)` is written in. The sibling walk cannot see them — they belong
@@ -733,7 +706,6 @@ assertion, and `main` reports through the roster.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -772,7 +744,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-element-through-a-corpus-served-member-balances -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE OWNERSHIP HALF, AND IT PINS THE EXIT CODE BECAUSE THE PRINT ALONE COULD NOT SEE THE BUG.** The
 corpus-served member hands back a MANAGED element, which is a `+1` the CALLEE owes
@@ -791,7 +762,6 @@ invisible to a stdout-only case. Any authored case whose subject is OWNERSHIP mu
 typealias Slot = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -828,7 +798,6 @@ alpha beta 2
 ```
 
 <!-- test: a-buffer-member-off-the-old-six-takes-the-record -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **A BARE `managed.<member>(…)` HANDS OVER THE RECEIVER'S OWN RECORD FOR *EVERY* MEMBER.**
 `Parser.fusedManagedMemberTakesTheRecord` admits `clear`, `get`, `set`, `setLength`, `capacity`, `grow`,
@@ -856,7 +825,6 @@ not a semantics.
 typealias Slot = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -899,7 +867,6 @@ gamma 1
 ```
 
 <!-- test: the-value-spelling-of-the-same-field-keeps-its-reference -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE CONTROL FOR THE CASE ABOVE — `managed` USED AS A VALUE STILL MINTS ITS REFERENCE.** The door
 the case above takes is gated on a member call FOLLOWING the field (`Parser.memberCallFollows`), which is
@@ -909,7 +876,6 @@ Handing back the receiver's own `ValueId` uncounted here is the double free that
 and this case is what says the door does not reach it.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -945,7 +911,6 @@ end 'main'
 ```
 
 <!-- test: error.a-member-no-declaration-carries-is-still-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE FALL-THROUGH MAY NOT BECOME A SILENT NO-OP.** The corpus door admits only a name the declaration
@@ -955,7 +920,6 @@ exists nowhere.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -980,7 +944,6 @@ error E2015: <fragment>:22:11: Unsupported: `Array` member 'nosuch' — the comp
 ```
 
 <!-- test: a-corpus-served-managed-element-balances-across-a-loop -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME ARITHMETIC, FIFTY TIMES OVER, WITH A CLONE IN THE MIDDLE.** One call can be one reference
 wrong and still look right; a loop cannot. Every round takes an element out through the corpus door in
@@ -993,7 +956,6 @@ typealias Slot = int(0 to 1000)
 // The record-collapsed `Array`, exercised through a CORPUS-SERVED member that hands back a managed
 // element, in a loop, alongside a clone. Any reference taken one too few or one too many times exits 101.
 type Array uses Element implements BuiltinArrayLiteral, Cloneable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1051,7 +1013,6 @@ end 'main'
 ```
 
 <!-- test: a-buffer-member-keeps-its-meaning-when-the-record-declares-the-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **`managed.<m>()` MEANS THE BUFFER'S `<m>`, EVEN WHEN THE RECORD AROUND IT DECLARES ONE TOO.**
 `Array with T` and `__ManagedMemory with T` are ONE record with TWO surfaces, so nothing about the
@@ -1070,7 +1031,6 @@ program prints exactly what the same program prints with the record's method ren
 typealias Slot = int(0 to u64.max)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1128,7 +1088,6 @@ end 'main'
 ```
 
 <!-- test: a-managed-swap-through-the-buffer-is-not-the-records-own -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE SAME COLLISION ON A THROWING MEMBER.**
 `stdlib/helpers/sort/smallSort.maxon:32` is `try managed.swap(i, j: j)` inside an `export extension
@@ -1146,7 +1105,6 @@ pinned because a leak lands after the last `print`.
 typealias Slot = int(0 to u64.max)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1217,7 +1175,6 @@ alpha gamma beta delta 4
 ```
 
 <!-- test: a-library-array-value-reaches-a-declared-own-array-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **A VALUE CROSSES THE SPLIT, AND THE ELEMENT IS MANAGED SO THE CROSSING IS AN OWNERSHIP CLAIM AND
 NOT ONLY A TYPE ONE.** `String.split` hands back the LIBRARY's `Array with String`; `takesMine` declares
@@ -1227,7 +1184,6 @@ is the count, and the three `String` records are freed by the same `__managed_de
 declaration named the array (a leak exits 101).
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1258,7 +1214,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-declared-own-array-value-reaches-a-library-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME CROSSING THE OTHER WAY, INTO `stdlib/` ITSELF.** `String.from(bytes ByteArray)` is
 declared over the library's `Array with Byte`; the argument is the program's own. It is the direction
@@ -1266,7 +1221,6 @@ that matters most, because the library body then goes on to call `reserve`, `cou
 on it — members served from the library's declaration, on a record the program built.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1300,7 +1254,6 @@ Hi!
 
 <!-- test: for-in-walks-both-arrays-in-one-program -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **`for … in` ADMITS BOTH, AND BY DIFFERENT ROUTES.** The library's array declares `createIterator()`,
 so it is rewritten to its `ArrayIterator` and walked as a cursor; the program's own declares none, so it
@@ -1310,7 +1263,6 @@ this declaration). One program, one loop keyword, two lowerings.
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1345,7 +1297,6 @@ end 'main'
 ```
 
 <!-- test: error.a-library-only-member-is-not-served-on-the-programs-own-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE SCOPING, SEEN FROM THE PROGRAM'S SIDE.** `truncate` is declared on `stdlib/Array.maxon`'s
@@ -1355,7 +1306,6 @@ see a `truncate` in the library source: *"that list IS the surface"* is true of 
 here.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1382,7 +1332,6 @@ error E2015: <fragment>:21:7: Unsupported: `Array` member 'truncate' — this va
 ```
 
 <!-- test: error.a-program-only-member-is-not-served-on-a-library-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **AND FROM THE LIBRARY'S SIDE, WHICH IS THE HALF A READER MEETS BY SURPRISE.** `at` is declared two
@@ -1390,7 +1339,6 @@ lines up, in this program's own `type Array`, and `s.split(",")` is not a value 
 lookup says so; the roster sentence alone would be about a method the reader is looking straight at.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1421,7 +1369,6 @@ error E2015: <fragment>:22:14: Unsupported: `Array` member 'at' — this value's
 
 <!-- test: a-compiler-minted-literal-is-the-library-array -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **A LITERAL THE COMPILER MINTS IS THE LIBRARY'S RECORD, NOT THE PROGRAM'S — and the program never
 wrote a type for it to be read from.** `b"Hi!"` and `[4, 5]` name no declaration: the sweep interns their
@@ -1432,7 +1379,6 @@ is declared on `stdlib/Array.maxon` and nowhere else here, so it is the whole qu
 prints `false false` and exits 5.
 ```maxon
 public type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1461,7 +1407,6 @@ false false
 ```
 
 <!-- test: a-minted-managed-element-literal-is-the-library-array-and-balances -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐ **THE SAME MINT WITH A MANAGED ELEMENT, WHERE A WRONG RECORD IDENTITY IS A LEAK OR A DOUBLE FREE
 RATHER THAN AN EXPECTATION MISMATCH.** `["a", "bb"]` interns `Array with String`; `contains` is served
@@ -1469,7 +1414,6 @@ only from the library's declaration. The two `String` records are freed by one `
 so a record identity that picked the wrong declaration exits 101 rather than 2.
 ```maxon
 public type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1496,7 +1440,6 @@ true
 ```
 
 <!-- test: error.a-conformer-of-another-name-under-a-contest-is-still-refused-under-its-own-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE TWO-DECLARATIONS SENTENCE IS ABOUT TWO `Array`s, SO A RECEIVER THAT IS NEITHER MAY NOT BE
@@ -1516,7 +1459,6 @@ declares no `Array`, so the contest gate returns before the defect; every other 
 an `Array` receiver.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1534,7 +1476,6 @@ type Array uses Element implements BuiltinArrayLiteral
 end 'Array'
 
 type Bag uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1562,7 +1503,6 @@ error E2015: <fragment>:39:11: Unsupported: `Bag` member 'at' — the compiler p
 ```
 
 <!-- test: error.a-conformer-of-another-name-is-refused-under-its-own-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔ **THE ROSTER REFUSAL NAMES THE TYPE THE VALUE ACTUALLY HAS.** Since a conformer of any name IS the
@@ -1572,7 +1512,6 @@ send the reader to a type their program does not have, which is the mistake `sur
 own rule forbids. The roster itself is unchanged: it is the surface's, and the surface is shared.
 ```maxon
 type Bag uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1600,7 +1539,6 @@ error E2015: <fragment>:21:11: Unsupported: `Bag` member 'nosuchmember' — the 
 ```
 
 <!-- test: error.the-librarys-array-is-refused-under-the-name-its-file-writes -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔⛔ **AND THE OTHER SIDE OF THAT NOUN — THE ONE THAT CAN LEAK A NAME NO AUTHOR MAY WRITE.** Under a
@@ -1610,7 +1548,6 @@ from typing, about a type they cannot name. `nosuchmember` is on neither declara
 the two-declarations refusal to the roster one, which is the door that has to say `Array`.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1633,7 +1570,6 @@ error E2015: <fragment>:18:15: Unsupported: `Array` member 'nosuchmember' — th
 ```
 
 <!-- test: error.a-conformer-named-for-a-container-the-compiler-serves-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE MARKER IS OPEN TO ANY NAME EXCEPT ONE THE COMPILER ALREADY SERVES A CONTAINER UNDER, AND
@@ -1655,7 +1591,6 @@ precisely what cannot be honoured under such a name — so the declaration is re
 with the container's own reason rather than the `String`/`Character` sentence a `Holder` gets.
 ```maxon
 type FixedArray uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1673,7 +1608,6 @@ error E2015: <fragment>:8:10: Unsupported: `FixedArray` is a generic container t
 ```
 
 <!-- test: a-conformer-named-for-the-list-is-admitted-because-the-list-left-the-class -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **`List` IS NOT IN THE CLASS, AND THIS CASE IS THE GUARD ON THAT.** The compiler synthesizes no
 `List`: the name is absent from `isBuiltinGenericBaseNameBesidesTheRecord`, so
@@ -1694,7 +1628,6 @@ writable name. The refusal itself is pinned by the `FixedArray` case directly ab
 typealias Num = int(0 to 100)
 
 type List uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1717,7 +1650,6 @@ end 'main'
 
 <!-- test: error.a-conformer-named-for-a-container-that-constructs-nothing-still-does-not-take-its-surface -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ⭐⭐ **THE HALF THE TWO CASES ABOVE CANNOT SEE: A CONFORMER THAT CONSTRUCTS NOTHING.** Its `init` satisfies
@@ -1748,7 +1680,6 @@ the NOUN the declaration gets once the skip has taken it off the array surface.
 typealias Num = int(0 to 100)
 
 type FixedArray uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1815,7 +1746,6 @@ error E2015: <fragment>:7:10: Unsupported: `FixedArray` implements `BuiltinStrin
 ```
 
 <!-- test: a-declared-roster-member-keyed-by-another-type-is-served-from-the-declaration -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The record declares `get` keyed by a `String`, which no element index can be, so the call reaches the
 declaration's own body: the empty key has count 0 and reads the one element pushed.
@@ -1823,7 +1753,6 @@ declaration's own body: the empty key has count 0 and reads the one element push
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1853,7 +1782,6 @@ end 'main'
 ```
 
 <!-- test: error.a-declared-roster-member-keyed-by-another-type-refuses-an-index -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The same declaration handed an integer is an argument of the wrong type for `key`.
@@ -1861,7 +1789,6 @@ The same declaration handed an integer is an argument of the wrong type for `key
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1891,12 +1818,10 @@ error E3005: <fragment>:27:16: argument type mismatch for 'key': expected 'Strin
 ```
 
 <!-- test: a-library-array-is-indexed-by-the-librarys-get-when-the-program-declares-another -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The program's `get` is keyed by a `String`, and the library array `String.split` returns still takes an element index: the index is judged against the library's own declaration.
 ```maxon
 public type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1924,7 +1849,6 @@ end 'main'
 ```
 
 <!-- test: error.a-library-arrays-count-keeps-the-librarys-type-when-the-program-declares-another -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The program's `count` answers `Small`, and the library array `String.split` returns still answers `Count`: a `Small` parameter refuses it.
@@ -1934,7 +1858,6 @@ typealias Small = int(0 to 1)
 typealias Wide = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -1965,7 +1888,6 @@ error E3005: <fragment>:29:9: argument type mismatch for 'n': expected 'Small', 
 ```
 
 <!-- test: a-declared-roster-member-keyed-by-an-enum-is-served-from-the-declaration -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An enum is not an element index either, so a `get` keyed by one is the declaration's own.
 ```maxon
@@ -1977,7 +1899,6 @@ enum End
 end 'End'
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -2011,7 +1932,6 @@ end 'main'
 ```
 
 <!-- test: error.a-declared-ranged-index-refuses-another-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A `get` declared over a ranged index alias is served by the compiler, and its index argument must be that alias.
@@ -2023,7 +1943,6 @@ typealias Slot = int(0 to 100)
 typealias Other = int(0 to 100)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -2054,7 +1973,6 @@ error E3005: <fragment>:30:16: argument type mismatch for 'index': expected 'Slo
 ```
 
 <!-- test: error.a-declared-ranged-index-refuses-a-string -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 A `String` is no index at all, whatever alias the declaration names.
@@ -2064,7 +1982,6 @@ typealias Num = int(0 to 1000)
 typealias Slot = int(0 to 100)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -2112,14 +2029,12 @@ error E3005: <fragment>:8:16: argument type mismatch for 'index': expected 'Elem
 ```
 
 <!-- test: a-user-array-keeps-its-own-hash-and-equals -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A program's own `type Array` that declares `hash` and `equals` is served by them, method and operator alike.
 ```maxon
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral, Equatable, Hashable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -2158,12 +2073,10 @@ end 'main'
 ```
 
 <!-- test: a-library-string-array-key-beside-a-user-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A library `StringArray` is a working `Map` key in a program that declares its own `type Array`.
 ```maxon
 public type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -2196,13 +2109,11 @@ end 'main'
 ```
 
 <!-- test: a-library-string-array-key-is-not-hashed-by-a-user-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The library `StringArray` key hashes and compares through the library's own conformance, never through
 the `hash` and `equals` a program's own `type Array` declares.
 ```maxon
 public type Array uses Element implements BuiltinArrayLiteral, Hashable, Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 

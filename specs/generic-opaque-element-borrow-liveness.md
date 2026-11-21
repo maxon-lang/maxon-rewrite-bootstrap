@@ -30,14 +30,12 @@ whose element reads reach an `Array with T` through its public methods.
 ## Tests
 
 <!-- test: a-swap-through-get-and-set-keeps-both-elements -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### A swap built from get + set keeps the element it is mid-way through moving
 The first `set` releases the slot holding the record `a` read; `a` holds its own reference, so the
 second `set` stores a live record.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -78,13 +76,11 @@ alpha 42 value long enough for a heap record
 ```
 
 <!-- test: a-three-way-rotate-through-get-and-set-keeps-every-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### … and a three-way rotate is the same write, one slot further
 Each of the first two writes releases a record that a later write stores.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -130,14 +126,12 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: an-element-displaced-by-a-set-stays-readable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### An element the write DISPLACES stays readable even when nothing stores it back
 The value written comes from a DIFFERENT container; the write releases the slot's occupant, and the
 `return` hands back the reference `a` took.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -178,14 +172,12 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: the-bare-spelling-swaps-the-same-way -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### … and the BARE spelling is the same write, which is the spelling `stdlib/Array.maxon` uses
 `get(0)` and `set(0, …)` with no receiver written at all count the element exactly as the
 `managed.`-prefixed spelling does.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -226,7 +218,6 @@ alpha 42 value long enough for a heap record
 ```
 
 <!-- test: a-trivial-instantiation-of-the-swap-body-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### The same shared body at a trivial instantiation
 `Array with <ranged int>` runs the body the `Array with String` instantiation runs; the element is a
@@ -235,7 +226,6 @@ bare word, and the swap answers the same way.
 typealias Small = int(0 to 100)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -274,13 +264,11 @@ end 'main'
 ```
 
 <!-- test: a-set-fed-from-another-container-stores-a-live-record -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### A write of ONE storage fed from ANOTHER
 This is the shape `stdlib/Array.maxon:234`'s `appendMemory` is.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -318,14 +306,12 @@ beta 42 value long enough for a heap record
 ```
 
 <!-- test: an-opaque-element-stored-elsewhere-survives-its-source-shortened -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### An element read, stored elsewhere, and then its source shortened
 The element is read, used to write a DIFFERENT storage, and never named again before `managed`
 itself is shortened.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -364,7 +350,6 @@ end 'main'
 ```
 
 <!-- test: an-element-moved-down-to-a-lower-slot-stays-live -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### The loop SORTING rests on — `set(w, value: get(i))` through a name
 `stdlib/helpers/sort/driftQuicksort.maxon:59-61`, `:103-104` and every `mergeSort.maxon` merge
@@ -374,7 +359,6 @@ so even `w == i` stores a live record.
 typealias Small = int(0 to 100)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -417,14 +401,12 @@ alpha 42 value long enough for a heap record beta 42 value long enough for a hea
 ```
 
 <!-- test: a-push-of-the-containers-own-element-keeps-both-slots-live -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### … and so is appending an element the container already holds
 `push` adds a slot and destroys nothing, so the array simply gains a second reference to what it
 already owned. `stdlib/Array.maxon:235`'s `appendMemory` is this write.
 ```maxon
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -483,7 +465,6 @@ gamma 42 value long enough for a heap record 0
 ```
 
 <!-- test: a-trivial-element-container-is-untouched -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### The trivial-element control
 An `Array with <ranged int>` element owns no heap, so an element read is a bare word that no write
@@ -492,7 +473,6 @@ can affect.
 typealias Small = int(0 to 100)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 
@@ -527,13 +507,11 @@ end 'main'
 ```
 
 <!-- test: an-opaque-element-argument-survives-the-callee-clearing-its-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An element read straight into an argument survives the callee clearing the array it came from
 `clearThenKeep` empties `self.items` and then returns its parameter; the argument holds its own
 reference to the element, so what comes back is the record that was read.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -577,13 +555,11 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-survives-a-method-clearing-the-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An opaque `for` element survives a method that clears the array the loop walks
 The body clears `self.items` before it stores `item`; the element holds its own reference, and the
 clear ends the loop, so only the first element is stored.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -632,7 +608,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-static-survives-a-clear-of-its-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An opaque `for` element in a `static function` survives a clear of the array the loop walks
 A `static function` that does not return `Self` has no receiver, so the descriptor an opaque element is counted
 through arrives from the call: `StrBox.moveWhileClearing` hands its instantiation's descriptor to the shared body.
@@ -640,7 +615,6 @@ The element holds its own reference, so the `clear` in the body does not free th
 stores it, and the clear ends the loop after the first trip.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -679,13 +653,11 @@ end 'main'
 ```
 
 <!-- test: an-opaque-element-read-in-a-static-survives-a-clear-of-its-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An opaque element read by `get` in a `static function` survives a clear of its array
 `keepFirst` binds `items.get(0)`, clears `items`, and only then stores the binding, so the binding holds its own
 reference through the descriptor the call passes.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -721,13 +693,11 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-passes-the-descriptor-on -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `static function` that calls a sibling static hands it the descriptor it was given
 `drainAndCount` holds no element itself; it calls `Self.moveWhileClearing`, which does, so it carries the descriptor
 for its own caller to fill and forwards it.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -771,13 +741,11 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-through-an-instance-method-passes-the-descriptor-on -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### An instance method reaching a `static function` forwards the descriptor it carries
 `relocate` is an instance method that calls `Self.moveWhileClearing`; its own receiver supplies the descriptor the
 static needs, and a caller outside the type reaches the static through the alias directly.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -828,7 +796,6 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-record-element-holds-it-across-a-clear -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same static over a record element, whose reference is an incref and not a copy
 `Tag` is a record, so the descriptor's reference is an incref of the shared box rather than a copy of bytes; the
 element read before the `clear` is the record the destination stores.
@@ -849,7 +816,6 @@ type Tag
 end 'Tag'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -889,7 +855,6 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-trivial-element-needs-no-reference -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same static over an `int` element, whose reference is nothing
 The one body serves every instantiation: for an `int` element the descriptor's retain is inert, so the element is
 stored as it stands.
@@ -897,7 +862,6 @@ stored as it stands.
 typealias Count8 = int(0 to 255)
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -936,13 +900,11 @@ end 'main'
 ```
 
 <!-- test: a-static-of-another-generic-reached-through-an-alias-over-the-callers-parameter-gets-the-callers-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A static of one generic, called through an alias written over another generic's parameter
 `Outer.relocate` reaches `Inner.keepLast` through `Inner with U`, an instance over its own parameter, so the descriptor
 the static takes its references through is composed from the one `relocate` was handed.
 ```maxon
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 
 	static function keepLast(items Items, into Items)
@@ -954,9 +916,7 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias InnerU = Inner with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Us = Array with U
 	var us as Us
 
@@ -996,7 +956,6 @@ end 'main'
 ```
 
 <!-- test: a-throwing-static-over-an-opaque-element-passes-the-descriptor-to-its-try-call -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A throwing `static function` receives the descriptor through a `try` call as well
 `keepFirst` throws on an empty source; the descriptor travels with the checked call exactly as it does with a plain
 one, so the second, failing call is caught and the first call's element survives the clear.
@@ -1006,7 +965,6 @@ enum BoxError implements Error
 end 'BoxError'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1049,13 +1007,11 @@ second call refused
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-the-instance-its-arguments-fix -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Box.moveWhileClearing` names the generic base without type arguments, and its arguments `xs` and `ys` are an
 `Array with String`, which fixes `Box with String` through the `Items` parameters. The static takes its
 references through that instance's descriptor, exactly as `StrBox.moveWhileClearing` does.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1094,7 +1050,6 @@ end 'main'
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-a-record-its-arguments-fix -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The instance the arguments fix is a record type, whose `String` field the shared body retains and releases through the descriptor the call site builds for `Box with Entry`.
 ```maxon
 typealias Small = int(0 to 1000)
@@ -1109,7 +1064,6 @@ type Entry
 end 'Entry'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1146,11 +1100,9 @@ end 'main'
 ```
 
 <!-- test: a-static-storing-a-borrowed-element-of-a-never-instantiated-generic-compiles -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 No instantiation of `Box` exists, so no call can hand `moveWhileClearing` a descriptor and nothing runs the body. The declaration is legal: no descriptor is reserved and the program compiles.
 ```maxon
 public type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1180,11 +1132,9 @@ declared
 ```
 
 <!-- test: a-static-building-an-opaque-array-with-no-type-parameter-value-takes-the-call-sites-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The static takes no value written over `T`, and builds an opaque `Array` of it. A call names its instance through the alias, so the descriptor comes from `StrBox` and from `IntBox` alike.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1194,7 +1144,7 @@ type Box uses T
 
 	static function emptyCount(n Count) returns Count
 		let scratch = Items.create(0)
-		return scratch.count() + n
+		return try scratch.count() + n otherwise panic("out of range")
 	end 'emptyCount'
 end 'Box'
 
@@ -1215,12 +1165,10 @@ end 'main'
 ```
 
 <!-- test: error.a-static-building-an-opaque-array-called-through-a-bare-generic-base-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same static reached through the bare `Box`: no argument fixes `T`, so the call names no instance to read a descriptor from and is refused at the call.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1422,13 +1370,11 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-method-with-no-other-opaque-signal-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` element survives a call that wipes its source, in a method that needs no descriptor for anything else
 `walk` stores nothing and moves nothing out, so the loop element is the only reason it owes a layout descriptor. `wipe` clears the
 array and allocates a record of the size it freed; the element holds its own reference, and the clear ends the loop.
 ```maxon
 type Bag uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 	var scrub as String
@@ -1482,12 +1428,10 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-binary-operand-survives-a-call-releasing-its-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` element compared against a call that wipes its source
 The element is the left operand of `==`; the right operand is `wipeAndGive(extra)`, which clears the array before it returns.
 ```maxon
 type Bag uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 	var scrub as String
@@ -1582,7 +1526,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-bare-nested-instance-field-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same read with the nested field spelled by its bare name
 ```maxon
 type Slot uses T where T implements Equatable
@@ -1595,7 +1538,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Wrapper uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 	var seen as Count
@@ -1633,7 +1575,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-local-bound-to-a-nested-instance-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same read through a local bound to the nested instance
 ```maxon
 type Slot uses T where T implements Equatable
@@ -1646,7 +1587,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Wrapper uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 	var seen as Count
@@ -1685,7 +1625,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-nested-instance-field-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A type-parameter field read through a field holding an instance over the same parameter is counted
 `Wrapper.nestedLook` reads `Slot.current` through `self.inner`, a `Slot with T`; the read is the only reason it owes a layout descriptor.
 ```maxon
@@ -1699,7 +1638,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Wrapper uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 	var seen as Count
@@ -1741,7 +1679,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-parameter-declared-at-a-nested-instance-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same read through a parameter declared at the nested instance's alias
 ```maxon
 type Slot uses T where T implements Equatable
@@ -1754,7 +1691,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Wrapper uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 	var seen as Count
@@ -1795,7 +1731,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-through-a-self-typed-parameters-nested-instance-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same read through the nested field of a `Self`-typed parameter
 ```maxon
 type Slot uses T where T implements Equatable
@@ -1808,7 +1743,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Wrapper uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 	var seen as Count
@@ -1847,7 +1781,6 @@ end 'main'
 ```
 
 <!-- test: a-field-read-two-nested-instances-deep-is-counted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same read two nested instances deep
 ```maxon
 type Slot uses T where T implements Equatable
@@ -1860,7 +1793,6 @@ type Slot uses T where T implements Equatable
 end 'Slot'
 
 type Middle uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	export var inner as Inner
 
@@ -1870,7 +1802,6 @@ type Middle uses T where T implements Equatable
 end 'Middle'
 
 type Outer uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Mid = Middle with T
 	var mid as Mid
 	var seen as Count
@@ -1908,12 +1839,10 @@ end 'main'
 ```
 
 <!-- test: a-for-loop-over-the-array-field-of-a-self-typed-parameter-holds-its-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A `for` over the array field of a `Self`-typed parameter holds its element across a call that wipes the source
 `walk` iterates `other.items` and `wipe` clears that very array while the loop's element is live; the loop owes the element a reference of its own.
 ```maxon
 type Bag uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 	var seen as Count

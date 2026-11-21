@@ -376,7 +376,6 @@ end 'main'
 
 <!-- test: a-generic-alias-fixes-the-type-parameter-a-static-call-offers -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A static call through a generic alias is made on that alias's instance, so `Inspect`'s parameter, which
 is `Array with T` where it is declared, is `Array with Tally` where the closure is written, and `items`
 takes that type.
@@ -384,9 +383,7 @@ takes that type.
 typealias Tally = int(0 to 1000)
 
 type Batch uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Inspect = function(Items) returns Tally
 

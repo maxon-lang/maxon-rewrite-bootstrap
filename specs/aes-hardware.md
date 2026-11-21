@@ -1824,7 +1824,6 @@ open true true
 
 <!-- test: aes-hardware.a-byte-array-a-generic-body-created-is-a-buffer -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The `Array with Byte` a `Bag with Byte` creates inside its shared generic body strides one byte per element, as a
 `ByteArray` created in a concrete body does, so the intrinsics, which treat a buffer as raw bytes, read and write it as
@@ -1832,7 +1831,6 @@ the bytes it holds. The FIPS-197 appendix C.1 vector goes through such an array 
 as the published cipher text, and back to the plain text.
 ```maxon
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

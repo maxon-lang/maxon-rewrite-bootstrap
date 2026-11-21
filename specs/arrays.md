@@ -5016,7 +5016,6 @@ end 'main'
 ```
 
 <!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-promise-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -5024,7 +5023,6 @@ typealias Digit = int(0 to 9)
 typealias DigitPromise = Promise with Digit
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5357,12 +5355,10 @@ end 'main'
 ```
 
 <!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-managed-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic body is compiled once for every instantiation, so `create(n)` over its type parameter publishes zeroed slots of whatever the instantiation is, and a `String` instantiation makes them null pointers.
 ```maxon
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5387,7 +5383,6 @@ error E3106: <fragment>:8:22: 'create(n)' cannot publish zeroed slots of a type 
 ```
 
 <!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-an-enum-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 enum Level
@@ -5396,7 +5391,6 @@ enum Level
 end 'Level'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5421,13 +5415,11 @@ error E3106: <fragment>:13:22: 'create(n)' cannot publish zeroed slots of a type
 ```
 
 <!-- test: error.create-with-capacity-in-a-generic-body-is-refused-for-a-zero-excluding-alias-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Percent = int(1 to 100)
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5452,12 +5444,10 @@ error E3106: <fragment>:10:22: 'create(n)' cannot publish zeroed slots of a type
 ```
 
 <!-- test: error.resize-in-a-user-generic-body-is-refused-for-a-managed-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A library body may `resize` an opaque column it fills before reading, but a user-written generic body cannot promise that, so `resize` over its type parameter is refused when an instantiation has no zero value.
 ```maxon
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5487,7 +5477,6 @@ error E3106: <fragment>:12:9: 'resize' cannot grow an array of a type parameter:
 ```
 
 <!-- test: error.resize-in-a-user-generic-body-is-refused-for-an-enum-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 enum Level
@@ -5496,7 +5485,6 @@ enum Level
 end 'Level'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5526,13 +5514,11 @@ error E3106: <fragment>:17:9: 'resize' cannot grow an array of a type parameter:
 ```
 
 <!-- test: error.resize-in-a-user-generic-body-is-refused-for-a-zero-excluding-alias-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Percent = int(1 to 100)
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5562,7 +5548,6 @@ error E3106: <fragment>:14:9: 'resize' cannot grow an array of a type parameter:
 ```
 
 <!-- test: error.one-zero-excluding-instantiation-refuses-a-generic-body-that-resizes -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The instantiations are judged together: one type that admits 0 beside one that does not still refuses the body.
 ```maxon
@@ -5572,7 +5557,6 @@ enum Level
 end 'Level'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5606,7 +5590,6 @@ error E3106: <fragment>:17:9: 'resize' cannot grow an array of a type parameter:
 ```
 
 <!-- test: a-generic-body-that-zero-fills-is-accepted-when-every-instantiation-admits-zero -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `create(n)` and `resize` over the type parameter are accepted while every instantiation has a zero value: a plain integer alias and an enum with a case whose raw value is 0.
 ```maxon
 enum Gauge
@@ -5615,7 +5598,6 @@ enum Gauge
 end 'Gauge'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5657,7 +5639,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-body-that-appends-is-accepted-at-an-enum-that-excludes-zero -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `push` and `growFilled` publish no zero slot, so a generic body that uses them is accepted at every instantiation, an enum whose raw values exclude 0 included.
 ```maxon
 enum Level
@@ -5666,7 +5647,6 @@ enum Level
 end 'Level'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5705,7 +5685,6 @@ end 'main'
 ```
 
 <!-- test: error.create-with-capacity-in-a-library-tier-generic-body-is-refused-for-an-enum-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The refusal of `create(n)` over a type parameter holds in every tier: only a library body's `resize` is trusted.
@@ -5716,7 +5695,6 @@ enum Level
 end 'Level'
 
 type Pool uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 

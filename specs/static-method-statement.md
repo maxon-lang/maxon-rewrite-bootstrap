@@ -185,7 +185,6 @@ error E3004: <fragment>:9:9: call to undefined function 'Helper.while'
 ```
 
 <!-- test: static-method-statement.void-static-through-an-inner-generic-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE BASE IS AN INNER GENERIC ALIAS, AND THIS DOOR HAS TO READ IT UNDER THE SAME KEY THE EXPRESSION
 DOOR READS.** `typealias IntPair = Pair with ExitCode` declared INSIDE `Plain` is
 keyed whole-program as `Plain.IntPair`, so a statement door asking the BARE member finds no registration,
@@ -211,7 +210,6 @@ type Pair uses T
 end 'Pair'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias IntPair = Pair with ExitCode
 
 	static function make() returns ExitCode
@@ -233,8 +231,6 @@ hi
 ```
 
 <!-- test: static-method-statement.error.unknown-static-through-an-inner-generic-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 The typo half, and the half that says the base was genuinely RESOLVED rather than merely tolerated. An
 unknown member on an inner generic alias is refused by NAME through the alias's BASE STRUCT — the same
 callee `parseQualifiedCall` would have mangled — and not by the shape message a base this door failed to
@@ -250,7 +246,6 @@ type Pair uses T
 end 'Pair'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias IntPair = Pair with ExitCode
 
 	static function make() returns ExitCode

@@ -286,7 +286,6 @@ a=93 b=6
 <!-- test: witness-closure-inheritance.nested-closure-inherits-through-two-hops -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐ A closure inside a closure. The inner lift captures the witness from the OUTER lift's environment, and
 the outer captured it from the method's hidden parameter — two hops, each of them a capture from the
 immediate enclosing frame.
@@ -310,7 +309,6 @@ type Point implements Digest
 end 'Point'
 
 type Box uses T where T implements Digest
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias TFn = function(T) returns Code
 	export var item as T

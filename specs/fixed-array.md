@@ -740,7 +740,6 @@ declared alias, a field of a generic type, or a synthesized instance nothing has
 
 <!-- test: capacity-is-part-of-instance-identity -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The size is part of the type, so a generic type's capacity-4 field must keep that capacity
 rather than adopting a declared `FixedArray with 3` alias that happens to share its element type.
 ```maxon
@@ -750,7 +749,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Vec3 = FixedArray with 3 Int
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -778,14 +776,12 @@ end 'main'
 
 <!-- test: distinct-capacities-are-distinct-instances -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Two generic types whose fields differ only in capacity must not collapse onto one instance,
 even when nothing in the project declares a name for either.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder4 uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot4 = FixedArray with 4 Element
 	var quad as Slot4
@@ -800,7 +796,6 @@ type Holder4 uses Element
 end 'Holder4'
 
 type Holder7 uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot7 = FixedArray with 7 Element
 	var septet as Slot7
@@ -1296,7 +1291,6 @@ instantiation (`a-generic-body-fills-a-fixed-array-with-a-managed-instantiation`
 
 <!-- test: a-fixed-array-field-in-a-generic-body-round-trips-its-elements -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The CAPABILITY itself, which the two cases above do not reach. Both of them only call `count()`, and a fixed array's count folds to a literal off the instance's
 own size, so **they would both still pass if every slot read and wrote the wrong address.** This one
 drives `set` and `get` through the shared generic body: a written slot reads back, an UNWRITTEN slot
@@ -1306,7 +1300,6 @@ count is unchanged by the writes: `a=10 b=7 zero=0 count=4`, exit 17.
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1347,7 +1340,6 @@ a=10 b=7 zero=0 count=4
 
 <!-- test: error.a-managed-instantiation-of-a-fixed-array-field-is-refused -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A type parameter can be instantiated at a managed type, whose zero is not a value, so a `create()` over one is refused (E3106) at the `create()` that would publish its slots — not at the instantiation, and not at run time. A managed element starts from `create(n, value:)` instead.
 
@@ -1356,7 +1348,6 @@ A type parameter can be instantiated at a managed type, whose zero is not a valu
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1383,7 +1374,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.an-enum-instantiation-whose-raw-values-exclude-zero-refuses-a-fixed-array-field -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The shared body publishes zeroed slots for every instantiation, so an instantiation at an enum whose raw values exclude 0 refuses it as a concrete `FixedArray with 4 Level` is refused.
 ```maxon
@@ -1395,7 +1385,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1422,7 +1411,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-zero-excluding-alias-instantiation-refuses-a-fixed-array-field -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1430,7 +1418,6 @@ typealias Int = int(i64.min to i64.max)
 typealias Percent = int(1 to 100)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1457,7 +1444,6 @@ error E3106: <fragment>:11:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: an-enum-instantiation-with-a-zero-case-keeps-a-fixed-array-field -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -1467,7 +1453,6 @@ enum Gauge
 end 'Gauge'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1494,7 +1479,6 @@ end 'main'
 
 <!-- test: error.one-zero-excluding-instantiation-refuses-the-shared-body -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The rule is existential here as it is for a managed instantiation: a trivial instantiation that admits 0 standing beside the enum does not buy the body back.
 ```maxon
@@ -1506,7 +1490,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1562,14 +1545,12 @@ high high
 
 <!-- test: error.a-contested-alias-instantiation-that-excludes-zero-refuses-a-fixed-array-field -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Count` is the standard library's `int(0 to u64.max)`, which admits 0, and this program declares its own `Count` that does not. The program's instantiation means its own declaration, so the body is refused although the library's declaration of the name admits 0.
 ```maxon
 typealias Count = int(1 to 9)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1596,7 +1577,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-library-tier-fixed-array-field-is-refused-for-a-zero-excluding-instantiation -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The refusal of a `FixedArray with N <type parameter>` field holds in every tier.
@@ -1609,7 +1589,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1636,7 +1615,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-nested-generic-instantiation-refuses-the-inner-fixed-array-field -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` holds a `Holder with T` and is itself instantiated at `Level`; the only `Holder` row that exists is the one `Outer with Level` substitutes into its inner alias, which no author wrote.
 ```maxon
@@ -1648,7 +1626,6 @@ enum Level
 end 'Level'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1663,7 +1640,6 @@ type Holder uses Element
 end 'Holder'
 
 type Outer uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with Item
 	var inner as Inner
 
@@ -1689,7 +1665,6 @@ error E3106: <fragment>:15:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.one-managed-instantiation-refuses-the-shared-body -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The body is compiled ONCE and serves every instantiation, so the rule is EXISTENTIAL: one managed
 instantiation refuses it, and a trivial instantiation standing beside it does not buy it back.
@@ -1697,7 +1672,6 @@ instantiation refuses it, and a trivial instantiation standing beside it does no
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1727,7 +1701,6 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-managed-instantiation-another-file-reaches-refuses-the-shared-body-holder-first -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same rule when the managed instantiation is written nowhere: `Holder with String` exists only because a
 SECOND file builds an `Outer with String`, whose field is a `Holder` over `Outer`'s own parameter. The body is
@@ -1738,7 +1711,6 @@ parsed before the body.
 export typealias Int = int(i64.min to i64.max)
 
 export type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 T
 	var slot as Slot
@@ -1778,7 +1750,6 @@ error E3106: <fragment>:11:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-managed-instantiation-another-file-reaches-refuses-the-shared-body-use-first -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: a_use.maxon
@@ -1793,7 +1764,6 @@ end 'main'
 export typealias Int = int(i64.min to i64.max)
 
 export type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 T
 	var slot as Slot
@@ -1827,7 +1797,7 @@ error E3106: <fragment>:19:21: 'FixedArray.create' cannot publish slots of a typ
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 The construct reached from its third position, which sources its layout
 descriptor differently from the other two: an `extension` body has no `uses` clause of its own and is
 scanned in its target's scope, so the descriptor a `Slot.create()` reads there is reserved through the
@@ -1839,7 +1809,7 @@ typealias Int = int(i64.min to i64.max)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Sized uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	function tally() returns Int
@@ -1854,7 +1824,6 @@ extension Sized
 end 'Sized'
 
 type Bag uses Element implements Sized with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var n as Int
@@ -2978,11 +2947,9 @@ r2 r2 r2 3
 
 <!-- test: a-proven-get-in-a-generic-body-holds-a-managed-element -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A shared generic body reads slot 0 of its fixed array at a proven index and hands the element back. The caller gets a reference of its own, so reading it more often than the ring has slots, allocating, reading again and dropping the ring leaves nothing freed twice and nothing leaked: the four reads print `abc1` and the last line is `def2 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
@@ -3022,11 +2989,9 @@ def2 abc1
 
 <!-- test: a-counted-loop-get-in-a-generic-body-holds-each-managed-element -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The index of a `for i in 0 upto 3` loop is proven inside the three slots of a shared generic body, so each read is a proven `get` of an element the body cannot name: `abc1 abc1 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
@@ -3063,11 +3028,9 @@ abc1 abc1 abc1
 
 <!-- test: a-proven-set-in-a-generic-body-replaces-a-managed-element -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A shared generic body writes slot 1 at a proven index over a live managed element: the old element is released once and the new one is kept, and a ring built from a value drops cleanly: `abc1 xyz2 abc1`.
 ```maxon
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
@@ -3103,13 +3066,11 @@ abc1 xyz2 abc1
 
 <!-- test: a-generic-body-fills-a-fixed-array-with-a-managed-instantiation -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A shared generic body starts its fixed array from a value, so a `String` instantiation never needs a zero: it keeps what it was handed through `set`, `get` and `refill`: `name1 name2 name9`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
@@ -4350,13 +4311,11 @@ end 'main'
 
 <!-- test: a-generic-fixed-array-slot-write-keeps-the-element-it-replaced -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A fixed array over a type parameter has elements the generic body cannot name, so the body is compiled for any element: the slot's old value is read, the slot is overwritten with the replacement, and the old value is returned. At `Int` the swaps answer `0 5`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 4 Element
 	var slots as Slots
@@ -4669,13 +4628,11 @@ end 'main'
 ```
 
 <!-- test: runtime-sized-in-a-generic-body -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The generic body is compiled once for every element. It builds the array over its own type parameter at a length the caller chose, and the length comes back through `count()`: `4 7`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Ring uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Slots = FixedArray with Element
 	var slots as Slots
 
@@ -5301,14 +5258,12 @@ error E3076: <fragment>:6:16: type 'Buf' can only be constructed from within its
 ```
 
 <!-- test: error.an-inner-runtime-sized-alias-literal-states-no-length -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 Inside the type that declares the alias, `Cells{}` would be an empty container for a growable `Array`; for a runtime-sized fixed array there is no length to build it at.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cells = FixedArray with Int
 
 	static function make() returns Int
@@ -5539,13 +5494,12 @@ end 'main'
 ```
 
 <!-- test: a-literal-through-an-inner-runtime-sized-alias-is-sized -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 `Cells from [...]` inside the type that declares the alias writes its length, so the result is a `FixedArray with 3 Int` and a bare `get` at 2 is proven: `3 6`.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cells = FixedArray with Int
 
 	static function make() returns Int
@@ -6036,7 +5990,6 @@ nibble -4 -4 2238 2238 2238
 <!-- test: a-second-type-parameter-strides-by-its-own-instantiation -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic type holding a fixed array over its SECOND parameter lays the elements out at that parameter's instantiation, whatever the first parameter is: one byte for `Byte` beside an `Integer`, a packed bit for `bool` beside a `String`. Every element reads back through `get` and through `for`.
 ```maxon
@@ -6050,7 +6003,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Two uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Cells = FixedArray with 8 B
 	var tag as A
@@ -6116,7 +6068,6 @@ flag -1 3 8
 <!-- test: a-nested-generic-passes-its-instantiation-to-the-fixed-array-it-holds -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A generic `Outer uses T` holding an `Inner with T`, whose `create` builds a `FixedArray with 6 T`, reaches that array through the descriptor table: the elements still stride at `T`'s own width, one byte for `Byte` and a packed bit for `bool`.
 ```maxon
@@ -6128,7 +6079,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slots = FixedArray with 6 T
 	var slots as Slots
@@ -6151,7 +6101,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Inner with T
 	var inner as Held
 
@@ -6207,7 +6156,6 @@ flag -1 3
 <!-- test: a-user-generic-over-a-packed-element-strides-by-its-bits -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A user generic over a packed element passes a negative stride through its own body: forty `bool` elements pack into five bytes, and 40 `int(0 to 3)` elements into ten, and every element written through the body reads back.
 ```maxon
@@ -6221,7 +6169,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Bits uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Cells = FixedArray with 40 T
 	var cells as Cells

@@ -3171,7 +3171,6 @@ an associated RETURN whose binding the parser cannot resolve and points at the p
 
 <!-- test: associated-types.existential-parameter-bound-to-the-enclosing-generics-own-parameter -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE CASE A WHOLE-PROGRAM E3125 WOULD REFUSE, AND THE PROGRAM COMPUTES.** A shared generic body binds an
 existential's associated position to its OWN type parameter and dispatches through it. `Box with Integer`
 makes the claim `Taker with Integer`, which is what `Runner` binds — so the widening is sound and the dispatch
@@ -3198,7 +3197,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let seed as Integer
 
@@ -3223,7 +3221,6 @@ end 'main'
 
 <!-- test: error.existential-parameter-claim-disagrees-with-the-widened-conformer -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE SAFETY CONDITION THE DEFERRAL OWES, AND WITHOUT IT THE PROGRAM IS E3119's FIRST RECORDED FAILURE
 ONE INDIRECTION LATER.** The same shared body, instantiated at `String`: the site's claim is
@@ -3257,7 +3254,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let seed as Integer
 
@@ -3321,7 +3317,6 @@ end 'main'
 
 <!-- test: error.existential-return-claim-cannot-be-resolved-in-the-declaration-view -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE HOLE THE DEFERRAL WOULD OTHERWISE OPEN, CLOSED WHERE IT OPENS.** A `return` widens too, and it is
 checked once against the shared body's DECLARATION view — where `T` is still opaque and no call instance
@@ -3354,7 +3349,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let seed as Integer
 
@@ -3379,7 +3373,6 @@ error E3127: specs/associated-types/error.existential-return-claim-cannot-be-res
 
 <!-- test: associated-types.existential-field-at-an-opaque-claim-is-filled-through-a-checked-parameter -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐ **THE FIELD POSITION, WHICH IS THE THIRD PLACE A VALUE BECOMES AN EXISTENTIAL.** The deferral admits
 `Taker with T` as a FIELD type as well as a parameter one, and a store into such a field is a widening site of
 its own. This is the route that restates a settled claim: the field is filled from a PARAMETER declared at the
@@ -3412,7 +3405,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TakerOfT = Taker with T
 	let t as TakerOfT
 
@@ -3437,7 +3429,6 @@ end 'main'
 
 <!-- test: error.existential-field-at-an-opaque-claim-cannot-be-filled-inside-the-shared-body -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE THIRD DISCHARGE OF THE DEFERRAL: A DIRECT STORE INTO THE FIELD IS A WIDENING SITE, CHECKED BY
 E3127.** The same field, filled by a struct literal inside the shared body with a concrete `Runner`. The E3125
@@ -3471,7 +3462,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TakerOfT = Taker with T
 	let t as TakerOfT
 
@@ -3496,7 +3486,6 @@ error E3127: <fragment>:35:10: cannot widen 'Runner' into the field 'Box.t', whi
 
 <!-- test: associated-types.existential-field-at-an-opaque-claim-is-filled-directly-through-a-concrete-instance -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE POSITIVE TWIN: A STORE THROUGH A CONCRETE INSTANCE FIXES `T`, SO THE CLAIM IS SETTLED AND THE STORE
 IS LEGAL.** `box` is a `Box with Integer`, so `box.t`'s `Taker with T` is `Taker with Integer` at this store,
 and a `Runner` binds exactly that. The store replaces the conformer the constructor put there, and the dispatch
@@ -3522,7 +3511,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TakerOfT = Taker with T
 	export var t as TakerOfT
 
@@ -3545,7 +3533,6 @@ end 'main'
 
 <!-- test: error.existential-field-store-through-a-concrete-instance-disagrees-with-the-claim -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **AND THROUGH A CONCRETE INSTANCE THE CLAIM CAN DISAGREE.** `box` is a `Box with String`, so the store's
 `Taker with T` is `Taker with String`, and `Runner` binds `Element` to `Integer`: the argument position's
@@ -3581,7 +3568,6 @@ type Reader implements Taker with String
 end 'Reader'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TakerOfT = Taker with T
 	export var t as TakerOfT
 
@@ -3604,7 +3590,6 @@ error E3127: <fragment>:44:2: cannot widen 'Runner' into the field 'Box.t', whic
 
 <!-- test: error.a-deferred-claim-field-cannot-be-filled-from-a-value-already-held-at-the-interface -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **A VALUE ALREADY HELD AT THE BARE INTERFACE CANNOT FILL THE FIELD EITHER.** `t` is a `Taker`, which says
 nothing about which conformer is inside it, so the field's deferred claim has nothing to be settled against —
@@ -3636,7 +3621,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TakerOfT = Taker with T
 	let t as TakerOfT
 
@@ -3664,7 +3648,6 @@ error E3127: <fragment>:35:10: cannot store a value already held at the interfac
 ```
 <!-- test: associated-types.a-generic-conformers-binding-is-resolved-through-its-own-instance -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE CONFORMER'S SIDE IS A SOURCE SPELLING TOO, AND A GENERIC CONFORMER'S NAMES ITS OWN PARAMETER.**
 `type Holder uses E implements Taker with E` records the binding as the STRING `E` — not a type, and not
 anything a site's `Integer` could equal. Compared raw that is a false disagreement, and it is exactly the shape
@@ -3699,7 +3682,6 @@ type Holder uses E implements Taker with E
 end 'Holder'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let extra as Integer
 
@@ -3726,7 +3708,6 @@ end 'main'
 
 <!-- test: error.a-generic-conformers-resolved-binding-still-has-to-match -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **AND THE CONTROL THAT KEEPS THE REDUCTION HONEST.** The identical program at `Box with String`: the site
 claims `Taker with String` and `IntHolder`'s `E` resolves to `Integer`. A reduction that quietly
@@ -3759,7 +3740,6 @@ type Holder uses E implements Taker with E
 end 'Holder'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let extra as Integer
 
@@ -3785,7 +3765,6 @@ error E3127: specs/associated-types/error.a-generic-conformers-resolved-binding-
 ```
 <!-- test: error.a-deferred-claim-cannot-be-filled-from-a-value-already-held-at-the-interface -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⛔⛔ **THE HOLE A DEFERRED CLAIM OPENS, AND THE REASON E3127 IS NOT ONLY ABOUT CONCRETE CONFORMERS.** Every
 check above asks what the ARRIVING TYPE binds. A value already held at `Taker` answers
@@ -3815,7 +3794,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let seed as Integer
 
@@ -3888,7 +3866,6 @@ end 'main'
 ```
 <!-- test: error.a-deferred-claim-cannot-be-laundered-through-a-return -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐ **THE ESCAPE ATTEMPT, RUN RATHER THAN REASONED ABOUT.** The `return` position lets an ALREADY-existential
 value through — `function id(t TakerOfT) returns TakerOfT` restates its own claim and widens nothing — so the
@@ -3917,7 +3894,6 @@ type Runner implements Taker with Integer
 end 'Runner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TakerOfT = Taker with T
 	let seed as Integer
 
@@ -4714,14 +4690,14 @@ diagnostic naming a type its program never wrote.
 
 <!-- test: w61.interface-scoped-alias-in-a-requirement -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: static functions in interfaces are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 public interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	export typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'
@@ -4732,7 +4708,6 @@ public interface Maker
 end 'Maker'
 
 public type Bag uses Element implements Holder with Element, Maker
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items = ElementArray.create(0)
 
@@ -4768,13 +4743,13 @@ the case a regression toward name-matching would land on first.
 
 <!-- test: w61.conformer-names-the-alias-differently -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'
@@ -4824,18 +4799,17 @@ fast path asks two questions rather than one (`collectInterfaceMethods`). The co
 the requirement names (`nominal-generic-alias.md`). `single` hands `main` a `Bytes` under that brand.
 
 <!-- test: w61.interface-alias-over-a-concrete-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Byte = int(0 to 255)
 
 interface Sink
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	export typealias Bytes = Array with Byte
 	function write(mutates self, data Bytes)
 end 'Sink'
 
 type Log implements Sink
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bytes = Array with Byte
 	var kept = Bytes.create(0)
 
@@ -4881,13 +4855,13 @@ expansion works on the alias's TYPE and not on a one-level spelling.
 
 <!-- test: w61.expansion-descends-into-a-nested-instance-argument -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Nested = Array with (Array with Element)
 	function absorb(mutates self, value Nested)
 end 'Holder'
@@ -4941,16 +4915,16 @@ deliberately rather than discover it as a hang.
 
 <!-- test: error.w61.interface-alias-naming-another-interface-alias -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 1000)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Nested = Array with ElementArray
 	function absorb(mutates self, value Nested)
 end 'Holder'
@@ -4984,7 +4958,7 @@ message would leave this program correctly rejected while telling its author the
 
 <!-- test: error.w61.wrong-signature-under-an-expanded-alias-names-the-expanded-type -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 1000)
@@ -4993,7 +4967,7 @@ typealias Other = int(0 to 7)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	function absorb(mutates self, value ElementArray)
 end 'Holder'

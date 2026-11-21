@@ -5074,7 +5074,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-record-handed-to-a-generic-method-is-written-through-the-world-in-the-same-call -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `keep` stores its argument in the keeper's container and writes the world in the same call: the program is accepted, and `layout` reads the write.
 
 ```maxon
@@ -5113,7 +5112,6 @@ type World
 end 'World'
 
 type Keeper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	export var items as Items
 
@@ -5121,7 +5119,7 @@ type Keeper uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function keep(item T, world World)
+	function keep(mutates self, consumes item T, mutates world World)
 		let kept = item
 		self.items.push(kept)
 		world.artifact.layout.detail.size = 8
@@ -5131,8 +5129,8 @@ end 'Keeper'
 typealias LayoutKeeper = Keeper with Layout
 
 function main() returns ExitCode
-	let world = World.create()
-	let keeper = LayoutKeeper.create()
+	var world = World.create()
+	var keeper = LayoutKeeper.create()
 	let layout = world.artifact.layout
 	keeper.keep(layout, world: world)
 	print("{layout.detail.size}\n")
@@ -5147,7 +5145,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-an-integer -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `pop` moves the element out of `self.items`, so the `let` holds a value nothing else holds and the later `push` cannot reach it. The generic body is accepted and returns the element.
 
 ```maxon
@@ -5156,7 +5153,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to 1000)
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -5164,16 +5160,16 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(v T)
+	function push(mutates self, consumes v T)
 		self.items.push(v)
 	end 'push'
 
-	function pop() returns T
+	function pop(mutates self) returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		return v
 	end 'pop'
 
-	function popThenPush(extra T) returns T
+	function popThenPush(mutates self, consumes extra T) returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		self.items.push(extra)
 		return v
@@ -5183,7 +5179,7 @@ end 'Stack'
 typealias CountStack = Stack with Count
 
 function main() returns ExitCode
-	let s = CountStack.create()
+	var s = CountStack.create()
 	s.push(7)
 	s.push(9)
 	let a = s.popThenPush(3)
@@ -5200,14 +5196,12 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-a-string -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same generic body instantiated with a `String`: the moved-out string is owned by the `let`, handed to the caller by `return`, and released exactly once, so the run exits 0 rather than 101.
 
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -5215,16 +5209,16 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(v T)
+	function push(mutates self, consumes v T)
 		self.items.push(v)
 	end 'push'
 
-	function pop() returns T
+	function pop(mutates self) returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		return v
 	end 'pop'
 
-	function popThenPush(extra T) returns T
+	function popThenPush(mutates self, consumes extra T) returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		self.items.push(extra)
 		return v
@@ -5234,7 +5228,7 @@ end 'Stack'
 typealias StringStack = Stack with String
 
 function main() returns ExitCode
-	let s = StringStack.create()
+	var s = StringStack.create()
 	s.push("first string long enough to force a heap allocation")
 	s.push("second string long enough to force a heap allocation")
 	let a = s.popThenPush("third string long enough to force a heap allocation")
@@ -5252,7 +5246,6 @@ third string long enough to force a heap allocation
 ```
 
 <!-- test: let-escape.a-let-bound-to-an-element-moved-out-of-a-field-of-a-generic-type-is-accepted-for-a-record -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same generic body instantiated with a record type, whose element is a heap record rather than a scalar or a string.
 
 ```maxon
@@ -5269,7 +5262,6 @@ type Box
 end 'Box'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -5277,11 +5269,11 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(v T)
+	function push(mutates self, consumes v T)
 		self.items.push(v)
 	end 'push'
 
-	function popThenPush(extra T) returns T
+	function popThenPush(mutates self, consumes extra T) returns T
 		let v = try self.items.pop() otherwise panic("empty")
 		self.items.push(extra)
 		return v
@@ -5291,7 +5283,7 @@ end 'Stack'
 typealias BoxStack = Stack with Box
 
 function main() returns ExitCode
-	let s = BoxStack.create()
+	var s = BoxStack.create()
 	s.push(Box.create(7))
 	let a = s.popThenPush(Box.create(9))
 	print("{a.n}\n")
@@ -5364,7 +5356,6 @@ end 'main'
 ```
 
 <!-- test: let-escape.a-let-bound-to-a-borrowed-element-of-a-field-of-a-generic-type-is-accepted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `last` borrows the element and leaves it in `self.items`, and `push` writes that storage while the `let` is read: the `let` is accepted and names the borrowed element.
 
 ```maxon
@@ -5373,7 +5364,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to 1000)
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 

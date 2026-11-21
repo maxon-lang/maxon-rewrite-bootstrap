@@ -34,7 +34,6 @@ instance whose argument is `T`, so the caller adopts a `+1` on the enclosing `T`
 `__drop_type_param` — read out of `Holder`'s own descriptor, which the method must therefore carry.
 
 <!-- test: an-opaque-result-adopted-from-a-nested-instance-is-released -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Cell uses U
 	export var slot as U
@@ -49,7 +48,6 @@ type Cell uses U
 end 'Cell'
 
 type Holder uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
@@ -92,7 +90,6 @@ The identical bodies at `Holder with Num`. The adopted result owes a `__drop_typ
 `destroyFunc@40` is the zero word, so the release is a load and nothing else.
 
 <!-- test: a-trivial-instantiation-of-an-adopted-opaque-result-is-inert -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Num = int(0 to 1000)
 
@@ -109,7 +106,6 @@ type Cell uses U
 end 'Cell'
 
 type Holder uses T where T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
@@ -158,7 +154,6 @@ record it describes is destroyed exactly once.
 
 <!-- test: a-self-is-its-own-instance-record-keeps-its-parameter-opaque -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 enum BagError implements Error
@@ -166,7 +161,6 @@ enum BagError implements Error
 end 'BagError'
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
 	export var managed as ElementMemory
 

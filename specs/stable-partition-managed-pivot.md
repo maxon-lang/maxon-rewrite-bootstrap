@@ -48,7 +48,6 @@ refcount model the hazard lives in. Keep them in step with it.
 <!-- test: a-partition-parks-its-pivot-out-of-its-own-write-range -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### Both buffering branches, with a pivot no store can displace
 `stablePartition` transcribed whole. `bufferGe` buffers the `>= pivot` class and compacts `< pivot`
@@ -58,9 +57,7 @@ compaction cursor over the pivot's original slot, and both must still answer cor
 typealias Small = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Cmp = function(Element, Element) returns Ordering
 	export var managed as ElementMemory
@@ -212,7 +209,6 @@ less p=1 lens= 1 20 10 30 40 50
 <!-- test: a-parked-pivot-keeps-the-partition-stable -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### … and the two classes keep their input order
 Soundness is not enough on its own: `sort()` is the STABLE entry, and the partition is where its
@@ -223,9 +219,7 @@ the first byte that the comparator cannot see. Both classes must come out in inp
 typealias Small = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Cmp = function(Element, Element) returns Ordering
 	export var managed as ElementMemory

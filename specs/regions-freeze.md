@@ -931,7 +931,6 @@ end 'main'
 ```
 
 <!-- test: freeze-of-an-interface-whose-generic-conformers-name-ever-deeper-instances-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Gen with T` stands at `Sink` through `Wrap`'s generic body, and `Gen` and `Pair` name each other over ever-deeper arguments (`Gen with Tally` builds a `Pair with Tally`, whose `keep` names a `Gen with (Box with Tally)`, and so on); the conformers a `Sink` may hold are still decided in finite time, so the `freeze` compiles and runs.
 
 ```maxon
@@ -942,7 +941,6 @@ interface Sink
 end 'Sink'
 
 type Gen uses T implements Sink
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TPair = Pair with T
 	var held as T
 	var seen as Tally
@@ -962,9 +960,7 @@ type Gen uses T implements Sink
 end 'Gen'
 
 type Pair uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias UBox = Box with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxGen = Gen with UBox
 	var first as U
 	var seen as Tally
@@ -1028,7 +1024,6 @@ end 'main'
 ```
 
 <!-- test: generic-conformers-naming-ever-deeper-instances-without-a-freeze-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The program above with its `freeze` taken away: `Gen` and `Pair` still name each other over ever-deeper arguments, and with no share door to judge, nothing asks which conformers a `Sink` may hold.
 
 ```maxon
@@ -1039,7 +1034,6 @@ interface Sink
 end 'Sink'
 
 type Gen uses T implements Sink
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TPair = Pair with T
 	var held as T
 	var seen as Tally
@@ -1059,9 +1053,7 @@ type Gen uses T implements Sink
 end 'Gen'
 
 type Pair uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias UBox = Box with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxGen = Gen with UBox
 	var first as U
 	var seen as Tally
@@ -1126,7 +1118,6 @@ end 'main'
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-reaches-an-unwalkable-conformer -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1185,7 +1176,6 @@ type Cell uses T
 end 'Cell'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	static function run(x T) returns Tally
@@ -1212,7 +1202,6 @@ note: <fragment>:64:40: `Stepper` is converted to `Shape` here
 
 <!-- test: error.freeze-in-a-generic-type-body-whose-instance-holds-a-function-value -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1255,7 +1244,6 @@ type Cell uses T
 end 'Cell'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	static function run(x T) returns Tally
@@ -1280,7 +1268,6 @@ error E3171: <fragment>:37:11: `Cell with Stepper` cannot be frozen: it is a `Ce
 ```
 
 <!-- test: freeze-in-a-generic-type-body-at-two-instances-whose-graphs-walk-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 One compiled-once body freezes a `Cell with Holder` and a `Cell with Tally` in a program that spawns a service; each instance's clone and share walk are its own.
@@ -1331,7 +1318,6 @@ type Cell uses T
 end 'Cell'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1362,7 +1348,6 @@ end 'main'
 ```
 
 <!-- test: clone-in-a-generic-type-body-at-two-instances-one-holding-an-interface-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 One compiled-once body clones a `Cell with Holder`, whose `Holder` holds a `Shape`, and a `Cell with Plain`; each instance's clone walks its own graph.
 
 ```maxon
@@ -1399,7 +1384,6 @@ type Cell uses T
 end 'Cell'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	static function run(x T) returns TCell
@@ -1428,7 +1412,6 @@ end 'main'
 <!-- test: error.freeze-through-a-generic-type-that-calls-another-generic-type-reaches-a-function-value -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1488,7 +1471,6 @@ type Gen uses T implements Shape
 end 'Gen'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TGen = Gen with T
 
 	static function run(x T, seen Tally) returns Holder
@@ -1497,7 +1479,6 @@ type Froze uses T
 end 'Froze'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TFroze = Froze with T
 
 	static function go(x T) returns Holder
@@ -1525,7 +1506,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 <!-- test: error.freeze-through-a-generic-type-that-names-another-by-its-bare-name-reaches-a-function-value -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
@@ -1585,7 +1565,6 @@ type Gen uses T implements Shape
 end 'Gen'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TGen = Gen with T
 
 	static function run(x T, seen Tally) returns Holder
@@ -1619,7 +1598,6 @@ note: <fragment>:54:24: `Gen with Stepper` is converted to `Shape` here
 <!-- test: error.freeze-door-in-a-generic-type-reached-through-another-generic-types-body -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -1689,7 +1667,6 @@ type Cell uses T
 end 'Cell'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1699,9 +1676,7 @@ type Froze uses T
 end 'Froze'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TFroze = Froze with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
 
 	// TODO: return type capability 'immutable' is not supported in minimaxon
@@ -1728,7 +1703,6 @@ note: <fragment>:81:41: `Stepper` is converted to `Shape` here
 ```
 
 <!-- test: freeze-of-a-generic-conformer-with-swapped-arguments-over-a-finite-cycle-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Gen`'s own body widens `Gen with (B, A)` to `Sink`, so the instances a `Sink` may hold cycle between `Gen with (Tally, bool)` and `Gen with (bool, Tally)`; the cycle is finite, so the `freeze` compiles and runs.
 
@@ -1752,7 +1726,6 @@ type Door
 end 'Door'
 
 type Gen uses A, B implements Sink
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Flip = Gen with (B, A)
 	var first as A
 	var second as B
@@ -1799,7 +1772,6 @@ end 'main'
 
 <!-- test: freeze-of-a-deeper-instance-whose-fields-do-not-depend-on-the-parameter-runs -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Box` freezes a `Box with (Cell with T)`, an instance one level deeper than its receiver, but no field of `Box` holds `T`, so every depth is judged alike; the chain is not refused and the program runs.
@@ -1857,7 +1829,6 @@ type Cell uses T
 end 'Cell'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Box with (Cell with T)
 	export let seen as Tally
 	export var name as String
@@ -1891,7 +1862,6 @@ end 'main'
 ```
 
 <!-- test: error.freeze-door-of-ever-deeper-instances-whose-fields-hold-the-growing-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Box` freezes a `Box with (Cell with T)` whose field holds the growing argument, so the instances a share door must judge are an unbounded chain.
@@ -1908,9 +1878,7 @@ type Cell uses T
 end 'Cell'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Box with (Cell with T)
 	export let held as T
 	export let seen as Tally
@@ -2220,14 +2188,12 @@ note: <fragment>:66:31: `W` is converted to `Shape` here
 ```
 
 <!-- test: clone-in-a-generic-body-of-a-self-referential-record-compiles-and-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Node` holds a `Node with T` in a field, so its instance reaches itself through its own fields; cloning one inside `Run`'s generic body walks each record the clone copies once and compiles.
 
 ```maxon
 typealias Tally = int(0 to u64.max)
 
 type Node uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNode = Node with T
 	export let item as T
 	export let next as TNode
@@ -2238,7 +2204,6 @@ type Node uses T
 end 'Node'
 
 type Run uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNode = Node with T
 
 	static function copy(n TNode) returns TNode
@@ -2265,14 +2230,11 @@ end 'main'
 ```
 
 <!-- test: clone-in-a-generic-body-of-a-record-that-holds-itself-through-an-array-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Node` holds its children as an array of `Node with T`; `Run.copy` clones a tree in a generic body and the program frees both trees.
 
 ```maxon
 type Node uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNode = Node with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNodes = Array with TNode
 	export let item as T
 	export let kids as TNodes
@@ -2283,9 +2245,7 @@ type Node uses T
 end 'Node'
 
 type Run uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNode = Node with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TNodes = Array with TNode
 
 	static function leaf(item T) returns TNode
@@ -2771,7 +2731,6 @@ note: <fragment>:82:9: `PairShape` is converted to `Shape` here
 <!-- test: a-generic-permuting-its-parameters-at-an-entry-naming-one-of-them-runs -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Swap` hands its arguments to itself in the other order, so it denotes only two instances at any entry; sharing is judged in finite time and the `freeze` runs.
 
@@ -2854,9 +2813,7 @@ type Cell uses T
 end 'Cell'
 
 type Swap uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Flipped = Swap with (Y, X)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias WX = Wrap with X
 
 	static function go(x X, y Y, depth Tally) returns Holder
@@ -2886,7 +2843,6 @@ end 'main'
 <!-- test: a-generic-duplicating-a-parameter-at-an-entry-runs -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Dup` passes its second argument in both positions; the instances it denotes stay finite, so the `freeze` runs.
 
@@ -2969,9 +2925,7 @@ type Cell uses T
 end 'Cell'
 
 type Dup uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Same = Dup with (Y, Y)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias WX = Wrap with X
 
 	static function go(x X, y Y, depth Tally) returns Holder
@@ -3001,7 +2955,6 @@ end 'main'
 <!-- test: a-generic-fixing-one-parameter-and-wrapping-the-other-runs -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Fix` keeps its first argument and wraps its second in a `Cell` once; the wrapped argument feeds no parameter the first one depends on, so the instances it denotes are finite and the `freeze` runs.
 
@@ -3084,11 +3037,8 @@ type Cell uses T
 end 'Cell'
 
 type Fix uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Settled = Fix with (X, Cell with X)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CX = Cell with X
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias WY = Wrap with Y
 
 	static function go(x X, y Y, depth Tally) returns Holder
@@ -3171,7 +3121,6 @@ end 'main'
 ```
 
 <!-- test: descriptor-chain-over-a-parameter-nothing-reads-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Tagged` recurses through `Deeper`, which nests `Cell` around its second parameter, and widens `Wrap with T` to `Shape` through its descriptor; nothing reads that second parameter, so the descriptors the recursion needs are one chain and not an unbounded one.
 
@@ -3223,9 +3172,7 @@ type Cell uses T
 end 'Cell'
 
 type Tagged uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Tagged with (T, Cell with U)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias WT = Wrap with T
 
 	static function go(x T, depth Tally) returns Holder
@@ -3269,7 +3216,6 @@ end 'main'
 ```
 
 <!-- test: freeze-door-in-a-generic-body-naming-an-instance-over-an-unread-parameter-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Froze` names `Froze with (Phantom with T)`, which nests its own parameter under a type that holds nothing, so the owner instances a freeze door is judged at end after one level.
 
@@ -3301,9 +3247,7 @@ type Phantom uses U
 end 'Phantom'
 
 type Froze uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = Cell with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wider = Froze with (Phantom with T)
 
 	static function run(x T) returns Tally

@@ -20,7 +20,6 @@ body returns, and whether the nested instance is written inline or through a typ
 ## Tests
 
 <!-- test: local-string-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `String` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -28,7 +27,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -37,12 +36,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -51,18 +50,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellA.create(self.left))
+		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -84,7 +81,6 @@ end 'main'
 ```
 
 <!-- test: local-record-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `Pad` record at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -93,14 +89,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -109,12 +105,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -123,18 +119,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellA.create(self.left))
+		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -156,7 +150,6 @@ end 'main'
 ```
 
 <!-- test: local-array-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `NameArray` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -164,7 +157,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -173,7 +166,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -182,12 +175,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -196,18 +189,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellA.create(self.left))
+		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -229,7 +220,6 @@ end 'main'
 ```
 
 <!-- test: local-string-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `String` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -237,7 +227,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -246,12 +236,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -260,20 +250,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellCell.create(CellA.create(self.left)))
+		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -295,7 +282,6 @@ end 'main'
 ```
 
 <!-- test: local-record-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `Pad` record at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -304,14 +290,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -320,12 +306,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -334,20 +320,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellCell.create(CellA.create(self.left)))
+		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -369,7 +352,6 @@ end 'main'
 ```
 
 <!-- test: local-array-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance built as a local over a `NameArray` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -377,7 +359,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -386,7 +368,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -395,12 +377,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -409,20 +391,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
 	function run() returns Tally
-		let g = Nested.create(CellCell.create(CellA.create(self.left)))
+		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -444,7 +423,6 @@ end 'main'
 ```
 
 <!-- test: callresult-string-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `String` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -452,7 +430,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -461,12 +439,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -475,13 +453,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -490,7 +466,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -512,7 +488,6 @@ end 'main'
 ```
 
 <!-- test: callresult-record-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `Pad` record at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -521,14 +496,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -537,12 +512,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -551,13 +526,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -566,7 +539,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -588,7 +561,6 @@ end 'main'
 ```
 
 <!-- test: callresult-array-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `NameArray` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -596,7 +568,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -605,7 +577,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -614,12 +586,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -628,13 +600,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -643,7 +613,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -665,7 +635,6 @@ end 'main'
 ```
 
 <!-- test: callresult-string-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `String` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -673,7 +642,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -682,12 +651,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -696,15 +665,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -713,7 +679,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -735,7 +701,6 @@ end 'main'
 ```
 
 <!-- test: callresult-record-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `Pad` record at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -744,14 +709,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -760,12 +725,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -774,15 +739,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -791,7 +753,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -813,7 +775,6 @@ end 'main'
 ```
 
 <!-- test: callresult-array-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance received from a call as a local over a `NameArray` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -821,7 +782,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -830,7 +791,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -839,12 +800,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -853,15 +814,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -870,7 +828,7 @@ type Wrap uses A
 	end 'build'
 
 	function run() returns Tally
-		let g = self.build()
+		var g = self.build()
 		g.bump(1)
 		return g.total()
 	end 'run'
@@ -892,7 +850,6 @@ end 'main'
 ```
 
 <!-- test: field-string-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `String` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -900,7 +857,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -909,12 +866,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -923,17 +880,15 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -942,7 +897,7 @@ end 'Wrap'
 typealias Held = Wrap with String
 
 function main() returns ExitCode
-	let w = Held.create("alpha beta gamma delta epsilon zeta")
+	var w = Held.create("alpha beta gamma delta epsilon zeta")
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -955,7 +910,6 @@ end 'main'
 ```
 
 <!-- test: field-record-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `Pad` record at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -964,14 +918,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -980,12 +934,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -994,17 +948,15 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -1013,7 +965,7 @@ end 'Wrap'
 typealias Held = Wrap with Pad
 
 function main() returns ExitCode
-	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
+	var w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1026,7 +978,6 @@ end 'main'
 ```
 
 <!-- test: field-array-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `NameArray` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1034,7 +985,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -1043,7 +994,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1052,12 +1003,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1066,17 +1017,15 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -1085,7 +1034,7 @@ end 'Wrap'
 typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
-	let w = Held.create(names())
+	var w = Held.create(names())
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1098,7 +1047,6 @@ end 'main'
 ```
 
 <!-- test: field-string-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `String` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1106,7 +1054,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1115,12 +1063,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1129,19 +1077,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -1150,7 +1095,7 @@ end 'Wrap'
 typealias Held = Wrap with String
 
 function main() returns ExitCode
-	let w = Held.create("alpha beta gamma delta epsilon zeta")
+	var w = Held.create("alpha beta gamma delta epsilon zeta")
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1163,7 +1108,6 @@ end 'main'
 ```
 
 <!-- test: field-record-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `Pad` record at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1172,14 +1116,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1188,12 +1132,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1202,19 +1146,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -1223,7 +1164,7 @@ end 'Wrap'
 typealias Held = Wrap with Pad
 
 function main() returns ExitCode
-	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
+	var w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1236,7 +1177,6 @@ end 'main'
 ```
 
 <!-- test: field-array-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance held in a field over a `NameArray` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1244,7 +1184,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -1253,7 +1193,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1262,12 +1202,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1276,19 +1216,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot.bump(1)
 		return self.slot.total()
 	end 'run'
@@ -1297,7 +1234,7 @@ end 'Wrap'
 typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
-	let w = Held.create(names())
+	var w = Held.create(names())
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1310,7 +1247,6 @@ end 'main'
 ```
 
 <!-- test: replaced-string-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `String` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1318,7 +1254,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1327,12 +1263,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1341,18 +1277,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1362,7 +1296,7 @@ end 'Wrap'
 typealias Held = Wrap with String
 
 function main() returns ExitCode
-	let w = Held.create("alpha beta gamma delta epsilon zeta")
+	var w = Held.create("alpha beta gamma delta epsilon zeta")
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1375,7 +1309,6 @@ end 'main'
 ```
 
 <!-- test: replaced-record-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `Pad` record at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1384,14 +1317,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1400,12 +1333,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1414,18 +1347,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1435,7 +1366,7 @@ end 'Wrap'
 typealias Held = Wrap with Pad
 
 function main() returns ExitCode
-	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
+	var w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1448,7 +1379,6 @@ end 'main'
 ```
 
 <!-- test: replaced-array-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `NameArray` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1456,7 +1386,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -1465,7 +1395,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1474,12 +1404,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1488,18 +1418,16 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1509,7 +1437,7 @@ end 'Wrap'
 typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
-	let w = Held.create(names())
+	var w = Held.create(names())
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1522,7 +1450,6 @@ end 'main'
 ```
 
 <!-- test: replaced-string-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `String` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1530,7 +1457,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1539,12 +1466,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1553,20 +1480,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1576,7 +1500,7 @@ end 'Wrap'
 typealias Held = Wrap with String
 
 function main() returns ExitCode
-	let w = Held.create("alpha beta gamma delta epsilon zeta")
+	var w = Held.create("alpha beta gamma delta epsilon zeta")
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1589,7 +1513,6 @@ end 'main'
 ```
 
 <!-- test: replaced-record-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `Pad` record at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1598,14 +1521,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1614,12 +1537,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1628,20 +1551,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1651,7 +1571,7 @@ end 'Wrap'
 typealias Held = Wrap with Pad
 
 function main() returns ExitCode
-	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
+	var w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1664,7 +1584,6 @@ end 'main'
 ```
 
 <!-- test: replaced-array-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance replaced in a field over a `NameArray` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1672,7 +1591,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -1681,7 +1600,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1690,12 +1609,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1704,20 +1623,17 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 	var slot as Nested
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run() returns Tally
+	function run(mutates self) returns Tally
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1727,7 +1643,7 @@ end 'Wrap'
 typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
-	let w = Held.create(names())
+	var w = Held.create(names())
 	print("{w.run()}\n")
 	return 0
 end 'main'
@@ -1740,7 +1656,6 @@ end 'main'
 ```
 
 <!-- test: return-string-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `String` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1748,7 +1663,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1757,12 +1672,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1771,13 +1686,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -1790,7 +1703,7 @@ typealias Held = Wrap with String
 
 function main() returns ExitCode
 	let w = Held.create("alpha beta gamma delta epsilon zeta")
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0
@@ -1804,7 +1717,6 @@ end 'main'
 ```
 
 <!-- test: return-record-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `Pad` record at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1813,14 +1725,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1829,12 +1741,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1843,13 +1755,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -1862,7 +1772,7 @@ typealias Held = Wrap with Pad
 
 function main() returns ExitCode
 	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0
@@ -1876,7 +1786,6 @@ end 'main'
 ```
 
 <!-- test: return-array-at-depth-2 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `NameArray` at depth 2 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1884,7 +1793,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -1893,7 +1802,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1902,12 +1811,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1916,13 +1825,11 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -1935,7 +1842,7 @@ typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
 	let w = Held.create(names())
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0
@@ -1949,7 +1856,6 @@ end 'main'
 ```
 
 <!-- test: return-string-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `String` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -1957,7 +1863,7 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -1966,12 +1872,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -1980,15 +1886,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -2001,7 +1904,7 @@ typealias Held = Wrap with String
 
 function main() returns ExitCode
 	let w = Held.create("alpha beta gamma delta epsilon zeta")
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0
@@ -2015,7 +1918,6 @@ end 'main'
 ```
 
 <!-- test: return-record-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `Pad` record at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -2024,14 +1926,14 @@ type Pad
 	export var label as String
 
 	static function create(label String) returns Self
-		return Self{label: label}
+		return Self{label: label.clone()}
 	end 'create'
 end 'Pad'
 
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -2040,12 +1942,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -2054,15 +1956,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -2075,7 +1974,7 @@ typealias Held = Wrap with Pad
 
 function main() returns ExitCode
 	let w = Held.create(Pad.create("alpha beta gamma delta epsilon zeta"))
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0
@@ -2089,7 +1988,6 @@ end 'main'
 ```
 
 <!-- test: return-array-at-depth-3 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A nested instance returned over a `NameArray` at depth 3 is released with what it holds.
 ```maxon
 typealias Tally = int(0 to u64.max)
@@ -2097,7 +1995,7 @@ typealias Tally = int(0 to u64.max)
 typealias NameArray = Array with String
 
 function names() returns NameArray
-	let result = NameArray.create(0)
+	var result = NameArray.create(0)
 	result.push("alpha beta gamma delta epsilon zeta")
 	result.push("alpha beta gamma delta epsilon zeta two")
 	return result
@@ -2106,7 +2004,7 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(item V) returns Self
+	static function create(consumes item V) returns Self
 		return Self{item: item}
 	end 'create'
 end 'Cell'
@@ -2115,12 +2013,12 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(held T) returns Self
+	static function create(consumes held T) returns Self
 		return Self{held: held, seen: 0}
 	end 'create'
 
-	function bump(by Tally)
-		self.seen = self.seen + by
+	function bump(mutates self, by Tally)
+		self.seen = try self.seen + by otherwise panic("out of range")
 	end 'bump'
 
 	function total() returns Tally
@@ -2129,15 +2027,12 @@ type Gen uses T
 end 'Gen'
 
 type Wrap uses A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellA = Cell with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellCell = Cell with CellA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(left A) returns Self
+	static function create(consumes left A) returns Self
 		return Self{left: left}
 	end 'create'
 
@@ -2150,7 +2045,7 @@ typealias Held = Wrap with NameArray
 
 function main() returns ExitCode
 	let w = Held.create(names())
-	let g = w.build()
+	var g = w.build()
 	g.bump(1)
 	print("{g.total()}\n")
 	return 0

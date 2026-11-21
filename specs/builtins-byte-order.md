@@ -379,14 +379,12 @@ end 'main'
 ```
 
 <!-- test: builtins-byte-order.a-generic-born-byte-array-reads-and-appends-as-bytes -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `Bag with Byte`'s `items` is created inside a shared generic body, and its record strides one byte (`elementSize()`
 is 1) as a `ByteArray` created in a concrete body does. The built-ins see the bytes the array holds: a four-byte read
 from index 2 sees bytes 2 to 5, and an append adds one byte per byte.
 ```maxon
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

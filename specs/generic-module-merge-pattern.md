@@ -19,7 +19,6 @@ Exercises the full IrModule pattern from the self-hosted compiler: a generic typ
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -79,7 +78,6 @@ export extension Mergeable
 end 'Mergeable'
 
 type GenModule uses Op implements Mergeable with Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	export var functions as ItemArray
 	export var blocks as BlockArray
@@ -176,7 +174,6 @@ opRefSum=1
 ### Two specializations of generic type with inner array typealias
 
 <!-- test: dual-specialize-inner-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -185,7 +182,6 @@ typealias Count = int(0 to u64.max)
 typealias Integer = int(i64.min to i64.max)
 
 type GenContainer uses Op
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	export var ops as OpArray
 
@@ -193,7 +189,7 @@ type GenContainer uses Op
 		return Self{ops: OpArray.create(0)}
 	end 'create'
 
-	function push(op Op)
+	function push(mutates self, consumes op Op)
 		self.ops.push(op)
 	end 'push'
 
@@ -207,20 +203,20 @@ typealias IntContainer = GenContainer with Integer
 typealias StringContainer = GenContainer with String
 
 function main() returns ExitCode
-	let ic = IntContainer.create()
+	var ic = IntContainer.create()
 	ic.push(10)
 	ic.push(20)
 	ic.push(30)
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("hello")
 	sc.push("world")
 	var intSum = 0 as Integer
 	for val in ic.ops 'intLoop'
-		intSum = intSum + val
+		intSum = try intSum + val otherwise panic("out of range")
 	end 'intLoop'
 	var strCount = 0 as Count
 	for val in sc.ops 'strLoop'
-		strCount = strCount + 1
+		strCount = try strCount + 1 otherwise panic("out of range")
 	end 'strLoop'
 	print("ints={ic.count()} sum={intSum}\n")
 	print("strings={sc.count()} count={strCount}\n")

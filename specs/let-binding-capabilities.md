@@ -2031,7 +2031,6 @@ end 'main'
 ```
 
 <!-- test: let-binding-capabilities.a-fresh-generic-container-kept-by-a-let-field-is-accepted-for-a-writable-item -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The `let` field holds an empty array of its own, so a `Bag` of a type with a `var` field keeps nothing anything else can write.
 
 ```maxon
@@ -2048,7 +2047,6 @@ type Counter
 end 'Counter'
 
 type Bag uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	let kept as ItemArray
 
@@ -2057,7 +2055,7 @@ type Bag uses Item
 	end 'create'
 
 	function size() returns Count
-		return self.kept.count() as Count
+		return try self.kept.count() as Count otherwise panic("out of range")
 	end 'size'
 end 'Bag'
 

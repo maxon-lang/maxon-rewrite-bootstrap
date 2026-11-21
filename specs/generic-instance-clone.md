@@ -109,7 +109,6 @@ end 'main'
 ```
 
 <!-- test: clone-of-an-instance-over-the-enclosing-type-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The element instance is written over the ENCLOSING generic's own type parameter
 `Bag`'s inner `typealias EBox = Box with Element` names no concrete instance in the shared body; it is
 re-interned per enclosing instantiation, so `Bag with Integer` is what mints `Box with Integer`. The clone
@@ -143,9 +142,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -242,15 +239,12 @@ so the copy and the source would then cascade `__str_decref` over the same recor
 the row count prints and the program dies `0xC0000005` at teardown.**
 
 <!-- test: error.a-container-of-opaque-element-containers-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Idx = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Outer = Array with Inner
 	var rows as Outer
 
@@ -300,16 +294,13 @@ cloner at all, and refusing them would be a wrong answer about a program that ow
 the one above with `String` replaced by a ranged `int` and nothing else changed.
 
 <!-- test: a-trivial-instantiation-of-the-same-nested-shape-still-clones -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Idx = int(0 to u64.max)
 
 typealias Small = int(0 to 100)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Outer = Array with Inner
 	var rows as Outer
 
@@ -352,7 +343,6 @@ end 'main'
 ```
 
 <!-- test: error.member-call-on-an-unsubstituted-element-payload-is-diagnosed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A member call on a value still held at a type parameter is REFUSED, and the refusal names the parameter
 ⭐ **THE REFUSAL THAT SURVIVES SUBSTITUTION BEING CORRECT.** The call is INSIDE the shared body, where no
@@ -366,7 +356,6 @@ scope there is no caller: a parameter's name is a property of the TOKEN, not of 
 typealias Integer = int(i64.min to i64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArr = Array with Element
 	var items as EArr
 
@@ -397,7 +386,6 @@ error E2015: <fragment>:19:12: Unsupported: no requirement named 'equals' is pro
 ```
 
 <!-- test: element-payload-through-a-shared-body-return-over-the-enclosing-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same program as the case above, RUNNING. `IntBag` binds `Element` to `Integer`, so `copy()`'s
 `Array with (Box with Element)` is an `Array with (Box with Integer)` at this receiver, `e.v` is an
 `Integer`, and `.equals(91)` is the ordinary builtin conformance the control below pins. Returns 4.
@@ -430,9 +418,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -464,7 +450,6 @@ end 'main'
 ```
 
 <!-- test: element-payload-through-a-shared-body-field-read -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐ **THE SAME SUBSTITUTION REACHED WITHOUT A RETURN AT ALL**, which is what attributes it to the shared
 substitution rather than to the method-return crossing. Reading `b.items` directly — the field whose
 declared type is the same nested alias — takes no return road, so a repair that lived in the return road
@@ -482,9 +467,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	export var items as EBoxArray
 
@@ -516,7 +499,6 @@ end 'main'
 ```
 
 <!-- test: error.a-cyclic-alias-reaching-the-clone-gate-is-refused-not-overflowed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **THE DEEP-CLONE GATE WALKS THE TYPE GRAPH, SO IT OWES THAT WALK A CYCLE BREAK.** `Cyc` is
 `Array with Cyc`, an infinite type, and E2012 refuses it — but only if the compile survives long enough to
@@ -535,7 +517,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias Cyc = Array with Cyc
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TArr = Array with T
 	var items as TArr
 

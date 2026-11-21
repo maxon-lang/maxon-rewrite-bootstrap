@@ -475,11 +475,10 @@ An alias a type body or an extension body declares is named by its written name 
 `<Alias> from [...]` builds through it there as it does through a top-level alias.
 
 <!-- test: an-alias-declared-in-a-generic-type-takes-from-an-array-literal -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 The alias is over the type's own parameter, so it exists only per instantiation of `Bag`.
 ```maxon
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	export var first as T
 	export var second as T
@@ -514,14 +513,10 @@ typealias Tally = int(0 to u64.max)
 <!-- test: set-list-and-fixed-array-aliases-declared-in-a-generic-type-take-from -->
 <!-- skip: character literals are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Shelf uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Letters = Set with Character
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Readings = List with Reading
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias ReadingTriple = FixedArray with 3 Reading
 	export var item as T

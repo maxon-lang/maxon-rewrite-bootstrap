@@ -51,12 +51,10 @@ descriptor its caller sources from the instance it builds, and it forwards block
 whose `Array with T` reads `destroyFunc@40` out of it at run time.
 
 <!-- test: a-static-constructor-builds-the-nested-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	var items as TArray
 
@@ -65,12 +63,11 @@ type Inner uses T
 	end 'create'
 
 	function count() returns Int
-		return items.count()
+		return try items.count() as Int otherwise panic("out of range")
 	end 'count'
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -87,7 +84,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.create()
-	return b.size()
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -101,7 +98,6 @@ handed. `Bag.probe` hands over its own block 0, which describes `Element` — an
 answer is a machine word.
 
 <!-- test: a-call-on-the-field-reads-the-forwarded-block -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -120,7 +116,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -150,12 +145,10 @@ The holder declares no field at the instance at all, so nothing about the TYPE c
 is drawn off the construction itself, and the local it is bound to carries the same base onward.
 
 <!-- test: a-nested-instance-built-into-a-local -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	var items as TArray
 
@@ -164,18 +157,17 @@ type Inner uses T
 	end 'create'
 
 	function count() returns Int
-		return items.count()
+		return try items.count() as Int otherwise panic("out of range")
 	end 'count'
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var n as Int
 
 	static function make() returns Self
 		let i = EChain.create()
-		return Self{n: i.count() + 5}
+		return Self{n: try i.count() + 5 otherwise panic("out of range")}
 	end 'make'
 
 	function size() returns Int
@@ -187,7 +179,7 @@ typealias IntBag = Bag with Int
 
 function main() returns ExitCode
 	let b = IntBag.make()
-	return b.size()
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -202,12 +194,10 @@ the bag takes are released by that record's own walk. One retain per store again
 destruction is the whole of the contract — a surplus release faults and a missing one is exit 101.
 
 <!-- test: the-whole-chain-over-a-managed-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	var items as TArray
 
@@ -215,17 +205,16 @@ type Inner uses T
 		return Self{items: TArray.create(0)}
 	end 'create'
 
-	function add(v T)
+	function add(mutates self, consumes v T)
 		items.push(v)
 	end 'add'
 
 	function count() returns Int
-		return items.count()
+		return try items.count() as Int otherwise panic("out of range")
 	end 'count'
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -233,7 +222,7 @@ type Bag uses Element
 		return Self{chain: EChain.create()}
 	end 'create'
 
-	function add(v Element)
+	function add(mutates self, consumes v Element)
 		chain.add(v)
 	end 'add'
 
@@ -245,10 +234,10 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.add("a string long enough to be heap allocated")
 	b.add("another string long enough to be heap allocated")
-	return b.size()
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -264,7 +253,6 @@ reserve nothing, and the call would reach the mint for an instance that can neve
 `LayoutDescriptor` panic. `var x as EChain` is the same shape with `as` between the two tokens.
 
 <!-- test: a-parameter-declared-at-the-inner-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -283,7 +271,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -324,12 +311,10 @@ cursor yields a bare type parameter), so the reservation under test can only hav
 emitted-call edges.
 
 <!-- test: a-cursor-built-through-the-inner-alias-is-walked -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type BagIter uses E implements Iterator with Int
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with E
 	var items as EArray
 	var i as Int
@@ -351,7 +336,6 @@ type BagIter uses E implements Iterator with Int
 end 'BagIter'
 
 type Bag uses Element implements Iterable with (Int, BIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias BIter = BagIter with Element
 	var n as Int
 
@@ -388,7 +372,6 @@ end 'main'
 `Wrapper with (Small, String)` hands `Slot with U` the block of `U`, so `sizeof(V)` inside `Slot` is `String`'s.
 
 <!-- test: an-instance-over-the-second-parameter-of-two-reads-that-parameters-size -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
@@ -407,7 +390,6 @@ type Slot uses V
 end 'Slot'
 
 type Wrapper uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with U
 	var tag as T
 	var inner as Inner
@@ -442,7 +424,6 @@ end 'main'
 ### A call two nested instances deep
 
 <!-- test: a-call-on-a-field-of-a-field-both-nested-instances -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -461,7 +442,6 @@ type Inner uses T
 end 'Inner'
 
 type Middle uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with U
 	export var chain as EChain
 
@@ -471,7 +451,6 @@ type Middle uses U
 end 'Middle'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EMiddle = Middle with Element
 	var middle as EMiddle
 
@@ -501,7 +480,6 @@ end 'main'
 block 0 to it exactly as it does for `chain.slotSize()`.
 
 <!-- test: a-call-on-the-nested-field-of-a-self-typed-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -520,7 +498,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
@@ -552,7 +529,6 @@ end 'main'
 
 <!-- test: a-closure-parameter-named-like-a-nested-field-calls-through-its-own-instance-and-the-field-keeps-its-own-after -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -583,9 +559,7 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EPair = Pair with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var inner as EPair
 
@@ -617,10 +591,8 @@ end 'main'
 
 <!-- test: a-closure-parameter-named-like-a-type-parameter-field-calls-a-corpus-member-of-its-own-array -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	var current as Element
 
@@ -664,7 +636,6 @@ false alpha 42 value long enough for a heap record
 
 <!-- test: a-closure-parameter-of-another-type-leaves-the-field-in-scope-after-it -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -683,7 +654,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -716,7 +686,6 @@ The closure's body is a `match` whose arms stand on the lines after the `gives`;
 
 <!-- test: a-closure-parameters-extent-runs-through-a-multi-line-match-body -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -735,7 +704,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var seen as Count
 
@@ -772,7 +740,6 @@ end 'main'
 
 <!-- test: a-forwarded-size-read-through-a-cursor-of-a-two-parameter-instance -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 public type Slot uses V
@@ -789,7 +756,6 @@ public type Slot uses V
 end 'Slot'
 
 public type PairIter uses K, W implements Iterator with Count
-	// TODO: nested typealias declarations are not supported in minimaxon
 	public typealias Held = Slot with W
 	var done as bool
 
@@ -810,7 +776,6 @@ public type PairIter uses K, W implements Iterator with Count
 end 'PairIter'
 
 public type Pairs uses Key, Value implements Iterable with (Count, PIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	public typealias PIter = PairIter with (Key, Value)
 	var tag as Key
 	var value as Value
@@ -846,7 +811,6 @@ end 'main'
 `chain.peer().plain()` ends in `Plain`, not in the `Pair` that `peer` answers, so `c.slotSize()` is `Plain`'s.
 
 <!-- test: a-local-bound-to-a-longer-chain-is-the-instance-the-whole-chain-answers -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -881,7 +845,6 @@ type Pair uses A
 end 'Pair'
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias P = Pair with T
 	var p as P
 
@@ -895,7 +858,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -925,7 +887,6 @@ end 'main'
 `chain.peer()` answers a `Pair`, not the `Inner` that `chain` is, so `c.slotSize()` is `Pair`'s.
 
 <!-- test: a-local-bound-to-a-methods-result-is-the-instance-the-method-returns -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -944,7 +905,6 @@ type Pair uses A
 end 'Pair'
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias P = Pair with T
 	var p as P
 
@@ -962,7 +922,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var chain as EChain
 
@@ -990,7 +949,6 @@ end 'main'
 ### The same through a chain of two nested fields
 
 <!-- test: a-local-bound-to-a-methods-result-through-two-nested-fields -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1009,7 +967,6 @@ type Pair uses A
 end 'Pair'
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias P = Pair with T
 	var p as P
 
@@ -1027,7 +984,6 @@ type Inner uses T
 end 'Inner'
 
 type Middle uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with U
 	export var b as EChain
 
@@ -1037,7 +993,6 @@ type Middle uses U
 end 'Middle'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EMiddle = Middle with Element
 	var a as EMiddle
 
@@ -1067,7 +1022,6 @@ end 'main'
 `dup` and `dupTimes` both answer `Self`, so the result is the receiver's own instance, and `c.size()` reads `bool`'s size.
 
 <!-- test: a-local-bound-to-a-methods-result-is-the-receiver-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Slot uses V
@@ -1092,7 +1046,6 @@ type Slot uses V
 end 'Slot'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Slot with Element
 	var inner as Inner
 
@@ -1124,7 +1077,6 @@ end 'main'
 ### A nested instance bound to a local from a `Self`-typed parameter's field
 
 <!-- test: a-local-bound-to-the-nested-field-of-a-self-typed-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1143,7 +1095,6 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
@@ -1173,7 +1124,6 @@ end 'main'
 
 <!-- test: two-sibling-closures-name-a-parameter-alike-over-different-instances -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -1204,9 +1154,7 @@ type Inner uses T
 end 'Inner'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EPair = Pair with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = Inner with Element
 	var seen as Count
 

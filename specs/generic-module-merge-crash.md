@@ -15,7 +15,6 @@ category: type-system
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Count = int(0 to u64.max) implements ElementIndex
@@ -55,7 +54,6 @@ end 'Wrapper'
 typealias WrapperArray = Array with Wrapper
 
 type Container uses Op implements Mergeable with Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	export var ops as OpArray
 	export var items as WrapperArray

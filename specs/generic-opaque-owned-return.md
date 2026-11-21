@@ -122,10 +122,8 @@ reference to the caller, whose `let` binding drops it at scope exit. The contain
 element, and drops it when the container does.
 
 <!-- test: opaque-array-element-moved-out-and-returned -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -133,11 +131,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function takeOne() returns Element
+	function takeOne(mutates self) returns Element
 		return try self.items.pop() otherwise panic("takeOne: empty")
 	end 'takeOne'
 end 'Container'
@@ -145,7 +143,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("alpha string long enough to force a heap allocation")
 	sc.push("beta string long enough to force a heap allocation")
 	let taken = sc.takeOne()

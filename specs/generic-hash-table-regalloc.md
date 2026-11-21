@@ -50,7 +50,6 @@ is confined and nothing there moves.
 
 <!-- test: generic-hash-table-regalloc.rehash-loop-forwards-hidden-parameters -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The reproducer, and the reason this file exists. `Tbl.grow`'s rehash loop holds 16 GPR values at
 one op against a pool of 14; two of them are the `Hashable` and `Equatable` witness parameters,
@@ -75,13 +74,9 @@ enum SlotState
 end 'SlotState'
 
 type Tbl uses Key where Key implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueArray = Array with Integer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias StateArray = Array with SlotState
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias HashSlotArray = Array with HashValue
 	var keys as KeyArray
 	var values as ValueArray

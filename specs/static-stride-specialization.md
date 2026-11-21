@@ -261,7 +261,6 @@ end 'main'
 
 <!-- test: a-shared-generic-body-keeps-the-runtime-fork -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 THE SHARED-BODY CONTROL. `Bag uses Element` is compiled ONCE and reached here at two different element WIDTHS —
 an 8-byte `Word` and a 1-byte `Byte`. There is no stride for its body to be specialized on, and every
 value below is wrong by a factor of eight in one direction or the other if it is specialized anyway: an
@@ -280,7 +279,6 @@ typealias Byte = int(0 to 255)
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -342,7 +340,6 @@ end 'main'
 ```
 
 <!-- test: a-substituted-container-field-is-byte-strided-as-it-is-typed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⛔⛔ **THE RED-GATE CONTROL, AND THE PROGRAM THAT PINS THE RULE.** `Bag with Byte`'s `items` is
 declared `Array with Element` inside a SHARED generic body, and its record stamps `element_size@24` with the
@@ -358,7 +355,6 @@ slot — and `elementSize()` would answer 8 first, exit code 1.
 typealias Byte = int(0 to 255)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

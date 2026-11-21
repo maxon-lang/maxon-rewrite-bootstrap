@@ -356,14 +356,12 @@ end 'main'
 
 
 <!-- test: a-types-own-alias-is-named-through-its-directory -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A type's own `typealias` named through its directory, `lib.Type.Inner`, is the alias the bare `Type.Inner`
 names: it types a return and a parameter, and the field `make` fills, declared `Inner` inside `Type`, is
 an argument to that parameter with no cast (37 + 5).
 ```maxon
 // --- file: lib/t.maxon
 export type Type
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = int(0 to 100)
 	export let v as Inner
 

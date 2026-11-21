@@ -29,14 +29,12 @@ bytes it holds.
 
 
 <!-- test: a-generic-born-byte-array-strides-by-its-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 A `Bag uses Element` creates its `Array with Element` inside a body shared by every instantiation. At `Bag with Byte` the record strides 1, exactly as the same array created in a concrete body does, and every access path of the shared body reads and writes elements at that stride: `push`, `set`, `get`, `last`, `pop`, `insert`, `remove`, iteration, `clone`, `slice`, `append`, `appendMemory`, `growFilled`, `refill` and `reserve`. The caller reads the same array through its substituted type, with the stride the type states, and the two agree.
 ```maxon
 typealias Total = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -205,7 +203,6 @@ reserve 1 count 3 capacity-ok true
 
 
 <!-- test: a-generic-born-array-strides-by-its-element-at-every-narrow-and-wide-width -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same `Bag uses Element` at `Bag with 16-bit`, `Bag with 32-bit`, `Bag with bool`, `Bag with int(0 to 3)` and `Bag with int(0 to 15)`: each record strides 2, 4, and a packed -1, -2 and -4, exactly as the same array created in a concrete body does. An element of the wrong stride is a different wrong answer at every width, so each instantiation pushes, sets, inserts, removes, pops, clones, slices, appends, iterates and grows through the shared body and reads the same elements back through its substituted type.
 ```maxon
@@ -227,7 +224,6 @@ typealias Crumb = int(0 to 3)
 typealias Nibble = int(0 to 15)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -610,7 +606,6 @@ crumb after remove count 2 has three false has one true
 ```
 
 <!-- test: a-generic-born-array-of-a-narrow-signed-enum-strides-its-slot-and-keeps-its-sign -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple loop variables in for loops are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An enum with negative raw values is stored in a signed one-, two- or four-byte slot, and an array a shared generic body creates over it strides that slot like every other array. The array's record says the slot is signed, so every element the shared body reads comes out sign-extended: the value `-1` that goes in comes out as `-1` through `get`, `first`, `last`, `pop`, `remove`, `peek`, iteration, `clone` and the substituted type, and the signed arms of `insert`, `growFilled`, `refill` and `append` (of a constant literal and of a concrete array) store and read the same value at every width. The extension has to happen inside the shared body: a `Map` and a `Set` keyed by the enum find a key they inserted and iterate the keys they hold only because `Map.findSlot`'s `existing == key` compares the key it reads out of the column, sign-extended, with the key the caller passes; zero-extended, the stored `-1` would read `255` and no inserted key would be found.
@@ -636,7 +631,6 @@ enum Big
 end 'Big'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -902,7 +896,6 @@ big appended onto concrete count 3 sum 70000
 ```
 
 <!-- test: a-generic-born-array-of-records-stays-pointer-strided -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 An element that is a record is stored in an array as a pointer, so a `Bag` of `String` or of a struct creates its array at the machine word, as the same array created in a concrete body does. Elements move through `push`, `get`, `clone`, `slice` and iteration, and the records are released once.
 ```maxon
@@ -918,7 +911,6 @@ type Stamp
 end 'Stamp'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

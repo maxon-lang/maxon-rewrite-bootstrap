@@ -3375,7 +3375,6 @@ end 'main'
 ```
 
 <!-- test: an-adoption-in-a-generic-method-that-stops-at-a-drop-keeps-a-later-write-visible -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic method whose body, read without its type arguments, stops at the drop of a local it may not own still stores its argument.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3383,7 +3382,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Shelf uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	var items as IntArray
 	var flagged as bool
@@ -3392,23 +3390,23 @@ type Shelf uses T
 		return Self{items: IntArray.create(0), flagged: false}
 	end 'create'
 
-	function adopt(fresh IntArray, scratchy bool)
+	function adopt(mutates self, fresh IntArray, scratchy bool)
 		if scratchy 'scratch'
 			let scratch = TArray.create(0)
 			if scratch.isEmpty() 'empty'
 				self.flagged = true
 			end 'empty'
 		end 'scratch'
-		self.items = fresh
+		self.items = fresh.clone()
 	end 'adopt'
 
 	static function filled(fresh IntArray) returns Self
-		let made = Self.create()
+		var made = Self.create()
 		made.adopt(fresh, scratchy: false)
 		return made
 	end 'filled'
 
-	function grow()
+	function grow(mutates self)
 		self.items.push(1)
 	end 'grow'
 end 'Shelf'
@@ -3416,7 +3414,7 @@ end 'Shelf'
 typealias IntShelf = Shelf with Integer
 
 function grown(target IntArray) returns Integer
-	let shelf = IntShelf.filled(target)
+	var shelf = IntShelf.filled(target)
 	shelf.grow()
 	return 1
 end 'grown'
@@ -3957,7 +3955,6 @@ error E3064: <fragment>:25:2: result of pure function 'firstWordEnd' must be use
 
 <!-- test: error.a-static-of-a-generic-type-that-moves-a-local-cursor-is-pure -->
 <!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `Probe.move` is a static of a generic type that seeks the cursor it is handed, and `head` hands it a cursor it created itself, so `head` is pure and dropping its result is E3064.
@@ -3967,7 +3964,6 @@ typealias Count = int(0 to 1000)
 typealias Counts = Array with Count
 
 type Probe uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cursor = __ManagedMemoryCursor with Element
 
 	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
@@ -3997,7 +3993,6 @@ error E3064: <fragment>:24:2: result of pure function 'head' must be used
 
 <!-- test: error.a-generic-holder-that-moves-its-own-cursor-through-a-static-is-pure -->
 <!-- skip: 'to' is a keyword in minimaxon and cannot be used as a name; rename it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 `Walker.rewind` moves the cursor it holds through a static of a generic type, and `first` builds its own `Walker`, so `first` is pure and dropping its result is E3064.
@@ -4007,7 +4002,6 @@ typealias Count = int(0 to 1000)
 typealias Counts = Array with Count
 
 type Probe uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cursor = __ManagedMemoryCursor with Element
 
 	// TODO: 'to' is a keyword in minimaxon and cannot be used as a name; rename it
@@ -4017,11 +4011,8 @@ type Probe uses Element
 end 'Probe'
 
 type Walker uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Mover = Probe with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Memory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cursor = __ManagedMemoryCursor with Element
 	var cursor as Cursor
 
@@ -4058,7 +4049,6 @@ error E3064: <fragment>:44:2: result of pure function 'first' must be used
 ```
 
 <!-- test: error.a-static-of-a-generic-type-that-clears-a-local-array-is-pure -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Probe.empty` clears the array it is handed, and `head` hands it an array it built itself, so `head` is pure and dropping its result is E3064 although `Probe` is generic and `empty` does not return its own instance.
 ```maxon
@@ -4067,7 +4057,6 @@ typealias Count = int(0 to 1000)
 typealias Counts = Array with Count
 
 type Probe uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 
 	static function empty(items Items)

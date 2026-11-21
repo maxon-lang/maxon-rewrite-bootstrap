@@ -371,7 +371,6 @@ end 'main'
 ```
 
 <!-- test: sizeof.through-a-Self-typed-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ### A `Self`-typed PARAMETER is a value of the enclosing type, and the descriptor forwards to it
 
@@ -387,7 +386,6 @@ typealias Int = int(i64.min to i64.max)
 typealias IntBag = Bag with Int
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -571,7 +569,6 @@ end 'main'
 A sibling call forwards the whole descriptor, and a nested instance over a run of the caller's parameters forwards the block the run begins at.
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-forwarded-descriptors -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
@@ -591,7 +588,6 @@ type Probe uses A, B
 end 'Probe'
 
 type Holder uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Straight = Probe with (T, U)
 	var straight as Straight
 
@@ -632,7 +628,6 @@ end 'main'
 
 <!-- test: sizeof-of-a-two-parameter-generic-through-a-permutation-a-closure-and-a-static -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 255)
@@ -652,7 +647,6 @@ type Probe uses A, B
 end 'Probe'
 
 type Holder uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Swapped = Probe with (U, T)
 	var swapped as Swapped
 
@@ -695,7 +689,6 @@ end 'main'
 ### `sizeof` read by a call chained on a method's result
 
 <!-- test: sizeof-read-through-a-call-chained-on-a-result -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 65535)
@@ -714,7 +707,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Inner with T
 	var held as Held
 
@@ -750,7 +742,6 @@ end 'main'
 ```
 
 <!-- test: sizeof-read-through-a-methods-result -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 type Left uses A
@@ -780,9 +771,7 @@ type Right uses B
 end 'Right'
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias L = Left with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias R = Right with T
 	var n as Count
 
@@ -800,7 +789,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Inner with T
 	var inner as Held
 

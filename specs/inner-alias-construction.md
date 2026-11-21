@@ -29,14 +29,12 @@ inside `Plain`. This is the case that settles that the rule is about the alias's
 about genericity.
 
 <!-- test: nongeneric-inner-array-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Array with ExitCode
 
 	static function make() returns Count
@@ -65,14 +63,12 @@ with Element` inside `type Holder uses Element`, constructed by `Holder`'s own `
 OPAQUE-element array `ElementArray.create(0)` builds, so it resizes and counts exactly as that one does.
 
 <!-- test: generic-inner-array-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -109,14 +105,12 @@ and then moved into the struct's field, whose destructor frees the String once. 
 UNOWNED record would leak the String (exit 101); one that produced two owners would double-free.
 
 <!-- test: managed-element-inner-array-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Bag
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Names = Array with String
 	export var names as Names
 
@@ -157,7 +151,6 @@ names a cure owes a case that takes it"*. So the surface is one spelling over, t
 the author to write.
 
 <!-- test: error.inner-set-alias-literal-keeps-e3076 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -165,7 +158,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max)
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Set with ExitCode
 
 	static function make() returns Count
@@ -195,14 +187,12 @@ a roster that admitted one and not the other is what let a `Set` inner alias's `
 type `unknown` instead of a set.
 
 <!-- test: inner-set-alias-create -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Set with ExitCode
 
 	static function make() returns Count
@@ -232,14 +222,12 @@ constructs itself with `Self{}`, whose every field is defaulted.
 
 <!-- test: self-literal-beside-an-inner-alias -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Array with ExitCode
 	export var seed = 0 as Seed
 
@@ -277,12 +265,10 @@ declaring `typealias Holder = …` still means the TYPE at `returns Holder` — 
 as `Holder`) must build the same thing, or one declaration would denote two types in one body.
 
 <!-- test: an-inner-alias-shadowing-its-own-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Holder = Array with ExitCode
 	export var seed as ExitCode
 
@@ -335,7 +321,6 @@ The widening is about the body that DECLARES the alias. `Other` did not declare 
 construct it.
 
 <!-- test: another-types-inner-alias-is-restricted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -343,7 +328,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max)
 
 type Owner
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Array with ExitCode
 
 	static function own() returns Count
@@ -377,7 +361,6 @@ error E3076: <fragment>:16:16: type 'Nums' can only be constructed from within i
 The same rule from outside every type body.
 
 <!-- test: free-function-inner-alias-is-restricted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -385,7 +368,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max)
 
 type Owner
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Array with ExitCode
 
 	static function own() returns Count
@@ -416,8 +398,6 @@ here `IntPair.create(…)` — is real. The widening does not reach it: only the
 outside the declaring type may mint.
 
 <!-- test: user-generic-inner-alias-keeps-e3076 -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -430,7 +410,6 @@ type Pair uses T
 end 'Pair'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias IntPair = Pair with ExitCode
 
 	static function make() returns ExitCode
@@ -457,20 +436,18 @@ write it. The cure E3076 names must produce a value of the alias's type — a va
 the cure free to fail one door over with nothing running it.
 
 <!-- test: user-generic-inner-alias-create-is-the-cure -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Pair uses T
 	export var a as T
 
-	static function create(a T) returns Self
+	static function create(consumes a T) returns Self
 		return Self{a: a}
 	end 'create'
 end 'Pair'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias IntPair = Pair with ExitCode
 
 	static function make() returns ExitCode
@@ -494,14 +471,13 @@ The alias's argument is a name in the declaring type's `uses` list, so `Wrap.Ite
 makes `Array with T` work), and the STATIC CALL door reads the alias back under its whole-program key.
 
 <!-- test: generic-body-user-generic-inner-alias-create -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Holder uses Held
 	let value as Held
 
-	static function create(value Held) returns Self
+	static function create(consumes value Held) returns Self
 		return Self{value: value}
 	end 'create'
 
@@ -511,11 +487,10 @@ type Holder uses Held
 end 'Holder'
 
 type Wrap uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ItemHolder = Holder with Item
 	var seed as Item
 
-	static function create(seed Item) returns Self
+	static function create(consumes seed Item) returns Self
 		return Self{seed: seed}
 	end 'create'
 
@@ -608,12 +583,12 @@ splits to the prefix `Plain.IntPair` — a real `genericAliases` key — whose b
 alias `Pair.Idx` is found. The program answers **4**.
 
 <!-- test: user-generic-inner-alias-create-carries-per-instance-identity -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Pair uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 100)
 	export var a as T
 
@@ -631,7 +606,6 @@ type Pair uses T
 end 'Pair'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias IntPair = Pair with ExitCode
 
 	static function make() returns ExitCode
@@ -652,24 +626,22 @@ end 'main'
 ### A static factory's result is checked as its own type
 
 <!-- test: a-static-factory-result-is-checked-as-its-own-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	export var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
-	function wrapAgain(u T) returns Self
+	function wrapAgain(consumes u T) returns Self
 		return Self{t: u}
 	end 'wrapAgain'
 end 'Box'
 
 type Pair uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias BoxB = Box with B
 	var a as A
 	var b as B
@@ -711,14 +683,13 @@ GLOBALLY would refuse `type Other`'s own constructor with `E3018: Type 'Other' h
 declaration the alias is not even in scope for.
 
 <!-- test: inner-alias-shadowing-another-type-wins-at-the-static-door -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Pair uses T
 	export var a as T
 
-	static function create(a T) returns Self
+	static function create(consumes a T) returns Self
 		return Self{a: a}
 	end 'create'
 end 'Pair'
@@ -732,7 +703,6 @@ type Other
 end 'Other'
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Other = Pair with ExitCode
 
 	static function make() returns ExitCode
@@ -757,7 +727,6 @@ at `Holder.create()`, so the call reaches `Holder`'s own static and not `Pair`'s
 `an-inner-alias-shadowing-its-own-type` one heading up.
 
 <!-- test: an-inner-alias-shadowing-its-own-types-static -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -770,7 +739,6 @@ type Pair uses T
 end 'Pair'
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Holder = Pair with ExitCode
 	export var seed as ExitCode
 
@@ -793,7 +761,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-alias-shadowing-its-own-type-loses-IN-BODY-too -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The companion above calls from `main`, where `enclosingInnerAliases` is EMPTY — so the inner-alias door
 cannot fire there and the case cannot distinguish "the type won" from "the alias was never consulted".
 This one calls from INSIDE `Holder`'s own body, where the alias IS in scope, and is built so the two
@@ -813,7 +780,6 @@ type Pair uses T
 end 'Pair'
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Holder = Pair with ExitCode
 	export var seed as ExitCode
 
@@ -842,13 +808,10 @@ is rather than by E3076, whose cure (`Idx.create(…)`) does not exist for a num
 names the cure instead.
 
 <!-- test: ranged-inner-alias-has-nothing-to-construct -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 10)
 
 	static function make() returns Idx
@@ -875,7 +838,6 @@ error E2015: <fragment>:8:11: Unsupported: a struct literal naming `Idx`, a rang
 between the braces is refused where it stands rather than checked against a layout that does not exist.
 
 <!-- test: written-field-on-a-container-alias-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
@@ -883,7 +845,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max)
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Nums = Array with ExitCode
 
 	static function make() returns Count
@@ -913,14 +874,12 @@ its `create()` twin share one producer, and each is pinned.
 
 <!-- test: opaque-inner-alias-in-a-closure-is-constructed -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -954,14 +913,12 @@ end 'main'
 
 <!-- test: opaque-inner-alias-create-in-a-closure-is-constructed -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1054,7 +1011,7 @@ static call and in `<Alias> from [...]`. Each refusal below is the one the same 
 file-scope alias beside it.
 
 <!-- test: error.an-inner-alias-shadows-a-file-scope-alias-at-the-static-door -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 99)
@@ -1062,7 +1019,6 @@ typealias Wide = int(0 to 99)
 typealias Items = Array with Wide
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = int(0 to 9)
 	export var n as Items
 
@@ -1088,11 +1044,9 @@ error E3004: <fragment>:15:20: call to undefined function 'Plain.Items.create'
 ```
 
 <!-- test: error.an-inner-ranged-alias-has-no-static-create -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = int(0 to 9)
 	export var n as Items
 
@@ -1116,7 +1070,6 @@ error E3004: <fragment>:12:20: call to undefined function 'Plain.Items.create'
 ```
 
 <!-- test: error.an-inner-alias-shadows-a-file-scope-alias-at-the-from-door -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 99)
@@ -1124,7 +1077,6 @@ typealias Wide = int(0 to 99)
 typealias Items = Array with Wide
 
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = int(0 to 9)
 	export var n as Items
 
@@ -1150,11 +1102,9 @@ error E2004: <fragment>:15:14: Undefined variable 'Items'
 ```
 
 <!-- test: error.an-inner-ranged-alias-takes-no-from -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Plain
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = int(0 to 9)
 	export var n as Items
 

@@ -170,7 +170,6 @@ cloned
 
 <!-- test: error.the-suppression-may-not-read-a-weaker-index-than-the-report -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ### A `where` clause satisfied by an EXTENSION still refuses the copy gate
@@ -236,7 +235,6 @@ extension Handle implements Sizer
 end 'Handle'
 
 type Container uses Element where Element implements Sizer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 

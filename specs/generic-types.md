@@ -771,7 +771,6 @@ end 'main'
 ```
 
 <!-- test: reassign-managed-opaque-field-reached-through-a-declaration-view -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 No `with` in the program names `Box with String`: `Box` is instantiated only as `Outer`'s `Box with T`, and
 `Outer with String` is what makes that a `Box with String`. The shared `replace` still drops the old String,
 because an instance written over another type's parameter stands for every instantiation of that parameter.
@@ -780,21 +779,20 @@ Leak-free under `__mm_free` poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Box with T
 	export var inner as Inner
 
-	static function create(first T) returns Self
+	static function create(consumes first T) returns Self
 		return Self{inner: Inner.create(first)}
 	end 'create'
 end 'Outer'
@@ -802,7 +800,7 @@ end 'Outer'
 typealias OuterStr = Outer with String
 
 function main() returns ExitCode
-	let o = OuterStr.create("alpha")
+	var o = OuterStr.create("alpha")
 	o.inner.replace("beta")
 	return 0
 end 'main'
@@ -812,7 +810,6 @@ end 'main'
 ```
 
 <!-- test: reassign-managed-opaque-fields-around-an-odd-ring-of-flipped-declaration-views -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Three generics name each other in a ring at `(B, A)`, and the ring closes after an odd number of flips, so
 `main`'s one `with (String, Tally)` makes every parameter of every member a `String` through the declaration
 views. Each shared `replace` drops the old `String` of both fields. Leak-free under `__mm_free` poisoning.
@@ -824,16 +821,15 @@ function label(tag String, n Tally) returns String
 end 'label'
 
 type OddRingA uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = OddRingB with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -844,16 +840,15 @@ type OddRingA uses A, B
 end 'OddRingA'
 
 type OddRingB uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = OddRingC with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -864,16 +859,15 @@ type OddRingB uses A, B
 end 'OddRingB'
 
 type OddRingC uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = OddRingA with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -886,17 +880,17 @@ end 'OddRingC'
 typealias OddStart = OddRingA with (String, Tally)
 
 function main() returns ExitCode
-	let a = OddStart.create(label("a", n: 1), second: 1)
+	var a = OddStart.create(label("a", n: 1), second: 1)
 	a.replace(label("a", n: 2), b: 2)
-	let b = a.turn()
+	var b = a.turn()
 	b.replace(3, b: label("b", n: 3))
-	let c = b.turn()
+	var c = b.turn()
 	c.replace(label("c", n: 4), b: 4)
-	let d = c.turn()
+	var d = c.turn()
 	d.replace(5, b: label("d", n: 5))
-	let e = d.turn()
+	var e = d.turn()
 	e.replace(label("e", n: 6), b: 6)
-	let f = e.turn()
+	var f = e.turn()
 	f.replace(7, b: label("f", n: 7))
 	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second}\n")
 	print("{d.first} {d.second} {e.first} {e.second} {f.first} {f.second}\n")
@@ -912,23 +906,21 @@ a-2 2 3 b-3 c-4 4
 ```
 
 <!-- test: reassign-scalar-opaque-fields-around-an-odd-ring-of-flipped-declaration-views -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same odd ring entered only at `(Tally, Tally)`: no parameter of any member receives a managed type, so each
 shared `replace` stores the new integers and drops nothing.
 ```maxon
 typealias Tally = int(0 to 1000)
 
 type ScalarRingA uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = ScalarRingB with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -939,16 +931,15 @@ type ScalarRingA uses A, B
 end 'ScalarRingA'
 
 type ScalarRingB uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = ScalarRingC with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -959,16 +950,15 @@ type ScalarRingB uses A, B
 end 'ScalarRingB'
 
 type ScalarRingC uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = ScalarRingA with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -981,13 +971,13 @@ end 'ScalarRingC'
 typealias ScalarStart = ScalarRingA with (Tally, Tally)
 
 function main() returns ExitCode
-	let a = ScalarStart.create(1, second: 2)
+	var a = ScalarStart.create(1, second: 2)
 	a.replace(10, b: 20)
-	let b = a.turn()
+	var b = a.turn()
 	b.replace(30, b: 40)
-	let c = b.turn()
+	var c = b.turn()
 	c.replace(50, b: 60)
-	let d = c.turn()
+	var d = c.turn()
 	d.replace(70, b: 80)
 	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second} {d.first} {d.second}\n")
 	return 0
@@ -1001,7 +991,6 @@ end 'main'
 ```
 
 <!-- test: reassign-opaque-fields-around-an-even-ring-of-flipped-declaration-views -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Two generics name each other at `(B, A)`, so the ring closes after an even number of flips and its parameters
 split into two cycles: `EvenRingA`'s `A` with `EvenRingB`'s `B`, which `main`'s `with (String, Tally)` makes a
 `String`, and `EvenRingA`'s `B` with `EvenRingB`'s `A`, which only ever hold a `Tally`. Each shared `replace`
@@ -1014,16 +1003,15 @@ function evenLabel(tag String, n Tally) returns String
 end 'evenLabel'
 
 type EvenRingA uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = EvenRingB with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -1034,16 +1022,15 @@ type EvenRingA uses A, B
 end 'EvenRingA'
 
 type EvenRingB uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = EvenRingA with (B, A)
 	var first as A
 	var second as B
 
-	static function create(first A, second B) returns Self
+	static function create(consumes first A, consumes second B) returns Self
 		return Self{first: first, second: second}
 	end 'create'
 
-	function replace(a A, b B)
+	function replace(mutates self, consumes a A, consumes b B)
 		self.first = a
 		self.second = b
 	end 'replace'
@@ -1056,11 +1043,11 @@ end 'EvenRingB'
 typealias EvenStart = EvenRingA with (String, Tally)
 
 function main() returns ExitCode
-	let a = EvenStart.create(evenLabel("a", n: 1), second: 1)
+	var a = EvenStart.create(evenLabel("a", n: 1), second: 1)
 	a.replace(evenLabel("a", n: 2), b: 2)
-	let b = a.turn()
+	var b = a.turn()
 	b.replace(3, b: evenLabel("b", n: 3))
-	let c = b.turn()
+	var c = b.turn()
 	c.replace(evenLabel("c", n: 4), b: 4)
 	print("{a.first} {a.second} {b.first} {b.second} {c.first} {c.second}\n")
 	return 0
@@ -1074,7 +1061,6 @@ a-2 2 3 b-3 c-4 4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-outer-first-alias-last -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Outer`'s `P` has two rows, `Outer with Q` written inside `Inner` and `Outer with String` named by the program,
 and `Inner`'s `Q` has one, `Inner with P` written inside `Outer`. So `Q` reaches `String` only back through `P`,
 and `Inner`'s shared `replace` still drops the old `String` it holds. Leak-free under `__mm_free` poisoning.
@@ -1086,35 +1072,33 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 type CutOuterA uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerA with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterA'
 
 type CutInnerA uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterA with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerA'
@@ -1122,9 +1106,9 @@ end 'CutInnerA'
 typealias CutStrA = CutOuterA with String
 
 function main() returns ExitCode
-	let o = CutStrA.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrA.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1139,7 +1123,6 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-inner-first-alias-last -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same program with `Inner` declared before `Outer`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -1149,34 +1132,32 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 type CutInnerB uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterB with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerB'
 
 type CutOuterB uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerB with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
@@ -1185,9 +1166,9 @@ end 'CutOuterB'
 typealias CutStrB = CutOuterB with String
 
 function main() returns ExitCode
-	let o = CutStrB.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrB.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1202,7 +1183,6 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-alias-first-outer-first -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same program with `Outer with String` named before either generic, so `P`'s concrete row comes before its
 row through `Inner`.
 ```maxon
@@ -1215,43 +1195,41 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 type CutOuterC uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerC with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterC'
 
 type CutInnerC uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterC with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerC'
 
 function main() returns ExitCode
-	let o = CutStrC.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrC.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1266,7 +1244,6 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-alias-first-inner-first -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same program with `Outer with String` named first and `Inner` declared before `Outer`.
 ```maxon
 typealias Tally = int(0 to 1000)
@@ -1278,43 +1255,41 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 type CutInnerD uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterD with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerD'
 
 type CutOuterD uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerD with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterD'
 
 function main() returns ExitCode
-	let o = CutStrD.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrD.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1329,41 +1304,38 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-instantiated-by-another-file-generics-first -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The cut shape with `Outer with String` and `main` in a second file: the generics' file names no instance at
 `String`, so the drops in its shared bodies come from the whole program's instantiations.
 ```maxon
 // --- file: a_generics.maxon
 type CutOuterE uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerE with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterE'
 
 type CutInnerE uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterE with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerE'
@@ -1377,9 +1349,9 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 function main() returns ExitCode
-	let o = CutStrE.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrE.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1394,7 +1366,6 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-instantiated-by-another-file-use-first -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same program with the file naming `Outer with String` first: the drops in the generics' shared bodies are
 the same whichever file is read first.
 ```maxon
@@ -1408,9 +1379,9 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 function main() returns ExitCode
-	let o = CutStrF.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
+	var o = CutStrF.create(cutLabel("a", n: 1), spare: cutLabel("s", n: 1))
 	o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2))
-	let up = o.below.lift(cutLabel("s", n: 3))
+	var up = o.below.lift(cutLabel("s", n: 3))
 	up.push(cutLabel("a", n: 3), spare: cutLabel("s", n: 4))
 	up.below.replace(cutLabel("a", n: 4))
 	print("{o.last} {o.below.held} {up.last} {up.below.held}\n")
@@ -1418,35 +1389,33 @@ function main() returns ExitCode
 end 'main'
 // --- file: b_generics.maxon
 type CutOuterF uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerF with P
 	var last as P
 	var below as Down
 
-	static function create(item P, spare P) returns Self
+	static function create(consumes item P, consumes spare P) returns Self
 		return Self{last: spare, below: Down.create(item)}
 	end 'create'
 
-	function push(next P, spare P)
+	function push(mutates self, consumes next P, consumes spare P)
 		self.last = spare
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterF'
 
 type CutInnerF uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterF with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
-	function lift(spare Q) returns Up
+	function lift(consumes spare Q) returns Up
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerF'
@@ -1459,7 +1428,6 @@ s-2 a-2 s-4 a-4
 ```
 
 <!-- test: reassign-opaque-field-whose-parameter-closes-on-a-cut-reached-only-from-a-shared-body -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `CutOuterW` holds no `CutInnerW`: it names `CutInnerW with P` only inside its shared `push`, and `CutInnerW` names
 `CutOuterW with Q` back. So `Q` receives a `String` only through `P`, whose own arguments include `Q` again.
 `CutOuterW with String` still makes `Q` a `String`, so the shared `replace` drops the `String` it displaces.
@@ -1472,32 +1440,30 @@ function cutLabel(tag String, n Tally) returns String
 end 'cutLabel'
 
 type CutOuterW uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Down = CutInnerW with P
 	var last as P
 
-	static function create(spare P) returns Self
+	static function create(consumes spare P) returns Self
 		return Self{last: spare}
 	end 'create'
 
-	function push(next P, spare P, extra P) returns P
+	function push(mutates self, consumes next P, consumes spare P, consumes extra P) returns P
 		self.last = spare
-		let d = Down.create(next)
+		var d = Down.create(next)
 		d.replace(extra)
 		return d.take()
 	end 'push'
 end 'CutOuterW'
 
 type CutInnerW uses Q
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Up = CutOuterW with Q
 	var held as Q
 
-	static function create(item Q) returns Self
+	static function create(consumes item Q) returns Self
 		return Self{held: item}
 	end 'create'
 
-	function replace(next Q)
+	function replace(mutates self, consumes next Q)
 		self.held = next
 	end 'replace'
 
@@ -1513,7 +1479,7 @@ end 'CutInnerW'
 typealias CutStrW = CutOuterW with String
 
 function main() returns ExitCode
-	let o = CutStrW.create(cutLabel("s", n: 1))
+	var o = CutStrW.create(cutLabel("s", n: 1))
 	let got = o.push(cutLabel("a", n: 2), spare: cutLabel("s", n: 2), extra: cutLabel("x", n: 2))
 	print("{o.last} {got}\n")
 	return 0
@@ -2803,7 +2769,7 @@ refused
 ```
 
 <!-- test: per-instance-alias-decays-at-a-type-parameter-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ⭐ **A PER-INSTANCE alias argument DECAYS at a bare `T` parameter, exactly as it does everywhere else.**
 `WA.Idx` is a nominal identity only against another per-instance alias; met by a target that is
 not one — here `T` bound to the ranged alias `Integer`, whose type-argument identity is deliberately
@@ -2818,7 +2784,7 @@ pinned here so the two cannot answer differently.
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -3772,7 +3738,7 @@ end 'main'
 ```
 
 <!-- test: error.per-instance-alias-actual-at-opaque-formal -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 The OTHER value door out of the same check, and the one the two float tests above do not reach: a
 per-instance alias actual (`IntWrapper.Idx` — a nominal wrapper over a plain `int`) meeting a
@@ -3797,7 +3763,7 @@ type Leaf
 end 'Leaf'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -5410,7 +5376,6 @@ ok=11 err=1
 ```
 
 <!-- test: error.a-type-parameter-belongs-to-the-type-that-declares-it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ⭐⭐ **`Array with U` IN ONE GENERIC TYPE AND `Array with V` IN ANOTHER ARE TWO TYPES, AND A DIAGNOSTIC
 MUST SAY WHICH.** A `typeParameter` is identified by a digest of `(declaring type, parameter name)`
@@ -5450,7 +5415,6 @@ typealias Nums = Array with Num
 typealias Strs = Array with String
 
 type HoldA uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with U
 	export var items as Items
 
@@ -5466,7 +5430,6 @@ type HoldA uses U
 end 'HoldA'
 
 type HoldB uses V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with V
 	export var items as Items
 
@@ -5494,7 +5457,6 @@ error E3005: <fragment>:40:11: argument type mismatch for 'other': expected 'Num
 ```
 
 <!-- test: error.a-type-parameter-belongs-to-the-type-that-declares-it-swapped -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The RED-GATE CONTROL of the case above: the same program with the two type declarations exchanged, and
 the same pinned sentence, to the byte. `HoldA` is 14 lines and `HoldB` is 10 either way, so
@@ -5508,7 +5470,6 @@ typealias Nums = Array with Num
 typealias Strs = Array with String
 
 type HoldB uses V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with V
 	export var items as Items
 
@@ -5520,7 +5481,6 @@ type HoldB uses V
 end 'HoldB'
 
 type HoldA uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with U
 	export var items as Items
 
@@ -5552,7 +5512,6 @@ error E3005: <fragment>:40:11: argument type mismatch for 'other': expected 'Num
 ```
 
 <!-- test: an-inner-alias-field-crosses-into-a-parameter-of-its-own-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE LEGAL COUNTERPART OF THE PAIR ABOVE.** The two cases above pin that
 `HoldA`'s `Items` and `HoldB`'s `Items` are DIFFERENT types and a diagnostic must say which. This one pins
 the other half of that sentence: **`HoldA`'s `Items` and `HoldA`'s `Items` are the SAME type**, so a value
@@ -5571,7 +5530,6 @@ ownership-legal and the question is purely one of substitution.
 typealias Num = int(i64.min to i64.max)
 
 type HoldA uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	export var items as Items
 
@@ -5685,8 +5643,6 @@ them `error.` cases whose own subject it masks; separating the sound instances f
 instantiation fold this rule deliberately does without.
 
 <!-- test: error.opaque-type-parameter-at-a-concrete-aggregate-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5704,7 +5660,6 @@ type Inner uses P
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias I = Inner with T
 	var n as Integer
 
@@ -5766,8 +5721,6 @@ error E3005: <fragment>:12:10: argument type mismatch for 's': expected 'String'
 ```
 
 <!-- test: error.opaque-type-parameter-at-a-concrete-aggregate-argument-is-refused-at-a-matching-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ⭐ **THE CONTROL, AND IT IS A REFUSAL.** The first case's program with its ONE instantiation changed to
 `Outer with String`, so `T` is bound to exactly the type the formal declares — without this rule it would
 compile and print `3`. It is refused, for the reason the section above gives: the body is checked once,
@@ -5790,7 +5743,6 @@ type Inner uses P
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias I = Inner with T
 	var n as Integer
 
@@ -5952,7 +5904,6 @@ error E3005: <fragment>:24:10: argument type mismatch for 'v': expected 'type pa
 ```
 
 <!-- test: error.a-nested-datatype-is-refused-rather-than-instantiated-forever -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -5967,9 +5918,7 @@ type Pair uses A, B
 end 'Pair'
 
 type Nest uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Deeper = Nest with Doubled
 	export var v as T
 	var deeper as Deeper
@@ -5994,7 +5943,6 @@ error E3184: <fragment>:18:16: field 'deeper' of generic type 'Nest' is declared
 ```
 
 <!-- test: error.a-wrong-arity-instance-inside-a-field-reports-the-arity-error -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Pair uses A, B
@@ -6007,15 +5955,12 @@ type Box uses V
 end 'Box'
 
 type Cell uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias PairU = Pair with U
 	export var p as PairU
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxT = Box with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CellBox = Cell with BoxT
 	export var c as CellBox
 end 'Holder'
@@ -6029,8 +5974,6 @@ error E2056: <fragment>:10:20: generic type 'Pair' expects 2 type argument(s), b
 ```
 
 <!-- test: error.a-wrong-arity-alias-in-a-type-reports-the-arity-error-instead-of-panicking -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 `Bad` gives `Pair` one type argument for its two parameters. The alias is refused where it is written, and a function
 that returns it is a consequence of that refusal: the compiler reports E2056 and does not build an instance of `Pair`
 with one argument.
@@ -6041,7 +5984,6 @@ type Pair uses A, B
 end 'Pair'
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bad = Pair with ExitCode
 
 	static function create() returns Bad
@@ -6059,8 +6001,6 @@ error E2056: <fragment>:8:18: generic type 'Pair' expects 2 type argument(s), bu
 ```
 
 <!-- test: error.a-wrong-arity-alias-field-read-reports-only-the-arity-error -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 A field read of a value whose type is the refused alias is a consequence of the same E2056: the compiler reports it
 alone and does not add that the base type is not declared.
 ```maxon
@@ -6070,7 +6010,6 @@ type Pair uses A, B
 end 'Pair'
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bad = Pair with ExitCode
 
 	static function create() returns Bad
@@ -6117,7 +6056,6 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 <!-- test: error.a-wrong-arity-extension-alias-every-conformer-overrides-still-reports-the-arity-error -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface extension's alias is refused for its arity where it is written, even when every conformer declares its
 own member of that name and so the extension's alias is never what a conformer reads.
@@ -6140,7 +6078,6 @@ extension Container
 end 'Container'
 
 type Bag implements Container with Integer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Pairs = Array with Integer
 	export var value as Integer
 
@@ -6270,7 +6207,6 @@ error E2056: <fragment>:7:17: generic type 'Pair' expects 2 type argument(s), bu
 
 <!-- test: a-nested-datatype-through-a-function-typed-field-compiles -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 public typealias Val = int(i64.min to i64.max)
 
@@ -6284,11 +6220,8 @@ public type Pair uses A, B
 end 'Pair'
 
 public type Nest uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Deeper = Nest with Doubled
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
@@ -6316,7 +6249,6 @@ end 'main'
 <!-- test: a-closure-is-accepted-by-a-function-type-over-a-nested-datatype -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -6330,11 +6262,8 @@ type Pair uses A, B
 end 'Pair'
 
 type Nest uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Deeper = Nest with Doubled
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
@@ -6358,12 +6287,10 @@ end 'main'
 ```
 
 <!-- test: an-array-literal-takes-its-element-type-from-a-static-call-through-a-generic-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Octet = int(0 to 255)
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 
 	static function first(items Items) returns T
@@ -6385,7 +6312,6 @@ end 'main'
 <!-- test: error.a-closure-over-a-nested-alias-of-an-unfixed-type-parameter-is-not-typed -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -6396,11 +6322,8 @@ type Pair uses A, B
 end 'Pair'
 
 type Nest uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Deeper = Nest with Doubled
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	export typealias Grow = function(Deeper) returns Val
 	export var v as T
@@ -6422,7 +6345,6 @@ error E2015: <fragment>:23:37: Unsupported: parameter '_' with no type — the c
 ```
 
 <!-- test: error.mutually-recursive-generics-growing-through-another-base -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -6433,16 +6355,13 @@ type Pair uses L, R
 end 'Pair'
 
 type A uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Next = B with Doubled
 	export var v as T
 	export var next as Next
 end 'A'
 
 type B uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Back = A with U
 	export var back as Back
 end 'B'
@@ -6462,7 +6381,6 @@ error E3184: <fragment>:14:21: field 'next' of generic type 'A' is declared 'A.N
 ```
 
 <!-- test: error.mutually-recursive-generics-growing-through-another-base-across-files -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: grows.maxon
@@ -6474,9 +6392,7 @@ export type Pair uses L, R
 end 'Pair'
 
 export type A uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Doubled = Pair with (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Next = B with Doubled
 	export var v as T
 	export var next as Next
@@ -6484,7 +6400,6 @@ end 'A'
 
 // --- file: main.maxon
 export type B uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Back = A with U
 	export var back as Back
 end 'B'
@@ -6539,13 +6454,11 @@ error E3102: <fragment>:16:26: use of moved value 'w': it is passed at two argum
 ```
 
 <!-- test: a-generic-factory-builds-two-records-from-one-managed-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Each record a generic factory builds from its `T` argument holds a reference of its own: dropping one record leaves
 the string the other holds readable, and the leak gate is clean.
 ```maxon
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function twice(v T) returns Peers
@@ -6798,7 +6711,6 @@ refused
 ```
 
 <!-- test: a-generic-factory-pushes-a-copy-of-a-type-parameter-argument-it-also-reassigns -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic factory that copies its `T` parameter into a local it reassigns and pushes the local into an array it builds owns neither the
 caller's cell nor a second reference to the pushed value: the caller's variable and the array each keep what
 they hold, and the leak gate is clean.
@@ -6811,7 +6723,6 @@ function longText(tag String) returns String
 end 'longText'
 
 type Hold uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with U
 	export var items as Items
 
@@ -6851,7 +6762,6 @@ kept payload long enough to allocate
 ```
 
 <!-- test: a-concrete-factory-pushes-a-string-argument-it-also-reassigns -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The concrete twin of the case above: a `mutable` `String` parameter that is reassigned and then pushed into an array the
 factory builds, with the caller's variable and the array each keeping what they hold.
 ```maxon
@@ -6863,7 +6773,6 @@ function longText(tag String) returns String
 end 'longText'
 
 type Hold
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with String
 	export var items as Items
 
@@ -6901,7 +6810,6 @@ kept payload long enough to allocate
 
 <!-- test: a-generic-factory-drops-an-argument-stored-on-only-some-paths-into-a-join -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic factory that stores `item` into a local record on one branch and goes on to the code both branches
 share drops it on the path that skipped the store, whether the factory then returns or throws. The same body over
 a `String` and over a promise leaks neither the string nor the promise's green thread.
@@ -6929,7 +6837,6 @@ end 'longText'
 type Holder uses T
 	public var slot as T
 	var origin as Whole
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pieces = Array with Self
 
 	static function create(item T, spare T, keep bool, refuse bool) returns Self throws KeepError
@@ -7466,7 +7373,6 @@ error E3141: <fragment>:15:22: a promise cannot be borrowed through 'item': it o
 
 <!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-twice -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A promise reaches a shared body only through a view: `Holder with U` inside `Outer uses U`, with `Holder` never
 written at a promise and no field of `Outer` holding one. Its factory storing the `T` argument twice is refused
@@ -7496,7 +7402,6 @@ type Holder uses T
 end 'Holder'
 
 type Outer uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with U
 	public var count as Whole
 
@@ -7521,7 +7426,6 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 
 <!-- test: error.a-factory-reached-through-a-declaration-view-of-a-promise-stores-its-argument-in-a-loop -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The loop twin of the case above: a `T` argument stored on every iteration is refused through the view with the
 sentence it gets when `Holder` is written at the promise.
@@ -7555,7 +7459,6 @@ type Holder uses T
 end 'Holder'
 
 type Outer uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with U
 	public var count as Whole
 
@@ -7579,7 +7482,6 @@ error E3102: <fragment>:19:23: use of moved value 'item': it was moved in an ear
 ```
 
 <!-- test: a-factory-reached-through-a-declaration-view-of-a-string-stores-its-argument-twice-and-in-a-loop -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same two factories reached through the same view at a `String` store their argument twice and on every
 iteration, as the bodies over a `String` do, and the leak gate is clean.
 ```maxon
@@ -7626,9 +7528,7 @@ type Looped uses T
 end 'Looped'
 
 type Outer uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias InnerTwice = Twice with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias InnerLooped = Looped with U
 	public var count as Whole
 
@@ -7656,7 +7556,6 @@ end 'main'
 
 <!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-stores-its-argument-twice -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A promise reaches a shared body only around a ring: `RingLeft` and `RingRight` name each other at `(V, U)`, and
 `Holder with U` inside `RingLeft` is a promise only because `main` names `RingRight` with the promise second.
@@ -7687,9 +7586,7 @@ type Holder uses T
 end 'Holder'
 
 type RingLeft uses U, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Across = RingRight with (V, U)
 	public var count as Whole
 
@@ -7704,7 +7601,6 @@ type RingLeft uses U, V
 end 'RingLeft'
 
 type RingRight uses U, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Across = RingLeft with (V, U)
 	public var count as Whole
 
@@ -7729,7 +7625,6 @@ error E3102: <fragment>:16:21: use of moved value 'item': its ownership moved to
 
 <!-- test: error.a-factory-reached-through-a-ring-of-flipped-declaration-views-of-a-promise-in-another-file-stores-its-argument-twice -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same ring with the promise named only in a second file: the generics' file names no promise, and the
 refusal still lands on the factory's second store.
@@ -7752,9 +7647,7 @@ type Holder uses T
 end 'Holder'
 
 type RingLeft uses U, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Across = RingRight with (V, U)
 	public var count as Whole
 
@@ -7769,7 +7662,6 @@ type RingLeft uses U, V
 end 'RingLeft'
 
 type RingRight uses U, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Across = RingLeft with (V, U)
 	public var count as Whole
 
@@ -7800,8 +7692,6 @@ error E3102: <fragment>:11:21: use of moved value 'item': its ownership moved to
 ```
 
 <!-- test: error.a-field-reaching-its-owner-through-a-held-container-nests-without-end -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 `Nest.kids` holds an array of `Nest` over a type built from `U`, which no value of `U` is stored in; the instances are laid out all the same, so the nesting never ends.
 
 ```maxon
@@ -7816,9 +7706,7 @@ type Cell uses T
 end 'Cell'
 
 type Nest uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Kid = Nest with (T, Cell with U)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Kids = Array with Kid
 	export let item as T
 	export let kids as Kids

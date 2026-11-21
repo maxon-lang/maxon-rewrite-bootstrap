@@ -1456,7 +1456,6 @@ typealias Integer = int(i64.min to i64.max)
 <!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-text-first -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1465,10 +1464,8 @@ typealias Integer = int(i64.min to i64.max)
 typealias Integer = int(i64.min to i64.max)
 
 type Sink uses K, T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, K)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns Pair
 	let make as Maker
@@ -1490,10 +1487,8 @@ type Sink uses K, T
 end 'Sink'
 
 type Top uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns (U, Integer)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias S = Sink with (Integer, U)
 	var sink as S
 
@@ -1537,7 +1532,6 @@ end 'main'
 <!-- test: tuple-of-a-type-parameter-returned-by-a-function-field-integer-first -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1546,10 +1540,8 @@ The same program with the `Integer` instance built first: a `String` tuple relea
 typealias Integer = int(i64.min to i64.max)
 
 type Sink uses K, T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, K)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns Pair
 	let make as Maker
@@ -1571,10 +1563,8 @@ type Sink uses K, T
 end 'Sink'
 
 type Top uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns (U, Integer)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias S = Sink with (Integer, U)
 	var sink as S
 

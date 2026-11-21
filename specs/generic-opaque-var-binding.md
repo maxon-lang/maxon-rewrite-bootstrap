@@ -370,7 +370,6 @@ stored 42 long enough for a heap record 1
 ### A consumed parameter bound to a `var`, pushed, and the `var` rebound
 
 <!-- test: consumed-parameter-bound-then-rebound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `var kept = item`, `items.push(item)`, then `kept = other`: the array owns the pushed `item`, the `var` released its own reference when it was rebound, and `other` is what comes back. The scalar instantiation is the one that crashed in `__mm_retain`.
 ```maxon
 type Pebble
@@ -383,7 +382,6 @@ type Pebble
 end 'Pebble'
 
 type Bag uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	var items as ItemArray
 
@@ -607,7 +605,6 @@ held 42 long enough for a heap record 1
 ### A match arm gives a field of a dying instance of another generic type
 
 <!-- test: match-arm-gives-a-field-of-a-dying-generic-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 One arm of a `match` expression gives the field of a temporary `Cell with Item`, another generic type instantiated at the enclosing type's own parameter, so the temporary is dropped at the arm's end and the merge has to take its own reference to what the field held. Both arms are taken at three instantiations; exit 0 is the leak gate.
 ```maxon
 type Pebble
@@ -615,28 +612,27 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
 type Cell uses T
 	var value as T
 
-	static function create(value T) returns Self
+	static function create(consumes value T) returns Self
 		return Self{value: value}
 	end 'create'
 end 'Cell'
 
 type Box uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemCell = Cell with Item
 	var stored as Item
 
-	static function create(stored Item) returns Self
+	static function create(consumes stored Item) returns Self
 		return Self{stored: stored}
 	end 'create'
 
-	function pick(v Item, which Count) returns Item
+	function pick(consumes v Item, which Count) returns Item
 		let chosen = match which 'arm'
 			0 gives ItemCell.create(v).value
 			default gives self.stored

@@ -363,7 +363,6 @@ error E3141: <fragment>:14:22: a promise cannot be borrowed through 'filter': it
 <!-- test: promise-typing.error.clone-a-generic-array-field-instantiated-with-a-promise -->
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic type's shared body copies an `Array with T` field without knowing what `T` is, so the copy is
 refused at the instantiation that makes `T` a promise, as every opaque-element copy is.
@@ -375,7 +374,6 @@ typealias IntPromise = Promise with Integer
 typealias IntPromiseBag = Bag with IntPromise
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	var items as TArray
 

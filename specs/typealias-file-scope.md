@@ -881,7 +881,7 @@ error E2012: a/<fragment>:4:11: Circular typealias dependency: B
 
 
 <!-- test: per-instance-alias-on-a-contested-generic-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 `W.Idx` is a PER-INSTANCE alias, whose identity is keyed on the instance-alias NAME — so on a `W` two
 files declare differently it asks the very question the file-less door refuses. The prefix is a source spelling and every caller resolving one has a reading file, so it is resolved as
 that file means it; the two callers that structurally cannot (the coercion authority, which is handed two
@@ -889,7 +889,7 @@ names, and the file-less type erasure) resolve as a stranger would.
 ```maxon
 // --- file: wrap/wrap.maxon
 export type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -991,7 +991,6 @@ end 'main'
 
 <!-- test: error.contested-generic-alias-at-the-opaque-copy-gate -->
 <!-- skip: byte string literals are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 The twin of the case above at the OTHER reader-free classifier: `typeSupportsDeepClone` carries the identical
@@ -1014,7 +1013,6 @@ the blame edge once, for every case it touches.
 ```maxon
 // --- file: acontainer/acontainer.maxon
 export type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -2735,7 +2733,6 @@ end 'main'
 ```
 
 <!-- test: error.a-hidden-alias-named-before-a-same-named-member-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A field written before its type's own nested `Idx` does not name that member — the body walk has not reached
 it — so it names the file-scope `Idx`, which another directory keeps unexported.
@@ -2751,7 +2748,6 @@ end 'otherIdx'
 // --- file: main.maxon
 type Holder
 	export let at as Idx
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 5)
 
 	static function make() returns Holder
@@ -2773,7 +2769,6 @@ error E3008: <fragment>:12:19: typealias 'Idx' is not exported
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An extension body names its type's nested function alias bare, and resolves it to that member even though
 another file keeps an unmarked alias of the same name.
 ```maxon
@@ -2788,7 +2783,6 @@ end 'otherStep'
 // --- file: holder/holder.maxon
 export type Holder
 	export let base as ExitCode
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(ExitCode) returns ExitCode
 

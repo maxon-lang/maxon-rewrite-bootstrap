@@ -34,7 +34,6 @@ a wrong answer and not merely a slower one.
 
 <!-- test: aggregate-argument-is-shared-not-copied -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -57,9 +56,7 @@ type Cell
 end 'Cell'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
@@ -99,7 +96,6 @@ end 'main'
 ### A `String` argument outlives the container the shared body read it from
 
 <!-- test: a-parameter-held-in-a-map-field-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A record stored under the type parameter in a `Map with (String, Value)` field is shared: writes through the record read back out show in the map.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -121,7 +117,6 @@ type Box
 end 'Box'
 
 type Held uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var values as ValueMap
 
@@ -160,7 +155,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-held-in-a-map-field-behind-a-sibling-call-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same store beside a sibling method that reads the same map.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -182,7 +176,6 @@ type Box
 end 'Box'
 
 type Held uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var values as ValueMap
 
@@ -228,7 +221,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-replaced-in-a-map-field-releases-the-old-record -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Replacing the stored record releases the old one exactly once, and the new one is the record read back out.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -250,7 +242,6 @@ type Box
 end 'Box'
 
 type Held uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var values as ValueMap
 
@@ -289,7 +280,6 @@ end 'main'
 ```
 
 <!-- test: a-parameter-read-out-of-a-map-field-by-a-generic-accessor-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same sharing through a second generic layer that holds the first and forwards to it.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -311,7 +301,6 @@ type Box
 end 'Box'
 
 type Held uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var values as ValueMap
 
@@ -329,7 +318,6 @@ type Held uses Value
 end 'Held'
 
 type Registry uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemHeld = Held with Item
 	var held as ItemHeld
 
@@ -369,7 +357,6 @@ end 'main'
 
 <!-- test: a-mixed-instance-snapshot-inside-a-generic-copies-like-the-concrete-one -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A snapshot cloned inside a generic body copies its records exactly as the same snapshot of a concrete instance does.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -394,9 +381,7 @@ type Box
 end 'Box'
 
 type Columns uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias XArray = Array with X
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias YArray = Array with Y
 	var xs as XArray
 	var ys as YArray
@@ -420,7 +405,6 @@ type Columns uses X, Y
 end 'Columns'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Mixed = Columns with (String, T)
 	var mixed as Mixed
 
@@ -469,7 +453,6 @@ generic 1
 
 <!-- test: error.an-aliased-array-argument-of-a-mixed-instance-snapshot-is-refused -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 An array type argument spelled through an alias is refused at a snapshot exactly as the inline spelling is.
 ```maxon
@@ -495,9 +478,7 @@ type Box
 end 'Box'
 
 type Columns uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias XArray = Array with X
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias YArray = Array with Y
 	var xs as XArray
 	var ys as YArray
@@ -521,9 +502,7 @@ type Columns uses X, Y
 end 'Columns'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Mixed = Columns with (String, TArray)
 	var mixed as Mixed
 
@@ -572,7 +551,6 @@ note: stdlib/Array.maxon:83:32: raised inside the library, on behalf of the cons
 <!-- test: a-closure-in-a-generic-method-stores-the-parameter-through-its-descriptor -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A closure inside a generic method stores a type-parameter value through the enclosing method's descriptor, so the stored record is the shared one.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -594,7 +572,6 @@ type Box
 end 'Box'
 
 type Held uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var values as ValueMap
 
@@ -620,7 +597,6 @@ function perform(action Action) returns bool
 end 'perform'
 
 type Registry uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemHeld = Held with Item
 	var held as ItemHeld
 
@@ -671,7 +647,6 @@ end 'main'
 <!-- test: a-closure-reading-a-parameter-out-of-a-generic-cell-keeps-it-alive -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A closure inside a generic method that reads a type-parameter field hands back the shared record, which stays alive and balanced across every call.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -693,7 +668,6 @@ type Box
 end 'Box'
 
 type Cell uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Source = function() returns T
 	var value as T
@@ -737,18 +711,13 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-type-reaching-itself-through-a-growing-argument-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 A generic type whose methods reach an instance of itself with a strictly growing type argument has no finite set of instances, and is refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Pair uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias AArray = Array with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BArray = Array with B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Pair with (A, BArray)
 	var firsts as AArray
 	var seconds as BArray
@@ -823,7 +792,6 @@ end 'main'
 ```
 
 <!-- test: a-record-over-the-enclosing-parameter-in-a-container-is-created-and-cloned -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A record built over the enclosing type's own parameter is pushed into a container, and a clone of that container keeps its own copy.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -838,9 +806,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -883,7 +849,6 @@ a heap string long enough to allocate 1 1
 ```
 
 <!-- test: a-record-over-the-enclosing-parameter-in-a-list-is-created-and-read -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same record kept in a `List` node reads back the value it was built with.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -902,9 +867,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Store = List with EBox
 	var items as Store
 
@@ -947,7 +910,6 @@ a heap string long enough to allocate 1
 ```
 
 <!-- test: a-record-over-the-enclosing-parameter-pushed-into-its-container-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A record read out of one container and pushed into another is shared by both, and the first container is unchanged.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -962,9 +924,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -1013,7 +973,6 @@ a heap string long enough to allocate 1 1
 ```
 
 <!-- test: a-record-over-the-enclosing-parameter-stashed-by-a-static-reached-from-an-instance-method-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A static reached from an instance method pushes the record into the instance's container, which grows to two.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1028,9 +987,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -1087,7 +1044,6 @@ a heap string long enough to allocate 1 1
 ```
 
 <!-- test: a-record-over-the-enclosing-parameter-wrapped-in-a-fresh-container-is-shared -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A record wrapped in a fresh container built inside the generic body is the same record the original container holds.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1102,9 +1058,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -1159,7 +1113,6 @@ a heap string long enough to allocate 1 1
 
 <!-- test: a-container-of-tuples-over-the-parameter-clones-its-records -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1179,12 +1132,9 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pairs = Array with Pair
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
@@ -1234,7 +1184,6 @@ end 'main'
 <!-- test: a-container-of-tuples-over-the-parameter-cloned-inside-a-closure-clones-its-records -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1254,12 +1203,9 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pairs = Array with Pair
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
@@ -1309,7 +1255,6 @@ end 'main'
 
 <!-- test: a-container-of-tuples-over-the-parameter-returned-releases-its-records -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1329,12 +1274,9 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pairs = Array with Pair
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
@@ -1382,7 +1324,6 @@ end 'main'
 ```
 
 <!-- test: a-container-literal-over-the-parameter-in-an-instance-method-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A container literal of records over the enclosing parameter is built in an instance method, which takes the descriptor from `self`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1397,9 +1338,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBoxArray = Array with EBox
 	var items as EBoxArray
 
@@ -1718,7 +1657,6 @@ word 6
 
 <!-- test: a-static-dropping-an-opaque-value-it-reads-releases-it-through-the-call-sites-descriptor -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 A closure in a static reads an opaque value and drops it. The static receives the descriptor from its call, and the closure releases the value through it.
 ```maxon
@@ -1737,9 +1675,7 @@ type Cell uses T
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Cell with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Inner, Int)
 	var one as Inner
@@ -1774,7 +1710,6 @@ end 'main'
 <!-- test: a-composed-container-cloned-in-a-closure-in-a-static-copies-through-the-call-sites-descriptor -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1794,12 +1729,9 @@ type Box
 end 'Box'
 
 type Holder uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (String, Value)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pairs = Array with Pair
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Copier = function() returns Pairs
 	var pairs as Pairs
@@ -1855,11 +1787,9 @@ end 'main'
 ```
 
 <!-- test: a-generic-types-own-name-literal-in-a-static-builds-like-self -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic type's own name, written as a literal in its `Self`-returning static, builds the record exactly as `Self{}` does, field defaults included.
 ```maxon
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items = TArray.create(0)
 
@@ -1935,11 +1865,9 @@ first payload long enough to allocate
 ```
 
 <!-- test: a-generic-types-own-name-static-call-in-its-body-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A static called by the generic type's own name inside its body is the same call as `Self.make()`.
 ```maxon
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items as TArray
 
@@ -1983,11 +1911,9 @@ end 'main'
 ```
 
 <!-- test: a-generic-types-own-name-local-literal-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A local bound to a literal spelled with the generic type's own name builds the record as `Self{…}` does.
 ```maxon
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items as TArray
 
@@ -2030,11 +1956,9 @@ end 'main'
 ```
 
 <!-- test: a-parameter-typed-by-the-generic-types-own-name-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A parameter typed by the generic type's own name is the same instance as `Self`, so its type-parameter elements can be read and stored.
 ```maxon
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items as TArray
 
@@ -2119,11 +2043,9 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-self-returning-static-built-from-an-array-element-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `Self`-returning static builds its own record from an element read out of an array of the type parameter.
 ```maxon
 type Cell uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var v as T
 
@@ -2160,11 +2082,9 @@ first payload long enough to allocate
 ```
 
 <!-- test: a-self-returning-static-built-from-a-for-element-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same record built from a `for` element.
 ```maxon
 type Cell uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var v as T
 
@@ -2204,11 +2124,9 @@ first payload long enough to allocate
 ```
 
 <!-- test: a-self-returning-static-built-from-a-local-bound-to-a-read-is-served -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same record built from a local bound to the element read.
 ```maxon
 type Cell uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var v as T
 
@@ -2913,7 +2831,6 @@ payload
 ```
 
 <!-- test: a-local-named-like-the-generic-type-is-not-the-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A parameter named like the generic type is a value, so `Bag.make()` inside the body is that value's method, not the type's static.
 ```maxon
 typealias Count = int(0 to 1000)
@@ -2931,7 +2848,6 @@ type Other
 end 'Other'
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items as TArray
 
@@ -2962,7 +2878,6 @@ end 'main'
 
 <!-- test: string-argument-outlives-its-source -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple return types are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -2974,9 +2889,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias Index = int(0 to u64.max) implements ElementIndex
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
@@ -3022,7 +2935,6 @@ end 'main'
 
 <!-- test: trivial-argument-takes-no-reference -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -3035,9 +2947,7 @@ typealias Index = int(0 to u64.max) implements ElementIndex
 typealias SmallInt = int(0 to 100)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Entry = (Element, Integer)
 	var items = EArray.create(0)
@@ -3476,7 +3386,6 @@ error E2015: <fragment>:7:42: Unsupported: a container's element type declared a
 
 
 <!-- test: error.a-generic-type-building-an-array-of-its-parameter-is-refused-at-an-interface-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A generic type that builds `Array with T` and is aliased over an interface is refused once, at the alias's type argument; the call that hands the alias's member a conformer adds no error.
 ```maxon
@@ -3495,7 +3404,6 @@ type Thing implements Named
 end 'Thing'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -3528,7 +3436,6 @@ error E2015: <fragment>:34:37: Unsupported: a container's element type declared 
 ```
 
 <!-- test: error.a-generic-type-building-an-array-of-its-parameter-is-refused-at-an-interface-factory-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same generic type reached through a factory call whose argument is held at an interface type: the type argument it would infer is the interface, and the call is refused once.
 ```maxon
@@ -3547,7 +3454,6 @@ type Thing implements Named
 end 'Thing'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -4497,7 +4403,6 @@ element's per-instantiation destructor, so the stored `String` stays alive while
 is released with it.
 
 <!-- test: a-container-of-records-over-the-enclosing-parameter-is-created -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4515,9 +4420,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
@@ -4572,7 +4475,6 @@ The byte-identical program with `Box with String` written at top level and a NON
 It answers what the generic spelling above answers.
 
 <!-- test: the-concrete-spelling-of-the-same-constructor-feed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4592,7 +4494,6 @@ end 'Box'
 typealias StrBox = Box with String
 
 type Bag
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with StrBox
 	var items = BoxArray.create(0)
 
@@ -4644,7 +4545,6 @@ Here `Box` holds an `Inner with T`, and `Inner` holds the bare parameter, while 
 view's per-instantiation destructor, so the stored `inner` field is released at every instantiation.
 
 <!-- test: a-nested-instance-two-levels-over-the-enclosing-parameter-is-stored-and-read -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4661,7 +4561,6 @@ type Inner uses U
 end 'Inner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TInner = Inner with T
 	let inner as TInner
 	let tag as Integer
@@ -4676,9 +4575,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
@@ -4731,7 +4628,6 @@ Byte-identical to the program above with `String` replaced by a ranged `int`: `I
 the program writes, so the column's `__mm_decref` IS the correct element destructor and the program is whole.
 
 <!-- test: a-trivial-instantiation-of-the-two-level-shape-still-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4750,7 +4646,6 @@ type Inner uses U
 end 'Inner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TInner = Inner with T
 	let inner as TInner
 	let tag as Integer
@@ -4765,9 +4660,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
@@ -4821,13 +4714,11 @@ which a single store could not tell from a rounding error and a hundred can.
 
 <!-- test: a-hundred-borrowed-stores-into-the-parameters-own-container-balance -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -4882,7 +4773,6 @@ whole. The refusal therefore asks the INSTANTIATION and not merely the shape —
 container of records over the enclosing parameter would reject this one, which owes nothing to anybody.
 
 <!-- test: a-trivial-instantiation-forwards-and-takes-nothing -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4900,9 +4790,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 
@@ -4948,7 +4836,6 @@ to it through an ordinary `append` call. The record built over the enclosing par
 read back with the value it was built with.
 
 <!-- test: a-record-over-the-enclosing-parameter-fed-to-a-list-is-kept -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -4966,9 +4853,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Store = List with EBox
 	var items as Store
 
@@ -5016,7 +4901,6 @@ bare `T` slot owns nothing at run time, so the chain's `element_drop@24` is righ
 program is whole.
 
 <!-- test: a-trivial-instantiation-of-the-list-shape-still-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5036,9 +4920,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Store = List with EBox
 	var items as Store
 
@@ -5085,7 +4967,6 @@ The `String` is built in `fill`, whose `StringBuilder` result dies at that frame
 so a missing reference is a read of freed memory and a surplus one is a leak the gate exits 101 on.
 
 <!-- test: a-record-over-the-enclosing-parameter-in-a-plain-field-round-trips -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5103,7 +4984,6 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
 	let one as EBox
 
@@ -5148,7 +5028,6 @@ afterwards, and the program exits 0. A refusal that fired here would be refusing
 
 <!-- test: a-record-built-from-a-borrow-may-die-in-the-frame -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5169,9 +5048,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	var items as Items
 
@@ -5217,7 +5094,6 @@ is only that no slot of it stands at a parameter this body cannot name. That is 
 refusal reads, so this case is what shows the boundary is the SLOT and not the instantiation.
 
 <!-- test: an-inner-alias-whose-slots-are-all-concrete-is-admitted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5235,9 +5111,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Store = Array with EBox
 	var items as Store
 
@@ -5298,7 +5172,6 @@ off the instance it builds (see `a-record-over-the-enclosing-parameter-in-a-plai
 feeding `create` is exactly that), and any other static takes it from the instance its call names.
 
 <!-- test: a-returned-record-outlives-the-borrows-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5316,7 +5189,6 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
 	var seed as Integer
 
@@ -5367,7 +5239,6 @@ release is **exit 101** and a surplus one frees a `String` a live box still hold
 symbol `__destruct_Box_String`, stamped directly as the element destructor.
 
 <!-- test: a-hundred-returned-records-balance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -5387,7 +5258,6 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias EBox = Box with Element
 	var seed as Integer
 
@@ -5429,7 +5299,6 @@ end 'main'
 ```
 
 <!-- test: a-nested-view-over-the-outer-parameters-takes-and-releases-its-reference -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A nested declaration view over the outer type's parameters takes and releases its reference
 `Mid` holds an `Inner2 with (Y, Z)` and is itself spelled by `Outer` as `Mid with (T, U)`. `Outer with (String,
 String)` makes those parameters managed, so the constructor feed inside `Mid.create` takes a reference through
@@ -5451,7 +5320,6 @@ type Inner2 uses P, Q
 end 'Inner2'
 
 type Mid uses Y, Z
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Inner2 with (Y, Z)
 	let i as In
 	export let tag as Integer
@@ -5462,7 +5330,6 @@ type Mid uses Y, Z
 end 'Mid'
 
 type Outer uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias M = Mid with (T, U)
 	var n as Integer
 
@@ -5507,7 +5374,6 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-nested-view-fed-a-referenced-borrow-into-a-field-releases-it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### …and the same shape WITH a managed instantiation of the middle type
 Adding `Mid with (String, String)` makes `Mid`'s own parameter managed as well, so the constructor feed inside
 `Mid.create` takes a descriptor-mediated reference and the record that holds it rests in a field of `Mid`, a
@@ -5530,7 +5396,6 @@ type Inner2 uses P, Q
 end 'Inner2'
 
 type Mid uses Y, Z
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Inner2 with (Y, Z)
 	let i as In
 	export let tag as Integer
@@ -5541,7 +5406,6 @@ type Mid uses Y, Z
 end 'Mid'
 
 type Outer uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias M = Mid with (T, U)
 	var n as Integer
 
@@ -5586,7 +5450,6 @@ extra 2
 
 <!-- test: a-closure-between-the-feed-and-the-store-still-stores-correctly -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same store when a closure literal sits between the constructor feed and the store. The closure is parsed
 as a function of its own; the store after it is judged on the record's real provenance, and the program
 balances.
@@ -5603,7 +5466,6 @@ type Inner2 uses P, Q
 end 'Inner2'
 
 type Mid uses Y, Z
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Inner2 with (Y, Z)
 	let i as In
 	export let tag as Integer
@@ -5617,7 +5479,6 @@ type Mid uses Y, Z
 end 'Mid'
 
 type Outer uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias M = Mid with (T, U)
 	var n as Integer
 
@@ -5764,7 +5625,6 @@ end 'Outer'
 ```
 
 <!-- test: a-tuple-field-resting-a-nested-view-is-released-on-reassignment -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5781,9 +5641,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias EPair = (EBox, Integer)
 	export let pair as EPair
@@ -5795,7 +5653,6 @@ type Bag uses E
 end 'Bag'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TBag = Bag with T
 	var bag as TBag
 
@@ -5839,7 +5696,6 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-tuple-field-over-the-parameter-in-a-nested-view-is-released-on-reassignment -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 A tuple field over the type parameter itself, in a nested declaration view, is released when the record holding it is replaced.
@@ -5857,7 +5713,6 @@ type Bag uses E
 end 'Bag'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TBag = Bag with T
 	var bag as TBag
 
@@ -5901,7 +5756,6 @@ second payload long enough to allocate
 ```
 
 <!-- test: a-tuple-field-resting-a-nested-view-reassigned-in-its-own-type-is-released -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5918,9 +5772,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias EPair = (EBox, Integer)
 	export var pair as EPair
@@ -5986,7 +5838,6 @@ owns nothing while the stores that follow it take two references; the disagreeme
 shared frame is the party that frees the box.
 
 <!-- test: a-tuple-of-parameters-dropped-in-a-shared-body-releases-what-it-took -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -5994,7 +5845,6 @@ shared frame is the party that frees the box.
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
@@ -6048,7 +5898,6 @@ and therefore whether the record's stores read a REAL protocol or the all-zero o
 carries. A cure that balances one of the two modes is silent about the other, so both are pinned.
 
 <!-- test: a-tuple-of-parameters-dropped-in-a-shared-body-with-two-instantiations -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -6056,7 +5905,6 @@ carries. A cure that balances one of the two modes is silent about the other, so
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
@@ -6111,14 +5959,12 @@ shared body, one `__retain_type_param` — so a cure that removed it would redde
 two above.
 
 <!-- test: a-tuple-of-parameters-dropped-by-a-concrete-caller -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 ```maxon
 typealias Small = int(0 to 1000)
 
 type Holder uses K, V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (K, V)
 	let k as K
@@ -6337,13 +6183,11 @@ dup 42 value long enough for a heap record dup 42 value long enough for a heap r
 ```
 
 <!-- test: a-generic-type-hands-its-value-parameter-to-a-map-upsert -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic method that hands its type-parameter value to a map's `upsert` hands the map ownership of it, so the caller's heap string is released once.
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Registry uses Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueMap = Map with (String, Value)
 	var entries as ValueMap
 
@@ -6378,39 +6222,35 @@ end 'main'
 ```
 
 <!-- test: a-non-opaque-field-of-a-nested-instance-is-reassigned-and-the-displaced-value-released -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A field typed as an instance over the type parameter (`Cell`), written through `self.inner` with the new value a parameter. The displaced cell and the string it holds must be released exactly once.
 ```maxon
 type Cell uses T
 	export var v as T
 
-	static function make(v T) returns Self
+	static function make(consumes v T) returns Self
 		return Self{v: v}
 	end 'make'
 end 'Cell'
 
 type Slot uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias C = Cell with T
 	export var c as C
 
-	static function create(c C) returns Self
+	static function create(consumes c C) returns Self
 		return Self{c: c}
 	end 'create'
 end 'Slot'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias WrapperCell = Cell with T
 	var inner as Inner
 
-	static function create(c WrapperCell) returns Self
+	static function create(consumes c WrapperCell) returns Self
 		return Self{inner: Inner.create(c)}
 	end 'create'
 
-	function put(next WrapperCell)
+	function put(mutates self, consumes next WrapperCell)
 		self.inner.c = next
 	end 'put'
 end 'Wrapper'
@@ -6420,7 +6260,7 @@ typealias StrCell = Cell with String
 typealias StrWrapper = Wrapper with String
 
 function main() returns ExitCode
-	let w = StrWrapper.create(StrCell.make("first string long enough to force a heap allocation"))
+	var w = StrWrapper.create(StrCell.make("first string long enough to force a heap allocation"))
 	w.put(StrCell.make("second string, longer still, and also heap allocated"))
 	return 0
 end 'main'
@@ -6508,7 +6348,6 @@ second payload long enough to allocate
 ```
 
 <!-- test: an-opaque-field-of-a-nested-instance-is-assigned-a-borrowed-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A type-parameter field of an instance held over the enclosing type's own parameter, written through `self.inner`.
 ```maxon
 type Slot uses T
@@ -6520,7 +6359,6 @@ type Slot uses T
 end 'Slot'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 
@@ -6602,7 +6440,6 @@ third payload long enough to allocate third payload long enough to allocate
 ```
 
 <!-- test: an-opaque-field-of-a-self-typed-parameters-nested-instance-is-assigned -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same write through the nested field of a `Self`-typed parameter.
 ```maxon
 type Slot uses T
@@ -6614,7 +6451,6 @@ type Slot uses T
 end 'Slot'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	var inner as Inner
 
@@ -6657,7 +6493,6 @@ third payload long enough to allocate third payload long enough to allocate
 ```
 
 <!-- test: an-opaque-field-of-an-instance-over-the-second-of-two-parameters-is-assigned-a-borrowed-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Slot with U` inside `Wrapper uses T, U` stores through the block of `U`, so the displaced and the new `String` are released and retained through `String`'s protocol, and the first parameter is a trivial type.
 ```maxon
 typealias Small = int(0 to 255)
@@ -6671,7 +6506,6 @@ type Slot uses V
 end 'Slot'
 
 type Wrapper uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with U
 	var tag as T
 	var inner as Inner
@@ -6721,7 +6555,6 @@ second payload long enough to allocate third payload long enough to allocate sec
 ```
 
 <!-- test: an-opaque-field-two-nested-instances-deep-is-assigned-a-borrowed-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same write through a field of a field, both holding an instance over the enclosing type's own parameter.
 ```maxon
 type Slot uses T
@@ -6733,7 +6566,6 @@ type Slot uses T
 end 'Slot'
 
 type Middle uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	export var b as Inner
 
@@ -6743,7 +6575,6 @@ type Middle uses T
 end 'Middle'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Mid = Middle with T
 	var a as Mid
 
@@ -6785,7 +6616,6 @@ second payload long enough to allocate second payload long enough to allocate
 ```
 
 <!-- test: an-instance-field-of-a-nested-instance-is-reassigned-in-a-static-through-the-call-sites-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same write inside a `static function`, which releases the displaced cell through the descriptor its call hands it.
 ```maxon
 type Cell uses T
@@ -6805,7 +6635,6 @@ type Slot uses T
 end 'Slot'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Slot with T
 	export var inner as Inner
 
@@ -6872,11 +6701,9 @@ second payload long enough to allocate second payload long enough to allocate
 ```
 
 <!-- test: an-owned-parameter-value-is-released-in-a-method-reached-through-a-call-on-a-result -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `self.make().stash()` calls a method that builds an `Array with T` of borrowed `T` values and releases them at its scope exit. The receiver of `stash` is a call's result, so the release goes through the descriptor the caller forwards from its own.
 ```maxon
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var v as T
 
@@ -6892,7 +6719,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Inner with T
 	var held as Held
 
@@ -6932,11 +6758,9 @@ end 'main'
 ```
 
 <!-- test: a-static-not-returning-self-pushes-a-borrowed-parameter-through-a-typealias-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `static function` that does not return `Self` pushes a borrowed `T` into an `Array with T`. It takes the descriptor from the call that names the instance through its typealias, so the array holds a reference of its own.
 ```maxon
 type Pile uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var n as Count
 
@@ -6978,11 +6802,9 @@ end 'main'
 ```
 
 <!-- test: a-static-pushing-a-self-typed-parameters-field-into-a-local-array-takes-the-call-sites-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `static function` that does not return `Self` reads a type-parameter field of a `Self`-typed parameter and pushes it into a local `Array with T`. The local array releases the reference through the descriptor the call hands the static.
 ```maxon
 type Pile uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	export var top as T
 
@@ -8134,18 +7956,14 @@ error E2015: <fragment>:21:34: Unsupported: a container's element type declared 
 ```
 
 <!-- test: a-generic-type-reaching-itself-with-its-parameters-permuted-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic type whose methods reach itself with its two parameters swapped has two instances at every entry, and composing its layout descriptor ends.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Pair uses A, B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias AArray = Array with A
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BArray = Array with B
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Flipped = Pair with (B, A)
 	var firsts as AArray
 	var seconds as BArray
@@ -8159,7 +7977,7 @@ type Pair uses A, B
 			return 0
 		end 'done'
 		let d = Flipped.create()
-		return d.depth(n - 1) + 1
+		return try d.depth(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 	end 'depth'
 end 'Pair'
 
@@ -8179,14 +7997,12 @@ end 'main'
 ```
 
 <!-- test: a-generic-type-reaching-itself-with-a-parameter-fixed-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic type whose methods reach itself keeping its first parameter and wrapping the second once names a finite set of instances; the wrapped argument feeds nothing back, so composing its layout descriptor ends.
 
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Cell uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -8196,13 +8012,9 @@ type Cell uses T
 end 'Cell'
 
 type Fix uses X, Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias XArray = Array with X
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias YArray = Array with Y
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias CX = Cell with X
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Settled = Fix with (X, CX)
 	var xs as XArray
 	var ys as YArray
@@ -8216,7 +8028,7 @@ type Fix uses X, Y
 			return 0
 		end 'done'
 		let d = Settled.create()
-		return d.depth(n - 1) + 1
+		return try d.depth(try n - 1 otherwise panic("out of range")) + 1 otherwise panic("out of range")
 	end 'depth'
 end 'Fix'
 

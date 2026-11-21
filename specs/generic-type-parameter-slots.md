@@ -24,7 +24,6 @@ neither is a property of the formal.
 
 <!-- test: generic-type-parameter-slots.function-value-element -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -36,7 +35,6 @@ function double(x Integer) returns Integer
 end 'double'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with Element
 	var items = EArray.create(0)
 
@@ -72,8 +70,6 @@ The refusal comes from the substituted argument, so it names `'int'` — the typ
 chose — and not `'type parameter'`, the shape of the formal.
 
 <!-- test: generic-type-parameter-slots.error.function-value-into-an-int-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -82,7 +78,6 @@ function double(x Integer) returns Integer
 end 'double'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with Element
 	var items = EArray.create(0)
 

@@ -1573,7 +1573,6 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'second': it
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 An argument that holds the generic type's instances, here an array of boxes, can carry the promise out just as one box can.
 ```maxon
@@ -1583,7 +1582,6 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function create(v T) returns Self
@@ -1669,7 +1667,6 @@ error E3141: <fragment>:26:12: a promise cannot be borrowed through 'pop': it ow
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A holder is any argument whose type graph reaches a promise, however deep: an array of arrays of the generic type's element holds the thread the static would hand out.
 ```maxon
@@ -1679,9 +1676,7 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Rows = Array with Inner
 
 	static function create(v T) returns Self
@@ -1726,7 +1721,6 @@ error E3141: <fragment>:38:21: a promise cannot be borrowed through 'firstOf': i
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A map whose values are the generic type's element holds the thread just as an array does.
 ```maxon
@@ -1736,7 +1730,6 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Named = Map with (String, T)
 
 	static function create(v T) returns Self
@@ -1833,7 +1826,6 @@ error E3141: <fragment>:30:21: a promise cannot be borrowed through 'fromPair': 
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A struct with a field of the generic type's instance is a holder.
 ```maxon
@@ -1843,7 +1835,6 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pocketed = Pocket with T
 
 	static function create(v T) returns Self
@@ -1856,7 +1847,6 @@ type Box uses T
 end 'Box'
 
 type Pocket uses P
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Boxed = Box with P
 	export var inner as Boxed
 
@@ -1892,7 +1882,6 @@ error E3141: <fragment>:39:21: a promise cannot be borrowed through 'through': i
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An instance of the generic type that holds no promise is not a holder, even though it is an instance of the base: the static builds its promise from a function, so nothing is borrowed and the call runs.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1901,7 +1890,6 @@ typealias IntPromise = Promise with Integer
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function() returns T
 
@@ -1951,7 +1939,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user generic's `pop` is decided from its body: this one returns what `Array.pop` took out of its array, a value nothing else holds, so the caller owns the promise and awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1959,7 +1946,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2001,7 +1987,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same `pop` that returns `self.items.last()` hands back an element its array still holds, so the name earns it nothing.
 ```maxon
@@ -2010,7 +1995,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2052,7 +2036,6 @@ error E3141: <fragment>:33:12: a promise cannot be borrowed through 'pop': it ow
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The field's declared type is read: `Outer.pop` returns `self.inner.pop()`, `inner` is an `Inner`, and `Inner.pop` is itself a move-out of its array, so the promise is handed on and the caller awaits it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2060,7 +2043,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2078,7 +2060,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wrapped = Inner with T
 	var inner as Wrapped
 
@@ -2120,7 +2101,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The name `pop` on a field earns nothing: `inner` is a user type whose `pop` returns what its array still holds, so the outer `pop` hands back a borrow and is refused like any accessor.
 ```maxon
@@ -2129,7 +2109,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2147,7 +2126,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wrapped = Inner with T
 	var inner as Wrapped
 
@@ -2335,7 +2313,6 @@ error E3141: <fragment>:27:26: a promise cannot be borrowed through 'relay': it 
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Stack.pop` binds the element it moves out of its field to a local and returns that local, which is the same move-out as returning the call itself, so the popped promise is the caller's to await.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2343,7 +2320,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2386,7 +2362,6 @@ end 'main'
 <!-- skip: 'Type from value' conversions are not supported in minimaxon -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The library `remove` takes one positional argument, and a user method that forwards `self.items.remove(0)` moves the element out exactly as the library door does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2394,7 +2369,6 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPromise = Promise with Integer
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 

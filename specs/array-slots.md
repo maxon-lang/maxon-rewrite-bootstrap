@@ -386,7 +386,6 @@ Stack trace:
 ```
 
 <!-- test: for-over-an-empty-slot-in-a-generic-body-panics -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ### A `for` element read of an empty slot panics in a body compiled once for every element type
 `Bag` is generic, so `visit` is one compiled body for every `Element`, and its loop cannot ask at compile time
@@ -397,7 +396,6 @@ to the null the slot holds.
 typealias Integer = int(i64.min to i64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items as ElementArray
 
@@ -439,14 +437,12 @@ Stack trace:
 ```
 
 <!-- test: a-zero-is-an-element-in-a-generic-body-over-scalars -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The twin: the same body instantiated at `Integer`, where a zeroed slot is the element 0 and nothing is empty, so the
 loop visits both.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items as ElementArray
 
@@ -484,7 +480,6 @@ visited 2
 ```
 
 <!-- test: a-static-generic-body-takes-a-borrowed-element-loop-through-the-call-sites-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `static function` that does not return `Self` has no instance, so the layout descriptor it takes a reference
 through arrives from its call. The loop reads a borrowed element and the `clear` drops the source; the element holds
 its own reference, so the `push` stores a live record and the push extends the loop by nothing.
@@ -492,7 +487,6 @@ its own reference, so the `push` stores a live record and the push extends the l
 typealias Integer = int(i64.min to i64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items as ElementArray
 

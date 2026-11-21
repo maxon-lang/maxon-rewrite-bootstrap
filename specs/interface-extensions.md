@@ -908,14 +908,11 @@ end 'main'
 
 <!-- test: a-two-parameter-iterable-answers-an-extension-predicate -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 public typealias Int = int(i64.min to i64.max)
 
 public type BagIter uses E, F implements Iterator with Int
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias FArray = Array with F
 	var items as EArray
 	var more as FArray
@@ -938,7 +935,6 @@ public type BagIter uses E, F implements Iterator with Int
 end 'BagIter'
 
 public type Bag uses A, B implements Iterable with (Int, BIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	public typealias BIter = BagIter with (A, B)
 	var n as Int
 
@@ -967,12 +963,10 @@ end 'main'
 
 <!-- test: a-file-private-cursor-conformer-and-an-iterable-extension-call -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type BagIter uses E implements Iterator with Int
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EArray = Array with E
 	var items as EArray
 	var i as Int
@@ -994,7 +988,6 @@ type BagIter uses E implements Iterator with Int
 end 'BagIter'
 
 type Bag uses Element implements Iterable with (Int, BIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BIter = BagIter with Element
 	var n as Int
 

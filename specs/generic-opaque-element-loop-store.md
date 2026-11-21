@@ -51,14 +51,12 @@ gate reports the second as exit 101 while the program still prints the right ans
 
 <!-- test: one-opaque-value-written-into-three-slots -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -115,14 +113,12 @@ TEXT that the store happened.
 
 <!-- test: a-loop-that-never-runs-still-releases-the-value -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -171,14 +167,12 @@ the poison byte.
 
 <!-- test: one-opaque-value-written-into-a-hundred-slots -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -231,7 +225,6 @@ is the one every slot was filled with.
 
 <!-- test: a-trivial-element-loop-store-is-inert -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -239,7 +232,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Num = int(0 to 1000)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -287,14 +279,12 @@ takes away, and the one a body that fills a column and then reports what it fill
 
 <!-- test: the-filled-value-is-still-readable-after-the-loop -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -345,7 +335,6 @@ release is exit 101.
 
 <!-- test: a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
@@ -354,7 +343,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -425,13 +413,11 @@ it took. A missing retain is a double free at teardown and a surplus one is exit
 
 <!-- test: a-consuming-sibling-called-in-a-loop-takes-a-reference-per-call -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -488,12 +474,10 @@ direction: `fill(0, …)` calls `store` never, so the frame still owes exactly t
 consuming caller handed it.
 
 <!-- test: a-consuming-sibling-loop-that-never-runs-still-releases-the-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Idx = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -543,14 +527,12 @@ beside it.
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-three-slots -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-three-slots`.
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -601,14 +583,12 @@ a filled string long enough to force a heap allocation
 
 <!-- test: a-user-written-fill-that-never-runs-still-releases-the-value -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `a-loop-that-never-runs-still-releases-the-value`.
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -651,14 +631,12 @@ an unstored string long enough to force a heap allocation
 
 <!-- test: a-user-written-fill-stores-one-opaque-value-into-a-hundred-slots -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `one-opaque-value-written-into-a-hundred-slots`.
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -705,14 +683,12 @@ a repeated string long enough to force a heap allocation
 
 <!-- test: a-user-written-fill-leaves-the-value-readable-after-the-loop -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `the-filled-value-is-still-readable-after-the-loop`.
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 
@@ -755,7 +731,6 @@ a re-read string long enough to force a heap allocation
 
 <!-- test: a-user-written-copy-stores-a-borrowed-element-with-a-reference-per-slot -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Twin of `a-borrowed-element-stored-in-a-loop-takes-a-reference-per-slot`.
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
@@ -764,7 +739,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 

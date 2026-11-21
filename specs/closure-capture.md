@@ -1201,12 +1201,10 @@ error E2015: specs/closure-capture/error.a-captured-scalar-still-has-no-members.
 <!-- test: closure-capture.a-closure-in-a-generic-body-is-returned -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A closure written in a shared generic body carries the enclosing instance's descriptor in its environment, and can be returned.
 ```maxon
 type Cell uses T
 	export var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Echo = function(T) returns T
 

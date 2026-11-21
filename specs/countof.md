@@ -412,7 +412,6 @@ end 'main'
 <!-- skip: countof(...) is not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE CASE THAT DECIDES WHERE THE COUNT TRAVELS.** `Holder`'s field is a
 `FixedArray with 4 Element` — a sized instance written over the ENCLOSING generic's own type
 parameter, which is the one shape whose layout descriptor is FORWARDED rather than minted. A
@@ -438,7 +437,6 @@ extension FixedArray
 end 'FixedArray'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot

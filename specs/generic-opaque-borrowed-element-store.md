@@ -51,7 +51,6 @@ and a missing release turns into exit 101.
 
 <!-- test: a-borrowed-element-read-from-another-container-is-stored -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -59,7 +58,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -112,7 +110,6 @@ does not own, and push it. Each iteration takes its own reference and each slot 
 
 <!-- test: the-loop-form-copies-every-borrowed-element -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -120,7 +117,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -179,7 +175,6 @@ faults on the poison byte.
 
 <!-- test: a-hundred-borrowed-stores-balance -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -187,7 +182,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -241,14 +235,12 @@ does. The reference it took is released by its own element walk there — so the
 afterwards, and the record is freed once when the source itself goes.
 
 <!-- test: a-container-dropped-after-the-store-releases-what-it-took -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Idx = int(0 to u64.max)
 
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -294,13 +286,11 @@ field and the container releases the slot, and they are two references to one St
 
 <!-- test: a-borrowed-opaque-field-read-is-stored -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 	export var saved as Element
@@ -348,7 +338,6 @@ an argument that owns no record, so the store costs a load and the container's w
 
 <!-- test: a-trivial-elements-borrowed-store-is-inert -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -358,7 +347,6 @@ typealias Num = int(0 to 1000)
 typealias Nums = Array with Num
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -408,7 +396,6 @@ the element survives its original owner and prints after it is gone.
 
 <!-- test: the-borrows-owner-may-be-destroyed-first -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: alias subtyping (implements on typealias) is not supported in minimaxon
 typealias Idx = int(0 to u64.max) implements ElementIndex
@@ -416,7 +403,6 @@ typealias Idx = int(0 to u64.max) implements ElementIndex
 typealias Strs = Array with String
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Element
 	export var items as Items
 
@@ -473,13 +459,10 @@ written inside the shared body has no such frame. Accepted, a `Bag with Int` wou
 record and release it through a zero word; refused, the program gets a position.
 
 <!-- test: error.a-borrowed-concrete-value-is-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Idx = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

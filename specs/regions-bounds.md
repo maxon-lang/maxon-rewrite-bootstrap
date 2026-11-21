@@ -262,7 +262,6 @@ error E3215: <fragment>:2:44: a function's `where` clause cannot bound a type pa
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` holds `Pool with T` and declares no bound on `T`, so the instance is refused once, where `Outer` writes it; `JobOuter` fills `T` with a plain record and adds no report.
@@ -288,7 +287,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 

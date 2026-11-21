@@ -3836,7 +3836,6 @@ error E3196: <fragment>:18:13: cannot store a read-only 'Box' into 'a value of t
 ```
 
 <!-- test: loop-store-of-a-variable-the-back-edge-assigns-frozen-data-into-a-declared-generic -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `stack.push(e)` is a store into the `T` slot of a mutable instance, and the next trip pushes frozen data.
@@ -3853,7 +3852,6 @@ type Box
 end 'Box'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 

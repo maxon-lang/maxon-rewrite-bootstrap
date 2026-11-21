@@ -712,7 +712,6 @@ error E3207: <fragment>:36:11: 'g' builds a record from data it captured, and th
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: `App.run` hands its `T` argument to a function value whose body is not visible, and `h` lends its parameter `p` to `run`. `x` is a `T` parameter of `App with Row`, whose element slot is writable, so `h` needs `p` writable and the read-only `row` is refused at the call to `h`.
@@ -741,7 +740,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Count
 	var f as Step
@@ -783,7 +781,6 @@ error E3207: <fragment>:50:16: 'h' needs a writable parameter 'p' (line 41: 'App
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: `App.run` takes a `Row`, not a `T`, so no element slot is involved. It hands the `Row` to a function value whose body is not visible, and `h` lends its parameter `p` to `run`. The function value may build a record from `p`, so `h` takes no read-only data and the read-only `row` is refused at the call to `h`.
@@ -812,7 +809,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Row) returns Count
 	var f as Step
@@ -855,7 +851,6 @@ error E3207: <fragment>:51:16: 'h' builds a record that holds 'p', so it takes n
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: modify blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
 Red team R2: no `T` argument at all. `go` calls the function value with `self.item`, so the receiver `a` carries the data the closure builds from, and `h2` passes its paused receiver two wrappers down.
@@ -884,7 +879,6 @@ type Reader
 end 'Reader'
 
 type App uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Count
 	var f as Step

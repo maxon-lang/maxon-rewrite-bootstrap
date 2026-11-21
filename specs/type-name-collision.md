@@ -576,7 +576,6 @@ end 'main'
 <!-- test: error.two-directories-each-declare-a-type-of-one-name-beside-two-extensions-declaring-its-alias -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 Two copies of a `type` that declares a generic-instance alias, in two directories, beside two copies of an
 `extension` of an interface both implement that declares the same alias. Each extension publishes `Items` onto both
@@ -595,7 +594,6 @@ end 'Seq'
 
 // --- file: a/box.maxon
 export type Box implements Seq with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Digit
 	export var n as Digit
 
@@ -606,7 +604,6 @@ end 'Box'
 
 // --- file: b/box.maxon
 export type Box implements Seq with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Digit
 	export var n as Digit
 
@@ -3412,8 +3409,6 @@ error E3092: c/<fragment>:3:18: exported typealias 'Byte' is never referenced ou
 ```
 
 <!-- test: error.an-inner-alias-use-does-not-credit-a-file-scope-alias-of-its-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 The same audit when one claimant is an INNER alias. `w/`'s `Wrapper` declares `export typealias Idx`, and
 `main.maxon` names it as `Wrapper.Idx`; `x/` exports a file-scope `Idx` that nobody names, so it earns E3092.
 ```maxon
@@ -3422,7 +3417,6 @@ export typealias Idx = int(0 to 3)
 
 // --- file: w/wrapper.maxon
 export type Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Idx = int(0 to 9)
 
 	export static function make() returns Self

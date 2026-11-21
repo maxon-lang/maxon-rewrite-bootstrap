@@ -505,7 +505,7 @@ error E3167: api/<fragment>:7:11: exported function 'api.Keeper.keep' names unex
 
 <!-- test: error.an-interface-inner-alias-over-a-file-private-type-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias declared inside an interface body is as visible as its right-hand side, not as its interface.
 `ElementArray` sits inside the `export` interface `Keeper`, but it carries the unmarked `Foo`, and a
@@ -515,13 +515,12 @@ conformer's caller hands `keep` an array of them.
 typealias Foo = int(0 to 9)
 
 export interface Keeper
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias ElementArray = Array with Foo
 	function keep(xs ElementArray) returns ExitCode
 end 'Keeper'
 
 type Vault implements Keeper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Foo
 
 	static function create() returns Self
@@ -813,7 +812,6 @@ end 'main'
 
 <!-- test: an-inner-alias-in-an-exported-method-is-not-judged-as-the-files-same-named-alias -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Inside `Wrapper`, a bare `Idx` means `Wrapper`'s own alias, whatever the file declares under the same name.
 `at` names that inner alias, which is `export` like `at` and whose right-hand side is a range naming no
 declaration, so `at` is legal and the unmarked `Idx` beside it is never asked. `7` is outside the file's
@@ -823,7 +821,6 @@ declaration, so `at` is legal and the unmarked `Idx` beside it is never asked. `
 typealias Idx = int(0 to 3)
 
 export type Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Idx = int(0 to 9)
 
 	export static function make() returns Self
@@ -860,15 +857,12 @@ end 'main'
 
 <!-- test: error.an-unmarked-inner-alias-in-an-exported-signature-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 A type's inner alias carries its own modifier like any other member, and an unmarked one is unmarked
 however visible its type is. `Idx` sits inside the `export` type `Wrapper` with no modifier, so the
 `export` method `at` names an unmarked alias.
 ```maxon
 // --- file: api/lib.maxon
 export type Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 9)
 
 	export static function make() returns Self
@@ -892,7 +886,6 @@ error E3167: api/<fragment>:10:18: exported function 'api.Wrapper.at' names unex
 <!-- test: error.an-extension-in-another-file-naming-a-file-private-inner-alias-is-refused -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 An extension written in another directory names the type's unmarked inner alias `Arr`, which is visible only
 in `api/`, so `more/more.maxon` cannot name it at all, and the `export` method `f` could not
@@ -900,7 +893,6 @@ hand it to a caller either.
 ```maxon
 // --- file: api/lib.maxon
 export type Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Arr = Array with ExitCode
 
 	export static function make() returns Self
@@ -927,14 +919,11 @@ error E3008: more/<fragment>:13:23: typealias 'Arr' is not exported
 
 <!-- test: error.a-qualified-file-private-inner-alias-from-another-file-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 Qualifying the name does not widen it. `Wrapper.Idx` is unmarked, so it is unmarked to `api/lib.maxon`
 however visible `Wrapper` is, and `app/main.maxon` cannot name it as `Wrapper.Idx` any more than bare.
 ```maxon
 // --- file: api/lib.maxon
 export type Wrapper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 9)
 
 	export static function make() returns Self
@@ -961,7 +950,7 @@ error E3008: app/<fragment>:16:14: typealias 'Wrapper.Idx' is not exported
 
 <!-- test: error.a-per-instance-spelling-of-a-file-private-inner-alias-is-refused -->
 <!-- skip: language difference: main is not declared in the project's root directory, which minimaxon requires -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 An instance alias reaches the same member. `Pools` names `Pool with ExitCode`, so `Pools.Idx` is that
 instance's copy of `Pool`'s unmarked inner alias, unmarked to `api/lib.maxon`, and naming it from
@@ -969,7 +958,7 @@ instance's copy of `Pool`'s unmarked inner alias, unmarked to `api/lib.maxon`, a
 ```maxon
 // --- file: api/lib.maxon
 export type Pool uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	typealias Idx = int(0 to 9)
 	var item as T
 

@@ -1229,7 +1229,6 @@ error E3215: <fragment>:18:11: 'Holder' is `unique`, so it cannot be 'T' of 'Poo
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-once-whatever-it-is-instantiated-with -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` holds `Pool with T` and declares no bound on `T`. The instance is refused once, where `Outer` writes
@@ -1251,7 +1250,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1275,7 +1273,6 @@ error E3215: <fragment>:14:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-in-a-generic-type-nothing-instantiates -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` declares no bound, so the `Pool with T` it writes is refused where `Outer` writes it although no
@@ -1292,7 +1289,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1311,7 +1307,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-once-for-two-instantiations -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer with Tally` and `Outer with String` are two instantiations of the same unbounded `Outer`. The `Pool with T`
@@ -1330,7 +1325,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1400,7 +1394,6 @@ error E3215: <fragment>:14:21: 'T' of 'Outer' is not bounded `sendable`, so it c
 
 <!-- test: a-sendable-bound-refuses-a-bare-generic-type-argument-its-owner-does-not-bound -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` declares no bound and writes the bare generic name `Pool` as the argument of `Array`, which means
@@ -1422,7 +1415,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pools = Array with Pool
 	export var pools as Pools
 
@@ -1446,7 +1438,6 @@ error E3215: <fragment>:14:31: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-two-aliases-of-one-instance-its-owner-does-not-bound-once -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` declares no bound and writes `Pool with T` twice, as `First` and as `Second`. The instance is refused
@@ -1463,9 +1454,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias First = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Second = Pool with T
 	export var first as First
 	export var second as Second
@@ -1485,7 +1474,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-accepts-a-type-parameter-its-owner-bounds-sendable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Outer` declares `where T is sendable`, which proves the `sendable` bound of the `Pool with T` it writes, so
 `Outer with Tally` is built and used.
@@ -1504,7 +1492,6 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1529,7 +1516,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-plain-record-at-its-own-instantiation-only -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so `Outer with Job` is judged against that bound alone: the plain record is refused
@@ -1557,7 +1543,6 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1581,7 +1566,6 @@ error E3215: <fragment>:30:11: 'Job' is not sendable, so it cannot be 'T' of 'Ou
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-at-its-own-instantiation-only -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so `Outer with Step` is refused once, at `StepOuter`, naming `Outer`, and the
@@ -1604,7 +1588,6 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1628,7 +1611,6 @@ error E3215: <fragment>:23:11: 'Step' is a function type, so it cannot be 'T' of
 ```
 
 <!-- test: an-isolated-bound-on-the-owner-does-not-prove-a-sendable-position -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1647,7 +1629,6 @@ end 'Pool'
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var pool as Inner
 
@@ -1666,7 +1647,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: an-isolated-bound-on-the-owner-does-not-prove-an-immutable-sendable-argument-over-it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -1698,12 +1678,9 @@ end 'Pool'
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Rows = Array with Pair
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Rows
 	export var pool as Inner
@@ -1728,7 +1705,6 @@ error E3215: <fragment>:23:12: 'Outer.Rows' is built over 'T' of 'Outer', which 
 ```
 
 <!-- test: a-sendable-bound-on-the-owner-does-not-prove-an-isolated-position -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1747,7 +1723,6 @@ end 'Cell'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Cell with T
 	export var cell as Inner
 
@@ -1766,7 +1741,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `isolated`, so it c
 ```
 
 <!-- test: a-generic-type-bounding-its-parameter-both-ways-fills-a-sendable-and-an-isolated-position -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Outer` declares `where T is sendable and isolated`, so it proves both bounds: the `Pool with T` and the `Cell with T`
@@ -1796,9 +1770,7 @@ end 'Cell'
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable and isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Sent = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Cell with T
 	export var sent as Sent
 	export var held as Held
@@ -1824,7 +1796,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1850,9 +1821,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Box with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Held
 	export var pool as Inner
@@ -1877,7 +1846,6 @@ error E3215: <fragment>:20:12: 'Outer.Held' is built over 'T' of 'Outer', which 
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-record-over-a-type-parameter-its-owner-bounds -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Held`, `Held` being `Box with T`, meets the bound in `Outer`: every parameter it
@@ -1904,9 +1872,7 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Box with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Held
 	export var pool as Inner
@@ -1935,7 +1901,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-record-over-a-bounded-type-parameter-whose-graph-reaches-a-function-value -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -1968,9 +1933,7 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Box with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Held
 	export var pool as Inner
@@ -1995,7 +1958,6 @@ error E3215: <fragment>:24:12: 'Outer.Held' cannot be shared with another thread
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-container-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2013,9 +1975,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Pool with immutable Held
 	export var items as Items
@@ -2035,7 +1995,6 @@ error E3215: <fragment>:12:12: 'Outer.Held' is built over 'T' of 'Outer', which 
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-container-over-a-type-parameter-its-owner-bounds -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Outer` bounds `T` `sendable`, so `Pool with immutable Held`, `Held` being `Array with T`, meets the bound in `Outer`, and
@@ -2053,9 +2012,7 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Pool with immutable Held
 	export var items as Items
@@ -2084,7 +2041,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-an-immutable-tuple-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -2108,10 +2064,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
 	export var pool as PairPool
@@ -2136,7 +2090,6 @@ error E3215: <fragment>:15:12: '(T, Tally)' is built over 'T' of 'Outer', which 
 ```
 
 <!-- test: a-sendable-bound-names-the-first-declared-of-two-unbounded-parameters-an-argument-is-built-over -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -2155,10 +2108,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (U, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
 	export var pool as PairPool
@@ -2178,7 +2129,6 @@ error E3215: <fragment>:12:12: '(U, T)' is built over 'T' of 'Outer', which is n
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-tuple-over-a-type-parameter-its-owner-bounds -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -2200,10 +2150,8 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, Tally)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias PairPool = Pool with immutable Pair
 	export var pool as PairPool
@@ -2231,7 +2179,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-an-immutable-phantom-record-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2257,9 +2204,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Tagged = Tag with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Tagged
 	export var pool as Inner
@@ -2285,7 +2230,6 @@ error E3215: <fragment>:20:12: 'Outer.Tagged' is built over 'T' of 'Outer', whic
 
 <!-- test: a-sendable-bound-refuses-an-immutable-phantom-record-over-a-function-type-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2313,12 +2257,9 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(T) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Tagged = Tag with Maker
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Inner = Pool with immutable Tagged
 	export var n as Tally
@@ -2345,7 +2286,6 @@ error E3215: <fragment>:23:12: 'Outer.Tagged' is built over 'T' of 'Outer', whic
 <!-- test: a-sendable-bound-refuses-a-function-type-through-a-nested-alias -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Outer`, and an alias of a function type is a function type wherever it is declared.
@@ -2363,10 +2303,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Tally) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias StepPool = Pool with Step
 	export var pool as StepPool
 
@@ -2388,7 +2326,6 @@ error E3215: <fragment>:14:12: 'Outer.Step' is a function type, so it cannot be 
 ```
 
 <!-- test: a-sendable-bound-refuses-a-tuple-through-a-nested-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -2408,10 +2345,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Span = (Tally, Tally)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias SpanPool = Pool with Span
 	export var pool as SpanPool
 
@@ -2432,14 +2367,12 @@ error E3215: <fragment>:14:12: '(Tally, Tally)' is not sendable, so it cannot be
 ```
 
 <!-- test: a-sendable-bound-refuses-an-instance-of-a-generic-record-over-a-nested-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Grid.Cell` is a ranged alias declared inside `Grid`, and `CellBox` names `Box with Grid.Cell`, an instance of a generic record the caller keeps sharing, so the bound refuses it, naming it as the program wrote it.
 
 ```maxon
 type Grid
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Cell = int(0 to 9)
 	export var at as Cell
 
@@ -2480,7 +2413,6 @@ error E3215: <fragment>:29:11: 'CellBox' is not sendable, so it cannot be 'T' of
 ```
 
 <!-- test: a-sendable-bound-refuses-a-tuple-holding-a-nested-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -2492,7 +2424,6 @@ alias as an element is refused.
 typealias Tally = int(0 to 1024)
 
 type Grid
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Cell = int(0 to 9)
 	export var at as Cell
 
@@ -2535,13 +2466,11 @@ error E3215: <fragment>:30:11: '(Grid.Cell, Tally)' is not sendable, so it canno
 ```
 
 <!-- test: a-sendable-bound-accepts-a-nested-ranged-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Grid.Cell` is a ranged alias declared inside `Grid`, a scalar, so it is sendable as it stands.
 
 ```maxon
 type Grid
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Cell = int(0 to 9)
 	export var at as Cell
 
@@ -2575,14 +2504,12 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-accepts-an-immutable-instance-of-a-generic-record-over-a-nested-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `immutable CellBox` is shared read-only, so the bound holds for a `Box with Grid.Cell`.
 
 ```maxon
 type Grid
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Cell = int(0 to 9)
 	export var at as Cell
 
@@ -2627,7 +2554,6 @@ end 'main'
 ```
 
 <!-- test: a-sendable-bound-refuses-a-container-instance-through-a-nested-alias-named-from-outside -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer.Items` names, from outside `Outer`, an alias of `Array with Tally` declared inside it: a container
@@ -2646,7 +2572,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Tally
 	export var at as Tally
 
@@ -2727,7 +2652,6 @@ error E3215: <fragment>:36:11: 'Digits.Items' is not sendable, so it cannot be '
 
 <!-- test: a-sendable-bound-refuses-a-function-type-through-a-nested-alias-of-a-generic-type -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Wrapper uses T` as `function(T) returns T`, a function type whatever `T` is. So `Pool
@@ -2746,10 +2670,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias StepPool = Pool with Step
 	export var pool as StepPool
 
@@ -2773,7 +2695,6 @@ error E3215: <fragment>:14:12: 'Wrapper.Step' is a function type, so it cannot b
 ```
 
 <!-- test: a-sendable-bound-refuses-a-tuple-through-a-nested-alias-of-a-generic-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2793,10 +2714,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias PairPool = Pool with Pair
 	export var pool as PairPool
 
@@ -2820,7 +2739,6 @@ error E3215: <fragment>:14:12: '(T, T)' is not sendable, so it cannot be 'T' of 
 ```
 
 <!-- test: a-sendable-bound-refuses-a-container-through-a-nested-alias-of-a-generic-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Items` is declared inside `Wrapper uses T` as `Array with T`, a container instance whatever `T` is, and a container
@@ -2840,9 +2758,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemsPool = Pool with Items
 	export var pool as ItemsPool
 
@@ -2869,7 +2785,6 @@ error E3215: <fragment>:14:12: 'Wrapper.Items' is not sendable, so it cannot be 
 
 <!-- test: a-sendable-bound-refuses-a-function-type-in-a-generic-type-nothing-instantiates -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 A generic type is checked where it is declared: `Pool with Step` is refused in `Wrapper` although no program
@@ -2886,10 +2801,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Pool with Step
 	export var held as Held
 
@@ -2936,7 +2849,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-refuses-each-of-two-mutually-recursive-function-aliases-over-a-type-parameter -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2964,20 +2876,14 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop2 = function(Loop) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop = function(Loop2, T) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias First = Tag with Loop
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Second = Tag with Loop2
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias A = Pool with immutable First
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias B = Pool with immutable Second
 	export var a as A
@@ -3000,7 +2906,6 @@ error E3215: <fragment>:26:12: 'Outer.Second' is built over 'T' of 'Outer', whic
 
 <!-- test: a-sendable-bound-names-the-first-declared-parameter-for-each-member-of-a-cycle -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3029,20 +2934,14 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T, U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop2 = function(U, Loop) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Loop = function(T, Loop2) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias First = Tag with Loop
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Second = Tag with Loop2
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias A = Pool with immutable Second
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias B = Pool with immutable First
 	export var a as A
@@ -3065,7 +2964,6 @@ error E3215: <fragment>:26:12: 'Outer.First' is built over 'T' of 'Outer', which
 
 <!-- test: a-sendable-bound-refuses-a-function-type-over-a-type-parameter-nested-in-a-container-in-a-generic-type -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Maker` is a function type over `T`, so `Pool with Maker` mentions `T` and is judged where `Outer` writes it, although it sits inside `Array`.
@@ -3084,10 +2982,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(T) returns Tally
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pools = Array with (Pool with Maker)
 	export var pools as Pools
 
@@ -3111,7 +3007,6 @@ error E3215: <fragment>:14:32: 'Outer.Maker' is a function type, so it cannot be
 ```
 
 <!-- test: a-sendable-bound-refuses-an-instance-written-inline-in-an-alias-in-a-generic-type-at-the-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Pool with T` is written inline inside the arguments of `Deep`, in `Outer`, which declares no bound on `T`. The
@@ -3131,7 +3026,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deep = Array with (Pool with T)
 	export var deep as Deep
 
@@ -3155,7 +3049,6 @@ error E3215: <fragment>:13:31: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-accepts-an-instance-written-inline-in-an-alias-in-a-generic-type-that-bounds-its-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 `Outer` declares `where T is sendable`, which proves the bound of the `Pool with T` written inline inside `Deep`, so
 `Outer with Tally` is built and used.
@@ -3174,7 +3067,6 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deep = Array with (Pool with T)
 	export var deep as Deep
 
@@ -3202,7 +3094,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-reports-a-fixed-and-an-open-argument-of-one-generic-type-in-the-generic-type -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` writes `Pool with Step`, refused because a function type is refused whatever `T` is, and `Pool with T`,
@@ -3225,9 +3116,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Fixed = Pool with Step
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Open = Pool with T
 	export var fixed as Fixed
 	export var open as Open
@@ -3254,7 +3143,6 @@ error E3215: <fragment>:15:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-whose-pool-it-holds-in-a-container -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `sendable`, so the `Pool with T` it holds as the element of a container is met in `Outer`.
@@ -3277,9 +3165,7 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inners = Array with Inner
 	export var pools as Inners
 
@@ -3303,7 +3189,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 <!-- test: a-sendable-bound-on-the-owner-refuses-a-function-type-whose-pool-it-holds-in-a-tuple -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
@@ -3329,9 +3214,7 @@ end 'Pool'
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Outer uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Inner, Tally)
 	export var pair as Pair
@@ -3360,7 +3243,6 @@ error E3215: <fragment>:24:11: 'Step' is a function type, so it cannot be 'T' of
 
 <!-- test: a-sendable-bound-reports-an-instance-a-generic-type-holds-in-a-container-once -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -3383,11 +3265,8 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Fixed = Pool with Step
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Fixeds = Array with Fixed
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias FixedPair = (Fixed, Tally)
 	export var pools as Fixeds
@@ -3415,7 +3294,6 @@ error E3215: <fragment>:14:12: 'Step' is a function type, so it cannot be 'T' of
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-in-a-method-body -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer uses T` writes `Pool with T` and uses it in a method body. `Outer` declares no bound, so the instance is
@@ -3437,7 +3315,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
 	export var count as Tally
 
@@ -3467,7 +3344,6 @@ error E3215: <fragment>:14:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-held-only-by-a-function-type-field -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The only holder of `Pool with T` is the return type of a function-typed field. The instance is refused once, where
@@ -3489,9 +3365,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Maker = function(Tally) returns Inner
 	export var make as Maker
@@ -3516,7 +3390,6 @@ error E3215: <fragment>:14:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-held-only-as-a-promise-payload -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The only holder of `Pool with T` is the payload of a promise a field holds. The instance is refused once, where
@@ -3533,9 +3406,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Pool with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pending = Promise with Inner
 	export var pending as Pending
 
@@ -3554,7 +3425,6 @@ error E3215: <fragment>:11:12: 'T' of 'Outer' is not bounded `sendable`, so it c
 ```
 
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-under-a-phantom-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Phantom uses P` holds no value of `P`, so `Phantom with (Pool with T)` is a record of a number. The `Pool with T`
@@ -3581,7 +3451,6 @@ type Phantom uses P
 end 'Phantom'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Phantom with (Pool with T)
 	export var held as Held
 
@@ -3605,7 +3474,6 @@ error E3215: <fragment>:21:33: 'T' of 'Outer' is not bounded `sendable`, so it c
 <!-- test: a-sendable-bound-refuses-a-type-parameter-its-owner-does-not-bound-under-an-interface-base -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 The only holder of `Pool with T` is the argument of an interface instance, `Seq with (Pool with T)`, that `Outer`
@@ -3634,7 +3502,6 @@ interface Seq uses Element
 end 'Seq'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Seq with (Pool with T)
 	export var n as Tally
 
@@ -3664,7 +3531,6 @@ error E3215: <fragment>:18:30: 'T' of 'Outer' is not bounded `sendable`, so it c
 
 <!-- test: a-sendable-bound-names-a-function-alias-through-an-instance-of-a-generic-type-as-unknown -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 Only a ranged alias declared inside a generic type is named through one of its instances. `TallyWrapper.Step`,
@@ -3684,7 +3550,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	export var value as T
@@ -3708,7 +3573,6 @@ error E3011: <fragment>:23:32: Unknown type 'TallyWrapper.Step'
 ```
 
 <!-- test: a-sendable-bound-names-a-container-alias-through-an-instance-of-a-generic-type-as-unknown -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `TallyWrapper.Items`, an alias of `Array with T` reached through `Wrapper with Tally`, names no type: it is
@@ -3727,7 +3591,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	export var value as T
 
@@ -3751,8 +3614,8 @@ error E3011: <fragment>:23:33: Unknown type 'TallyWrapper.Items'
 
 <!-- test: a-sendable-bound-names-an-interface-function-alias-as-unknown -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface body declares no alias of a function type, and `Shape.Step` names no type: each is reported once.
 
@@ -3769,7 +3632,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 interface Shape
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(Tally) returns Tally
 	function area() returns Tally
@@ -3788,8 +3651,8 @@ error E3011: <fragment>:17:32: Unknown type 'Shape.Step'
 ```
 
 <!-- test: a-sendable-bound-names-an-interface-container-alias-as-unknown -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An alias an interface declares is not named through the interface from outside it: `Shape.Items` names no type,
 and is reported once, as an unknown type.
@@ -3807,7 +3670,7 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 interface Shape
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = Array with Tally
 	function area() returns Tally
 end 'Shape'
@@ -4575,7 +4438,6 @@ end 'main'
 
 <!-- test: a-sendable-bound-accepts-the-handle-of-a-generic-service-over-a-type-parameter-its-owner-does-not-bound -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Counter.handle with T` is the handle of a service instance, so it is sendable as it stands, whatever `T` is. `Outer`
@@ -4608,7 +4470,6 @@ type Pool uses T where T implements sendable
 end 'Pool'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Handles = Pool with Counter.handle with T
 	export var handles as Handles
 
@@ -5161,7 +5022,6 @@ end 'main'
 
 <!-- test: a-sendable-service-bound-leaves-a-type-built-over-the-parameter-to-the-crossing-rule -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -5176,7 +5036,6 @@ typealias Names = Array with String
 
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Keeper uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 	var seen as Tally
@@ -5282,14 +5141,12 @@ error E3215: <fragment>:13:11: 'Tallies' is not isolated, so it cannot be 'T' of
 ```
 
 <!-- test: an-isolated-bound-refuses-an-instance-of-a-generic-record-over-a-nested-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `CellBox` names `Box with Grid.Cell`, which is not `unique` and not a value, so an `isolated` bound refuses it.
 
 ```maxon
 type Grid
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Cell = int(0 to 9)
 	export var at as Cell
 
@@ -5331,7 +5188,6 @@ error E3215: <fragment>:29:11: 'CellBox' is not isolated, so it cannot be 'T' of
 
 <!-- test: an-isolated-bound-refuses-a-function-type-through-a-nested-alias-of-a-generic-type -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` is declared inside `Wrapper uses T` as `function(T) returns T`, a function type whatever `T` is, and no function
@@ -5351,10 +5207,8 @@ type Cell uses T where T implements isolated
 end 'Cell'
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias StepCell = Cell with Step
 	export var cell as StepCell
 
@@ -5378,7 +5232,6 @@ error E3215: <fragment>:14:12: 'Wrapper.Step' is not isolated, so it cannot be '
 ```
 
 <!-- test: an-isolated-bound-refuses-an-aggregate-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Cell with (Box with T)` inside `Outer uses T` holds a plain `Box` over `T`, which is not `unique` whatever `T` is.
@@ -5414,7 +5267,6 @@ type Cell uses T where T implements isolated
 end 'Cell'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias HeldCell = Cell with (Box with T)
 	export var cell as HeldCell
 
@@ -5438,7 +5290,6 @@ error E3215: <fragment>:29:12: 'Box with T' is not isolated, so it cannot be 'T'
 ```
 
 <!-- test: an-isolated-bound-refuses-an-aggregate-over-a-type-parameter-its-owner-bounds-isolated -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `isolated`, but a plain `Box` over `T` is neither a value nor `unique`, so `Cell with (Box with T)`
@@ -5466,7 +5317,6 @@ end 'Cell'
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Cell with (Box with T)
 	export var cell as Held
 
@@ -5490,7 +5340,6 @@ error E3215: <fragment>:21:12: 'Box with T' is not isolated, so it cannot be 'T'
 ```
 
 <!-- test: an-isolated-bound-accepts-a-unique-aggregate-over-a-type-parameter-its-owner-does-not-bound -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 A generic `Box` declared `is unique` is `unique` whatever `T` is, so `Cell with (Box with T)` meets the `isolated` bound
 inside an unbounded `Outer`, and `Outer with Tally` adds nothing.
@@ -5516,7 +5365,6 @@ type Cell uses T where T implements isolated
 end 'Cell'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Cell with (Box with T)
 	export var cell as Held
 
@@ -5860,7 +5708,6 @@ error E3011: <fragment>:10:33: Unknown type 'Bogus.Inner'
 ```
 
 <!-- test: an-isolated-bound-on-the-owner-refuses-a-plain-container-whose-cell-it-holds-in-a-container -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 `Outer` bounds `T` `isolated`, so the `Cell with T` it holds in a container is met in `Outer`. `Outer with Tallies`
@@ -5882,9 +5729,7 @@ end 'Cell'
 
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Outer uses T where T implements isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Cell with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inners = Array with Inner
 	export var cells as Inners
 

@@ -942,7 +942,6 @@ error E3005: <fragment>:18:9: argument type mismatch for 'info': expected 'stdli
 ```
 
 <!-- test: stdlib-user-shadows.a-member-typealias-after-a-method-stays-a-member -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The member typealias after a method is the type's `Holder.Range`, and the program's bare `Range` is still the library's.
 ```maxon
 typealias Small = int(0 to 50)
@@ -957,7 +956,6 @@ type Holder
 	function held() returns Small
 		return self.n
 	end 'held'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Range = int(0 to 9)
 
 	function widened() returns Range

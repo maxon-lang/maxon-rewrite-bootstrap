@@ -124,7 +124,6 @@ case and the one above must answer identically. It is `stdlib/List.maxon`'s spel
 whose cone reaches `extension Iterable` depends on it.
 
 <!-- test: contains-through-an-aliased-cursor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -145,7 +144,6 @@ export type BagIterator uses Element implements Iterator with Element
 end 'BagIterator'
 
 type Bag uses Element implements Iterable with (Element, BagIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias BagIter = BagIterator with Element
 	var slot as Element
 
@@ -183,7 +181,6 @@ trips take five references and give five back, on the fall-through exit. A missi
 surplus one frees the `String` the bag still holds.
 
 <!-- test: aliased-cursor-releases-every-trip -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u32.max)
 
@@ -208,7 +205,6 @@ export type BagIterator uses Element implements Iterator with Element
 end 'BagIterator'
 
 type Bag uses Element implements Iterable with (Element, BagIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias BagIter = BagIterator with Element
 	var slot as Element
 	let repeats as Count
@@ -380,7 +376,6 @@ ABI that carries a descriptor.
 
 <!-- test: error.a-cursor-over-a-parameter-is-still-refused -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -397,11 +392,8 @@ interface Bag uses Element, Iter
 end 'Bag'
 
 type Collector uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementCursor = Cursor with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementBag = Bag with (Element, ElementCursor)
 	export var items as ElementArray
 

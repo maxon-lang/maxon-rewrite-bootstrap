@@ -4127,11 +4127,9 @@ error E3102: <fragment>:16:18: use of moved value 'fresh': its ownership moved t
 ```
 
 <!-- test: a-shared-value-alias-declared-in-a-generic-type-over-a-concrete-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `SharedValue` alias a generic type's body declares is judged by its own element, here a scalar.
 ```maxon
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TallyCell = SharedValue with Tally
 	export var item as T
 
@@ -4163,13 +4161,11 @@ typealias Tally = int(0 to u64.max)
 ```
 
 <!-- test: error.a-shared-value-over-an-unbounded-type-parameter -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A `SharedValue` whose element is a type parameter of the enclosing type is judged against that parameter's
 bound, at the alias: no share walk can be chosen for a `T` nothing bounds.
 ```maxon
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4193,14 +4189,12 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-sendable-type-parameter-is-not-built -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'sendable' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 With the bound the alias is still refused: a `SharedValue` is built over a concrete type only.
 ```maxon
 // TODO: region bound 'sendable' in where clause is not supported in minimaxon
 type Maker uses T where T implements sendable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4224,14 +4218,12 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-bounded-isolated -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: region bound 'isolated' in where clause is not supported in minimaxon -->
 <!-- positions: moved -->
 An `isolated` bound is not the `sendable` one.
 ```maxon
 // TODO: region bound 'isolated' in where clause is not supported in minimaxon
 type Maker uses T where T implements isolated
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4255,7 +4247,6 @@ error E3171: <fragment>:3:20: `T` cannot be a registry value or a `SharedValue`:
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-method-above-it-builds-one -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The alias is judged where it is declared, whatever the body wrote above it.
 ```maxon
@@ -4270,7 +4261,6 @@ type Maker uses T
 		let cell = TCell.create(self.item)
 		return cell.current()
 	end 'through'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4290,13 +4280,13 @@ error E3171: <fragment>:15:20: `T` cannot be a registry value or a `SharedValue`
 
 <!-- test: error.a-shared-value-over-an-interfaces-type-parameter -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 An interface's type parameter takes no `sendable` bound, so the alias is written over a concrete type.
 ```maxon
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Cell = SharedValue with Element
 	function only() returns Element
 end 'Holder'
@@ -4334,7 +4324,6 @@ error E3171: <fragment>:7:19: `Element` cannot be a registry value or a `SharedV
 
 <!-- test: error.a-shared-value-over-a-type-parameter-whose-instantiation-is-unwalkable -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The alias is refused where it is declared, before any instantiation is looked at.
@@ -4381,7 +4370,6 @@ type Holder
 end 'Holder'
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 
 	static function cell(x T) returns Tally
@@ -4407,7 +4395,6 @@ error E3171: <fragment>:32:20: `T` cannot be a registry value or a `SharedValue`
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-an-extension-above-it-builds-one -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A use the compiler reads before the declaration builds nothing: the alias's own refusal is the one report.
 ```maxon
@@ -4420,7 +4407,6 @@ extension Maker
 end 'Maker'
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 	export var item as T
 
@@ -4491,14 +4477,12 @@ error E3171: <fragment>:3:19: `Array with int` cannot be a registry value or a `
 ```
 
 <!-- test: error.a-shared-value-over-a-container-instance-declared-in-a-generic-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same element is judged the same way where a generic type's body declares the alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cells = SharedValue with Array with Integer
 	export var item as T
 
@@ -4520,7 +4504,6 @@ error E3171: <fragment>:5:20: `Array with int` cannot be a registry value or a `
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-published-to -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A value typed by the alias builds nothing either, whichever member is asked of it.
 ```maxon
@@ -4534,7 +4517,6 @@ type Maker uses T
 	function put(c TCell)
 		c.publish(self.item)
 	end 'put'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4553,7 +4535,6 @@ error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-a-parameter-above-it-is-read -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Maker uses T
@@ -4566,7 +4547,6 @@ type Maker uses T
 	function take(c TCell) returns T
 		return c.current()
 	end 'take'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 end 'Maker'
 
@@ -4585,12 +4565,10 @@ error E3171: <fragment>:13:20: `T` cannot be a registry value or a `SharedValue`
 ```
 
 <!-- test: error.a-shared-value-over-a-type-parameter-nested-in-another-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The element is judged wherever an alias writes the `SharedValue`, here as another alias's argument.
 ```maxon
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Cells = Array with SharedValue with T
 	export var item as T
 
@@ -4661,13 +4639,11 @@ end 'main'
 
 <!-- test: error.a-shared-value-over-a-type-parameter-is-refused-though-another-file-uses-its-values -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 Another file's use of the alias waits on the declaring file's refusal and reports nothing of its own.
 ```maxon
 // --- file: maker.maxon
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TCell = SharedValue with T
 	export var item as T
 

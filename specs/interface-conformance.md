@@ -548,7 +548,6 @@ end 'main'
 ### A type implementing a compiler builtin interface
 
 <!-- test: builtin-interface-conformer-in-the-library-tier -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 `stdlib/Builtins.maxon`'s `BuiltinArrayLiteral` is a MARKER: the compiler finds the type implementing it and
 uses that declaration as the record a `[…]` literal builds. A conformer's record holds a `__ManagedMemory`,
@@ -561,7 +560,6 @@ Element` is refused), so the alias is not a style choice — it is the only spel
 `stdlib/Array.maxon`'s own. The refusal one case down is what a field over the WRONG element earns.
 ```maxon
 public type MyCollection uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Buf = __ManagedMemory with Element
 	var managed as Buf
 

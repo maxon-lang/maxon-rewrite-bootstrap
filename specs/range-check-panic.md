@@ -845,7 +845,7 @@ end 'main'
 ```
 
 <!-- test: range-check-panic.error.a-nested-alias-index-on-an-array-conformer-is-checked -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 An `Array` conformer declares its `get` index as an alias nested in its body, and an out-of-range literal index is refused against that alias. The conformer stores its elements in a `__ManagedMemory`, which only a source file under `stdlib/` or `runtime/` may name (E3185), so the case compiles in the library tier.
@@ -853,9 +853,8 @@ An `Array` conformer declares its `get` index as an alias nested in its body, an
 typealias Num = int(0 to 1000)
 
 type Array uses Element implements BuiltinArrayLiteral
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	typealias Idx = int(0 to 9)
 	export var managed as ElementMemory
 
@@ -2621,13 +2620,11 @@ Stack trace:
 
 <!-- test: a-large-count-reaches-a-function-value-through-a-generic-cell -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `Count` above `i64.max` stored in a generic cell is checked where it enters the cell, so the cell's call through a function value passes it on.
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -2665,7 +2662,6 @@ end 'main'
 
 <!-- test: a-negative-value-into-a-generic-cell-is-refused-where-it-enters -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `n` is derived from a counted loop's counter, so the `-1` it reaches is known at compile time and the
 cell's `Count` parameter refuses it with E3005.
@@ -2673,7 +2669,6 @@ cell's `Count` parameter refuses it with E3005.
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -2782,12 +2777,10 @@ error E3005: <fragment>:18:9: Value -1 is outside the range of 'Count' (int(0 to
 
 <!-- test: a-large-count-through-a-generic-instances-function-field -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Calling a concrete instance's function-typed field substitutes its parameter type, so a large `Count` passes through it.
 ```maxon
 type Cell uses T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -2841,13 +2834,11 @@ error E3005: <fragment>:7:12: Value -1 is outside the range of 'Count' (int(0 to
 
 <!-- test: a-negative-difference-into-a-generic-cell-panics-at-the-subtraction -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The run-time twin of the refusal above: `args - 2` is a `Count` difference the compiler cannot evaluate, so the borrow is caught where the difference is computed, before the value reaches the cell.
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -2971,13 +2962,11 @@ Stack trace:
 ```
 
 <!-- test: a-user-pop-over-a-literal-array-proves-nothing-about-its-result -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user declaration named like a library move-out door is decided by its own body, not by its name: `Picker.pop` returns its `fallback`, so nothing known about the elements of the literal array it was handed bounds that result, and `show` checks the value against `Small` where it enters.
 ```maxon
 typealias Small = int(0 to 10)
 
 type Picker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 
 	static function pop(a Items, fallback T) returns T
@@ -3010,13 +2999,11 @@ Stack trace:
 ```
 
 <!-- test: a-user-get-over-a-literal-array-proves-nothing-about-its-result -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same rule for a user declaration named like a library read: `Picker.get` returns its `fallback`, not an element of the literal array it was handed, so the result carries no bound from that array and `show` checks it against `Small`.
 ```maxon
 typealias Small = int(0 to 10)
 
 type Picker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 
 	static function get(a Items, fallback T) returns T

@@ -457,12 +457,10 @@ end 'main'
 ### A generic body hashes an array as concrete code does
 
 <!-- test: a-generic-body-hashes-an-array-as-concrete-code-does -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var v as T
 
@@ -500,12 +498,10 @@ true
 ### A generic body compares arrays with the operator
 
 <!-- test: a-generic-body-compares-arrays-with-the-operator -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var v as T
 
@@ -549,12 +545,10 @@ false
 ### A generic body compares a field array with the operator
 
 <!-- test: a-generic-body-compares-a-field-array-with-the-operator -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -598,14 +592,11 @@ false
 ### A set of type-parameter arrays inside a generic
 
 <!-- test: a-set-of-type-parameter-arrays-inside-a-generic -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Seen = Set with Items
 	var seen as Seen
 
@@ -651,7 +642,6 @@ end 'main'
 ### A generic body compares arrays of a parametric instance
 
 <!-- test: a-generic-body-compares-arrays-of-a-parametric-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -672,9 +662,7 @@ type Tag uses T implements Hashable, Equatable
 end 'Tag'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Tagged = Tag with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Tags = Array with Tagged
 	var tags as Tags
 
@@ -712,7 +700,6 @@ true
 ### A generic body hashes arrays of a parametric instance
 
 <!-- test: a-generic-body-hashes-arrays-of-a-parametric-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -733,9 +720,7 @@ type Tag uses T implements Hashable, Equatable
 end 'Tag'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Tagged = Tag with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Tags = Array with Tagged
 	var tags as Tags
 
@@ -772,7 +757,7 @@ true
 ### Every integer element width hashes alike through every route
 
 <!-- test: every-integer-element-width-hashes-alike-through-every-route -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An integer array of every element width answers one hash called directly, through a `Hashable` field and
 from a generic body; a separately built equal array hashes equal, and one element changed changes the hash.
 ```maxon
@@ -797,7 +782,6 @@ type Holder
 end 'Holder'
 
 type Route uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 
 	static function hashOf(items Items) returns HashValue
@@ -1237,7 +1221,7 @@ different arrays: true
 ### A narrow int array hashes alike through every route
 
 <!-- test: a-narrow-int-array-hashes-alike-through-every-route -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 An array whose element is one byte wide but is not `Byte` — an `int(0 to 100)`, a signed `int(-128 to 127)` —
 answers one hash called directly, through a `Hashable` field and from a generic body; a separately built equal
 array hashes equal, and one element changed changes the hash.
@@ -1259,7 +1243,6 @@ type Holder
 end 'Holder'
 
 type Route uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 
 	static function hashOf(items Items) returns HashValue
@@ -1298,7 +1281,7 @@ small: through Hashable true generic true equal true changed true
 ### A payload-free enum array hashes alike through every route
 
 <!-- test: a-payload-free-enum-array-hashes-alike-through-every-route -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the line but got 'from' -->
 A payload-free enum's equality is bitwise, so its array hashes as one run over its storage, like an integer
 array: called directly, through a `Hashable` field and from a generic body it answers one hash; a separately
 built equal array hashes equal, and one element changed changes the hash.
@@ -1321,7 +1304,6 @@ type Holder
 end 'Holder'
 
 type Route uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 
 	static function hashOf(items Items) returns HashValue

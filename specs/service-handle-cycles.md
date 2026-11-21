@@ -191,7 +191,6 @@ error E4014: <fragment>:9:6: type 'Hub' reaches a service handle that reaches it
 ```
 
 <!-- test: a-generic-that-expands-with-every-instantiation-is-refused-in-a-services-state-without-walking-it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 `Rec` holds a `Rec` over `Rec with T`, so every instantiation names a larger one. A service whose state holds `Rec with Tally`
@@ -204,7 +203,6 @@ typealias Tally = int(0 to u64.max)
 typealias TallyRec = Rec with Tally
 
 type Rec uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wrapped = Rec with (Rec with T)
 	var x as Wrapped
 	var y as T

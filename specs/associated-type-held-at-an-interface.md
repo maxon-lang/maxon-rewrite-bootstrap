@@ -622,7 +622,6 @@ error E3120: <fragment>:24:6: 'WeirdBag' binds 'Bag's associated type 'Iter' to 
 
 <!-- test: held.the-element-is-the-enclosing-types-own-parameter -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE PROGRAM `stdlib/Array.maxon`'s `Array.from` IS.** A generic type walking a
 value held at a parameterized interface over its OWN parameter — `Bag with (Element, Cursor with Element)`
 inside `type Collector uses Element` — and storing each element into its `Array with Element`.
@@ -653,11 +652,8 @@ interface Bag uses Element, Iter
 end 'Bag'
 
 type Collector uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementCursor = Cursor with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementBag = Bag with (Element, ElementCursor)
 	export var items as ElementArray
 
@@ -692,7 +688,6 @@ end 'main'
 
 <!-- test: a-use-site-binding-a-type-parameter-is-a-claim-about-each-instantiation -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE PROGRAM BELOW IS CORRECT AND COMPILES.** A comparison of `'Element'` against `'Integer'` at the
 declaration is meaningless. `typealias ElementCursor = Cursor with Element` inside `type Counter uses Element` states nothing
 about the program; it states something different at every `Counter with X`, and E3125 has no instantiation in
@@ -739,7 +734,6 @@ public type UpCursor implements Cursor with Integer
 end 'UpCursor'
 
 public type Counter uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementCursor = Cursor with Element
 	export var seen as Integer
 
@@ -1103,7 +1097,6 @@ error E3126: <fragment>:27:6: 'OddBag' binds 'Bag's associated type 'Iter' to 'I
 
 <!-- test: held.a-generic-conformer-binding-an-instance-over-its-own-parameter-is-frozen -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `UpBag with Tally` binds `Cursor` to `UpCursor with Slot`, an instance over its own parameter, so the nested table its `Bag` table carries is the instance's own, and a freeze in a program that spawns a service walks the cursor through it.
 
@@ -1133,7 +1126,6 @@ type UpCursor uses Slot implements Cursor
 end 'UpCursor'
 
 type UpBag uses Slot implements Bag with SlotCursor
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias SlotCursor = UpCursor with Slot
 	let spare as Slot
 
@@ -1304,7 +1296,6 @@ note: <fragment>:47:34: `StepCursor` is converted to `Cursor` here
 
 <!-- test: error.held-bindings-naming-ever-deeper-instances-are-refused -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Nest` holds a value of its parameter and binds the associated type of `A` and of `B`, each held at the other, to an instance that nests `Nest`'s own parameter one level deeper, so the conformers a share walk must judge never end.
 
@@ -1322,7 +1313,6 @@ interface B uses Y
 end 'B'
 
 type Nest uses T implements A with Deeper, B with Deeper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Nest with (Nest with T)
 	let n as Tally
 	let held as T
@@ -1378,7 +1368,6 @@ error E2015: <fragment>:12:51: Unsupported: sharing is judged at every conformer
 
 <!-- test: held-bindings-naming-ever-deeper-instances-over-an-unread-parameter-run -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Nest` binds the associated type of `A` and of `B` to an instance that nests its own parameter one level deeper, and nothing reads that parameter, so every conformer a share walk judges is the same.
 
@@ -1396,7 +1385,6 @@ interface B uses Y
 end 'B'
 
 type Nest uses T implements A with Deeper, B with Deeper
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Deeper = Nest with (Nest with T)
 	let n as Tally
 
@@ -1468,7 +1456,6 @@ end 'main'
 
 <!-- test: held-binding-chains-follow-only-the-conformers-converted-to-an-interface -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Bar` binds `J`'s associated type to `Foo` over its own parameter, and `Foo` binds `I`'s to `Bar` over a `Box` of its own; only `Foo` is converted to `I`, and `I` holds its associated type at an interface with none of its own, so the chain ends at `Bar`.
 
@@ -1498,9 +1485,7 @@ type Box uses T
 end 'Box'
 
 type Foo uses T implements Plain0, I with Next
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Boxed = Box with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = Bar with Boxed
 	let held as T
 	let n as Tally
@@ -1519,7 +1504,6 @@ type Foo uses T implements Plain0, I with Next
 end 'Foo'
 
 type Bar uses U implements Plain0, J with Back
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Back = Foo with U
 	let held as U
 	let n as Tally
@@ -1608,7 +1592,6 @@ end 'main'
 
 <!-- test: held-binding-cycle-over-an-unread-parameter-runs -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `P`, `Q` and `R` bind each other's associated types in a cycle that nests `Cell` around the parameter once, and no `T` is stored anywhere, so the cycle builds no deeper conformer.
 
@@ -1629,7 +1612,6 @@ type Cell uses T
 end 'Cell'
 
 type P uses T implements A with Next
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = Q with T
 	let n as Tally
 
@@ -1643,7 +1625,6 @@ type P uses T implements A with Next
 end 'P'
 
 type Q uses T implements A with Next
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = R with (Cell with T)
 	let n as Tally
 
@@ -1657,7 +1638,6 @@ type Q uses T implements A with Next
 end 'Q'
 
 type R uses T implements A with Next
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Next = P with T
 	let n as Tally
 
@@ -1718,7 +1698,6 @@ end 'main'
 
 <!-- test: held.bindings-differing-in-a-parameter-only-a-nested-instance-reads-keep-their-own-tables -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Outer` binds `Bag`'s associated type to `Inner with (Wrap with (X, Y))`. `Wrap` stores only its `X`, so a share walk cannot tell `Wrap with (Tally, bool)` from `Wrap with (Tally, Tally)`; but `Wrap.width` reads `sizeof(Y)`, and `Inner.current` reaches it through its `where W is Probe` witness. The two bindings' `Cursor` tables must stay apart, each handing `current` its own descriptor: 1 and 8.
@@ -1765,9 +1744,7 @@ type Inner uses W implements Cursor where W implements Probe
 end 'Inner'
 
 type Outer uses X, Y implements Bag with In
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Pairing = Wrap with (X, Y)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Inner with Pairing
 	let x as X
 
@@ -1831,7 +1808,6 @@ end 'main'
 
 <!-- test: held.bindings-differing-in-a-held-position-no-share-walk-reaches-keep-their-own-tables -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` holds its `P` only as the element of an `Array`, a position no share walk of `Item` names. `Item with (Tally, String)` and `Item with (Tally, Tally)` still release different arrays, so each binding's `Cursor` table keeps its own.
 
@@ -1849,7 +1825,6 @@ end 'Bag'
 
 type Item uses T, P implements Cursor
 	export let t as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias PItems = Array with P
 	export let items as PItems
 
@@ -1863,9 +1838,7 @@ type Item uses T, P implements Cursor
 end 'Item'
 
 type Outer uses X, Y implements Bag with In
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Item with (Tally, Y)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Y
 	let y as Y
 
@@ -1929,7 +1902,6 @@ end 'main'
 
 <!-- test: held.bindings-differing-in-a-constrained-position-keep-their-own-tables -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` with `where P is Weigh` and reads `sizeof(P)` in `current`, which the `Cursor` table's adapter reaches through its descriptor and `P`'s witness; the two bindings' tables stay apart: 8 and 16.
@@ -1989,7 +1961,6 @@ type Item uses T, P implements Cursor where P implements Weigh
 end 'Item'
 
 type Outer uses X, Y implements Bag with In where Y implements Weigh
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Item with (Tally, Y)
 	let x as X
 
@@ -2051,7 +2022,6 @@ end 'main'
 
 <!-- test: held.bindings-differing-in-a-constrained-position-nothing-reads-run -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 `Item` constrains `P` and nothing reads it, so the two bindings stay correct whichever tables they get: both answer 1.
 
@@ -2109,7 +2079,6 @@ type Item uses T, P implements Cursor where P implements Weigh
 end 'Item'
 
 type Outer uses X, Y implements Bag with In where Y implements Weigh
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias In = Item with (Tally, Y)
 	let x as X
 

@@ -16,7 +16,6 @@ When a generic type declares a typealias that references its type parameter (e.g
 ### Basic generic type with nested array typealias
 
 <!-- test: basic-nested-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -25,20 +24,19 @@ typealias Count = int(0 to u64.max)
 typealias SmallInt = int(0 to 100)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{items: ElementArray.create(0), name: name}
+		return Self{items: ElementArray.create(0), name: name.clone()}
 	end 'create'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 end 'Container'
@@ -46,7 +44,7 @@ end 'Container'
 typealias IntContainer = Container with SmallInt
 
 function main() returns ExitCode
-	let ic = IntContainer.create("numbers")
+	var ic = IntContainer.create("numbers")
 	ic.push(10)
 	ic.push(20)
 	let c = ic.count()
@@ -63,14 +61,12 @@ end 'main'
 ### Generic type with string element
 
 <!-- test: string-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -82,7 +78,7 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 end 'Container'
@@ -90,7 +86,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("hello")
 	sc.push("world")
 	let c = sc.count()
@@ -109,12 +105,10 @@ end 'main'
 A method that FORWARDS its type-parameter element argument to a consuming sibling (`add` → `store` → `self.items.push`) must promote-and-consume the managed argument at its OWN concrete call site — otherwise the borrowed String is stored into the owning array and freed by the array's decref, a double-free. The transitive feed fixpoint marks `add`'s `item` a feed because it forwards to `store`'s feed parameter, so `sc.add("alpha")` consumes exactly as `sc.store("alpha")` would.
 
 <!-- test: forward-to-consuming-sibling -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -122,11 +116,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function store(item Element)
+	function store(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'store'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		self.store(item)
 	end 'add'
 end 'Container'
@@ -134,7 +128,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.add("alpha")
 	sc.add("beta")
 	return 0
@@ -149,12 +143,10 @@ end 'main'
 The feed fixpoint closes over a chain of any depth: `a` forwards to `b` forwards to `c` forwards to the array push, so every hop's parameter is a feed and the outermost concrete call promotes-and-consumes.
 
 <!-- test: multi-hop-forward -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -162,15 +154,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function c(item Element)
+	function c(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'c'
 
-	function b(item Element)
+	function b(mutates self, consumes item Element)
 		self.c(item)
 	end 'b'
 
-	function a(item Element)
+	function a(mutates self, consumes item Element)
 		self.b(item)
 	end 'a'
 end 'Container'
@@ -178,7 +170,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.a("alpha")
 	return 0
 end 'main'
@@ -192,7 +184,6 @@ end 'main'
 The SAME forwarding shape on a TRIVIAL element (`Container with SmallInt`) generates no consume traffic — the element owns no heap, so the concrete call borrows it exactly as it would without the fixpoint. This pins that the transitive feed is inert for a trivial instantiation.
 
 <!-- test: trivial-element-forward -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -201,7 +192,6 @@ typealias SmallInt = int(0 to 100)
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -213,11 +203,11 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function store(item Element)
+	function store(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'store'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		self.store(item)
 	end 'add'
 end 'Container'
@@ -225,7 +215,7 @@ end 'Container'
 typealias IntContainer = Container with SmallInt
 
 function main() returns ExitCode
-	let ic = IntContainer.create()
+	var ic = IntContainer.create()
 	ic.add(10)
 	ic.add(20)
 	let c = ic.count()
@@ -249,13 +239,12 @@ the opaque element for every instantiation, so this is rejected uniformly (a typ
 carries no copy).
 
 <!-- test: double-move-is-use-after-move -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -289,12 +278,10 @@ edge — through the runtime descriptor gate (`__drop_type_param` reads the inst
 String is freed exactly once and the false branch does not leak.
 
 <!-- test: conditional-move-leak-free -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -302,7 +289,7 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(item Element, flag bool)
+	function pushIf(mutates self, consumes item Element, flag bool)
 		if flag 'maybe'
 			self.items.push(item)
 		end 'maybe'
@@ -312,7 +299,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.pushIf("hello", flag: false)
 	return 0
 end 'main'
@@ -327,12 +314,10 @@ The same method with the branch TAKEN moves the element into the array, which ow
 marks it moved on the pushed edge, so no second drop is emitted.
 
 <!-- test: conditional-move-into-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -340,7 +325,7 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(item Element, flag bool)
+	function pushIf(mutates self, consumes item Element, flag bool)
 		if flag 'maybe'
 			self.items.push(item)
 		end 'maybe'
@@ -350,7 +335,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.pushIf("hello", flag: true)
 	return 0
 end 'main'
@@ -367,14 +352,12 @@ left un-pushed owns no heap and the program exits 0, byte-for-byte the same shar
 instantiation runs.
 
 <!-- test: trivial-conditional-move-inert -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias SmallInt = int(0 to 100)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -382,7 +365,7 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(item Element, flag bool)
+	function pushIf(mutates self, consumes item Element, flag bool)
 		if flag 'maybe'
 			self.items.push(item)
 		end 'maybe'
@@ -392,7 +375,7 @@ end 'Container'
 typealias IntContainer = Container with SmallInt
 
 function main() returns ExitCode
-	let ic = IntContainer.create()
+	var ic = IntContainer.create()
 	ic.pushIf(10, flag: false)
 	return 0
 end 'main'
@@ -412,12 +395,10 @@ the remaining String on `main`'s scope exit — each String is freed exactly onc
 moved-out element).
 
 <!-- test: pop-moves-opaque-element-out -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -425,11 +406,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function drainOne()
+	function drainOne(mutates self)
 		_ = try self.items.pop() otherwise return
 	end 'drainOne'
 end 'Container'
@@ -437,7 +418,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("hello string long enough to force a heap allocation")
 	sc.push("world string long enough to force a heap allocation")
 	sc.drainOne()
@@ -462,12 +443,10 @@ survivor — each freed once.
 that the move-out goes through a LOCAL bound to the field rather than through the field directly.
 
 <!-- test: pop-via-local-binding -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -475,12 +454,12 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
 	function drainViaLocal()
-		let arr = self.items
+		var arr = self.items
 		_ = try arr.pop() otherwise return
 	end 'drainViaLocal'
 end 'Container'
@@ -488,7 +467,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("hello string long enough to force a heap allocation")
 	sc.push("world string long enough to force a heap allocation")
 	sc.drainViaLocal()
@@ -513,14 +492,12 @@ element for its side effects on nothing and keeps none of it. The
 property under test is unchanged: element 0 is still read and its borrow still dropped by nobody.
 
 <!-- test: get-borrows-opaque-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -561,12 +538,10 @@ the array. `peekEnds` borrows both ends of a one-element array and drops nothing
 String once on scope exit.
 
 <!-- test: first-last-borrow-opaque-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -618,12 +593,10 @@ returns its FRONT (the promoted borrow) and the three-element one its BACK (the 
 the program exits leak-free, so neither String is freed twice and none is stranded.
 
 <!-- test: first-last-borrow-opaque-element-ternary -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -674,12 +647,10 @@ returned opaque word is owned by the caller. `dropAt` removes and drops element 
 drops the survivor on scope exit — each String freed once.
 
 <!-- test: remove-moves-opaque-element-out -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -687,11 +658,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function dropAt()
+	function dropAt(mutates self)
 		_ = try self.items.remove(0) otherwise return
 	end 'dropAt'
 end 'Container'
@@ -699,7 +670,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("first string long enough to force a heap allocation")
 	sc.push("second string long enough to force a heap allocation")
 	sc.dropAt()
@@ -718,7 +689,6 @@ nested String. `drainOne` pops one `Pair` of two and drops it (freeing its Strin
 survivor. No String leaks.
 
 <!-- test: pop-opaque-struct-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -729,12 +699,11 @@ type Pair
 	export var value as Integer
 
 	static function create(name String, value Integer) returns Self
-		return Self{name: name, value: value}
+		return Self{name: name.clone(), value: value}
 	end 'create'
 end 'Pair'
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -742,11 +711,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function drainOne()
+	function drainOne(mutates self)
 		_ = try self.items.pop() otherwise return
 	end 'drainOne'
 end 'Container'
@@ -754,7 +723,7 @@ end 'Container'
 typealias PairContainer = Container with Pair
 
 function main() returns ExitCode
-	let pc = PairContainer.create()
+	var pc = PairContainer.create()
 	pc.push(Pair.create("first pair string long enough for heap", value: 1))
 	pc.push(Pair.create("second pair string long enough for heap", value: 2))
 	pc.drainOne()
@@ -773,13 +742,12 @@ that would both free it. The shared body move-tracks the opaque element for ever
 is uniform and needs no codegen (parse-time, so every target agrees).
 
 <!-- test: reuse-moved-out-opaque-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -819,14 +787,12 @@ descriptor `destroyFunc@40` is 0 — so the moved-out int owns no heap and its s
 body the managed instantiation runs, on every target.
 
 <!-- test: trivial-pop-get-inert -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias SmallInt = int(0 to 1000)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -874,13 +840,11 @@ supplies the owned fallback that the following `get` merges. (The concrete-eleme
 Item.create(…)` is unaffected — its element type is known, so the incref-on-get already resolves it.)
 
 <!-- test: opaque-accessor-value-otherwise-rejected -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -921,12 +885,10 @@ and takes no SECOND reference to it, which would leak. The exit-0 run says
 the element is released exactly once: a missed release is exit 101 and a doubled one faults on the poison.
 
 <!-- test: return-owned-opaque-element-transfers-to-the-caller -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -934,11 +896,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function takeOne() returns Element
+	function takeOne(mutates self) returns Element
 		return try self.items.pop() otherwise panic("empty")
 	end 'takeOne'
 end 'Container'
@@ -946,7 +908,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("alpha string long enough to force a heap allocation")
 	let taken = sc.takeOne()
 	print("{taken}")
@@ -973,14 +935,12 @@ then dropping it would double-free (exit 101 / a poison fault). The exit-0 run p
 independent deep copy that outlives its source.
 
 <!-- test: opaque-clone-source-freed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1031,14 +991,12 @@ second container's drop — under the free-poison every spec case is built with 
 run rules out.
 
 <!-- test: opaque-clone-both-live -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1088,14 +1046,12 @@ into a fresh container and returns it; the source `a` (two Strings) drops at `bu
 String is an independent deep copy — the exit-0 run with the source freed proves it.
 
 <!-- test: opaque-slice-managed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1148,14 +1104,12 @@ fields drop at container drop, each freeing its own Strings exactly once. A shal
 sharing `extra`'s pointers) would double-free at drop — the exit-0 run rules it out.
 
 <!-- test: opaque-append-managed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 	export var extra as ElementArray
@@ -1213,7 +1167,6 @@ struct cloner is referenced ONLY by the descriptor `copyFunc@32` relocation (the
 so this exercises the cloner DCE-root. Source freed, clone survives — exit 0.
 
 <!-- test: opaque-clone-struct-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1228,7 +1181,6 @@ type Item
 end 'Item'
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1279,7 +1231,6 @@ copy) and leak-free on EVERY target, so this case is unrestricted (it runs on wa
 are x64-only).
 
 <!-- test: opaque-copy-trivial-inert -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1288,7 +1239,6 @@ typealias Count = int(0 to u64.max)
 typealias SmallInt = int(0 to 100)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1348,7 +1298,6 @@ array and both Strings are freed before the duplicate is read, so a byte-blitted
 Only a real deep clone exits 0 — the inner row cannot be read from outside the shared body, so the answer has
 to come from the memory manager rather than from a value.
 <!-- test: opaque-copy-of-a-nested-container-instantiation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1357,7 +1306,6 @@ typealias Idx = int(0 to 1000)
 typealias StringArray = Array with String
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1427,7 +1375,6 @@ line kept as a `note:`; `specs/array-conditional-conformance-withheld.md` explai
 the blame edge once, for all four such cases.
 
 <!-- test: opaque-copy-uncopyable-instantiation-rejected -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- tier: stdlib -->
 ```maxon
@@ -1442,7 +1389,6 @@ type Handle
 end 'Handle'
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1487,7 +1433,6 @@ compiles and exits 0. (Adding a copy method to this same type is rejected — se
 test above.)
 
 <!-- test: opaque-drop-only-uncopyable-struct-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1504,7 +1449,6 @@ type Item
 end 'Item'
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1512,7 +1456,7 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 end 'Container'
@@ -1520,7 +1464,7 @@ end 'Container'
 typealias ItemContainer = Container with Item
 
 function main() returns ExitCode
-	let c = ItemContainer.create()
+	var c = ItemContainer.create()
 	c.push(Item.create())
 	return 0
 end 'main'
@@ -1539,14 +1483,12 @@ read-only section (`0xC0000005`). The mutator call is recognized by its own `<re
 neither spelling can be the one that is seen.
 
 <!-- test: implicit-self-push-feeds-opaque-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1558,7 +1500,7 @@ type Container uses Element
 		return items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		items.push(item)
 	end 'push'
 end 'Container'
@@ -1566,7 +1508,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("hello")
 	sc.push("world")
 	let c = sc.count()
@@ -1588,14 +1530,12 @@ first release because the section is read-only; a heap element takes the OTHER a
 in, so both are pinned.
 
 <!-- test: implicit-self-push-heap-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1607,7 +1547,7 @@ type Container uses Element
 		return items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		items.push(item)
 	end 'push'
 end 'Container'
@@ -1615,7 +1555,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	for i in 0 upto 3 'fill'
 		sc.push("element number {i} of a heap-allocated string")
 	end 'fill'
@@ -1640,19 +1580,17 @@ shape that disproves it. The parameter is recorded as a callee-storage feed and 
 body, so the concrete call site transfers.
 
 <!-- test: static-factory-push-into-local-array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function of(first Element) returns Self
-		let xs = ElementArray.create(0)
+	static function of(consumes first Element) returns Self
+		var xs = ElementArray.create(0)
 		xs.push(first)
 		return Self{items: xs}
 	end 'of'
@@ -1683,19 +1621,17 @@ The static-factory shape with an interpolated (heap) String element — the doub
 transfer, pinned beside its `.rdata` twin above.
 
 <!-- test: static-factory-push-heap-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function of(first Element) returns Self
-		let xs = ElementArray.create(0)
+	static function of(consumes first Element) returns Self
+		var xs = ElementArray.create(0)
 		xs.push(first)
 		return Self{items: xs}
 	end 'of'
@@ -1730,14 +1666,12 @@ source — otherwise the statement drops it once and the array's element walk dr
 live record.
 
 <!-- test: push-a-popped-opaque-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1749,11 +1683,11 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 
-	function rotate()
+	function rotate(mutates self)
 		self.items.push(try self.items.pop() otherwise panic("rotate on an empty container"))
 	end 'rotate'
 end 'Container'
@@ -1761,7 +1695,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("a string long enough to force a heap allocation")
 	sc.rotate()
 	let c = sc.count()
@@ -1789,7 +1723,6 @@ releases both. A missing retain frees it twice; an unpaired one leaks it.
 
 <!-- test: push-borrowed-opaque-element-takes-a-reference -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1797,7 +1730,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1849,14 +1781,12 @@ and the join drops it once through the descriptor-gated `__drop_type_param`. Two
 allocated and none survives.
 
 <!-- test: conditional-implicit-self-feed-leak-free -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -1864,7 +1794,7 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function addMaybe(item Element, flag bool)
+	function addMaybe(mutates self, consumes item Element, flag bool)
 		if flag 'maybe'
 			items.push(item)
 		end 'maybe'
@@ -1880,9 +1810,9 @@ typealias StringContainer = Container with String
 function main() returns ExitCode
 	var kept = 0 as Count
 	for i in 0 upto 200 'loop'
-		let sc = StringContainer.create()
+		var sc = StringContainer.create()
 		sc.addMaybe("a heap-allocated element numbered {i}", flag: false)
-		kept = kept + sc.count()
+		kept = try kept + sc.count() otherwise panic("out of range")
 	end 'loop'
 	if kept == 0 'check'
 		return 0
@@ -1901,19 +1831,17 @@ descriptor off its own feed fact rather than off "is this an instance method" �
 the feed's SINK, so the reservation and the drop are decided by the same fact and cannot disagree.
 
 <!-- test: conditional-static-factory-feed-leak-free -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function ofMaybe(first Element, flag bool) returns Self
-		let xs = ElementArray.create(0)
+	static function ofMaybe(consumes first Element, flag bool) returns Self
+		var xs = ElementArray.create(0)
 		if flag 'maybe'
 			xs.push(first)
 		end 'maybe'
@@ -1931,7 +1859,7 @@ function main() returns ExitCode
 	var kept = 0 as Count
 	for i in 0 upto 200 'loop'
 		let h = StringHolder.ofMaybe("a heap-allocated element numbered {i}", flag: false)
-		kept = kept + h.count()
+		kept = try kept + h.count() otherwise panic("out of range")
 	end 'loop'
 	if kept == 0 'check'
 		return 0
@@ -1960,7 +1888,6 @@ rather than an ownership one.
 
 <!-- test: push-for-element-into-second-opaque-array -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -1968,7 +1895,6 @@ typealias ExitCode = int(0 to 125)
 typealias Count = int(0 to u64.max) implements ElementIndex
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -2039,7 +1965,6 @@ method's exit, through the same descriptor.
 so 100 adds of a heap-built element print and exit **0**, not 101.
 
 <!-- test: feed-into-a-borrowing-user-push-releases-what-it-took -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -2052,14 +1977,13 @@ type Sink uses S
 
 	// `Container.add` DISCARDS this result — the shape under test — so the method must have an effect, or
 	// the discard is E3064 (`discarded-results.md`).
-	function push(x S) returns S
-		self.n = self.n + 1
+	function push(mutates self, consumes x S) returns S
+		self.n = try self.n + 1 otherwise panic("out of range")
 		return x
 	end 'push'
 end 'Sink'
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementSink = Sink with Element
 	export var sink as ElementSink
 
@@ -2067,7 +1991,7 @@ type Container uses Element
 		return Self{sink: ElementSink.create()}
 	end 'create'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		_ = self.sink.push(item)
 	end 'add'
 end 'Container'
@@ -2075,7 +1999,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	var i = 0 as ExitCode
 	while i < 100 'addMany'
 		sc.add("a string number {i} long enough to force a heap allocation")
@@ -2110,14 +2034,12 @@ transfer is a double free (SIGSEGV) or an unbalanced drop (exit 101), and the ru
 
 <!-- test: extension-body-push-feeds-opaque-element -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -2171,14 +2093,12 @@ method never enters the fixpoint's publish path at all — is the control: one
 spelling of the same store cannot cost another parameter its ownership. The fixpoint may only turn feeds ON.
 
 <!-- test: static-forward-keeps-its-constructor-feed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 	export var single as Element
@@ -2223,20 +2143,18 @@ The direct-feed spelling of the case above: `of` pushes into the local array its
 makes it the control — the two programs differ only in which method spells the push.
 
 <!-- test: static-direct-feed-keeps-its-constructor-feed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 	export var single as Element
 
-	static function of(first Element, single Element) returns Self
-		let xs = ElementArray.create(0)
+	static function of(consumes first Element, consumes single Element) returns Self
+		var xs = ElementArray.create(0)
 		xs.push(first)
 		return Self{items: xs, single: single}
 	end 'of'
@@ -2687,7 +2605,6 @@ to `Bag.absorb` is an edge like any other.
 <!-- test: interface-extension-body-forwards-a-descriptor -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
@@ -2708,7 +2625,6 @@ extension Appendable
 end 'Appendable'
 
 type Bag uses Op implements Appendable with Integer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	export var ops as OpArray
 
@@ -2755,14 +2671,12 @@ only this one reaches the guard — the guard is the whole difference.
 
 <!-- test: conditional-feed-inside-a-type-extension -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -2816,7 +2730,6 @@ sweep reaches first, reserves exactly what the same program written the other wa
 
 <!-- test: cross-file-extension-before-its-type-reserves-a-descriptor -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // --- file: a_ext.maxon
 // TODO: extension blocks are not supported in minimaxon
@@ -2831,7 +2744,6 @@ end 'Vault'
 public typealias Count = int(0 to u64.max)
 
 type Vault uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items as ElementArray
 
@@ -2979,7 +2891,6 @@ records rather than one, and a doubled release faults on the poison byte.
 
 <!-- test: a-borrowed-opaque-element-forwarded-to-a-storing-sibling-is-referenced -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias ExitCode = int(0 to 125)
 
@@ -2987,7 +2898,6 @@ typealias ExitCode = int(0 to 125)
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type GHolder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArray = Array with T
 	export var items as TArray
 	export var spare as TArray
@@ -3036,12 +2946,10 @@ spare 100
 
 <!-- test: extension-body-forwarder-feeds-opaque-element -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -3090,11 +2998,9 @@ end 'main'
 
 <!-- test: a-closure-in-a-generic-method-calls-a-descriptor-reader-through-a-result -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The closure calls `self.make().stash(y)`; `make()` returns a typealias instance, so the receiver of `stash` is a call's result. `stash` stores a borrowed element and so reads the descriptor, which the closure takes from its environment and the method forwards from its own.
 ```maxon
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -3109,7 +3015,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Inner with T
 	var held as Held
 
@@ -3147,12 +3052,10 @@ end 'main'
 
 <!-- test: a-closure-calling-a-static-that-reads-sizeof-and-returns-a-concrete-array -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 The static returns an `Array with Count`, a concrete generic instance that is not the instance the static builds, so the call takes the descriptor from the enclosing method. The closure that makes the call holds it.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Widths = Array with Count
 	var n as Count
 
@@ -3339,12 +3242,10 @@ end 'main'
 
 <!-- test: a-closure-calls-a-generic-method-that-reads-the-descriptor -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `size` is the method that reads `sizeof(T)`, and a closure calls it.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with Count
 	export var n as Count
 
@@ -3494,12 +3395,10 @@ end 'main'
 
 <!-- test: the-parameter-default-of-a-second-generic-method-builds-a-container -->
 <!-- skip: default parameter values are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 125)
 
 type Gauge uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Array with T
 	var item as T
 
@@ -3540,13 +3439,11 @@ end 'main'
 <!-- test: a-function-typed-parameter-default-names-its-own-types-alias-beside-another-types -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Two generic types each declare a `Transform` of their own. A default value and a closure written at a call each take the alias of the type that declares the method.
 ```maxon
 typealias Level = int(0 to 125)
 
 type Other uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
@@ -3565,7 +3462,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -3601,7 +3497,6 @@ end 'main'
 <!-- test: a-default-names-the-alias-of-the-type-declared-before-another-types-alias -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same two types with the default on the one declared first. `Other.twice` fills `triple`, a `function(Count)`, and `Box.run` still takes the `function(Level)` of the type declared last.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3611,7 +3506,6 @@ function triple(x Count) returns Count
 end 'triple'
 
 type Other uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
@@ -3631,7 +3525,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -3667,7 +3560,6 @@ end 'main'
 <!-- test: a-default-names-an-alias-declared-below-the-method-that-spells-it -->
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The member `typealias` written after the method whose parameter spells it, in the type declared first.
 ```maxon
 typealias Level = int(0 to 125)
@@ -3687,7 +3579,6 @@ type Late uses U
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 end 'Late'
@@ -3697,7 +3588,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Early uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -3873,13 +3763,11 @@ end 'main'
 <!-- test: an-alias-over-the-type-parameter-types-a-field-and-a-parameter-beside-another-types -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An alias over the type parameter, a field typed with it and a parameter typed with it, in two generic types that name the member `Step`.
 ```maxon
 typealias Level = int(0 to 125)
 
 type Pipe uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns T
 	var step as Step
@@ -3900,7 +3788,6 @@ type Pipe uses T
 end 'Pipe'
 
 type Gate uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(U) returns U
 	var step as Step
@@ -3939,7 +3826,6 @@ end 'main'
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: minimaxon does not parse the converted source: Expected an expression but got 'function' -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The two types in two files, so the file order the loader walks decides which `Transform` is last.
 ```maxon
 // --- file: a.maxon
@@ -3950,7 +3836,6 @@ function triple(x Count) returns Count
 end 'triple'
 
 type Other uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
@@ -3971,7 +3856,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -4009,14 +3893,12 @@ end 'main'
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Three directories each declare `Transform`, the first two in the bodies of their types and the third in `extension` bodies, which the compile publishes after the contested names are settled. Every directory reads its own, whatever else is compiled with it.
 ```maxon
 // --- file: one/main.maxon
 typealias Level = int(0 to 125)
 
 type Other uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 	var item as U
@@ -4035,7 +3917,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -4079,7 +3960,6 @@ type Late uses U
 	function twice(n Count, f Transform = triple) returns Count
 		return f(f(n))
 	end 'twice'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Count) returns Count
 end 'Late'
@@ -4089,7 +3969,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Early uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -4194,7 +4073,6 @@ end 'main'
 <!-- skip: default parameter values are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The extension's `Transform` is published after the contested names are settled, and is the second declaration of the name. Each directory reads its own.
 ```maxon
 // --- file: a/main.maxon
@@ -4205,7 +4083,6 @@ function bump(x Level) returns Level
 end 'bump'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Transform = function(Level) returns Level
 	var item as T
@@ -4735,14 +4612,12 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-self-is-one-instance-when-the-generic-type-is-used-through-an-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A member `typealias Peers = Array with Self` names the enclosing type's own array, and spelling it in a signature and in a body must not mint a second instance of it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function create(v T) returns Self
@@ -4774,14 +4649,12 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-self-stays-distinct-per-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Two instances of one generic type each get their own `Peers`.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function create(v T) returns Self
@@ -4821,16 +4694,14 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-self-releases-a-managed-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The array of boxes a generic body creates through `Peers` drops each box's managed payload, not only the box.
 ```maxon
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
+	static function peers(consumes v T) returns Peers
+		var out = Peers.create(0)
 		out.push(Self{v: v})
 		return out
 	end 'peers'
@@ -4852,12 +4723,10 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-the-types-own-name-releases-a-managed-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 Spelling the enclosing type's own name instead of `Self` is the same element.
 ```maxon
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Box
 
 	static function peers(v T) returns Peers
@@ -4883,12 +4752,10 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-self-hands-its-elements-back-as-self -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An element read out of `Peers` is the enclosing type's own value, so a body may return it as `Self` and read its fields.
 ```maxon
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function peers(v T) returns Peers
@@ -4924,18 +4791,16 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-self-in-a-plain-type-is-one-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same member alias in a type that is not generic.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box
 	var v as Integer
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function peers(v Integer) returns Peers
-		let out = Peers.create(0)
+		var out = Peers.create(0)
 		out.push(Self{v: v})
 		return out
 	end 'peers'
@@ -4948,7 +4813,7 @@ end 'Box'
 
 function main() returns ExitCode
 	let boxes = Box.peers(5)
-	return Box.firstOf(boxes) as ExitCode
+	return try Box.firstOf(boxes) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4956,7 +4821,6 @@ end 'main'
 ```
 
 <!-- test: error.a-member-array-of-self-is-not-another-instances -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 One instance's `Peers` is not accepted where another instance's is declared.
 ```maxon
@@ -4964,7 +4828,6 @@ typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function peers(v T) returns Peers
@@ -4992,13 +4855,11 @@ error E3005: <fragment>:25:17: argument type mismatch for 'bs': expected 'Array 
 ```
 
 <!-- test: a-user-generic-of-self-takes-and-hands-back-self -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user generic instantiated with `Self` inside the enclosing generic body takes a `Self` value and hands one back, as `Array with Self` does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Holder uses E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with E
 	var items as Items
 
@@ -5019,7 +4880,6 @@ end 'Holder'
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Slot = Holder with Self
 
 	static function replaced(v T, w T) returns T
@@ -5060,12 +4920,10 @@ end 'main'
 ```
 
 <!-- test: a-map-column-of-self-takes-a-self-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `Map` whose value column is `Self` inside the enclosing generic body stores and reads a `Self` value.
 ```maxon
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Index = Map with String, Self
 
 	static function index(k String, v T) returns Index
@@ -5096,29 +4954,27 @@ val
 ```
 
 <!-- test: a-recursive-generic-type-holds-an-array-of-itself -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Kids = Array with Self` makes a generic tree node whose children are nodes of the same instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Node uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Kids = Array with Self
 	var kids as Kids
 
-	static function leaf(v T) returns Self
+	static function leaf(consumes v T) returns Self
 		return Self{v: v, kids: Kids.create(0)}
 	end 'leaf'
 
-	function add(k Self)
+	function add(mutates self, consumes k Self)
 		self.kids.push(k)
 	end 'add'
 
 	function size() returns Integer
 		var n = 1 as Integer
 		for k in self.kids 'each'
-			n = n + k.size()
+			n = try n + k.size() otherwise panic("out of range")
 		end 'each'
 		return n
 	end 'size'
@@ -5127,7 +4983,7 @@ end 'Node'
 typealias TextNode = Node with String
 
 function main() returns ExitCode
-	let root = TextNode.leaf("r")
+	var root = TextNode.leaf("r")
 	root.add(TextNode.leaf("a"))
 	root.add(TextNode.leaf("b"))
 	print("{root.size()}\n")
@@ -5142,16 +4998,13 @@ end 'main'
 ```
 
 <!-- test: a-member-array-of-array-of-self-nests -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An array of arrays of `Self` is one nested instance per generic instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Box uses T
 	var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Row = Array with Self
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Grid = Array with (Array with Self)
 
 	static function grid(v T) returns Grid
@@ -5263,7 +5116,6 @@ b
 ```
 
 <!-- test: a-member-array-of-self-in-a-two-parameter-generic-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Self` over two type parameters is the instance over both, in declaration order.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5271,7 +5123,6 @@ typealias Integer = int(i64.min to i64.max)
 type Pair uses K, V
 	var k as K
 	var v as V
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Peers = Array with Self
 
 	static function peers(k K, v V) returns Peers

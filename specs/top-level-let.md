@@ -3832,14 +3832,12 @@ error E3217: <fragment>:19:10: the message `Maker.make` returns a function value
 
 <!-- test: error.a-spawn-refusal-beside-another-methods-abandoned-body-is-still-reported -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var seen as Integer
 
@@ -3875,14 +3873,12 @@ error E3217: <fragment>:25:10: the message `Maker.make` returns a `Maker.Items` 
 
 <!-- test: error.a-spawn-refusal-beside-an-unrelated-error-builds-no-loop-for-the-refused-instance -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var seen as Integer
 
@@ -4250,7 +4246,6 @@ error E3004: <fragment>:27:14: call to undefined function 'Bar.missing'
 
 <!-- test: error.a-refused-extension-keeps-a-method-miss-on-a-list-not-built-from-the-extended-type -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
@@ -4258,7 +4253,6 @@ typealias Digit = int(0 to 9)
 typealias Digits = List with Digit
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	export var n as Digit
 
@@ -4288,7 +4282,6 @@ error E4006: <fragment>:24:5: Type 'List' has no method named 'pushh'
 
 <!-- test: error.a-refused-extension-keeps-a-missing-static-method-whose-argument-came-from-the-refused-producer -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: lib/token.maxon
@@ -4304,7 +4297,6 @@ end 'Token'
 typealias Digit = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	export var n as Digit
 
@@ -4871,7 +4863,6 @@ error E3036: <fragment>:29:12: 'Counter.bump' expects 2 argument(s) but 3 were p
 ```
 
 <!-- test: error.a-refused-member-typealias-after-a-method-refuses-the-whole-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 A member typealias is part of the type, not of the method written above it, so its unknown type refuses `Holder` and
 the read of a missing field of `Holder` is a consequence of that refusal. `other` stays reported.
@@ -4882,7 +4873,6 @@ type Holder
 	export function value() returns ExitCode
 		return self.flag
 	end 'value'
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bad = Array with Nowhere
 
 	static function create() returns Holder

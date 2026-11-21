@@ -286,14 +286,12 @@ end 'main'
 ```
 
 <!-- test: a-generic-body-compares-user-generic-structs-whose-equals-needs-a-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A generic body's `==` on two values of a user generic struct calls that struct's own `equals`, including
 one that needs its instance's layout descriptor.
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Cell uses T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	export var n as Val
 
@@ -308,7 +306,6 @@ type Cell uses T implements Equatable
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias C = Cell with T
 	var a as C
 	var b as C

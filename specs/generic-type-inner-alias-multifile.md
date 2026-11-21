@@ -16,7 +16,6 @@ When a generic type declares an inner typealias using its type parameter (e.g., 
 ### Inner typealias field access in separate file
 
 <!-- test: inner-alias-cross-file -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // --- file: types.maxon
 typealias Count = int(0 to u64.max)
@@ -34,7 +33,6 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 type GenericModule uses Op
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	var ops as OpArray
 	var items as ItemArray
@@ -43,12 +41,12 @@ type GenericModule uses Op
 		return Self{ops: OpArray.create(0), items: ItemArray.create(0)}
 	end 'create'
 
-	function pushOp(op Op)
+	function pushOp(mutates self, consumes op Op)
 		self.ops.push(op)
 	end 'pushOp'
 
-	function pushItem(item Item)
-		self.items.push(item)
+	function pushItem(mutates self, item Item)
+		self.items.push(item.clone())
 	end 'pushItem'
 
 	function opCount() returns Count
@@ -66,7 +64,7 @@ typealias IntModule = GenericModule with Integer
 typealias ExitCode = int(0 to 125)
 
 function main() returns ExitCode
-	let m = IntModule.create()
+	var m = IntModule.create()
 	m.pushOp(10)
 	m.pushOp(20)
 	m.pushItem(Item.create(99))
@@ -85,7 +83,6 @@ end 'main'
 ### Inner typealias used in string interpolation in separate file
 
 <!-- test: inner-alias-interpolation -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // --- file: types.maxon
 typealias Count = int(0 to u64.max)
@@ -103,7 +100,6 @@ end 'Item'
 typealias ItemArray = Array with Item
 
 type GenericModule uses Op
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias OpArray = Array with Op
 	var ops as OpArray
 	var items as ItemArray
@@ -112,7 +108,7 @@ type GenericModule uses Op
 		return Self{ops: OpArray.create(0), items: ItemArray.create(0)}
 	end 'create'
 
-	function pushOp(op Op)
+	function pushOp(mutates self, consumes op Op)
 		self.ops.push(op)
 	end 'pushOp'
 
@@ -131,7 +127,7 @@ typealias IntModule = GenericModule with Integer
 typealias ExitCode = int(0 to 125)
 
 function main() returns ExitCode
-	let m = IntModule.create()
+	var m = IntModule.create()
 	m.pushOp(10)
 	m.pushOp(20)
 	print("ops={m.opCount()} items={m.itemCount()}\n")

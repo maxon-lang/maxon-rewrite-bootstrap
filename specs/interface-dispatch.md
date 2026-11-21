@@ -3231,7 +3231,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-function-type-return
 ```
 
 <!-- test: dispatch-arg-per-instance-alias-mismatch-error -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 ⭐ **A WITNESS DISPATCH AGREES WITH A DIRECT CALL, one identity KIND over.** `witnessFormalDeclaredType`
 recovers the formal's pre-erasure identity for more than a boxed enum: a PER-INSTANCE ranged alias erases
@@ -3251,7 +3251,7 @@ classifier this pass already owns, rather than of a classification of its own �
 typealias Integer = int(i64.min to i64.max)
 
 type Pool uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 15)
 	export var v as T
 
@@ -3302,7 +3302,7 @@ error E3005: <fragment>:36:20: argument type mismatch for 'i': expected 'IntPool
 ```
 
 <!-- test: dispatch-arg-per-instance-alias-agrees -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ⚠ **THE FALSE-REFUSAL CONTROL for the case above.** The carrier must name the per-instance alias on BOTH
 sides, so the legal call — a genuine `IntPool.Idx` actual at an `IntPool.Idx` formal, through a witness —
 has to stay green. A cure that merely started refusing would take this program with it.
@@ -3311,7 +3311,7 @@ has to stay green. A cure that merely started refusing would take this program w
 typealias Integer = int(i64.min to i64.max)
 
 type Pool uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 15)
 	export var v as T
 

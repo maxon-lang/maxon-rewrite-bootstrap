@@ -12597,7 +12597,6 @@ end 'main'
 <!-- test: a-generic-reply-of-a-fresh-container-over-a-managed-record-crosses -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: return type capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
@@ -12616,7 +12615,6 @@ type Item
 end 'Item'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = List with T
 	var seen as Count
 
@@ -12649,14 +12647,12 @@ end 'main'
 
 <!-- test: error.an-inner-alias-of-the-type-parameter-is-refused-at-its-declaration -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 An alias of the type parameter is refused where it is WRITTEN, which is what lets the reply rule ask about a
 bare `T` and nothing else: no message can reach the state through a second spelling of `T`.
 ```maxon
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Item = T
 	var item as T
 
@@ -13248,7 +13244,6 @@ error E3200: <fragment>:51:35: 'j' is not isolated: only a clean call, a `swap` 
 <!-- test: error.a-value-popped-from-a-generic-stack-is-moved-out-not-solely-owned -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
@@ -13265,7 +13260,6 @@ type Job
 end 'Job'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -15358,7 +15352,6 @@ end 'main'
 
 <!-- test: error.a-generic-factory-argument-that-is-an-os-handle-is-refused -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- positions: moved -->
 The factory's argument fixes `T`, and it crosses to the service's thread. A `MachinePin`'s machine pin is walked by
@@ -15368,7 +15361,6 @@ handle: its box counts its owners, and a `TcpListener` crosses when its sender h
 typealias Integer = int(i64.min to i64.max)
 
 type Maker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var seen as Integer
 
@@ -21076,7 +21068,6 @@ error E3055: <fragment>:17:10: try requires a throwing function: 'Gate.create' d
 
 <!-- test: services.a-generic-body-spawns-a-generic-service-over-a-concrete-type-from-every-instantiation -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 Spawn sites that share one service and differ in what their spawner knows each start it from the layout of the instance
 the arguments fix: two instantiations of a generic body and a concrete function all start `Worker with String`, and
@@ -21085,7 +21076,6 @@ every start sees its own arguments.
 typealias Whole = int(i64.min to i64.max)
 
 type Worker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 	var extra as Whole
@@ -21102,7 +21092,6 @@ type Worker uses T
 end 'Worker'
 
 type Pool uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var jobs as Items
 

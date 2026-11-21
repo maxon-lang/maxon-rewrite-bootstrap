@@ -539,7 +539,6 @@ Stack trace:
 ```
 
 <!-- test: a-cursor-stored-in-a-generic-struct-field -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 ⭐⭐ **THIS IS `stdlib/Array.maxon:490-531`'s `ArrayIterator`, AND IT IS WHY THIS TYPE EXISTS.**
 Naming `__ManagedMemoryCursor with Element` inside a generic type, storing one in a field and
@@ -551,9 +550,7 @@ typealias Byte = int(0 to u8.max)
 typealias ByteArray = Array with Byte
 
 type SeqIterator uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias RawCursor = __ManagedMemoryCursor with Element
 	var raw as RawCursor
 
@@ -599,7 +596,6 @@ typealias Integer = int(i64.min to i64.max)
 ```
 
 <!-- test: a-generic-iterator-over-a-managed-element -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 The same generic body instantiated at a MANAGED element. `current()` hands back its own
 reference to each string, which the reader releases; a reference too few is a corrupted string
@@ -608,9 +604,7 @@ or a crash, and one too many is a leak at exit 101.
 typealias StrArray = Array with String
 
 type SeqIterator uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias ElementMemory = __ManagedMemory with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias RawCursor = __ManagedMemoryCursor with Element
 	var raw as RawCursor
 

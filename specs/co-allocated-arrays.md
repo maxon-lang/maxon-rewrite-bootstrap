@@ -587,7 +587,6 @@ mm_free ArrayRecord #5
 ```
 
 <!-- test: a-generic-born-array-is-as-large-as-its-elements-at-every-width -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 An array a shared generic body creates with a known capacity is the 64-byte header and its elements at the width the
 instantiation binds, the size the same array has when a concrete body creates it: a hundred bytes, a hundred 16-bit
 elements, a hundred `bool`s and a hundred 2-bit elements take 164, 264, 77 and 89 bytes. **If a shared body stamps a
@@ -600,7 +599,6 @@ typealias Half = int(0 to 65535)
 typealias Crumb = int(0 to 3)
 
 type Cells uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

@@ -18,7 +18,6 @@ cannot write through the returned value (E3197). A copy made with `clone()` is a
 ## Tests
 
 <!-- test: error.a-method-returning-an-immutable-element-declares-its-result-immutable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -37,7 +36,6 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Array with immutable Counter
 	let items as Items
@@ -70,7 +68,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-generic-method-returning-its-item-type-over-an-immutable-instance-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 The same through a generic shelf: `Shelf with immutable Counter` stores and returns frozen counters, and the item
 type it returns is `immutable` by the instance.
@@ -87,7 +84,6 @@ type Counter
 end 'Counter'
 
 type Shelf uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Item
 	let items as Items
 
@@ -121,7 +117,6 @@ end 'main'
 
 
 <!-- test: error.a-method-returning-an-immutable-element-or-a-fresh-record-hands-back-a-read-only-value -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -140,7 +135,6 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Array with immutable Counter
 	let items as Items
@@ -174,7 +168,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is read-on
 
 
 <!-- test: error.a-method-returning-an-immutable-map-value-declares-its-result-immutable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -192,7 +185,6 @@ type Counter
 end 'Counter'
 
 type Index
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Entries = Map with String, immutable Counter
 	let entries as Entries
@@ -225,7 +217,6 @@ error E3209: <fragment>:26:10: a return does not fit the declared result: 'self.
 
 
 <!-- test: a-method-returning-an-immutable-element-is-read-through-a-let -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -244,7 +235,6 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Array with immutable Counter
 	let items as Items
@@ -278,7 +268,6 @@ end 'main'
 
 
 <!-- test: error.an-immutable-result-is-not-written-by-its-caller -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -297,7 +286,6 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Array with immutable Counter
 	let items as Items
@@ -332,7 +320,6 @@ error E3197: <fragment>:35:2: cannot write 'n' through 'first', which is immutab
 
 
 <!-- test: a-method-returning-an-immutable-element-is-copied-with-clone -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'immutable' is not supported in minimaxon -->
 <!-- skip: return type capability 'immutable' is not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -351,7 +338,6 @@ type Counter
 end 'Counter'
 
 type Shelf
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: type argument capability 'immutable' is not supported in minimaxon
 	typealias Items = Array with immutable Counter
 	let items as Items

@@ -41,7 +41,6 @@ end 'main'
 
 <!-- test: a-generic-body-keeping-its-type-parameter-takes-a-value-type -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A user type whose method stores its elements into a `Set` is judged where it is instantiated: with `String`
 it is accepted.
 
@@ -51,9 +50,7 @@ typealias StringArray = Array with String
 typealias StringRegistry = Registry with String
 
 type Registry uses Key where Key implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeySet = Set with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
 	var seen as KeySet
 
@@ -88,7 +85,6 @@ end 'main'
 
 <!-- test: error.a-generic-body-keeping-its-type-parameter-refuses-a-writable-record -->
 <!-- skip: iterator-based for loops over a string, a map, a view or an enum's cases are not supported in minimaxon; loop over an array -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same type instantiated with a record that has a `var` field is refused at the call to `Registry.remember`: a `Set` keeps `immutable` elements, so `remember` needs `keys` frozen, and `counters` is mutable.
 
@@ -116,9 +112,7 @@ type Counter implements Hashable, Equatable
 end 'Counter'
 
 type Registry uses Key where Key implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeySet = Set with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
 	var seen as KeySet
 
@@ -297,7 +291,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-store-of-a-value-read-out-of-an-array-is-judged-at-the-call -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A static function that builds the box from an element it reads out of an array is judged at the call that
 instantiates it, like a `create` that takes the value as an argument: a `String` element is accepted.
 
@@ -307,7 +300,6 @@ typealias StringBox = Box with String
 typealias StringArray = Array with String
 
 type Box uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	let kept as Item
 
@@ -332,7 +324,6 @@ end 'main'
 ```
 
 <!-- test: a-generic-store-of-a-value-read-out-of-an-array-takes-a-writable-record -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same `first` instantiated with a record that has a `var` field is accepted at the call that instantiates it.
 
 ```maxon
@@ -352,7 +343,6 @@ type Counter
 end 'Counter'
 
 type Box uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ItemArray = Array with Item
 	let kept as Item
 

@@ -1094,14 +1094,12 @@ end 'main'
 <!-- test: closure-captures-borrow -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A closure captures a struct variable by address; the original var owns the struct.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Config
 	export var level as Integer
-// TODO: nested typealias declarations are not supported in minimaxon
 // TODO: function typealiases are not supported in minimaxon
 typealias FnTypeAlias1 = function(Integer) returns Integer
 

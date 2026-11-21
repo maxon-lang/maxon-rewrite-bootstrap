@@ -35,14 +35,12 @@ passes just as happily with the destructor hard-wired.
 ## Tests
 
 <!-- test: a-chain-at-an-opaque-element-holds-managed-values -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The base case. Every element is a heap `String` the chain owns; the run must end with nothing leaked,
 which is what the exit code reports.
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = __ManagedList with Element
 	var chain as EChain
 
@@ -74,7 +72,6 @@ end 'main'
 ```
 
 <!-- test: a-chain-at-an-opaque-element-holds-trivial-values -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The trivial control. The same generic body, an element with no destructor: the stamp must be the
 trivial one and the walk must release nothing.
 ```maxon
@@ -83,7 +80,6 @@ typealias Count = int(0 to u64.max)
 typealias Small = int(0 to 1000)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = __ManagedList with Element
 	var chain as EChain
 
@@ -114,7 +110,6 @@ end 'main'
 ```
 
 <!-- test: two-instantiations-of-one-chain-body-carry-their-own-stamps -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE CONTROL THAT MATTERS.** One generic body, two instantiations, in one program. They share the
 compiled body and must not share the element destructor: the `String` bag has to release its elements
 and the `int` bag has to release nothing. A wrong stamp shows up here as a leak (exit 101) or a fault,
@@ -125,7 +120,6 @@ typealias Count = int(0 to u64.max)
 typealias Small = int(0 to 1000)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = __ManagedList with Element
 	var chain as EChain
 
@@ -162,7 +156,6 @@ end 'main'
 ```
 
 <!-- test: clearing-a-chain-of-opaque-managed-elements-releases-them -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `clear()` is the runtime walk that reads `element_drop@24` and releases every element still held. With
 an opaque element that stamp is the descriptor's, so this is the case where a zero stamp leaks rather
 than merely being unused.
@@ -170,7 +163,6 @@ than merely being unused.
 typealias Count = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = __ManagedList with Element
 	var chain as EChain
 
@@ -206,7 +198,6 @@ end 'main'
 ```
 
 <!-- test: two-type-parameters-each-with-their-own-chain -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE BLOCK-OFFSET HAZARD, PINNED.** A layout descriptor reserves one block **per type
 parameter**, so a type with two of them holds two chains whose stamps come from two different blocks of
 one descriptor. Reading the wrong block is not a refusal — it stamps the *other* parameter's destructor,
@@ -218,9 +209,7 @@ typealias Count = int(0 to u64.max)
 typealias Small = int(0 to 1000)
 
 type Twin uses First, Second
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias FirstChain = __ManagedList with First
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias SecondChain = __ManagedList with Second
 	var left as FirstChain
 	var right as SecondChain
@@ -257,7 +246,6 @@ end 'main'
 ```
 
 <!-- test: removing-an-opaque-element-from-a-chain-releases-it -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE MOVE-OUT.** Taking an element *out* of a chain
 makes the caller its sole owner, so an unbound one is released at scope exit through the
 descriptor-gated `__drop_type_param` — and a method reserves that descriptor only if the pre-scan
@@ -269,7 +257,6 @@ chain surfaces' move-outs beside the `Array`'s two names (`pop`, `remove`); with
 typealias Count = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = List with Element
 	var chain as EChain
 
@@ -277,12 +264,12 @@ type Bag uses Element
 		return Self{chain: EChain.create()}
 	end 'create'
 
-	function add(v Element)
+	function add(mutates self, consumes v Element)
 		self.chain.append(v)
 	end 'add'
 
 	// Nothing else in this body needs a layout descriptor, so the move-out has to ask for one itself.
-	function drainOne() throws ArrayError
+	function drainOne(mutates self) throws ArrayError
 		_ = try self.chain.removeFirst()
 	end 'drainOne'
 
@@ -294,11 +281,11 @@ end 'Bag'
 typealias StringBag = Bag with String
 
 function main() returns ExitCode
-	let b = StringBag.create()
+	var b = StringBag.create()
 	b.add("alpha")
 	b.add("beta")
 	try b.drainOne() otherwise panic("drain")
-	return b.size() as ExitCode
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -306,7 +293,6 @@ end 'main'
 ```
 
 <!-- test: an-opaque-element-removed-from-one-chain-and-moved-into-another -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The move-out's other half: the element the caller solely owns is handed straight on to a second
 chain, so it must be **moved** rather than dropped-and-reinserted. One record, one release — a drop
 here on top of the second chain's teardown walk is a double free, and no release at all is a leak.
@@ -319,7 +305,6 @@ subject is the ownership transfer, not the reservation; the case above is the on
 typealias Count = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EChain = List with Element
 	var chain as EChain
 	var spare as EChain
@@ -328,28 +313,28 @@ type Bag uses Element
 		return Self{chain: EChain.create(), spare: EChain.create()}
 	end 'create'
 
-	function add(v Element)
+	function add(mutates self, consumes v Element)
 		self.chain.append(v)
 	end 'add'
 
-	function shift() throws ArrayError
+	function shift(mutates self) throws ArrayError
 		let moved = try self.chain.removeFirst()
 		self.spare.append(moved)
 	end 'shift'
 
 	function total() returns Count
-		return self.chain.count() + self.spare.count()
+		return try self.chain.count() + self.spare.count() otherwise panic("out of range")
 	end 'total'
 end 'Bag'
 
 typealias StringBag = Bag with String
 
 function main() returns ExitCode
-	let b = StringBag.create()
+	var b = StringBag.create()
 	b.add("alpha")
 	b.add("beta")
 	try b.shift() otherwise panic("shift")
-	return b.total() as ExitCode
+	return try b.total() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

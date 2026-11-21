@@ -65,12 +65,12 @@ let idx = 0 as FooContainer.Idx
 ### Basic per-instance typealias: return type is tracked
 
 <!-- test: basic-return-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -107,13 +107,13 @@ end 'main'
 ### Wrong instance tag is rejected
 
 <!-- test: wrong-instance-error -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -150,12 +150,12 @@ error E3005: specs/per-instance-typealias/wrong-instance-error.maxon:30:4: argum
 ### Literal in range is accepted
 
 <!-- test: literal-accepted -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -187,12 +187,12 @@ end 'main'
 ### Explicit conversion with 'as'
 
 <!-- test: as-conversion -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -228,12 +228,12 @@ end 'main'
 ### Dot-syntax construction
 
 <!-- test: dot-construction -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -269,12 +269,12 @@ type and leaves the SOURCE unchanged. So after `let bTag = aTag as WB.Idx`, `aTa
 `WA.Idx` and remains usable everywhere `WA.Idx` is expected — the cast did not mutate it.
 
 <!-- test: cast-preserves-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -322,13 +322,13 @@ retag. So `bTag` is accepted where `WB.Idx` is expected, while the SOURCE `aTag`
 slot is the genuine cross-instance mismatch.
 
 <!-- test: error.cast-does-not-launder-source -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -371,12 +371,12 @@ its own type, so returning it from an `ExitCode` function takes the one door bet
 The cast is guard-free — the range fits — and yields the value.
 
 <!-- test: return-decays-to-plain -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 200)
 	export var value as T
 	export var tag as Idx
@@ -407,7 +407,7 @@ A per-instance `Idx` keeps its own identity at a store, as it does at a return a
 decay into a variable of another alias.
 
 <!-- test: error.reassign-is-refused-by-the-vars-own-alias -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 <!-- positions: moved -->
 Every `var` names its alias, so an instance's member alias does not decay into a plain binding: an
 `IW.Idx` stored into an `Integer` var is refused at the store.
@@ -415,7 +415,7 @@ Every `var` names its alias, so an instance's member alias does not decay into a
 typealias Integer = int(i64.min to i64.max)
 
 type Wrapper uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to u64.max)
 	export var value as T
 	export var tag as Idx
@@ -619,7 +619,6 @@ error E3011: <fragment>:23:26: Unknown type 'Idx'
 
 <!-- test: extension-spells-a-member-the-type-body-declares -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The other direction of one rule: `stdlib/Map.maxon` declares `typealias Entry` on its first body line,
 and an `extension Map` elsewhere may name it. This direction is order-independent for a different
 reason — a `type` body's nested aliases are folded with their own file, before any extension is read —
@@ -629,7 +628,6 @@ and it is pinned so the two directions cannot come apart.
 typealias Num = int(0 to 200)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 100)
 	var v as Num
 
@@ -1339,15 +1337,11 @@ ranged, function and tuple forms alike.
 ### One type body declares a member twice
 
 <!-- test: error.a-type-body-declares-a-generic-member-twice -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Digit
 	export var n as Digit
 
@@ -1372,13 +1366,9 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Items': `Box.Items` is alread
 ```
 
 <!-- test: error.a-type-body-declares-a-ranged-member-twice -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 9)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 99)
 	export var n as Idx
 
@@ -1399,16 +1389,13 @@ error E3061: <fragment>:4:12: Duplicate typealias 'Idx': `Box.Idx` is already de
 <!-- test: error.a-type-body-declares-a-function-member-twice -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number, Number) returns Number
 	export var n as Number
@@ -1433,7 +1420,6 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Op': `Box.Op` is already decl
 ```
 
 <!-- test: error.a-type-body-declares-a-tuple-member-twice -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1442,10 +1428,8 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Op': `Box.Op` is already decl
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Number, Number)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Number, Number, Number)
 	export var n as Number
@@ -1473,16 +1457,16 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Pair': `Box.Pair` is already 
 
 <!-- test: error.an-interface-body-declares-a-member-twice -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: typealias declarations in an interface, enum or union are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 // TODO: generic interfaces (uses on interface) are not supported in minimaxon
 interface Seq uses Item
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = Array with Item
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: typealias declarations in an interface, enum or union are not supported in minimaxon
 	typealias Items = List with Item
 	function first() returns Item
 end 'Seq'
@@ -1511,14 +1495,12 @@ error E3061: <fragment>:6:12: Duplicate typealias 'Items': `Seq.Items` is alread
 ### What the refusal leaves alone
 
 <!-- test: two-types-each-declare-a-member-of-one-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The key is `<Type>.<member>`, so two types declaring `Items` once each are not duplicates of each other,
 and neither is a type body beside an `extension` of another type declaring the same name.
 ```maxon
 typealias Digit = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	export var n as Digit
 
@@ -1532,7 +1514,6 @@ type Box
 end 'Box'
 
 type Crate
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Digit
 	export var n as Digit
 
@@ -1548,11 +1529,11 @@ end 'Crate'
 function main() returns ExitCode
 	let box = Box.create(3)
 	let crate = Crate.create(4)
-	let listed = box.items()
+	var listed = box.items()
 	listed.prepend(box.n)
-	let arrayed = crate.items()
+	var arrayed = crate.items()
 	arrayed.push(crate.n)
-	return (listed.count() + arrayed.count()) as ExitCode
+	return try (listed.count() + arrayed.count()) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1635,13 +1616,11 @@ by an extension is resolved the way two methods of that name are (`interface-ext
 
 <!-- test: error.a-type-extension-declares-a-generic-member-the-types-body-declares -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Digit = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	export var n as Digit
 
@@ -1671,11 +1650,9 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Items': `Box.Items` is alrea
 
 <!-- test: error.a-type-extension-declares-a-ranged-member-the-types-body-declares -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 9)
 	export var n as Idx
 
@@ -1705,13 +1682,11 @@ error E3061: <fragment>:12:12: Duplicate typealias 'Idx': `Box.Idx` is already d
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
 	export var n as Number
@@ -1742,7 +1717,6 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Op': `Box.Op` is already dec
 
 <!-- test: error.a-type-extension-declares-a-tuple-member-the-types-body-declares -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1751,7 +1725,6 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Op': `Box.Op` is already dec
 typealias Number = int(0 to 9)
 
 type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Number, Number)
 	export var n as Number
@@ -1784,14 +1757,12 @@ error E3061: <fragment>:14:12: Duplicate typealias 'Pair': `Box.Pair` is already
 
 <!-- test: error.a-type-extension-in-another-file-declares-a-member-the-types-body-declares -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 // --- file: box.maxon
 export typealias Digit = int(0 to 9)
 
 export type Box
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = List with Digit
 	export var n as Digit
 
@@ -1848,7 +1819,6 @@ error E3061: <fragment>:3:12: Duplicate typealias 'ElementArray': `List.ElementA
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Box` declares `Items` over a `List`, and `extension Seq` declares it over an `Array`. The extension's
 `items`, compiled for `Box`, returns `Box`'s `List`.
 ```maxon
@@ -1860,7 +1830,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	export var n as Digit
 
@@ -1895,7 +1864,6 @@ end 'main'
 <!-- test: an-interface-extension-generic-member-yields-to-the-conformers-own-in-any-file-order -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The extension sits in a file that sorts before the type's. A second extension declares a different member,
 which the conformer still receives.
 ```maxon
@@ -1917,7 +1885,6 @@ end 'Seq'
 
 // --- file: b.maxon
 type Box implements Seq with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Digit
 	var n as Digit
 
@@ -1958,7 +1925,6 @@ end 'main'
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Number = int(0 to 9)
 
@@ -1968,7 +1934,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Number
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Op = function(Number) returns Number
 	export var n as Number
@@ -2004,7 +1969,6 @@ end 'main'
 <!-- test: an-interface-extension-tuple-member-yields-to-the-conformers-own -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -2017,7 +1981,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Number
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (Number, Number)
 	export var n as Number
@@ -2055,7 +2018,6 @@ end 'main'
 <!-- test: error.an-interface-extension-ranged-member-yields-to-the-conformers-own -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Box.Idx` is `int(0 to 9)`, so the extension's `widen`, compiled for `Box`, refuses the `50` that the
 extension's own `int(0 to 99)` would take.
@@ -2068,7 +2030,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Number
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Idx = int(0 to 9)
 	export var n as Number
 
@@ -2101,7 +2062,6 @@ error E3005: <fragment>:31:13: Value 50 is outside the range of 'Idx' (int(0 to 
 <!-- test: a-conformer-without-its-own-member-receives-the-interface-extensions -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: generic interfaces (uses on interface) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The control: `Plain` declares no `Items`, so it receives the extension's `Array`.
 ```maxon
 typealias Digit = int(0 to 9)
@@ -2114,7 +2074,6 @@ interface Seq uses Item
 end 'Seq'
 
 type Box implements Seq with Digit
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Wide
 	export var n as Digit
 
@@ -2402,7 +2361,6 @@ end 'main'
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Zebra` is a generic conformer of the program's own whose name sorts after every library conformer's, so the
 bare `ElementTransform` key holds its element in both declarations. `map` still takes the library's one parameter
 and `combine` the program's two.
@@ -2425,9 +2383,7 @@ end 'Iterable'
 typealias Quantum = int(0 to 99)
 
 type Zebra uses Item implements Iterable with (Item, ZebraCursor)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ZebraCursor = ArrayIterator with Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ZebraItems = Array with Item
 	var items as ZebraItems
 
@@ -2470,7 +2426,6 @@ end 'main'
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: extension blocks are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The same declarations with the receivers swapped for the original shape: the program's `Zebra` still sorts after
 every library conformer, and a plain `Array` is the receiver of `map` and of `combine`.
 ```maxon
@@ -2494,9 +2449,7 @@ typealias Quantum = int(0 to 99)
 typealias Quantums = Array with Quantum
 
 type Zebra uses Item implements Iterable with (Item, ZebraCursor)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ZebraCursor = ArrayIterator with Item
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ZebraItems = Array with Item
 	var items as ZebraItems
 
@@ -2626,7 +2579,6 @@ names.
 ### A plain type's member generic alias is a STATIC-CALL base at file scope
 
 <!-- test: plain-type-member-generic-alias-at-file-scope -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Bag.create()` written by a free function in another file. Before this rule the result typed `unknown`
 and the `push` one line down was `E2015`.
 ```maxon
@@ -2634,7 +2586,6 @@ and the `push` one line down was `E2015`.
 typealias Num = int(0 to 200)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bag = Array with Num
 	var v as Num
 
@@ -2669,7 +2620,6 @@ end 'main'
 ### The same member is a DECLARED TYPE at file scope
 
 <!-- test: plain-type-member-generic-alias-as-a-declared-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 The other door, and it is a different one: a written type annotation is resolved by
 `parseTypeReference`, a static call base by `parseQualifiedCall`. A free function's PARAMETER, its
 RETURN and a plain struct's FIELD all name the member. Before this rule each was
@@ -2679,7 +2629,6 @@ RETURN and a plain struct's FIELD all name the member. Before this rule each was
 typealias Num = int(0 to 200)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bag = Array with Num
 	var v as Num
 
@@ -2755,7 +2704,6 @@ end 'main'
 ### A GENERIC type's member generic alias is per-instance and has NO file-scope name
 
 <!-- test: error.generic-type-member-generic-alias-has-no-file-scope-name -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The control the widening owes, and the reason the rule is the enclosing type's PARAMETER LIST rather
 than "a nested alias is a top-level declaration written indented" — which is what both reference
@@ -2766,7 +2714,6 @@ type for the bare name to denote and it stays refused.
 export typealias Num = int(0 to 200)
 
 export type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Bag = Array with T
 	export var v as T
 
@@ -2800,7 +2747,6 @@ error E3011: <fragment>:24:20: Unknown type 'Bag'
 ### Two plain types in two directories may declare one member name, exactly as two file-scope aliases may
 
 <!-- test: crossfile-plain-type-member-aliases-of-one-name-stay-directory-scoped -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `crossfile-generic-alias-same-name-still-legal`'s rule, reached through the nested form: the bare key a
 member files is the same registry a file-scope `typealias` files, so a name two directories disagree
 about is settled the same way — each file reads its own directory's declaration.
@@ -2809,7 +2755,6 @@ about is settled the same way — each file reads its own directory's declaratio
 export typealias Num = int(0 to 200)
 
 type HolderA
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bag = Array with Num
 	var v as Num
 
@@ -2826,7 +2771,6 @@ end 'fromA'
 
 // --- file: b/b.maxon
 export type HolderB
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Bag = Array with String
 	export var w as String
 
@@ -2858,10 +2802,8 @@ end 'main'
 
 <!-- test: a-nested-pattern-alias-compares-and-prints-unsigned -->
 <!-- skip: bits(...) typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: bits(...) typealiases are not supported in minimaxon
 	typealias Word = bits(64)
 	var unused as bool
@@ -2894,12 +2836,11 @@ end 'main'
 ```
 
 <!-- test: a-cast-to-a-nested-ranged-alias-is-range-checked -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, so maxon's run-time trap is a compile error here -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Small = int(0 to 10)
 	var unused as bool
 

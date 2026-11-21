@@ -548,7 +548,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-parametric-constraint-argument-is-a-zero-nothing-reads -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **THE WITNESS A SHARED BODY CANNOT NAME STATICALLY.** `Outer.tally` builds `Holder with (Box with E)`
 while `E` is still its own type parameter, so the `where S is Sized` witness it owes is a table for
 `Box with E` — an instance whose adapter names a layout descriptor only the running frame holds, so no
@@ -580,24 +579,24 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
 	function twice() returns Integer
-		return self.s.size() * 2
+		return try self.s.size() * 2 otherwise panic("out of range")
 	end 'twice'
 
 	function tag() returns Integer
@@ -606,18 +605,16 @@ type Holder uses S where S implements Sized
 end 'Holder'
 
 type Outer uses E where E implements Sized
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxE = Box with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(e E) returns Self
+	static function create(consumes e E) returns Self
 		return Self{e: e}
 	end 'create'
 
 	function tally() returns Integer
-		return Inner.create(BoxE.create(self.e)).tag() + self.e.size()
+		return try Inner.create(BoxE.create(self.e)).tag() + self.e.size() otherwise panic("out of range")
 	end 'tally'
 end 'Outer'
 
@@ -636,7 +633,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-parametric-constraint-argument-the-callee-reads -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ⭐⭐ **AND WHERE THE CALLEE DOES READ IT, THE CALLER SUPPLIES THE TABLE.** The same program with
 `twice()` — which dispatches `self.s.size()` through the very witness — in place of `tag()`. The witness
 table for `Box with E` travels in the caller's layout descriptor, so `twice()` dispatches through the
@@ -663,24 +659,24 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
 	function twice() returns Integer
-		return self.s.size() * 2
+		return try self.s.size() * 2 otherwise panic("out of range")
 	end 'twice'
 
 	function tag() returns Integer
@@ -689,18 +685,16 @@ type Holder uses S where S implements Sized
 end 'Holder'
 
 type Outer uses E where E implements Sized
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxE = Box with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(e E) returns Self
+	static function create(consumes e E) returns Self
 		return Self{e: e}
 	end 'create'
 
 	function tally() returns Integer
-		return Inner.create(BoxE.create(self.e)).twice() + self.e.size()
+		return try Inner.create(BoxE.create(self.e)).twice() + self.e.size() otherwise panic("out of range")
 	end 'tally'
 end 'Outer'
 
@@ -719,7 +713,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-shared-table-serves-a-generic-conformer-from-a-static -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A static whose owner is unconstrained calls a constrained method on an instance over a generic conformer
 whose impls need no dictionary; the conformer's one shared table serves the call.
 ```maxon
@@ -751,9 +744,7 @@ type Holder uses S where S implements Equatable
 end 'Holder'
 
 type Outer uses E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TagE = Tagged with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with TagE
 	var e as E
 
@@ -782,7 +773,6 @@ true
 ```
 
 <!-- test: associated-binding.a-static-whose-callee-reads-a-parametric-witness-composes-it-from-the-call-sites-descriptor -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `Outer.tally` is a `static function` that does not return `Self`; the descriptor it carries arrives from its call, and
 the witness table for `Box with E` conforming to `Sized` is composed from it where `Holder.twice` reads it.
 ```maxon
@@ -807,24 +797,24 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(t T) returns Self
+	static function create(consumes t T) returns Self
 		return Self{t: t}
 	end 'create'
 
 	function size() returns Integer
-		return self.t.size() + 1
+		return try self.t.size() + 1 otherwise panic("out of range")
 	end 'size'
 end 'Box'
 
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(s S) returns Self
+	static function create(consumes s S) returns Self
 		return Self{s: s}
 	end 'create'
 
 	function twice() returns Integer
-		return self.s.size() * 2
+		return try self.s.size() * 2 otherwise panic("out of range")
 	end 'twice'
 
 	function tag() returns Integer
@@ -833,17 +823,15 @@ type Holder uses S where S implements Sized
 end 'Holder'
 
 type Outer uses E where E implements Sized
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxE = Box with E
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(e E) returns Self
+	static function create(consumes e E) returns Self
 		return Self{e: e}
 	end 'create'
 
-	static function tally(b BoxE) returns Integer
+	static function tally(consumes b BoxE) returns Integer
 		return Inner.create(b).twice()
 	end 'tally'
 end 'Outer'
@@ -865,12 +853,10 @@ end 'main'
 ```
 
 <!-- test: associated-binding.a-conformance-reading-its-layout-through-a-blind-edge-is-served-per-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Bag uses T implements Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -897,9 +883,7 @@ type Keeper uses A where A implements Equatable
 end 'Keeper'
 
 type Outer uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Bagged = Bag with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Kept = Keeper with Bagged
 	var kept as Kept
 
@@ -931,7 +915,6 @@ end 'main'
 ```
 
 <!-- test: associated-binding.mutually-recursive-conformers-filing-witness-entries-terminate -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
@@ -953,11 +936,8 @@ type Keeper uses A where A implements Sized
 end 'Keeper'
 
 type Ping uses T implements Sized
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Wrapped = Array with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Back = Pong with Wrapped
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Keep = Keeper with Back
 	var keep as Keep
 
@@ -972,11 +952,8 @@ type Ping uses T implements Sized
 end 'Ping'
 
 type Pong uses U implements Sized
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Wrapped = Array with U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Back = Ping with Wrapped
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Keep = Keeper with Back
 	var keep as Keep
 
@@ -1072,7 +1049,6 @@ error E3133: <fragment>:42:11: 'Wrap' constrains type parameter 'S' to 'Cursor w
 ```
 
 <!-- test: associated-binding.a-method-reading-nothing-of-its-parameter-supplies-a-parametric-witness-from-its-own-table -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `Holder.run` reads nothing of `T` itself. It calls `Keeper.measure`, which dispatches through `Keeper`'s `A is Sized` table, and that table has to be the one for `Pair with T`, whose `size` reads its type argument's size. Only `Holder`'s own descriptor can supply it, so `run` carries one.
 ```maxon
@@ -1108,9 +1084,7 @@ type Pair uses P implements Sized
 end 'Pair'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wrapped = Pair with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Gauge = Keeper with Wrapped
 	var gauge as Gauge
 
@@ -1145,7 +1119,6 @@ end 'main'
 
 <!-- test: associated-binding.a-witness-read-only-inside-a-closure-the-callee-builds-is-supplied-from-the-callers-table -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: sizeof(...) is not supported in minimaxon -->
 `Keeper.measure` dispatches through its `A is Sized` table only inside a closure it builds, so its caller still has to supply the table for `Pair with T`.
 ```maxon
@@ -1183,9 +1156,7 @@ type Pair uses P implements Sized
 end 'Pair'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Wrapped = Pair with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Gauge = Keeper with Wrapped
 	var gauge as Gauge
 

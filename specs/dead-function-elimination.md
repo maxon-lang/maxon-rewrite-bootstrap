@@ -166,7 +166,6 @@ end 'main'
 ```
 
 <!-- test: descriptor-destructor-kept -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A `Container with String`'s element destructor is named by ONE thing in the whole program: the
 `destroyFunc@40` slot of the instance's `.rdata` layout descriptor, which the shared opaque `Array` body
 reads back at runtime and calls indirectly. Pruning it leaves that slot pointing at freed code — so the
@@ -178,7 +177,6 @@ typealias Count = int(0 to u64.max)
 public typealias Integer = int(i64.min to i64.max)
 
 type Container uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
@@ -190,7 +188,7 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
+	function push(mutates self, consumes item Element)
 		self.items.push(item)
 	end 'push'
 end 'Container'
@@ -198,11 +196,11 @@ end 'Container'
 typealias StringContainer = Container with String
 
 public function unusedInThisProgram(x Integer) returns Integer
-	return x * 9
+	return try x * 9 otherwise panic("out of range")
 end 'unusedInThisProgram'
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("a string long enough to need the heap")
 	sc.push("and a second one, likewise heap-allocated")
 	if sc.count() == 2 'ok'

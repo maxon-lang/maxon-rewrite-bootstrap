@@ -565,12 +565,10 @@ so nothing reserved the hidden slot, and lowering aborted the compiler:
 carries no layout descriptor parameter`.
 
 <!-- test: field-defaults.opaque-array-default-in-generic-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items = ElementArray.create(0)
 	var seen = 0 as Count
@@ -579,9 +577,9 @@ type Bag uses Element
 		return Self{}
 	end 'create'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		items.push(item)
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
 	function size() returns Count
@@ -594,10 +592,10 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntBag = Bag with Integer
 
 function main() returns ExitCode
-	let b = IntBag.create()
+	var b = IntBag.create()
 	b.add(4)
 	b.add(9)
-	return b.size()
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -609,14 +607,11 @@ end 'main'
 `stdlib/Map.maxon` is this shape: `uses Key, Value`, with one defaulted `Array` column per parameter.
 
 <!-- test: field-defaults.opaque-array-default-two-type-params -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Pairs uses Key, Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueArray = Array with Value
 	var keys = KeyArray.create(0)
 	var values = ValueArray.create(0)
@@ -626,10 +621,10 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(key Key, value Value)
+	function add(mutates self, consumes key Key, consumes value Value)
 		keys.push(key)
 		values.push(value)
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
 	function size() returns Count
@@ -642,11 +637,11 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntPairs = Pairs with (Integer, Integer)
 
 function main() returns ExitCode
-	let p = IntPairs.create()
+	var p = IntPairs.create()
 	p.add(1, value: 5)
 	p.add(2, value: 6)
 	p.add(3, value: 7)
-	return p.size()
+	return try p.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -659,14 +654,12 @@ end 'main'
 descriptor-reading method on it. The receiver is a value of the enclosing type that is not `self`.
 
 <!-- test: field-defaults.descriptor-forwards-from-a-self-literal-local -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
 type Basket uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ElementArray = Array with Element
 	var items = ElementArray.create(0)
 	var seen = 0 as Count
@@ -675,16 +668,16 @@ type Basket uses Element
 		return Self{}
 	end 'create'
 
-	static function of(first Element, second Element) returns Self
-		let result = Self{}
+	static function of(consumes first Element, consumes second Element) returns Self
+		var result = Self{}
 		result.add(first)
 		result.add(second)
 		return result
 	end 'of'
 
-	function add(item Element)
+	function add(mutates self, consumes item Element)
 		items.push(item)
-		seen = seen + 1
+		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
 	function size() returns Count
@@ -696,7 +689,7 @@ typealias IntBasket = Basket with Integer
 
 function main() returns ExitCode
 	let b = IntBasket.of(11, second: 22)
-	return b.size()
+	return try b.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -710,16 +703,13 @@ was a wild free: both columns were stamped with the FIRST column's destructor, s
 words were freed as String records. The program printed the right answer and exited 139.
 
 <!-- test: field-defaults.two-type-params-with-one-managed-column -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
 type Pairs uses Key, Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueArray = Array with Value
 	var keys = KeyArray.create(0)
 	var values = ValueArray.create(0)
@@ -728,7 +718,7 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(key Key, value Value)
+	function add(mutates self, consumes key Key, consumes value Value)
 		keys.push(key)
 		values.push(value)
 	end 'add'
@@ -741,10 +731,10 @@ end 'Pairs'
 typealias StrIntPairs = Pairs with (String, Integer)
 
 function main() returns ExitCode
-	let p = StrIntPairs.create()
+	var p = StrIntPairs.create()
 	p.add("alpha", value: 1)
 	p.add("beta", value: 2)
-	return p.size()
+	return try p.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -756,16 +746,13 @@ end 'main'
 The mirror image, so the implementation cannot be "always use the first column's destructor" wearing a pass.
 
 <!-- test: field-defaults.two-type-params-with-the-managed-column-second -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 typealias Integer = int(i64.min to i64.max)
 
 type Pairs uses Key, Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueArray = Array with Value
 	var keys = KeyArray.create(0)
 	var values = ValueArray.create(0)
@@ -774,7 +761,7 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(key Key, value Value)
+	function add(mutates self, consumes key Key, consumes value Value)
 		keys.push(key)
 		values.push(value)
 	end 'add'
@@ -787,11 +774,11 @@ end 'Pairs'
 typealias IntStrPairs = Pairs with (Integer, String)
 
 function main() returns ExitCode
-	let p = IntStrPairs.create()
+	var p = IntStrPairs.create()
 	p.add(1, value: "alpha")
 	p.add(2, value: "beta")
 	p.add(3, value: "gamma")
-	return p.size()
+	return try p.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -803,14 +790,11 @@ end 'main'
 Two live destructors in one descriptor, one per parameter.
 
 <!-- test: field-defaults.two-type-params-with-both-columns-managed -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Count = int(0 to u64.max)
 
 type Pairs uses Key, Value
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias KeyArray = Array with Key
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias ValueArray = Array with Value
 	var keys = KeyArray.create(0)
 	var values = ValueArray.create(0)
@@ -819,23 +803,23 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(key Key, value Value)
+	function add(mutates self, consumes key Key, consumes value Value)
 		keys.push(key)
 		values.push(value)
 	end 'add'
 
 	function size() returns Count
-		return keys.count() + values.count()
+		return try keys.count() + values.count() otherwise panic("out of range")
 	end 'size'
 end 'Pairs'
 
 typealias StrStrPairs = Pairs with (String, String)
 
 function main() returns ExitCode
-	let p = StrStrPairs.create()
+	var p = StrStrPairs.create()
 	p.add("a", value: "alpha")
 	p.add("b", value: "beta")
-	return p.size()
+	return try p.size() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

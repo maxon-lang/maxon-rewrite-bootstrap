@@ -208,7 +208,6 @@ end 'main'
 
 <!-- test: a-substituted-container-field-keeps-its-element-answer -->
 <!-- skip: alias subtyping (implements on typealias) is not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A shared generic body records nothing, so `Bag.put`/`Bag.at` keep both guards for every
 instantiation. The same record reached through a CONCRETE receiver — `w.items` typed `Array with Word`,
 `n.items` typed `Array with String` — is stamped per instantiation: the word field drops the guard, the
@@ -221,7 +220,6 @@ typealias Word = int(i64.min to i64.max)
 typealias Idx = int(0 to u64.max) implements ElementIndex
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with Element
 	export var items as Items
 

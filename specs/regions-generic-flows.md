@@ -89,7 +89,6 @@ error E3207: <fragment>:20:12: 'keep' writes 'item' (line 14: 'Map.upsert' keeps
 ```
 
 <!-- test: a-declared-generic-method-that-stores-t-refuses-a-frozen-argument -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `Stack.push` stores its `T` into the stack's own array, and `JobStack` fixes `T` to a mutable `Job`.
 
@@ -105,7 +104,6 @@ type Job
 end 'Job'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -201,7 +199,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-generic-with-an-immutable-argument-runs-beside-a-mutable-one -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 `Stack with Job` takes mutable jobs and `Stack with immutable Job` takes frozen ones, from one declaration.
 
@@ -217,7 +214,6 @@ type Job
 end 'Job'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -257,7 +253,6 @@ end 'main'
 ```
 
 <!-- test: a-mutable-value-pushed-into-a-declared-generic-with-an-immutable-argument-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `FrozenJobStack` fixes `T` to a frozen `Job`, so the mutable `loose` is refused by the same method that took `pinned`.
@@ -274,7 +269,6 @@ type Job
 end 'Job'
 
 type Stack uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -1492,7 +1486,6 @@ error E2010: <fragment>:12:22: Expected 'a type' but got 'isolated'
 ```
 
 <!-- test: a-frozen-tuple-handed-to-a-generic-method-that-stores-its-items-refused -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1511,7 +1504,6 @@ type Box
 end 'Box'
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -1549,7 +1541,6 @@ error E3196: <fragment>:37:14: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-tuple-of-frozen-items-handed-to-an-immutable-generic-method-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple element access is not supported in minimaxon -->
 <!-- skip: tuple parameter types are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1568,7 +1559,6 @@ type Box
 end 'Box'
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -1955,7 +1945,6 @@ error E3197: <fragment>:22:2: cannot write 'n' through 'held', which is immutabl
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-takes-frozen-and-mutable-arguments-and-runs -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
@@ -1973,10 +1962,8 @@ type Box
 end 'Box'
 
 type Pairs uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Pair
 	var items as Items
 
@@ -2020,7 +2007,6 @@ end 'main'
 ```
 
 <!-- test: a-declared-generic-over-a-tuple-of-its-parameter-refuses-a-frozen-argument-for-a-mutable-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
 <!-- positions: moved -->
@@ -2038,10 +2024,8 @@ type Box
 end 'Box'
 
 type Pairs uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	typealias Pair = (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = List with Pair
 	var items as Items
 
@@ -2241,7 +2225,6 @@ error E3196: <fragment>:13:10: cannot store an immutable 'Box' into 'an item of 
 ```
 
 <!-- test: a-nested-array-of-another-capability-is-another-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Bag.Items` is `Array with Box` for `BoxBag`; an `Array with immutable Box` is a different type, so the argument is refused as a type mismatch.
@@ -2261,7 +2244,6 @@ type Box
 end 'Box'
 
 type Bag uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 
@@ -2297,7 +2279,6 @@ error E3005: <fragment>:38:6: argument type mismatch for 'more': expected 'Array
 <!-- test: a-closure-that-writes-its-parameter-is-refused-for-an-immutable-instance -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 `Step` takes `T`, which `FrozenVisitor` fixes to `immutable Box`; `bump` writes its parameter, so the closure cannot stand for a `Step`.
@@ -2314,7 +2295,6 @@ type Box
 end 'Box'
 
 type Visitor uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Tally
 	var total as Tally
@@ -2356,7 +2336,6 @@ error E3210: <fragment>:40:30: function value for 'Visitor.Step' writes its para
 <!-- test: a-closure-that-reads-its-parameter-runs-for-an-immutable-instance -->
 <!-- skip: closures are not supported in minimaxon -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 A closure that only reads its parameter takes the frozen box.
 
@@ -2372,7 +2351,6 @@ type Box
 end 'Box'
 
 type Visitor uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Step = function(T) returns Tally
 	var total as Tally
@@ -2884,7 +2862,6 @@ end 'main'
 
 <!-- test: a-merged-isolated-parameter-bound-to-a-local-is-released-once-by-an-appending-method -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 `add` merges its `isolated T` parameter into a local and appends it to the list, so each record lives in the list once and is released once when `b` ends: `seen` is 2 and no allocation is left over.
 
@@ -2900,7 +2877,6 @@ type Item
 end 'Item'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = List with T
 	export var items as Items
 	export var seen as Count

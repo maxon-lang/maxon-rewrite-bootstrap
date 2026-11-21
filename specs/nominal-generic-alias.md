@@ -359,14 +359,11 @@ true
 ```
 
 <!-- test: error.a-field-of-an-inner-alias-holds-that-alias-as-its-brand -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
-<!-- positions: moved -->
 A field whose type is a generic instance is always spelled through an alias, so it holds that alias as its brand from its declaration and has no first store to adopt from.
 ```maxon
 typealias Xs = Array with String
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with String
 	export var items as Items
 

@@ -102,7 +102,6 @@ exactly why the case above passes and the one below did not.
 ## Tests
 
 <!-- test: bare-generic-name-in-a-generic-body -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A composite parameter of ANOTHER generic type, and its return
 Both bodies spell the composite as `TArr`: an alias is a brand, and the value `Outer` hands to
 `Inner.make` must carry the name `make` declares (`nominal-generic-alias.md`).
@@ -110,7 +109,6 @@ Both bodies spell the composite as `TArr`: an alias is a brand, and the value `O
 typealias Integer = int(i64.min to i64.max)
 
 type Inner uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TArr = Array with T
 	var v as TArr
 
@@ -124,7 +122,6 @@ type Inner uses T
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArr = Array with T
 	var items as TArr
 
@@ -239,7 +236,6 @@ end 'main'
 ```
 
 <!-- test: inner-alias-nested-instance-is-dropped-through-its-substituted-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The same nesting reached through an INNER TYPEALIAS
 `typealias Inner = Cell with T` inside `type Holder uses T` is the other spelling of the same field, and it
 is the spelling `stdlib/Array.maxon` uses for its own buffer (`typealias ElementMemory = __ManagedMemory
@@ -260,7 +256,6 @@ type Cell uses T
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Inner = Cell with T
 	export var cell as Inner
 
@@ -427,7 +422,6 @@ end 'main'
 ```
 
 <!-- test: a-bare-field-reassignment-reserves-the-descriptor-it-releases-through -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### …and so does the bare spelling of the reassignment
 `one = b` names the field without `self.`; the method it is written in carries the layout descriptor the displaced
 record is released through, exactly as `self.one = b` does.
@@ -447,7 +441,6 @@ type Inner uses U
 end 'Inner'
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TInner = Inner with T
 	let inner as TInner
 	export let tag as Integer
@@ -462,9 +455,7 @@ type Box uses T
 end 'Box'
 
 type Bag uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias EBox = Box with Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias BoxArray = Array with EBox
 	var items as BoxArray
 	export var one as EBox
@@ -720,7 +711,6 @@ end 'main'
 ```
 
 <!-- test: error.a-name-the-scope-does-not-bind-binds-nothing -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A parameter name the enclosing scope does not declare binds nothing
 `Inner uses U` inside `type Outer uses T` has no `U` for the scope to stand for, so the bare
@@ -735,7 +725,6 @@ the value is the bare base, so calling it would be a second refusal of the same 
 typealias Integer = int(i64.min to i64.max)
 
 type Inner uses U
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias UArr = Array with U
 	var v as UArr
 
@@ -749,7 +738,6 @@ type Inner uses U
 end 'Inner'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias OArr = Array with T
 	var items as OArr
 
@@ -822,7 +810,6 @@ error E3162: <fragment>:15:26: 'Box' is named without type arguments inside 'typ
 
 <!-- test: error.a-bare-generic-base-may-not-take-a-layout-needing-call -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A base the scope does not bind may not take a layout-needing call
 `Holder.create` sizes a `FixedArray with 4 Element`, so it is handed a layout descriptor. The bare `Holder` has
@@ -831,7 +818,6 @@ none, and the enclosing frame's describes `Outer`'s parameters rather than `Hold
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -957,7 +943,6 @@ error E3162: <fragment>:24:14: 'Tag' is named without type arguments inside 'typ
 
 <!-- test: error.a-bare-generic-base-outside-a-generic-body-may-not-take-a-layout-needing-call -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### Outside a generic body a bare base's layout-needing static has no descriptor either
 `main` has no type parameters to bind `Holder` over and `create` takes no argument that could fix
@@ -966,7 +951,6 @@ error E3162: <fragment>:24:14: 'Tag' is named without type arguments inside 'typ
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1021,7 +1005,6 @@ error E3162: <fragment>:18:11: 'Tag' is named without type arguments and nothing
 ```
 
 <!-- test: error.a-bare-generic-base-call-is-judged-by-the-member-it-names -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### A factory is judged by the member the call names
 `items` is an `Array with T`, so the call `Box.create(items)` hands the bare base's `Element` slot a value typed at
@@ -1044,7 +1027,6 @@ type Box uses Element
 end 'Box'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArr = Array with T
 	export var inner as Box
 
@@ -1067,7 +1049,6 @@ error E3162: <fragment>:24:26: 'Box' is named without type arguments inside 'typ
 ```
 
 <!-- test: a-base-written-with-the-enclosing-parameter-is-fed-and-released -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The control: the same feed through `typealias Inner = Box with T`
 The instance is spelled, so `inner` holds a `Box with String` at `Outer with String` and its `String` is
 released with it — exit 0 rather than 101.
@@ -1075,21 +1056,20 @@ released with it — exit 0 rather than 101.
 type Box uses Element
 	export var saved as Element
 
-	static function create(first Element) returns Self
+	static function create(consumes first Element) returns Self
 		return Self{saved: first}
 	end 'create'
 
-	function replace(next Element)
+	function replace(mutates self, consumes next Element)
 		self.saved = next
 	end 'replace'
 end 'Box'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Inner = Box with T
 	export var inner as Inner
 
-	static function create(first T) returns Self
+	static function create(consumes first T) returns Self
 		return Self{inner: Inner.create(first)}
 	end 'create'
 end 'Outer'
@@ -1097,7 +1077,7 @@ end 'Outer'
 typealias OuterStr = Outer with String
 
 function main() returns ExitCode
-	let o = OuterStr.create("alpha")
+	var o = OuterStr.create("alpha")
 	o.inner.replace("beta")
 	print("{o.inner.saved}\n")
 	return 0
@@ -1113,13 +1093,11 @@ beta
 
 <!-- test: a-base-written-with-the-enclosing-parameter-takes-a-layout-needing-call -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### The control: the same layout-needing call through `typealias Held = Holder with T`
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1134,7 +1112,6 @@ type Holder uses Element
 end 'Holder'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Holder with T
 	var holder as Held
 
@@ -1165,7 +1142,6 @@ end 'main'
 
 <!-- test: error.a-managed-instantiation-a-later-body-mints-refuses-the-fixed-array-body-first -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ### …and at a MANAGED argument the fixed array is refused, though the instance is minted below the body that asks
 `Holder with String` is written nowhere: `Outer`'s body mints it, below `Holder`'s. A parse asks whether some
@@ -1176,7 +1152,6 @@ be the whole program's rather than the rows the file had minted by then — admi
 typealias Int = int(i64.min to i64.max)
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1191,7 +1166,6 @@ type Holder uses Element
 end 'Holder'
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Holder with T
 	var holder as Held
 
@@ -1218,14 +1192,12 @@ error E3106: <fragment>:10:21: 'FixedArray.create' cannot publish slots of a typ
 
 <!-- test: error.a-managed-instantiation-a-later-body-mints-refuses-the-fixed-array-use-first -->
 <!-- skip: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 The same program with the minting body ABOVE the fixed array's, which the file's own rows answered all along.
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
 type Outer uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Held = Holder with T
 	var holder as Held
 
@@ -1247,7 +1219,6 @@ function main() returns ExitCode
 end 'main'
 
 type Holder uses Element
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: fixed-size generic type arguments (e.g. FixedArray with N T) are not supported in minimaxon
 	typealias Slot = FixedArray with 4 Element
 	var slot as Slot
@@ -1293,7 +1264,6 @@ end 'main'
 ```
 
 <!-- test: for-in-over-a-generic-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### `for … in` walks a generic instance through the cursor protocol
 A generic instance carries its base name AND its concrete type arguments, which is strictly more
 than a plain struct has — so the loop reads its `current()`/`advance()` off the base and the
@@ -1302,7 +1272,6 @@ element off the instance.
 typealias Integer = int(i64.min to i64.max)
 
 type Walker uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TArr = Array with T
 	var items as TArr
 	var at = 0 as Count
@@ -1344,7 +1313,6 @@ end 'main'
 ```
 
 <!-- test: substituted-return-of-a-built-record-is-already-owned -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1376,10 +1344,8 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Pair = (T, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1412,7 +1378,6 @@ end 'main'
 ```
 
 <!-- test: substituted-return-of-a-managed-element-tuple-is-already-owned -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- skip: tuple destructuring declarations are not supported in minimaxon -->
 <!-- skip: tuple typealiases are not supported in minimaxon -->
 <!-- skip: tuple values and types are not supported in minimaxon -->
@@ -1426,10 +1391,8 @@ typealias Integer = int(i64.min to i64.max)
 typealias IntArray = Array with Integer
 
 type Labeller uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: tuple typealiases are not supported in minimaxon
 	export typealias Tagged = (String, T)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -1460,13 +1423,11 @@ end 'main'
 ```
 
 <!-- test: generic-type-conforming-to-Iterable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### A generic type conforming to `Iterable`
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 type BoxIter uses T implements Iterator with T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TArr = Array with T
 	var items as TArr
 	var at = 0 as Count
@@ -1491,7 +1452,6 @@ type BoxIter uses T implements Iterator with T
 end 'BoxIter'
 
 type Box uses T implements Iterable with (T, BoxIter)
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias TArr = Array with T
 	var items as TArr
 

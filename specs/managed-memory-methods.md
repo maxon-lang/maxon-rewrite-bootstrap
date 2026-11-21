@@ -4089,7 +4089,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-buffer-alias-serves-the-roster-at-a-struct-field -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 ⭐ **AN ALIAS DECLARED INSIDE THE TYPE, which is the spelling `stdlib/Character.maxon` and
@@ -4102,7 +4101,6 @@ read-door derivation asks the name it was filed under without needing to know an
 typealias Int = int(i64.min to i64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Mem = __ManagedMemory with Byte
 	export var buf as Mem
 
@@ -4125,7 +4123,6 @@ end 'main'
 ```
 
 <!-- test: a-cast-to-a-qualified-inner-alias-converts -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 The inner alias reached from OUTSIDE its type, by its qualified name, as the target of an `as`: the
@@ -4134,7 +4131,6 @@ library `ByteArray` converts to `Holder.Mem`, as it converts to a top-level `Byt
 typealias Int = int(i64.min to i64.max)
 
 type Holder
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Mem = __ManagedMemory with Byte
 	export var buf as Mem
 
@@ -4557,7 +4553,6 @@ end 'main'
 ```
 
 <!-- test: an-inner-alias-return-carries-the-argument-spelling-one-hop-further -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- tier: stdlib -->
 
 ⭐⭐ **TWO HOPS, WHICH IS THE SHAPE A `for m in bufs` OVER A CORPUS `Array` IS.** `inner()` returns the
@@ -4578,7 +4573,6 @@ type Cell uses U
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
@@ -4605,7 +4599,6 @@ end 'main'
 ```
 
 <!-- test: error.an-inner-alias-return-over-a-byte-array-keeps-the-array-surface -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 
 The two-hop over-acceptance control. Both hops are the same one `GenericInstanceId` pair as the one-hop
@@ -4624,7 +4617,6 @@ type Cell uses U
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
@@ -4651,14 +4643,13 @@ error E2015: <fragment>:32:25: Unsupported: `Array` member 'length' — the comp
 ```
 
 <!-- test: a-two-hop-byte-array-argument-still-serves-count -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 
 And its positive half, so the two-hop refusal is a roster boundary rather than a lost value.
 ```maxon
 type Cell uses U
 	export var slot as U
 
-	static function make(slot U) returns Self
+	static function make(consumes slot U) returns Self
 		return Self{slot: slot}
 	end 'make'
 
@@ -4668,11 +4659,10 @@ type Cell uses U
 end 'Cell'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
-	static function make(cell TCell) returns Self
+	static function make(consumes cell TCell) returns Self
 		return Self{cell: cell}
 	end 'make'
 
@@ -4687,7 +4677,7 @@ typealias BufHolder = Holder with ByteArray
 
 function main() returns ExitCode
 	let h = BufHolder.make(BufCell.make("hello".toByteArray()))
-	return h.inner().get().count() as ExitCode
+	return try h.inner().get().count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

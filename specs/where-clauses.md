@@ -3024,12 +3024,10 @@ true
 ### A static that does NOT return `Self` dispatches on an array of the type parameter through its call site's tables
 
 <!-- test: where-clauses.static-hashing-an-array-of-the-type-parameter-dispatches-through-the-call-sites-tables -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var v as T
 
@@ -3099,13 +3097,11 @@ error E2015: <fragment>:12:36: Unsupported: a closure that calls 'hashOf' (which
 ### Error: an array of an unconstrained type parameter is not `Hashable`
 
 <!-- test: where-clauses.error.an-unconstrained-type-parameter-array-is-not-hashable -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -3134,13 +3130,11 @@ error E4006: specs/where-clauses/where-clauses.error.an-unconstrained-type-param
 
 <!-- test: where-clauses.error.a-closure-in-an-instance-method-hashing-a-type-parameter-array -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -3175,7 +3169,6 @@ error E2015: specs/where-clauses/where-clauses.error.a-closure-in-an-instance-me
 
 <!-- test: where-clauses.a-static-calling-a-conditional-extension-method-on-a-type-parameter-instance -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
@@ -3202,7 +3195,6 @@ extension Box where Item implements Hashable
 end 'Box'
 
 type Owner uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Boxed = Box with T
 	var v as T
 
@@ -3322,12 +3314,10 @@ true
 ### A static that does NOT return `Self` calls a descriptor-carrying method on a run instance
 
 <!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Outer uses E where E implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with E
 	var e as E
 
@@ -3346,7 +3336,6 @@ type Outer uses E where E implements Hashable and Equatable
 end 'Outer'
 
 type Runner uses D where D implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias OuterD = Outer with D
 	var d as D
 
@@ -3375,10 +3364,8 @@ true
 ### The same hand-off at a managed type argument
 
 <!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance-of-strings -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Outer uses E where E implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with E
 	var e as E
 
@@ -3397,7 +3384,6 @@ type Outer uses E where E implements Hashable and Equatable
 end 'Outer'
 
 type Runner uses D where D implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias OuterD = Outer with D
 	var d as D
 
@@ -3426,7 +3412,6 @@ true true
 ### The same hand-off at a record type argument
 
 <!-- test: where-clauses.a-static-calls-a-descriptor-method-on-a-run-instance-of-records -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Key implements Hashable, Equatable
 	var name as String
@@ -3445,7 +3430,6 @@ type Key implements Hashable, Equatable
 end 'Key'
 
 type Outer uses E where E implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with E
 	var e as E
 
@@ -3464,7 +3448,6 @@ type Outer uses E where E implements Hashable and Equatable
 end 'Outer'
 
 type Runner uses D where D implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias OuterD = Outer with D
 	var d as D
 
@@ -3494,12 +3477,10 @@ true true
 
 <!-- test: where-clauses.error.a-closure-calling-a-witness-carrying-static-is-refused -->
 <!-- skip: closures are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 `run` reaches a method that dispatches through `Outer`'s constraints, so it takes `Runner`'s witness tables from its call site. A closure inherits a witness table only for a direct dispatch, so it has none to hand `Self.run`.
 ```maxon
 type Outer uses E where E implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with E
 	var e as E
 
@@ -3518,7 +3499,6 @@ type Outer uses E where E implements Hashable and Equatable
 end 'Outer'
 
 type Runner uses D where D implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias OuterD = Outer with D
 	var d as D
 
@@ -3590,7 +3570,6 @@ true true true false
 ```
 
 <!-- test: where-clauses.a-static-ordering-type-parameter-values-takes-the-call-sites-tables -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `<` on two `T` values dispatches through `Comparable`. `Rev` orders descending, so a static that read the table of the wrong type, or compared the integers it holds instead of calling `compare`, answers differently. Every call form is exercised: through the alias, through `Self.`, by the bare sibling name, from another static of the generic, from a generic that holds the instance over its own parameter, from an instance method of that generic, and through a bare generic base whose arguments fix the instance.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3638,7 +3617,6 @@ type Pair uses T where T implements Comparable
 end 'Pair'
 
 type Runner uses D where D implements Comparable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias PD = Pair with D
 	var d as D
 
@@ -3830,7 +3808,6 @@ true false
 ```
 
 <!-- test: where-clauses.a-static-ordering-element-reads-takes-the-call-sites-tables -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 `a < b` orders two elements read out of an array of `T`, under a `Comparable` whose order is the reverse of the integers' own.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3858,7 +3835,6 @@ type Rev implements Comparable, Equatable
 end 'Rev'
 
 type Holder uses T where T implements Comparable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var v as T
 
@@ -3962,12 +3938,10 @@ declared
 ### A static that does NOT return `Self` calls a method that reads its layout through a blind edge
 
 <!-- test: where-clauses.a-static-calls-a-method-that-reads-its-layout-through-a-blind-edge -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -4007,12 +3981,10 @@ end 'main'
 ### A static that does NOT return `Self` calls a method that forwards to a layout reader
 
 <!-- test: where-clauses.a-static-calls-a-method-that-forwards-to-a-layout-reader -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Box uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -4056,12 +4028,10 @@ end 'main'
 ### A static's local named like a field compares as its own type
 
 <!-- test: where-clauses.a-static-local-named-like-a-field-compares-as-its-own-type -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Val = int(i64.min to i64.max)
 
 type Holder uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 
@@ -4100,14 +4070,12 @@ A body that reserved none would read two argument registers it never declared. `
 
 <!-- test: where-clauses.interface-extension-over-a-constrained-conformer -->
 <!-- skip: extension blocks are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias Step = int(0 to u64.max)
 
 type Ticks uses T where T implements Hashable and Equatable
-	// TODO: nested typealias declarations are not supported in minimaxon
 	export typealias Items = Array with T
 	var items as Items
 	var at = 0 as Count
@@ -4395,7 +4363,6 @@ end 'main'
 
 <!-- test: where-clauses.error.a-spawned-method-reading-an-opaque-arrays-elements-has-no-receiver -->
 <!-- skip: 'async' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 A method of a generic type that reads an element of an `Array with T` takes the instance as its receiver, and a spawn
@@ -4409,7 +4376,6 @@ enum Signal
 end 'Signal'
 
 type Holder uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias Items = Array with T
 	var items as Items
 

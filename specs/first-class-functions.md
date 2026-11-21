@@ -674,13 +674,11 @@ end 'main'
 
 <!-- test: first-class-function.an-inner-function-alias-naming-self-is-substituted-per-instance -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A function-type alias declared inside a generic type names both `Self` and the type parameter, and a method
 taking it is called on an instance with a closure over that instance's own type.
 ```maxon
 type Cell uses T
 	export var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
@@ -5658,7 +5656,7 @@ red
 
 <!-- test: first-class-function.per-instance-alias-param-agrees -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
+<!-- skip: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own -->
 ⚠ **THE FALSE-REFUSAL CONTROL, and it is why the two fill sites are ONE rather than the comparison
 loosened.** Both branches that build a `FunctionShape` — the DECLARED one and the ALIAS one — classify a
 parameter through ONE parser-tier extraction (`Parser.aggregateNameOf`: a struct OR an enum OR a
@@ -5669,7 +5667,7 @@ identity on one side and none on the other, and this legal program would be refu
 typealias Integer = int(i64.min to i64.max)
 
 type Pool uses T
-	// TODO: nested typealias declarations are not supported in minimaxon
+	// TODO: ranged typealiases in a generic type are not supported in minimaxon: each instance has a type of its own
 	export typealias Idx = int(0 to 15)
 	export var v as T
 
@@ -6878,13 +6876,11 @@ error E3005: <fragment>:35:11: argument type mismatch for 'f': expected 'fn(Inte
 
 <!-- test: first-class-function.an-inner-function-alias-naming-self-offers-the-instance-to-an-untyped-closure -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 A closure literal with an UNTYPED parameter, written at a method parameter declared with an inner function
 alias whose parameter is `Self`, is offered the receiver's own instance.
 ```maxon
 type Cell uses T
 	export var v as T
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
@@ -6914,12 +6910,10 @@ inferred
 
 <!-- test: first-class-function.a-function-field-read-through-an-instance-takes-its-arguments -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -6951,12 +6945,10 @@ stored!
 
 <!-- test: first-class-function.a-function-field-naming-self-is-called-with-the-instance -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(Self) returns T
 
@@ -6987,12 +6979,10 @@ first stored
 
 <!-- test: first-class-function.a-function-field-stored-through-an-instance-is-called-with-its-arguments -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -7028,12 +7018,10 @@ stored...
 
 <!-- test: first-class-function.a-function-value-returned-through-an-instance-takes-its-arguments -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -7069,7 +7057,6 @@ got!
 
 <!-- test: first-class-function.a-function-field-read-through-an-instance-fits-a-concrete-function-type -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ```maxon
 // TODO: function typealiases are not supported in minimaxon
 typealias Transform = function(String) returns String
@@ -7077,7 +7064,6 @@ typealias Transform = function(String) returns String
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 
@@ -7112,13 +7098,11 @@ passed!
 
 <!-- test: error.first-class-function.a-function-field-read-through-an-instance-refuses-a-wrong-argument -->
 <!-- skip: function typealiases are not supported in minimaxon -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 type Cell uses T
 	export var v as T
 	export var pick as Pick
-	// TODO: nested typealias declarations are not supported in minimaxon
 	// TODO: function typealiases are not supported in minimaxon
 	typealias Pick = function(T) returns T
 

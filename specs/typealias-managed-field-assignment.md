@@ -30,7 +30,6 @@ fails the test with a leak exit.
 ## Tests
 
 <!-- test: member-typealias-cross-struct-field-assign -->
-<!-- skip: nested typealias declarations are not supported in minimaxon -->
 ### Cross-Struct Field Assignment Through a Member Typealias
 Assigning one struct's alias-typed managed field from another struct's field,
 in a loop, must release every displaced array and count the aliased one. Any
@@ -40,7 +39,6 @@ the leak gate.
 typealias Num = int(i64.min to i64.max)
 
 type Blk
-	// TODO: nested typealias declarations are not supported in minimaxon
 	typealias NumArray = Array with Num
 	export var args as NumArray
 
@@ -52,9 +50,9 @@ end 'Blk'
 function main() returns ExitCode
 	var i = 0 as Num
 	while i < 3000 'l'
-		let a = Blk.create()
+		var a = Blk.create()
 		a.args.push(i)
-		let b = Blk.create()
+		var b = Blk.create()
 		b.args = a.args
 		i = i + 1
 	end 'l'
