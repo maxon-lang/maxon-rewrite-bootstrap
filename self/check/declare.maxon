@@ -203,7 +203,11 @@ function paramSpecs(mutates c Checker, mutates p ast.Project, params ast.ParamLi
 		if failedSince(errs, mark: mark) 'failed'
 			return
 		end 'failed'
-		specs.push(ast.ParamSpec.make(prm.name.clone(), ty: t, conv: conv))
+		if prm.defaultRef != 0 and ast.isByAddress(conv) 'byAddress'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: prm.defaultRef), code: diag.errUnsupportedFeature, msg: "Unsupported: a default value on the {conv.keyword()} parameter '{prm.name}': it passes a place of the caller's, which a default is not", errs: errs)
+			return
+		end 'byAddress'
+		specs.push(ast.ParamSpec.withDefault(prm.name.clone(), ty: t, conv: conv, defaultExpr: prm.defaultRef))
 	end 'each'
 end 'paramSpecs'
 

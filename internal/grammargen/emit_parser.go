@@ -170,6 +170,14 @@ func (g *pgen) choice(las []laSet, line int, desc string, branch func(i int)) {
 	g.choicePredicated(las, nil, line, desc, branch)
 }
 
+// guardOf is the predicate that follows the operator of a tail, which the tail is entered only where it holds, or "".
+func guardOf(a *alt) string {
+	if len(a.elems) > 2 && a.elems[2].kind == ekPredicate {
+		return a.elems[2].text
+	}
+	return ""
+}
+
 // predicateOf is the hand-written predicate that an alternative starts with, which decides it where the tokens cannot, or "".
 func predicateOf(a *alt) string {
 	if len(a.elems) > 0 && a.elems[0].kind == ekPredicate {
@@ -357,10 +365,17 @@ func (g *pgen) once(e *elem, c cont, tg target) {
 			return
 		}
 		las := make([]laSet, len(e.group))
+		var preds []string
 		for i, a := range e.group {
 			las[i] = g.a.lookahead(a.elems, c)
+			if p := predicateOf(a); p != "" {
+				if preds == nil {
+					preds = make([]string, len(e.group))
+				}
+				preds[i] = p
+			}
 		}
-		g.choice(las, e.line, "", func(i int) {
+		g.choicePredicated(las, preds, e.line, "", func(i int) {
 			a := e.group[i]
 			if e.label != "" {
 				inner := *a.elems[0]
@@ -906,11 +921,29 @@ func (g *pgen) operatorRule(r *rule) {
 		all = append(all, tailTerms[i]...)
 	}
 	sort.Strings(all)
-	g.l.tailsOpen(all)
+	// A tail whose operator is followed by a predicate is guarded: the operator starts a tail only where the predicate holds,
+	// which the loop over the tails tests too, so that the operator can start whatever follows the expression.
+	tailTests := make([]string, len(tails))
+	var loopParts []cond
+	var free []string
+	for i, a := range tails {
+		tailTests[i] = g.atAny(tailTerms[i])
+		if guard := guardOf(a); guard != "" {
+			tailTests[i] = g.l.and(tailTests[i], g.l.predicate(guard))
+			loopParts = append(loopParts, cond{tailTests[i], true})
+		} else {
+			free = append(free, tailTerms[i]...)
+		}
+	}
+	if len(free) > 0 {
+		sort.Strings(free)
+		loopParts = append([]cond{{g.atAny(free), false}}, loopParts...)
+	}
+	g.l.tailsOpen(g.l.or(loopParts))
 	for i, a := range tails {
 		n := g.m.nodeByName[a.label]
 		tg := g.nodeTarget(n)
-		g.l.tailOpen(i, tailTerms[i])
+		g.l.tailOpen(i, tailTests[i])
 		g.l.ifOpen(g.l.less(prec[a], "minPrec"))
 		g.l.ret("left")
 		g.l.close()
@@ -968,8 +1001,8 @@ type lang interface {
 	close()
 	// tailsOpen starts the loop over operator tails, which start with the tokens all; tailOpen starts the i-th tail,
 	// and tailsClose ends the loop and returns left.
-	tailsOpen(all []string)
-	tailOpen(i int, terms []string)
+	tailsOpen(test string)
+	tailOpen(i int, test string)
 	tailsClose(left string)
 	refuse(desc string)
 

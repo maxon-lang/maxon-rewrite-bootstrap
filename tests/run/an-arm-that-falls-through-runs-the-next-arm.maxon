@@ -1,0 +1,33 @@
+typealias Amount = int(0 to 1000)
+
+enum Level
+	trace
+	info
+	error
+end 'Level'
+
+function cascade(x Amount) returns Amount
+	var result = 0 as Amount
+	match x 'cascade'
+		1 then result = result + 10 and fallthrough
+		2 then result = result + 20
+		default then result = 100
+	end 'cascade'
+	return result
+end 'cascade'
+
+function main() returns ExitCode
+	print("{cascade(1)} {cascade(2)} {cascade(5)}\n")
+	var n = 0 as Amount
+	let lv = Level.trace
+	match lv 'm'
+		trace then n = n + 1 and fallthrough
+		info then n = n + 2 and fallthrough
+		error then n = n + 4
+	end 'm'
+	print("{n}\n")
+	return 0
+end 'main'
+
+//> 30 20 100
+//> 7

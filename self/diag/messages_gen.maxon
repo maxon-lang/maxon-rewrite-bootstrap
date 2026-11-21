@@ -534,3 +534,18 @@ end 'writesCaptures'
 export function funcReturnMismatch(expected String, got String) returns String
 	return "function type mismatch in return: expected '{expected}', got '{got}'"
 end 'funcReturnMismatch'
+
+// The text of errEmptyBlock for: empty block: '{label}'
+export function emptyBlock(label String) returns String
+	return "empty block: '{label}'"
+end 'emptyBlock'
+
+// The text of errUnknownStaticMember for: type '{typeName}' has no static member named '{member}'
+export function noStaticMember(typeName String, member String) returns String
+	return "type '{typeName}' has no static member named '{member}'"
+end 'noStaticMember'
+
+// The text of errMatchFallthroughWithReturn for: match fallthrough with return: 'cannot combine 'fallthrough' with 'return''
+export function fallthroughWithReturn() returns String
+	return "match fallthrough with return: 'cannot combine 'fallthrough' with 'return''"
+end 'fallthroughWithReturn'

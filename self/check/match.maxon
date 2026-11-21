@@ -144,6 +144,7 @@ function checkMatch(mutates c Checker, mutates p ast.Project, core ast.NodeID, i
 	for i in 0 upto p.modules[c.modIdx].tree.listLen(armsRef) 'arms'
 		let arm = p.modules[c.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
 		checkArmScoped(c, p: p, arm: arm, st: st, owned: owned, isExpr: isExpr, expect: expect, state: state, errs: errs)
+		checkFallthrough(c, p: p, armsRef: armsRef, index: i, st: st, errs: errs)
 	end 'arms'
 	popBlock(c)
 	let mark = errs.count()
@@ -159,6 +160,52 @@ function checkMatch(mutates c Checker, mutates p ast.Project, core ast.NodeID, i
 	end 'noArm'
 	return state.result
 end 'checkMatch'
+
+// checkFallthrough refuses an arm that falls through after a 'return', and one that falls into an arm that binds a payload: the
+// arm it falls into is reached from a case it does not name, so its bindings would take apart a case the value does not hold.
+function checkFallthrough(mutates c Checker, mutates p ast.Project, armsRef diag.U32, index Count, st ast.TypeID, mutates errs diag.ErrorList)
+	let arm = p.modules[c.modIdx].tree.listAt(armsRef, index: index) as ast.NodeID
+	if not ast.matchArmFalls(p.modules[c.modIdx].tree, id: arm) 'stays'
+		return
+	end 'stays'
+	let action = ast.matchArmAction(p.modules[c.modIdx].tree, id: arm)
+	if action != 0 and p.modules[c.modIdx].tree.kindOf(action) == ast.NodeKind.returnStmt 'returns'
+		checkFail(c.modID, off: offsetOf(c, p: p, node: action), code: diag.errMatchFallthroughWithReturn, msg: diag.fallthroughWithReturn(), errs: errs)
+		return
+	end 'returns'
+	let next = try index + 1 otherwise index
+	if next >= p.modules[c.modIdx].tree.listLen(armsRef) 'last'
+		return
+	end 'last'
+	let target = p.modules[c.modIdx].tree.listAt(armsRef, index: next) as ast.NodeID
+	let patternsRef = ast.matchArmPatternsRef(p.modules[c.modIdx].tree, id: target)
+	for i in 0 upto p.modules[c.modIdx].tree.listLen(patternsRef) 'patterns'
+		let pattern = p.modules[c.modIdx].tree.listAt(patternsRef, index: i) as ast.NodeID
+		if patternBindsNames(p.modules[c.modIdx].tree, pattern: pattern) 'binds'
+			let word = unionWordOf(p, t: st)
+			checkFail(c.modID, off: offsetOf(c, p: p, node: pattern), code: diag.errUnsupportedFeature, msg: "Unsupported: `and fallthrough` into the payload-binding arm '{ast.patternCaseName(p.modules[c.modIdx].tree, id: pattern)}' of `{word} {nameOfType(p, t: st)}` — the preceding arm matched a DIFFERENT case, so on that edge these bindings would destructure a case the value does not hold (reading another case's slots, or a slot that arm already moved out and nulled). Fall through into a payload-free arm, or give this arm its own body", errs: errs)
+			return
+		end 'binds'
+	end 'patterns'
+end 'checkFallthrough'
+
+// patternBindsNames is whether a pattern names a payload that it binds, which `_` does not.
+function patternBindsNames(tree ast.Tree, pattern ast.NodeID) returns bool
+	let bindings = ast.patternBindingsRef(tree, id: pattern)
+	for i in 0 upto tree.listLen(bindings) 'each'
+		if tree.nameAt(tree.listAt(bindings, index: i)) != "_" 'named'
+			return true
+		end 'named'
+	end 'each'
+	return false
+end 'patternBindsNames'
+
+function unionWordOf(p ast.Project, t ast.TypeID) returns String
+	if kindOfType(p, t: t) == ast.TypeKind.enumTy 'enum'
+		return enumWord
+	end 'enum'
+	return unionWord
+end 'unionWordOf'
 
 // checkSubject refuses a subject that cannot be matched on.
 function checkSubject(mutates c Checker, mutates p ast.Project, core ast.NodeID, subject ast.NodeID, subjectTy ast.TypeID, st ast.TypeID, mutates errs diag.ErrorList) returns bool
@@ -189,8 +236,8 @@ end 'hasCases'
 function checkArmScoped(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st ast.TypeID, owned bool, isExpr bool, expect ast.TypeID, mutates state MatchState, mutates errs diag.ErrorList)
 	let form = ast.matchArmForm(p.modules[c.modIdx].tree, id: arm)
 	if ast.matchArmIsDefault(p.modules[c.modIdx].tree, id: arm) 'default'
-		if hasCases(p, t: st) and form != ast.ArmKind.armPanic 'mustThrow'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: arm), code: diag.errMatchDefaultEnumMustThrow, msg: "on an enum or union, 'default' is 'default panic(...)'", errs: errs)
+		if hasCases(p, t: st) and form != ast.ArmKind.armPanic and not ast.matchArmThrows(p.modules[c.modIdx].tree, id: arm) 'mustThrow'
+			checkFail(c.modID, off: offsetOf(c, p: p, node: arm), code: diag.errMatchDefaultEnumMustThrow, msg: "on an enum or union, 'default' is 'default throws ...' or 'default panic(...)'", errs: errs)
 			return
 		end 'mustThrow'
 		state.hasDefault = true
@@ -217,7 +264,7 @@ function checkArm(mutates c Checker, mutates p ast.Project, arm ast.NodeID, st a
 	let off = offsetOf(c, p: p, node: arm)
 	let value = ast.matchArmValue(p.modules[c.modIdx].tree, id: arm)
 	if form == ast.ArmKind.armThen 'then'
-		if isExpr 'inExpr'
+		if isExpr and not ast.matchArmThrows(p.modules[c.modIdx].tree, id: arm) 'inExpr'
 			checkFail(c.modID, off: off, code: diag.errUnexpectedToken, msg: "an arm of a match expression 'gives' a value", errs: errs)
 			return
 		end 'inExpr'

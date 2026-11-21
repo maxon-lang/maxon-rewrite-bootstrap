@@ -1,0 +1,11 @@
+// expect-error: E3036 at 9:2
+typealias Number = int(0 to 10)
+
+function pair(a Number = 1, b Number)
+	print("{a} {b}\n")
+end 'pair'
+
+function main() returns ExitCode
+	pair(3)
+	return 0
+end 'main'

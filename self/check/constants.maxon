@@ -282,6 +282,22 @@ function constantValue(p ast.Project, t ast.TypeID) returns ast.ConstValue
 	return ast.ConstValue.typed(t)
 end 'constantValue'
 
+// constOwner is the type that a static let belongs to, which its value is written inside of, or none for a constant of the
+// module.
+function constOwner(c Checker, mutates p ast.Project, name String) returns ast.TypeID
+	match consumes ast.nestedAliasOwner(name) 'owner'
+		some(typeName) then return ownerSelfType(c, p: p, typeName: typeName)
+		none then return ast.noType
+	end 'owner'
+end 'constOwner'
+
+function ownerSelfType(c Checker, mutates p ast.Project, typeName String) returns ast.TypeID
+	match consumes p.modules[c.modIdx].names.get(typeName) 'declared'
+		some(ord) then return ast.selfType(p.types, declTy: declTypeOf(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)))
+		none then panic("the type '{typeName}' of a static let is not among the declarations of its module")
+	end 'declared'
+end 'ownerSelfType'
+
 // checkConst types a constant's value, which gives the constant its type.
 function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	var cd as ast.ConstDecl
@@ -295,7 +311,8 @@ function checkConst(mutates c Checker, mutates p ast.Project, ord ast.DeclOrdina
 		interfaceDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 		extensionDecl(_) then panic("the declaration at ordinal {ord} is no constant")
 	end 'k'
-	enterContext(c, p: p, f: ast.noFunc, owner: ast.noType, calls: false)
+	let owner = constOwner(c, p: p, name: cd.name)
+	enterContext(c, p: p, f: ast.noFunc, owner: owner, calls: false)
 	c.constName = cd.name.clone()
 	let t = checkExpr(c, p: p, e: cd.value, errs: errs)
 	if t == ast.noType 'failed'

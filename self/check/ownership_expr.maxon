@@ -539,6 +539,9 @@ function userCall(mutates o Ownership, mutates p ast.Project, site diag.U32, cal
 	end 'receiver'
 	for i in 0 upto n 'args'
 		let arg = call.ordered[i]
+		if arg == 0 'defaulted'
+			continue 'args'
+		end 'defaulted'
 		let conv = call.paramSpecs[i].conv
 		let name = call.paramSpecs[i].name.clone()
 		if conv == ast.Convention.convMutates 'mutates'
@@ -710,8 +713,10 @@ function requireExclusive(mutates o Ownership, mutates p ast.Project, call ast.C
 		addAccess(o, p: p, e: receiver, conv: call.selfConv)
 	end 'receiver'
 	for i in 0 upto call.ordered.count() 'args'
-		requireApartFromClosure(o, p: p, e: call.ordered[i])
-		addAccess(o, p: p, e: call.ordered[i], conv: call.paramSpecs[i].conv)
+		if call.ordered[i] != 0 'given'
+			requireApartFromClosure(o, p: p, e: call.ordered[i])
+			addAccess(o, p: p, e: call.ordered[i], conv: call.paramSpecs[i].conv)
+		end 'given'
 	end 'args'
 	for j in 1 upto o.accesses.count() 'later'
 		for i in 0 upto j 'earlier'

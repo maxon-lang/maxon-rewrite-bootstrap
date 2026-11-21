@@ -113,3 +113,6 @@ destructureNonTuple	ErrUnsupportedFeature	Unsupported: a destructuring binding o
 tupleAssignArity	ErrTypeMismatch	Tuple has {elements} elements but destructuring has {names} bindings
 writesCaptures	ErrCapabilityConversion	function value for '{alias}' writes data it captured, but '{alias}' does not declare `mutates captures`
 funcReturnMismatch	ErrTypeMismatch	function type mismatch in return: expected '{expected}', got '{got}'
+emptyBlock	ErrEmptyBlock	empty block: '{label}'
+noStaticMember	ErrUnknownStaticMember	type '{typeName}' has no static member named '{member}'
+fallthroughWithReturn	ErrMatchFallthroughWithReturn	match fallthrough with return: 'cannot combine 'fallthrough' with 'return''

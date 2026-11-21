@@ -25,3 +25,10 @@ end 'matchArmForm'
 export function forStmtIsRange(t Tree, id NodeID) returns bool
 	return forStmtTo(t, id: id) != 0
 end 'forStmtIsRange'
+
+// matchArmThrows is whether an arm throws an error instead of giving a value: 'default throws E' is the statement 'throw E'
+// as the whole of an arm.
+export function matchArmThrows(t Tree, id NodeID) returns bool
+	let action = matchArmAction(t, id: id)
+	return action != 0 and t.kindOf(action) == NodeKind.throwStmt
+end 'matchArmThrows'

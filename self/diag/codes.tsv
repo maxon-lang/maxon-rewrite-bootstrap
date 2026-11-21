@@ -16,6 +16,7 @@ ErrIntegerLiteralRange	E2011	parserLiteralOverflow	An integer literal is outside
 ErrDependsOnItself	E2012	parserCircularDependency	Something is defined in terms of itself: modules, constants or typealiases in a cycle.
 ErrAssignToImmutable	E2013	assignToImmutable	An assignment targets something that cannot be reassigned.
 ErrUnsupportedFeature	E2015	parserUnsupportedFeature	The source uses a construct this compiler does not implement, such as a static function outside a type.
+ErrMatchFallthroughWithReturn	E2025	matchFallthroughWithReturn	A match arm that returns also says 'and fallthrough'.
 ErrMatchNotExhaustive	E2026	matchNotExhaustive	A match covers neither every case of its subject nor a default.
 ErrMatchTypeMismatch	E2028	matchTypeMismatch	A match arm or a ternary branch has a type that the others do not, or a pattern does not match its subject.
 ErrNonConstantInitializer	E2045	parserNonConstantInitializer	A constant's initializer is not known at compile time.
@@ -53,6 +54,7 @@ ErrErrorTypeMismatch	E3059	errorTypeMismatch	An error goes where nothing takes a
 ErrDuplicateTypeAlias	E3061	semanticDuplicateTypeAlias	A typealias is declared twice in one type's body.
 ErrEnumNotComparable	E3066	semanticEnumNotComparable	A union is compared with '==' or '!='.
 ErrConstructorRestriction	E3076	semanticConstructorRestriction	A struct literal is written outside the methods of its type.
+ErrEmptyBlock	E3082	semanticEmptyBlock	A block other than a function body holds no statement.
 ErrTryBlockBindingNotMatched	E3084	tryBlockBindingNotMatched	The handler of a try block names the error but never matches on it.
 ErrFieldNotInitialized	E3086	semanticFieldNotInitialized	A struct literal omits a field that has no default.
 ErrFunctionValueThrows	E3101	throwingFunctionAsValue	A function that throws is used as a value, which no function type can hold.

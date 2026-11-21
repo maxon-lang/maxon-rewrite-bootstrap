@@ -75,6 +75,7 @@ end 'checkIfDeclared'
 
 function checkWhenDeclared(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, isDeclared BoolIntMap, mutates errs diag.ErrorList)
 	if isDeclared.has(fid as Count) 'declared'
+		checkParamDefaults(c, p: p, f: f, fid: fid, errs: errs)
 		checkFunction(c, p: p, f: f, fid: fid, errs: errs)
 	end 'declared'
 end 'checkWhenDeclared'
@@ -97,6 +98,25 @@ function checkFieldDefaults(mutates c Checker, mutates p ast.Project, tid ast.Ty
 		finishUses(c)
 	end 'each'
 end 'checkFieldDefaults'
+
+// checkParamDefaults types the default of each parameter of a function as a value of the parameter's type. A call that leaves
+// the argument out evaluates the default in this module, in the scope of the declaration alone.
+function checkParamDefaults(mutates c Checker, mutates p ast.Project, f ast.FuncDecl, fid ast.FuncID, mutates errs diag.ErrorList)
+	for i in 0 upto f.params.count() 'each'
+		let defaultExpr = f.params[i].defaultRef
+		if defaultExpr == 0 'none'
+			continue 'each'
+		end 'none'
+		let paramTy = p.funcs.entries[fid as Count].paramTypes[i]
+		enterContext(c, p: p, f: ast.noFunc, owner: p.funcs.entries[fid as Count].ownerTy, calls: true)
+		startUses(c, node: defaultExpr, inField: true)
+		let t = checkExpecting(c, p: p, e: defaultExpr, want: paramTy, errs: errs)
+		if t != ast.noType 'typed'
+			_ = coerce(c, p: p, node: defaultExpr, at: exprOffset(c, p: p, node: defaultExpr), src: t, target: paramTy, wrong: Mismatch.expectedGot, errs: errs)
+		end 'typed'
+		finishUses(c)
+	end 'each'
+end 'checkParamDefaults'
 
 // startUses makes the calls that need an instance of a generic be recorded on the function, or the field default, at node.
 function startUses(mutates c Checker, node ast.NodeID, inField bool)

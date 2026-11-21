@@ -1,0 +1,8 @@
+// expect-error: E3082 at 6:2
+function main() returns ExitCode
+	if true 'check'
+		return 1
+	end 'check' else 'otherwise'
+	end 'otherwise'
+	return 0
+end 'main'

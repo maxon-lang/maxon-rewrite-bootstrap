@@ -1,0 +1,61 @@
+typealias Retries = int(0 to 10)
+
+enum Priority
+	low
+	medium
+	high
+end 'Priority'
+
+typealias Names = Array with String
+
+function greet(name String, title String = "Mr.")
+	print("Hello, {title} {name}\n")
+end 'greet'
+
+function schedule(job String, retries Retries = 3, level Priority = Priority.medium)
+	print("{job}/{retries}/{level.name}\n")
+end 'schedule'
+
+function connect(port Retries = 8, retries Retries = 3)
+	print("port {port}, {retries}\n")
+end 'connect'
+
+function count(items Names = ["a", "b"]) returns Count
+	return items.count()
+end 'count'
+
+type Box
+	var n as Retries
+
+	static function make(n Retries = 5) returns Box
+		return Box{n: n}
+	end 'make'
+
+	function plus(x Retries = 2) returns Count
+		return n as Count + x as Count
+	end 'plus'
+end 'Box'
+
+function main() returns ExitCode
+	greet("Smith")
+	greet("Smith", title: "Dr.")
+	schedule("backup")
+	schedule("sync", level: Priority.high)
+	connect()
+	connect(1)
+	connect(port: 2)
+	connect(retries: 5)
+	let b = Box.make()
+	print("{b.plus()} {b.plus(x: 4)} {count()}\n")
+	return 0
+end 'main'
+
+//> Hello, Mr. Smith
+//> Hello, Dr. Smith
+//> backup/3/medium
+//> sync/3/high
+//> port 8, 3
+//> port 1, 3
+//> port 2, 3
+//> port 8, 5
+//> 7 9 2

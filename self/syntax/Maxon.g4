@@ -46,6 +46,9 @@
 //                      hand-written parser method name is also true, as `atHandlerBinding` decides what the tokens cannot; at the
 //                      start of an alternative of a set rule, that alternative is chosen only where it is true, and it does not
 //                      shadow a later alternative that starts as it does, as `atTuple` tells a tuple from a parenthesis.
+//                      The same holds for an alternative of a group of several alternatives, as `atStaticLet` tells a `static let` from
+//                      a `static function`. After the operator of an operator alternative a predicate is a guard: the operator
+//                      starts a tail only where it is true, as `notFallthrough` keeps the `and` of `and fallthrough` out of an expression.
 //
 // Lookahead is one token, or two where one does not decide; where two alternatives share a leading rule, it is
 // parsed once and the token after it decides. Otherwise the earlier alternative wins, as in ANTLR.
@@ -105,7 +108,7 @@ funcDecl
           | params+=param (',' params+=param)*
           )?
       ')' typeParams=usesClause? ('returns' returns=typeRef)? ('throws' throws=typeRef)? where=whereClause?
-      body=block
+      body=funcBody
       'end' end=endLabel?
     ;
 
@@ -131,7 +134,7 @@ funcDecl
 
 /** a parameter */
 param
-    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_' | Keyword) type=typeRef
+    : convention=('mutates' | 'consumes' | 'sets')? name=(Name | '_' | Keyword) type=typeRef ('=' default=expr)?
     ;
 
 constDecl
@@ -146,8 +149,13 @@ constDecl
 
 typeDecl
     : visibility=('export' | 'public')? 'type' name=Name ('is' noncopyable='noncopyable')? typeParams=usesClause? conforms=conformsClause? where=whereClause? Newline
-      (Indent ((aliases+=aliasDecl | fields+=fieldDecl | methods+=funcDecl) Newline)+ Dedent)?
+      (Indent ((aliases+=aliasDecl | fields+=fieldDecl | {atStaticLet}? statics+=staticLetDecl | methods+=funcDecl) Newline)+ Dedent)?
       'end' end=endLabel?
+    ;
+
+// A static let is one constant of its type, which the rest of the program names as Type.name.
+staticLetDecl builds ConstDecl
+    : visibility=('export' | 'public')? 'static' 'let' name=(Name | 'from') '=' value=expr
     ;
 
 fieldDecl
@@ -289,6 +297,11 @@ endLabel
 /** a block of statements */
 block returns [[]Stmt stmts]
     : Newline Indent (stmts+=stmt Newline)+ Dedent
+    ;
+
+// A function's body may hold no statement; every other block must (E3082, which the parser reports where it expects the indented line).
+funcBody returns [[]Stmt stmts]
+    : Newline (Indent (stmts+=stmt Newline)+ Dedent)?
     ;
 
 /** a statement */
@@ -480,14 +493,21 @@ matchArm
     : ( isDefault='default'
       | patterns+=pattern ('or' Newline patterns+=pattern)*
       )
-      ( 'then' action=stmt
+      ( 'then' action=stmt (falls='and' 'fallthrough')?
       | gives='gives' value=expr
       | value=panicExpr
+      | action=throwsArm
       )
+    ;
+
+// 'default throws E' is the statement 'throw E' as the whole of an arm, which leaves a match expression as a panic does.
+throwsArm builds ThrowStmt
+    : 'throws' value=expr
     ;
 
 @ast::MatchArm {
 	Value Expr
+	Action Stmt
 }
 
 /** a pattern */
@@ -535,7 +555,7 @@ expr
     | l=expr op=('+' | '-') r=expr                                   # BinaryExpr
     | l=expr op=('shl' | 'shr') r=expr                               # BinaryExpr
     | l=expr op=('==' | '!=' | '<' | '<=' | '>' | '>=') r=expr       # BinaryExpr
-    | l=expr op='and' r=expr                                         # BinaryExpr
+    | l=expr op='and' {notFallthrough}? r=expr                       # BinaryExpr
     | l=expr op='xor' r=expr                                         # BinaryExpr
     | l=expr op='or' r=expr                                          # BinaryExpr
     | <assoc=right> then=expr 'if' cond=expr 'else' else=expr        # CondExpr

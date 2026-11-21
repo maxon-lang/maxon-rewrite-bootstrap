@@ -1,0 +1,38 @@
+typealias Amount = int(0 to 100)
+
+enum ShapeError implements Error
+	unsupported
+end 'ShapeError'
+
+union Shape
+	circle(radius Amount)
+	square(side Amount)
+	triangle(base Amount, height Amount)
+end 'Shape'
+
+function area(shape Shape) returns Amount throws ShapeError
+	return match shape 'calc'
+		circle(r) gives r
+		square(s) gives s
+		default throws ShapeError.unsupported
+	end 'calc'
+end 'area'
+
+function describe(shape Shape) throws ShapeError
+	match shape 'd'
+		circle(_) then print("circle\n")
+		default throws ShapeError.unsupported
+	end 'd'
+end 'describe'
+
+function main() returns ExitCode
+	let a = try area(Shape.square(4)) otherwise 0
+	let b = try area(Shape.triangle(1, height: 2)) otherwise -1
+	print("{a} {b}\n")
+	try describe(Shape.circle(1)) otherwise ignore
+	try describe(Shape.square(1)) otherwise ignore
+	return 0
+end 'main'
+
+//> 4 -1
+//> circle

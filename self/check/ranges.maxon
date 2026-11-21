@@ -79,6 +79,8 @@ function checkRanges(mutates c Checker, mutates p ast.Project, functions ast.Fun
 	end 'decls'
 	for i in 0 upto functions.count() 'functions'
 		r.failed = false
+		rangeParamValues(r, p: p, fid: functions[i])
+		r.failed = false
 		rangeFunction(r, p: p, fid: functions[i], behaviour: false)
 	end 'functions'
 	c.typing = exchange(r.typing, value: ast.Typing.new(c.modID))
@@ -100,6 +102,17 @@ function rangeHandOver(r Ranges, mutates errs diag.ErrorList)
 		errs.push(r.errs[i].clone())
 	end 'each'
 end 'rangeHandOver'
+
+// rangeParamValues analyses the default of each parameter of a function, which a call that leaves the argument out evaluates.
+function rangeParamValues(mutates r Ranges, p ast.Project, fid ast.FuncID)
+	for i in 0 upto p.funcs.entries[fid as Count].params.count() 'params'
+		let e = p.funcs.entries[fid as Count].params[i].defaultExpr
+		if e != 0 'default'
+			r.failed = false
+			_ = rangeValue(r, p: p, e: e)
+		end 'default'
+	end 'params'
+end 'rangeParamValues'
 
 // rangeCheckValues analyses the defaults of a record's fields, which no function holds.
 function rangeCheckValues(mutates r Ranges, p ast.Project, ord ast.DeclOrdinal)
@@ -823,6 +836,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 	var ended = deadState
 	var given = Span.make(ast.I128.zero(), hi: ast.I128.zero())
 	var anyGives = false
+	var fell = deadState
 	let armsRef = ast.matchCoreArmsRef(p.modules[r.modIdx].tree, id: core)
 	for i in 0 upto p.modules[r.modIdx].tree.listLen(armsRef) 'arms'
 		let arm = p.modules[r.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
@@ -833,6 +847,7 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 				none then _ = 0
 			end 'place'
 		end 'patterns'
+		from = r.states.joined(from, b: fell)
 		r.st = from
 		let form = ast.matchArmForm(p.modules[r.modIdx].tree, id: arm)
 		let value = ast.matchArmValue(p.modules[r.modIdx].tree, id: arm)
@@ -853,8 +868,14 @@ function rangeMatch(mutates r Ranges, p ast.Project, core ast.NodeID) returns Sp
 			r.st = deadState
 		end 'panics'
 		let kept = rangeKeep(r)
-		ended = r.states.joined(ended, b: kept)
+		fell = deadState
+		if ast.matchArmFalls(p.modules[r.modIdx].tree, id: arm) 'falls'
+			fell = kept
+		end 'falls' else 'leaves'
+			ended = r.states.joined(ended, b: kept)
+		end 'leaves'
 	end 'arms'
+	ended = r.states.joined(ended, b: fell)
 	let breaks = rangePopFrame(r)
 	r.st = r.states.joined(ended, b: breaks)
 	return given

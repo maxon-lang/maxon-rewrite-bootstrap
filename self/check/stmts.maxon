@@ -36,6 +36,9 @@ function armsTerminate(tree ast.Tree, core ast.NodeID) returns bool
 	let armsRef = ast.matchCoreArmsRef(tree, id: core)
 	for i in 0 upto tree.listLen(armsRef) 'arms'
 		let arm = tree.listAt(armsRef, index: i) as ast.NodeID
+		if ast.matchArmFalls(tree, id: arm) and i + 1 < tree.listLen(armsRef) 'falls'
+			continue 'arms'
+		end 'falls'
 		let action = ast.matchArmAction(tree, id: arm)
 		if ast.matchArmForm(tree, id: arm) != ast.ArmKind.armPanic and (action == 0 or not terminates(tree, s: action)) 'continues'
 			return false
@@ -514,6 +517,11 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	var wrong = Mismatch.expectedGot
 	if k == ast.NodeKind.nameExpr 'name'
 		target = checkNameExpr(c, p: p, e: targetNode, errs: errs)
+		let constant = constTargetName(c, p: p, node: targetNode)
+		if target != ast.noType and constant != "" 'constant'
+			failAt(c, p: p, node: s, code: diag.errAssignToImmutable, msg: diag.letReassigned(constant), errs: errs)
+			return
+		end 'constant'
 		wrong = Mismatch.assignment("variable '{ast.nameExprName(p.modules[c.modIdx].tree, id: targetNode)}'")
 	end 'name' else if k == ast.NodeKind.memberExpr 'member'
 		target = checkMember(c, p: p, e: targetNode, errs: errs)
@@ -543,6 +551,22 @@ function checkAssign(mutates c Checker, mutates p ast.Project, s ast.NodeID, mut
 	end 'badValue'
 	_ = coerce(c, p: p, node: valueNode, at: placeOffset(c, p: p, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
+
+// constTargetName is the name of the module-level constant or static let that a name stands for, or "" for a name that is no
+// constant.
+function constTargetName(c Checker, p ast.Project, node ast.NodeID) returns String
+	match consumes c.typing.names.get(node as Count) 'info'
+		some(n) then return constNameOf(p, info: n)
+		none then return ""
+	end 'info'
+end 'constTargetName'
+
+function constNameOf(p ast.Project, info ast.NameInfo) returns String
+	if info.kind != ast.NameKind.nameConst 'notConst'
+		return ""
+	end 'notConst'
+	return ast.declName(p, ref: info.decl)
+end 'constNameOf'
 
 function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
 	match consumes c.typing.members.get(node as Count) 'info'

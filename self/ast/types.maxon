@@ -160,10 +160,16 @@ export type ParamSpec
 	export var name as String
 	export var ty as TypeID
 	export var conv as Convention
+	// defaultExpr is the node of the parameter's default in the tree of the module that declares the function, or 0.
+	export var defaultExpr as NodeID
 
 	export static function make(consumes name String, ty TypeID, conv Convention) returns ParamSpec
-		return ParamSpec{name: name, ty: ty, conv: conv}
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: 0 as NodeID}
 	end 'make'
+
+	export static function withDefault(consumes name String, ty TypeID, conv Convention, defaultExpr NodeID) returns ParamSpec
+		return ParamSpec{name: name, ty: ty, conv: conv, defaultExpr: defaultExpr}
+	end 'withDefault'
 end 'ParamSpec'
 
 export typealias ParamSpecList = Array with ParamSpec
@@ -1016,7 +1022,7 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 		let pName = ft.entries[origin as Count].params[i].name.clone()
 		let pConv = ft.entries[origin as Count].params[i].conv
 		let pTy = substituteType(tt, t: ft.entries[origin as Count].params[i].ty, params: origParams, args: args)
-		inst.params.push(ParamSpec.make(pName, ty: pTy, conv: pConv))
+		inst.params.push(ParamSpec.withDefault(pName, ty: pTy, conv: pConv, defaultExpr: ft.entries[origin as Count].params[i].defaultExpr))
 		inst.paramTypes.push(pTy)
 	end 'eachP'
 	let id = allocFunc(ft, f: inst)

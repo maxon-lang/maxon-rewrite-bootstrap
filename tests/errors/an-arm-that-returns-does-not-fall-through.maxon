@@ -1,0 +1,12 @@
+// expect-error: E2025
+function pick(x Count) returns Count
+	match x 'm'
+		1 then return 5 and fallthrough
+		default then return 0
+	end 'm'
+	return 1
+end 'pick'
+
+function main() returns ExitCode
+	return 0
+end 'main'

@@ -649,8 +649,8 @@ func transformLines(lines []sourceLine, warn func(*sourceLine, string)) {
 				continue
 			}
 		case "let", "var":
-			if hasStaticModifier(line.code, declIdx) {
-				warn(line, "static fields (static let) are not supported in minimaxon")
+			if hasStaticModifier(line.code, declIdx) && (line.code[declIdx].text == "var" || currentBlock() != blockType) {
+				warn(line, "static fields are supported in minimaxon only as 'static let' in a type body")
 			}
 		}
 
@@ -934,11 +934,19 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 			continue
 		}
 
-		// Check for default parameter value `= ...`
+		// A caller-location default expands at the call site, which minimaxon has no form for.
 		for _, t := range g {
-			if t.text == "=" {
-				warn(line, "default parameter values are not supported in minimaxon")
-				break
+			if t.text == "__line__" || t.text == "__file__" {
+				warn(line, fmt.Sprintf("the caller-location default '%s' is not supported in minimaxon", t.text))
+			}
+		}
+
+		if g[0].text == "_" && len(g) > 2 {
+			for _, t := range g {
+				if t.text == "=" {
+					warn(line, "a defaulted discard parameter ('_') is not supported in minimaxon")
+					break
+				}
 			}
 		}
 
@@ -1145,14 +1153,6 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 				}
 				if i > 0 && (toks[i-1].text == "Set" || toks[i-1].text == "FixedArray") {
 					warn(line, fmt.Sprintf("'%s' is not supported in minimaxon", toks[i-1].text))
-				}
-			case "fallthrough":
-				if i > 0 && toks[i-1].text == "and" {
-					warn(line, "'and fallthrough' in match arms is not supported in minimaxon")
-				}
-			case "throws":
-				if toks[0].text != "end" && i > 0 && toks[i-1].text == "default" {
-					warn(line, "'default throws' in a match is not supported in minimaxon; name the remaining cases")
 				}
 			case "otherwise":
 				if label := handlerLabelIndex(toks, i); toks[0].text != "end" && label >= 0 && label != len(toks)-1 {

@@ -358,6 +358,11 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		wantTodo string
 	}{
 		{
+			name:     "caller-location default",
+			in:       "function check(ok bool, from String = __file__)\n\tprint(from)\nend 'check'\n",
+			wantTodo: "the caller-location default '__file__'",
+		},
+		{
 			name:     "alias subtyping",
 			in:       "typealias NodeIndex = int(0 to 100) implements ElementIndex\n",
 			wantTodo: "alias subtyping",
@@ -396,11 +401,6 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "union error",
 			in:       "union ParseFault implements Error\n\tbad(code Count)\n\tworse\nend 'ParseFault'\n",
 			wantTodo: "union errors",
-		},
-		{
-			name:     "default throws",
-			in:       "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred gives 1\n\t\tdefault throws ColorError.unsupported\n\tend 'which'\nend 'f'\n",
-			wantTodo: "'default throws' in a match",
 		},
 		{
 			name:     "empty array literal",

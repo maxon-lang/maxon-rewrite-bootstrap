@@ -396,6 +396,9 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 			return ast.noType
 		end 'badOrder'
 		for i in 0 upto specs.count() 'typed'
+			if ordered[i] == 0 'defaulted'
+				continue 'typed'
+			end 'defaulted'
 			if checkExpecting(c, p: p, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
 				return ast.noType
 			end 'failed'
@@ -443,6 +446,9 @@ function callGeneric(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 		queuePending(c, call: call, callee: callee, fn: target, specs: specs)
 	end 'pending' else 'bound'
 		for i in 0 upto specs.count() 'each'
+			if ordered[i] == 0 'defaulted'
+				continue 'each'
+			end 'defaulted'
 			if not coerceArg(c, p: p, call: call, value: ordered[i], callee: callee, spec: specs[i], payload: false, errs: errs) 'badArg'
 				return ast.noType
 			end 'badArg'

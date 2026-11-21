@@ -28,6 +28,9 @@ function everyArmLeaves(t Tree, core NodeID) returns bool
 	let arms = matchCoreArmsRef(t, id: core)
 	for i in 0 upto t.listLen(arms) 'each'
 		let arm = t.listAt(arms, index: i) as NodeID
+		if matchArmFalls(t, id: arm) and i + 1 < t.listLen(arms) 'falls'
+			continue 'each'
+		end 'falls'
 		let form = matchArmForm(t, id: arm)
 		if not (form == ArmKind.armPanic or (matchArmAction(t, id: arm) != 0 and terminates(t, s: matchArmAction(t, id: arm)))) 'open'
 			return false

@@ -54,6 +54,7 @@ var reservedWords = map[string]bool{
 	"default":     true,
 	"or":          true,
 	"then":        true,
+	"fallthrough": true,
 	"gives":       true,
 	"not":         true,
 	"mod":         true,

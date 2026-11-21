@@ -1,0 +1,11 @@
+// expect-error: E2013 at 8:2
+// expect-error: E2073 at 9:17
+type Config
+	static let MAX_SIZE = 100
+end 'Config'
+
+function main() returns ExitCode
+	Config.MAX_SIZE = 200
+	let x = Config.MIN_SIZE
+	return 0
+end 'main'

@@ -17,10 +17,16 @@ function lowerMatch(mutates l Lowerer, mutates p ast.Project, core ast.NodeID, r
 	end 'valued'
 	let takesApart = ast.matchCoreConsumes(p.modules[l.mi].tree, id: core)
 	let armsRef = ast.matchCoreArmsRef(p.modules[l.mi].tree, id: core)
+	// carried is the body of the next arm, once the arm before it falls through into it.
+	var carried = noBlock
 	for a in 0 upto p.modules[l.mi].tree.listLen(armsRef) 'arms'
 		let arm = p.modules[l.mi].tree.listAt(armsRef, index: a) as ast.NodeID
 		let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
-		let body = l.b.newBlock()
+		var body = carried
+		if body == noBlock 'fresh'
+			body = l.b.newBlock()
+		end 'fresh'
+		carried = noBlock
 		let next = l.b.newBlock()
 		if ast.matchArmIsDefault(p.modules[l.mi].tree, id: arm) 'default'
 			goTo(l, target: body)
@@ -54,7 +60,12 @@ function lowerMatch(mutates l Lowerer, mutates p ast.Project, core ast.NodeID, r
 		if takesApart 'popApart'
 			popScope(l, p: p)
 		end 'popApart'
-		goTo(l, target: join)
+		if ast.matchArmFalls(p.modules[l.mi].tree, id: arm) and a + 1 < p.modules[l.mi].tree.listLen(armsRef) 'falls'
+			carried = l.b.newBlock()
+			goTo(l, target: carried)
+		end 'falls' else 'leaves'
+			goTo(l, target: join)
+		end 'leaves'
 		l.cur = next
 	end 'arms'
 	if not l.b.terminated(l.cur) 'open'

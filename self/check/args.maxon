@@ -23,13 +23,13 @@ function funcSymbol(p ast.Project, f ast.FuncID) returns String
 	return "{ownerName}.{name}"
 end 'funcSymbol'
 
-// argSlot is the parameter that the index-th argument given stands for: the first by its place, every other by its label.
-// It is none for an argument that names no parameter after the first, or that no label names.
+// argSlot is the parameter that the index-th argument given stands for: one without a label by its place, every other by its
+// label. It is none for a label that names no parameter.
 function argSlot(index Count, label String, specs ast.ParamSpecList) returns table.Option with Count
-	if index == 0 'first'
-		return table.Option.some(0 as Count)
-	end 'first'
-	for j in 1 upto specs.count() 'each'
+	if label == "" 'positional'
+		return table.Option.some(index)
+	end 'positional'
+	for j in 0 upto specs.count() 'each'
 		if specs[j].name == label 'named'
 			return table.Option.some(j)
 		end 'named'
@@ -63,7 +63,7 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 	if skipped.isSome() 'skips'
 		given = try total - 1 otherwise 0 as Count
 	end 'skips'
-	if given != specs.count() 'arity'
+	if given > specs.count() 'arity'
 		failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{specs.count()}", got: "{given}"), errs: errs)
 		return ordered
 	end 'arity'
@@ -83,12 +83,13 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 				failAt(c, p: p, node: arg, code: diag.errBuiltinArgNamed, msg: diag.builtinArgNamed(), errs: errs)
 				return ordered
 			end 'labelled'
-		end 'positional' else if seen == 0 'first'
-			if label != "" 'labelled'
+		end 'positional' else if seen == 0 and label == "" 'first'
+			slot = 0
+		end 'first' else 'labelled'
+			if seen == 0 and specs[0].defaultExpr == 0 'noDefault'
 				failAt(c, p: p, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
 				return ordered
-			end 'labelled'
-		end 'first' else 'later'
+			end 'noDefault'
 			if label == "" 'unlabelled'
 				failAt(c, p: p, node: arg, code: diag.errCallArgMissingLabel, msg: diag.argMissingLabel(), errs: errs)
 				return ordered
@@ -106,10 +107,16 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 				failAt(c, p: p, node: arg, code: diag.errCallDuplicateArg, msg: diag.argDuplicate(label, callee: callee), errs: errs)
 				return ordered
 			end 'duplicate'
-		end 'later'
+		end 'labelled'
 		ordered[slot] = ast.argValue(p.modules[c.modIdx].tree, id: arg)
 		seen = try seen + 1 otherwise seen
 	end 'args'
+	for j in 0 upto specs.count() 'required'
+		if ordered[j] == 0 and specs[j].defaultExpr == 0 'missing'
+			failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{specs.count()}", got: "{given}"), errs: errs)
+			return ordered
+		end 'missing'
+	end 'required'
 	return ordered
 end 'orderArgs'
 
@@ -129,6 +136,9 @@ function checkedArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, 
 		return ordered
 	end 'badOrder'
 	for i in 0 upto ordered.count() 'each'
+		if ordered[i] == 0 'defaulted'
+			continue 'each'
+		end 'defaulted'
 		if checkExpr(c, p: p, e: ordered[i], errs: errs) == ast.noType 'failed'
 			return ordered
 		end 'failed'
@@ -144,6 +154,9 @@ function bindArgs(mutates c Checker, mutates p ast.Project, call ast.NodeID, cal
 		return ordered
 	end 'badOrder'
 	for i in 0 upto specs.count() 'each'
+		if ordered[i] == 0 'defaulted'
+			continue 'each'
+		end 'defaulted'
 		if not argsChecked 'type'
 			if checkExpecting(c, p: p, e: ordered[i], want: specs[i].ty, errs: errs) == ast.noType 'failed'
 				return ordered
@@ -245,6 +258,9 @@ end 'openArgs'
 function infer(c Checker, p ast.Project, node ast.NodeID, callee String, params ast.TypeIDList, specs ast.ParamSpecList, ordered ast.NodeIDList, result ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeIDList
 	var args = openArgs(params.count())
 	for i in 0 upto specs.count() 'each'
+		if ordered[i] == 0 'defaulted'
+			continue 'each'
+		end 'defaulted'
 		unifyType(p, param: specs[i].ty, arg: ast.nodeType(c.typing, node: ordered[i]), params: params, args: args)
 	end 'each'
 	return inferRest(c, p: p, node: node, callee: callee, params: params, args: args, result: result, errs: errs)
@@ -270,7 +286,7 @@ function applySpecs(mutates p ast.Project, specs ast.ParamSpecList, params ast.T
 	var out = ast.ParamSpecList.create(0)
 	for i in 0 upto specs.count() 'each'
 		let t = ast.substituteType(p.types, t: specs[i].ty, params: params, args: args)
-		out.push(ast.ParamSpec.make(specs[i].name.clone(), ty: t, conv: specs[i].conv))
+		out.push(ast.ParamSpec.withDefault(specs[i].name.clone(), ty: t, conv: specs[i].conv, defaultExpr: specs[i].defaultExpr))
 	end 'each'
 	return out
 end 'applySpecs'

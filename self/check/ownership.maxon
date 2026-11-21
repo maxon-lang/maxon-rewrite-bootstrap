@@ -527,8 +527,21 @@ function checkIfListed(mutates o Ownership, mutates p ast.Project, f ast.FuncDec
 	for i in 0 upto f.params.count() 'params'
 		sites.push(f.params[i].id)
 	end 'params'
+	checkParamValues(o, p: p, f: f)
 	checkFunctionOwn(o, p: p, fid: fid, body: f.body, paramSites: sites)
 end 'checkIfListed'
+
+// checkParamValues checks the default of each parameter as the argument a call that leaves it out would give: the call owns the
+// value it makes of the default, so a parameter that takes its argument consumes the default, and a fresh value in it needs no
+// drop.
+function checkParamValues(mutates o Ownership, mutates p ast.Project, f ast.FuncDecl)
+	for i in 0 upto f.params.count() 'each'
+		if f.params[i].defaultRef != 0 'default'
+			resetOwn(o, fid: ast.noFunc)
+			_ = argument(o, p: p, e: f.params[i].defaultRef, conv: ast.parseConvention(f.params[i].convention), dest: OwnDest.make(OwnDestKind.destParameter, name: f.params[i].name.clone()), s: OwnState.clean())
+		end 'default'
+	end 'each'
+end 'checkParamValues'
 
 // checkFunctionOwn checks a function. The checker answers for the function's own bounds on its type's parameters from
 // here on.

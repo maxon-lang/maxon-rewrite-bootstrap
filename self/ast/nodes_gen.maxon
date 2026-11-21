@@ -123,6 +123,7 @@ export function isReserved(word String) returns bool
 		"default" or
 		"or" or
 		"then" or
+		"fallthrough" or
 		"gives" or
 		"not" or
 		"mod" or
@@ -232,9 +233,10 @@ export type Param
 	export var convention as String
 	export var name as String
 	export var typeRef as NodeID
+	export var defaultRef as NodeID
 
 	export static function make(id NodeID) returns Param
-		return Param{id: id, convention: "", name: "", typeRef: 0 as NodeID}
+		return Param{id: id, convention: "", name: "", typeRef: 0 as NodeID, defaultRef: 0 as NodeID}
 	end 'make'
 end 'Param'
 
@@ -271,11 +273,12 @@ export type TypeDecl
 	export var whereList as ConstraintList
 	export var aliases as AliasDeclList
 	export var fields as FieldDeclList
+	export var statics as ConstDeclList
 	export var methods as FuncDeclList
 	export var endRef as NodeID
 
 	export static function make(id NodeID) returns TypeDecl
-		return TypeDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), fields: FieldDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
+		return TypeDecl{id: id, name: "", visibility: "", isNoncopyable: false, typeParams: TypeParamList.create(0), conforms: 0 as diag.U32, whereList: ConstraintList.create(0), aliases: AliasDeclList.create(0), fields: FieldDeclList.create(0), statics: ConstDeclList.create(0), methods: FuncDeclList.create(0), endRef: 0 as NodeID}
 	end 'make'
 end 'TypeDecl'
 
@@ -1478,12 +1481,20 @@ export function setMatchArmAction(mutates t Tree, id NodeID, value NodeID)
 	t.setBlockWordAt(id, offset: 0 as Count, value: value as diag.U32)
 end 'setMatchArmAction'
 
-export function matchArmGives(t Tree, id NodeID) returns bool
+export function matchArmFalls(t Tree, id NodeID) returns bool
 	return (t.records[id as Count].flags and (2 as Byte)) != 0
+end 'matchArmFalls'
+
+export function setMatchArmFalls(mutates t Tree, id NodeID)
+	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
+end 'setMatchArmFalls'
+
+export function matchArmGives(t Tree, id NodeID) returns bool
+	return (t.records[id as Count].flags and (4 as Byte)) != 0
 end 'matchArmGives'
 
 export function setMatchArmGives(mutates t Tree, id NodeID)
-	t.records[id as Count].flags = t.records[id as Count].flags or (2 as Byte)
+	t.records[id as Count].flags = t.records[id as Count].flags or (4 as Byte)
 end 'setMatchArmGives'
 
 export function matchArmValue(t Tree, id NodeID) returns NodeID

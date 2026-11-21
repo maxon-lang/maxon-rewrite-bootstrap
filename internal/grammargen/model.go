@@ -191,23 +191,25 @@ func (m *model) checkReferences() {
 }
 
 // checkPredicates refuses a predicate anywhere but at the start of the only alternative of an optional group, or at the
-// start of an alternative of a set rule, the places the parser tests it.
+// start of an alternative of a set rule or of a group of several alternatives, or after the operator of an alternative of an
+// operator rule (a guard), the places the parser tests it.
 func (m *model) checkPredicates() {
-	var walk func(alts []*alt, allowed bool)
-	walk = func(alts []*alt, allowed bool) {
+	var walk func(r *rule, alts []*alt, allowed bool)
+	walk = func(r *rule, alts []*alt, allowed bool) {
 		for _, a := range alts {
+			guarded := r != nil && m.kind[r] == rkSet && m.isLeftRecursive(r, a)
 			for i, e := range a.elems {
-				if e.kind == ekPredicate && !(allowed && i == 0) {
+				if e.kind == ekPredicate && !(allowed && i == 0) && !(guarded && i == 2) {
 					m.fail(e.line, "a predicate {%s}? belongs at the start of the only alternative of an optional group, or of an alternative of a set rule", e.text)
 				}
 				if e.kind == ekGroup {
-					walk(e.group, e.suffix == '?' && len(e.group) == 1)
+					walk(nil, e.group, (e.suffix == '?' && len(e.group) == 1) || len(e.group) > 1)
 				}
 			}
 		}
 	}
 	for _, r := range m.g.rules {
-		walk(r.alts, m.kind[r] == rkSet)
+		walk(r, r.alts, m.kind[r] == rkSet)
 	}
 }
 

@@ -548,9 +548,10 @@ function matchOwn(mutates o Ownership, mutates p ast.Project, core ast.NodeID, c
 	var subjectKnown = false
 	var result = OwnState.unreachable()
 	let arms = ast.matchCoreArmsRef(p.modules[o.c.modIdx].tree, id: core)
+	var fell = OwnState.unreachable()
 	for i in 0 upto p.modules[o.c.modIdx].tree.listLen(arms) 'arms'
 		let arm = p.modules[o.c.modIdx].tree.listAt(arms, index: i) as ast.NodeID
-		var a = start.clone()
+		var a = join(o, p: p, a: start.clone(), b: fell)
 		let mark = o.obliged.count()
 		if consuming 'takeApart'
 			takeApart(o, p: p, core: core, arm: arm)
@@ -579,8 +580,14 @@ function matchOwn(mutates o Ownership, mutates p ast.Project, core ast.NodeID, c
 			_ = try o.projections.pop() otherwise panic("ownership: the match hold vanished")
 		end 'release'
 		a = endScope(o, p: p, mark: mark, s: a)
-		result = join(o, p: p, a: result, b: a)
+		fell = OwnState.unreachable()
+		if ast.matchArmFalls(p.modules[o.c.modIdx].tree, id: arm) 'falls'
+			fell = a
+		end 'falls' else 'leaves'
+			result = join(o, p: p, a: result, b: a)
+		end 'leaves'
 	end 'arms'
+	result = join(o, p: p, a: result, b: fell)
 	let closed = popFrameOwn(o)
 	return join(o, p: p, a: result, b: closed.breaks)
 end 'matchOwn'

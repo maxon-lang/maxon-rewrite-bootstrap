@@ -507,10 +507,25 @@ function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID
 	panic("lower: unresolved call")
 end 'visitCallExpr'
 
+// lowerDefault lowers the default of a parameter that a call leaves out, in the module that declares the function, converted to
+// the parameter's type.
+function lowerDefault(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, spec ast.ParamSpec) returns Reg
+	let saved = l.module
+	setModule(l, m: p.funcs.entries[fn as Count].module)
+	let v = lowerConverted(l, p: p, e: spec.defaultExpr, target: spec.ty)
+	setModule(l, m: saved)
+	return v
+end 'lowerDefault'
+
 // pushOrderedArgs gives the call its arguments in the order of the parameters: by address where the parameter takes its
 // argument's place, and by value, converted to the parameter's type, where it does not.
 function pushOrderedArgs(mutates l Lowerer, mutates p ast.Project, c CallSite)
 	for i in 0 upto c.ordered.count() 'each'
+		if c.ordered[i] == 0 'defaulted'
+			let dv = lowerDefault(l, p: p, fn: c.info.fn, spec: c.info.paramSpecs[i])
+			pushArg(l, v: dv)
+			continue 'each'
+		end 'defaulted'
 		if ast.isByAddress(c.info.paramSpecs[i].conv) 'address'
 			let addr = address(l, p: p, e: c.ordered[i])
 			pushArg(l, v: addr)

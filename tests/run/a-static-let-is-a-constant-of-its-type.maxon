@@ -1,0 +1,27 @@
+typealias Byte = int(0 to u8.max)
+
+type Limits
+	static let MAX_COUNT = 1000
+	static let SEPARATOR = 61 as Byte
+	export static let NAMES = ["a", "b"]
+	static let TWICE = MAX_COUNT + MAX_COUNT
+
+	static function twice() returns Count
+		return TWICE
+	end 'twice'
+end 'Limits'
+
+type Pt
+	var x as Count
+	static let ORIGIN = Self{x: 4}
+	static let ORIGIN2 = Self{x: 5}
+end 'Pt'
+
+function main() returns ExitCode
+	print("{Limits.MAX_COUNT} {Limits.SEPARATOR} {Limits.NAMES.count()} {Limits.twice()} {Limits.TWICE}\n")
+	print("{Pt.ORIGIN.x} {Pt.ORIGIN2.x}\n")
+	return 0
+end 'main'
+
+//> 1000 61 2 2000 2000
+//> 4 5

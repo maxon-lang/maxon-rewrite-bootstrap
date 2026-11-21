@@ -255,6 +255,25 @@ type Parser
 
 	// atTuple is whether the parenthesis here opens a tuple, which holds a comma between its parentheses; `(a)` is the
 	// expression a.
+	// notFallthrough is whether the 'and' at the current token is an operator: 'and fallthrough' ends the statement of a match arm.
+	function notFallthrough() returns bool
+		return not self.peekIs(TokenKind.kw_fallthrough)
+	end 'notFallthrough'
+
+	// atStaticLet is whether the member that starts at the current token is a `static let`, which `static function` starts as
+	// well, after the same modifier.
+	function atStaticLet() returns bool
+		var i = pos
+		if toks[i].kind == TokenKind.kw_export or toks[i].kind == TokenKind.kw_public 'visibility'
+			i = after(i)
+		end 'visibility'
+		if i >= toks.count() or toks[i].kind != TokenKind.kw_static 'notStatic'
+			return false
+		end 'notStatic'
+		let next = after(i)
+		return next < toks.count() and toks[next].kind == TokenKind.kw_let
+	end 'atStaticLet'
+
 	function atTuple() returns bool
 		return self.scanParen().hasComma
 	end 'atTuple'
@@ -440,8 +459,22 @@ type Parser
 		return SyntaxError.refused
 	end 'expected'
 
+	// emptyBlock is E3082: only a function body may have no statement, so a block whose line is followed by its `end` is
+	// reported at that `end`, naming the label of its header.
+	function emptyBlock(mutates self) returns SyntaxError
+		let header = toks[before(before(pos))].clone()
+		if header.kind != TokenKind.label 'unlabelled'
+			panic("a block without statements has no label before its line")
+		end 'unlabelled'
+		errors.push(src.errorAt(diag.errEmptyBlock, message: diag.emptyBlock(self.text(header)), file: self.fileNumber(), offset: toks[pos].start as Count))
+		return SyntaxError.refused
+	end 'emptyBlock'
+
 	function expect(mutates self, k TokenKind, what String) returns Token throws SyntaxError
 		if not self.at(k) 'missing'
+			if k == TokenKind.indent and self.at(TokenKind.kw_end) 'emptyBlock'
+				throw self.emptyBlock()
+			end 'emptyBlock'
 			throw self.expected(what)
 		end 'missing'
 		return try self.next()
@@ -652,12 +685,13 @@ function parseInterpolation(mutates p Parser) returns ast.NodeID throws SyntaxEr
 	return e
 end 'parseInterpolation'
 
-// pushDecl adds a declaration to a module's list, and after a type the typealiases its body declares, each named by its
-// owner and its own name: a nested typealias is a declaration of the module like the others, with the type as its scope.
+// pushDecl adds a declaration to a module's list, and after a type the typealiases and the static lets its body declares,
+// each named by its owner and its own name: such a member is a declaration of the module like the others, with the type as
+// its scope.
 function pushDecl(mutates decls ast.DeclList, consumes d ast.Decl)
 	var nested = ast.DeclList.create(0)
 	match d 'k'
-		typeDecl(td) then nestedAliasDecls(td, out: nested)
+		typeDecl(td) then nestedMemberDecls(td, out: nested)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
 		enumDecl(_) then _ = 0
@@ -672,14 +706,20 @@ function pushDecl(mutates decls ast.DeclList, consumes d ast.Decl)
 	end 'each'
 end 'pushDecl'
 
-function nestedAliasDecls(td ast.TypeDecl, mutates out ast.DeclList)
+function nestedMemberDecls(td ast.TypeDecl, mutates out ast.DeclList)
 	for i in 0 upto td.aliases.count() 'each'
 		var a = td.aliases[i].clone()
 		a.visibility = ast.nestedVisibility(td.visibility, member: a.visibility)
 		a.name = ast.nestedAliasName(td.name, name: a.name)
 		out.push(ast.Decl.aliasDecl(a))
 	end 'each'
-end 'nestedAliasDecls'
+	for i in 0 upto td.statics.count() 'statics'
+		var s = td.statics[i].clone()
+		s.visibility = ast.nestedVisibility(td.visibility, member: s.visibility)
+		s.name = ast.nestedAliasName(td.name, name: s.name)
+		out.push(ast.Decl.constDecl(s))
+	end 'statics'
+end 'nestedMemberDecls'
 
 // parseProgram parses every declaration of a module's files. A syntax error abandons the rest of its file, so each
 // file reports its own first error.

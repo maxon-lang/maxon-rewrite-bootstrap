@@ -716,6 +716,39 @@ function resolveNameExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	end 'cap'
 end 'resolveNameExpr'
 
+// staticConstRef is the constant that the static let named member of the type at ref is, in the module that declares the type.
+function staticConstRef(p ast.Project, ref ast.DeclRef, member String) returns table.Option with ast.DeclRef
+	match ast.moduleDecl(p, ref: ref) 'k'
+		typeDecl(td) then return staticConstOf(p, ref: ref, td: td, member: member)
+		enumDecl(_) then return table.Option.none
+		unionDecl(_) then return table.Option.none
+		interfaceDecl(_) then return table.Option.none
+		funcDecl(_) then return table.Option.none
+		constDecl(_) then return table.Option.none
+		aliasDecl(_) then return table.Option.none
+		extensionDecl(_) then return table.Option.none
+	end 'k'
+end 'staticConstRef'
+
+function staticConstOf(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, member String) returns table.Option with ast.DeclRef
+	for i in 0 upto td.statics.count() 'each'
+		if td.statics[i].name == member 'hit'
+			let qualified = ast.nestedAliasName(td.name, name: member)
+			var ord as table.Option with ast.DeclOrdinal
+			if ref.module == diag.stdlibID 'std'
+				ord = p.stdlib.names.get(qualified)
+			end 'std' else 'own'
+				ord = p.modules[ast.modIndex(ref.module)].names.get(qualified)
+			end 'own'
+			match consumes ord 'declared'
+				some(o) then return table.Option.some(ast.DeclRef.make(ref.module, ordinal: o))
+				none then panic("the static let '{member}' of '{td.name}' is not among the declarations of its module")
+			end 'declared'
+		end 'hit'
+	end 'each'
+	return table.Option.none
+end 'staticConstOf'
+
 function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
 	var revSegs = SegmentList.create(0)
 	var cur = id
@@ -742,6 +775,16 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 	if bare.found 'hasBare'
 		let isConst = ast.declNodeID(p, ref: bare.decl) != 0 and ast.declIsConst(p, ref: bare.decl)
 		let isTy = isRefType(p, ref: bare.decl)
+		if isTy 'typeHead'
+			var rewritten = false
+			match consumes staticConstRef(p, ref: bare.decl, member: segs[0].name) 'static'
+				some(target) then rewritten = rewriteStatic(r, targetNode: segs[0].node, headNode: cur, target: target)
+				none then _ = 0
+			end 'static'
+			if rewritten 'done'
+				return
+			end 'done'
+		end 'typeHead'
 		let hasMem = isTy and resolvesDeclMember(p, ref: bare.decl, memberName: segs[0].name)
 		if isConst or hasMem or (not isModuleRoot(p, name: headName)) 'keepBare'
 			let headOff = r.tree.startOf(cur)
@@ -772,6 +815,11 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		none then _ = 0
 	end 'hit'
 end 'resolveMemberExpr'
+
+function rewriteStatic(mutates r Resolver, targetNode ast.NodeID, headNode ast.NodeID, consumes target ast.DeclRef) returns bool
+	rewriteMemberToName(r, targetNode: targetNode, headNode: headNode, targetDecl: target)
+	return true
+end 'rewriteStatic'
 
 function rewriteMemberToName(mutates r Resolver, targetNode ast.NodeID, headNode ast.NodeID, consumes targetDecl ast.DeclRef)
 	r.tree.becomeName(targetNode, head: headNode)
@@ -1057,12 +1105,38 @@ function resolveConforms(mutates r Resolver, p ast.Project, s Surface, conforms 
 	end 'each'
 end 'resolveConforms'
 
+// resolveParamDefaults resolves the default of each parameter in the scope of the declaration alone: it sees no parameter, no field and no
+// 'self'.
+function resolveParamDefaults(mutates r Resolver, p ast.Project, params ast.ParamList, mutates errs diag.ErrorList)
+	for i in 0 upto params.count() 'each'
+		let dExpr = params[i].defaultRef
+		if dExpr != 0 'default'
+			r.scopes = ScopeStack.create(0)
+			pushScope(r)
+			r.fields = BoolStrMap.new()
+			resolveExpr(r, p: p, id: dExpr, errs: errs)
+			popScope(r)
+		end 'default'
+	end 'each'
+end 'resolveParamDefaults'
+
+// refuseParamDefaults reports a default on a parameter of a union case or an interface requirement, where no call could
+// use it: a payload is given in full, and a requirement is called through a witness that has no signature to read it from.
+function refuseParamDefaults(mutates r Resolver, params ast.ParamList, noun String, mutates errs diag.ErrorList)
+	for i in 0 upto params.count() 'each'
+		if params[i].defaultRef != 0 'default'
+			pushErr(errs, modID: r.modID, off: r.tree.startOf(params[i].defaultRef), code: diag.errUnsupportedFeature, msg: "Unsupported: a default value on {noun} parameter '{params[i].name}': give the argument at each call")
+		end 'default'
+	end 'each'
+end 'refuseParamDefaults'
+
 // resolveFuncDecl resolves a function, or a method, which has a receiver when hasReceiver is set: a closure in its body
 // captures 'self' by that name.
 function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
 	checkEnd(r, label: f.name, endNode: f.endRef, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
+	resolveParamDefaults(r, p: p, params: f.params, errs: errs)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = cloneBoolStrMap(fieldNames)
@@ -1085,7 +1159,7 @@ function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates e
 	let emptyFields = BoolStrMap.new()
 	match d 'k'
 		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
-		constDecl(cd) then resolveConstDecl(r, p: p, cd: cd, errs: errs)
+		constDecl(cd) then resolveTopConst(r, p: p, cd: cd, errs: errs)
 		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
 		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
 		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
@@ -1102,6 +1176,14 @@ function resolveTopAlias(mutates r Resolver, p ast.Project, ad ast.AliasDecl, s 
 		resolveAliasDecl(r, p: p, ad: ad, s: s, errs: errs)
 	end 'topLevel'
 end 'resolveTopAlias'
+
+// resolveTopConst resolves a constant of the module, except a static let that a type's body declares, which its type resolves
+// with the type's other members in scope.
+function resolveTopConst(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
+	if not ast.isNestedAlias(cd.name) 'topLevel'
+		resolveConstDecl(r, p: p, cd: cd, errs: errs)
+	end 'topLevel'
+end 'resolveTopConst'
 
 function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
 	r.scopes = ScopeStack.create(0)
@@ -1147,8 +1229,8 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 	r.typeParams = outer
 end 'resolveTypeDecl'
 
-// resolveNestedAliases brings the typealiases the body of td declares into scope, then resolves their targets, which may
-// name the type's parameters and each other.
+// resolveNestedAliases brings the typealiases and the static lets the body of td declares into scope, then resolves the
+// targets of the typealiases, which may name the type's parameters and each other, and the values of the static lets.
 function resolveNestedAliases(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	for i in 0 upto td.aliases.count() 'scope'
 		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(td.name, name: td.aliases[i].name)) 'declared'
@@ -1156,11 +1238,20 @@ function resolveNestedAliases(mutates r Resolver, p ast.Project, td ast.TypeDecl
 			none then panic("the typealias '{td.aliases[i].name}' of '{td.name}' is not among the declarations of its module")
 		end 'declared'
 	end 'scope'
+	for i in 0 upto td.statics.count() 'staticScope'
+		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(td.name, name: td.statics[i].name)) 'declared'
+			some(ord) then r.members.insert(td.statics[i].name.clone(), value: ord)
+			none then panic("the static let '{td.statics[i].name}' of '{td.name}' is not among the declarations of its module")
+		end 'declared'
+	end 'staticScope'
 	for i in 0 upto td.aliases.count() 'targets'
 		let a = td.aliases[i].clone()
 		let surface = Surface.make(narrower(s.tier, b: ast.visibilityOf(a.visibility)), noun: "typealias", name: ast.nestedAliasName(td.name, name: a.name), at: r.tree.startOf(a.id))
 		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
 	end 'targets'
+	for i in 0 upto td.statics.count() 'values'
+		resolveConstDecl(r, p: p, cd: td.statics[i].clone(), errs: errs)
+	end 'values'
 end 'resolveNestedAliases'
 
 function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
@@ -1178,6 +1269,7 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.whereList, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ud.conforms, errs: errs)
 	for i in 0 upto ud.cases.count() 'cs'
+		refuseParamDefaults(r, params: ud.cases[i].fields, noun: "union case", errs: errs)
 		for j in 0 upto ud.cases[i].fields.count() 'ps'
 			let tRef = ud.cases[i].fields[j].typeRef
 			let cs = Surface.make(s.tier, noun: "union case", name: "{ud.name}.{ud.cases[i].name}", at: r.tree.startOf(tRef))
@@ -1314,6 +1406,7 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.Interfa
 	for i in 0 upto ifd.methods.count() 'sigs'
 		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))
 		signature(r, p: p, s: s, params: ifd.methods[i].params, returnsRef: ifd.methods[i].returnsRef, throwsRef: ifd.methods[i].throwsRef, errs: errs)
+		refuseParamDefaults(r, params: ifd.methods[i].params, noun: "interface requirement", errs: errs)
 	end 'sigs'
 end 'resolveInterfaceDecl'
 

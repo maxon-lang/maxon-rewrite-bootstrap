@@ -20,7 +20,7 @@ function checkStructLit(mutates c Checker, mutates p ast.Project, e ast.NodeID, 
 		checkFail(c.modID, off: off, code: diag.errTypeArgumentCount, msg: "a literal of the generic '{tName}' is written 'Self\{...\}', which gives it its own type parameters", errs: errs)
 		return ast.noType
 	end 'generic'
-	if c.owner != target or c.fn == ast.noFunc 'restricted'
+	if c.owner != target or (c.fn == ast.noFunc and c.constName == "") 'restricted'
 		checkFail(c.modID, off: off, code: diag.errConstructorRestriction, msg: diag.constructorRestricted(tName), errs: errs)
 		return ast.noType
 	end 'restricted'
@@ -252,6 +252,10 @@ function checkTypeMember(mutates c Checker, mutates p ast.Project, e ast.NodeID,
 	if k == ast.TypeKind.enumTy or k == ast.TypeKind.unionTy 'cases'
 		return checkCaseMember(c, p: p, e: e, member: member, nt: named, errs: errs)
 	end 'cases'
+	if k == ast.TypeKind.record 'noMember'
+		checkFail(c.modID, off: try off + 1 otherwise off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, t: named), member: member), errs: errs)
+		return ast.noType
+	end 'noMember'
 	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, t: named)}.{member}' is not a value", errs: errs)
 	return ast.noType
 end 'checkTypeMember'

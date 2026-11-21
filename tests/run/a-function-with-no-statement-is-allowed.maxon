@@ -1,0 +1,13 @@
+type Idle
+	static function nothing()
+	end 'nothing'
+end 'Idle'
+
+function doNothing()
+end 'doNothing'
+
+function main() returns ExitCode
+	doNothing()
+	Idle.nothing()
+	return 0
+end 'main'

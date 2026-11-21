@@ -942,7 +942,7 @@ and nothing else.
 
 ## The subset
 
-- `function`, `type` (fields, defaults, methods, `static function`), `enum` (integer raw values), `union`
+- `function` (a body may have no statement; every other block with none is `E3082`), `type` (fields, defaults, methods, `static function`, `static let`; a function parameter may have a default, see "Default parameter values, static fields, default throws and fallthrough"), `enum` (integer raw values), `union`
   (payloads, methods), `interface`, `typealias X = int(a to|upto b)`, `typealias X = float(a to b)` (see "Floats"), `typealias X = Box with Count` (also in a type's body), a top-level
   `let` constant. A function, a type and a union can be generic (see "Generics"). A `type` or a `union` can say
   `is noncopyable` right after its name (`type Socket is noncopyable`; never an `enum`), which takes `Copyable` from it,
@@ -958,7 +958,7 @@ and nothing else.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
   maxon's iteration protocol (see "Primitives"), `match` as a statement or expression
-  (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms), `break`/`continue`
+  (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
   without a handler (see "Checked arithmetic").
 - Code after a statement that ends its block (`return`, a `panic`, `break`, `continue`, or an `if`/`else` or `match`
@@ -1948,8 +1948,43 @@ paths, off `lexLine`'s own path, so lexing a correct file costs the same (the le
 after, and the parse phase of a 25 MB generated project 47 ms in both). Before it writes anything `Format` parses its output strictly and
 compares its tokens with the input's, so a formatter bug is an internal error and never a changed program.
 
+### Default parameter values, static fields, default throws and fallthrough
+
+A parameter takes a default with `= expr` after its type (`function connect(port Port = 80, retries Retries = 3)`), on any
+parameter that is not `mutates` or `sets`, and on a function or a method but not on an interface requirement, a union case or a
+closure (`E2015`). The default is an expression of the module that declares the function, written and resolved there without the
+parameters, and a call that leaves the argument out evaluates it, in that module, as an argument of its own (a default naming a
+constant, an enum case or a `static let` reads it there). It is typed against the parameter's type where the function is checked
+(ownership and ranges too, as the argument of a call), and the call keeps `0` in `CallInfo.ordered` for it, which lowering fills
+from `ParamSpec.defaultExpr`. A call may leave out any parameter that has a default; the first argument may be named when the
+first parameter has a default (`connect(retries: 5)`), a later argument is always named, and a missing parameter with no default
+is `E3036` as before.
+
+`default throws E` in a match, as a statement or an expression, is the statement `throw E` as the whole of an arm (the parser builds a
+`ThrowStmt` for it), so the function must declare `throws` and an arm of an expression has no value. Because the arm is a
+`throw` statement, `default then throw E` is accepted for the `default` of a match on an enum or a union as well, where maxon says
+`E2046`.
+
+`stmt and fallthrough` ends the arm of a match statement: after it the next arm's statement runs without testing that arm's
+pattern, and on the last arm it leaves the match. `and` followed by `fallthrough` is not an operator (the `and` of an
+expression carries a guard in the grammar, `{notFallthrough}?`), `fallthrough` is a reserved word, and `return ... and
+fallthrough` is `E2025`. The arm it falls into must bind no payload name (`E2015`): the ownership and range analyses join the
+state the arm leaves with the one the dispatch gives the next arm, and lowering jumps to the body of the next arm. `E2025` is
+reported at the arm's statement and not at the `and`, and `and fallthrough` after a `gives` arm is a syntax error.
+
+`static let name = expr` in a type's body declares a constant of the type, read as `Type.name` anywhere and as `name` inside the
+type's own body, where its initializer is also written (it may build `Self{...}`, which a constant of the module may not). The
+parser makes it a constant of the module named `Type.name`, as it does a `typealias` of a type's body, and the resolver turns
+`Type.name` into a name bound to it, so it is typed, ranged, ordered (`E2012` for a cycle) and lowered as a module-level `let`:
+its value is inlined at each use, and a call in its initializer is `E3220`. `static var`, and a `static let` of an enum or a union,
+are not supported.
+
 ### Where it differs from Maxon
 
+- Default parameter values (see "Default parameter values, static fields, default throws and fallthrough"): the caller-location defaults `__line__` and `__file__`
+  and a default on a discard parameter `_` (which maxon's calls name with a synthesized label) are not supported, a default that
+  trails off is the parser's generic `E2010`, and a default on a closure parameter has no syntax. A `static let` is only a
+  `type`'s, and a call in its initializer that names a sibling by its bare name is not resolved to the sibling.
 - `extension`: there is no extension of an interface (no default method for every conformer, no associated types), no
   conditional extension (`where` on an extension), no nested `typealias` in an extension, and none of `FixedArray`, `Set`,
   `Iterable`, `Iterator` or other library types the compiler does not have. A call finds the methods that extensions add

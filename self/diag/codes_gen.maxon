@@ -30,6 +30,9 @@ export let errAssignToImmutable = "E2013"
 // The source uses a construct this compiler does not implement, such as a static function outside a type.
 export let errUnsupportedFeature = "E2015"
 
+// A match arm that returns also says 'and fallthrough'.
+export let errMatchFallthroughWithReturn = "E2025"
+
 // A match covers neither every case of its subject nor a default.
 export let errMatchNotExhaustive = "E2026"
 
@@ -140,6 +143,9 @@ export let errEnumNotComparable = "E3066"
 
 // A struct literal is written outside the methods of its type.
 export let errConstructorRestriction = "E3076"
+
+// A block other than a function body holds no statement.
+export let errEmptyBlock = "E3082"
 
 // The handler of a try block names the error but never matches on it.
 export let errTryBlockBindingNotMatched = "E3084"
