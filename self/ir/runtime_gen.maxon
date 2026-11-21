@@ -637,3 +637,249 @@ export function rtOf(code Count) returns Rt
 		default panic("ir: a number that is no runtime symbol")
 	end 'code'
 end 'rtOf'
+
+// RtUnit is where a runtime symbol is defined.
+export enum RtUnit
+	rtUnitRuntime
+	rtUnitArrays
+	rtUnitBytes
+	rtUnitOs
+	rtUnitLinker
+	rtUnitInterpreter
+end 'RtUnit'
+
+// rtUnit is where the symbol is defined.
+export function rtUnit(r Rt) returns RtUnit
+	if r == Rt.rtEntry 'rtEntry'
+		return RtUnit.rtUnitRuntime
+	end 'rtEntry'
+	if r == Rt.rtAlloc 'rtAlloc'
+		return RtUnit.rtUnitRuntime
+	end 'rtAlloc'
+	if r == Rt.rtFree 'rtFree'
+		return RtUnit.rtUnitRuntime
+	end 'rtFree'
+	if r == Rt.rtWrite 'rtWrite'
+		return RtUnit.rtUnitRuntime
+	end 'rtWrite'
+	if r == Rt.rtPanic 'rtPanic'
+		return RtUnit.rtUnitRuntime
+	end 'rtPanic'
+	if r == Rt.rtConcat 'rtConcat'
+		return RtUnit.rtUnitRuntime
+	end 'rtConcat'
+	if r == Rt.rtItoa 'rtItoa'
+		return RtUnit.rtUnitRuntime
+	end 'rtItoa'
+	if r == Rt.rtStreq 'rtStreq'
+		return RtUnit.rtUnitRuntime
+	end 'rtStreq'
+	if r == Rt.rtStrLen 'rtStrLen'
+		return RtUnit.rtUnitRuntime
+	end 'rtStrLen'
+	if r == Rt.rtStrByteAt 'rtStrByteAt'
+		return RtUnit.rtUnitRuntime
+	end 'rtStrByteAt'
+	if r == Rt.rtStrSlice 'rtStrSlice'
+		return RtUnit.rtUnitRuntime
+	end 'rtStrSlice'
+	if r == Rt.rtPanicIndex 'rtPanicIndex'
+		return RtUnit.rtUnitArrays
+	end 'rtPanicIndex'
+	if r == Rt.rtHeap 'rtHeap'
+		return RtUnit.rtUnitRuntime
+	end 'rtHeap'
+	if r == Rt.rtStdout 'rtStdout'
+		return RtUnit.rtUnitRuntime
+	end 'rtStdout'
+	if r == Rt.rtStderr 'rtStderr'
+		return RtUnit.rtUnitRuntime
+	end 'rtStderr'
+	if r == Rt.rtLive 'rtLive'
+		return RtUnit.rtUnitRuntime
+	end 'rtLive'
+	if r == Rt.rtImageDataStart 'rtImageDataStart'
+		return RtUnit.rtUnitLinker
+	end 'rtImageDataStart'
+	if r == Rt.rtImageDataEnd 'rtImageDataEnd'
+		return RtUnit.rtUnitLinker
+	end 'rtImageDataEnd'
+	if r == Rt.rtArrayNew 'rtArrayNew'
+		return RtUnit.rtUnitArrays
+	end 'rtArrayNew'
+	if r == Rt.rtArrayLen 'rtArrayLen'
+		return RtUnit.rtUnitArrays
+	end 'rtArrayLen'
+	if r == Rt.rtArrayElem 'rtArrayElem'
+		return RtUnit.rtUnitArrays
+	end 'rtArrayElem'
+	if r == Rt.rtArrayInsert 'rtArrayInsert'
+		return RtUnit.rtUnitArrays
+	end 'rtArrayInsert'
+	if r == Rt.rtArrayRemove 'rtArrayRemove'
+		return RtUnit.rtUnitArrays
+	end 'rtArrayRemove'
+	if r == Rt.rtMapNew 'rtMapNew'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapNew'
+	if r == Rt.rtMapLen 'rtMapLen'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapLen'
+	if r == Rt.rtMapHas 'rtMapHas'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapHas'
+	if r == Rt.rtMapElem 'rtMapElem'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapElem'
+	if r == Rt.rtMapInsert 'rtMapInsert'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapInsert'
+	if r == Rt.rtMapRemove 'rtMapRemove'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapRemove'
+	if r == Rt.rtMapCopy 'rtMapCopy'
+		return RtUnit.rtUnitInterpreter
+	end 'rtMapCopy'
+	if r == Rt.rtListNew 'rtListNew'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListNew'
+	if r == Rt.rtListLen 'rtListLen'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListLen'
+	if r == Rt.rtListContains 'rtListContains'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListContains'
+	if r == Rt.rtListElem 'rtListElem'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListElem'
+	if r == Rt.rtListPushFront 'rtListPushFront'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListPushFront'
+	if r == Rt.rtListPushBack 'rtListPushBack'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListPushBack'
+	if r == Rt.rtListPopFront 'rtListPopFront'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListPopFront'
+	if r == Rt.rtListPopBack 'rtListPopBack'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListPopBack'
+	if r == Rt.rtListFirst 'rtListFirst'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListFirst'
+	if r == Rt.rtListLast 'rtListLast'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListLast'
+	if r == Rt.rtListNext 'rtListNext'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListNext'
+	if r == Rt.rtListPrev 'rtListPrev'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListPrev'
+	if r == Rt.rtListRemove 'rtListRemove'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListRemove'
+	if r == Rt.rtListMoveToFront 'rtListMoveToFront'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListMoveToFront'
+	if r == Rt.rtListCopy 'rtListCopy'
+		return RtUnit.rtUnitInterpreter
+	end 'rtListCopy'
+	if r == Rt.rtPoolNew 'rtPoolNew'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolNew'
+	if r == Rt.rtPoolLen 'rtPoolLen'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolLen'
+	if r == Rt.rtPoolContains 'rtPoolContains'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolContains'
+	if r == Rt.rtPoolElem 'rtPoolElem'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolElem'
+	if r == Rt.rtPoolInsert 'rtPoolInsert'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolInsert'
+	if r == Rt.rtPoolRemove 'rtPoolRemove'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolRemove'
+	if r == Rt.rtPoolCopy 'rtPoolCopy'
+		return RtUnit.rtUnitInterpreter
+	end 'rtPoolCopy'
+	if r == Rt.rtFrozenFreeze 'rtFrozenFreeze'
+		return RtUnit.rtUnitInterpreter
+	end 'rtFrozenFreeze'
+	if r == Rt.rtFrozenGet 'rtFrozenGet'
+		return RtUnit.rtUnitInterpreter
+	end 'rtFrozenGet'
+	if r == Rt.rtShare 'rtShare'
+		return RtUnit.rtUnitInterpreter
+	end 'rtShare'
+	if r == Rt.rtCownNew 'rtCownNew'
+		return RtUnit.rtUnitInterpreter
+	end 'rtCownNew'
+	if r == Rt.rtBytesNew 'rtBytesNew'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesNew'
+	if r == Rt.rtBytesLen 'rtBytesLen'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesLen'
+	if r == Rt.rtBytesGet 'rtBytesGet'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesGet'
+	if r == Rt.rtBytesSet 'rtBytesSet'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesSet'
+	if r == Rt.rtBytesInsert 'rtBytesInsert'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesInsert'
+	if r == Rt.rtBytesRemove 'rtBytesRemove'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesRemove'
+	if r == Rt.rtBytesAppend 'rtBytesAppend'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesAppend'
+	if r == Rt.rtBytesAppendStr 'rtBytesAppendStr'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesAppendStr'
+	if r == Rt.rtBytesToString 'rtBytesToString'
+		return RtUnit.rtUnitBytes
+	end 'rtBytesToString'
+	if r == Rt.rtOsArgs 'rtOsArgs'
+		return RtUnit.rtUnitOs
+	end 'rtOsArgs'
+	if r == Rt.rtOsEnvironmentVariable 'rtOsEnvironmentVariable'
+		return RtUnit.rtUnitOs
+	end 'rtOsEnvironmentVariable'
+	if r == Rt.rtOsPathFrom 'rtOsPathFrom'
+		return RtUnit.rtUnitOs
+	end 'rtOsPathFrom'
+	if r == Rt.rtOsReadText 'rtOsReadText'
+		return RtUnit.rtUnitOs
+	end 'rtOsReadText'
+	if r == Rt.rtOsWriteText 'rtOsWriteText'
+		return RtUnit.rtUnitOs
+	end 'rtOsWriteText'
+	if r == Rt.rtOsWriteBinary 'rtOsWriteBinary'
+		return RtUnit.rtUnitOs
+	end 'rtOsWriteBinary'
+	if r == Rt.rtOsRename 'rtOsRename'
+		return RtUnit.rtUnitOs
+	end 'rtOsRename'
+	if r == Rt.rtOsDelete 'rtOsDelete'
+		return RtUnit.rtUnitOs
+	end 'rtOsDelete'
+	if r == Rt.rtOsIsDirectory 'rtOsIsDirectory'
+		return RtUnit.rtUnitOs
+	end 'rtOsIsDirectory'
+	if r == Rt.rtOsCreateDirectory 'rtOsCreateDirectory'
+		return RtUnit.rtUnitOs
+	end 'rtOsCreateDirectory'
+	if r == Rt.rtOsList 'rtOsList'
+		return RtUnit.rtUnitOs
+	end 'rtOsList'
+	if r == Rt.rtOsRun 'rtOsRun'
+		return RtUnit.rtUnitOs
+	end 'rtOsRun'
+	panic("ir: rtNone is defined by no unit")
+end 'rtUnit'

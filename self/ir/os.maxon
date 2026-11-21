@@ -1,0 +1,297 @@
+// OsFailure is why an OS operation failed, as the runtime tells it from the operating system's error; the entry of the
+// operation reports it as the case of the error the operation throws (failureCase).
+export enum OsFailure
+	failureNotFound
+	failureAccessDenied
+	failureBusy
+	failureAlreadyExists
+	failureOther
+end 'OsFailure'
+
+// The Win32 errors the runtime tells apart, the ones maxon's runtime does.
+export let win32FileNotFound = 2 as Count
+
+export let win32PathNotFound = 3 as Count
+
+export let win32AccessDenied = 5 as Count
+
+export let win32SharingViolation = 32 as Count
+
+export let win32FileExists = 80 as Count
+
+// failureOfWin32 is the failure a Win32 error is; any error the runtime does not tell apart is failureOther.
+export function failureOfWin32(code Count) returns OsFailure
+	return match code 'code'
+		2 gives OsFailure.failureNotFound
+		3 gives OsFailure.failureNotFound
+		5 gives OsFailure.failureAccessDenied
+		32 gives OsFailure.failureBusy
+		80 gives OsFailure.failureAlreadyExists
+		default gives OsFailure.failureOther
+	end 'code'
+end 'failureOfWin32'
+
+// OsOperation is an operation whose failures are cases of an error of its own.
+export enum OsOperation
+	opRead
+	opWrite
+	opRename
+	opDelete
+	opList
+	opSpawn
+end 'OsOperation'
+
+// failureCase is the case of an operation's error that each failure is.
+export function failureCase(op OsOperation, failure OsFailure) returns Count
+	if op == OsOperation.opRead 'read'
+		return match failure 'f'
+			failureNotFound gives ast.errorReadNotFound
+			failureAccessDenied gives ast.errorReadAccessDenied
+			failureBusy gives ast.errorReadBusy
+			failureAlreadyExists gives ast.errorReadFailed
+			failureOther gives ast.errorReadFailed
+		end 'f'
+	end 'read'
+	if op == OsOperation.opWrite 'write'
+		return match failure 'f'
+			failureNotFound gives ast.errorWriteNotFound
+			failureAccessDenied gives ast.errorWriteAccessDenied
+			failureBusy gives ast.errorWriteBusy
+			failureAlreadyExists gives ast.errorWriteAlreadyExists
+			failureOther gives ast.errorWriteFailed
+		end 'f'
+	end 'write'
+	if op == OsOperation.opRename 'rename'
+		return match failure 'f'
+			failureNotFound gives ast.errorRenameNotFound
+			failureAccessDenied gives ast.errorRenameAccessDenied
+			failureBusy gives ast.errorRenameBusy
+			failureAlreadyExists gives ast.errorRenameAlreadyExists
+			failureOther gives ast.errorRenameFailed
+		end 'f'
+	end 'rename'
+	if op == OsOperation.opDelete 'delete'
+		return match failure 'f'
+			failureNotFound gives ast.errorDeleteNotFound
+			failureAccessDenied gives ast.errorDeleteAccessDenied
+			failureBusy gives ast.errorDeleteBusy
+			failureAlreadyExists gives ast.errorDeleteFailed
+			failureOther gives ast.errorDeleteFailed
+		end 'f'
+	end 'delete'
+	if op == OsOperation.opList 'list'
+		return match failure 'f'
+			failureNotFound gives ast.errorListNotFound
+			failureAccessDenied gives ast.errorListAccessDenied
+			failureBusy gives ast.errorListFailed
+			failureAlreadyExists gives ast.errorListFailed
+			failureOther gives ast.errorListFailed
+		end 'f'
+	end 'list'
+	return match failure 'f'
+		failureNotFound gives ast.errorExecutableNotFound
+		failureAccessDenied gives ast.errorSpawnFailed
+		failureBusy gives ast.errorSpawnBusy
+		failureAlreadyExists gives ast.errorSpawnFailed
+		failureOther gives ast.errorSpawnFailed
+	end 'f'
+end 'failureCase'
+
+// payloadField is the index, in the payload of a case of Executable, of the one field it has.
+export let payloadField = 0 as Count
+
+// Path characters that FilePath.from refuses besides the control characters, as maxon's does on Windows.
+// lastControlByte is the highest byte that is a control character.
+export let lastControlByte = 31 as Count
+
+// invalidPathBytes are the printable bytes Windows refuses in a path.
+export let invalidPathBytes = "<>\"|?*"
+
+// pathSeparator is the native separator, which FilePath.from writes for otherSeparator.
+export let pathSeparator = 92 as Byte
+
+export let otherSeparator = 47 as Byte
+
+// failing calls an OS entry that can fail, giving it the address of its error word last, and goes on only when the entry
+// did not fail; dst is noReg for an entry that returns nothing.
+function failing(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList) returns Reg
+	let errSlot = l.b.f.newSlot(IrKind.kindScalar)
+	var all = args.clone()
+	all.push(slotAddr(l, slot: errSlot))
+	emitEntry(l, p: p, site: site, dst: dst, symbol: symbol, args: all, routine: ast.noFunc)
+	let err = load(l, slot: errSlot)
+	let ok = l.b.newBlock()
+	let clear = isZero(l, v: err)
+	let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+	l.b.terminate(l.cur, t: newBranch(clear, ifTrue: ok, ifFalse: stub))
+	l.cur = ok
+	return dst
+end 'failing'
+
+function slotAddr(mutates l Lowerer, slot Count) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newSlotAddr(d, slot: slot))
+	return d
+end 'slotAddr'
+
+// pathText is the String a FilePath holds, lent for as long as the path is.
+function pathText(mutates l Lowerer, path Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newLoadField(d, obj: path, offset: fieldOffset(ast.filePathPathField, tagged: false)))
+	return d
+end 'pathText'
+
+// builtinRecord is a new box of a record of the table, whose fields are the values by index.
+function builtinRecord(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, values RegList) returns Reg
+	let ty = applyType(l, p: p, t: t)
+	let origin = p.types.entries[ty as Count].effectiveOrigin()
+	if p.types.entries[ty as Count].kind != ast.TypeKind.record or p.types.entries[origin as Count].fields.count() != values.count() 'shape'
+		panic("lower: {ast.typeName(p.types, t: t)} is not a record of {values.count()} fields")
+	end 'shape'
+	let box = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(box, bytes: boxBytes(values.count(), tagged: false)))
+	for i in 0 upto values.count() 'each'
+		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: false), src: values[i]))
+	end 'each'
+	return box
+end 'builtinRecord'
+
+function lowerCommandLineArgs(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsArgs, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'lowerCommandLineArgs'
+
+function lowerProcessEnvironmentVariable(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	return failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsEnvironmentVariable, args: argsOf1(args[0]))
+end 'lowerProcessEnvironmentVariable'
+
+function lowerFilePathFrom(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	let text = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsPathFrom, args: argsOf1(args[0]))
+	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: argsOf1(text))
+end 'lowerFilePathFrom'
+
+function lowerFilePathToString(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let text = pathText(l, path: recv)
+	let string = p.builtins.stringTy
+	return copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: text, t: string)
+end 'lowerFilePathToString'
+
+function lowerFileReadText(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	let path = pathText(l, path: args[0])
+	return failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: dst, symbol: Rt.rtOsReadText, args: argsOf1(path))
+end 'lowerFileReadText'
+
+function lowerFileWriteText(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteText, args: argsOf2(path, b: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerFileWriteText'
+
+function lowerFileWriteBinary(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsWriteBinary, args: argsOf2(path, b: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerFileWriteBinary'
+
+function lowerFileRename(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let from = pathText(l, path: args[0])
+	let target = pathText(l, path: args[1])
+	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsRename, args: argsOf2(from, b: target))
+	return konst(l, value: 0 as Word)
+end 'lowerFileRename'
+
+function lowerFileDelete(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	_ = failing(l, p: p, site: siteOf(l, p: p, node: c.node), dst: noReg, symbol: Rt.rtOsDelete, args: argsOf1(path))
+	return konst(l, value: 0 as Word)
+end 'lowerFileDelete'
+
+function lowerDirectoryIsDirectory(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsIsDirectory, kind: IrKind.kindScalar, args: argsOf1(path))
+end 'lowerDirectoryIsDirectory'
+
+function lowerDirectoryCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let path = pathText(l, path: args[0])
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtOsCreateDirectory, kind: IrKind.kindScalar, args: argsOf1(path))
+end 'lowerDirectoryCreate'
+
+// lowerDirectoryList makes a FilePath of each String the entry gives, in its place in the array, so the array the entry
+// made is the one returned.
+function lowerDirectoryList(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let dst = newReg(l, kind: IrKind.kindManaged)
+	let path = pathText(l, path: args[0])
+	let paths = failing(l, p: p, site: site, dst: dst, symbol: Rt.rtOsList, args: argsOf1(path))
+	let listTy = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.node))
+	let pathTy = elementType(p, bt: listTy)
+	let n = entry(l, p: p, site: site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(paths))
+	let loop = countedLoopBegin(l, limit: n)
+	let i = countedLoopIndex(l, loop: loop)
+	let addr = entry(l, p: p, site: site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(paths, b: i))
+	let text = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newMoveAt(text, addr: addr))
+	let made = builtinRecord(l, p: p, t: pathTy, values: argsOf1(text))
+	emit(l, i: newStoreAt(addr, src: made))
+	countedLoopEnd(l, loop: loop)
+	return paths
+end 'lowerDirectoryList'
+
+// lowerSubprocessRun runs the child and makes the CollectedOutput of what the entry stored and returned.
+function lowerSubprocessRun(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let stdout = l.b.f.newSlot(IrKind.kindManaged)
+	let stderr = l.b.f.newSlot(IrKind.kindManaged)
+	let dst = newReg(l, kind: IrKind.kindScalar)
+	let exe = executableText(l, p: p, exe: args[0])
+	var all = RegList.create(0)
+	all.push(exe)
+	all.push(args[1])
+	all.push(slotAddr(l, slot: stdout))
+	all.push(slotAddr(l, slot: stderr))
+	let code = failing(l, p: p, site: site, dst: dst, symbol: Rt.rtOsRun, args: all)
+	var fields = RegList.create(0)
+	for i in 0 upto succ(ast.collectedOutputCodeField) 'fields'
+		fields.push(noReg)
+	end 'fields'
+	fields[ast.collectedOutputStdoutField] = fetch(l, slot: stdout)
+	fields[ast.collectedOutputStderrField] = fetch(l, slot: stderr)
+	fields[ast.collectedOutputCodeField] = code
+	return builtinRecord(l, p: p, t: exprType(p, module: l.module, node: c.node), values: fields)
+end 'lowerSubprocessRun'
+
+// executableText is the String an Executable names, a name or a path's, lent for as long as the Executable is.
+function executableText(mutates l Lowerer, mutates p ast.Project, exe Reg) returns Reg
+	let text = l.b.f.newSlot(IrKind.kindManaged)
+	let payload = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newLoadField(payload, obj: exe, offset: fieldOffset(payloadField, tagged: true)))
+	let path = l.b.newBlock()
+	let name = l.b.newBlock()
+	let join = l.b.newBlock()
+	let tag = tagReg(l, box: exe)
+	let pathCase = konst(l, value: try ast.executablePath as Word otherwise panic("ir: a case index is out of range"))
+	let isPath = compare(l, op: CmpOp.cmpEq, a: tag, b: pathCase, unsigned: false)
+	l.b.terminate(l.cur, t: newBranch(isPath, ifTrue: path, ifFalse: name))
+	l.cur = path
+	let pathString = pathText(l, path: payload)
+	emit(l, i: newStoreSlot(text, src: pathString, borrow: true))
+	goTo(l, target: join)
+	l.cur = name
+	emit(l, i: newStoreSlot(text, src: payload, borrow: true))
+	goTo(l, target: join)
+	l.cur = join
+	return load(l, slot: text)
+end 'executableText'
+
+function lowerCollectedOutputExitCode(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(d, obj: recv, offset: fieldOffset(ast.collectedOutputCodeField, tagged: false)))
+	return d
+end 'lowerCollectedOutputExitCode'
+
+function lowerCollectedOutputSucceeded(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let code = lowerCollectedOutputExitCode(l, p: p, c: c, recv: recv, args: args)
+	return isZero(l, v: code)
+end 'lowerCollectedOutputSucceeded'

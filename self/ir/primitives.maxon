@@ -1,0 +1,733 @@
+let dropEmptyMessage = "dropEmpty of a collection that still holds an element"
+
+let interpreterOnlyMessage = "a map, a list, a pool, a frozen value, a cown or a behaviour runs only under the interpreter for now, and the compiler has no code for it; use an array, or run the program with the interpreter"
+
+// entry calls a runtime entry of a primitive that returns a value. site is the source that needs it, kept when the
+// backend has no code for the entry.
+function entry(mutates l Lowerer, mutates p ast.Project, site diag.Site, symbol Rt, kind IrKind, args RegList) returns Reg
+	let d = newReg(l, kind: kind)
+	emitEntry(l, p: p, site: site, dst: d, symbol: symbol, args: args, routine: ast.noFunc)
+	return d
+end 'entry'
+
+// entryVoid calls a runtime entry that returns nothing.
+function entryVoid(mutates l Lowerer, mutates p ast.Project, site diag.Site, symbol Rt, args RegList)
+	emitEntry(l, p: p, site: site, dst: noReg, symbol: symbol, args: args, routine: ast.noFunc)
+end 'entryVoid'
+
+function emitEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
+	let unit = rtUnit(symbol)
+	if unit == RtUnit.rtUnitOs 'os'
+		l.b.f.usesOs = true
+	end 'os' else if unit == RtUnit.rtUnitBytes 'bytes'
+		l.b.f.usesBytes = true
+	end 'bytes' else if unit == RtUnit.rtUnitArrays 'arrays'
+		l.b.f.usesArrays = true
+	end 'arrays' else if unit == RtUnit.rtUnitInterpreter 'interpreter'
+		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
+	end 'interpreter' else if unit == RtUnit.rtUnitRuntime or unit == RtUnit.rtUnitLinker 'internal'
+		panic("lower: {rtSymbol(symbol)} is no entry of a primitive")
+	end 'internal'
+	emitCallRuntime(l, dst: dst, symbol: symbol, args: args, routine: routine)
+end 'emitEntry'
+
+// refuse notes a place that cannot be compiled yet, once for each site.
+function refuse(mutates l Lowerer, site diag.Site, consumes code String, consumes message String)
+	let n = l.b.f.refusals.count()
+	if n == 0 or l.b.f.refusals[pred(n)].module != site.module or l.b.f.refusals[pred(n)].offset != site.offset 'new'
+		l.b.f.refusals.push(Refusal.make(site.module, offset: site.offset, code: code, message: message))
+	end 'new'
+end 'refuse'
+
+// requireOrTrap continues only when cond holds, and panics with the message otherwise.
+function requireOrTrap(mutates l Lowerer, cond Reg, message String)
+	let ok = l.b.newBlock()
+	let bad = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: ok, ifFalse: bad))
+	l.cur = bad
+	let text = strReg(l, value: message)
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(text), routine: ast.noFunc)
+	seal(l, t: newTrap())
+	l.cur = ok
+end 'requireOrTrap'
+
+// failUnlessBegin continues only when cond holds; the block it gives is where the operation goes on, and the one being
+// lowered is where it does not, which failUnlessEnd ends with the failure, after the code between them has dropped what
+// the operation was given and does not keep on that path.
+function failUnlessBegin(mutates l Lowerer, cond Reg) returns BlockID
+	let ok = l.b.newBlock()
+	let bad = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: ok, ifFalse: bad))
+	l.cur = bad
+	return ok
+end 'failUnlessBegin'
+
+// failUnlessEnd fails with the case errorCase of the error the operation throws, and goes on in the block ok.
+function failUnlessEnd(mutates l Lowerer, p ast.Project, errorCase Count, ok BlockID)
+	let stub = failure(l, p: p, errorCase: errorCase, err: noReg)
+	seal(l, t: newJump(stub))
+	l.cur = ok
+end 'failUnlessEnd'
+
+// failUnless continues only when cond holds, and otherwise fails with the case errorCase of the error the operation
+// throws.
+function failUnless(mutates l Lowerer, p ast.Project, cond Reg, errorCase Count)
+	let ok = failUnlessBegin(l, cond: cond)
+	failUnlessEnd(l, p: p, errorCase: errorCase, ok: ok)
+end 'failUnless'
+
+// CountedLoop is a loop over the indexes from 0 to below a limit: the slots that hold them, and its top and its exit.
+export type CountedLoop
+	export var index as Count
+	export var top as BlockID
+	export var exit as BlockID
+
+	export static function make(index Count, top BlockID, exit BlockID) returns CountedLoop
+		return CountedLoop{index: index, top: top, exit: exit}
+	end 'make'
+end 'CountedLoop'
+
+// countedLoopBegin starts a loop that runs its body once for each index from 0 to below limit; the body is lowered
+// between it and countedLoopEnd.
+function countedLoopBegin(mutates l Lowerer, limit Reg) returns CountedLoop
+	let index = l.b.f.newSlot(IrKind.kindScalar)
+	let bound = l.b.f.newSlot(IrKind.kindScalar)
+	let top = l.b.newBlock()
+	let inside = l.b.newBlock()
+	let exit = l.b.newBlock()
+	let zero = konst(l, value: 0 as Word)
+	emit(l, i: newStoreSlot(index, src: zero, borrow: false))
+	emit(l, i: newStoreSlot(bound, src: limit, borrow: false))
+	goTo(l, target: top)
+	let i = load(l, slot: index)
+	let n = load(l, slot: bound)
+	let below = compare(l, op: CmpOp.cmpLt, a: i, b: n, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(below, ifTrue: inside, ifFalse: exit))
+	l.cur = inside
+	return CountedLoop.make(index, top: top, exit: exit)
+end 'countedLoopBegin'
+
+// countedLoopIndex is the index the body runs for.
+function countedLoopIndex(mutates l Lowerer, loop CountedLoop) returns Reg
+	return load(l, slot: loop.index)
+end 'countedLoopIndex'
+
+function countedLoopEnd(mutates l Lowerer, loop CountedLoop)
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let cur = load(l, slot: loop.index)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: true, fail: noBlock))
+	emit(l, i: newStoreSlot(loop.index, src: next, borrow: false))
+	goTo(l, target: loop.top)
+	l.cur = loop.exit
+end 'countedLoopEnd'
+
+// elemPlace is the address of a[i] that a call taking it by address is given: the element of a primitive that a subscript
+// names, lent for as long as the primitive is not changed, or for a byte array a slot that holds the element
+// (arrayPlace).
+function elemPlace(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
+	let coll = lowerRead(l, p: p, e: obj)
+	let index = indexValue(l, p: p, e: e)
+	let collTy = exprType(p, module: l.module, node: obj)
+	if isArray(l, p: p, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: e), t: collTy)
+		return arrayPlace(l, p: p, box: box, arr: coll, index: index)
+	end 'array'
+	return elemEntry(l, p: p, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
+end 'elemPlace'
+
+// builtinOf is the primitive type that a collection's type is, read through the binding and through a frozen value.
+function builtinOf(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns ast.TypeID
+	let applied = applyType(l, p: p, t: collection)
+	return ast.contentType(p.types, t: applied)
+end 'builtinOf'
+
+// indexType is the type of what goes between the brackets: a position for an array, a key for a map, and for a list or a
+// pool the handle of the element.
+function indexType(mutates p ast.Project, bt ast.TypeID) returns ast.TypeID
+	let kind = p.types.entries[bt as Count].kind
+	let args = ast.typeArgsOf(p.types, t: bt)
+	if kind == ast.TypeKind.builtinArray 'array'
+		return p.builtins.countTy
+	end 'array'
+	if kind == ast.TypeKind.builtinMap 'map'
+		return args[0]
+	end 'map'
+	if kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'handle'
+		var of = ast.TypeIDList.create(0)
+		of.push(args[0])
+		return ast.instantiateType(p.types, origin: p.builtins.handleOrigin, args: of)
+	end 'handle'
+	panic("lower: {ast.typeName(p.types, t: bt)} has no elements to index")
+end 'indexType'
+
+// elementType is the type of t[i]: what the primitive holds.
+function elementType(p ast.Project, bt ast.TypeID) returns ast.TypeID
+	let kind = p.types.entries[bt as Count].kind
+	let args = ast.typeArgsOf(p.types, t: bt)
+	if kind == ast.TypeKind.builtinArray or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool 'one'
+		return args[0]
+	end 'one'
+	if kind == ast.TypeKind.builtinMap 'map'
+		return args[1]
+	end 'map'
+	panic("lower: {ast.typeName(p.types, t: bt)} has no elements")
+end 'elementType'
+
+function indexValue(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: ast.indexExprObj(p.modules[l.mi].tree, id: e)))
+	let target = indexType(p, bt: bt)
+	let argsRef = ast.indexExprArgsRef(p.modules[l.mi].tree, id: e)
+	return lowerConverted(l, p: p, e: p.modules[l.mi].tree.listAt(argsRef, index: 0 as Count) as ast.NodeID, target: target)
+end 'indexValue'
+
+function isArray(mutates l Lowerer, mutates p ast.Project, collection ast.TypeID) returns bool
+	let bt = builtinOf(l, p: p, collection: collection)
+	return p.types.entries[bt as Count].kind == ast.TypeKind.builtinArray
+end 'isArray'
+
+// elemEntry is the address of an element of a map, a list or a pool; an array's goes through arrayOf.
+function elemEntry(mutates l Lowerer, mutates p ast.Project, site diag.Site, collection ast.TypeID, coll Reg, index Reg) returns Reg
+	let bt = builtinOf(l, p: p, collection: collection)
+	let kind = p.types.entries[bt as Count].kind
+	var symbol = Rt.rtNone
+	if kind == ast.TypeKind.builtinMap 'map'
+		symbol = Rt.rtMapElem
+	end 'map' else if kind == ast.TypeKind.builtinList 'list'
+		symbol = Rt.rtListElem
+	end 'list' else if kind == ast.TypeKind.builtinPool 'pool'
+		symbol = Rt.rtPoolElem
+	end 'pool' else 'other'
+		panic("lower: {ast.typeName(p.types, t: bt)} has no elements to address")
+	end 'other'
+	return entry(l, p: p, site: site, symbol: symbol, kind: IrKind.kindScalar, args: argsOf2(coll, b: index))
+end 'elemEntry'
+
+function visitIndexExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: e)
+	let coll = lowerRead(l, p: p, e: obj)
+	let index = indexValue(l, p: p, e: e)
+	let collTy = exprType(p, module: l.module, node: obj)
+	if isArray(l, p: p, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: e), t: collTy)
+		return arrayLoad(l, p: p, box: box, arr: coll, index: index)
+	end 'array'
+	let addr = elemEntry(l, p: p, site: siteOf(l, p: p, node: e), collection: collTy, coll: coll, index: index)
+	let d = newReg(l, kind: kindOf(l, p: p, t: exprType(p, module: l.module, node: e)))
+	emit(l, i: newLoadAt(d, addr: addr))
+	return d
+end 'visitIndexExpr'
+
+// assignElement stores into a[i]: the collection and the index are evaluated, then the value, and only then is the
+// element's address taken, so a value that changes the collection cannot leave the address stale.
+function assignElement(mutates l Lowerer, mutates p ast.Project, target ast.NodeID, value ast.NodeID)
+	let obj = ast.indexExprObj(p.modules[l.mi].tree, id: target)
+	let coll = lowerExpr(l, p: p, e: obj)
+	let index = indexValue(l, p: p, e: target)
+	let v = lowerExpr(l, p: p, e: value)
+	let collTy = exprType(p, module: l.module, node: obj)
+	if isArray(l, p: p, collection: collTy) 'array'
+		let box = arrayOf(l, p: p, site: siteOf(l, p: p, node: target), t: collTy)
+		arrayStore(l, p: p, box: box, arr: coll, index: index, v: v)
+		return
+	end 'array'
+	let addr = elemEntry(l, p: p, site: siteOf(l, p: p, node: target), collection: collTy, coll: coll, index: index)
+	dropAt(l, p: p, addr: addr, t: exprType(p, module: l.module, node: target))
+	emit(l, i: newStoreAt(addr, src: v))
+end 'assignElement'
+
+// lowerIntrinsic lowers a call of a built-in method into the runtime entries of its primitive.
+function lowerIntrinsic(mutates l Lowerer, mutates p ast.Project, c CallSite) returns Reg
+	let op = p.funcs.entries[c.info.fn as Count].intrinsic
+	if ownsOperands(op) 'owns'
+		return intrinsicCall(l, p: p, op: op, c: c, recv: noReg, args: RegList.create(0))
+	end 'owns'
+	var recv = noReg
+	if c.receiver != 0 'receiver'
+		recv = lowerRead(l, p: p, e: c.receiver)
+	end 'receiver'
+	let base = l.args.count()
+	for i in 0 upto c.ordered.count() 'each'
+		let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+		pushArg(l, v: v)
+	end 'each'
+	let result = intrinsicCall(l, p: p, op: op, c: c, recv: recv, args: argsSince(l, base: base))
+	popArgs(l, n: base)
+	return result
+end 'lowerIntrinsic'
+
+// array is the runtime of the array a call makes or is made on.
+function arrayOfCall(mutates l Lowerer, mutates p ast.Project, c CallSite) returns ArrayBox
+	if c.receiver == 0 'made'
+		return arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
+	end 'made'
+	return arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.receiver))
+end 'arrayOfCall'
+
+// lowerArrayCreate is an array of count zero elements. An element with no zero value is refused unless count is 0, so
+// only an array of one with a zero value has slots to fill.
+export function lowerArrayCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let out = arrayNew(l, p: p, box: a)
+	if hasZero(p, t: arrayElem(p, box: a)) 'zero'
+		let loop = countedLoopBegin(l, limit: args[0])
+		let i = countedLoopIndex(l, loop: loop)
+		let zero = konst(l, value: 0 as Word)
+		arrayInsert(l, p: p, box: a, arr: out, index: i, v: zero)
+		countedLoopEnd(l, loop: loop)
+	end 'zero'
+	return out
+end 'lowerArrayCreate'
+
+// hasZero is whether the word 0 is a value of t, so that a slot nothing wrote holds one: an integer whose range takes 0,
+// or a bool. A managed value, a handle, an enum (whose 0 is its first case, not its case of raw value 0) and a type
+// parameter have none.
+function hasZero(p ast.Project, t ast.TypeID) returns bool
+	let kind = p.types.entries[t as Count].kind
+	if kind == ast.TypeKind.intRange 'range'
+		return p.types.entries[t as Count].minVal.le(ast.I128.zero()) and ast.I128.zero().le(p.types.entries[t as Count].maxVal)
+	end 'range'
+	return kind == ast.TypeKind.primBool
+end 'hasZero'
+
+function lowerArrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return arrayFilled(l, p: p, c: c, count: args[0], value: args[1])
+end 'lowerArrayFilled'
+
+function lowerArrayCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	return arrayLength(l, p: p, box: a, arr: recv)
+end 'lowerArrayCount'
+
+function lowerArrayIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	return isZero(l, v: n)
+end 'lowerArrayIsEmpty'
+
+// lowerArrayGet is a copy of the element at index, which fails with indexOutOfBounds past the end, as maxon's get does.
+function lowerArrayGet(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayInBounds(l, p: p, box: a, arr: recv, index: args[0])
+	let v = arrayLoad(l, p: p, box: a, arr: recv, index: args[0])
+	return copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: v, t: arrayElem(p, box: a))
+end 'lowerArrayGet'
+
+// lowerArraySet replaces the element at index, and fails with indexOutOfBounds past the end, dropping the value it was
+// given, as maxon's set does.
+function lowerArraySet(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let ok = arrayBoundsBegin(l, p: p, box: a, arr: recv, index: args[0])
+	dropValue(l, p: p, v: args[1], t: arrayElem(p, box: a))
+	failUnlessEnd(l, p: p, errorCase: ast.errorIndexOutOfBounds, ok: ok)
+	arrayStore(l, p: p, box: a, arr: recv, index: args[0], v: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerArraySet'
+
+export function lowerArrayPush(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayPush(l, p: p, box: a, arr: recv, v: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayPush'
+
+// lowerArrayAppend pushes a copy of each element of other, which the call only reads.
+function lowerArrayAppend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayAppendCopy(l, p: p, box: a, arr: recv, other: args[0])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayAppend'
+
+// lowerArrayInsert inserts at an index above the count at the end, as maxon's insert clamps it.
+function lowerArrayInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	let at = l.b.f.newSlot(IrKind.kindScalar)
+	emit(l, i: newStoreSlot(at, src: args[0], borrow: false))
+	let clamp = l.b.newBlock()
+	let insert = l.b.newBlock()
+	let above = compare(l, op: CmpOp.cmpGt, a: args[0], b: n, unsigned: true)
+	l.b.terminate(l.cur, t: newBranch(above, ifTrue: clamp, ifFalse: insert))
+	l.cur = clamp
+	emit(l, i: newStoreSlot(at, src: n, borrow: false))
+	goTo(l, target: insert)
+	let index = load(l, slot: at)
+	arrayInsert(l, p: p, box: a, arr: recv, index: index, v: args[1])
+	return konst(l, value: 0 as Word)
+end 'lowerArrayInsert'
+
+function lowerArrayRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	arrayInBounds(l, p: p, box: a, arr: recv, index: args[0])
+	return arrayRemove(l, p: p, box: a, arr: recv, index: args[0])
+end 'lowerArrayRemove'
+
+function lowerArrayDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+end 'lowerArrayDropEmpty'
+
+function lowerArrayPop(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let n = arrayLength(l, p: p, box: a, arr: recv)
+	let present = nonZero(l, v: n)
+	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	let last = newReg(l, kind: IrKind.kindScalar)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(last, op: BinOp.binSub, left: n, right: one, unsigned: true, fail: noBlock))
+	return arrayRemove(l, p: p, box: a, arr: recv, index: last)
+end 'lowerArrayPop'
+
+function lowerMapCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapNew, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'lowerMapCreate'
+
+function lowerMapCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerMapCount'
+
+function lowerMapIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return isZero(l, v: n)
+end 'lowerMapIsEmpty'
+
+function lowerMapContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerMapContains'
+
+// lowerMapInsert adds a key the map does not have, and fails with keyAlreadyExists for one it has, dropping the key and
+// the value it was given.
+function lowerMapInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
+	let has = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+	let absent = isZero(l, v: has)
+	let ok = failUnlessBegin(l, cond: absent)
+	let keyTy = indexType(p, bt: bt)
+	dropValue(l, p: p, v: args[0], t: keyTy)
+	dropValue(l, p: p, v: args[1], t: elementType(p, bt: bt))
+	failUnlessEnd(l, p: p, errorCase: ast.errorKeyAlreadyExists, ok: ok)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(recv, b: args[0], c: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerMapInsert'
+
+function lowerMapUpsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapInsert, args: argsOf3(recv, b: args[0], c: args[1]))
+	return konst(l, value: 0 as Word)
+end 'lowerMapUpsert'
+
+function lowerMapReplace(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return mapReplace(l, p: p, c: c, m: recv, key: args[0], value: args[1])
+end 'lowerMapReplace'
+
+function lowerMapDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtMapLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+end 'lowerMapDropEmpty'
+
+// lowerMapRemove drops the value of a key the map has, and gives whether it had one.
+function lowerMapRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
+	let value = elementType(p, bt: bt)
+	let site = siteOf(l, p: p, node: c.node)
+	let present = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+	let remove = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(present, ifTrue: remove, ifFalse: join))
+	l.cur = remove
+	let kind = kindOf(l, p: p, t: value)
+	let removed = entry(l, p: p, site: site, symbol: Rt.rtMapRemove, kind: kind, args: argsOf2(recv, b: args[0]))
+	dropValue(l, p: p, v: removed, t: value)
+	goTo(l, target: join)
+	return present
+end 'lowerMapRemove'
+
+function lowerListCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNew, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'lowerListCreate'
+
+function lowerListCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerListCount'
+
+function lowerListIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return isZero(l, v: n)
+end 'lowerListIsEmpty'
+
+function lowerListContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerListContains'
+
+function lowerListPrepend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushFront, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerListPrepend'
+
+function lowerListAppend(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPushBack, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerListAppend'
+
+function lowerListRemoveFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return removeEnd(l, p: p, c: c, pop: Rt.rtListPopFront, list: recv)
+end 'lowerListRemoveFirst'
+
+function lowerListRemoveLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return removeEnd(l, p: p, c: c, pop: Rt.rtListPopBack, list: recv)
+end 'lowerListRemoveLast'
+
+function lowerListFirst(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListFirst, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return endHandle(l, p: p, handle: h)
+end 'lowerListFirst'
+
+function lowerListLast(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLast, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return endHandle(l, p: p, handle: h)
+end 'lowerListLast'
+
+function lowerListNext(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListNext, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+	return endHandle(l, p: p, handle: h)
+end 'lowerListNext'
+
+function lowerListPrev(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let h = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListPrev, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+	return endHandle(l, p: p, handle: h)
+end 'lowerListPrev'
+
+function lowerListRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return removeHandle(l, p: p, c: c, contains: Rt.rtListContains, remove: Rt.rtListRemove, collection: recv, handle: args[0])
+end 'lowerListRemove'
+
+function lowerListDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+end 'lowerListDropEmpty'
+
+function lowerListMoveToFront(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	entryVoid(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtListMoveToFront, args: argsOf2(recv, b: args[0]))
+	return konst(l, value: 0 as Word)
+end 'lowerListMoveToFront'
+
+function lowerPoolCreate(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolNew, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'lowerPoolCreate'
+
+function lowerPoolCount(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerPoolCount'
+
+function lowerPoolIsEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return isZero(l, v: n)
+end 'lowerPoolIsEmpty'
+
+function lowerPoolContains(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolContains, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerPoolContains'
+
+function lowerPoolInsert(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolInsert, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerPoolInsert'
+
+function lowerPoolDropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let n = entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtPoolLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+	return dropEmpty(l, p: p, c: c, length: n, collection: recv)
+end 'lowerPoolDropEmpty'
+
+function lowerPoolRemove(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return removeHandle(l, p: p, c: c, contains: Rt.rtPoolContains, remove: Rt.rtPoolRemove, collection: recv, handle: args[0])
+end 'lowerPoolRemove'
+
+function lowerStringByteLength(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrLen, kind: IrKind.kindScalar, args: argsOf1(recv))
+end 'lowerStringByteLength'
+
+function lowerStringByteAt(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrByteAt, kind: IrKind.kindScalar, args: argsOf2(recv, b: args[0]))
+end 'lowerStringByteAt'
+
+function lowerStringSliceBytes(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return runtime(l, symbol: Rt.rtStrSlice, kind: IrKind.kindManaged, args: argsOf3(recv, b: args[0], c: args[1]))
+end 'lowerStringSliceBytes'
+
+// lowerStringToByteArray is a new byte array of the string's UTF-8 bytes.
+function lowerStringToByteArray(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: exprType(p, module: l.module, node: c.node))
+	let out = arrayNew(l, p: p, box: a)
+	arrayAppendText(l, p: p, box: a, arr: out, text: recv)
+	return out
+end 'lowerStringToByteArray'
+
+// lowerStringFrom is a string of a copy of the bytes, which the call only reads.
+function lowerStringFrom(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let a = arrayOf(l, p: p, site: siteOf(l, p: p, node: c.node), t: c.info.paramSpecs[0].ty)
+	return arrayText(l, p: p, box: a, arr: args[0])
+end 'lowerStringFrom'
+
+// dropEmpty ends a collection of the given length that the call consumes, and traps if an element is left: dropping it
+// would drop the element, which a type with a destructor must never be left to do.
+function dropEmpty(mutates l Lowerer, mutates p ast.Project, c CallSite, length Reg, collection Reg) returns Reg
+	let empty = isZero(l, v: length)
+	requireOrTrap(l, cond: empty, message: dropEmptyMessage)
+	dropValue(l, p: p, v: collection, t: exprType(p, module: l.module, node: c.receiver))
+	return konst(l, value: 0 as Word)
+end 'dropEmpty'
+
+// moveOutAt reads the value at an address of the type t and leaves the place empty when t is owned, so that the place can
+// be written without dropping what was there.
+function moveOutAt(mutates l Lowerer, mutates p ast.Project, addr Reg, t ast.TypeID) returns Reg
+	let kind = kindOf(l, p: p, t: t)
+	let d = newReg(l, kind: kind)
+	if kind == IrKind.kindManaged 'managed'
+		emit(l, i: newMoveAt(d, addr: addr))
+	end 'managed' else 'scalar'
+		emit(l, i: newLoadAt(d, addr: addr))
+	end 'scalar'
+	return d
+end 'moveOutAt'
+
+// lowerExchange moves the new value into a place and gives the value that was there to the caller, so the place is never
+// dropped and a type without Droppable can be replaced. The value is computed before the place is addressed, so that
+// computing it cannot leave the address stale.
+function lowerExchange(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let value = lowerConverted(l, p: p, e: c.ordered[1], target: c.info.paramSpecs[1].ty)
+	let places = l.writeBacks.count()
+	let addr = address(l, p: p, e: c.ordered[0])
+	let old = moveOutAt(l, p: p, addr: addr, t: exprType(p, module: l.module, node: c.node))
+	emit(l, i: newStoreAt(addr, src: value))
+	writeBack(l, p: p, mark: places)
+	return old
+end 'lowerExchange'
+
+// mapReplace is Map.upsert that gives back the value the key had: it moves that value out of its entry, and the insert
+// then finds the entry empty, keeps its place and drops nothing. A key the map does not have fails with keyNotFound,
+// dropping the key and the value it was given.
+function mapReplace(mutates l Lowerer, mutates p ast.Project, c CallSite, m Reg, key Reg, value Reg) returns Reg
+	let bt = builtinOf(l, p: p, collection: exprType(p, module: l.module, node: c.receiver))
+	let elem = elementType(p, bt: bt)
+	let site = siteOf(l, p: p, node: c.node)
+	let has = entry(l, p: p, site: site, symbol: Rt.rtMapHas, kind: IrKind.kindScalar, args: argsOf2(m, b: key))
+	let ok = failUnlessBegin(l, cond: has)
+	let keyTy = indexType(p, bt: bt)
+	dropValue(l, p: p, v: key, t: keyTy)
+	dropValue(l, p: p, v: value, t: elem)
+	failUnlessEnd(l, p: p, errorCase: ast.errorKeyNotFound, ok: ok)
+	let addr = entry(l, p: p, site: site, symbol: Rt.rtMapElem, kind: IrKind.kindScalar, args: argsOf2(m, b: key))
+	let old = moveOutAt(l, p: p, addr: addr, t: elem)
+	entryVoid(l, p: p, site: site, symbol: Rt.rtMapInsert, args: argsOf3(m, b: key, c: value))
+	return old
+end 'mapReplace'
+
+function isZero(mutates l Lowerer, v Reg) returns Reg
+	let zero = konst(l, value: 0 as Word)
+	return compare(l, op: CmpOp.cmpEq, a: v, b: zero, unsigned: false)
+end 'isZero'
+
+function nonZero(mutates l Lowerer, v Reg) returns Reg
+	let zero = konst(l, value: 0 as Word)
+	return compare(l, op: CmpOp.cmpNe, a: v, b: zero, unsigned: false)
+end 'nonZero'
+
+// removeEnd moves the element at an end of a list out, and fails with indexOutOfBounds on an empty list, as maxon's List
+// does.
+function removeEnd(mutates l Lowerer, mutates p ast.Project, c CallSite, pop Rt, list Reg) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let n = entry(l, p: p, site: site, symbol: Rt.rtListLen, kind: IrKind.kindScalar, args: argsOf1(list))
+	let present = nonZero(l, v: n)
+	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	let kind = kindOf(l, p: p, t: exprType(p, module: l.module, node: c.node))
+	return entry(l, p: p, site: site, symbol: pop, kind: kind, args: argsOf1(list))
+end 'removeEnd'
+
+// endHandle is the handle of a list's first or last node, or of the node after or before one, which the entry gives as 0
+// when there is none, where the operation fails with indexOutOfBounds.
+function endHandle(mutates l Lowerer, p ast.Project, handle Reg) returns Reg
+	let present = nonZero(l, v: handle)
+	failUnless(l, p: p, cond: present, errorCase: ast.errorIndexOutOfBounds)
+	return handle
+end 'endHandle'
+
+// removeHandle moves the element a handle names out of a list or a pool, and fails with emptySlot for a handle that names
+// none, as maxon's emptied slot does.
+function removeHandle(mutates l Lowerer, mutates p ast.Project, c CallSite, contains Rt, remove Rt, collection Reg, handle Reg) returns Reg
+	let site = siteOf(l, p: p, node: c.node)
+	let named = entry(l, p: p, site: site, symbol: contains, kind: IrKind.kindScalar, args: argsOf2(collection, b: handle))
+	failUnless(l, p: p, cond: named, errorCase: ast.errorEmptySlot)
+	let kind = kindOf(l, p: p, t: exprType(p, module: l.module, node: c.node))
+	return entry(l, p: p, site: site, symbol: remove, kind: kind, args: argsOf2(collection, b: handle))
+end 'removeHandle'
+
+// arrayFilled is an array of count copies of value: the value is copied into every slot and then dropped, so that every
+// element has an owner of its own.
+function arrayFilled(mutates l Lowerer, mutates p ast.Project, c CallSite, count Reg, value Reg) returns Reg
+	let a = arrayOfCall(l, p: p, c: c)
+	let out = arrayNew(l, p: p, box: a)
+	let loop = countedLoopBegin(l, limit: count)
+	let i = countedLoopIndex(l, loop: loop)
+	let copy = copyValue(l, p: p, site: siteOf(l, p: p, node: c.node), v: value, t: arrayElem(p, box: a))
+	arrayInsert(l, p: p, box: a, arr: out, index: i, v: copy)
+	countedLoopEnd(l, loop: loop)
+	dropValue(l, p: p, v: value, t: arrayElem(p, box: a))
+	return out
+end 'arrayFilled'
+
+// requireNative refuses, once for each site, a value of a type that holds a primitive the backend has no code for. A copy
+// or a drop of such a value is code that only the interpreter has, as the entries of the primitive itself are.
+function requireNative(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID)
+	var visiting = ast.TypeIDList.create(0)
+	if holdsInterpreterOnly(p, t: t, visiting: visiting) 'only'
+		refuse(l, site: site, code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
+	end 'only'
+end 'requireNative'
+
+// holdsInterpreterOnly is whether a value of type t is, or holds at any depth, a map, a list, a pool, a frozen value or a
+// cown. visiting are the records and unions being walked, so a type that contains itself through an array ends.
+function holdsInterpreterOnly(mutates p ast.Project, t ast.TypeID, mutates visiting ast.TypeIDList) returns bool
+	let kind = p.types.entries[t as Count].kind
+	if kind == ast.TypeKind.primBool or kind == ast.TypeKind.primString or kind == ast.TypeKind.intRange or kind == ast.TypeKind.constInt or kind == ast.TypeKind.enumTy 'plain'
+		return false
+	end 'plain'
+	if kind == ast.TypeKind.builtinHandle 'handle'
+		return false
+	end 'handle'
+	if kind == ast.TypeKind.builtinArray 'array'
+		return holdsInterpreterOnly(p, t: elementType(p, bt: t), visiting: visiting)
+	end 'array'
+	if kind == ast.TypeKind.builtinMap or kind == ast.TypeKind.builtinList or kind == ast.TypeKind.builtinPool or kind == ast.TypeKind.builtinFrozen or kind == ast.TypeKind.builtinCown 'only'
+		return true
+	end 'only'
+	if kind == ast.TypeKind.record or kind == ast.TypeKind.unionTy 'nominal'
+		for i in 0 upto visiting.count() 'seen'
+			if visiting[i] == t 'again'
+				return false
+			end 'again'
+		end 'seen'
+		visiting.push(t)
+		let origin = p.types.entries[t as Count].effectiveOrigin()
+		let params = ast.cloneTypeArgs(p.types.entries[origin as Count].typeParams)
+		let args = ast.cloneTypeArgs(p.types.entries[t as Count].typeArgs)
+		if kind == ast.TypeKind.record 'record'
+			for i in 0 upto p.types.entries[origin as Count].fields.count() 'fields'
+				let declared = p.types.entries[origin as Count].fields[i].ty
+				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
+				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
+					return true
+				end 'holds'
+			end 'fields'
+			return false
+		end 'record'
+		for i in 0 upto p.types.entries[origin as Count].cases.count() 'cases'
+			for j in 0 upto p.types.entries[origin as Count].cases[i].payload.count() 'payload'
+				let declared = p.types.entries[origin as Count].cases[i].payload[j].ty
+				let field = ast.substituteType(p.types, t: declared, params: params, args: args)
+				if holdsInterpreterOnly(p, t: field, visiting: visiting) 'holds'
+					return true
+				end 'holds'
+			end 'payload'
+		end 'cases'
+		return false
+	end 'nominal'
+	panic("lower: {ast.typeName(p.types, t: t)} has no layout the backend knows")
+end 'holdsInterpreterOnly'

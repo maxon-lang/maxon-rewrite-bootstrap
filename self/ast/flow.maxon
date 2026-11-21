@@ -1,0 +1,82 @@
+// terminates is whether a statement never completes normally: it returns or panics on every path, so a function whose
+// body ends with it needs no return after it.
+export function terminates(t Tree, s NodeID) returns bool
+	let k = t.kindOf(s)
+	if k == NodeKind.returnStmt or k == NodeKind.throwStmt 'leaves'
+		return true
+	end 'leaves'
+	if k == NodeKind.exprStmt 'expr'
+		return t.kindOf(exprStmtE(t, id: s)) == NodeKind.panicExpr
+	end 'expr'
+	if k == NodeKind.ifStmt 'if'
+		return ifStmtHasElse(t, id: s) and terminatesBody(t, ref: ifStmtThenRef(t, id: s)) and terminatesBody(t, ref: ifStmtElseRef(t, id: s))
+	end 'if'
+	if k == NodeKind.matchStmt 'match'
+		return everyArmLeaves(t, core: matchStmtMatch(t, id: s))
+	end 'match'
+	if k == NodeKind.tryStmt 'try'
+		return terminatesBody(t, ref: tryStmtBodyRef(t, id: s)) and (not tryStmtHasOtherwise(t, id: s) or terminatesBody(t, ref: tryStmtHandlerRef(t, id: s)))
+	end 'try'
+	return false
+end 'terminates'
+
+// everyArmLeaves is whether each arm of a match panics or runs a statement that terminates.
+function everyArmLeaves(t Tree, core NodeID) returns bool
+	let arms = matchCoreArmsRef(t, id: core)
+	for i in 0 upto t.listLen(arms) 'each'
+		let arm = t.listAt(arms, index: i) as NodeID
+		let form = matchArmForm(t, id: arm)
+		if not (form == ArmKind.armPanic or (matchArmAction(t, id: arm) != 0 and terminates(t, s: matchArmAction(t, id: arm)))) 'open'
+			return false
+		end 'open'
+	end 'each'
+	return true
+end 'everyArmLeaves'
+
+// terminatesBody is whether the last statement of a body terminates.
+export function terminatesBody(t Tree, ref diag.U32) returns bool
+	let n = t.listLen(ref)
+	return n > 0 and terminates(t, s: t.listAt(ref, index: n - 1) as NodeID)
+end 'terminatesBody'
+
+// blockEnds is whether control never reaches the statement after this one in its block.
+function blockEnds(t Tree, s NodeID) returns bool
+	let k = t.kindOf(s)
+	return k == NodeKind.breakStmt or k == NodeKind.continueStmt or terminates(t, s: s)
+end 'blockEnds'
+
+// liveCount is how many statements of a block can run: those up to the first that terminates or jumps out of the block.
+// The rest are type-checked like any code, but record no calls and are not lowered, so they instantiate nothing. A break
+// or a continue ends only its own block's live statements: it may leave an enclosing block that is not a loop, so it never
+// makes that block terminate.
+export function liveCount(t Tree, ref diag.U32) returns Count
+	let n = t.listLen(ref)
+	for i in 0 upto n 'each'
+		if blockEnds(t, s: t.listAt(ref, index: i) as NodeID) 'ends'
+			return i + 1
+		end 'ends'
+	end 'each'
+	return n
+end 'liveCount'
+
+// through is the expression whose value e gives: e itself, or for a transparent try the expression it covers, whose
+// value is the try's own.
+export function through(t Tree, e NodeID) returns NodeID
+	var cur = e
+	while t.kindOf(cur) == NodeKind.tryExpr and isTransparent(t, e: cur) 'down'
+		cur = tryExprE(t, id: cur)
+	end 'down'
+	return cur
+end 'through'
+
+// isTransparent is whether a try's value is its expression's, with no other on a failure: it passes the failure on, or
+// leaves with a return, a break, a continue or a throw. A try that gives a value, or ignores the failure and has none,
+// is not.
+export function isTransparent(t Tree, e NodeID) returns bool
+	return tryExprValue(t, id: e) == 0 and not tryExprIgnore(t, id: e)
+end 'isTransparent'
+
+// propagates is whether a try has no 'otherwise', so it passes its failures to the try around it, or to the caller.
+export function propagates(t Tree, e NodeID) returns bool
+	return isTransparent(t, e: e) and tryExprRet(t, id: e) == 0 and tryExprBrk(t, id: e) == 0 and tryExprCont(t, id: e) == 0 and tryExprThr(t, id: e) == 0
+end 'propagates'

@@ -251,7 +251,12 @@ builder, when it indexes a pool), a view per row with an accessor per operand (`
 enums, records, constructors, getters (`binLeft(x)`), printer (`instrText`, `termText`) and visitors (interfaces with a
 generic dispatch) to `self/ir/ir_gen.maxon`; `builtingen` writes self's `Rt` beside it (`self/ir/runtime_gen.maxon`).
 The pools and the texts of a function's parts stay hand-written (`internal/ir/ir.go`, the builder,
-`self/ir/function.maxon`).
+`self/ir/function.maxon`). The lowering is ported to `self/ir/` function for function (`lowerer.maxon`, `lower*.maxon`,
+`drops.maxon`, `try.maxon`, `sharing.maxon`, `primitives.maxon`, `arrays.maxon`, `os.maxon`, `instances.maxon`, over the
+tables of `self/ast/tables.maxon` that the checker fills), entered by `ir.lowerModule` and printed by `ir.printIr`; the dispatch from an
+intrinsic to its `lower<Intrinsic>` and `rtUnit` are generated (`self/ir/intrinsics_gen.maxon`, `self/ir/runtime_gen.maxon`). Maxon has no closures,
+so what Go passes a function for (a scope, the branches of a conditional, the body of a counted loop, what to drop when a check
+fails) is a begin and an end call around the code in `self/ir/`, which emits the same instructions in the same order.
 
 The x64 encoder is generated from an instruction table, `internal/x64gen/table.go`, into `self/backend/x64_gen.maxon`. The
 Go compiler's own backend (`internal/backend/x64.go`) is not generated and goes when `self/` compiles itself; the table

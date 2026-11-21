@@ -1,0 +1,174 @@
+// InstanceSet is the instances one module needs, in the order they were found.
+export type InstanceSet
+	export var list as ast.FuncIDList
+	export var found as table.IntMap with bool
+
+	export static function new() returns InstanceSet
+		return InstanceSet{list: ast.FuncIDList.create(0), found: table.IntMap.new()}
+	end 'new'
+
+	// add notes an instance as found.
+	export function add(mutates self, instance ast.FuncID)
+		found.insert(instance as Count, value: true)
+		list.push(instance)
+	end 'add'
+
+	// has is whether the module found the instance. A module that lowers a call of an instance it did not find would
+	// depend on another module having made it, so lowering refuses it.
+	export function has(instance ast.FuncID) returns bool
+		return found.has(instance as Count)
+	end 'has'
+end 'InstanceSet'
+
+// typeDepth is how deeply instances nest in t: a parameter or a plain type is 0, and Box with (Box with Count) is 2. A body
+// that calls itself with a growing type argument has no end, which a limit on the depth finds.
+export function typeDepth(tt ast.TypeTable, t ast.TypeID) returns Count
+	let n = tt.entries[t as Count].typeArgs.count()
+	if n == 0 'plain'
+		return 0
+	end 'plain'
+	var deepest = 0 as Count
+	for i in 0 upto n 'args'
+		let d = typeDepth(tt, t: tt.entries[t as Count].typeArgs[i])
+		if d > deepest 'deeper'
+			deepest = d
+		end 'deeper'
+	end 'args'
+	return succ(deepest)
+end 'typeDepth'
+
+// applyAll is the list with every type replaced by its argument, where the parameters are bound.
+function applyAll(mutates tt ast.TypeTable, ts ast.TypeIDList, params ast.TypeIDList, args ast.TypeIDList) returns ast.TypeIDList
+	var out = ast.TypeIDList.create(0)
+	for i in 0 upto ts.count() 'each'
+		out.push(ast.substituteType(tt, t: ts[i], params: params, args: args))
+	end 'each'
+	return out
+end 'applyAll'
+
+// receiverOf is the object a call of the kind is made on, or none for a call that has none. A method call, a call through
+// a bound and a copy are written 'object.name(...)', so it is the object of the member the call names.
+export function receiverOf(p ast.Project, module diag.ModuleID, node ast.NodeID, kind ast.CallKind) returns ast.NodeID
+	if kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound or kind == ast.CallKind.callCopy 'member'
+		let callee = ast.callExprCallee(p.modules[ast.modIndex(module)].tree, id: node)
+		if p.modules[ast.modIndex(module)].tree.kindOf(callee) == ast.NodeKind.memberExpr 'named'
+			return ast.memberExprObj(p.modules[ast.modIndex(module)].tree, id: callee)
+		end 'named'
+	end 'member'
+	return 0 as ast.NodeID
+end 'receiverOf'
+
+// resolveCall is the function a call runs once the type parameters of the code it is in are bound: the target itself, or
+// the instance of a generic one, or for a call through a bound the method of the type that stands in for the parameter.
+export function resolveCall(mutates p ast.Project, module diag.ModuleID, node ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.FuncID
+	return resolveTarget(p, module: module, receiver: receiverOf(p, module: module, node: node, kind: info.kind), info: info, bindParams: bindParams, bindArgs: bindArgs)
+end 'resolveCall'
+
+// resolveTarget is resolveCall for a call whose object is already known.
+export function resolveTarget(mutates p ast.Project, module diag.ModuleID, receiver ast.NodeID, info ast.CallInfo, bindParams ast.TypeIDList, bindArgs ast.TypeIDList) returns ast.FuncID
+	if info.kind == ast.CallKind.callFunction or info.kind == ast.CallKind.callStatic or info.kind == ast.CallKind.callMethod 'direct'
+		if p.funcs.entries[info.fn as Count].generics.count() == 0 'plain'
+			return info.fn
+		end 'plain'
+		let args = applyAll(p.types, ts: info.typeArgs, params: bindParams, args: bindArgs)
+		return ast.instantiateFunc(p.funcs, tt: p.types, origin: info.fn, args: args)
+	end 'direct'
+	if info.kind == ast.CallKind.callBound 'bound'
+		// A frozen receiver lends its contents, so the method is the one of the type it holds.
+		let received = ast.substituteType(p.types, t: exprType(p, module: module, node: receiver), params: bindParams, args: bindArgs)
+		let recv = ast.contentType(p.types, t: received)
+		let origin = p.types.entries[recv as Count].effectiveOrigin()
+		let name = p.funcs.entries[info.fn as Count].name.clone()
+		match consumes p.types.entries[origin as Count].findMethod(name) 'found'
+			some(method) then return instantiateMethod(p, method: method, recv: recv)
+			none then panic("{ast.typeName(p.types, t: recv)} has no method '{name}' for the bound that declares it")
+		end 'found'
+	end 'bound'
+	panic("call kind {info.kind.name} has no function to resolve")
+end 'resolveTarget'
+
+// instantiateMethod is a method of the type recv: itself, or for one of a generic type the instance for the type's
+// arguments.
+function instantiateMethod(mutates p ast.Project, method ast.FuncID, recv ast.TypeID) returns ast.FuncID
+	if p.funcs.entries[method as Count].generics.count() == 0 'plain'
+		return method
+	end 'plain'
+	let args = ast.cloneTypeArgs(p.types.entries[recv as Count].typeArgs)
+	return ast.instantiateFunc(p.funcs, tt: p.types, origin: method, args: args)
+end 'instantiateMethod'
+
+// visitUses finds the instances that the calls a function records need, with the type parameters of the code bound.
+function visitUses(mutates p ast.Project, module diag.ModuleID, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, mutates found InstanceSet, mutates errs diag.ErrorList) returns bool
+	let node = p.funcs.entries[fn as Count].nodeID
+	var recorded = ast.NodeIDList.create(0)
+	match consumes p.typings[ast.modIndex(module)].funcUses.get(node as Count) 'recorded'
+		some(list) then recorded = list
+		none then _ = 0
+	end 'recorded'
+	for i in 0 upto recorded.count() 'each'
+		let info = callInfoAt(p, module: module, node: recorded[i])
+		let target = resolveCall(p, module: module, node: recorded[i], info: info, bindParams: bindParams, bindArgs: bindArgs)
+		if p.funcs.entries[target as Count].genericOrigin != ast.noFunc and not found.has(target) 'new'
+			found.add(target)
+			if not requireFinite(p, module: module, site: recorded[i], instance: target, errs: errs) 'deep'
+				return false
+			end 'deep'
+			if p.funcs.entries[target as Count].module == diag.stdlibID 'std'
+				panic("{funcSymbol(p, fid: target)} is a generic of the standard library, which has no body to lower")
+			end 'std'
+		end 'new'
+	end 'each'
+	return true
+end 'visitUses'
+
+// findInstances finds the instances of generic functions that one module needs, which is the code that lowering has to
+// make once for each, in that module's unit. It starts from the calls in the module's functions that are not generic, and
+// follows the calls in each instance's body, whichever module declares the generic, with the instance's type arguments
+// bound, until no new instance turns up. The result depends only on the module and on the generics it reaches, never on
+// which other modules exist or what they use, so a module's output is the same in any project that gives its imports
+// the same declarations. The instances are in the order they are found, so the result does not depend on how many
+// modules lower at once.
+//
+// callers are the module's functions that call a generic or go through a bound, as the check pass recorded them.
+export function findInstances(mutates p ast.Project, callers ast.FuncIDList, mutates errs diag.ErrorList) returns InstanceSet
+	var found = InstanceSet.new()
+	let unbound = ast.TypeIDList.create(0)
+	for i in 0 upto callers.count() 'callers'
+		let fn = callers[i]
+		if p.funcs.entries[fn as Count].generics.count() == 0 'plain'
+			let owner = p.funcs.entries[fn as Count].module
+			if not visitUses(p, module: owner, fn: fn, bindParams: unbound.clone(), bindArgs: unbound.clone(), found: found, errs: errs) 'deep'
+				return found
+			end 'deep'
+		end 'plain'
+	end 'callers'
+	var next = 0 as Count
+	while next < found.list.count() 'follow'
+		let instance = found.list[next]
+		let origin = p.funcs.entries[instance as Count].genericOrigin
+		let params = ast.cloneTypeArgs(p.funcs.entries[origin as Count].generics)
+		let args = ast.cloneTypeArgs(p.funcs.entries[instance as Count].typeArgs)
+		let owner = p.funcs.entries[origin as Count].module
+		if not visitUses(p, module: owner, fn: origin, bindParams: params, bindArgs: args, found: found, errs: errs) 'deep'
+			return found
+		end 'deep'
+		next = succ(next)
+	end 'follow'
+	return found
+end 'findInstances'
+
+// requireFinite refuses an instance whose type arguments nest without end: a generic function that calls itself with a
+// larger type each time would otherwise never run out of instances. Every module that reaches such an instance refuses it
+// at the call that asks for the too deep one, so which module found it first does not matter.
+function requireFinite(p ast.Project, module diag.ModuleID, site ast.NodeID, instance ast.FuncID, mutates errs diag.ErrorList) returns bool
+	let args = p.funcs.entries[instance as Count].typeArgs.clone()
+	for i in 0 upto args.count() 'each'
+		if typeDepth(p.types, t: args[i]) > ast.maxTypeDepth 'deep'
+			let origin = p.funcs.entries[instance as Count].genericOrigin
+			let message = "'{funcSymbol(p, fid: origin)}' needs a type that nests more than {ast.maxTypeDepth} levels deep, so the generic grows its own type argument without end; pass the same type argument on, or end the recursion"
+			diag.pushSiteError(errs, code: diag.errInstantiationTooDeep, message: message, module: module, offset: p.modules[ast.modIndex(module)].tree.startOf(site))
+			return false
+		end 'deep'
+	end 'each'
+	return true
+end 'requireFinite'

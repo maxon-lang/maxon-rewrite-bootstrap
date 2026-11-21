@@ -1,0 +1,380 @@
+// blockIndex is the place of a block in the lists a builder keeps by block.
+export function blockIndex(b BlockID) returns Count
+	return try b as Count otherwise panic("ir: a block that does not exist is used")
+end 'blockIndex'
+
+// SuccessorVisitor collects the blocks that a terminator can go to, in the order of its operands.
+export type SuccessorVisitor implements TermVisitor
+	export var out as BlockIDList
+
+	export static function new() returns SuccessorVisitor
+		return SuccessorVisitor{out: BlockIDList.create(0)}
+	end 'new'
+
+	export function visitJump(mutates self, f IrFunction, t Term)
+		out.push(jumpTarget(t))
+	end 'visitJump'
+
+	export function visitBranch(mutates self, f IrFunction, t Term)
+		out.push(branchIfTrue(t))
+		out.push(branchIfFalse(t))
+	end 'visitBranch'
+
+	export function visitSwitch(mutates self, f IrFunction, t Term)
+		let start = switchCasesStart(t)
+		for i in 0 upto switchCasesCount(t) 'each'
+			let at = try start + i otherwise panic("ir: a case list is out of range")
+			out.push(f.cases[at].target)
+		end 'each'
+		out.push(switchFallback(t))
+	end 'visitSwitch'
+
+	export function visitRet(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitRet'
+
+	export function visitTrap(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitTrap'
+
+	export function visitThrow(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitThrow'
+end 'SuccessorVisitor'
+
+// RenumberVisitor makes a terminator with the blocks it names in its record, not in the cases pool, renumbered.
+export type RenumberVisitor implements TermVisitor
+	export var newID as BlockIDList
+	export var out as Term
+
+	export static function new(consumes newID BlockIDList, consumes t Term) returns RenumberVisitor
+		return RenumberVisitor{newID: newID, out: t}
+	end 'new'
+
+	export function visitJump(mutates self, f IrFunction, t Term)
+		out.target = newID[blockIndex(t.target)]
+	end 'visitJump'
+
+	export function visitBranch(mutates self, f IrFunction, t Term)
+		out.target = newID[blockIndex(t.target)]
+		out.other = newID[blockIndex(t.other)]
+	end 'visitBranch'
+
+	export function visitSwitch(mutates self, f IrFunction, t Term)
+		out.target = newID[blockIndex(t.target)]
+	end 'visitSwitch'
+
+	export function visitRet(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitRet'
+
+	export function visitTrap(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitTrap'
+
+	export function visitThrow(mutates self, f IrFunction, t Term)
+		_ = 0
+	end 'visitThrow'
+end 'RenumberVisitor'
+
+// failTarget is the block an instruction goes to when its check fails, or noBlock for one that has no check.
+function failTarget(x Instr) returns BlockID
+	return match consumes instrFail(x) 'fail'
+		some(target) gives target
+		none gives noBlock
+	end 'fail'
+end 'failTarget'
+
+// setFail changes the block an instruction that can fail goes to.
+function setFail(mutates x Instr, fail BlockID)
+	if not instrFail(x).isSome() 'has'
+		panic("ir: an instruction that cannot fail has no failure block")
+	end 'has'
+	x.c = fail as Index
+end 'setFail'
+
+// Builder makes the IR of one function at a time. Instructions go into the block that is named, in any order of blocks,
+// and finish gives the function with its blocks in the order they were made, one after another in a single list, minus
+// the blocks nothing reaches.
+export type Builder
+	// f is the function under construction: its slots and registers are made as it goes, and the rest is filled in by
+	// finish.
+	export var f as IrFunction
+	export var instrs as InstrList
+	export var instrBlock as BlockIDList
+	export var terms as TermList
+
+	export static function new() returns Builder
+		return Builder{f: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count), instrs: InstrList.create(0), instrBlock: BlockIDList.create(0), terms: TermList.create(0)}
+	end 'new'
+
+	// start begins a function, forgetting the one before it.
+	export function start(mutates self, decl ast.FuncID, consumes name String, paramCount Count)
+		f = IrFunction.new(decl, name: name, paramCount: paramCount)
+		instrs = InstrList.create(0)
+		instrBlock = BlockIDList.create(0)
+		terms = TermList.create(0)
+	end 'start'
+
+	// newBlock makes a block, which comes after the blocks made before it.
+	export function newBlock(mutates self) returns BlockID
+		let n = terms.count()
+		terms.push(Term.make(TermKind.termNone))
+		return blockOf(n)
+	end 'newBlock'
+
+	// emit adds an instruction to the end of a block.
+	export function emit(mutates self, block BlockID, consumes i Instr)
+		instrs.push(i)
+		instrBlock.push(block)
+	end 'emit'
+
+	// terminate ends a block.
+	export function terminate(mutates self, block BlockID, consumes t Term)
+		terms[blockIndex(block)] = t
+	end 'terminate'
+
+	// terminated is whether a block has been ended.
+	export function terminated(block BlockID) returns bool
+		return terms[blockIndex(block)].kind != TermKind.termNone
+	end 'terminated'
+
+	export function str(mutates self, dst Reg, consumes text String) returns Instr
+		let n = f.strings.count()
+		f.strings.push(text)
+		return newStr(dst, text: indexOf(n))
+	end 'str'
+
+	// arguments adds the registers of a call to the pool and gives where they start.
+	function arguments(mutates self, args RegList) returns Reg
+		let start = regOf(f.args.count())
+		for i in 0 upto args.count() 'each'
+			f.args.push(args[i])
+		end 'each'
+		return start
+	end 'arguments'
+
+	function callee(mutates self, target ast.FuncID) returns Index
+		let n = f.callees.count()
+		f.callees.push(target)
+		return indexOf(n)
+	end 'callee'
+
+	export function typed(mutates self, ty ast.TypeID) returns Index
+		let n = f.types.count()
+		f.types.push(ty)
+		return indexOf(n)
+	end 'typed'
+
+	// call calls a function; dst is noReg for one whose value nothing reads.
+	export function call(mutates self, dst Reg, target ast.FuncID, args RegList) returns Instr
+		return self.throwingCall(dst, target: target, args: args, err: noReg)
+	end 'call'
+
+	// throwingCall calls a function that throws, whose error err receives.
+	export function throwingCall(mutates self, dst Reg, target ast.FuncID, args RegList, err Reg) returns Instr
+		let at = self.callee(target)
+		let start = self.arguments(args)
+		return newCall(dst, callee: at, argsStart: start, argsCount: regOf(args.count()), errReg: err)
+	end 'throwingCall'
+
+	// callRuntime calls a runtime entry. routine is the function the entry stores to call later, noFunc for every entry
+	// but the one that makes a cown.
+	export function callRuntime(mutates self, dst Reg, symbol Rt, args RegList, routine ast.FuncID) returns Instr
+		let start = self.arguments(args)
+		var stored = noRoutine
+		if routine != ast.noFunc 'stored'
+			stored = self.callee(routine)
+		end 'stored'
+		return newCallRuntime(dst, symbol: symbol, argsStart: start, argsCount: regOf(args.count()), routine: stored)
+	end 'callRuntime'
+
+	// behaviour adds the body of a `when` to the function, which the instruction that schedules it names by the index
+	// this gives.
+	export function behaviour(mutates self, consumes body IrFunction) returns Count
+		let n = f.behaviours.count()
+		f.behaviours.push(body)
+		return n
+	end 'behaviour'
+
+	// whenInstr schedules a behaviour that behaviour added.
+	export function whenInstr(mutates self, behaviour Count, cowns RegList, captures RegList) returns Instr
+		let start = self.arguments(cowns)
+		for i in 0 upto captures.count() 'each'
+			f.args.push(captures[i])
+		end 'each'
+		return newWhen(behaviour, cownsStart: start, cownsCount: regOf(cowns.count()), capturesCount: indexOf(captures.count()))
+	end 'whenInstr'
+
+	// drop drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old
+	// value of a place just read. Dropping a value drops what it owns, deeply by type, and a place that holds no value
+	// is dropped as a no-op, so a drop at the end of a scope needs no knowledge of the path that led there.
+	export function drop(mutates self, src Reg, ty ast.TypeID) returns Instr
+		return newDrop(src, ty: self.typed(ty))
+	end 'drop'
+
+	// dropSlot drops what a slot owns, if anything, and leaves it empty.
+	export function dropSlot(mutates self, slot Count, ty ast.TypeID) returns Instr
+		return newDropSlot(slot, ty: self.typed(ty))
+	end 'dropSlot'
+
+	// dropAt drops what the address holds, if anything, and leaves it empty: the old value of a field, an element or a
+	// mutates parameter that is about to be assigned.
+	export function dropAt(mutates self, addr Reg, ty ast.TypeID) returns Instr
+		return newDropAt(addr, ty: self.typed(ty))
+	end 'dropAt'
+
+	// copy is a deep copy of the owned value in src, which is left as it is: a new box for each record, union and array
+	// inside it, and a new string for each string that is not in the executable, so every part of the copy has an owner
+	// of its own to free it. A frozen value or a cown reference copies as another owner of the same box. ty is the type of
+	// the value, with an instance's type arguments applied, which is what tells the copy where the managed words of each
+	// box are.
+	export function copy(mutates self, dst Reg, src Reg, ty ast.TypeID) returns Instr
+		return newCopy(dst, src: src, ty: self.typed(ty))
+	end 'copy'
+
+	// switch is a terminator that goes to the target of the value that matches, or to def.
+	export function switch(mutates self, value Reg, values WordList, targets BlockIDList, def BlockID) returns Term
+		let first = f.cases.count()
+		for i in 0 upto values.count() 'each'
+			f.cases.push(SwitchCase.make(values[i], target: targets[i]))
+		end 'each'
+		return newSwitch(value, casesFirst: indexOf(first), casesCount: indexOf(values.count()), fallback: def)
+	end 'switch'
+
+	// failEdges lists, for each block, the blocks its instructions can fail to: those of block b are
+	// edges[edgeStart[b]] up to, not including, edges[edgeStart[b + 1]].
+	function failEdges(edgeStart Array with Count) returns BlockIDList
+		let n = terms.count()
+		var edges = BlockIDList.create(edgeStart[n])
+		var fill as Array with Count
+		fill = Array.create(0)
+		for blk in 0 upto n 'starts'
+			fill.push(edgeStart[blk])
+		end 'starts'
+		for i in 0 upto instrs.count() 'each'
+			let target = failTarget(instrs[i])
+			if target != noBlock 'fails'
+				let blk = blockIndex(instrBlock[i])
+				let at = fill[blk]
+				edges[at] = target
+				fill[blk] = try at + 1 otherwise panic("ir: a function has too many failure edges")
+			end 'fails'
+		end 'each'
+		return edges
+	end 'failEdges'
+
+	// markReachable finds the blocks that the entry reaches.
+	function markReachable() returns Array with bool
+		let n = terms.count()
+		if n == 0 'empty'
+			panic("ir: a function has no blocks")
+		end 'empty'
+		var edgeStart as Array with Count
+		edgeStart = Array.create(try n + 1 otherwise panic("ir: too many blocks"))
+		for i in 0 upto instrs.count() 'count'
+			if failTarget(instrs[i]) != noBlock 'fails'
+				let at = try blockIndex(instrBlock[i]) + 1 otherwise panic("ir: too many blocks")
+				edgeStart[at] = try edgeStart[at] + 1 otherwise panic("ir: a block has too many failure edges")
+			end 'fails'
+		end 'count'
+		for blk in 0 upto n 'sum'
+			edgeStart[blk + 1] = try edgeStart[blk + 1] + edgeStart[blk] otherwise panic("ir: a function has too many failure edges")
+		end 'sum'
+		let edges = self.failEdges(edgeStart)
+		var reached as Array with bool
+		reached = Array.create(n)
+		var work = BlockIDList.create(0)
+		work.push(0 as BlockID)
+		reached[0] = true
+		while work.count() > 0 'walk'
+			let blk = blockIndex(try work.pop() otherwise panic("ir: the work list is empty"))
+			var next = SuccessorVisitor.new()
+			visitTerm(next, f: f, t: terms[blk])
+			let after = try blk + 1 otherwise panic("ir: too many blocks")
+			for at in edgeStart[blk] upto edgeStart[after] 'fails'
+				next.out.push(edges[at])
+			end 'fails'
+			for i in 0 upto next.out.count() 'visit'
+				let target = blockIndex(next.out[i])
+				if not reached[target] 'new'
+					reached[target] = true
+					work.push(next.out[i])
+				end 'new'
+			end 'visit'
+		end 'walk'
+		return reached
+	end 'markReachable'
+
+	// finish ends the function: the blocks that nothing reaches are dropped, the others keep their order and are
+	// numbered from 0. The builder can start another function.
+	export function finish(mutates self) returns IrFunction
+		let reached = self.markReachable()
+		let n = terms.count()
+		var counts as Array with Count
+		counts = Array.create(n)
+		for i in 0 upto instrs.count() 'perBlock'
+			let blk = blockIndex(instrBlock[i])
+			counts[blk] = try counts[blk] + 1 otherwise panic("ir: a block has too many instructions")
+		end 'perBlock'
+		var newID = BlockIDList.create(n)
+		var places as Array with Count
+		places = Array.create(n)
+		var kept = 0 as Count
+		var total = 0 as Count
+		for blk in 0 upto n 'number'
+			if reached[blk] 'live'
+				newID[blk] = blockOf(kept)
+				places[blk] = total
+				kept = try kept + 1 otherwise panic("ir: too many blocks")
+				total = try total + counts[blk] otherwise panic("ir: a function has too many instructions")
+			end 'live'
+		end 'number'
+		var blocks = BlockList.create(0)
+		for blk in 0 upto n 'blocks'
+			if reached[blk] 'live'
+				var renumber = RenumberVisitor.new(newID.clone(), t: terms[blk].clone())
+				visitTerm(renumber, f: f, t: terms[blk])
+				let stop = try places[blk] + counts[blk] otherwise panic("ir: a function has too many instructions")
+				blocks.push(Block.make(places[blk], endAt: stop, term: renumber.out.clone()))
+			end 'live'
+		end 'blocks'
+		var order as Array with Count
+		order = Array.create(total)
+		for i in 0 upto instrs.count() 'order'
+			let blk = blockIndex(instrBlock[i])
+			if reached[blk] 'live'
+				order[places[blk]] = i
+				places[blk] = try places[blk] + 1 otherwise panic("ir: a function has too many instructions")
+			end 'live'
+		end 'order'
+		var placed = InstrList.create(0)
+		for k in 0 upto total 'place'
+			var x = instrs[order[k]].clone()
+			let target = failTarget(x)
+			if target != noBlock 'fails'
+				setFail(x, fail: newID[blockIndex(target)])
+			end 'fails'
+			placed.push(x)
+		end 'place'
+		var done = exchange(f, value: IrFunction.new(ast.noFunc, name: "", paramCount: 0 as Count))
+		done.instrs = placed
+		done.blocks = blocks
+		renumberCases(done, newID: newID)
+		return done
+	end 'finish'
+end 'Builder'
+
+// renumberCases numbers the targets of the cases that the kept switches use.
+function renumberCases(mutates f IrFunction, newID BlockIDList)
+	for blk in 0 upto f.blocks.count() 'each'
+		let t = f.blocks[blk].term.clone()
+		if t.kind == TermKind.termSwitch 'switch'
+			let start = switchCasesStart(t)
+			for i in 0 upto switchCasesCount(t) 'cases'
+				let at = try start + i otherwise panic("ir: a case list is out of range")
+				f.cases[at].target = newID[blockIndex(f.cases[at].target)]
+			end 'cases'
+		end 'switch'
+	end 'each'
+end 'renumberCases'

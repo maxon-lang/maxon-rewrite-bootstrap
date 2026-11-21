@@ -1,0 +1,124 @@
+// What the check pass recorded about the nodes of a module's bodies, read the way the lowering needs it. A node is looked
+// up in the typing of the module it is in, and one the checker recorded nothing about is a hole in the checker, never a
+// default.
+
+// exprType is the type the checker gave an expression.
+export function exprType(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.TypeID
+	match p.typings[ast.modIndex(module)].types.get(node as Count) 'hit'
+		some(t) then return t
+		none then panic("lower: the type at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'exprType'
+
+// isConsumed is whether the ownership pass found the expression consuming its value.
+export function isConsumed(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	return match p.typings[ast.modIndex(module)].consumed.get(node as Count) 'hit'
+		some(c) gives c
+		none gives false
+	end 'hit'
+end 'isConsumed'
+
+export function nameInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NameInfo
+	return match consumes p.typings[ast.modIndex(module)].names.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the name at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'nameInfoAt'
+
+export function memberInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.MemberInfo
+	return match consumes p.typings[ast.modIndex(module)].members.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the member at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'memberInfoAt'
+
+export function callInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.CallInfo
+	return match consumes p.typings[ast.modIndex(module)].calls.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the call at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'callInfoAt'
+
+export function structLitInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.StructLitInfo
+	return match consumes p.typings[ast.modIndex(module)].structLits.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the struct literal at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'structLitInfoAt'
+
+export function patternInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.PatternInfo
+	return match consumes p.typings[ast.modIndex(module)].patterns.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the pattern at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'patternInfoAt'
+
+export function whenInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.WhenInfo
+	return match consumes p.typings[ast.modIndex(module)].whens.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the behaviour at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'whenInfoAt'
+
+export function arithInfoAt(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.ArithInfo
+	return match consumes p.typings[ast.modIndex(module)].arith.get(node as Count) 'hit'
+		some(info) gives info
+		none panic("lower: the arithmetic at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'arithInfoAt'
+
+// localOfNode is the local a let, a for or the handler of a try declares: none for a 'for' named '_' and for a handler
+// that binds no error.
+export function localOfNode(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.LocalID
+	return match p.typings[ast.modIndex(module)].nodeLocals.get(node as Count) 'hit'
+		some(id) gives id
+		none gives ast.noLocal
+	end 'hit'
+end 'localOfNode'
+
+// jumpTargetOf is the loop or match that a break or a continue leaves or repeats.
+export function jumpTargetOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NodeID
+	return match p.typings[ast.modIndex(module)].jumps.get(node as Count) 'hit'
+		some(target) gives target
+		none panic("lower: the jump at node {node} of module {module} was not recorded by the check pass")
+	end 'hit'
+end 'jumpTargetOf'
+
+// localEntry is a local of the function whose body is in the module.
+export function localEntry(p ast.Project, module diag.ModuleID, id ast.LocalID) returns ast.LocalEntry
+	return p.typings[ast.modIndex(module)].locals[id as Count].clone()
+end 'localEntry'
+
+// isByRef is whether the local is the address of the caller's storage.
+export function isByRef(local ast.LocalEntry) returns bool
+	return local.isParam and not local.isSelf and (local.conv == ast.Convention.convMutates or local.conv == ast.Convention.convSets)
+end 'isByRef'
+
+// isByAddress is whether the caller passes the argument's address, so the callee writes the caller's storage.
+export function isByAddress(conv ast.Convention) returns bool
+	return conv == ast.Convention.convMutates or conv == ast.Convention.convSets
+end 'isByAddress'
+
+// ownsValue is whether the callee owns what it is given: the caller's value moves in.
+export function ownsValue(conv ast.Convention) returns bool
+	return conv == ast.Convention.convConsumes or conv == ast.Convention.convDestructs
+end 'ownsValue'
+
+// isStorage is whether an expression reads a value that already lives somewhere, in a variable, a field or an element,
+// and so borrows it, as opposed to making a new value.
+export function isStorage(p ast.Project, module diag.ModuleID, node ast.NodeID) returns bool
+	let mi = ast.modIndex(module)
+	let e = ast.through(p.modules[mi].tree, e: node)
+	let k = p.modules[mi].tree.kindOf(e)
+	if k == ast.NodeKind.nameExpr 'name'
+		let kind = nameInfoAt(p, module: module, node: e).kind
+		return kind == ast.NameKind.nameLocal or kind == ast.NameKind.nameSelfField
+	end 'name'
+	if k == ast.NodeKind.selfExpr or k == ast.NodeKind.indexExpr 'place'
+		return true
+	end 'place'
+	if k == ast.NodeKind.memberExpr 'member'
+		return memberInfoAt(p, module: module, node: e).kind == ast.MemberKind.memberField
+	end 'member'
+	return false
+end 'isStorage'

@@ -1,0 +1,114 @@
+// pushScope opens a scope.
+export function pushScope(mutates l Lowerer, block bool)
+	l.scopes.push(Scope.make(block))
+end 'pushScope'
+
+// popScope leaves the innermost scope, dropping what it holds.
+export function popScope(mutates l Lowerer, p ast.Project)
+	unwind(l, p: p, depth: pred(l.scopes.count()))
+	try l.scopes.pop() otherwise ignore
+end 'popScope'
+
+// unwind drops what the scopes from depth inwards hold, innermost first, and keeps them open: it is the code of a jump
+// out of them, and the code after the jump is still inside.
+export function unwind(mutates l Lowerer, p ast.Project, depth Count)
+	var i = l.scopes.count()
+	while i > depth 'scopes'
+		i = pred(i)
+		var n = l.scopes[i].drops.count()
+		while n > 0 'drops'
+			n = pred(n)
+			emitDrop(l, d: l.scopes[i].drops[n].clone())
+		end 'drops'
+	end 'scopes'
+end 'unwind'
+
+function emitDrop(mutates l Lowerer, d PendingDrop)
+	if d.inSlot 'slot'
+		emitDropSlot(l, slot: d.slot, ty: d.ty)
+	end 'slot' else 'reg'
+		emitDropReg(l, src: d.reg, ty: d.ty)
+	end 'reg'
+end 'emitDrop'
+
+// ownLocal makes the block that is open drop a local when it ends. The slot holds nothing until the local is given a
+// value, and nothing again once it is moved from, and dropping an empty slot does nothing, so the drop needs no knowledge
+// of which path ran.
+export function ownLocal(mutates l Lowerer, mutates p ast.Project, slot Count, t ast.TypeID)
+	if kindOf(l, p: p, t: t) != IrKind.kindManaged 'scalar'
+		return
+	end 'scalar'
+	var i = l.scopes.count()
+	while i > 0 'scopes'
+		i = pred(i)
+		if l.scopes[i].block 'block'
+			let ty = dropType(l, p: p, t: t)
+			l.scopes[i].drops.push(PendingDrop.ofSlot(slot, ty: ty))
+			return
+		end 'block'
+	end 'scopes'
+	panic("lower: a local outside any block")
+end 'ownLocal'
+
+// ownTemp makes the innermost scope drop a fresh value that nothing owns.
+function ownTemp(mutates l Lowerer, mutates p ast.Project, v Reg, t ast.TypeID)
+	let top = pred(l.scopes.count())
+	let ty = dropType(l, p: p, t: t)
+	l.scopes[top].drops.push(PendingDrop.ofReg(v, ty: ty))
+end 'ownTemp'
+
+// dropValue drops an owned value now.
+function dropValue(mutates l Lowerer, mutates p ast.Project, v Reg, t ast.TypeID)
+	if regKind(l, v: v) == IrKind.kindManaged 'managed'
+		let ty = dropType(l, p: p, t: t)
+		emitDropReg(l, src: v, ty: ty)
+	end 'managed'
+end 'dropValue'
+
+// dropAt drops the value held at an address that is about to be assigned: the old value of a field, an element or an
+// mutates parameter.
+function dropAt(mutates l Lowerer, mutates p ast.Project, addr Reg, t ast.TypeID)
+	if kindOf(l, p: p, t: t) == IrKind.kindManaged 'managed'
+		let ty = dropType(l, p: p, t: t)
+		emitDropAt(l, addr: addr, ty: ty)
+	end 'managed'
+end 'dropAt'
+
+// storeField assigns a field of the type t, dropping its old value first.
+function storeField(mutates l Lowerer, mutates p ast.Project, obj Reg, index Count, t ast.TypeID, v Reg)
+	if kindOf(l, p: p, t: t) == IrKind.kindManaged 'managed'
+		let addr = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newFieldAddr(addr, obj: obj, offset: wordOffset(index)))
+		dropAt(l, p: p, addr: addr, t: t)
+	end 'managed'
+	emit(l, i: newStoreField(obj, offset: wordOffset(index), src: v))
+end 'storeField'
+
+// fetch reads a slot that held a value only on its way from one place to another, such as the result of a conditional. A
+// managed value is moved out, so the slot is empty again and nothing drops it twice.
+export function fetch(mutates l Lowerer, slot Count) returns Reg
+	let d = newReg(l, kind: slotKind(l, slot: slot))
+	if slotKind(l, slot: slot) == IrKind.kindManaged 'managed'
+		emit(l, i: newMoveSlot(d, slot: slot))
+	end 'managed' else 'scalar'
+		emit(l, i: newLoadSlot(d, slot: slot))
+	end 'scalar'
+	return d
+end 'fetch'
+
+// dropType is the type a drop names: the type the body writes, with the instance's arguments applied. A value that holds
+// something only the interpreter has is dropped by the interpreter alone, so a function that drops one is refused the way
+// one that makes it is. The refusal is at the function, and only when nothing else in it is refused, since a function that
+// is refused at a place already is not made better by another and its refusals stay in source order.
+function dropType(mutates l Lowerer, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
+	let ty = applyType(l, p: p, t: t)
+	if l.b.f.refusals.count() == 0 'unrefused'
+		requireNative(l, p: p, site: diag.Site.make(p.funcs.entries[l.fn as Count].module, offset: functionOffset(l, p: p)), t: ty)
+	end 'unrefused'
+	return ty
+end 'dropType'
+
+// functionOffset is where the function being lowered is declared.
+function functionOffset(l Lowerer, p ast.Project) returns diag.U32
+	return p.modules[ast.modIndex(p.funcs.entries[l.origin as Count].module)].tree.startOf(p.funcs.entries[l.origin as Count].nodeID)
+end 'functionOffset'

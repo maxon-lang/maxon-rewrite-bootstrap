@@ -1,0 +1,180 @@
+// lowerMatch lowers a match, as a statement when resultType is none and as an expression of that type otherwise.
+function lowerMatch(mutates l Lowerer, mutates p ast.Project, core ast.NodeID, resultType ast.TypeID) returns Reg
+	let subjectNode = ast.matchCoreSubject(p.modules[l.mi].tree, id: core)
+	let applied = applyType(l, p: p, t: exprType(p, module: l.module, node: subjectNode))
+	let st = ast.contentType(p.types, t: applied)
+	let mark = l.pending.count()
+	let subject = lowerRead(l, p: p, e: subjectNode)
+	// A subject that the match consumes is the match's from here: each arm takes it apart before anything can fail.
+	popPending(l, n: mark)
+	let join = l.b.newBlock()
+	pushJumps(l, node: core, brk: join, cont: noBlock)
+	var hasResult = false
+	var result = 0 as Count
+	if resultType != ast.noType 'valued'
+		hasResult = true
+		result = l.b.f.newSlot(kindOf(l, p: p, t: resultType))
+	end 'valued'
+	let takesApart = ast.matchCoreConsumes(p.modules[l.mi].tree, id: core)
+	let armsRef = ast.matchCoreArmsRef(p.modules[l.mi].tree, id: core)
+	for a in 0 upto p.modules[l.mi].tree.listLen(armsRef) 'arms'
+		let arm = p.modules[l.mi].tree.listAt(armsRef, index: a) as ast.NodeID
+		let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
+		let body = l.b.newBlock()
+		let next = l.b.newBlock()
+		if ast.matchArmIsDefault(p.modules[l.mi].tree, id: arm) 'default'
+			goTo(l, target: body)
+		end 'default' else 'patterns'
+			for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'each'
+				testPattern(l, p: p, pat: p.modules[l.mi].tree.listAt(patternsRef, index: i) as ast.NodeID, st: st, subject: subject, body: body)
+			end 'each'
+			goTo(l, target: next)
+		end 'patterns'
+		l.cur = body
+		if takesApart 'takeApart'
+			pushScope(l, block: true)
+			takeApart(l, p: p, arm: arm, subject: subject, st: st)
+		end 'takeApart' else 'borrow'
+			borrowPayloads(l, p: p, arm: arm, subject: subject)
+		end 'borrow'
+		let form = ast.matchArmForm(p.modules[l.mi].tree, id: arm)
+		if form == ast.ArmKind.armThen 'then'
+			lowerStmt(l, p: p, s: ast.matchArmAction(p.modules[l.mi].tree, id: arm))
+		end 'then' else if form == ast.ArmKind.armGives 'gives'
+			pushScope(l, block: false)
+			storeConverted(l, p: p, slot: result, e: ast.matchArmValue(p.modules[l.mi].tree, id: arm), target: resultType)
+			popScope(l, p: p)
+		end 'gives' else if form == ast.ArmKind.armPanic 'panics'
+			pushScope(l, block: false)
+			_ = lowerExpr(l, p: p, e: ast.matchArmValue(p.modules[l.mi].tree, id: arm))
+			popScope(l, p: p)
+		end 'panics' else 'other'
+			panic("lower: unhandled match arm kind")
+		end 'other'
+		if takesApart 'popApart'
+			popScope(l, p: p)
+		end 'popApart'
+		goTo(l, target: join)
+		l.cur = next
+	end 'arms'
+	if not l.b.terminated(l.cur) 'open'
+		l.b.terminate(l.cur, t: newTrap())
+	end 'open'
+	popJumps(l)
+	l.cur = join
+	if not hasResult 'noResult'
+		return konst(l, value: 0 as Word)
+	end 'noResult'
+	return fetch(l, slot: result)
+end 'lowerMatch'
+
+// borrowPayloads binds the payload an arm names to a borrow of the subject's box.
+function borrowPayloads(mutates l Lowerer, mutates p ast.Project, arm ast.NodeID, subject Reg)
+	let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
+	for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'patterns'
+		let pat = p.modules[l.mi].tree.listAt(patternsRef, index: i) as ast.NodeID
+		let info = patternInfoAt(p, module: l.module, node: pat)
+		let bindings = info.bindings
+		for j in 0 upto bindings.count() 'bindings'
+			if bindings[j] != ast.noLocal 'named'
+				let local = localEntry(p, module: l.fnModule, id: bindings[j])
+				let kind = kindOf(l, p: p, t: local.ty)
+				let d = newReg(l, kind: kind)
+				emit(l, i: newLoadField(d, obj: subject, offset: fieldOffset(j, tagged: true)))
+				emit(l, i: newStoreSlot(local.slot, src: d, borrow: kind == IrKind.kindManaged))
+			end 'named'
+		end 'bindings'
+	end 'patterns'
+end 'borrowPayloads'
+
+// takeApart is the start of an arm of a match that consumes its subject: each payload the arm names moves out of the box
+// into a local that owns it, which leaves the field empty, and then the box is dropped, which skips the empty fields and
+// drops the payloads the arm does not name.
+function takeApart(mutates l Lowerer, mutates p ast.Project, arm ast.NodeID, subject Reg, st ast.TypeID)
+	let patternsRef = ast.matchArmPatternsRef(p.modules[l.mi].tree, id: arm)
+	for i in 0 upto p.modules[l.mi].tree.listLen(patternsRef) 'patterns'
+		let pat = p.modules[l.mi].tree.listAt(patternsRef, index: i) as ast.NodeID
+		let info = patternInfoAt(p, module: l.module, node: pat)
+		let bindings = info.bindings
+		for j in 0 upto bindings.count() 'bindings'
+			if bindings[j] != ast.noLocal 'named'
+				let local = localEntry(p, module: l.fnModule, id: bindings[j])
+				let offset = fieldOffset(j, tagged: true)
+				let kind = kindOf(l, p: p, t: local.ty)
+				let d = newReg(l, kind: kind)
+				if kind == IrKind.kindManaged 'managed'
+					let addr = newReg(l, kind: IrKind.kindScalar)
+					emit(l, i: newFieldAddr(addr, obj: subject, offset: offset))
+					emit(l, i: newMoveAt(d, addr: addr))
+				end 'managed' else 'scalar'
+					emit(l, i: newLoadField(d, obj: subject, offset: offset))
+				end 'scalar'
+				emit(l, i: newStoreSlot(local.slot, src: d, borrow: false))
+				ownLocal(l, p: p, slot: local.slot, t: local.ty)
+			end 'named'
+		end 'bindings'
+	end 'patterns'
+	dropValue(l, p: p, v: subject, t: st)
+end 'takeApart'
+
+function testPattern(mutates l Lowerer, mutates p ast.Project, pat ast.NodeID, st ast.TypeID, subject Reg, body BlockID)
+	let unsigned = ast.isUnsignedInt(p.types, t: st)
+	let fail = l.b.newBlock()
+	let form = ast.patternForm(p.modules[l.mi].tree, id: pat)
+	if form == ast.PatternKind.patCase 'case'
+		var scrutinee = subject
+		if p.types.entries[st as Count].kind == ast.TypeKind.unionTy 'union'
+			scrutinee = tagReg(l, box: subject)
+		end 'union'
+		let idx = konst(l, value: try patternInfoAt(p, module: l.module, node: pat).caseIdx as Word otherwise panic("ir: a case index is out of range"))
+		let cmp = compare(l, op: CmpOp.cmpEq, a: scrutinee, b: idx, unsigned: false)
+		l.b.terminate(l.cur, t: newBranch(cmp, ifTrue: body, ifFalse: fail))
+	end 'case' else if form == ast.PatternKind.patLiteral and st == p.builtins.stringTy 'string'
+		let testBlock = l.cur
+		let lit = lowerExpr(l, p: p, e: ast.patternValue(p.modules[l.mi].tree, id: pat))
+		let eq = runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(subject, b: lit))
+		l.b.terminate(testBlock, t: newBranch(eq, ifTrue: body, ifFalse: fail))
+	end 'string' else if form == ast.PatternKind.patLiteral 'literal'
+		let valueNode = ast.patternValue(p.modules[l.mi].tree, id: pat)
+		var value = 0 as Word
+		if p.modules[l.mi].tree.kindOf(valueNode) == ast.NodeKind.boolLit 'bool'
+			if ast.boolLitValue(p.modules[l.mi].tree, id: valueNode) 'true'
+				value = 1
+			end 'true'
+		end 'bool' else 'int'
+			value = constBits(p, t: exprType(p, module: l.module, node: valueNode))
+		end 'int'
+		let c = konst(l, value: value)
+		let cmp = compare(l, op: CmpOp.cmpEq, a: subject, b: c, unsigned: unsigned)
+		l.b.terminate(l.cur, t: newBranch(cmp, ifTrue: body, ifFalse: fail))
+	end 'literal' else if form == ast.PatternKind.patRange 'range'
+		let lo = constValueOf(p, t: exprType(p, module: l.module, node: ast.patternValue(p.modules[l.mi].tree, id: pat)))
+		var hi = constValueOf(p, t: exprType(p, module: l.module, node: ast.patternHigh(p.modules[l.mi].tree, id: pat)))
+		if not ast.patternInclusive(p.modules[l.mi].tree, id: pat) 'exclusive'
+			hi = hi.sub(ast.I128.one())
+		end 'exclusive'
+		let upper = l.b.newBlock()
+		let loC = konst(l, value: wordOf(lo))
+		let geCmp = compare(l, op: CmpOp.cmpGe, a: subject, b: loC, unsigned: unsigned)
+		l.b.terminate(l.cur, t: newBranch(geCmp, ifTrue: upper, ifFalse: fail))
+		l.cur = upper
+		let hiC = konst(l, value: wordOf(hi))
+		let leCmp = compare(l, op: CmpOp.cmpLe, a: subject, b: hiC, unsigned: unsigned)
+		l.b.terminate(l.cur, t: newBranch(leCmp, ifTrue: body, ifFalse: fail))
+	end 'range' else 'other'
+		panic("lower: unhandled pattern kind")
+	end 'other'
+	l.cur = fail
+end 'testPattern'
+
+// constValueOf is the value of an integer constant, which is the type the checker gave the expression that writes it.
+function constValueOf(p ast.Project, t ast.TypeID) returns ast.I128
+	if p.types.entries[t as Count].kind != ast.TypeKind.constInt 'notConst'
+		panic("lower: {ast.typeName(p.types, t: t)} is not an integer constant")
+	end 'notConst'
+	return p.types.entries[t as Count].minVal.clone()
+end 'constValueOf'
+
+function constBits(p ast.Project, t ast.TypeID) returns Word
+	return wordOf(constValueOf(p, t: t))
+end 'constBits'

@@ -1,35 +1,41 @@
-// The parts of internal/ir that ir_gen.maxon reads: a function's pools, which its records index, and the texts the
-// printer puts together. The lowering port fills in the rest of IrFunction.
+// The parts of internal/ir that ir_gen.maxon reads: a function's records and the pools that they index, and the texts the
+// printer puts together.
+
+export enum IrKind
+	kindScalar
+	kindManaged
+end 'IrKind'
+
+export typealias IrKindList = Array with IrKind
 
 export typealias RegList = Array with Reg
 
-// The layout of the boxes that lowering makes and that the backend copies and drops: a word to each field, and a first
-// word for a union's case index.
-export let wordBytes = 8
+export typealias BlockIDList = Array with BlockID
 
-export let tagOffset = 0
+export typealias WordList = Array with Word
 
-// boxBytes is the size of a record or union box: a word per field (one for a box with none), and a first word for a
-// union's case index. The backend sizes the boxes it copies with it, so a copy has the layout lowering gives a value.
-export function boxBytes(fields Count, tagged bool) returns Count
-	var words = fields
-	if words == 0 'empty'
-		words = 1
-	end 'empty'
-	if tagged 'tag'
-		words = try words + 1 otherwise panic("ir: a box has more fields than memory can hold")
-	end 'tag'
-	return try words * wordBytes otherwise panic("ir: a box has more fields than memory can hold")
-end 'boxBytes'
+// kindName is how the printer writes the kind of a slot.
+export function kindName(k IrKind) returns String
+	return match k 'k'
+		kindManaged gives "managed"
+		kindScalar gives "scalar"
+	end 'k'
+end 'kindName'
 
-// fieldOffset is where the field with this index sits in a box: after the case index when the box is a union's.
-export function fieldOffset(index Count, tagged bool) returns Count
-	var words = index
-	if tagged 'tag'
-		words = try words + 1 otherwise panic("ir: a box has more fields than memory can hold")
-	end 'tag'
-	return try words * wordBytes otherwise panic("ir: a box has more fields than memory can hold")
-end 'fieldOffset'
+// regOf is the register that a count of the registers made so far names.
+export function regOf(n Count) returns Reg
+	return try n as Reg otherwise panic("ir: a function has more registers than a register can name")
+end 'regOf'
+
+// blockOf is the block that a count of the blocks made so far names.
+export function blockOf(n Count) returns BlockID
+	return try n as BlockID otherwise panic("ir: a function has more blocks than a block can name")
+end 'blockOf'
+
+// indexOf is the index into a pool that a count of its elements names.
+export function indexOf(n Count) returns Index
+	return try n as Index otherwise panic("ir: a pool has more elements than an index can name")
+end 'indexOf'
 
 // SwitchCase is a value of a switch and the block it goes to.
 export type SwitchCase
@@ -43,15 +49,7 @@ end 'SwitchCase'
 
 export typealias CaseList = Array with SwitchCase
 
-// IrKind says whether a slot or a register can own a value, which a frame zeroes and a drop reads.
-export enum IrKind
-	kindScalar
-	kindManaged
-end 'IrKind'
-
-export typealias IrKindList = Array with IrKind
-
-// Block is a run of instructions, instrs[first] up to instrs[endAt] of its function, and how it ends.
+// Block is a run of instructions, instrs[first] up to but not including instrs[endAt], of its function, and how it ends.
 export type Block
 	export var first as Count
 	export var endAt as Count
@@ -64,25 +62,67 @@ end 'Block'
 
 export typealias BlockList = Array with Block
 
-// IrFunction is a function's IR: its records and the pools that they index.
+// Refusal is a place in the source that lowered to something the backend cannot run yet. Lowering still completes, so
+// the IR stays whole for the interpreter, and the driver turns the first refusal of each function into an error before
+// any code is generated.
+export type Refusal
+	export var module as diag.ModuleID
+	export var offset as diag.U32
+	export var code as String
+	export var message as String
+
+	export static function make(module diag.ModuleID, offset diag.U32, consumes code String, consumes message String) returns Refusal
+		return Refusal{module: module, offset: offset, code: code, message: message}
+	end 'make'
+end 'Refusal'
+
+export typealias RefusalList = Array with Refusal
+
+// IrFunction is a function's IR: the instructions of all its blocks in one list, block after block, and the pools that
+// the instructions index.
 export type IrFunction
 	export var decl as ast.FuncID
+	// name is what the function is called when that is not its declaration's symbol: a behaviour body is named for the
+	// function it is in, and an instance of a generic function that holds one has one for each instance.
 	export var name as String
 	export var paramCount as Count
 	export var slots as IrKindList
 	export var regs as IrKindList
 	export var instrs as InstrList
 	export var blocks as BlockList
+	// The pools, which the c of an instruction and a range of its a and b index.
 	export var args as RegList
 	export var types as ast.TypeIDList
 	export var callees as ast.FuncIDList
 	export var strings as ast.StringList
 	export var cases as CaseList
+	// refusals are the places in the source that cannot be compiled yet, in source order.
+	export var refusals as RefusalList
+	// usesArrays is whether the function calls an array entry, which the backend then links the array runtime for.
+	export var usesArrays as bool
+	// usesBytes is whether the function calls a byte array entry, which the backend then links the byte array runtime for.
+	export var usesBytes as bool
+	// usesOs is whether the function calls an OS entry, which the backend then links the OS runtime for.
+	export var usesOs as bool
+	// behaviours are the bodies of the `when` statements in the function, in source order. A `when` in one of them has its
+	// body in that one.
 	export var behaviours as IrFunctionList
 
 	export static function new(decl ast.FuncID, consumes name String, paramCount Count) returns IrFunction
-		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), behaviours: IrFunctionList.create(0)}
+		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), refusals: RefusalList.create(0), usesArrays: false, usesBytes: false, usesOs: false, behaviours: IrFunctionList.create(0)}
 	end 'new'
+
+	export function newReg(mutates self, kind IrKind) returns Reg
+		let n = regs.count()
+		regs.push(kind)
+		return regOf(n)
+	end 'newReg'
+
+	export function newSlot(mutates self, kind IrKind) returns Count
+		let n = slots.count()
+		slots.push(kind)
+		return n
+	end 'newSlot'
 
 	export function stringAt(i Index) returns String
 		return strings[try i as Count otherwise panic("ir: a string index is out of range")].clone()
@@ -158,3 +198,49 @@ export function quote(s String) returns String
 	b.push(34 as Byte)
 	return String.from(b)
 end 'quote'
+
+// symbol is the name of the function in the IR text and in a report.
+export function irSymbol(p ast.Project, f IrFunction) returns String
+	if f.name != "" 'named'
+		return f.name.clone()
+	end 'named'
+	return funcSymbol(p, fid: f.decl)
+end 'irSymbol'
+
+function putText(mutates out ByteArray, s String)
+	out.append(s.toByteArray())
+end 'putText'
+
+// printIr writes the text of a function and of the bodies of its behaviours, as --emit-ir does.
+export function printIr(p ast.Project, f IrFunction, mutates out ByteArray)
+	putText(out, s: "function {irSymbol(p, f: f)} params {f.paramCount}")
+	if f.slots.count() > 0 'slots'
+		putText(out, s: " slots [")
+		for i in 0 upto f.slots.count() 'each'
+			if i > 0 'sep'
+				putText(out, s: ", ")
+			end 'sep'
+			putText(out, s: "s{i} {kindName(f.slots[i])}")
+		end 'each'
+		putText(out, s: "]")
+	end 'slots'
+	putText(out, s: "\n")
+	for b in 0 upto f.blocks.count() 'blocks'
+		putText(out, s: "b{b}:\n")
+		for at in f.blocks[b].first upto f.blocks[b].endAt 'instrs'
+			putText(out, s: "  {instrText(p, f: f, x: f.instrs[at])}\n")
+		end 'instrs'
+		putText(out, s: "  {termText(f, t: f.blocks[b].term)}\n")
+	end 'blocks'
+	putText(out, s: "\n")
+	for i in 0 upto f.behaviours.count() 'behaviours'
+		printIr(p, f: f.behaviours[i], out: out)
+	end 'behaviours'
+end 'printIr'
+
+// irText is the text of a function.
+export function irText(p ast.Project, f IrFunction) returns String
+	var out = ByteArray.create(0)
+	printIr(p, f: f, out: out)
+	return String.from(out)
+end 'irText'

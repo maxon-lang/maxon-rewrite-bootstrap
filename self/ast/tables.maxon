@@ -53,6 +53,12 @@ export let failRange = 8 as Byte
 
 export let failArithmetic = 7 as Byte
 
+// failBelow is a result below the minimum of its type that the word still holds.
+export let failBelow = 16 as Byte
+
+// failAbove is a result above the maximum of its type that the word still holds.
+export let failAbove = 32 as Byte
+
 export type ArithInfo
 	export var operand as TypeID
 	export var word as TypeID
@@ -123,9 +129,12 @@ end 'CallInfo'
 export type StructLitInfo
 	export var ty as TypeID
 	export var fieldOrder as Array with Count
+	// ordered are the value expressions of the fields in the order of the record's fields; a field the literal leaves to
+	// its default has none (the node 0).
+	export var ordered as NodeIDList
 
 	export static function make(ty TypeID, consumes fieldOrder Array with Count) returns StructLitInfo
-		return StructLitInfo{ty: ty, fieldOrder: fieldOrder}
+		return StructLitInfo{ty: ty, fieldOrder: fieldOrder, ordered: NodeIDList.create(0)}
 	end 'make'
 end 'StructLitInfo'
 

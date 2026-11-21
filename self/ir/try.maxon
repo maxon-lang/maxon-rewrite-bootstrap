@@ -1,0 +1,232 @@
+// enterTry starts a try whose failures go to target, naming the error in the slot binding (noSlot for none).
+export function enterTry(mutates l Lowerer, target BlockID, binding Index) returns TryHandler
+	let depth = l.scopes.count()
+	let mark = l.scopes[pred(depth)].drops.count()
+	let h = TryHandler.make(false, target: target, depth: depth, mark: mark, pending: l.pending.count(), binding: binding)
+	l.handlers.push(h.clone())
+	return h
+end 'enterTry'
+
+// enterPropagating starts a try that passes its failures to the caller, and gives whether it added a handler: inside
+// another try, its failures go to that one's.
+function enterPropagating(mutates l Lowerer) returns bool
+	if l.handlers.count() > 0 'inside'
+		return false
+	end 'inside'
+	l.handlers.push(TryHandler.make(true, target: noBlock, depth: 0 as Count, mark: 0 as Count, pending: 0 as Count, binding: noSlot))
+	return true
+end 'enterPropagating'
+
+export function leaveTry(mutates l Lowerer)
+	try l.handlers.pop() otherwise ignore
+end 'leaveTry'
+
+// failure is the block an operation goes to when it fails with the error errorCase, or with the error in the register err
+// (a case plus 1, as a function that throws gives it) when that is not noReg.
+export function failure(mutates l Lowerer, p ast.Project, errorCase Count, err Reg) returns BlockID
+	if l.handlers.count() == 0 'unhandled'
+		panic("lower: an operation of {funcSymbol(p, fid: l.fn)} that can fail is outside every try; the range analysis should have refused it")
+	end 'unhandled'
+	let h = l.handlers[pred(l.handlers.count())].clone()
+	var error = err
+	let stub = l.b.newBlock()
+	let resume = l.cur
+	l.cur = stub
+	if h.propagates 'propagates'
+		dropPending(l, first: 0 as Count, past: l.pending.count())
+		unwind(l, p: p, depth: 0 as Count)
+		if error == noReg 'literal'
+			error = konst(l, value: try (succ(errorCase)) as Word otherwise panic("ir: an error case is out of range"))
+		end 'literal'
+		l.b.terminate(l.cur, t: newThrow(error))
+	end 'propagates' else 'handled'
+		dropPending(l, first: h.pending, past: l.pending.count())
+		unwindTo(l, p: p, depth: h.depth, mark: h.mark)
+		if h.binding != noSlot 'binding'
+			var v = noReg
+			if error == noReg 'literal'
+				v = konst(l, value: try errorCase as Word otherwise panic("ir: an error case is out of range"))
+			end 'literal' else 'register'
+				v = newReg(l, kind: IrKind.kindScalar)
+				let one = konst(l, value: 1 as Word)
+				emit(l, i: newBin(v, op: BinOp.binSub, left: error, right: one, unsigned: false, fail: noBlock))
+			end 'register'
+			emit(l, i: newStoreSlot(slotIndex(h.binding), src: v, borrow: false))
+		end 'binding'
+		l.b.terminate(l.cur, t: newJump(h.target))
+	end 'handled'
+	l.cur = resume
+	return stub
+end 'failure'
+
+// dropPending drops the values in flight from index from to index to, newest first.
+function dropPending(mutates l Lowerer, first Count, past Count)
+	var i = past
+	while i > first 'back'
+		i = pred(i)
+		emitDrop(l, d: l.pending[i].clone())
+	end 'back'
+end 'dropPending'
+
+// unwindTo drops what the scopes from depth inwards hold, and what the scope below them took on after it held mark drops.
+function unwindTo(mutates l Lowerer, p ast.Project, depth Count, mark Count)
+	unwind(l, p: p, depth: depth)
+	let below = pred(depth)
+	var i = l.scopes[below].drops.count()
+	while i > mark 'back'
+		i = pred(i)
+		emitDrop(l, d: l.scopes[below].drops[i].clone())
+	end 'back'
+end 'unwindTo'
+
+// visitThrowStmt lowers a throw: a failure with the error its value is a case of, which goes to the innermost try's
+// handler, or with none out of the function.
+function visitThrowStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let err = newReg(l, kind: IrKind.kindScalar)
+	let value = lowerExpr(l, p: p, e: ast.throwStmtValue(p.modules[l.mi].tree, id: s))
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(err, op: BinOp.binAdd, left: value, right: one, unsigned: false, fail: noBlock))
+	let added = enterPropagating(l)
+	let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+	seal(l, t: newJump(stub))
+	if added 'leave'
+		leaveTry(l)
+	end 'leave'
+end 'visitThrowStmt'
+
+// visitTryStmt lowers a try block: the body with its failures going to the handler, or, with no handler, onwards.
+function visitTryStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	if not ast.tryStmtHasOtherwise(p.modules[l.mi].tree, id: s) 'plain'
+		let added = enterPropagating(l)
+		lowerBlock(l, p: p, ref: ast.tryStmtBodyRef(p.modules[l.mi].tree, id: s))
+		if added 'leave'
+			leaveTry(l)
+		end 'leave'
+		return
+	end 'plain'
+	let handler = l.b.newBlock()
+	let join = l.b.newBlock()
+	var binding = noSlot
+	let local = localOfNode(p, module: l.module, node: s)
+	if local != ast.noLocal 'bound'
+		binding = indexOf(localEntry(p, module: l.fnModule, id: local).slot)
+	end 'bound'
+	_ = enterTry(l, target: handler, binding: binding)
+	lowerBlock(l, p: p, ref: ast.tryStmtBodyRef(p.modules[l.mi].tree, id: s))
+	leaveTry(l)
+	goTo(l, target: join)
+	l.cur = handler
+	lowerBlock(l, p: p, ref: ast.tryStmtHandlerRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: join)
+	l.cur = join
+end 'visitTryStmt'
+
+// visitTryExpr lowers a try that gives a value on a failure: its expression and the value 'otherwise' gives are the two
+// branches of a value, as a conditional's are. One that ignores a failure has no value, and its failure goes on after it.
+function visitTryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	if ast.tryExprIgnore(p.modules[l.mi].tree, id: e) 'ignore'
+		let join = l.b.newBlock()
+		_ = enterTry(l, target: join, binding: noSlot)
+		pushScope(l, block: false)
+		_ = lowerExpr(l, p: p, e: ast.tryExprE(p.modules[l.mi].tree, id: e))
+		popScope(l, p: p)
+		leaveTry(l)
+		goTo(l, target: join)
+		return konst(l, value: 0 as Word)
+	end 'ignore'
+	let typ = exprType(p, module: l.module, node: e)
+	let result = l.b.f.newSlot(kindOf(l, p: p, t: typ))
+	let other = l.b.newBlock()
+	let join = l.b.newBlock()
+	_ = enterTry(l, target: other, binding: noSlot)
+	pushScope(l, block: false)
+	storeConverted(l, p: p, slot: result, e: ast.tryExprE(p.modules[l.mi].tree, id: e), target: typ)
+	popScope(l, p: p)
+	leaveTry(l)
+	goTo(l, target: join)
+	l.cur = other
+	pushScope(l, block: false)
+	storeConverted(l, p: p, slot: result, e: ast.tryExprValue(p.modules[l.mi].tree, id: e), target: typ)
+	popScope(l, p: p)
+	goTo(l, target: join)
+	return fetch(l, slot: result)
+end 'visitTryExpr'
+
+// lowerThrough lowers a try whose value is its expression's, which passes a failure on or leaves the statement with a
+// return, a break, a continue or a throw.
+function lowerThrough(mutates l Lowerer, mutates p ast.Project, t ast.NodeID) returns Reg
+	if ast.propagates(p.modules[l.mi].tree, e: t) 'propagates'
+		let added = enterPropagating(l)
+		let v = lowerExpr(l, p: p, e: ast.tryExprE(p.modules[l.mi].tree, id: t))
+		if added 'leave'
+			leaveTry(l)
+		end 'leave'
+		return v
+	end 'propagates'
+	let exit = l.b.newBlock()
+	let h = enterTry(l, target: exit, binding: noSlot)
+	let v = lowerExpr(l, p: p, e: ast.tryExprE(p.modules[l.mi].tree, id: t))
+	leaveTry(l)
+	let resume = l.cur
+	l.cur = exit
+	let saved = atTryStartBegin(l, p: p, h: h)
+	let ret = ast.tryExprRet(p.modules[l.mi].tree, id: t)
+	let brk = ast.tryExprBrk(p.modules[l.mi].tree, id: t)
+	let cont = ast.tryExprCont(p.modules[l.mi].tree, id: t)
+	let thr = ast.tryExprThr(p.modules[l.mi].tree, id: t)
+	if ret != 0 'ret'
+		visitReturnStmt(l, p: p, s: ret)
+	end 'ret' else if brk != 0 'brk'
+		visitBreakStmt(l, p: p, s: brk)
+	end 'brk' else if cont != 0 'cont'
+		visitContinueStmt(l, p: p, s: cont)
+	end 'cont' else if thr != 0 'thr'
+		visitThrowStmt(l, p: p, s: thr)
+	end 'thr' else 'none'
+		panic("lower: a try with no handler is lowered as one that passes its failures on")
+	end 'none'
+	atTryStartEnd(l, h: h, saved: saved)
+	l.cur = resume
+	return v
+end 'lowerThrough'
+
+// TrySaved is what code that runs after a failure sets aside: the values in flight where the failure happened, and the
+// drops the try's code made in the scope below it.
+export type TrySaved
+	export var inFlight as PendingList
+	export var made as PendingList
+
+	export static function make(consumes inFlight PendingList, consumes made PendingList) returns TrySaved
+		return TrySaved{inFlight: inFlight, made: made}
+	end 'make'
+end 'TrySaved'
+
+// atTryStartBegin starts lowering code that runs after a failure has left what the try covered: it leaves the statement
+// too, so the values in flight where the try began are dropped, and what the try's code made, which the failure dropped
+// already, is not dropped again.
+function atTryStartBegin(mutates l Lowerer, p ast.Project, h TryHandler) returns TrySaved
+	let inFlight = l.pending.clone()
+	dropPending(l, first: 0 as Count, past: h.pending)
+	l.pending = PendingList.create(0)
+	let below = pred(h.depth)
+	var made = PendingList.create(0)
+	for i in h.mark upto l.scopes[below].drops.count() 'made'
+		made.push(l.scopes[below].drops[i].clone())
+	end 'made'
+	while l.scopes[below].drops.count() > h.mark 'cut'
+		try l.scopes[below].drops.pop() otherwise ignore
+	end 'cut'
+	return TrySaved.make(inFlight, made: made)
+end 'atTryStartBegin'
+
+// atTryStartEnd puts back what atTryStartBegin set aside.
+function atTryStartEnd(mutates l Lowerer, h TryHandler, saved TrySaved)
+	let below = pred(h.depth)
+	while l.scopes[below].drops.count() > h.mark 'cut'
+		try l.scopes[below].drops.pop() otherwise ignore
+	end 'cut'
+	for i in 0 upto saved.made.count() 'made'
+		l.scopes[below].drops.push(saved.made[i].clone())
+	end 'made'
+	l.pending = saved.inFlight.clone()
+end 'atTryStartEnd'

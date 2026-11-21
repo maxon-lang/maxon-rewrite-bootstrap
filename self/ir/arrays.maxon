@@ -1,0 +1,170 @@
+// arrayOf is the runtime of the array type t, read through the binding and through a frozen value.
+function arrayOf(mutates l Lowerer, mutates p ast.Project, site diag.Site, t ast.TypeID) returns ArrayBox
+	let bt = builtinOf(l, p: p, collection: t)
+	if p.types.entries[bt as Count].kind != ast.TypeKind.builtinArray 'notArray'
+		panic("lower: {ast.typeName(p.types, t: t)} is not an array")
+	end 'notArray'
+	return ArrayBox.make(site.clone(), ty: bt)
+end 'arrayOf'
+
+// arrayPacked is whether the array's box holds each element in one byte: an array of an integer type whose range fits in
+// a Byte, as Array with Byte (ByteArray) is. Every other array holds a word to an element. Every operation on an array
+// asks this, so the two boxes are never mistaken for each other.
+function arrayPacked(p ast.Project, box ArrayBox) returns bool
+	let elem = ast.typeArgsOf(p.types, t: box.ty)[0]
+	if p.types.entries[elem as Count].kind != ast.TypeKind.intRange 'notInt'
+		return false
+	end 'notInt'
+	let byte = p.builtins.byteTy
+	return p.types.entries[byte as Count].minVal.le(p.types.entries[elem as Count].minVal) and p.types.entries[byte as Count].maxVal.ge(p.types.entries[elem as Count].maxVal)
+end 'arrayPacked'
+
+function arrayElem(p ast.Project, box ArrayBox) returns ast.TypeID
+	return ast.typeArgsOf(p.types, t: box.ty)[0]
+end 'arrayElem'
+
+function arrayNew(mutates l Lowerer, mutates p ast.Project, box ArrayBox) returns Reg
+	if arrayPacked(p, box: box) 'packed'
+		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesNew, kind: IrKind.kindManaged, args: RegList.create(0))
+	end 'packed'
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayNew, kind: IrKind.kindManaged, args: RegList.create(0))
+end 'arrayNew'
+
+function arrayLength(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg) returns Reg
+	if arrayPacked(p, box: box) 'packed'
+		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesLen, kind: IrKind.kindScalar, args: argsOf1(arr))
+	end 'packed'
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayLen, kind: IrKind.kindScalar, args: argsOf1(arr))
+end 'arrayLength'
+
+// arrayInsert moves v in at index, which may be the length.
+function arrayInsert(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg)
+	if arrayPacked(p, box: box) 'packed'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesInsert, args: argsOf3(arr, b: index, c: v))
+		return
+	end 'packed'
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtArrayInsert, args: argsOf3(arr, b: index, c: v))
+end 'arrayInsert'
+
+function arrayPush(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, v Reg)
+	let n = arrayLength(l, p: p, box: box, arr: arr)
+	arrayInsert(l, p: p, box: box, arr: arr, index: n, v: v)
+end 'arrayPush'
+
+// arrayRemove moves the element at index out.
+function arrayRemove(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, box: box) 'packed'
+		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesRemove, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+	end 'packed'
+	let elem = arrayElem(p, box: box)
+	let kind = kindOf(l, p: p, t: elem)
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayRemove, kind: kind, args: argsOf2(arr, b: index))
+end 'arrayRemove'
+
+// arrayLoad reads the element at index: a byte, a scalar, or a managed element lent for as long as the array is not
+// changed.
+function arrayLoad(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, box: box) 'packed'
+		return entry(l, p: p, site: box.site, symbol: Rt.rtBytesGet, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+	end 'packed'
+	let d = newReg(l, kind: kindOf(l, p: p, t: arrayElem(p, box: box)))
+	let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
+	emit(l, i: newLoadAt(d, addr: addr))
+	return d
+end 'arrayLoad'
+
+// arrayStore writes v to the element at index, dropping the element it replaces.
+function arrayStore(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg, v Reg)
+	if arrayPacked(p, box: box) 'packed'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesSet, args: argsOf3(arr, b: index, c: v))
+		return
+	end 'packed'
+	let addr = arrayAddress(l, p: p, box: box, arr: arr, index: index)
+	dropAt(l, p: p, addr: addr, t: arrayElem(p, box: box))
+	emit(l, i: newStoreAt(addr, src: v))
+end 'arrayStore'
+
+// arrayAddress is where the element at index of an array of words is. A byte has no address a word can be read through:
+// its place is a slot instead.
+function arrayAddress(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
+	if arrayPacked(p, box: box) 'packed'
+		panic("lower: an element of {ast.typeName(p.types, t: box.ty)} has no word address")
+	end 'packed'
+	return entry(l, p: p, site: box.site, symbol: Rt.rtArrayElem, kind: IrKind.kindScalar, args: argsOf2(arr, b: index))
+end 'arrayAddress'
+
+// arrayPlace is the address a call that takes the element at index by address is given: the element's own for an array of
+// words, and for an array of bytes a slot that holds the element until writeBack stores it back.
+function arrayPlace(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns Reg
+	if not arrayPacked(p, box: box) 'words'
+		return arrayAddress(l, p: p, box: box, arr: arr, index: index)
+	end 'words'
+	let slot = l.b.f.newSlot(IrKind.kindScalar)
+	let element = arrayLoad(l, p: p, box: box, arr: arr, index: index)
+	emit(l, i: newStoreSlot(slot, src: element, borrow: false))
+	l.writeBacks.push(WriteBack.make(box.clone(), arr: arr, index: index, slot: slot))
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newSlotAddr(d, slot: slot))
+	return d
+end 'arrayPlace'
+
+// writeBack stores the slots of the places taken since mark back into their elements.
+function writeBack(mutates l Lowerer, mutates p ast.Project, mark Count)
+	for i in mark upto l.writeBacks.count() 'each'
+		let w = l.writeBacks[i].clone()
+		let v = load(l, slot: w.slot)
+		arrayStore(l, p: p, box: w.box, arr: w.arr, index: w.index, v: v)
+	end 'each'
+	while l.writeBacks.count() > mark 'cut'
+		try l.writeBacks.pop() otherwise ignore
+	end 'cut'
+end 'writeBack'
+
+// arrayAppendCopy pushes a copy of each element of other, which is only read. The length of other is read once, before
+// the first push.
+function arrayAppendCopy(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, other Reg)
+	if arrayPacked(p, box: box) 'packed'
+		entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppend, args: argsOf2(arr, b: other))
+		return
+	end 'packed'
+	let n = arrayLength(l, p: p, box: box, arr: other)
+	let loop = countedLoopBegin(l, limit: n)
+	let i = countedLoopIndex(l, loop: loop)
+	let element = arrayLoad(l, p: p, box: box, arr: other, index: i)
+	let copy = copyValue(l, p: p, site: box.site, v: element, t: arrayElem(p, box: box))
+	arrayPush(l, p: p, box: box, arr: arr, v: copy)
+	countedLoopEnd(l, loop: loop)
+end 'arrayAppendCopy'
+
+function requirePacked(p ast.Project, box ArrayBox)
+	if not arrayPacked(p, box: box) 'words'
+		panic("lower: {ast.typeName(p.types, t: box.ty)} holds no bytes")
+	end 'words'
+end 'requirePacked'
+
+// arrayAppendText pushes the UTF-8 bytes of a String, which only an array of bytes holds as they are.
+function arrayAppendText(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, text Reg)
+	requirePacked(p, box: box)
+	entryVoid(l, p: p, site: box.site, symbol: Rt.rtBytesAppendStr, args: argsOf2(arr, b: text))
+end 'arrayAppendText'
+
+// arrayText is a String of the bytes of an array of bytes.
+function arrayText(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg) returns Reg
+	requirePacked(p, box: box)
+	return entry(l, p: p, site: box.site, symbol: Rt.rtBytesToString, kind: IrKind.kindManaged, args: argsOf1(arr))
+end 'arrayText'
+
+// arrayBoundsBegin fails with indexOutOfBounds unless index is below the length; the block it gives is where the operation
+// goes on, and the one being lowered is where it fails, which failUnlessEnd ends after the code between them has dropped
+// what the operation was given.
+function arrayBoundsBegin(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg) returns BlockID
+	let n = arrayLength(l, p: p, box: box, arr: arr)
+	let below = compare(l, op: CmpOp.cmpLt, a: index, b: n, unsigned: true)
+	return failUnlessBegin(l, cond: below)
+end 'arrayBoundsBegin'
+
+// arrayInBounds fails with indexOutOfBounds unless index is below the length.
+function arrayInBounds(mutates l Lowerer, mutates p ast.Project, box ArrayBox, arr Reg, index Reg)
+	let ok = arrayBoundsBegin(l, p: p, box: box, arr: arr, index: index)
+	failUnlessEnd(l, p: p, errorCase: ast.errorIndexOutOfBounds, ok: ok)
+end 'arrayInBounds'

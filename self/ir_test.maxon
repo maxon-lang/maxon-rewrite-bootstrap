@@ -1,0 +1,302 @@
+// The lowering needs the bodies check, which is not ported yet, so these build functions the way the lowering does, with
+// its own helpers over a project made by hand, and compare the text of the IR with what the Go compiler prints under
+// --emit-ir for the same program.
+
+function linesText(lines ast.StringList) returns String
+	var b = ByteArray.create(0)
+	for i in 0 upto lines.count() 'each'
+		b.append(lines[i].toByteArray())
+		b.push(10 as Byte)
+	end 'each'
+	return String.from(b)
+end 'linesText'
+
+function expectIr(label String, got String, want ast.StringList)
+	let text = linesText(want)
+	if got != text 'differs'
+		panic("{label}: the IR is\n{got}but the Go compiler prints\n{text}")
+	end 'differs'
+end 'expectIr'
+
+// irProject is a project of one module that has a function with a body of one statement's worth of nodes, which the
+// functions of the tests are declared in.
+function irProject() returns ast.Project
+	var p = ast.Project.new("")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
+	p.rootModule = 0 as diag.ModuleID
+	return p
+end 'irProject'
+
+// irFunction declares a function of the project's module, which the lowering reads its parameters from, and gives the
+// node it is declared at.
+function irFunction(mutates p ast.Project, name String, params Count) returns ast.FuncID
+	let node = p.modules[0].tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
+	for i in 0 upto params 'params'
+		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: ast.Convention.convLet))
+		entry.paramTypes.push(p.builtins.countTy)
+	end 'params'
+	return ast.allocFunc(p.funcs, f: entry)
+end 'irFunction'
+
+// irLocal declares a local of a function that is not a parameter, in the slot it is given.
+function irLocal(mutates p ast.Project, fn ast.FuncID, name String, ty ast.TypeID, slot Count)
+	var entry = ast.LocalEntry.make(name.clone(), ty: ty, isVar: true, isParam: false, conv: ast.Convention.convLet, definedAt: 0 as ast.NodeID)
+	entry.slot = slot
+	let id = p.typings[0].allocLocal(entry)
+	let node = p.funcs.entries[fn as Count].nodeID
+	var ids = ast.LocalIDList.create(0)
+	match consumes p.typings[0].funcLocals.get(node as Count) 'known'
+		some(list) then ids = list
+		none then _ = 0
+	end 'known'
+	ids.push(id)
+	p.typings[0].funcLocals.insert(node as Count, value: ids)
+end 'irLocal'
+
+// irNode makes a node of the module that the checker typed.
+function irNode(mutates p ast.Project, kind ast.NodeKind, ty ast.TypeID) returns ast.NodeID
+	let node = p.modules[0].tree.alloc(kind, start: 0 as diag.U32)
+	ast.setNodeType(p.typings[0], node: node, ty: ty)
+	return node
+end 'irNode'
+
+// The function `sum`: the sum of its two parameters, or 0 when it does not fit.
+//
+//	function sum(a Count, b Count) returns Count
+//		return try a + b otherwise 0
+//	end 'sum'
+function testSum()
+	var p = irProject()
+	let sum = irFunction(p, name: "sum", params: 2 as Count)
+	var l = ir.Lowerer.new(ir.InstanceSet.new())
+	ir.begin(l, p: p, fn: sum, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), name: "")
+	ir.pushScope(l, block: true)
+	let result = l.b.f.newSlot(ir.IrKind.kindScalar)
+	let other = l.b.newBlock()
+	let join = l.b.newBlock()
+	_ = ir.enterTry(l, target: other, binding: ir.noSlot)
+	ir.pushScope(l, block: false)
+	let a = ir.paramReg(l, index: 0 as Count, kind: ir.IrKind.kindScalar)
+	let b = ir.paramReg(l, index: 1 as Count, kind: ir.IrKind.kindScalar)
+	let d = ir.newReg(l, kind: ir.IrKind.kindScalar)
+	let stub = ir.failure(l, p: p, errorCase: ast.errorOverflow, err: ir.noReg)
+	ir.emit(l, i: ir.newBin(d, op: ir.BinOp.binAdd, left: a, right: b, unsigned: true, fail: stub))
+	ir.emit(l, i: ir.newStoreSlot(result, src: d, borrow: false))
+	ir.popScope(l, p: p)
+	ir.leaveTry(l)
+	ir.goTo(l, target: join)
+	l.cur = other
+	let zero = ir.konst(l, value: 0 as ir.Word)
+	ir.emit(l, i: ir.newStoreSlot(result, src: zero, borrow: false))
+	ir.goTo(l, target: join)
+	let value = ir.fetch(l, slot: result)
+	ir.unwind(l, p: p, depth: 0 as Count)
+	ir.seal(l, t: ir.newRet(value))
+	ir.popScope(l, p: p)
+	let tail = ir.konst(l, value: 0 as ir.Word)
+	l.b.terminate(l.cur, t: ir.newRet(tail))
+	let f = l.b.finish()
+	var want = ast.StringList.create(0)
+	want.push("function sum params 2 slots [s0 scalar]")
+	want.push("b0:")
+	want.push("  %0 = param 0")
+	want.push("  %1 = param 1")
+	want.push("  %2 = add.u %0, %1 else b3")
+	want.push("  store s0, %2")
+	want.push("  jump b2")
+	want.push("b1:")
+	want.push("  %3 = const 0")
+	want.push("  store s0, %3")
+	want.push("  jump b2")
+	want.push("b2:")
+	want.push("  %4 = load s0")
+	want.push("  ret %4")
+	want.push("b3:")
+	want.push("  jump b1")
+	want.push("")
+	expectIr("sum", got: ir.irText(p, f: f), want: want)
+end 'testSum'
+
+// A switch's cases live in a pool, so the blocks that nothing reaches are dropped from the numbering of its targets too.
+function testSwitch()
+	var p = irProject()
+	let f = irFunction(p, name: "f", params: 0 as Count)
+	var b = ir.Builder.new()
+	b.start(f, name: "", paramCount: 0 as Count)
+	let entry = b.newBlock()
+	let dead = b.newBlock()
+	let one = b.newBlock()
+	let other = b.newBlock()
+	let v = b.f.newReg(ir.IrKind.kindScalar)
+	b.emit(entry, i: ir.newConst(v, value: 1 as ir.Word))
+	b.emit(dead, i: ir.newConst(v, value: 2 as ir.Word))
+	b.emit(other, i: ir.newConst(v, value: 3 as ir.Word))
+	b.emit(one, i: ir.newConst(v, value: 4 as ir.Word))
+	var values = ir.WordList.create(0)
+	values.push(7 as ir.Word)
+	var targets = ir.BlockIDList.create(0)
+	targets.push(one)
+	let sw = b.switch(v, values: values, targets: targets, def: other)
+	b.terminate(entry, t: sw)
+	b.terminate(dead, t: ir.newTrap())
+	b.terminate(one, t: ir.newRet(v))
+	b.terminate(other, t: ir.newRet(v))
+	let done = b.finish()
+	var want = ast.StringList.create(0)
+	want.push("function f params 0")
+	want.push("b0:")
+	want.push("  %0 = const 1")
+	want.push("  switch %0 [7: b1] default b2")
+	want.push("b1:")
+	want.push("  %0 = const 4")
+	want.push("  ret %0")
+	want.push("b2:")
+	want.push("  %0 = const 3")
+	want.push("  ret %0")
+	want.push("")
+	expectIr("switch", got: ir.irText(p, f: done), want: want)
+end 'testSwitch'
+
+// A call, a branch, a loop, an array push and a drop: the function `main` of
+//
+//	function helper(a Count, b Count) returns Count
+//		return a
+//	end 'helper'
+//
+//	function main() returns ExitCode
+//		var xs as Array with Count
+//		xs = Array.create(3)
+//		xs.push(7)
+//		let h = helper(1, b: 2)
+//		if h == 1 'one'
+//			print("x")
+//		end 'one'
+//		return 0
+//	end 'main'
+function testMain()
+	var p = irProject()
+	let helper = irFunction(p, name: "helper", params: 2 as Count)
+	let main = irFunction(p, name: "main", params: 0 as Count)
+	var ofCount = ast.TypeIDList.create(0)
+	let countTy = p.builtins.countTy
+	ofCount.push(countTy)
+	let arrayOrigin = p.builtins.arrayOrigin
+	let arrayTy = ast.instantiateType(p.types, origin: arrayOrigin, args: ofCount)
+	irLocal(p, fn: main, name: "xs", ty: arrayTy, slot: 0 as Count)
+	irLocal(p, fn: main, name: "h", ty: countTy, slot: 1 as Count)
+	let createNode = irNode(p, kind: ast.NodeKind.callExpr, ty: arrayTy)
+	let receiverNode = irNode(p, kind: ast.NodeKind.nameExpr, ty: arrayTy)
+	let createSite = ir.CallSite.make(createNode, info: ast.CallInfo.make(ast.CallKind.callStatic, fn: ast.noFunc, receiverTy: ast.noType), receiver: 0 as ast.NodeID, ordered: ast.NodeIDList.create(0))
+	let pushSite = ir.CallSite.make(createNode, info: ast.CallInfo.make(ast.CallKind.callMethod, fn: ast.noFunc, receiverTy: arrayTy), receiver: receiverNode, ordered: ast.NodeIDList.create(0))
+	var l = ir.Lowerer.new(ir.InstanceSet.new())
+	ir.begin(l, p: p, fn: main, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), name: "")
+	ir.pushScope(l, block: true)
+	// xs = Array.create(3)
+	ir.pushScope(l, block: false)
+	let count = ir.konst(l, value: 3 as ir.Word)
+	let created = ir.lowerArrayCreate(l, p: p, c: createSite, recv: ir.noReg, args: ir.argsOf1(count))
+	ir.emitDropSlot(l, slot: 0 as Count, ty: arrayTy)
+	ir.emit(l, i: ir.newStoreSlot(0 as Count, src: created, borrow: false))
+	ir.popScope(l, p: p)
+	ir.ownLocal(l, p: p, slot: 0 as Count, t: arrayTy)
+	// xs.push(7)
+	ir.pushScope(l, block: false)
+	let xs = ir.load(l, slot: 0 as Count)
+	let seven = ir.konst(l, value: 7 as ir.Word)
+	_ = ir.lowerArrayPush(l, p: p, c: pushSite, recv: xs, args: ir.argsOf1(seven))
+	ir.popScope(l, p: p)
+	// let h = helper(1, b: 2)
+	ir.pushScope(l, block: false)
+	let argA = ir.konst(l, value: 1 as ir.Word)
+	let argB = ir.konst(l, value: 2 as ir.Word)
+	let h = ir.newReg(l, kind: ir.IrKind.kindScalar)
+	ir.emitCall(l, dst: h, target: helper, args: ir.argsOf2(argA, b: argB))
+	ir.emit(l, i: ir.newStoreSlot(1 as Count, src: h, borrow: false))
+	ir.popScope(l, p: p)
+	// if h == 1 'one'
+	ir.pushScope(l, block: false)
+	let thenBlock = l.b.newBlock()
+	let join = l.b.newBlock()
+	let hv = ir.load(l, slot: 1 as Count)
+	let one = ir.konst(l, value: 1 as ir.Word)
+	let same = ir.compare(l, op: ir.CmpOp.cmpEq, a: hv, b: one, unsigned: true)
+	l.b.terminate(l.cur, t: ir.newBranch(same, ifTrue: thenBlock, ifFalse: join))
+	l.cur = thenBlock
+	ir.pushScope(l, block: true)
+	let text = ir.strReg(l, value: "x")
+	let handle = ir.newReg(l, kind: ir.IrKind.kindScalar)
+	ir.emit(l, i: ir.newLoadGlobal(handle, symbol: ir.Rt.rtStdout))
+	ir.emitCallRuntime(l, dst: ir.noReg, symbol: ir.Rt.rtWrite, args: ir.argsOf2(handle, b: text), routine: ast.noFunc)
+	_ = ir.konst(l, value: 0 as ir.Word)
+	ir.popScope(l, p: p)
+	ir.goTo(l, target: join)
+	ir.popScope(l, p: p)
+	// return 0
+	ir.pushScope(l, block: false)
+	let status = ir.konst(l, value: 0 as ir.Word)
+	ir.unwind(l, p: p, depth: 0 as Count)
+	ir.seal(l, t: ir.newRet(status))
+	ir.popScope(l, p: p)
+	ir.popScope(l, p: p)
+	let tail = ir.konst(l, value: 0 as ir.Word)
+	l.b.terminate(l.cur, t: ir.newRet(tail))
+	let f = l.b.finish()
+	var want = ast.StringList.create(0)
+	want.push("function main params 0 slots [s0 managed, s1 scalar, s2 scalar, s3 scalar]")
+	want.push("b0:")
+	want.push("  %0 = const 3")
+	want.push("  %1 = runtime rt.array.new()")
+	want.push("  %2 = const 0")
+	want.push("  store s2, %2")
+	want.push("  store s3, %0")
+	want.push("  jump b1")
+	want.push("b1:")
+	want.push("  %3 = load s2")
+	want.push("  %4 = load s3")
+	want.push("  %5 = cmp.lt.u %3, %4")
+	want.push("  branch %5, b2, b3")
+	want.push("b2:")
+	want.push("  %6 = load s2")
+	want.push("  %7 = const 0")
+	want.push("  runtime rt.array.insert(%1, %6, %7)")
+	want.push("  %9 = load s2")
+	want.push("  %10 = const 1")
+	want.push("  %8 = add.u %9, %10")
+	want.push("  store s2, %8")
+	want.push("  jump b1")
+	want.push("b3:")
+	want.push("  dropslot s0 Array with Count")
+	want.push("  store s0, %1")
+	want.push("  %11 = load s0")
+	want.push("  %12 = const 7")
+	want.push("  %13 = runtime rt.array.len(%11)")
+	want.push("  runtime rt.array.insert(%11, %13, %12)")
+	want.push("  %14 = const 0")
+	want.push("  %15 = const 1")
+	want.push("  %16 = const 2")
+	want.push("  %17 = call helper(%15, %16)")
+	want.push("  store s1, %17")
+	want.push("  %18 = load s1")
+	want.push("  %19 = const 1")
+	want.push("  %20 = cmp.eq.u %18, %19")
+	want.push("  branch %20, b4, b5")
+	want.push("b4:")
+	want.push("  %21 = str \"x\"")
+	want.push("  %22 = global g.stdout")
+	want.push("  runtime rt.write(%22, %21)")
+	want.push("  %23 = const 0")
+	want.push("  jump b5")
+	want.push("b5:")
+	want.push("  %24 = const 0")
+	want.push("  dropslot s0 Array with Count")
+	want.push("  ret %24")
+	want.push("")
+	expectIr("main", got: ir.irText(p, f: f), want: want)
+end 'testMain'
+
+function testIr()
+	testSum()
+	testSwitch()
+	testMain()
+end 'testIr'

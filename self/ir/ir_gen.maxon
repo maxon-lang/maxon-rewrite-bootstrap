@@ -1531,7 +1531,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 		return "{resultText(x.dst)}alloc {allocBytes(x)}"
 	end 'opAlloc'
 	if x.op == Opcode.opCall 'opCall'
-		var text = "{resultText(x.dst)}call {ast.funcLinkName(p, fid: callCallee(f, x: x))}({f.regsText(callArgsStart(x), count: callArgsCount(x))})"
+		var text = "{resultText(x.dst)}call {funcSymbol(p, fid: callCallee(f, x: x))}({f.regsText(callArgsStart(x), count: callArgsCount(x))})"
 		if callHasErrReg(x) 'errReg'
 			text = "{text} error %{callErrReg(x).unwrap()}"
 		end 'errReg'
@@ -1540,7 +1540,7 @@ export function instrText(p ast.Project, f IrFunction, x Instr) returns String
 	if x.op == Opcode.opCallRuntime 'opCallRuntime'
 		var text = "{resultText(x.dst)}runtime {rtSymbol(callRuntimeSymbol(x))}({f.regsText(callRuntimeArgsStart(x), count: callRuntimeArgsCount(x))})"
 		if callRuntimeHasRoutine(x) 'routine'
-			text = "{text} routine {ast.funcLinkName(p, fid: callRuntimeRoutine(f, x: x).unwrap())}"
+			text = "{text} routine {funcSymbol(p, fid: callRuntimeRoutine(f, x: x).unwrap())}"
 		end 'routine'
 		return text
 	end 'opCallRuntime'

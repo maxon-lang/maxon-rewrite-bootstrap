@@ -1,0 +1,43 @@
+// funcSymbol is the name of a function in the IR text and in a report: the plain name of a free function, the instance
+// of a generic one with its type arguments, and a method with the type it belongs to.
+export function funcSymbol(p ast.Project, fid ast.FuncID) returns String
+	let name = p.funcs.entries[fid as Count].name.clone()
+	let owner = p.funcs.entries[fid as Count].ownerTy
+	if owner == ast.noType 'free'
+		let args = p.funcs.entries[fid as Count].typeArgs.count()
+		if args == 0 'plain'
+			return name
+		end 'plain'
+		var b = ByteArray.create(0)
+		b.append("{name}[".toByteArray())
+		for i in 0 upto args 'each'
+			if i > 0 'sep'
+				b.append(", ".toByteArray())
+			end 'sep'
+			b.append(ast.typeName(p.types, t: p.funcs.entries[fid as Count].typeArgs[i]).toByteArray())
+		end 'each'
+		b.push(93 as Byte)
+		return String.from(b)
+	end 'free'
+	let ownerName = ast.typeName(p.types, t: owner)
+	if p.types.entries[owner as Count].typeArgs.count() > 0 'instance'
+		return "({ownerName}).{name}"
+	end 'instance'
+	return "{ownerName}.{name}"
+end 'funcSymbol'
+
+// isNativeEntry is whether the backend implements a primitive's runtime entry.
+export function isNativeEntry(symbol Rt) returns bool
+	let unit = rtUnit(symbol)
+	return unit == RtUnit.rtUnitArrays or unit == RtUnit.rtUnitBytes or unit == RtUnit.rtUnitOs
+end 'isNativeEntry'
+
+// isBytesEntry is whether symbol lives in the bytes runtime unit.
+export function isBytesEntry(symbol Rt) returns bool
+	return rtUnit(symbol) == RtUnit.rtUnitBytes
+end 'isBytesEntry'
+
+// isOsEntry is whether symbol lives in the OS runtime unit.
+export function isOsEntry(symbol Rt) returns bool
+	return rtUnit(symbol) == RtUnit.rtUnitOs
+end 'isOsEntry'

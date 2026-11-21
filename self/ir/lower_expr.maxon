@@ -1,0 +1,952 @@
+// constValue is the expression that the value of the constant a name stands for is written as, and the module it is in.
+function constantExpr(p ast.Project, name ast.NameInfo) returns ExprRef
+	return match ast.moduleDecl(p, ref: name.decl) 'decl'
+		constDecl(c) gives ExprRef.make(name.decl.module, node: c.value)
+		funcDecl(_) panic("lower: a name of a constant stands for a function")
+		typeDecl(_) panic("lower: a name of a constant stands for a type")
+		enumDecl(_) panic("lower: a name of a constant stands for an enum")
+		unionDecl(_) panic("lower: a name of a constant stands for a union")
+		aliasDecl(_) panic("lower: a name of a constant stands for a typealias")
+		interfaceDecl(_) panic("lower: a name of a constant stands for an interface")
+	end 'decl'
+end 'constantExpr'
+
+// exprIn lowers an expression that is in another module than the code around it.
+function exprIn(mutates l Lowerer, mutates p ast.Project, e ExprRef) returns Reg
+	let saved = l.module
+	setModule(l, m: e.module)
+	let v = lowerExpr(l, p: p, e: e.node)
+	setModule(l, m: saved)
+	return v
+end 'exprIn'
+
+// lowerExpr lowers an expression to the register that holds its value, and settles who owns that value. One that the
+// ownership pass marked consumed passes to its new owner, and a place that is consumed is moved out of (a whole local or a
+// field of an owned one; the pass refuses every other). One that is not consumed only lends its value: a fresh value there
+// is a temporary, dropped when the statement or branch ends.
+//
+// A value that is consumed is in flight until what takes it runs, which is the expression around it or the statement: a
+// failure before then drops it (see failure).
+function lowerExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let ty = exprType(p, module: l.module, node: e)
+	if p.types.entries[ty as Count].kind == ast.TypeKind.constInt 'constant'
+		return konst(l, value: wordOf(p.types.entries[ty as Count].minVal))
+	end 'constant'
+	if p.modules[l.mi].tree.kindOf(e) == ast.NodeKind.tryExpr and ast.isTransparent(p.modules[l.mi].tree, e: e) 'transparent'
+		return lowerThrough(l, p: p, t: e)
+	end 'transparent'
+	let mark = l.pending.count()
+	let v = visitExpr(l, p: p, e: e)
+	popPending(l, n: mark)
+	if regKind(l, v: v) != IrKind.kindManaged 'scalar'
+		return v
+	end 'scalar'
+	let consumed = isConsumed(p, module: l.module, node: e)
+	if not isStorage(p, module: l.module, node: e) 'fresh'
+		if not consumed and not isImmortal(l, p: p, e: e) 'temporary'
+			ownTemp(l, p: p, v: v, t: ty)
+		end 'temporary'
+	end 'fresh' else 'place'
+		if consumed and not isWholeLocal(l, p: p, e: e) and not isField(l, p: p, e: e) 'moved'
+			panic("lower: an element or a part of a temporary is moved out at offset {p.modules[l.mi].tree.startOf(e)} of module {l.module}; the ownership pass should have refused it")
+		end 'moved'
+	end 'place'
+	if consumed and not isImmortal(l, p: p, e: e) 'inFlight'
+		let dropTy = dropType(l, p: p, t: ty)
+		l.pending.push(PendingDrop.ofReg(v, ty: dropTy))
+	end 'inFlight'
+	return v
+end 'lowerExpr'
+
+function visitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let k = p.modules[l.mi].tree.kindOf(e)
+	if k == ast.NodeKind.intLit 'intLit'
+		return konst(l, value: wordOf(ast.intLitValue(p.modules[l.mi].tree, id: e)))
+	end 'intLit'
+	if k == ast.NodeKind.boolLit 'boolLit'
+		if ast.boolLitValue(p.modules[l.mi].tree, id: e) 'true'
+			return konst(l, value: 1 as Word)
+		end 'true'
+		return konst(l, value: 0 as Word)
+	end 'boolLit'
+	if k == ast.NodeKind.strLit 'strLit'
+		return visitStrLit(l, p: p, e: e)
+	end 'strLit'
+	if k == ast.NodeKind.nameExpr 'nameExpr'
+		return visitNameExpr(l, p: p, e: e)
+	end 'nameExpr'
+	if k == ast.NodeKind.selfExpr 'selfExpr'
+		if l.selfOwner != noSlot 'owned'
+			return ownedRead(l, p: p, slot: slotIndex(l.selfOwner), e: e)
+		end 'owned'
+		return selfReg(l, p: p)
+	end 'selfExpr'
+	if k == ast.NodeKind.binaryExpr 'binaryExpr'
+		return visitBinaryExpr(l, p: p, e: e)
+	end 'binaryExpr'
+	if k == ast.NodeKind.unaryExpr 'unaryExpr'
+		return visitUnaryExpr(l, p: p, e: e)
+	end 'unaryExpr'
+	if k == ast.NodeKind.condExpr 'condExpr'
+		return visitCondExpr(l, p: p, e: e)
+	end 'condExpr'
+	if k == ast.NodeKind.castExpr 'castExpr'
+		return visitCastExpr(l, p: p, e: e)
+	end 'castExpr'
+	if k == ast.NodeKind.memberExpr 'memberExpr'
+		return visitMemberExpr(l, p: p, e: e)
+	end 'memberExpr'
+	if k == ast.NodeKind.tryExpr 'tryExpr'
+		return visitTryExpr(l, p: p, e: e)
+	end 'tryExpr'
+	if k == ast.NodeKind.panicExpr 'panicExpr'
+		return visitPanicExpr(l, p: p, e: e)
+	end 'panicExpr'
+	if k == ast.NodeKind.callExpr 'callExpr'
+		return visitCallExpr(l, p: p, node: e)
+	end 'callExpr'
+	if k == ast.NodeKind.structLitExpr 'structLitExpr'
+		return visitStructLitExpr(l, p: p, e: e)
+	end 'structLitExpr'
+	if k == ast.NodeKind.indexExpr 'indexExpr'
+		return visitIndexExpr(l, p: p, e: e)
+	end 'indexExpr'
+	if k == ast.NodeKind.matchExpr 'matchExpr'
+		return lowerMatch(l, p: p, core: ast.matchExprMatch(p.modules[l.mi].tree, id: e), resultType: exprType(p, module: l.module, node: e))
+	end 'matchExpr'
+	panic("lower: the node {e} of kind {k.name} is no expression")
+end 'visitExpr'
+
+function isWholeLocal(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	let through = ast.through(p.modules[l.mi].tree, e: e)
+	let k = p.modules[l.mi].tree.kindOf(through)
+	if k == ast.NodeKind.nameExpr 'name'
+		return nameInfoAt(p, module: l.module, node: through).kind == ast.NameKind.nameLocal
+	end 'name'
+	return k == ast.NodeKind.selfExpr
+end 'isWholeLocal'
+
+// isField is whether a place is a field of a record, which a move leaves empty.
+function isField(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	let through = ast.through(p.modules[l.mi].tree, e: e)
+	let k = p.modules[l.mi].tree.kindOf(through)
+	if k == ast.NodeKind.nameExpr 'name'
+		return nameInfoAt(p, module: l.module, node: through).kind == ast.NameKind.nameSelfField
+	end 'name'
+	if k == ast.NodeKind.memberExpr 'member'
+		return memberInfoAt(p, module: l.module, node: through).kind == ast.MemberKind.memberField
+	end 'member'
+	return false
+end 'isField'
+
+// isImmortal is whether a value is a string that lives in the executable, which is never dropped: a literal, or the name
+// of an enum or union case.
+function isImmortal(mutates l Lowerer, p ast.Project, e ast.NodeID) returns bool
+	let through = ast.through(p.modules[l.mi].tree, e: e)
+	let k = p.modules[l.mi].tree.kindOf(through)
+	if k == ast.NodeKind.strLit 'str'
+		return p.modules[l.mi].tree.strIsPlain(ast.strLitPartsRef(p.modules[l.mi].tree, id: through))
+	end 'str'
+	if k == ast.NodeKind.memberExpr 'member'
+		let kind = memberInfoAt(p, module: l.module, node: through).kind
+		return kind == ast.MemberKind.memberEnumName or kind == ast.MemberKind.memberUnionName
+	end 'member'
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = nameInfoAt(p, module: l.module, node: through)
+		if name.kind == ast.NameKind.nameConst 'const'
+			let value = constantExpr(p, name: name)
+			let saved = l.module
+			setModule(l, m: value.module)
+			let immortal = isImmortal(l, p: p, e: value.node)
+			setModule(l, m: saved)
+			return immortal
+		end 'const'
+	end 'name'
+	return false
+end 'isImmortal'
+
+function visitCondExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let cond = lowerExpr(l, p: p, e: ast.condExprCond(p.modules[l.mi].tree, id: e))
+	let typ = exprType(p, module: l.module, node: e)
+	let result = l.b.f.newSlot(kindOf(l, p: p, t: typ))
+	let a = l.b.newBlock()
+	let b = l.b.newBlock()
+	let join = l.b.newBlock()
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: a, ifFalse: b))
+	l.cur = a
+	pushScope(l, block: false)
+	storeConverted(l, p: p, slot: result, e: ast.condExprThen(p.modules[l.mi].tree, id: e), target: typ)
+	popScope(l, p: p)
+	goTo(l, target: join)
+	l.cur = b
+	pushScope(l, block: false)
+	storeConverted(l, p: p, slot: result, e: ast.condExprElse(p.modules[l.mi].tree, id: e), target: typ)
+	popScope(l, p: p)
+	goTo(l, target: join)
+	return fetch(l, slot: result)
+end 'visitCondExpr'
+
+// storeConverted puts the value of one branch of an expression, converted to the type the expression has, into the slot
+// that holds it until the branches join, which takes the value: it is no longer in flight, and the other branch never had
+// it.
+function storeConverted(mutates l Lowerer, mutates p ast.Project, slot Count, e ast.NodeID, target ast.TypeID)
+	let mark = l.pending.count()
+	let v = lowerConverted(l, p: p, e: e, target: target)
+	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+	popPending(l, n: mark)
+end 'storeConverted'
+
+function lowerConverted(mutates l Lowerer, mutates p ast.Project, e ast.NodeID, target ast.TypeID) returns Reg
+	var v = lowerExpr(l, p: p, e: e)
+	// A frozen value given to a let parameter of the type it holds lends its contents.
+	var have = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
+	let want = applyType(l, p: p, t: target)
+	while p.types.entries[have as Count].kind == ast.TypeKind.builtinFrozen and have != want 'frozen'
+		let held = heldType(p, t: have)
+		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, t: held), args: argsOf1(v))
+		have = held
+	end 'frozen'
+	return v
+end 'lowerConverted'
+
+// heldType is the type of the value a frozen value or a cown holds.
+function heldType(p ast.Project, t ast.TypeID) returns ast.TypeID
+	return ast.typeArgsOf(p.types, t: t)[0]
+end 'heldType'
+
+// siteOf is where a node is, which a refusal at it is reported at.
+function siteOf(l Lowerer, p ast.Project, node ast.NodeID) returns diag.Site
+	return diag.Site.make(l.module, offset: p.modules[l.mi].tree.startOf(node))
+end 'siteOf'
+
+function visitStructLitExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let lit = structLitInfoAt(p, module: l.module, node: e)
+	let ty = exprType(p, module: l.module, node: e)
+	let origin = p.types.entries[lit.ty as Count].effectiveOrigin()
+	var values = ExprRefList.create(0)
+	for i in 0 upto lit.ordered.count() 'each'
+		if lit.ordered[i] != 0 'given'
+			values.push(ExprRef.make(l.module, node: lit.ordered[i]))
+		end 'given' else 'default'
+			values.push(ExprRef.make(p.types.entries[origin as Count].decl.module, node: p.types.entries[origin as Count].fields[i].defaultExpr))
+		end 'default'
+	end 'each'
+	return record(l, p: p, t: ty, tag: noTag, values: values)
+end 'visitStructLitExpr'
+
+function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let inner = ast.castExprE(p.modules[l.mi].tree, id: e)
+	let v = lowerExpr(l, p: p, e: inner)
+	let fails = arithInfoAt(p, module: l.module, node: e).fails
+	let fail = overflowTo(l, p: p, fails: fails)
+	let target = exprType(p, module: l.module, node: e)
+	requireInt(p, t: target)
+	fit(l, p: p, v: v, target: target, source: exprType(p, module: l.module, node: inner), fails: fails, fail: fail)
+	return v
+end 'visitCastExpr'
+
+function requireInt(p ast.Project, t ast.TypeID)
+	if p.types.entries[t as Count].kind != ast.TypeKind.intRange 'range'
+		panic("lower: {ast.typeName(p.types, t: t)} is not an integer type")
+	end 'range'
+end 'requireInt'
+
+function visitPanicExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let msg = lowerExpr(l, p: p, e: ast.panicExprMessage(p.modules[l.mi].tree, id: e))
+	emitCallRuntime(l, dst: noReg, symbol: Rt.rtPanic, args: argsOf1(msg), routine: ast.noFunc)
+	seal(l, t: newTrap())
+	return konst(l, value: 0 as Word)
+end 'visitPanicExpr'
+
+function visitNameExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let name = nameInfoAt(p, module: l.module, node: e)
+	if name.kind == ast.NameKind.nameLocal 'local'
+		let loc = localEntry(p, module: l.fnModule, id: name.local)
+		if not loc.isParam 'variable'
+			return ownedRead(l, p: p, slot: loc.slot, e: e)
+		end 'variable'
+		if not isByRef(loc) 'byValue'
+			let owner = ownerOf(l, id: name.local, isSelf: loc.isSelf)
+			if owner != noSlot 'owned'
+				return ownedRead(l, p: p, slot: slotIndex(owner), e: e)
+			end 'owned'
+			return paramReg(l, index: loc.paramIndex, kind: kindOf(l, p: p, t: loc.ty))
+		end 'byValue'
+		let d = newReg(l, kind: kindOf(l, p: p, t: loc.ty))
+		let addr = paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+		emit(l, i: newLoadAt(d, addr: addr))
+		return d
+	end 'local'
+	if name.kind == ast.NameKind.nameSelfField 'field'
+		let d = newReg(l, kind: kindOf(l, p: p, t: exprType(p, module: l.module, node: e)))
+		let obj = selfReg(l, p: p)
+		loadField(l, p: p, d: d, obj: obj, e: e, index: name.fieldIndex)
+		return d
+	end 'field'
+	if name.kind == ast.NameKind.nameConst 'const'
+		return exprIn(l, p: p, e: constantExpr(p, name: name))
+	end 'const'
+	panic("lower: unresolved name '{ast.nameExprName(p.modules[l.mi].tree, id: e)}'")
+end 'visitNameExpr'
+
+// loadField is the value of a field of a record: a move out of it when the ownership pass found the expression consuming
+// it, which leaves 0 in the field for the drop of the record to skip, and a borrow otherwise.
+function loadField(mutates l Lowerer, p ast.Project, d Reg, obj Reg, e ast.NodeID, index Count)
+	let offset = wordOffset(index)
+	if isConsumed(p, module: l.module, node: e) and regKind(l, v: d) == IrKind.kindManaged 'move'
+		let addr = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newFieldAddr(addr, obj: obj, offset: offset))
+		emit(l, i: newMoveAt(d, addr: addr))
+		return
+	end 'move'
+	emit(l, i: newLoadField(d, obj: obj, offset: offset))
+end 'loadField'
+
+// address is where a call that takes e by address finds it. An element of a byte array is given as a slot, so the caller
+// stores what the callee left there back with writeBack once the callee returns.
+function address(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let k = p.modules[l.mi].tree.kindOf(e)
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = nameInfoAt(p, module: l.module, node: e)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			let loc = localEntry(p, module: l.fnModule, id: name.local)
+			if isByRef(loc) 'byRef'
+				return paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+			end 'byRef'
+			let d = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newSlotAddr(d, slot: loc.slot))
+			return d
+		end 'local'
+		if name.kind == ast.NameKind.nameSelfField 'field'
+			let d = newReg(l, kind: IrKind.kindScalar)
+			let obj = selfReg(l, p: p)
+			emit(l, i: newFieldAddr(d, obj: obj, offset: wordOffset(name.fieldIndex)))
+			return d
+		end 'field'
+	end 'name'
+	if k == ast.NodeKind.memberExpr 'member'
+		let member = memberInfoAt(p, module: l.module, node: e)
+		if member.kind == ast.MemberKind.memberField 'field'
+			let obj = lowerRead(l, p: p, e: ast.memberExprObj(p.modules[l.mi].tree, id: e))
+			let d = newReg(l, kind: IrKind.kindScalar)
+			emit(l, i: newFieldAddr(d, obj: obj, offset: wordOffset(member.fieldIndex)))
+			return d
+		end 'field'
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		return elemPlace(l, p: p, e: e)
+	end 'index'
+	panic("lower: no address for this expression")
+end 'address'
+
+// CallSite is a call being lowered: its node, which is where a refusal is reported, and what the checker found out about
+// it. receiver is the object it is made on, found once, and ordered are the arguments in the order of the parameters.
+export type CallSite
+	export var node as ast.NodeID
+	export var info as ast.CallInfo
+	export var receiver as ast.NodeID
+	export var ordered as ast.NodeIDList
+
+	export static function make(node ast.NodeID, consumes info ast.CallInfo, receiver ast.NodeID, consumes ordered ast.NodeIDList) returns CallSite
+		return CallSite{node: node, info: info, receiver: receiver, ordered: ordered}
+	end 'make'
+end 'CallSite'
+
+// callSite is the call a node is, with what its module's checker found out about it.
+function callSite(l Lowerer, p ast.Project, node ast.NodeID) returns CallSite
+	let info = callInfoAt(p, module: l.module, node: node)
+	let receiver = receiverOf(p, module: l.module, node: node, kind: info.kind)
+	let argsRef = ast.callExprArgsRef(p.modules[l.mi].tree, id: node)
+	var ordered = ast.NodeIDList.create(0)
+	for i in 0 upto info.argOrder.count() 'each'
+		ordered.push(ast.argValue(p.modules[l.mi].tree, id: p.modules[l.mi].tree.listAt(argsRef, index: info.argOrder[i]) as ast.NodeID))
+	end 'each'
+	return CallSite.make(node, info: info, receiver: receiver, ordered: ordered)
+end 'callSite'
+
+function argsSince(l Lowerer, base Count) returns RegList
+	var out = RegList.create(0)
+	for i in base upto l.args.count() 'each'
+		out.push(l.args[i])
+	end 'each'
+	return out
+end 'argsSince'
+
+function visitCallExpr(mutates l Lowerer, mutates p ast.Project, node ast.NodeID) returns Reg
+	let mark = l.pending.count()
+	let c = callSite(l, p: p, node: node)
+	let kind = c.info.kind
+	if kind == ast.CallKind.callPrint or kind == ast.CallKind.callPrintError 'print'
+		let text = lowerExpr(l, p: p, e: c.ordered[0])
+		let handle = newReg(l, kind: IrKind.kindScalar)
+		var symbol = Rt.rtStderr
+		if kind == ast.CallKind.callPrint 'out'
+			symbol = Rt.rtStdout
+		end 'out'
+		emit(l, i: newLoadGlobal(handle, symbol: symbol))
+		emitCallRuntime(l, dst: noReg, symbol: Rt.rtWrite, args: argsOf2(handle, b: text), routine: ast.noFunc)
+		return konst(l, value: 0 as Word)
+	end 'print'
+	if kind == ast.CallKind.callFunction or kind == ast.CallKind.callStatic or kind == ast.CallKind.callMethod or kind == ast.CallKind.callBound 'call'
+		if kind != ast.CallKind.callBound and p.funcs.entries[c.info.fn as Count].intrinsic != ast.Intrinsic.intrNone 'intrinsic'
+			return lowerIntrinsic(l, p: p, c: c)
+		end 'intrinsic'
+		let target = callee(l, p: p, node: node, info: c.info, receiver: c.receiver)
+		let base = l.args.count()
+		let places = l.writeBacks.count()
+		if c.receiver != 0 'receiver'
+			let recv = lowerRead(l, p: p, e: c.receiver)
+			pushArg(l, v: recv)
+		end 'receiver'
+		for i in 0 upto c.ordered.count() 'each'
+			if isByAddress(c.info.paramSpecs[i].conv) 'address'
+				let addr = address(l, p: p, e: c.ordered[i])
+				pushArg(l, v: addr)
+			end 'address' else 'value'
+				let v = lowerConverted(l, p: p, e: c.ordered[i], target: c.info.paramSpecs[i].ty)
+				pushArg(l, v: v)
+			end 'value'
+		end 'each'
+		var dst = noReg
+		let callTy = exprType(p, module: l.module, node: node)
+		if callTy != p.builtins.voidTy 'value'
+			dst = newReg(l, kind: kindOf(l, p: p, t: callTy))
+		end 'value'
+		var errTy = p.funcs.entries[target as Count].errTy
+		if kind == ast.CallKind.callBound 'bound'
+			errTy = p.funcs.entries[c.info.fn as Count].errTy
+		end 'bound'
+		if errTy == ast.noType 'plain'
+			emitCall(l, dst: dst, target: target, args: argsSince(l, base: base))
+			popArgs(l, n: base)
+			writeBack(l, p: p, mark: places)
+		end 'plain' else 'throwing'
+			let err = newReg(l, kind: IrKind.kindScalar)
+			emitThrowingCall(l, dst: dst, target: target, args: argsSince(l, base: base), err: err)
+			popArgs(l, n: base)
+			// What the callee wrote to an element before it failed stays written, as it would through the element's own
+			// address.
+			writeBack(l, p: p, mark: places)
+			// The callee has the arguments now, and drops them itself when it fails.
+			popPending(l, n: mark)
+			let ok = l.b.newBlock()
+			let zero = konst(l, value: 0 as Word)
+			let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
+			let stub = failure(l, p: p, errorCase: 0 as Count, err: err)
+			l.b.terminate(l.cur, t: newBranch(failed, ifTrue: stub, ifFalse: ok))
+			l.cur = ok
+		end 'throwing'
+		if dst == noReg 'none'
+			return konst(l, value: 0 as Word)
+		end 'none'
+		return dst
+	end 'call'
+	if kind == ast.CallKind.callCopy 'copy'
+		let v = lowerExpr(l, p: p, e: c.receiver)
+		return copyValue(l, p: p, site: siteOf(l, p: p, node: node), v: v, t: exprType(p, module: l.module, node: c.receiver))
+	end 'copy'
+	if kind == ast.CallKind.callUnionCtor 'ctor'
+		var values = ExprRefList.create(0)
+		for i in 0 upto c.ordered.count() 'each'
+			values.push(ExprRef.make(l.module, node: c.ordered[i]))
+		end 'each'
+		return record(l, p: p, t: exprType(p, module: l.module, node: node), tag: indexOf(c.info.unionCase), values: values)
+	end 'ctor'
+	panic("lower: unresolved call")
+end 'visitCallExpr'
+
+// callee is the function a call runs. Every instance a body reaches was found for the module before lowering, so a
+// missing one is a compiler bug: the executable would depend on another module having made the instance.
+function callee(mutates l Lowerer, mutates p ast.Project, node ast.NodeID, info ast.CallInfo, receiver ast.NodeID) returns ast.FuncID
+	let target = resolveTarget(p, module: l.module, receiver: receiver, info: info, bindParams: l.bindParams, bindArgs: l.bindArgs)
+	if p.funcs.entries[target as Count].genericOrigin != ast.noFunc and not l.instances.has(target) 'missing'
+		panic("lower: {funcSymbol(p, fid: target)} was not found among the instances of the module")
+	end 'missing'
+	return target
+end 'callee'
+
+// boxBytes is the size of a record or union box: a word per field (one for a box with none), and a first word for a
+// union's case index. The backend sizes the boxes it copies with it, so a copy has the layout lowering gives a value.
+export function boxBytes(fields Count, tagged bool) returns Count
+	var words = fields
+	if words < 1 'one'
+		words = 1
+	end 'one'
+	if tagged 'tag'
+		words = succ(words)
+	end 'tag'
+	return wordOffset(words)
+end 'boxBytes'
+
+// fieldOffset is where the field with this index sits in a box: after the case index when the box is a union's.
+export function fieldOffset(index Count, tagged bool) returns Count
+	if tagged 'tag'
+		return wordOffset(succ(index))
+	end 'tag'
+	return wordOffset(index)
+end 'fieldOffset'
+
+// record is a new box of the fields of the type t, which the tag, when it has one, makes a union: values are the
+// expression of each field. The box is in flight while its fields are computed, and owns each one once it is stored.
+function record(mutates l Lowerer, mutates p ast.Project, t ast.TypeID, tag Index, values ExprRefList) returns Reg
+	let tagged = tag != noTag
+	let count = values.count()
+	let box = newReg(l, kind: IrKind.kindManaged)
+	emit(l, i: newAlloc(box, bytes: boxBytes(count, tagged: tagged)))
+	if tagged 'tagStore'
+		let tagReg = konst(l, value: try tag as Word otherwise panic("ir: a case index is out of range"))
+		emit(l, i: newStoreField(box, offset: tagOffset, src: tagReg))
+	end 'tagStore'
+	let mark = l.pending.count()
+	if count > 0 'owned'
+		let ty = dropType(l, p: p, t: t)
+		l.pending.push(PendingDrop.ofReg(box, ty: ty))
+	end 'owned'
+	for i in 0 upto count 'each'
+		let v = exprIn(l, p: p, e: values[i])
+		emit(l, i: newStoreField(box, offset: fieldOffset(i, tagged: tagged), src: v))
+		popPending(l, n: succ(mark))
+	end 'each'
+	popPending(l, n: mark)
+	return box
+end 'record'
+
+// copyValue is a new value equal to v, which every part of it owns: the deep copy that CopyInstr says. A scalar is the
+// value itself. site is the source that needs the copy, kept when the type holds something that has no native code.
+function copyValue(mutates l Lowerer, mutates p ast.Project, site diag.Site, v Reg, t ast.TypeID) returns Reg
+	let ty = applyType(l, p: p, t: t)
+	if kindOfType(p, t: ty) != IrKind.kindManaged 'scalar'
+		return v
+	end 'scalar'
+	requireNative(l, p: p, site: site, t: ty)
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emitCopy(l, dst: d, src: v, ty: ty)
+	return d
+end 'copyValue'
+
+function tagReg(mutates l Lowerer, box Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newLoadField(d, obj: box, offset: tagOffset))
+	return d
+end 'tagReg'
+
+// caseNames are the names of the cases of an enum or a union, in the order of their indexes.
+function caseNames(p ast.Project, t ast.TypeID) returns ast.StringList
+	let origin = p.types.entries[t as Count].effectiveOrigin()
+	var names = ast.StringList.create(0)
+	for i in 0 upto p.types.entries[origin as Count].cases.count() 'each'
+		names.push(p.types.entries[origin as Count].cases[i].name.clone())
+	end 'each'
+	return names
+end 'caseNames'
+
+function visitMemberExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let member = memberInfoAt(p, module: l.module, node: e)
+	let obj = ast.memberExprObj(p.modules[l.mi].tree, id: e)
+	let kind = member.kind
+	if kind == ast.MemberKind.memberField 'field'
+		let base = lowerRead(l, p: p, e: obj)
+		let d = newReg(l, kind: kindOf(l, p: p, t: exprType(p, module: l.module, node: e)))
+		loadField(l, p: p, d: d, obj: base, e: e, index: member.fieldIndex)
+		return d
+	end 'field'
+	if kind == ast.MemberKind.memberEnumCase 'enumCase'
+		return konst(l, value: try member.enumCase as Word otherwise panic("ir: a case index is out of range"))
+	end 'enumCase'
+	if kind == ast.MemberKind.memberUnionCase 'unionCase'
+		return record(l, p: p, t: exprType(p, module: l.module, node: e), tag: indexOf(member.enumCase), values: ExprRefList.create(0))
+	end 'unionCase'
+	if kind == ast.MemberKind.memberEnumOrdinal 'ordinal'
+		return lowerExpr(l, p: p, e: obj)
+	end 'ordinal'
+	if kind == ast.MemberKind.memberEnumName 'enumName'
+		let v = lowerExpr(l, p: p, e: obj)
+		return names(l, index: v, names: caseNames(p, t: exprType(p, module: l.module, node: obj)))
+	end 'enumName'
+	if kind == ast.MemberKind.memberEnumRaw 'enumRaw'
+		let et = exprType(p, module: l.module, node: obj)
+		let v = lowerExpr(l, p: p, e: obj)
+		if p.types.entries[et as Count].hasExplicitRaw 'explicit'
+			let count = p.types.entries[et as Count].cases.count()
+			let sel = selectStart(l, kind: IrKind.kindScalar, index: v, count: count)
+			for i in 0 upto count 'each'
+				selectArm(l, s: sel, i: i)
+				let raw = konst(l, value: wordOf(p.types.entries[et as Count].cases[i].rawValue))
+				selectStore(l, s: sel, v: raw)
+			end 'each'
+			return selectEnd(l, s: sel)
+		end 'explicit'
+		return v
+	end 'enumRaw'
+	if kind == ast.MemberKind.memberUnionOrdinal 'unionOrdinal'
+		let u = lowerExpr(l, p: p, e: obj)
+		return tagReg(l, box: u)
+	end 'unionOrdinal'
+	if kind == ast.MemberKind.memberUnionName 'unionName'
+		let u = lowerExpr(l, p: p, e: obj)
+		let t = tagReg(l, box: u)
+		return names(l, index: t, names: caseNames(p, t: exprType(p, module: l.module, node: obj)))
+	end 'unionName'
+	panic("lower: unresolved member")
+end 'visitMemberExpr'
+
+// names is the name of the case that index says, as a string of the executable.
+function names(mutates l Lowerer, index Reg, names ast.StringList) returns Reg
+	let sel = selectStart(l, kind: IrKind.kindManaged, index: index, count: names.count())
+	for i in 0 upto names.count() 'each'
+		selectArm(l, s: sel, i: i)
+		let v = strReg(l, value: names[i])
+		selectStore(l, s: sel, v: v)
+	end 'each'
+	return selectEnd(l, s: sel)
+end 'names'
+
+// Select is a value that one of several arms computes, which a switch on an index chooses: each arm's value is stored into
+// a slot of its own and the join reads it.
+export type Select
+	export var result as Count
+	export var join as BlockID
+	export var targets as BlockIDList
+
+	export static function make(result Count, join BlockID, consumes targets BlockIDList) returns Select
+		return Select{result: result, join: join, targets: targets}
+	end 'make'
+end 'Select'
+
+// selectStart ends the block with the switch over index, which has an arm for each of count values.
+function selectStart(mutates l Lowerer, kind IrKind, index Reg, count Count) returns Select
+	let result = l.b.f.newSlot(kind)
+	let join = l.b.newBlock()
+	var targets = BlockIDList.create(0)
+	for i in 0 upto count 'arms'
+		targets.push(l.b.newBlock())
+	end 'arms'
+	var values = WordList.create(0)
+	var armTargets = BlockIDList.create(0)
+	let last = pred(count)
+	for i in 0 upto last 'cases'
+		values.push(try i as Word otherwise panic("ir: a case index is out of range"))
+		armTargets.push(targets[i])
+	end 'cases'
+	let sw = l.b.switch(index, values: values, targets: armTargets, def: targets[last])
+	l.b.terminate(l.cur, t: sw)
+	return Select.make(result, join: join, targets: targets)
+end 'selectStart'
+
+// selectArm makes the block of an arm the one that is being lowered.
+function selectArm(mutates l Lowerer, s Select, i Count)
+	l.cur = s.targets[i]
+end 'selectArm'
+
+// selectStore ends an arm with its value.
+function selectStore(mutates l Lowerer, s Select, v Reg)
+	emit(l, i: newStoreSlot(s.result, src: v, borrow: false))
+	goTo(l, target: s.join)
+end 'selectStore'
+
+// selectEnd is the value the arms computed, taken from the slot that held it.
+function selectEnd(mutates l Lowerer, s Select) returns Reg
+	return fetch(l, slot: s.result)
+end 'selectEnd'
+
+// TextOwner says who owns the string a part of an interpolated literal gives.
+export enum TextOwner
+	// textBorrowed is a string some other owner holds, which the literal only reads.
+	textBorrowed
+	// textImmortal is a string in the executable.
+	textImmortal
+	// textFresh is a string the literal made, which it owns until it joins it into the result.
+	textFresh
+end 'TextOwner'
+
+// TextPart is the value of a part of an interpolated literal and who owns it.
+export type TextPart
+	export var value as Reg
+	export var owner as TextOwner
+
+	export static function make(value Reg, owner TextOwner) returns TextPart
+		return TextPart{value: value, owner: owner}
+	end 'make'
+end 'TextPart'
+
+// visitStrLit joins the parts of an interpolated literal into a new string, dropping each intermediate string once it has
+// been joined. A literal of a single borrowed string is a copy of it, because the literal's value is its own.
+function visitStrLit(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let partsRef = ast.strLitPartsRef(p.modules[l.mi].tree, id: e)
+	let count = p.modules[l.mi].tree.strPartCount(partsRef)
+	if p.modules[l.mi].tree.strIsPlain(partsRef) 'plain'
+		if count == 1 'one'
+			return strReg(l, value: p.modules[l.mi].tree.strPartText(partsRef, index: 0 as Count))
+		end 'one'
+		var text = ByteArray.create(0)
+		for i in 0 upto count 'parts'
+			text.append(p.modules[l.mi].tree.strPartText(partsRef, index: i).toByteArray())
+		end 'parts'
+		return strReg(l, value: String.from(text))
+	end 'plain'
+	let first = strPart(l, p: p, partsRef: partsRef, index: 0 as Count)
+	var acc = first.value
+	var owner = first.owner
+	if count == 1 and owner == TextOwner.textBorrowed 'single'
+		let string = p.builtins.stringTy
+		return copyValue(l, p: p, site: siteOf(l, p: p, node: e), v: acc, t: string)
+	end 'single'
+	for i in 1 upto count 'join'
+		let mark = l.pending.count()
+		if owner == TextOwner.textFresh 'fresh'
+			l.pending.push(PendingDrop.ofReg(acc, ty: p.builtins.stringTy))
+		end 'fresh'
+		let next = strPart(l, p: p, partsRef: partsRef, index: i)
+		popPending(l, n: mark)
+		let joined = runtime(l, symbol: Rt.rtConcat, kind: IrKind.kindManaged, args: argsOf2(acc, b: next.value))
+		if owner == TextOwner.textFresh 'dropAcc'
+			let string = p.builtins.stringTy
+			dropValue(l, p: p, v: acc, t: string)
+		end 'dropAcc'
+		if next.owner == TextOwner.textFresh 'dropNext'
+			let string = p.builtins.stringTy
+			dropValue(l, p: p, v: next.value, t: string)
+		end 'dropNext'
+		acc = joined
+		owner = TextOwner.textFresh
+	end 'join'
+	return acc
+end 'visitStrLit'
+
+function strPart(mutates l Lowerer, mutates p ast.Project, partsRef diag.U32, index Count) returns TextPart
+	if not p.modules[l.mi].tree.strPartIsExpr(partsRef, index: index) 'text'
+		return TextPart.make(strReg(l, value: p.modules[l.mi].tree.strPartText(partsRef, index: index)), owner: TextOwner.textImmortal)
+	end 'text'
+	let e = p.modules[l.mi].tree.strPartExpr(partsRef, index: index)
+	let v = lowerRead(l, p: p, e: e)
+	let applied = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
+	let t = ast.contentType(p.types, t: applied)
+	let kind = p.types.entries[t as Count].kind
+	if t == p.builtins.stringTy 'string'
+		if isImmortal(l, p: p, e: e) 'immortal'
+			return TextPart.make(v, owner: TextOwner.textImmortal)
+		end 'immortal'
+		return TextPart.make(v, owner: TextOwner.textBorrowed)
+	end 'string'
+	if t == p.builtins.boolTy 'bool'
+		var texts = ast.StringList.create(0)
+		texts.push("false")
+		texts.push("true")
+		return TextPart.make(names(l, index: v, names: texts), owner: TextOwner.textImmortal)
+	end 'bool'
+	if kind == ast.TypeKind.constInt 'constant'
+		let flag = konst(l, value: 0 as Word)
+		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flag)), owner: TextOwner.textFresh)
+	end 'constant'
+	if kind == ast.TypeKind.intRange 'int'
+		var flag = 0 as Word
+		if ast.isUnsignedInt(p.types, t: t) 'unsigned'
+			flag = 1
+		end 'unsigned'
+		let flagReg = konst(l, value: flag)
+		return TextPart.make(runtime(l, symbol: Rt.rtItoa, kind: IrKind.kindManaged, args: argsOf2(v, b: flagReg)), owner: TextOwner.textFresh)
+	end 'int'
+	if kind == ast.TypeKind.enumTy 'enum'
+		return TextPart.make(names(l, index: v, names: caseNames(p, t: t)), owner: TextOwner.textImmortal)
+	end 'enum'
+	if kind == ast.TypeKind.unionTy 'union'
+		let tag = tagReg(l, box: v)
+		return TextPart.make(names(l, index: tag, names: caseNames(p, t: t)), owner: TextOwner.textImmortal)
+	end 'union'
+	panic("lower: cannot interpolate {ast.typeName(p.types, t: exprType(p, module: l.module, node: e))}")
+end 'strPart'
+
+function binOpOfText(op String) returns BinOp
+	return match op 'op'
+		"+" gives BinOp.binAdd
+		"-" gives BinOp.binSub
+		"*" gives BinOp.binMul
+		"/" gives BinOp.binDiv
+		"mod" gives BinOp.binMod
+		"and" gives BinOp.binAnd
+		"or" gives BinOp.binOr
+		"xor" gives BinOp.binXor
+		"shl" gives BinOp.binShl
+		"shr" gives BinOp.binShr
+		default panic("lower: unknown operator '{op}'")
+	end 'op'
+end 'binOpOfText'
+
+function isCmpOpText(op String) returns bool
+	return op == "==" or op == "!=" or op == "<" or op == "<=" or op == ">" or op == ">="
+end 'isCmpOpText'
+
+function cmpOpOfText(op String) returns CmpOp
+	return match op 'op'
+		"==" gives CmpOp.cmpEq
+		"!=" gives CmpOp.cmpNe
+		"<" gives CmpOp.cmpLt
+		"<=" gives CmpOp.cmpLe
+		">" gives CmpOp.cmpGt
+		">=" gives CmpOp.cmpGe
+		default panic("lower: unknown comparison '{op}'")
+	end 'op'
+end 'cmpOpOfText'
+
+function hasFail(fails Byte, flag Byte) returns bool
+	return (fails and flag) != 0
+end 'hasFail'
+
+function visitBinaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let op = ast.binaryExprOp(p.modules[l.mi].tree, id: e)
+	let left = ast.binaryExprL(p.modules[l.mi].tree, id: e)
+	let right = ast.binaryExprR(p.modules[l.mi].tree, id: e)
+	if (op == "and" or op == "or") and exprType(p, module: l.module, node: e) == p.builtins.boolTy 'logical'
+		let result = l.b.f.newSlot(IrKind.kindScalar)
+		let rhs = l.b.newBlock()
+		let join = l.b.newBlock()
+		let lv = lowerExpr(l, p: p, e: left)
+		emit(l, i: newStoreSlot(result, src: lv, borrow: false))
+		if op == "and" 'and'
+			l.b.terminate(l.cur, t: newBranch(lv, ifTrue: rhs, ifFalse: join))
+		end 'and' else 'or'
+			l.b.terminate(l.cur, t: newBranch(lv, ifTrue: join, ifFalse: rhs))
+		end 'or'
+		l.cur = rhs
+		pushScope(l, block: false)
+		let rv = lowerExpr(l, p: p, e: right)
+		emit(l, i: newStoreSlot(result, src: rv, borrow: false))
+		popScope(l, p: p)
+		goTo(l, target: join)
+		return load(l, slot: result)
+	end 'logical'
+	let arith = arithInfoAt(p, module: l.module, node: e)
+	if arith.operand == p.builtins.stringTy 'string'
+		let a = lowerExpr(l, p: p, e: left)
+		let b = lowerExpr(l, p: p, e: right)
+		let eq = runtime(l, symbol: Rt.rtStreq, kind: IrKind.kindScalar, args: argsOf2(a, b: b))
+		if op == "!=" 'ne'
+			return flip(l, boolean: eq)
+		end 'ne'
+		return eq
+	end 'string'
+	let a = lowerExpr(l, p: p, e: left)
+	let c = lowerExpr(l, p: p, e: right)
+	let unsigned = ast.isUnsignedInt(p.types, t: arith.operand)
+	if isCmpOpText(op) 'cmp'
+		return compare(l, op: cmpOpOfText(op), a: a, b: c, unsigned: unsigned)
+	end 'cmp'
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let binOp = binOpOfText(op)
+	let fails = arith.fails
+	if hasFail(fails, flag: ast.failDivZero) 'zero'
+		let fail = failure(l, p: p, errorCase: ast.errorDivisionByZero, err: noReg)
+		emit(l, i: newGuard(c, kind: GuardKind.guardNonZero, bound: 0 as Word, fail: fail))
+	end 'zero'
+	if hasFail(fails, flag: ast.failShift) 'shift'
+		let fail = failure(l, p: p, errorCase: ast.errorNegativeShift, err: noReg)
+		emit(l, i: newGuard(c, kind: GuardKind.guardNonNegative, bound: 0 as Word, fail: fail))
+	end 'shift'
+	let overflow = overflowTo(l, p: p, fails: fails)
+	var wordFail = noBlock
+	if hasFail(fails, flag: ast.failOverflow) 'wordFail'
+		wordFail = overflow
+	end 'wordFail'
+	emit(l, i: newBin(d, op: binOp, left: a, right: c, unsigned: unsigned, fail: wordFail))
+	let ty = exprType(p, module: l.module, node: e)
+	if p.types.entries[ty as Count].kind == ast.TypeKind.intRange 'range'
+		rangeCheck(l, p: p, v: d, t: ty, unsigned: unsigned, fails: fails, fail: overflow)
+	end 'range'
+	return d
+end 'visitBinaryExpr'
+
+// overflowTo is where an operation that can fail as fails says goes when its result does not fit, or noBlock when it
+// always fits.
+function overflowTo(mutates l Lowerer, p ast.Project, fails Byte) returns BlockID
+	if (fails and (ast.failOverflow or ast.failBelow or ast.failAbove)) == 0 'fits'
+		return noBlock
+	end 'fits'
+	return failure(l, p: p, errorCase: ast.errorOverflow, err: noReg)
+end 'overflowTo'
+
+function flip(mutates l Lowerer, boolean Reg) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(d, op: BinOp.binXor, left: boolean, right: one, unsigned: false, fail: noBlock))
+	return d
+end 'flip'
+
+function visitUnaryExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	let op = ast.unaryExprOp(p.modules[l.mi].tree, id: e)
+	let v = lowerExpr(l, p: p, e: ast.unaryExprE(p.modules[l.mi].tree, id: e))
+	let ty = exprType(p, module: l.module, node: e)
+	if op == "not" and ty == p.builtins.boolTy 'boolean'
+		return flip(l, boolean: v)
+	end 'boolean'
+	let fails = arithInfoAt(p, module: l.module, node: e).fails
+	let overflow = overflowTo(l, p: p, fails: fails)
+	let d = newReg(l, kind: IrKind.kindScalar)
+	if op == "not" 'not'
+		emit(l, i: newNot(d, src: v))
+	end 'not' else 'neg'
+		var wordFail = noBlock
+		if hasFail(fails, flag: ast.failOverflow) 'wordFail'
+			wordFail = overflow
+		end 'wordFail'
+		emit(l, i: newNeg(d, src: v, fail: wordFail))
+	end 'neg'
+	requireInt(p, t: ty)
+	rangeCheck(l, p: p, v: d, t: ty, unsigned: op == "not" and ast.isUnsignedInt(p.types, t: ty), fails: fails, fail: overflow)
+	return d
+end 'visitUnaryExpr'
+
+// rangeCheck checks that a result computed in a word, unsigned or signed, is in its type's range, where fails says it may
+// not be. The word is the operands', which the type of the result need not share.
+function rangeCheck(mutates l Lowerer, p ast.Project, v Reg, t ast.TypeID, unsigned bool, fails Byte, fail BlockID)
+	if unsigned 'unsigned'
+		fit(l, p: p, v: v, target: t, source: p.builtins.anonU64Ty, fails: fails, fail: fail)
+	end 'unsigned' else 'signed'
+		fit(l, p: p, v: v, target: t, source: p.builtins.anon64Ty, fails: fails, fail: fail)
+	end 'signed'
+end 'rangeCheck'
+
+// fit checks that a value of the type source is in the range of target, which goes to fail when it is not. It checks only
+// the bounds that fails says the value may be past, below or above: the range analysis proved the others.
+function fit(mutates l Lowerer, p ast.Project, v Reg, target ast.TypeID, source ast.TypeID, fails Byte, fail BlockID)
+	if p.types.entries[source as Count].kind == ast.TypeKind.constInt 'constant'
+		return
+	end 'constant'
+	requireInt(p, t: source)
+	let tMin = p.types.entries[target as Count].minVal.clone()
+	let tMax = p.types.entries[target as Count].maxVal.clone()
+	let sMin = p.types.entries[source as Count].minVal.clone()
+	let sMax = p.types.entries[source as Count].maxVal.clone()
+	let targetUnsigned = ast.isUnsignedInt(p.types, t: target)
+	let sourceUnsigned = ast.isUnsignedInt(p.types, t: source)
+	if tMin.le(sMin) and tMax.ge(sMax) and targetUnsigned == sourceUnsigned 'covers'
+		return
+	end 'covers'
+	let below = hasFail(fails, flag: ast.failBelow)
+	let above = hasFail(fails, flag: ast.failAbove)
+	if targetUnsigned 'toUnsigned'
+		if below and not sourceUnsigned and sMin.isNeg() 'negative'
+			emit(l, i: newGuard(v, kind: GuardKind.guardNonNegative, bound: 0 as Word, fail: fail))
+		end 'negative'
+		if below and tMin.gt(ast.maxI128(sMin, b: ast.I128.zero())) 'atLeast'
+			emit(l, i: newGuard(v, kind: GuardKind.guardUnsignedAtLeast, bound: wordOf(tMin), fail: fail))
+		end 'atLeast'
+		if above and tMax.lt(sMax) 'atMost'
+			emit(l, i: newGuard(v, kind: GuardKind.guardUnsignedAtMost, bound: wordOf(tMax), fail: fail))
+		end 'atMost'
+		return
+	end 'toUnsigned'
+	var srcMax = sMax.clone()
+	if sourceUnsigned and sMax.gt(ast.I128.i64Max()) 'wide'
+		// A value past i64.max reads as negative in a signed word.
+		if above 'aboveWord'
+			emit(l, i: newGuard(v, kind: GuardKind.guardNonNegative, bound: 0 as Word, fail: fail))
+		end 'aboveWord'
+		srcMax = ast.I128.i64Max()
+	end 'wide'
+	if below and tMin.gt(sMin) 'low'
+		emit(l, i: newGuard(v, kind: GuardKind.guardSignedAtLeast, bound: wordOf(tMin), fail: fail))
+	end 'low'
+	if above and tMax.lt(srcMax) 'high'
+		emit(l, i: newGuard(v, kind: GuardKind.guardSignedAtMost, bound: wordOf(tMax), fail: fail))
+	end 'high'
+end 'fit'

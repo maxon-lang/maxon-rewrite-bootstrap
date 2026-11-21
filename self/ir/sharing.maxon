@@ -1,0 +1,81 @@
+// lowerRead lowers an expression that is only read, and sees through a frozen value to what it holds: the receiver of a
+// method, the object of a field, the collection of a subscript, a subject and a part of an interpolated string. A value
+// that is not frozen is read as it is.
+function lowerRead(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	var v = lowerExpr(l, p: p, e: e)
+	var t = applyType(l, p: p, t: exprType(p, module: l.module, node: e))
+	while p.types.entries[t as Count].kind == ast.TypeKind.builtinFrozen 'frozen'
+		let held = heldType(p, t: t)
+		v = entry(l, p: p, site: siteOf(l, p: p, node: e), symbol: Rt.rtFrozenGet, kind: kindOfType(p, t: held), args: argsOf1(v))
+		t = held
+	end 'frozen'
+	return v
+end 'lowerRead'
+
+// visitWhenStmt schedules the body of a behaviour, which becomes a function of its own. The cowns it names are read, and
+// what it captures moves in: the ownership pass marked each capture consumed, so reading it takes it out of its owner.
+function visitWhenStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let info = whenInfoAt(p, module: l.module, node: s)
+	let body = lowerBehaviour(l, p: p, info: info)
+	let cownsRef = ast.whenStmtCownsRef(p.modules[l.mi].tree, id: s)
+	var cowns = RegList.create(0)
+	for i in 0 upto p.modules[l.mi].tree.listLen(cownsRef) 'cowns'
+		cowns.push(lowerExpr(l, p: p, e: p.modules[l.mi].tree.listAt(cownsRef, index: i) as ast.NodeID))
+	end 'cowns'
+	var captures = RegList.create(0)
+	for i in 0 upto info.captures.count() 'captures'
+		captures.push(lowerExpr(l, p: p, e: info.captures[i].refNode))
+	end 'captures'
+	refuse(l, site: siteOf(l, p: p, node: s), code: diag.errInterpreterOnly, message: interpreterOnlyMessage)
+	emitWhen(l, behaviour: body, cowns: cowns, captures: captures)
+end 'visitWhenStmt'
+
+// behaviourBodyName is the name of the function that a behaviour's body becomes, numbered in the order the bodies are met
+// in the enclosing function.
+function behaviourBodyName(enclosing String, index Count) returns String
+	return "{enclosing}$when{index}"
+end 'behaviourBodyName'
+
+// lowerBehaviour lowers the body of a `when` as a function, with the type arguments of the function around it. It has a
+// builder of its own, and its function goes in the one of the function around it.
+function lowerBehaviour(mutates l Lowerer, mutates p ast.Project, info ast.WhenInfo) returns Count
+	var inner = Lowerer.new(exchange(l.instances, value: InstanceSet.new()))
+	let name = behaviourBodyName(irSymbol(p, f: l.b.f), index: l.b.f.behaviours.count())
+	begin(inner, p: p, fn: info.fn, bindParams: ast.cloneTypeArgs(l.bindParams), bindArgs: ast.cloneTypeArgs(l.bindArgs), name: name)
+	let body = lowerBody(inner, p: p)
+	l.instances = exchange(inner.instances, value: InstanceSet.new())
+	l.b.f.usesArrays = l.b.f.usesArrays or body.usesArrays
+	l.b.f.usesBytes = l.b.f.usesBytes or body.usesBytes
+	l.b.f.usesOs = l.b.f.usesOs or body.usesOs
+	for i in 0 upto body.refusals.count() 'refusals'
+		l.b.f.refusals.push(body.refusals[i].clone())
+	end 'refusals'
+	return l.b.behaviour(body)
+end 'lowerBehaviour'
+
+function lowerFreeze(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtFrozenFreeze, kind: IrKind.kindManaged, args: argsOf1(args[0]))
+end 'lowerFreeze'
+
+function lowerShare(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	return entry(l, p: p, site: siteOf(l, p: p, node: c.node), symbol: Rt.rtShare, kind: IrKind.kindManaged, args: argsOf1(args[0]))
+end 'lowerShare'
+
+function lowerThaw(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let held = applyType(l, p: p, t: exprType(p, module: l.module, node: c.node))
+	let site = siteOf(l, p: p, node: c.node)
+	let inner = entry(l, p: p, site: site, symbol: Rt.rtFrozenGet, kind: kindOfType(p, t: held), args: argsOf1(args[0]))
+	return copyValue(l, p: p, site: site, v: inner, t: held)
+end 'lowerThaw'
+
+// lowerCown makes a cown; one made with dropWith: ends its content with that destructor.
+function lowerCown(mutates l Lowerer, mutates p ast.Project, c CallSite, recv Reg, args RegList) returns Reg
+	let d = newReg(l, kind: IrKind.kindManaged)
+	var routine = ast.noFunc
+	if c.info.hasDrop 'drop'
+		let dropInfo = ast.CallInfo.make(ast.CallKind.callFunction, fn: c.info.dropFn, receiverTy: ast.noType)
+		routine = callee(l, p: p, node: c.node, info: dropInfo, receiver: 0 as ast.NodeID)
+	end 'drop'
+	emitEntry(l, p: p, site: siteOf(l, p: p, node: c.node), dst: d, symbol: Rt.rtCownNew, args: args, routine: routine)
+	return d
+end 'lowerCown'

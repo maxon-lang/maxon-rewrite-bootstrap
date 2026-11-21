@@ -306,5 +306,35 @@ func emitMaxonRt() string {
 		fmt.Fprintf(&sb, "\t\t%d gives Rt.rt%s\n", i+1, e.Name)
 	}
 	sb.WriteString("\t\tdefault panic(\"ir: a number that is no runtime symbol\")\n\tend 'code'\nend 'rtOf'\n")
+
+	sb.WriteString("\n// RtUnit is where a runtime symbol is defined.\nexport enum RtUnit\n")
+	for _, u := range units {
+		fmt.Fprintf(&sb, "\trtUnit%s\n", u.Key)
+	}
+	sb.WriteString("end 'RtUnit'\n\n// rtUnit is where the symbol is defined.\nexport function rtUnit(r Rt) returns RtUnit\n")
+	for _, e := range entries {
+		fmt.Fprintf(&sb, "\tif r == Rt.rt%s 'rt%s'\n\t\treturn RtUnit.rtUnit%s\n\tend 'rt%s'\n", e.Name, e.Name, e.Unit, e.Name)
+	}
+	sb.WriteString("\tpanic(\"ir: rtNone is defined by no unit\")\nend 'rtUnit'\n")
+	return sb.String()
+}
+
+// emitMaxonIntrinsics writes self/ir's dispatch from an intrinsic to the function that lowers it, which the lowerer
+// defines for each row of the table.
+func emitMaxonIntrinsics(t table) string {
+	var sb strings.Builder
+	sb.WriteString(maxonHeader)
+	sb.WriteString("// intrinsicCall lowers a call of a built-in whose receiver and arguments are lowered.\n")
+	sb.WriteString("export function intrinsicCall(mutates l Lowerer, mutates p ast.Project, op ast.Intrinsic, c CallSite, recv Reg, args RegList) returns Reg\n")
+	for _, in := range t.intrinsics {
+		fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'intr%s'\n\t\treturn lower%s(l, p: p, c: c, recv: recv, args: args)\n\tend 'intr%s'\n", in.name, in.name, in.name, in.name)
+	}
+	sb.WriteString("\tpanic(\"lower: a call names no intrinsic\")\nend 'intrinsicCall'\n\n")
+	sb.WriteString("// ownsOperands is whether the lowering of an intrinsic evaluates its receiver and arguments itself.\n")
+	sb.WriteString("export function ownsOperands(op ast.Intrinsic) returns bool\n")
+	for _, in := range t.intrinsics {
+		fmt.Fprintf(&sb, "\tif op == ast.Intrinsic.intr%s 'intr%s'\n\t\treturn %v\n\tend 'intr%s'\n", in.name, in.name, in.ownsOperands, in.name)
+	}
+	sb.WriteString("\tpanic(\"lower: a call names no intrinsic\")\nend 'ownsOperands'\n")
 	return sb.String()
 }

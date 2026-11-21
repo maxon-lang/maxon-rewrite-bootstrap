@@ -1,0 +1,397 @@
+// wordBytes is the size of every value the IR holds, and of each field of a box: a scalar, or the address of a box, a
+// string or an array.
+export let wordBytes = 8 as Count
+
+// tagOffset is where a union box holds its case index; the payload follows it.
+export let tagOffset = 0 as Count
+
+// noSlot is the owner slot of a value that no slot owns.
+export let noSlot = -1 as Index
+
+export let noTag = -1 as Index
+
+// succ is the count after n.
+export function succ(n Count) returns Count
+	return try n + 1 otherwise panic("ir: a count overflows")
+end 'succ'
+
+// pred is the count before n, which is not 0.
+export function pred(n Count) returns Count
+	return try n - 1 otherwise panic("ir: a count below 0")
+end 'pred'
+
+// slotIndex is the place of an owner slot, which is one.
+export function slotIndex(slot Index) returns Count
+	return try slot as Count otherwise panic("ir: a value that has no slot is read from one")
+end 'slotIndex'
+
+// ExprRef is an expression and the module whose tree it is in, for the few that are in another one than the code
+// around them: a constant's value and the default of a field.
+export type ExprRef
+	export var module as diag.ModuleID
+	export var node as ast.NodeID
+
+	export static function make(module diag.ModuleID, node ast.NodeID) returns ExprRef
+		return ExprRef{module: module, node: node}
+	end 'make'
+end 'ExprRef'
+
+export typealias ExprRefList = Array with ExprRef
+
+// JumpFrame is a loop or a match that is being lowered: where a break and a continue of it go. They nest, so a break finds
+// its own from the top.
+export type JumpFrame
+	export var node as ast.NodeID
+	export var brk as BlockID
+	export var cont as BlockID
+	// depth is the number of scopes open where the loop or match starts: a jump to it leaves the ones above.
+	export var depth as Count
+
+	export static function make(node ast.NodeID, brk BlockID, cont BlockID, depth Count) returns JumpFrame
+		return JumpFrame{node: node, brk: brk, cont: cont, depth: depth}
+	end 'make'
+end 'JumpFrame'
+
+export typealias JumpFrameList = Array with JumpFrame
+
+// OwnerSlot is the slot that owns a consumes parameter: the caller gives the value away, so the callee holds it in a slot
+// of its own, which moving from it empties and the end of the function drops.
+export type OwnerSlot
+	export var local as ast.LocalID
+	export var slot as Count
+
+	export static function make(local ast.LocalID, slot Count) returns OwnerSlot
+		return OwnerSlot{local: local, slot: slot}
+	end 'make'
+end 'OwnerSlot'
+
+export typealias OwnerSlotList = Array with OwnerSlot
+
+// PendingDrop is a value to drop when its scope ends: what a slot holds, or a register.
+export type PendingDrop
+	export var inSlot as bool
+	export var slot as Count
+	export var reg as Reg
+	export var ty as ast.TypeID
+
+	export static function ofSlot(slot Count, ty ast.TypeID) returns PendingDrop
+		return PendingDrop{inSlot: true, slot: slot, reg: noReg, ty: ty}
+	end 'ofSlot'
+
+	export static function ofReg(reg Reg, ty ast.TypeID) returns PendingDrop
+		return PendingDrop{inSlot: false, slot: 0 as Count, reg: reg, ty: ty}
+	end 'ofReg'
+end 'PendingDrop'
+
+export typealias PendingList = Array with PendingDrop
+
+// Scope is where owned values die. The scope of a block holds the locals declared in it, and the scope of a statement, or
+// of one branch of a conditional, holds the temporaries it made: values that nothing took ownership of, such as the
+// result of a call whose value is only borrowed. Leaving a scope drops what it holds, newest first. A jump that leaves
+// several scopes drops all of them.
+//
+// Which values are temporaries, and which places are moved out of, is not decided here: the ownership pass marks each
+// expression whose value changes owner (ast.Typing.consumed), and lowering reads that mark.
+export type Scope
+	export var block as bool
+	export var drops as PendingList
+
+	export static function make(block bool) returns Scope
+		return Scope{block: block, drops: PendingList.create(0)}
+	end 'make'
+end 'Scope'
+
+export typealias ScopeList = Array with Scope
+
+// TryHandler is a try being lowered: where the failures of what it covers go. A failure leaves the scopes and the values
+// in flight that the try did not start with, as a jump out of them would, and jumps to the handler, or for a try that
+// passes its failures on returns the error.
+export type TryHandler
+	export var propagates as bool
+	export var target as BlockID
+	// depth is how many scopes were open where the try began, and mark how many drops the innermost of them held then.
+	export var depth as Count
+	export var mark as Count
+	// pending is how many values were in flight where the try began.
+	export var pending as Count
+	// binding is the slot of the error that the handler names, or noSlot.
+	export var binding as Index
+
+	export static function make(propagates bool, target BlockID, depth Count, mark Count, pending Count, binding Index) returns TryHandler
+		return TryHandler{propagates: propagates, target: target, depth: depth, mark: mark, pending: pending, binding: binding}
+	end 'make'
+end 'TryHandler'
+
+export typealias HandlerList = Array with TryHandler
+
+// ArrayBox is the runtime of one array type, which every operation on an array goes through: the array entries, whose box
+// holds a word to an element, or for an array that packs bytes the bytes entries, whose box holds one byte to an element.
+// site is the source of the operation.
+export type ArrayBox
+	export var site as diag.Site
+	export var ty as ast.TypeID
+
+	export static function make(consumes site diag.Site, ty ast.TypeID) returns ArrayBox
+		return ArrayBox{site: site, ty: ty}
+	end 'make'
+end 'ArrayBox'
+
+// WriteBack is an element of a byte array that a call takes by address, through a slot that holds it: the slot is written
+// back to the element when the call returns.
+export type WriteBack
+	export var box as ArrayBox
+	export var arr as Reg
+	export var index as Reg
+	export var slot as Count
+
+	export static function make(consumes box ArrayBox, arr Reg, index Reg, slot Count) returns WriteBack
+		return WriteBack{box: box, arr: arr, index: index, slot: slot}
+	end 'make'
+end 'WriteBack'
+
+export typealias WriteBackList = Array with WriteBack
+
+// Lowerer lowers one function at a time into the IR a builder makes. It reads what the check pass found out about every
+// module's bodies: a body that lowering reaches may be another module's (an instance of its generic, a constant, a
+// field's default), so a node is looked up in the typing of the module it is in, which module names.
+export type Lowerer
+	// module is the module of the nodes being lowered, mi its index, and fnModule the module of the function, whose locals the
+	// nodes name.
+	export var module as diag.ModuleID
+	export var mi as Count
+	export var fnModule as diag.ModuleID
+	export var fn as ast.FuncID
+	// origin is the function whose declaration the body is: the function itself, or the generic that it is an instance of.
+	export var origin as ast.FuncID
+	export var b as Builder
+	// instances are the ones the module needs, which every generic call in the body must be one of.
+	export var instances as InstanceSet
+	// bindParams and bindArgs give the type parameters of the function being lowered their arguments, when it is an
+	// instance of a generic function. The body was checked once against the parameters, so every type it names is read
+	// through them.
+	export var bindParams as ast.TypeIDList
+	export var bindArgs as ast.TypeIDList
+	export var jumps as JumpFrameList
+	export var cur as BlockID
+	export var scopes as ScopeList
+	// ownerSlots are the slots that hold the consumes parameters the body names.
+	export var ownerSlots as OwnerSlotList
+	// selfOwner is the slot that owns a consumes self, or noSlot.
+	export var selfOwner as Index
+	// args holds the values of the arguments of the calls being lowered, the innermost call's last, so a call needs no
+	// list of its own.
+	export var args as RegList
+	// handlers are the trys around the code being lowered, innermost last.
+	export var handlers as HandlerList
+	// pending are the values computed for something that takes them, which has not run yet: a failure before it runs
+	// drops them, since nothing else would.
+	export var pending as PendingList
+	// writeBacks are the elements of byte arrays that the calls being lowered take by address, each through a slot that
+	// holds it until the call returns.
+	export var writeBacks as WriteBackList
+
+	export static function new(consumes instances InstanceSet) returns Lowerer
+		return Lowerer{module: 0 as diag.ModuleID, mi: 0 as Count, fnModule: 0 as diag.ModuleID, fn: ast.noFunc, origin: ast.noFunc, b: Builder.new(), instances: instances, bindParams: ast.TypeIDList.create(0), bindArgs: ast.TypeIDList.create(0), jumps: JumpFrameList.create(0), cur: 0 as BlockID, scopes: ScopeList.create(0), ownerSlots: OwnerSlotList.create(0), selfOwner: noSlot, args: RegList.create(0), handlers: HandlerList.create(0), pending: PendingList.create(0), writeBacks: WriteBackList.create(0)}
+	end 'new'
+end 'Lowerer'
+
+// setModule makes the nodes being lowered those of a module.
+function setModule(mutates l Lowerer, m diag.ModuleID)
+	l.module = m
+	l.mi = ast.modIndex(m)
+end 'setModule'
+
+// popPending forgets the values in flight past the first n.
+function popPending(mutates l Lowerer, n Count)
+	while l.pending.count() > n 'pop'
+		try l.pending.pop() otherwise ignore
+	end 'pop'
+end 'popPending'
+
+// popArgs forgets the arguments of the calls being lowered past the first n.
+function popArgs(mutates l Lowerer, n Count)
+	while l.args.count() > n 'pop'
+		try l.args.pop() otherwise ignore
+	end 'pop'
+end 'popArgs'
+
+// slotKind is the kind of a slot of the function being lowered.
+function slotKind(l Lowerer, slot Count) returns IrKind
+	return l.b.f.slots[slot]
+end 'slotKind'
+
+// regKind is the kind of a register of the function being lowered.
+function regKind(l Lowerer, v Reg) returns IrKind
+	return l.b.f.regs[try v as Count otherwise panic("ir: a register that does not exist is read")]
+end 'regKind'
+
+// kindOfType is the kind of a value of a type.
+function kindOfType(p ast.Project, t ast.TypeID) returns IrKind
+	if ast.isManagedType(p.types, t: t) 'managed'
+		return IrKind.kindManaged
+	end 'managed'
+	return IrKind.kindScalar
+end 'kindOfType'
+
+// applyType is a type of the body with the type parameters of the function replaced by their arguments.
+function applyType(l Lowerer, mutates p ast.Project, t ast.TypeID) returns ast.TypeID
+	return ast.substituteType(p.types, t: t, params: l.bindParams, args: l.bindArgs)
+end 'applyType'
+
+// kindOf is the kind of a value of a type the body names, which may be a type parameter of the function.
+function kindOf(l Lowerer, mutates p ast.Project, t ast.TypeID) returns IrKind
+	let applied = applyType(l, p: p, t: t)
+	return kindOfType(p, t: applied)
+end 'kindOf'
+
+export function emit(mutates l Lowerer, consumes i Instr)
+	let block = l.cur
+	l.b.emit(block, i: i)
+end 'emit'
+
+// push adds the value of an argument to the call being lowered. The value is computed before the push, because computing
+// it can push too, and the stack may move.
+function pushArg(mutates l Lowerer, v Reg)
+	l.args.push(v)
+end 'pushArg'
+
+export function seal(mutates l Lowerer, consumes t Term)
+	let block = l.cur
+	if not l.b.terminated(block) 'open'
+		l.b.terminate(block, t: t)
+	end 'open'
+	l.cur = l.b.newBlock()
+end 'seal'
+
+export function goTo(mutates l Lowerer, target BlockID)
+	let block = l.cur
+	if not l.b.terminated(block) 'open'
+		l.b.terminate(block, t: newJump(target))
+	end 'open'
+	l.cur = target
+end 'goTo'
+
+export function newReg(mutates l Lowerer, kind IrKind) returns Reg
+	return l.b.f.newReg(kind)
+end 'newReg'
+
+export function konst(mutates l Lowerer, value Word) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newConst(d, value: value))
+	return d
+end 'konst'
+
+export function strReg(mutates l Lowerer, value String) returns Reg
+	let d = newReg(l, kind: IrKind.kindManaged)
+	emitStr(l, d: d, text: value.clone())
+	return d
+end 'strReg'
+
+export function paramReg(mutates l Lowerer, index Count, kind IrKind) returns Reg
+	let d = newReg(l, kind: kind)
+	emit(l, i: newLoadParam(d, param: index))
+	return d
+end 'paramReg'
+
+export function load(mutates l Lowerer, slot Count) returns Reg
+	let d = newReg(l, kind: slotKind(l, slot: slot))
+	emit(l, i: newLoadSlot(d, slot: slot))
+	return d
+end 'load'
+
+export function compare(mutates l Lowerer, op CmpOp, a Reg, b Reg, unsigned bool) returns Reg
+	let d = newReg(l, kind: IrKind.kindScalar)
+	emit(l, i: newCmp(d, op: op, left: a, right: b, unsigned: unsigned))
+	return d
+end 'compare'
+
+// runtime calls a runtime entry of the runtime unit and gives its value.
+function runtime(mutates l Lowerer, symbol Rt, kind IrKind, args RegList) returns Reg
+	let d = newReg(l, kind: kind)
+	emitCallRuntime(l, dst: d, symbol: symbol, args: args, routine: ast.noFunc)
+	return d
+end 'runtime'
+
+export function argsOf1(a Reg) returns RegList
+	var xs = RegList.create(0)
+	xs.push(a)
+	return xs
+end 'argsOf1'
+
+export function argsOf2(a Reg, b Reg) returns RegList
+	var xs = RegList.create(0)
+	xs.push(a)
+	xs.push(b)
+	return xs
+end 'argsOf2'
+
+function argsOf3(a Reg, b Reg, c Reg) returns RegList
+	var xs = RegList.create(0)
+	xs.push(a)
+	xs.push(b)
+	xs.push(c)
+	return xs
+end 'argsOf3'
+
+let i64MaxCount = 9223372036854775807 as Count
+
+let i64MinWord = -9223372036854775808 as Word
+
+// wordOf is the number a 128-bit constant is, as a word: the low 64 bits, read as a signed number.
+function wordOf(v ast.I128) returns Word
+	if v.lo <= i64MaxCount 'low'
+		return try v.lo as Word otherwise panic("ir: a constant does not fit a word")
+	end 'low'
+	let masked = try (v.lo and i64MaxCount) as Word otherwise panic("ir: a constant does not fit a word")
+	return try masked + i64MinWord otherwise panic("ir: a constant does not fit a word")
+end 'wordOf'
+
+// wordOffset is the size of that many words.
+export function wordOffset(words Count) returns Count
+	return try wordBytes * words otherwise panic("ir: a box has more words than an offset can reach")
+end 'wordOffset'
+
+function emitStr(mutates l Lowerer, d Reg, consumes text String)
+	let instr = l.b.str(d, text: text)
+	emit(l, i: instr)
+end 'emitStr'
+
+export function emitCall(mutates l Lowerer, dst Reg, target ast.FuncID, args RegList)
+	let instr = l.b.call(dst, target: target, args: args)
+	emit(l, i: instr)
+end 'emitCall'
+
+function emitThrowingCall(mutates l Lowerer, dst Reg, target ast.FuncID, args RegList, err Reg)
+	let instr = l.b.throwingCall(dst, target: target, args: args, err: err)
+	emit(l, i: instr)
+end 'emitThrowingCall'
+
+export function emitCallRuntime(mutates l Lowerer, dst Reg, symbol Rt, args RegList, routine ast.FuncID)
+	let instr = l.b.callRuntime(dst, symbol: symbol, args: args, routine: routine)
+	emit(l, i: instr)
+end 'emitCallRuntime'
+
+function emitWhen(mutates l Lowerer, behaviour Count, cowns RegList, captures RegList)
+	let instr = l.b.whenInstr(behaviour, cowns: cowns, captures: captures)
+	emit(l, i: instr)
+end 'emitWhen'
+
+function emitDropReg(mutates l Lowerer, src Reg, ty ast.TypeID)
+	let instr = l.b.drop(src, ty: ty)
+	emit(l, i: instr)
+end 'emitDropReg'
+
+export function emitDropSlot(mutates l Lowerer, slot Count, ty ast.TypeID)
+	let instr = l.b.dropSlot(slot, ty: ty)
+	emit(l, i: instr)
+end 'emitDropSlot'
+
+function emitDropAt(mutates l Lowerer, addr Reg, ty ast.TypeID)
+	let instr = l.b.dropAt(addr, ty: ty)
+	emit(l, i: instr)
+end 'emitDropAt'
+
+function emitCopy(mutates l Lowerer, dst Reg, src Reg, ty ast.TypeID)
+	let instr = l.b.copy(dst, src: src, ty: ty)
+	emit(l, i: instr)
+end 'emitCopy'

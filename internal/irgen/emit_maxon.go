@@ -514,7 +514,7 @@ func maxonText(o op, x operand, unwrap bool) string {
 	case kType:
 		return "{ast.typeName(p.types, t: " + get + ")}"
 	case kCallee, kRoutine:
-		return "{ast.funcLinkName(p, fid: " + get + ")}"
+		return "{funcSymbol(p, fid: " + get + ")}"
 	case kBehaviour:
 		return "{f.behaviourName(" + get + ")}"
 	}

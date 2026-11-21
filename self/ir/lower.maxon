@@ -1,0 +1,472 @@
+// begin starts the IR of a function, forgetting the one before it. bindParams and bindArgs give the type parameters their
+// arguments; they are the function's own when it is an instance of a generic function, and the ones of the function around
+// it for the body of a behaviour.
+export function begin(mutates l Lowerer, mutates p ast.Project, fn ast.FuncID, bindParams ast.TypeIDList, bindArgs ast.TypeIDList, consumes name String)
+	var paramCount = p.funcs.entries[fn as Count].params.count()
+	if p.funcs.entries[fn as Count].hasReceiver 'method'
+		paramCount = succ(paramCount)
+	end 'method'
+	l.b.start(fn, name: name, paramCount: paramCount)
+	l.fn = fn
+	l.origin = fn
+	if p.funcs.entries[fn as Count].genericOrigin != ast.noFunc 'instance'
+		l.origin = p.funcs.entries[fn as Count].genericOrigin
+	end 'instance'
+	l.fnModule = p.funcs.entries[fn as Count].module
+	let own = l.fnModule
+	setModule(l, m: own)
+	l.bindParams = bindParams.clone()
+	l.bindArgs = bindArgs.clone()
+	l.jumps = JumpFrameList.create(0)
+	l.scopes = ScopeList.create(0)
+	l.ownerSlots = OwnerSlotList.create(0)
+	l.args = RegList.create(0)
+	l.handlers = HandlerList.create(0)
+	l.pending = PendingList.create(0)
+	l.writeBacks = WriteBackList.create(0)
+	l.selfOwner = noSlot
+	declareSlots(l, p: p)
+	l.cur = l.b.newBlock()
+end 'begin'
+
+// functionLocals are the locals of the function whose body the lowerer is lowering, by handle.
+function functionLocals(l Lowerer, p ast.Project) returns ast.LocalIDList
+	let node = p.funcs.entries[l.origin as Count].nodeID
+	return match consumes p.typings[ast.modIndex(l.fnModule)].funcLocals.get(node as Count) 'hit'
+		some(ids) gives ids
+		none gives ast.LocalIDList.create(0)
+	end 'hit'
+end 'functionLocals'
+
+// declareSlots makes a slot for each local that is not a parameter, at the index the checker gave it.
+function declareSlots(mutates l Lowerer, mutates p ast.Project)
+	let ids = functionLocals(l, p: p)
+	var count = 0 as Count
+	for i in 0 upto ids.count() 'count'
+		if not localEntry(p, module: l.fnModule, id: ids[i]).isParam 'slotted'
+			count = succ(count)
+		end 'slotted'
+	end 'count'
+	var filled as Array with bool
+	filled = Array.create(count)
+	for i in 0 upto count 'make'
+		_ = l.b.f.newSlot(IrKind.kindScalar)
+	end 'make'
+	for i in 0 upto ids.count() 'each'
+		let loc = localEntry(p, module: l.fnModule, id: ids[i])
+		if not loc.isParam 'slotted'
+			if loc.slot >= count or filled[loc.slot] 'dense'
+				panic("lower: local slots of {funcSymbol(p, fid: l.fn)} are not dense")
+			end 'dense'
+			filled[loc.slot] = true
+			l.b.f.slots[loc.slot] = kindOf(l, p: p, t: loc.ty)
+		end 'slotted'
+	end 'each'
+end 'declareSlots'
+
+// lowerBody lowers the statements of the function that begin started, and finishes it.
+function lowerBody(mutates l Lowerer, mutates p ast.Project) returns IrFunction
+	pushScope(l, block: true)
+	adoptParams(l, p: p)
+	let bodyRef = p.funcs.entries[l.origin as Count].bodyRef
+	lowerBlock(l, p: p, ref: bodyRef)
+	popScope(l, p: p)
+	if not l.b.terminated(l.cur) 'open'
+		let zero = konst(l, value: 0 as Word)
+		l.b.terminate(l.cur, t: newRet(zero))
+	end 'open'
+	return l.b.finish()
+end 'lowerBody'
+
+// adoptParams moves each consumes parameter into a slot, which owns it from there on. A parameter the body does not name
+// (`_`) is dropped all the same, because the caller gave it away.
+function adoptParams(mutates l Lowerer, mutates p ast.Project)
+	let hasReceiver = p.funcs.entries[l.fn as Count].hasReceiver
+	if hasReceiver and p.funcs.entries[l.fn as Count].selfLocal != ast.noLocal 'self'
+		let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.fn as Count].selfLocal)
+		if ownsValue(selfLocal.conv) and kindOf(l, p: p, t: selfLocal.ty) == IrKind.kindManaged 'owned'
+			let slot = adopt(l, p: p, index: selfLocal.paramIndex, t: selfLocal.ty)
+			l.selfOwner = indexOf(slot)
+		end 'owned'
+	end 'self'
+	var first = 0 as Count
+	if hasReceiver 'method'
+		first = 1
+	end 'method'
+	for i in 0 upto p.funcs.entries[l.fn as Count].params.count() 'each'
+		let ty = p.funcs.entries[l.fn as Count].paramTypes[i]
+		if p.funcs.entries[l.fn as Count].params[i].conv == ast.Convention.convConsumes and kindOf(l, p: p, t: ty) == IrKind.kindManaged 'consumed'
+			let slot = adopt(l, p: p, index: try first + i otherwise panic("ir: too many parameters"), t: ty)
+			let local = p.funcs.entries[l.fn as Count].paramLocals[i]
+			if local != ast.noLocal 'named'
+				l.ownerSlots.push(OwnerSlot.make(local, slot: slot))
+			end 'named'
+		end 'consumed'
+	end 'each'
+end 'adoptParams'
+
+function adopt(mutates l Lowerer, mutates p ast.Project, index Count, t ast.TypeID) returns Count
+	let slot = l.b.f.newSlot(IrKind.kindManaged)
+	let v = paramReg(l, index: index, kind: IrKind.kindManaged)
+	emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+	ownLocal(l, p: p, slot: slot, t: t)
+	return slot
+end 'adopt'
+
+// ownerOf is the slot that owns a consumes parameter, or noSlot for a local that no slot owns.
+function ownerOf(l Lowerer, id ast.LocalID, isSelf bool) returns Index
+	if isSelf 'self'
+		return l.selfOwner
+	end 'self'
+	for i in 0 upto l.ownerSlots.count() 'each'
+		if l.ownerSlots[i].local == id 'hit'
+			return indexOf(l.ownerSlots[i].slot)
+		end 'hit'
+	end 'each'
+	return noSlot
+end 'ownerOf'
+
+// ownedRead is the value of a slot that owns what it holds: a move out of it when the ownership pass found the
+// expression consuming it, and a borrow otherwise.
+function ownedRead(mutates l Lowerer, p ast.Project, slot Count, e ast.NodeID) returns Reg
+	if isConsumed(p, module: l.module, node: e) and slotKind(l, slot: slot) == IrKind.kindManaged 'move'
+		let d = newReg(l, kind: IrKind.kindManaged)
+		emit(l, i: newMoveSlot(d, slot: slot))
+		return d
+	end 'move'
+	return load(l, slot: slot)
+end 'ownedRead'
+
+function pushJumps(mutates l Lowerer, node ast.NodeID, brk BlockID, cont BlockID)
+	l.jumps.push(JumpFrame.make(node, brk: brk, cont: cont, depth: l.scopes.count()))
+end 'pushJumps'
+
+function popJumps(mutates l Lowerer)
+	try l.jumps.pop() otherwise ignore
+end 'popJumps'
+
+// jumpsOf is where a break or a continue of the loop or match goes.
+function jumpsOf(l Lowerer, node ast.NodeID) returns JumpFrame
+	var i = l.jumps.count()
+	while i > 0 'back'
+		i = pred(i)
+		if l.jumps[i].node == node 'hit'
+			return l.jumps[i].clone()
+		end 'hit'
+	end 'back'
+	panic("lower: a break or a continue names a loop or a match that is not being lowered")
+end 'jumpsOf'
+
+// self is the receiver, borrowed: a consumes self lives in the slot that owns it.
+function selfReg(mutates l Lowerer, p ast.Project) returns Reg
+	if l.selfOwner != noSlot 'owned'
+		return load(l, slot: slotIndex(l.selfOwner))
+	end 'owned'
+	let selfLocal = localEntry(p, module: l.fnModule, id: p.funcs.entries[l.fn as Count].selfLocal)
+	return paramReg(l, index: selfLocal.paramIndex, kind: IrKind.kindManaged)
+end 'selfReg'
+
+// lowerBlock lowers the live statements of a block, which owns the locals they declare.
+function lowerBlock(mutates l Lowerer, mutates p ast.Project, ref diag.U32)
+	pushScope(l, block: true)
+	let n = ast.liveCount(p.modules[l.mi].tree, ref: ref)
+	for i in 0 upto n 'each'
+		lowerStmt(l, p: p, s: p.modules[l.mi].tree.listAt(ref, index: i) as ast.NodeID)
+	end 'each'
+	popScope(l, p: p)
+end 'lowerBlock'
+
+// lowerStmt lowers a statement, which owns the temporaries it makes: they are dropped when it ends, and every value it
+// computes for something to take has been taken by then.
+function lowerStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let mark = l.pending.count()
+	pushScope(l, block: false)
+	visitStmt(l, p: p, s: s)
+	popScope(l, p: p)
+	popPending(l, n: mark)
+end 'lowerStmt'
+
+function visitStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let k = p.modules[l.mi].tree.kindOf(s)
+	if k == ast.NodeKind.letStmt 'letStmt'
+		visitLetStmt(l, p: p, s: s)
+		return
+	end 'letStmt'
+	if k == ast.NodeKind.discardStmt 'discardStmt'
+		_ = lowerExpr(l, p: p, e: ast.discardStmtValue(p.modules[l.mi].tree, id: s))
+		return
+	end 'discardStmt'
+	if k == ast.NodeKind.exprStmt 'exprStmt'
+		_ = lowerExpr(l, p: p, e: ast.exprStmtE(p.modules[l.mi].tree, id: s))
+		return
+	end 'exprStmt'
+	if k == ast.NodeKind.ifStmt 'ifStmt'
+		visitIfStmt(l, p: p, s: s)
+		return
+	end 'ifStmt'
+	if k == ast.NodeKind.whileStmt 'whileStmt'
+		visitWhileStmt(l, p: p, s: s)
+		return
+	end 'whileStmt'
+	if k == ast.NodeKind.matchStmt 'matchStmt'
+		_ = lowerMatch(l, p: p, core: ast.matchStmtMatch(p.modules[l.mi].tree, id: s), resultType: ast.noType)
+		return
+	end 'matchStmt'
+	if k == ast.NodeKind.returnStmt 'returnStmt'
+		visitReturnStmt(l, p: p, s: s)
+		return
+	end 'returnStmt'
+	if k == ast.NodeKind.breakStmt 'breakStmt'
+		visitBreakStmt(l, p: p, s: s)
+		return
+	end 'breakStmt'
+	if k == ast.NodeKind.continueStmt 'continueStmt'
+		visitContinueStmt(l, p: p, s: s)
+		return
+	end 'continueStmt'
+	if k == ast.NodeKind.assignStmt 'assignStmt'
+		visitAssignStmt(l, p: p, s: s)
+		return
+	end 'assignStmt'
+	if k == ast.NodeKind.forStmt 'forStmt'
+		visitForStmt(l, p: p, s: s)
+		return
+	end 'forStmt'
+	if k == ast.NodeKind.tryStmt 'tryStmt'
+		visitTryStmt(l, p: p, s: s)
+		return
+	end 'tryStmt'
+	if k == ast.NodeKind.throwStmt 'throwStmt'
+		visitThrowStmt(l, p: p, s: s)
+		return
+	end 'throwStmt'
+	if k == ast.NodeKind.whenStmt 'whenStmt'
+		visitWhenStmt(l, p: p, s: s)
+		return
+	end 'whenStmt'
+	panic("lower: the node {s} of kind {k.name} is no statement")
+end 'visitStmt'
+
+// condition lowers a condition, dropping its temporaries before the branch: the value it gives is a scalar.
+function condition(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
+	pushScope(l, block: false)
+	let v = lowerExpr(l, p: p, e: e)
+	popScope(l, p: p)
+	return v
+end 'condition'
+
+function visitLetStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let init = ast.letStmtInit(p.modules[l.mi].tree, id: s)
+	if init != 0 'init'
+		let v = lowerExpr(l, p: p, e: init)
+		emit(l, i: newStoreSlot(sym.slot, src: v, borrow: false))
+	end 'init'
+	ownLocal(l, p: p, slot: sym.slot, t: sym.ty)
+end 'visitLetStmt'
+
+function visitIfStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let thenBlock = l.b.newBlock()
+	let join = l.b.newBlock()
+	var els = join
+	let hasElse = ast.ifStmtHasElse(p.modules[l.mi].tree, id: s)
+	if hasElse 'else'
+		els = l.b.newBlock()
+	end 'else'
+	let cond = condition(l, p: p, e: ast.ifStmtCond(p.modules[l.mi].tree, id: s))
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: thenBlock, ifFalse: els))
+	l.cur = thenBlock
+	lowerBlock(l, p: p, ref: ast.ifStmtThenRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: join)
+	if hasElse 'else2'
+		l.cur = els
+		lowerBlock(l, p: p, ref: ast.ifStmtElseRef(p.modules[l.mi].tree, id: s))
+		goTo(l, target: join)
+	end 'else2'
+	l.cur = join
+end 'visitIfStmt'
+
+function visitWhileStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let top = l.b.newBlock()
+	let body = l.b.newBlock()
+	let join = l.b.newBlock()
+	pushJumps(l, node: s, brk: join, cont: top)
+	goTo(l, target: top)
+	let cond = condition(l, p: p, e: ast.whileStmtCond(p.modules[l.mi].tree, id: s))
+	l.b.terminate(l.cur, t: newBranch(cond, ifTrue: body, ifFalse: join))
+	l.cur = body
+	lowerBlock(l, p: p, ref: ast.whileStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: top)
+	popJumps(l)
+	l.cur = join
+end 'visitWhileStmt'
+
+function visitReturnStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	var v = noReg
+	let value = ast.returnStmtValue(p.modules[l.mi].tree, id: s)
+	if value == 0 'none'
+		v = konst(l, value: 0 as Word)
+	end 'none' else 'some'
+		v = lowerExpr(l, p: p, e: value)
+	end 'some'
+	unwind(l, p: p, depth: 0 as Count)
+	seal(l, t: newRet(v))
+end 'visitReturnStmt'
+
+function visitBreakStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let target = jumpsOf(l, node: jumpTargetOf(p, module: l.module, node: s))
+	unwind(l, p: p, depth: target.depth)
+	seal(l, t: newJump(target.brk))
+end 'visitBreakStmt'
+
+function visitContinueStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let target = jumpsOf(l, node: jumpTargetOf(p, module: l.module, node: s))
+	unwind(l, p: p, depth: target.depth)
+	seal(l, t: newJump(target.cont))
+end 'visitContinueStmt'
+
+// visitAssignStmt stores a value into a place, dropping the value the place held: the assignment is where that owner's
+// value dies. The value is computed first, so it may read the old one.
+function visitAssignStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let target = ast.assignStmtTarget(p.modules[l.mi].tree, id: s)
+	let value = ast.assignStmtValue(p.modules[l.mi].tree, id: s)
+	let k = p.modules[l.mi].tree.kindOf(target)
+	if k == ast.NodeKind.nameExpr 'name'
+		let name = nameInfoAt(p, module: l.module, node: target)
+		if name.kind == ast.NameKind.nameLocal 'local'
+			let v = lowerExpr(l, p: p, e: value)
+			let loc = localEntry(p, module: l.fnModule, id: name.local)
+			if isByRef(loc) 'byRef'
+				let addr = paramReg(l, index: loc.paramIndex, kind: IrKind.kindScalar)
+				dropAt(l, p: p, addr: addr, t: loc.ty)
+				emit(l, i: newStoreAt(addr, src: v))
+			end 'byRef' else 'slot'
+				if kindOf(l, p: p, t: loc.ty) == IrKind.kindManaged 'managed'
+					let ty = dropType(l, p: p, t: loc.ty)
+					emitDropSlot(l, slot: loc.slot, ty: ty)
+				end 'managed'
+				emit(l, i: newStoreSlot(loc.slot, src: v, borrow: false))
+			end 'slot'
+			return
+		end 'local'
+		if name.kind == ast.NameKind.nameSelfField 'field'
+			let v = lowerExpr(l, p: p, e: value)
+			let obj = selfReg(l, p: p)
+			storeField(l, p: p, obj: obj, index: name.fieldIndex, t: exprType(p, module: l.module, node: target), v: v)
+			return
+		end 'field'
+	end 'name'
+	if k == ast.NodeKind.memberExpr 'member'
+		let member = memberInfoAt(p, module: l.module, node: target)
+		if member.kind == ast.MemberKind.memberField 'field'
+			let obj = lowerExpr(l, p: p, e: ast.memberExprObj(p.modules[l.mi].tree, id: target))
+			let v = lowerExpr(l, p: p, e: value)
+			storeField(l, p: p, obj: obj, index: member.fieldIndex, t: exprType(p, module: l.module, node: target), v: v)
+			return
+		end 'field'
+	end 'member'
+	if k == ast.NodeKind.indexExpr 'index'
+		assignElement(l, p: p, target: target, value: value)
+		return
+	end 'index'
+	panic("lower: unhandled assignment target")
+end 'visitAssignStmt'
+
+function visitForStmt(mutates l Lowerer, mutates p ast.Project, s ast.NodeID)
+	let sym = localEntry(p, module: l.fnModule, id: localOfNode(p, module: l.module, node: s))
+	let slot = sym.slot
+	let limit = l.b.f.newSlot(IrKind.kindScalar)
+	let unsigned = ast.isUnsignedInt(p.types, t: sym.ty)
+	let body = l.b.newBlock()
+	let cont = l.b.newBlock()
+	let step = l.b.newBlock()
+	let exit = l.b.newBlock()
+	pushJumps(l, node: s, brk: exit, cont: cont)
+	let inclusive = ast.forStmtInclusive(p.modules[l.mi].tree, id: s)
+	let from = lowerExpr(l, p: p, e: ast.forStmtFrom(p.modules[l.mi].tree, id: s))
+	emit(l, i: newStoreSlot(slot, src: from, borrow: false))
+	let upper = lowerExpr(l, p: p, e: ast.forStmtTo(p.modules[l.mi].tree, id: s))
+	emit(l, i: newStoreSlot(limit, src: upper, borrow: false))
+	var pastOp = CmpOp.cmpGe
+	if inclusive 'inclusive'
+		pastOp = CmpOp.cmpGt
+	end 'inclusive'
+	let pastA = load(l, slot: slot)
+	let pastB = load(l, slot: limit)
+	let past = compare(l, op: pastOp, a: pastA, b: pastB, unsigned: unsigned)
+	l.b.terminate(l.cur, t: newBranch(past, ifTrue: exit, ifFalse: body))
+	l.cur = body
+	lowerBlock(l, p: p, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
+	goTo(l, target: cont)
+	if inclusive 'inclusiveStep'
+		let a = load(l, slot: slot)
+		let b = load(l, slot: limit)
+		let done = compare(l, op: CmpOp.cmpEq, a: a, b: b, unsigned: unsigned)
+		l.b.terminate(l.cur, t: newBranch(done, ifTrue: exit, ifFalse: step))
+		l.cur = step
+	end 'inclusiveStep' else 'exclusiveStep'
+		goTo(l, target: step)
+	end 'exclusiveStep'
+	let next = newReg(l, kind: IrKind.kindScalar)
+	let cur = load(l, slot: slot)
+	let one = konst(l, value: 1 as Word)
+	emit(l, i: newBin(next, op: BinOp.binAdd, left: cur, right: one, unsigned: unsigned, fail: noBlock))
+	emit(l, i: newStoreSlot(slot, src: next, borrow: false))
+	if inclusive 'inclusiveJump'
+		l.b.terminate(l.cur, t: newJump(body))
+	end 'inclusiveJump' else 'exclusiveJump'
+		let lim = load(l, slot: limit)
+		let over = compare(l, op: CmpOp.cmpGe, a: next, b: lim, unsigned: unsigned)
+		l.b.terminate(l.cur, t: newBranch(over, ifTrue: exit, ifFalse: body))
+	end 'exclusiveJump'
+	popJumps(l)
+	l.cur = exit
+end 'visitForStmt'
+
+// lowerFunction is the IR of a function, or of an instance of a generic one. instances are the ones the function's module
+// needs, which every generic call in the body must be one of.
+export function lowerFunction(mutates p ast.Project, fn ast.FuncID, mutates instances InstanceSet) returns IrFunction
+	var l = Lowerer.new(exchange(instances, value: InstanceSet.new()))
+	var bindParams = ast.TypeIDList.create(0)
+	var bindArgs = ast.TypeIDList.create(0)
+	let origin = p.funcs.entries[fn as Count].genericOrigin
+	if origin != ast.noFunc 'instance'
+		bindParams = ast.cloneTypeArgs(p.funcs.entries[origin as Count].generics)
+		bindArgs = ast.cloneTypeArgs(p.funcs.entries[fn as Count].typeArgs)
+	end 'instance'
+	begin(l, p: p, fn: fn, bindParams: bindParams, bindArgs: bindArgs, name: "")
+	let f = lowerBody(l, p: p)
+	instances = exchange(l.instances, value: InstanceSet.new())
+	return f
+end 'lowerFunction'
+
+// lowerModule finds the instances of generic functions that a module needs, and lowers the module's functions that are
+// not generic, in source order, and then those instances, in the order they were found. functions are the module's
+// functions and methods, and callers the ones among them that call a generic or go through a bound, as the check pass
+// recorded them.
+export function lowerModule(mutates p ast.Project, functions ast.FuncIDList, callers ast.FuncIDList, mutates errs diag.ErrorList) returns IrFunctionList
+	var lowered = IrFunctionList.create(0)
+	var instances = findInstances(p, callers: callers, errs: errs)
+	if errs.count() > 0 'unfinite'
+		return lowered
+	end 'unfinite'
+	for i in 0 upto functions.count() 'functions'
+		if p.funcs.entries[functions[i] as Count].generics.count() == 0 'plain'
+			lowered.push(lowerFunction(p, fn: functions[i], instances: instances))
+		end 'plain'
+	end 'functions'
+	let found = instances.list.clone()
+	for i in 0 upto found.count() 'instances'
+		lowered.push(lowerFunction(p, fn: found[i], instances: instances))
+	end 'instances'
+	return lowered
+end 'lowerModule'
+
+// moduleIrText is the text of the IR of a module's functions, as --emit-ir writes it.
+export function moduleIrText(p ast.Project, functions IrFunctionList) returns String
+	var out = ByteArray.create(0)
+	for i in 0 upto functions.count() 'each'
+		printIr(p, f: functions[i], out: out)
+	end 'each'
+	return String.from(out)
+end 'moduleIrText'
