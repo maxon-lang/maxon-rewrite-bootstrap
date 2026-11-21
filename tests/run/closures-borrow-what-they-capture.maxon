@@ -23,7 +23,7 @@ function increment(mutates n Count) returns Count
 	return n
 end 'increment'
 
-function twice(f Bump) returns Count
+function twice(mutates f Bump) returns Count
 	_ = f()
 	return f()
 end 'twice'

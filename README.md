@@ -1333,11 +1333,15 @@ never copies what it captures on its own:
 | a borrow: a `let`, `mutates` or `sets` parameter, `self` in a method, a match binding, the variable of a loop over a collection, or what an enclosing closure captured | **borrowed** by the closure, which holds the borrowed reference and neither copies nor drops it, so the closure sees every later change to the value's parts |
 | in a mutating closure (one written for a type that `mutates captures`), a variable that can be changed: a `var`, a `mutates` parameter, `mutates self` | **borrowed to be changed**: the closure holds the variable's address and its writes are the variable's |
 
-The body reads every other capture as a `let` borrow of what the closure holds, since it may be called again: it cannot
-move it, and changing it, or passing it to `mutates`, is `E3210`, Maxon's refusal of a function value that writes what it
-captured where its type does not declare `mutates captures` (in a mutating closure, of a capture that is not a mutable
-variable, `E2013`). A
-field named bare in a method (`count` for `self.count`) is not captured yet: write `self.count`.
+In a mutating closure, what the closure owns (a scalar it copied, a local that moved in) is its own state: the body
+changes it in place, as a `mutates` parameter, the value lives in the closure, and each call sees the writes of the one
+before, so a function may return a counter (`let count = 0 as Count` and `function() gives increment(count)`). Replacing
+it drops the value it held. Such a closure borrows nothing because of that state and may escape; one that also borrows to
+change a `var` does not, and `E3925` then says to declare the variable with `let` so that the closure owns it. The body
+reads every other capture as a `let` borrow of what the closure holds, since it may be called again: it cannot move it,
+and changing it, or passing it to `mutates`, is `E3210`, Maxon's refusal of a function value that writes what it captured
+where its type does not declare `mutates captures` (in a mutating closure, of a capture it borrows, `E2013`). A field named
+bare in a method (`count` for `self.count`) is not captured yet: write `self.count`.
 
 **A closure that borrows does not escape.** A function value holds a borrow when its closure captured one, when it took
 over a value that holds one, and when it is borrowed itself and its origin is unknown: a `let`, `mutates` or `sets`
@@ -1358,10 +1362,21 @@ closure changes may not be read, changed, moved or captured again by anything el
 that borrows a place may not be passed beside an earlier argument that passes that place `mutates`, `consumes` or `sets`,
 and one that changes it beside any earlier argument that names it.
 
-**Ownership of a function value.** A closure is immutable, so a function value is never moved: binding it, storing it,
-passing it to `consumes` and returning it give another value that shares the closure (the closure's count says how many),
-and the place keeps its own, as Maxon's copies share (`var g = f`, `f.clone()`). Each value is dropped where its owner
-dies, and the last one frees the closure, which drops what it owns and nothing it borrows.
+**Ownership of a function value.** A closure of a type without `mutates captures` is immutable, so its value is never
+moved: binding it, storing it, passing it to `consumes` and returning it give another value that shares the closure (the
+closure's count says how many), and the place keeps its own, as Maxon's copies share (`var g = f`, `f.clone()`). Each
+value is dropped where its owner dies, and the last one frees the closure, which drops what it owns and nothing it borrows.
+
+A value of a type that `mutates captures` has one owner, as a record has, since two values sharing its closure would be
+two names for one changing state: binding it, storing it, passing it to `consumes` and returning it move it (using it
+afterwards is `E3102`), and `clone()` of it, or of a value that holds one, is `E3918`. Calling it changes it, so the
+callee must be a place the caller may change: a `var`, a `mutates` parameter, a field or an element reached through one,
+or `mutates self`; anywhere else (a `let`, a borrowing or `consumes` parameter) the call is `E2013`, which `fix` resolves
+by declaring the `let` with `var` or the parameter `mutates`, as for a change (a `consumes` parameter is moved into a `var`
+first), and through a capture of a closure whose type does not mutate its captures it is `E3210`. A new value, a closure or a call's
+result, may be called where it is made and passed to a `mutates` parameter, which changes it for that call alone. A value
+of a type without the clause fits a mutating type; held there, it follows that type's rules, though the closure it shares
+changes nothing.
 
 Not yet: the purity and capability rules of closures (`E3207`, `E3210` beyond writes to captures, `E3064` through a
 closure, the cycle check `E3183`), which Phase 3 adds; `returns immutable`; a field named bare in a closure; and the
@@ -2120,11 +2135,14 @@ are not supported.
 - Function values (see "Function values"): a closure that captures a borrow (a parameter, `self`, a match binding)
   holds the borrow, so it may not escape (`E3925`), where Maxon's closure retains a counted reference to the borrowed
   record and may escape with it; a closure that escapes here owns everything it captures. So a borrowed parameter of a
-  function type may not be stored, returned or cloned (declare it `consumes`), and a closure writes a captured variable
-  only when its function type `mutates captures` and the variable is mutable (a `var`, a `mutates` parameter, `mutates
-  self`), where Maxon writes through any captured record. Maxon infers whether a closure mutates its captures and refuses
-  one that does at a plain function type (`E3210`); here a closure mutates its captures when it is written where a
-  `mutates captures` type is expected, and a write in any other is `E3210`. The collections have no methods that take a closure (`map`,
+  function type may not be stored, returned or cloned (declare it `consumes`), and a closure writes what it captured
+  only when its function type `mutates captures`: what it owns, which it changes in place and keeps between calls, and a
+  mutable variable it borrows (a `var`, a `mutates` parameter, `mutates self`), whose address it holds, where Maxon copies
+  a scalar and writes through any captured record. Maxon infers whether a closure mutates its captures and refuses one
+  that does at a plain function type (`E3210`); here a closure mutates its captures when it is written where a `mutates
+  captures` type is expected, and a write in any other is `E3210`. Maxon's closures are shared whatever their type; here
+  a value of a `mutates captures` type moves, is never copied (`E3918`), and is called only through a place the caller
+  may change (`E2013`), so a borrowing parameter of such a type is declared `mutates`. The collections have no methods that take a closure (`map`,
   `filter`, `sortBy`).
 - Floats (see "Floats") have no interval analysis: an operation over a float that is not a constant gives `FullRangeFloat`,
   where maxon carries the interval of its operands, so a value maxon proves fits a narrower float alias needs `try ... as`

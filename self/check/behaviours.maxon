@@ -49,7 +49,8 @@ end 'captureFrom'
 // copies it on its own: a scalar is a value, one that owns its value moves it into the closure, and one that borrows it
 // is borrowed by the closure, which then cannot outlive the borrow. Each is a let borrow in the body. A mutating closure
 // borrows a mutable variable to change it instead: the closure holds its address, and its 'self' the receiver itself,
-// which a method cannot replace.
+// which a method cannot replace. What a mutating closure owns, it changes in place: the value lives in the closure, so
+// each call sees the writes of the one before.
 function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count, outer ast.LocalID, ref ast.NodeID, use ast.NodeID) returns ast.LocalID
 	let source = c.typing.locals[outer as Count].clone()
 	ast.setNodeType(c.typing, node: ref, ty: source.ty)
@@ -68,7 +69,10 @@ function captureLocal(mutates c Checker, mutates p ast.Project, behaviour Count,
 			end 'byAddress'
 		end 'mutable' else if ast.isManagedType(p.types, t: source.ty) and borrowsValue(source) 'borrowed'
 			conv = ast.Convention.convLet
-		end 'borrowed'
+		end 'borrowed' else if c.bFrames[behaviour].mutatesCaptures 'owned'
+			inner.conv = ast.Convention.convMutates
+			inner.captureConv = ast.Convention.convConsumes
+		end 'owned'
 	end 'closure' else 'behaviour'
 		inner.paramIndex = try c.bFrames[behaviour].accesses.count() + c.bFrames[behaviour].captures.count() otherwise panic("too many parameters in a behaviour")
 	end 'behaviour'

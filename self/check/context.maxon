@@ -117,6 +117,7 @@ export enum LackReason
 	lackDeclared
 	lackDestructor
 	lackUnbounded
+	lackMutatesCaptures
 end 'LackReason'
 
 export type LackStep
@@ -765,6 +766,12 @@ export function lacksCap(mutates c Checker, mutates p ast.Project, wantCopy bool
 	if k == ast.TypeKind.intRange or k == ast.TypeKind.constInt or k == ast.TypeKind.floatRange or k == ast.TypeKind.constFloat or k == ast.TypeKind.primBool or k == ast.TypeKind.primString or k == ast.TypeKind.primVoid or k == ast.TypeKind.primNever or k == ast.TypeKind.enumTy 'scalar'
 		return LackInfo.ok()
 	end 'scalar'
+	if k == ast.TypeKind.funcTy 'function'
+		if wantCopy and ast.isMutatingFunction(p.types, t: t) 'mutating'
+			return LackInfo.fail(LackStep.root(t, reason: LackReason.lackMutatesCaptures))
+		end 'mutating'
+		return LackInfo.ok()
+	end 'function'
 	if k == ast.TypeKind.typeParam 'tp'
 		if hasBoundCap(p, boundedFn: c.boundedFn, paramTy: t, wantCopy: wantCopy) 'ok'
 			return LackInfo.ok()
@@ -859,7 +866,9 @@ export function lackWhyText(tt ast.TypeTable, info LackInfo, capName String) ret
 			buf.append("'{oName}' is declared 'is noncopyable'".toByteArray())
 		end 'dec' else if r == LackReason.lackDestructor 'dtor'
 			buf.append("'{oName}' has a destructor".toByteArray())
-		end 'dtor' else 'unb'
+		end 'dtor' else if r == LackReason.lackMutatesCaptures 'captures'
+			buf.append("'{oName}' mutates captures, so its closure holds state that only one owner may change".toByteArray())
+		end 'captures' else 'unb'
 			buf.append("the type parameter '{oName}' is not known to be {capName}".toByteArray())
 		end 'unb'
 	end 'each'
@@ -879,6 +888,9 @@ export function lackFixText(tt ast.TypeTable, info LackInfo, capName String) ret
 	if r == LackReason.lackUnbounded 'unb'
 		return "add the bound 'where {oName} implements {capName}'"
 	end 'unb'
+	if r == LackReason.lackMutatesCaptures 'captures'
+		return "pass it 'mutates' to share its use"
+	end 'captures'
 	return ""
 end 'lackFixText'
 

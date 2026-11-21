@@ -42,7 +42,7 @@ function consume(mutates o Ownership, mutates p ast.Project, e ast.NodeID, consu
 	end 'dead'
 	o.c.typing.consumed.insert(e as Count, value: true)
 	let t = ownType(o, node: e)
-	if ast.sharesOnCopy(p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
+	if ast.isFunctionType(p.types, t: t) and dest.kind != OwnDestKind.destClosure and dest.kind != OwnDestKind.destBinding and dest.kind != OwnDestKind.destCast and dest.kind != OwnDestKind.destBranch 'escapes'
 		requireNoBorrows(o, p: p, e: e, what: "moved into {dest.text()}")
 	end 'escapes'
 	if not isManagedOwn(p, t: t) or ast.sharesOnCopy(p.types, t: t) 'scalar'
@@ -107,67 +107,88 @@ end 'borrowedMoveFix'
 
 // requireWritable refuses a change to a place that is not mutable, and one that a match binding still borrows.
 function requireWritable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath)
-	if requireMutable(o, p: p, site: site, path: path) 'mutable'
-		requireNotProjected(o, p: p, path: path, site: site)
-	end 'mutable'
+	requireWritableFor(o, p: p, site: site, path: path, call: ast.noType)
 end 'requireWritable'
 
+// requireWritableFor is requireWritable for a change that is a call of the value at path, of the function type call that
+// mutates its captures, or for a plain change when call is none.
+function requireWritableFor(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath, call ast.TypeID)
+	if requireMutable(o, p: p, site: site, path: path, call: call) 'mutable'
+		requireNotProjected(o, p: p, path: path, site: site)
+	end 'mutable'
+end 'requireWritableFor'
+
 // requireMutable refuses a change to a place that is not mutable, and says whether it is. A part of the variable of a for
-// is a part of the element it borrows, so it is as mutable as that part of the collection.
-function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath) returns bool
+// is a part of the element it borrows, so it is as mutable as that part of the collection. A call of a value whose type
+// call mutates its captures changes the value, so it is refused where a change is, saying so.
+function requireMutable(mutates o Ownership, mutates p ast.Project, site diag.U32, path AccessPath, call ast.TypeID) returns bool
 	let root = o.c.typing.locals[path.root as Count].clone()
 	let text = pathText(o, p: p, path: path)
 	if path.crossesFrozen() 'frozen'
-		fail(o, p: p, site: site, code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errFrozenChange, msg: "'{text}' is part of a frozen value, whose contents are immutable and shared with its other owners; change a copy instead: 'var c = thaw(...)'")
 		return false
 	end 'frozen'
 	if (isForVariable(p.modules[o.c.modIdx].tree, l: root) or root.projected) and path.steps.count() == 0 'forVariable'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
 		return false
 	end 'forVariable'
 	if root.projected and path.steps.count() > 0 'part'
 		match consumes lenderOf(o, local: path.root) 'lender'
-			some(collection) then return requireMutable(o, p: p, site: site, path: throughElement(collection, path: path))
+			some(collection) then return requireMutable(o, p: p, site: site, path: throughElement(collection, path: path), call: call)
 			none then _ = 0
 		end 'lender'
 	end 'part'
 	if root.projected 'projected'
 		let advice = copyAdvice(o, p: p, t: root.ty, ifCopyable: "copy it into a var first: 'var x = {root.name}.clone()'", fallback: "change the subject itself instead of a binding of it")
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of {lenderName(o, p: p, root: root)} and cannot be changed; {advice}")
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{root.name}' borrows part of {lenderName(o, p: p, root: root)} and cannot be changed; {advice}")
 		return false
 	end 'projected'
 	for i in 0 upto path.steps.count() 'steps'
 		if not path.steps[i].isElement() and not fieldIsVar(p, step: path.steps[i]) 'letField'
-			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letFieldReassigned(fieldName(p, step: path.steps[i])))
+			mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: diag.letFieldReassigned(fieldName(p, step: path.steps[i])))
 			return false
 		end 'letField'
 	end 'steps'
 	if root.isCapture and not isMutableLocal(root) 'capture'
 		if ast.funcMutatesCaptures(p.types, t: o.closureTy) 'immutable'
-			fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{root.name}' is not a mutable variable where the closure captures it, so even a closure that mutates its captures only reads it; a mutating closure changes a 'var', a 'mutates' parameter or 'mutates self'")
+			mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{root.name}' is borrowed where the closure captures it, so even a closure that mutates its captures only reads it; a mutating closure changes what it owns, a 'var', a 'mutates' parameter or 'mutates self'")
 			return false
 		end 'immutable'
-		fail(o, p: p, site: site, code: diag.errCapabilityConversion, msg: diag.writesCaptures(nameOfType(p, t: o.closureTy)))
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errCapabilityConversion, msg: diag.writesCaptures(nameOfType(p, t: o.closureTy)))
 		return false
 	end 'capture'
 	if root.isSelf and not isMutableLocal(root) 'self'
-		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'", fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt))
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: mutatesSelfFix(p.modules[o.c.modIdx].tree, method: root.definedAt), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because 'self' is not mutable here; declare the method with 'mutates self'")
 		return false
 	end 'self'
 	if root.isParam and root.conv == ast.Convention.convLet 'let'
-		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var", fix: conventionFix(p.modules[o.c.modIdx].tree, param: root.definedAt, keyword: fixKindMutates))
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: conventionFix(p.modules[o.c.modIdx].tree, param: root.definedAt, keyword: fixKindMutates), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a let parameter; write 'mutates' before it to change the caller's value, or copy it into a var")
 		return false
 	end 'let'
 	if root.isParam and ast.ownsValue(root.conv) 'owns'
-		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: diag.Fix.none(), code: diag.errAssignToImmutable, msg: "'{text}' cannot be changed because '{root.name}' is a '{root.conv.keyword()}' parameter; move it into a var first")
 		return false
 	end 'owns'
 	if not isMutableLocal(root) 'immutable'
-		failFixed(o, p: p, site: site, code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name), fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt))
+		mutableFail(o, p: p, site: site, call: call, text: text, fix: varFix(p.modules[o.c.modIdx].tree, stmt: root.definedAt), code: diag.errAssignToImmutable, msg: diag.letReassigned(root.name))
 		return false
 	end 'immutable'
 	return true
 end 'requireMutable'
+
+// mutableFail reports why the place text cannot be changed: for a call of a value whose type mutates its captures, as why
+// that call needs it mutable.
+function mutableFail(mutates o Ownership, mutates p ast.Project, site diag.U32, call ast.TypeID, text String, consumes fix diag.Fix, code String, consumes msg String)
+	if call == ast.noType 'change'
+		failFixed(o, p: p, site: site, code: code, msg: msg, fix: fix)
+		return
+	end 'change'
+	var advice = ""
+	if fix.kind == fixKindVar 'var'
+		advice = "; declare it with 'var'"
+	end 'var'
+	failFixed(o, p: p, site: site, code: code, msg: "calling '{text}' changes the state its closure holds, since '{nameOfType(p, t: call)}' mutates captures, so it needs a place that may be changed: {msg}{advice}", fix: fix)
+end 'mutableFail'
 
 // lenderOf is the collection that the variable of an enclosing for borrows its elements from: none for any other local,
 // and for one over a temporary.
@@ -313,8 +334,8 @@ function visitExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, 
 	end 'unary'
 	if k == ast.NodeKind.castExpr 'cast'
 		let operand = ast.castExprE(p.modules[o.c.modIdx].tree, id: e)
-		if ast.sharesOnCopy(p.types, t: ownType(o, node: e)) 'function'
-			// The cast gives the same closure, which the value it makes shares.
+		if ast.isFunctionType(p.types, t: ownType(o, node: e)) 'function'
+			// The cast gives the same closure, which the value it makes shares or takes over.
 			return consume(o, p: p, e: operand, dest: OwnDest.of(OwnDestKind.destCast), s: s)
 		end 'function'
 		let out = expr(o, p: p, e: operand, s: s)
@@ -478,7 +499,7 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 	let receiver = ast.callReceiver(p.modules[o.c.modIdx].tree, e: e, kind: call.kind)
 	let k = call.kind
 	if k == ast.CallKind.callCopy 'copy'
-		if ast.sharesOnCopy(p.types, t: ownType(o, node: receiver)) 'function'
+		if ast.isFunctionType(p.types, t: ownType(o, node: receiver)) 'function'
 			requireNoBorrows(o, p: p, e: receiver, what: "copied with 'clone()'")
 		end 'function'
 		return expr(o, p: p, e: receiver, s: s)
@@ -502,6 +523,7 @@ function callExprOwn(mutates o Ownership, mutates p ast.Project, e ast.NodeID, c
 		let callee = ast.callExprCallee(p.modules[o.c.modIdx].tree, id: e)
 		let held = o.projections.count()
 		let out = expr(o, p: p, e: callee, s: s)
+		requireCallable(o, p: p, callee: callee)
 		hold(o, p: p, place: callee, kind: OwnProjectionKind.projectArgument, byAddress: false)
 		let after = userCall(o, p: p, site: offsetOfOwn(o, p: p, node: e), call: call, receiver: 0 as ast.NodeID, s: out)
 		release(o, mark: held)
@@ -671,6 +693,10 @@ function mutatesArgument(mutates o Ownership, mutates p ast.Project, e ast.NodeI
 	let out = eval(o, p: p, e: e, s: s)
 	let path = pathOf(o, p: p, e: e)
 	let site = offsetOfOwn(o, p: p, node: e)
+	if not path.isPlace() and ast.isMutatingFunction(p.types, t: ownType(o, node: e)) 'temporary'
+		// A new function value is changed only by the call it is passed to, as one called where it is made is.
+		return out
+	end 'temporary'
 	if not path.isPlace() 'fresh'
 		fail(o, p: p, site: site, code: diag.errAssignToImmutable, msg: "the 'mutates' parameter '{dest.name}' changes its argument, so pass a variable, or a field or an element of one")
 		return out

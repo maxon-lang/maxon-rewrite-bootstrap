@@ -1,0 +1,20 @@
+typealias Bump = function() returns Count mutates captures
+
+function increment(mutates n Count) returns Count
+	n = try n + 1 otherwise 0
+	return n
+end 'increment'
+
+function counter() returns Bump
+	let count = 0 as Count
+	return function() gives increment(count)
+end 'counter'
+
+function main() returns ExitCode
+	var next = counter()
+	var other = next
+	print("{other()} {next()}\n")
+	return 0
+end 'main'
+
+// expect-error: E3102 at 16:20

@@ -62,7 +62,7 @@ function localBorrows(o Ownership, p ast.Project, local ast.LocalID, mutates out
 		return
 	end 'holder'
 	let entry = o.c.typing.locals[local as Count].clone()
-	if not ast.sharesOnCopy(p.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
+	if not ast.isFunctionType(p.types, t: entry.ty) or not entry.isParam or ast.ownsValue(entry.conv) 'owned'
 		return
 	end 'owned'
 	out.name = entry.name.clone()
@@ -94,7 +94,11 @@ function requireNoBorrows(mutates o Ownership, mutates p ast.Project, e ast.Node
 	end 'owns'
 	let site = offsetOfOwn(o, p: p, node: e)
 	if b.mutableName != "" 'mutable'
-		fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.mutableName}' to change it, which it captured, so it cannot be {what}: it could outlive the borrow; call it here, or pass it to a parameter that borrows it")
+		var own = ""
+		if borrowsVariable(o, b: b) 'variable'
+			own = ", or declare '{b.mutableName}' with 'let' so that the closure owns its value and keeps its changes"
+		end 'variable'
+		fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.mutableName}' to change it, which it captured, so it cannot be {what}: it could outlive the borrow; call it here, or pass it to a parameter that borrows it{own}")
 		return
 	end 'mutable'
 	if b.param != ast.noLocal 'parameter'
@@ -114,6 +118,17 @@ function requireNoBorrows(mutates o Ownership, mutates p ast.Project, e ast.Node
 	fail(o, p: p, site: site, code: diag.errClosureBorrow, msg: "this function value borrows '{b.name}', which it captured, so it cannot be {what}: it could outlive the borrow; {advice}")
 end 'requireNoBorrows'
 
+// borrowsVariable is whether the variable a function value borrows to change, which a message names, is a local 'var',
+// which a closure would own were it a 'let'.
+function borrowsVariable(o Ownership, b OwnBorrows) returns bool
+	for i in 0 upto b.roots.count() 'roots'
+		if b.mutable[i] and o.c.typing.locals[b.roots[i] as Count].name == b.mutableName 'named'
+			return not o.c.typing.locals[b.roots[i] as Count].isParam
+		end 'named'
+	end 'roots'
+	panic("ownership: a function value changes '{b.mutableName}', which it did not capture")
+end 'borrowsVariable'
+
 // borrowedType is the type of the borrow a message names.
 function borrowedType(o Ownership, b OwnBorrows) returns ast.TypeID
 	for i in 0 upto b.roots.count() 'roots'
@@ -127,7 +142,7 @@ end 'borrowedType'
 // bindHolder records that a local declared here is bound to a function value that borrows, and holds what it borrows for
 // as long as the local's scope lasts.
 function bindHolder(mutates o Ownership, mutates p ast.Project, local ast.LocalID, e ast.NodeID)
-	if not ast.sharesOnCopy(p.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
+	if not ast.isFunctionType(p.types, t: o.c.typing.locals[local as Count].ty) 'notFunction'
 		return
 	end 'notFunction'
 	let b = borrowsOf(o, p: p, e: e)
@@ -183,3 +198,16 @@ end 'requireNotMutablyHeld'
 function releaseHolders(mutates o Ownership, mark Count)
 	truncate(o.holders, mark: mark)
 end 'releaseHolders'
+
+// requireCallable refuses a call of a value whose type mutates its captures where the caller may not change the value: the
+// call changes the state its closure holds. A temporary is called once, so nothing sees the change.
+function requireCallable(mutates o Ownership, mutates p ast.Project, callee ast.NodeID)
+	let t = ownType(o, node: callee)
+	if not ast.isMutatingFunction(p.types, t: t) 'reads'
+		return
+	end 'reads'
+	let path = pathOf(o, p: p, e: callee)
+	if path.isPlace() 'place'
+		requireWritableFor(o, p: p, site: offsetOfOwn(o, p: p, node: callee), path: path, call: t)
+	end 'place'
+end 'requireCallable'

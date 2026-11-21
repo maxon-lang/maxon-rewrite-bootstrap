@@ -55,14 +55,24 @@ function captureRead(mutates l Lowerer, mutates p ast.Project, loc ast.LocalEntr
 		kind = kindOf(l, p: p, t: loc.ty)
 	end 'value'
 	let d = newReg(l, kind: kind)
-	let offset = try closureCapturesOffset + wordOffset(loc.paramIndex) otherwise panic("lower: a capture past memory")
-	emit(l, i: newLoadField(d, obj: closure, offset: offset))
+	emit(l, i: newLoadField(d, obj: closure, offset: captureOffset(loc)))
 	return d
 end 'captureRead'
 
-// refAddress is the address of the caller's place that a local passed by address stands for: a parameter's, or the one a
-// mutating closure holds of a variable it captured.
+// captureOffset is where the closure holds what its body's local loc captured.
+function captureOffset(loc ast.LocalEntry) returns Count
+	return try closureCapturesOffset + wordOffset(loc.paramIndex) otherwise panic("lower: a capture past memory")
+end 'captureOffset'
+
+// refAddress is the address of the caller's place that a local passed by address stands for: a parameter's, the one a
+// mutating closure holds of a variable it captured, or the closure's own word that holds a value it owns and changes.
 function refAddress(mutates l Lowerer, mutates p ast.Project, loc ast.LocalEntry) returns Reg
+	if loc.isCapture and loc.captureConv == ast.Convention.convConsumes 'owned'
+		let closure = paramReg(l, index: 0, kind: IrKind.kindManaged)
+		let d = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newFieldAddr(d, obj: closure, offset: captureOffset(loc)))
+		return d
+	end 'owned'
 	if loc.isCapture 'captured'
 		return captureRead(l, p: p, loc: loc)
 	end 'captured'

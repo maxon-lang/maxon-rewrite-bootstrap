@@ -374,8 +374,9 @@ export type LocalEntry
 	export var definedAt as NodeID
 	export var isUninitialized as bool
 	export var isCapture as bool
-	// captureConv is, for a capture, how the closure holds it: as its value (let), or as the address of the variable that
-	// a mutating closure changes (mutates).
+	// captureConv is, for a capture, how the closure holds it: as its value, which the body only reads (let), as the
+	// address of the variable that a mutating closure changes (mutates), or as a value the closure owns and a mutating
+	// closure changes in place, so that each call sees the last one's writes (consumes).
 	export var captureConv as Convention
 	// slot is the place of a local that is not a parameter among the slots of its function's IR: dense from 0, in the
 	// order the checker declared them.
@@ -946,11 +947,22 @@ export function isSharedType(tt TypeTable, t TypeID) returns bool
 	return k == TypeKind.builtinFrozen or k == TypeKind.builtinCown
 end 'isSharedType'
 
-// sharesOnCopy is whether a value of the type is never moved: a function value, whose closure is immutable, so that every
-// place that would take it takes another value that shares the closure.
-export function sharesOnCopy(tt TypeTable, t TypeID) returns bool
+// isFunctionType is whether the type is a function type, whose values are closures that may hold borrows.
+export function isFunctionType(tt TypeTable, t TypeID) returns bool
 	return t != noType and tt.entries[t as Count].kind == TypeKind.funcTy
+end 'isFunctionType'
+
+// sharesOnCopy is whether a value of the type is never moved: a function value whose closure is immutable, so that every
+// place that would take it takes another value that shares the closure. A value of a type that mutates its captures has
+// state of its own in its closure, so it has one owner and moves as a record does.
+export function sharesOnCopy(tt TypeTable, t TypeID) returns bool
+	return isFunctionType(tt, t: t) and not funcMutatesCaptures(tt, t: t)
 end 'sharesOnCopy'
+
+// isMutatingFunction is whether the type is a function type whose values mutate their captures.
+export function isMutatingFunction(tt TypeTable, t TypeID) returns bool
+	return isFunctionType(tt, t: t) and funcMutatesCaptures(tt, t: t)
+end 'isMutatingFunction'
 
 export function isManagedType(tt TypeTable, t TypeID) returns bool
 	if t == noType 'no'

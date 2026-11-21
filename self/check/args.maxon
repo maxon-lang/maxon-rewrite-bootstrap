@@ -180,7 +180,8 @@ end 'bindArgs'
 // parameter takes the contents of a frozen value for.
 function coerceArg(mutates c Checker, mutates p ast.Project, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
-	if ast.isByAddress(spec.conv) 'byAddress'
+	let temporary = ast.isMutatingFunction(p.types, t: spec.ty) and not ast.isStorage(p.modules[c.modIdx].tree, typing: c.typing, node: value)
+	if ast.isByAddress(spec.conv) and not temporary 'byAddress'
 		if t != spec.ty 'different'
 			let expected = nameOfType(p, t: spec.ty)
 			let got = nameOfType(p, t: t)

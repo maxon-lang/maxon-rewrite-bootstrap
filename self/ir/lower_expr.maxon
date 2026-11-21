@@ -268,7 +268,7 @@ end 'visitStructLitExpr'
 function visitCastExpr(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns Reg
 	let inner = ast.castExprE(p.modules[l.mi].tree, id: e)
 	let v = lowerExpr(l, p: p, e: inner)
-	if ast.sharesOnCopy(p.types, t: exprType(p, module: l.module, node: e)) 'function'
+	if ast.isFunctionType(p.types, t: exprType(p, module: l.module, node: e)) 'function'
 		// A function cast changes only the type: the value is the operand's, which the ownership pass gave it.
 		return v
 	end 'function'
@@ -381,6 +381,19 @@ function address(mutates l Lowerer, mutates p ast.Project, e ast.NodeID) returns
 	if k == ast.NodeKind.indexExpr 'index'
 		return elemPlace(l, p: p, e: e)
 	end 'index'
+	let ty = exprType(p, module: l.module, node: e)
+	if ast.isMutatingFunction(p.types, t: ty) 'temporary'
+		// A new function value that the callee changes lives in a slot of its own, which drops what the callee leaves there.
+		let mark = l.pending.count()
+		let v = visitExpr(l, p: p, e: e)
+		popPending(l, n: mark)
+		let slot = l.b.f.newSlot(IrKind.kindManaged)
+		emit(l, i: newStoreSlot(slot, src: v, borrow: false))
+		ownLocal(l, p: p, slot: slot, t: ty)
+		let d = newReg(l, kind: IrKind.kindScalar)
+		emit(l, i: newSlotAddr(d, slot: slot))
+		return d
+	end 'temporary'
 	panic("lower: no address for this expression")
 end 'address'
 

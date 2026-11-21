@@ -1,0 +1,68 @@
+typealias Bump = function() returns Count mutates captures
+
+typealias Grow = function(String) returns Count mutates captures
+
+typealias Words = Array with String
+
+function increment(mutates n Count) returns Count
+	n = try n + 1 otherwise 0
+	return n
+end 'increment'
+
+function counter() returns Bump
+	let count = 0 as Count
+	return function() gives increment(count)
+end 'counter'
+
+function add(mutates words Words, word String) returns Count
+	words.push(word.clone())
+	return words.count()
+end 'add'
+
+function append(mutates text String, word String) returns Count
+	text = "{text}{word}"
+	return text.byteLength()
+end 'append'
+
+function collector() returns Grow
+	let words = Words.create(0)
+	return function(w String) gives add(words, word: w)
+end 'collector'
+
+function appender(consumes text String) returns Grow
+	return function(w String) gives append(text, word: w)
+end 'appender'
+
+type Ticker
+	export var tick as Bump
+
+	static function make(consumes tick Bump) returns Self
+		return Self{tick: tick}
+	end 'make'
+
+	function step(mutates self) returns Count
+		return self.tick()
+	end 'step'
+end 'Ticker'
+
+function main() returns ExitCode
+	var next = counter()
+	print("{next()} {next()} {next()}\n")
+	var t = Ticker.make(counter())
+	_ = t.step()
+	print("{t.step()} {t.tick()}\n")
+	var grow = collector()
+	_ = grow("a")
+	print("{grow("b")} {grow("c")}\n")
+	var longer = appender("ab".clone())
+	_ = longer("cd")
+	print("{longer("efg")}\n")
+	print("{counter()()}\n")
+	return 0
+end 'main'
+
+//> 1 2 3
+//> 2 3
+//> 2 3
+//> 7
+//> 1
