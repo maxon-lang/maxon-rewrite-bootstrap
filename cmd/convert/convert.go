@@ -25,11 +25,13 @@ func (w Warning) String() string {
 	return fmt.Sprintf("%s:%d: warning: %s", w.File, w.Line, w.Message)
 }
 
-// Result holds the converted source, any warnings emitted, and whether minimaxon's strict formatter accepted the output.
+// Result holds the converted source, any warnings emitted, and whether minimaxon's strict formatter accepted the output;
+// when it did not, Rejected is the formatter's first error.
 type Result struct {
 	Text      string
 	Warnings  []Warning
 	Formatted bool
+	Rejected  string
 }
 
 type sourceLine struct {
@@ -68,13 +70,15 @@ func Convert(file, src string) Result {
 	transformLines(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
-	if formatted, errs := syntax.Format(file, candidate); len(errs) == 0 {
+	formatted, errs := syntax.Format(file, candidate)
+	if len(errs) == 0 {
 		return Result{Text: formatted, Warnings: warnings, Formatted: true}
 	}
-	return Result{Text: candidate, Warnings: warnings, Formatted: false}
+	return Result{Text: candidate, Warnings: warnings, Formatted: false, Rejected: errs[0].Message}
 }
 
-// normalizeText strips BOM, converts CRLF/CR to LF, converts leading space indentation to tabs, and trims trailing spaces.
+// normalizeText strips BOM, converts CRLF/CR to LF, converts leading space indentation to tabs, indents each line by
+// its nesting depth, and trims trailing spaces.
 func normalizeText(src string) string {
 	src = strings.TrimPrefix(src, utf8BOM)
 	src = strings.ReplaceAll(src, "\r\n", "\n")
@@ -83,22 +87,38 @@ func normalizeText(src string) string {
 	rawLines := strings.Split(src, "\n")
 	spaceUnit := detectSpaceIndent(rawLines)
 
-	var out strings.Builder
-	out.Grow(len(src))
+	lines := make([]string, len(rawLines))
 	for i, line := range rawLines {
-		trimmedRight := strings.TrimRight(line, " \t")
-		if trimmedRight != "" {
-			out.WriteString(convertLeadingSpaces(trimmedRight, spaceUnit))
-		}
-		if i < len(rawLines)-1 {
-			out.WriteByte('\n')
+		if trimmedRight := strings.TrimRight(line, " \t"); trimmedRight != "" {
+			lines[i] = convertLeadingSpaces(trimmedRight, spaceUnit)
 		}
 	}
-	res := out.String()
+	indentByDepth(lines)
+	res := strings.Join(lines, "\n")
 	if res != "" && !strings.HasSuffix(res, "\n") {
 		res += "\n"
 	}
 	return res
+}
+
+// indentByDepth gives each code line one tab per enclosing indentation level, however many tabs maxon's author used
+// for a level or for the whole block: maxon accepts any consistent indentation, minimaxon's formatter exactly one tab
+// per level. Comment-only lines are left alone; they are aligned to the code that follows them later.
+func indentByDepth(lines []string) {
+	var open []int
+	for i, line := range lines {
+		tabs := len(line) - len(strings.TrimLeft(line, "\t"))
+		if tabs == len(line) || strings.HasPrefix(line[tabs:], "//") {
+			continue
+		}
+		for len(open) > 0 && open[len(open)-1] > tabs {
+			open = open[:len(open)-1]
+		}
+		if len(open) == 0 || open[len(open)-1] < tabs {
+			open = append(open, tabs)
+		}
+		lines[i] = strings.Repeat("\t", len(open)-1) + line[tabs:]
+	}
 }
 
 func detectSpaceIndent(lines []string) int {
@@ -282,6 +302,14 @@ func blockCommentLines(raw string) []string {
 	return lines
 }
 
+// opensWithEnd reports whether the next token after from, past blanks and line breaks, is the keyword end.
+func opensWithEnd(toks []token, from int) bool {
+	for from < len(toks) && (toks[from].kind == tokSpace || toks[from].kind == tokNewline) {
+		from++
+	}
+	return from < len(toks) && toks[from].kind == tokIdent && toks[from].text == "end"
+}
+
 // joinBracketLines collapses line breaks inside (), [] and {} onto one line, preserving nested match/otherwise blocks.
 func joinBracketLines(src string) string {
 	toks := lex(src)
@@ -349,6 +377,11 @@ func joinBracketLines(src string) string {
 				hoistedComments = append(hoistedComments, strings.TrimSpace(t.text))
 				continue
 			case tokNewline:
+				if opensWithEnd(toks, i+1) {
+					// A line that ends a block cannot continue an expression, so the bracket was never closed.
+					bracketDepth = 0
+					break
+				}
 				// Skip leading whitespace on the continuation line and join with a single space.
 				for i+1 < len(toks) && (toks[i+1].kind == tokSpace || toks[i+1].kind == tokNewline) {
 					i++
@@ -1005,6 +1038,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 	// Rewrite `freeze <unary_expr>` -> `freeze(<unary_expr>)` and `swap <target> with <expr>` -> `exchange(<target>, value: <expr>)`.
 	toks = rewriteRegionExprs(toks, line, warn)
 	toks = rewriteArmThrows(toks)
+	toks = rewriteDiscards(toks)
 	line.code = toks
 
 	// Statement-head checks.
@@ -1145,6 +1179,17 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 }
 
 // rewriteArmThrows turns a match arm `pattern throws E` into `pattern then throw E`, the one form minimaxon's arms have.
+// rewriteDiscards drops the let of a discard binding, which minimaxon spells `_ = value`, at the start of a statement
+// and as the statement of a match arm.
+func rewriteDiscards(toks []token) []token {
+	for i := 0; i+2 < len(toks); i++ {
+		if toks[i].text == "let" && toks[i+1].text == "_" && toks[i+2].text == "=" && (i == 0 || toks[i-1].text == "then") {
+			return slices.Delete(slices.Clone(toks), i, i+1)
+		}
+	}
+	return toks
+}
+
 func rewriteArmThrows(toks []token) []token {
 	if toks[0].text == "end" || hasToken(toks, "function") {
 		return toks

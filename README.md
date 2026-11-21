@@ -39,8 +39,17 @@ go test ./...
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
-| `go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules) |
+| `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made |
 | `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
+
+`specs/` holds maxon's spec tests converted by `cmd/convert --specs`, in maxon's own format: `<!-- test: name -->` and the
+fenced blocks ```` ```maxon ````, ```` ```exitcode ````, ```` ```stdout ````, ```` ```stderr ```` and ```` ```maxoncstderr ````. The tool
+rewrites only each test's `maxon` block (every `// --- file:` section of it) through the source conversion, and copies
+the rest, with line endings made LF. A test whose conversion warned, or whose source minimaxon cannot parse, carries one
+`<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
+runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
+the kinds by tests blocked, most blocking first. `specs/README.md` has the command that regenerates the directory; it is
+never edited by hand.
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`, and `--emit-map` the map of its code,
 as `<out>.map`: a line per function and routine the link kept, in address order, with its RVA and size in hexadecimal

@@ -38,7 +38,7 @@ go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                     
   `// TODO: message` comment on that line, so a converted file shows what blocks it.
 - The output is passed through the strict formatter (`syntax.Format`). If the formatter rejects it, the unformatted
   candidate is written (`Result.Formatted` is false); treat that as a failure to fix in the tool, not as a file to keep.
-- The tool handles `.maxon` only. `.md` specs are not converted today (see "Spec tests").
+- Without `--specs` the tool handles `.maxon` only; `--specs` converts maxon's spec files (see "Spec tests").
 
 ## Where outputs go
 
@@ -85,34 +85,39 @@ module's names bare as Maxon writes them, where minimaxon requires them qualifie
 
 ## Spec tests
 
-Exists today:
+maxon's tests are `c:\Users\Eric\Dev\maxon\specs\*.md` (664 files, 17,649 tests). Each is front matter, prose, then a
+`## Tests` section of `<!-- test: name -->` followed by optional directive comments, a ```` ```maxon ```` block (several
+files when it holds `// --- file:` markers) and its expected result in ```` ```exitcode ````, ```` ```stdout ````,
+```` ```stderr ```` or ```` ```maxoncstderr ```` (a compile error, with `<fragment>:L:C` positions) blocks. The format is
+maxon's `docs/SPECS.md`.
 
-- maxon's tests are in `c:\Users\Eric\Dev\maxon\specs\*.md` (664 files). Each is front matter, prose, then a
-  `## Tests` section of `<!-- test: name -->` followed by a ```` ```maxon ```` block and its expected result in
-  ```` ```exitcode ````, ```` ```stdout ````, ```` ```stderr ```` or ```` ```maxoncstderr ```` (a compile error, with
-  `<fragment>:L:C` positions) blocks. Other fenced blocks (`text`, `mm`, `log`) and other comments (`tier`, `procs`) are
-  not tests.
-- minimaxon's own corpus is `tests/run/`, `tests/errors/` (`// expect-error: CODE [at L:C]`) and `tests/modules/`, run by
-  `minimaxon.exe test`. It does not read the spec format and there is no `specs/` directory.
-- `cmd/convert` takes `.maxon` files only; the code blocks in specs are not extracted.
-- `cmd/convert` works one file at a time, so a name of another module stays bare as Maxon writes it. After converting
-  a multi-module project, run `minimaxon qualify <dir>`, which writes each such name qualified by its module's path
-  (`export.X` for the root's), as minimaxon requires.
+`specs/` holds them converted, regenerated from maxon, never edited. From the repository root:
 
-Planned, Stage 1.7 (after M1; none of this exists yet):
+```powershell
+Remove-Item specs\*.md -Exclude README.md; go run ./cmd/convert --specs --out=specs C:\Users\Eric\Dev\maxon\specs
+go run ./cmd/convert --specs --check C:\Users\Eric\Dev\maxon\specs   # what blocks the rest, without writing
+```
 
-- `cmd/convert` converts `maxon/specs/*.md` into `minimaxon/specs/`, keeping maxon's format. The directory is
-  regenerated, never hand-edited.
-- `test` reads that format and runs every test that converted without a warning; a test whose conversion warned is
-  skipped and counted. Compile-error tests match maxon's stderr exactly, text included, so a diagnostic worded
-  differently from maxon's fails until the message or the tool is fixed.
-- The runner compiles in-process and in parallel, shares the checked runtime and stdlib, and caps the number of test
-  executables running at once.
-- `cmd/convert --check` over the specs lists what still blocks the rest; the passing count is the progress measure.
+- `--specs` converts each test's ```` ```maxon ```` block (each `// --- file:` section of it) through the source
+  conversion and copies everything else, with line endings made LF. A file with no test (maxon's `AGENTS.md`) is left out.
+- **The marker.** A test whose conversion warned, or whose source minimaxon cannot parse (and whose expectation is not a
+  syntax error, which is then the point of the test), gets one `<!-- skip: kind -->` line per kind of warning right after
+  its `<!-- test: ... -->` line. The kind is the warning's message, or `minimaxon does not parse the converted source:`
+  and the parser's message. The runner skips and counts a test that carries the line, and runs every other test. Existing
+  `skip` lines in an input are dropped and regenerated.
+- The warnings are not printed one by one (there are tens of thousands); each is a `// TODO: message` in its test. The
+  summary, which `--check` and a conversion both print, is one line per kind: the number of **tests** it blocks (a test
+  counts under each of its kinds), the files, the kind, most blocking first, then `N tests: C converted cleanly, S skipped`.
+- Triage as for any file: a feature minimaxon lacks is left (its tests stay skipped until it lands); a construct with
+  an equivalent is rewritten by the tool, which regenerates `specs/`.
+- `minimaxon.exe test` does not read `specs/` yet; the runner is the second half of plan Stage 1.7. The positions in a
+  `maxoncstderr` block are authored against maxon's layout of the block, which the conversion changes (blank lines,
+  indentation), so a position can point at other text after conversion; the runner task decides how to compare.
 
-Until then, to use one maxon test now: copy its ```` ```maxon ```` block to a scratch file, convert it, and if it
-converts clean, add it under `tests/run/` (exit code from the `exitcode` block) only when nothing in the corpus covers
-that feature (AGENTS.md: tests are added when a bug would come back or a feature is uncovered).
+To use one maxon test before the runner exists: copy its ```` ```maxon ```` block to a scratch file, convert it, and if
+it converts clean, add it under `tests/run/` (exit code from the `exitcode` block) only when nothing in the corpus
+covers that feature (AGENTS.md: tests are added when a bug would come back or a feature is uncovered).
+
 
 ## Finish
 

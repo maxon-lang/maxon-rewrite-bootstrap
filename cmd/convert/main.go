@@ -19,7 +19,7 @@ const (
 )
 
 const usageText = `usage:
-  convert [--write] [--check] [--out=DIR] [<path>...]
+  convert [--specs] [--write] [--check] [--out=DIR] [<path>...]
 
 Converts existing Maxon (.maxon) source files to minimaxon syntax and layout.
 Unsupported constructs are preserved with inline // TODO comments and warnings on stderr.
@@ -29,6 +29,10 @@ Flags:
   -o, --out=DIR    write converted .maxon files under DIR
   --check          do not write; print each kind of warning with its count and the number of files it
                    appears in, most frequent first; exit 1 if any file would change or has warnings
+  --specs          the inputs are maxon spec files (.md): each test's maxon block is converted and a test that
+                   warned gets a '<!-- skip: kind; kind -->' line after its test marker; files with no test are
+                   left out; the warnings are not printed one by one (each is a // TODO in its test) and the summary
+                   counts tests, not warnings
 
 With no paths (or '-'), reads from stdin and writes to stdout.
 With a single file and neither --write nor --out, writes to stdout.`
@@ -38,7 +42,7 @@ func main() {
 }
 
 func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
-	var writeInPlace, checkOnly bool
+	var writeInPlace, checkOnly, specs bool
 	var outDir string
 	var paths []string
 
@@ -48,6 +52,8 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		case arg == "-h" || arg == "--help":
 			fmt.Fprintln(stdout, usageText)
 			return exitOK
+		case arg == "--specs":
+			specs = true
 		case arg == "-w" || arg == "--write":
 			writeInPlace = true
 		case arg == "--check":
@@ -69,6 +75,10 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
+	inputExt := sourceExt
+	if specs {
+		inputExt = specExt
+	}
 	if writeInPlace && outDir != "" {
 		fmt.Fprintln(stderr, "convert: --write and --out cannot be used together")
 		return exitUsage
@@ -85,12 +95,12 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "convert: %v\n", err)
 			return exitUsage
 		}
-		res := Convert("<stdin>", string(data))
+		res := convertFile(specs, "<stdin>", string(data))
 		for _, w := range res.Warnings {
 			fmt.Fprintln(stderr, w.String())
 		}
 		if checkOnly {
-			if res.Text != string(data) || len(res.Warnings) > 0 {
+			if res.Changed || len(res.Warnings) > 0 {
 				return exitCheckFailed
 			}
 			return exitOK
@@ -125,7 +135,7 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 				}
 				return nil
 			}
-			if strings.HasSuffix(d.Name(), sourceExt) {
+			if strings.HasSuffix(d.Name(), inputExt) {
 				rel, err := filepath.Rel(p, path)
 				if err != nil {
 					return err
@@ -143,7 +153,7 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	}
 
 	if len(jobs) == 0 {
-		fmt.Fprintln(stderr, "convert: no .maxon files found")
+		fmt.Fprintf(stderr, "convert: no %s files found\n", inputExt)
 		return exitUsage
 	}
 	if len(jobs) > 1 && !writeInPlace && outDir == "" && !checkOnly {
@@ -154,7 +164,9 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 	changed := false
 	hasWarnings := false
 	changedFiles := 0
+	files := 0
 	var tally warningTally
+	var counts testCounts
 
 	for _, job := range jobs {
 		data, err := os.ReadFile(job.srcPath)
@@ -162,14 +174,20 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "convert: %v\n", err)
 			return exitUsage
 		}
-		orig := string(data)
-		res := Convert(job.srcPath, orig)
-		for _, w := range res.Warnings {
-			fmt.Fprintln(stderr, w.String())
-			hasWarnings = true
-			tally.add(w)
+		res := convertFile(specs, job.srcPath, string(data))
+		if specs && len(res.Tests) == 0 {
+			continue
 		}
-		if res.Text != orig {
+		files++
+		for _, w := range res.Warnings {
+			hasWarnings = true
+			if !specs {
+				fmt.Fprintln(stderr, w.String())
+				tally.add(w)
+			}
+		}
+		counts.add(job.srcPath, res.Tests, &tally)
+		if res.Changed {
 			changed = true
 			changedFiles++
 		}
@@ -177,7 +195,7 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		switch {
 		case checkOnly:
 		case writeInPlace:
-			if res.Text != orig {
+			if res.Changed {
 				if err := os.WriteFile(job.srcPath, []byte(res.Text), 0o644); err != nil {
 					fmt.Fprintf(stderr, "convert: %v\n", err)
 					return exitUsage
@@ -198,14 +216,62 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
+	summary := stdout
+	if !checkOnly && !writeInPlace && outDir == "" {
+		summary = stderr
+	}
+	if checkOnly || specs {
+		tally.print(summary)
+	}
+	if specs {
+		counts.print(summary)
+	}
 	if checkOnly {
-		tally.print(stdout)
-		fmt.Fprintf(stdout, "%d of %d files would change\n", changedFiles, len(jobs))
+		fmt.Fprintf(stdout, "%d of %d files would change\n", changedFiles, files)
 	}
 	if checkOnly && (changed || hasWarnings) {
 		return exitCheckFailed
 	}
 	return exitOK
+}
+
+// fileResult is one converted file, whether a source file or a spec file.
+type fileResult struct {
+	Text     string
+	Warnings []Warning
+	Changed  bool
+	Tests    []SpecTest
+}
+
+func convertFile(specs bool, name, text string) fileResult {
+	if specs {
+		res := ConvertSpec(name, text)
+		return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Changed, Tests: res.Tests}
+	}
+	res := Convert(name, text)
+	return fileResult{Text: res.Text, Warnings: res.Warnings, Changed: res.Text != text}
+}
+
+// testCounts is what a run over spec files converted: the tests, and how many of them warned.
+type testCounts struct {
+	total, skipped int
+}
+
+// add counts a file's tests and files each blocked test under every kind that blocks it, once per test, in tally.
+func (c *testCounts) add(file string, tests []SpecTest, tally *warningTally) {
+	c.total += len(tests)
+	for _, t := range tests {
+		if len(t.Skips) > 0 {
+			c.skipped++
+		}
+		for _, kind := range t.Skips {
+			tally.add(Warning{File: file, Message: kind})
+		}
+	}
+}
+
+func (c testCounts) print(w io.Writer) {
+	fmt.Fprintf(w, "%d tests: %d converted cleanly, %d skipped\n", c.total, c.total-c.skipped, c.skipped)
 }
 
 // warningTally counts each kind of warning, a kind being its message, and the files it appears in, so a run over a

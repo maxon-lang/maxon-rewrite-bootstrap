@@ -214,6 +214,16 @@ end 'make'
 			want: "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred then throw ColorError.unsupported\n\t\tdefault panic(\"the other colors are handled\")\n\tend 'which'\nend 'f'\n",
 		},
 		{
+			name: "a block indented two tabs, and a level indented two tabs deeper, keep one tab per level",
+			in:   "function f() returns Count\n\t\tlet a = 1\n\t\tif a == 1 'one'\n\t\t\t\t\treturn 2\n\t\tend 'one'\n\t\treturn a\nend 'f'\n",
+			want: "function f() returns Count\n\tlet a = 1\n\tif a == 1 'one'\n\t\treturn 2\n\tend 'one'\n\treturn a\nend 'f'\n",
+		},
+		{
+			name: "a discard binding loses its let",
+			in:   "function f(c Color)\n\tlet _ = c\n\t_ = c\n\tmatch c 'm'\n\t\tred then let _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
+			want: "function f(c Color)\n\t_ = c\n\t_ = c\n\tmatch c 'm'\n\t\tred then _ = c\n\t\tdefault then return\n\tend 'm'\nend 'f'\n",
+		},
+		{
 			name: "CRLF, BOM, trailing spaces, and extra blank lines",
 			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
 			want: "let a = 1\n\nlet b = 2\n",
