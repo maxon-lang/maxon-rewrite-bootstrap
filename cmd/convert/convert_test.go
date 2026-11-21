@@ -204,6 +204,16 @@ end 'make'
 			want: "function f() returns Count throws ParseError\n\ttry work() otherwise ignore\n\tthrow ParseError.bad\nend 'f'\n",
 		},
 		{
+			name: "a variable named from, a member named from and a label after a handled try are not conversions",
+			in:   "function f(from Count) returns Count\n\tlet text = String.from (bytes)\n\tif (try values.get(0) otherwise panic(\"live\")) != from 'differs'\n\t\treturn from + 1\n\tend 'differs'\n\treturn 0\nend 'f'\n",
+			want: "function f(from Count) returns Count\n\tlet text = String.from(bytes)\n\tif (try values.get(0) otherwise panic(\"live\")) != from 'differs'\n\t\treturn from + 1\n\tend 'differs'\n\treturn 0\nend 'f'\n",
+		},
+		{
+			name: "a match arm that throws becomes an arm that runs a throw",
+			in:   "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred throws ColorError.unsupported\n\t\tdefault panic(\"the other colors are handled\")\n\tend 'which'\nend 'f'\n",
+			want: "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred then throw ColorError.unsupported\n\t\tdefault panic(\"the other colors are handled\")\n\tend 'which'\nend 'f'\n",
+		},
+		{
 			name: "CRLF, BOM, trailing spaces, and extra blank lines",
 			in:   "\xef\xbb\xbflet a = 1  \r\n\r\n\r\nlet b = 2\t\r\n",
 			want: "let a = 1\n\nlet b = 2\n",
@@ -255,7 +265,47 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		{
 			name:     "block otherwise on try expr",
 			in:       "function f() returns Count\n\tlet x = try work() otherwise 'fail'\n\t\treturn 0\n\tend 'fail'\n\treturn x\nend 'f'\n",
-			wantTodo: "block-form 'otherwise' on a try expression",
+			wantTodo: "a block handler ('otherwise (e) 'label'') on a try expression",
+		},
+		{
+			name:     "union error",
+			in:       "union ParseFault implements Error\n\tbad(code Count)\n\tworse\nend 'ParseFault'\n",
+			wantTodo: "union errors",
+		},
+		{
+			name:     "default throws",
+			in:       "function f(c Color) returns Count throws ColorError\n\treturn match c 'which'\n\t\tred gives 1\n\t\tdefault throws ColorError.unsupported\n\tend 'which'\nend 'f'\n",
+			wantTodo: "'default throws' in a match",
+		},
+		{
+			name:     "Type from value",
+			in:       "function f(text String) returns Path\n\treturn Path from text\nend 'f'\n",
+			wantTodo: "'Type from value' conversions",
+		},
+		{
+			name:     "tuple value",
+			in:       "function f(a Count, b Count) returns Pair\n\treturn (a, b)\nend 'f'\n",
+			wantTodo: "tuple values and types",
+		},
+		{
+			name:     "tuple parameter type",
+			in:       "function f(pair (Count, Count))\n\tprint(\"{pair}\")\nend 'f'\n",
+			wantTodo: "tuple parameter types",
+		},
+		{
+			name:     "tuple element access",
+			in:       "function f(pair Pair) returns Count\n\treturn pair.0\nend 'f'\n",
+			wantTodo: "tuple element access",
+		},
+		{
+			name:     "keyword as a function name",
+			in:       "type Attr\n\tstatic function int(key String) returns Attr\n\t\treturn Attr{}\n\tend 'int'\nend 'Attr'\n",
+			wantTodo: "'int' is a keyword in minimaxon",
+		},
+		{
+			name:     "keyword as a parameter name",
+			in:       "function f(otherwise Count) returns Count\n\treturn otherwise\nend 'f'\n",
+			wantTodo: "'otherwise' is a keyword in minimaxon",
 		},
 		{
 			name:     "extension block",
@@ -275,7 +325,7 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 		{
 			name:     "reserved word collision",
 			in:       "function f(when Count)\n\tlet sets = when\nend 'f'\n",
-			wantTodo: "reserved keyword in minimaxon",
+			wantTodo: "keyword in minimaxon",
 		},
 	}
 
@@ -299,6 +349,25 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 				t.Fatalf("expected inline // TODO containing %q in output:\n%s", tc.wantTodo, res.Text)
 			}
 		})
+	}
+}
+
+func TestCheckSummarizesWarningsByKind(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, text string) {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(text), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("a.maxon", "#if os(Windows)\nlet a = 1\n#else\nlet a = 2\n#endif\n")
+	write("b.maxon", "#if os(Windows)\nlet b = 1\n#endif\n")
+	write("c.maxon", "let c = 3\n")
+
+	var stdout, stderr bytes.Buffer
+	code := runMain([]string{"--check", dir}, strings.NewReader(""), &stdout, &stderr)
+	want := "     5    2 files  conditional compilation directives (#if/#else/#endif) are not supported in minimaxon\n2 of 3 files would change\n"
+	if code != 1 || stdout.String() != want {
+		t.Fatalf("code=%d stdout=%q want %q", code, stdout.String(), want)
 	}
 }
 

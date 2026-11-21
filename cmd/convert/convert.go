@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"minimaxon/internal/ast"
 	"minimaxon/internal/syntax"
 	"slices"
 	"strings"
@@ -694,7 +695,27 @@ func transformTypeOrUnionHeader(line *sourceLine, kwIdx int, warn func(*sourceLi
 	if kwIdx+3 < len(toks) && toks[kwIdx+2].text == "is" && toks[kwIdx+3].text == "unique" {
 		toks[kwIdx+3].text = "noncopyable"
 	}
+	if toks[kwIdx].text == "union" && implementsError(toks[kwIdx+2:]) {
+		warn(line, "union errors are not supported in minimaxon; an error is an enum")
+	}
 	transformWhereInSlice(toks, kwIdx+2, line, warn)
+}
+
+// implementsError reports whether a declaration header's conformance list names Error.
+func implementsError(toks []token) bool {
+	implIdx := slices.IndexFunc(toks, func(t token) bool { return t.kind == tokIdent && t.text == "implements" })
+	if implIdx < 0 {
+		return false
+	}
+	for _, t := range toks[implIdx+1:] {
+		if t.kind == tokIdent && t.text == "where" {
+			break
+		}
+		if t.kind == tokIdent && t.text == "Error" {
+			return true
+		}
+	}
+	return false
 }
 
 func transformEnumHeader(line *sourceLine, kwIdx int, warn func(*sourceLine, string)) {
@@ -751,6 +772,9 @@ func transformFunctionHeader(line *sourceLine, fnIdx int, inInterface bool, warn
 	}
 
 	toks := line.code
+	if fnIdx+1 < len(toks) && isKeywordName(toks[fnIdx+1].text) {
+		warn(line, keywordNameMessage(toks[fnIdx+1].text))
+	}
 	lp := findToken(toks, fnIdx+1, "(")
 	if lp < 0 {
 		return
@@ -868,8 +892,11 @@ func rewriteParamList(params []token, line *sourceLine, warn func(*sourceLine, s
 				warn(line, "float types are not supported in minimaxon")
 			}
 		}
-		if nameIdx < len(g) && g[nameIdx].kind == tokIdent && isNewReservedWord(g[nameIdx].text) {
-			warn(line, fmt.Sprintf("'%s' is a reserved keyword in minimaxon; rename it", g[nameIdx].text))
+		if nameIdx+1 < len(g) && g[nameIdx+1].text == "(" {
+			warn(line, "tuple parameter types are not supported in minimaxon")
+		}
+		if nameIdx < len(g) && g[nameIdx].kind == tokIdent && isKeywordName(g[nameIdx].text) {
+			warn(line, keywordNameMessage(g[nameIdx].text))
 		}
 		out = append(out, g...)
 	}
@@ -977,6 +1004,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 
 	// Rewrite `freeze <unary_expr>` -> `freeze(<unary_expr>)` and `swap <target> with <expr>` -> `exchange(<target>, value: <expr>)`.
 	toks = rewriteRegionExprs(toks, line, warn)
+	toks = rewriteArmThrows(toks)
 	line.code = toks
 
 	// Statement-head checks.
@@ -1005,8 +1033,8 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			if len(toks) > 1 && toks[1].text == "(" {
 				warn(line, "tuple destructuring declarations are not supported in minimaxon")
 			}
-			if len(toks) > 1 && toks[1].kind == tokIdent && isNewReservedWord(toks[1].text) {
-				warn(line, fmt.Sprintf("'%s' is a reserved keyword in minimaxon; rename it", toks[1].text))
+			if len(toks) > 1 && toks[1].kind == tokIdent && isKeywordName(toks[1].text) {
+				warn(line, keywordNameMessage(toks[1].text))
 			}
 		case "(":
 			if hasTopLevelAssign(toks) {
@@ -1046,6 +1074,13 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			if t.text == "[" && isCollectionLiteralBracket(toks, i) {
 				warn(line, "array/map literals are not supported in minimaxon; use Array.create(0) and push, or Map.create() and upsert")
 			}
+			if t.text == "(" && isTupleParen(toks, i) {
+				warn(line, "tuple values and types are not supported in minimaxon")
+			}
+		case tokInt:
+			if i > 0 && toks[i-1].text == "." {
+				warn(line, "tuple element access is not supported in minimaxon")
+			}
 		case tokIdent:
 			switch t.text {
 			case "async", "await":
@@ -1061,19 +1096,20 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 					warn(line, fmt.Sprintf("%s(...) is not supported in minimaxon", t.text))
 				}
 			case "from":
-				if i > 0 && toks[i-1].kind == tokIdent && (i < 2 || toks[i-2].text != ".") {
-					warn(line, "'from' expressions are not supported in minimaxon")
+				if isTypeFromConversion(toks, i) {
+					warn(line, "'Type from value' conversions are not supported in minimaxon")
 				}
 			case "fallthrough":
 				if i > 0 && toks[i-1].text == "and" {
 					warn(line, "'and fallthrough' in match arms is not supported in minimaxon")
 				}
 			case "throws":
-				warn(line, "'throws' in match arms or otherwise clauses is not supported in minimaxon")
+				if toks[0].text != "end" && i > 0 && toks[i-1].text == "default" {
+					warn(line, "'default throws' in a match is not supported in minimaxon; name the remaining cases")
+				}
 			case "otherwise":
-				// Check for block-form `otherwise 'label'` on a `try <expr>` expression (not a `try 'label'` block).
-				if toks[0].text != "end" && toks[len(toks)-1].kind == tokLabel {
-					warn(line, "block-form 'otherwise' on a try expression is not supported in minimaxon; use a try block")
+				if toks[0].text != "end" && hasHandlerLabel(toks, i) {
+					warn(line, "a block handler ('otherwise (e) 'label'') on a try expression is not supported in minimaxon; use a try block")
 				}
 			case "function":
 				if i+1 < len(toks) && toks[i+1].text == "(" {
@@ -1106,6 +1142,22 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		}
 	}
+}
+
+// rewriteArmThrows turns a match arm `pattern throws E` into `pattern then throw E`, the one form minimaxon's arms have.
+func rewriteArmThrows(toks []token) []token {
+	if toks[0].text == "end" || hasToken(toks, "function") {
+		return toks
+	}
+	var out []token
+	for i, t := range toks {
+		if t.kind == tokIdent && t.text == "throws" && i > 0 && toks[i-1].text != "default" {
+			out = append(out, token{kind: tokIdent, text: "then"}, token{kind: tokIdent, text: "throw"})
+			continue
+		}
+		out = append(out, t)
+	}
+	return out
 }
 
 // rewriteRegionExprs rewrites old Maxon `freeze expr` -> `freeze(expr)` and `swap target with expr` -> `exchange(target, value: expr)`.
@@ -1245,16 +1297,39 @@ func parseExprEnd(toks []token, from int) int {
 	return len(toks)
 }
 
+// hasHandlerLabel reports whether the `otherwise` at idx is followed, as its handler, by a block label, with or
+// without the binding of the error. A label further along the line belongs to the statement that holds the expression.
+func hasHandlerLabel(toks []token, idx int) bool {
+	next := idx + 1
+	if next+2 < len(toks) && toks[next].text == "(" && toks[next+2].text == ")" {
+		next += 3
+	}
+	return next < len(toks) && toks[next].kind == tokLabel
+}
+
+// isTypeFromConversion reports whether the `from` at idx follows a type name and so reads as `Type from value`, not as a
+// variable named from. A `Type from [...]` literal is reported as the literal it is.
+func isTypeFromConversion(toks []token, idx int) bool {
+	if idx == 0 || toks[idx-1].kind != tokIdent || idx+1 >= len(toks) || toks[idx+1].text == "[" {
+		return false
+	}
+	prev := toks[idx-1].text
+	return prev[0] >= 'A' && prev[0] <= 'Z' && (idx < 2 || toks[idx-2].text != ".")
+}
+
 func isCapabilityWord(word string) bool {
 	return word == "isolated" || word == "immutable"
 }
 
-func isNewReservedWord(word string) bool {
-	switch word {
-	case "mutates", "consumes", "sets", "destructs", "noncopyable", "when":
-		return true
-	}
-	return false
+// isKeywordName reports whether word is a keyword of minimaxon, other than the discard `_` that a declaration may name.
+func isKeywordName(word string) bool {
+	return word != "_" && ast.IsReserved(word)
+}
+
+// keywordNameMessage words the warning for a name that minimaxon reserves and Maxon does not. A parameter may be
+// declared with one, but its body cannot read it.
+func keywordNameMessage(word string) string {
+	return fmt.Sprintf("'%s' is a keyword in minimaxon and cannot be used as a name; rename it", word)
 }
 
 func hasToken(toks []token, text string) bool {
@@ -1395,6 +1470,36 @@ func isCollectionLiteralBracket(toks []token, idx int) bool {
 		return false
 	}
 	return true
+}
+
+// isTupleParen reports whether the `(` at idx opens a tuple, a parenthesis in value or type position that holds a
+// comma. A tuple that a loop or a declaration takes apart has its own warning, and a call's arguments and the type
+// arguments after `with` are not tuples.
+func isTupleParen(toks []token, idx int) bool {
+	if idx == 0 || !isCollectionLiteralBracket(toks, idx) {
+		return false
+	}
+	switch toks[idx-1].text {
+	case "for", "let", "var":
+		return false
+	}
+	depth := 0
+	for i := idx; i < len(toks); i++ {
+		switch toks[i].text {
+		case "(", "[", "{":
+			depth++
+		case ")", "]", "}":
+			depth--
+			if depth == 0 {
+				return false
+			}
+		case ",":
+			if depth == 1 {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 func isExprPrefixKeyword(word string) bool {
@@ -1612,7 +1717,7 @@ func needsSpace(toks []token, prevIdx, curIdx int) bool {
 		if prev.text == ")" || prev.text == "]" {
 			return false
 		}
-		if prev.kind == tokIdent && !spaceBeforeParenKeyword(prev.text) {
+		if prev.kind == tokIdent && (!spaceBeforeParenKeyword(prev.text) || (prevIdx > 0 && (toks[prevIdx-1].text == "." || toks[prevIdx-1].text == "function"))) {
 			return false
 		}
 		return true

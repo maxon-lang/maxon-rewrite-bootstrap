@@ -6,6 +6,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"strings"
 )
@@ -26,7 +27,8 @@ Unsupported constructs are preserved with inline // TODO comments and warnings o
 Flags:
   -w, --write      rewrite .maxon files in place
   -o, --out=DIR    write converted .maxon files under DIR
-  --check          do not write; exit 1 if any file would change or has warnings
+  --check          do not write; print each kind of warning with its count and the number of files it
+                   appears in, most frequent first; exit 1 if any file would change or has warnings
 
 With no paths (or '-'), reads from stdin and writes to stdout.
 With a single file and neither --write nor --out, writes to stdout.`
@@ -151,6 +153,8 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 
 	changed := false
 	hasWarnings := false
+	changedFiles := 0
+	var tally warningTally
 
 	for _, job := range jobs {
 		data, err := os.ReadFile(job.srcPath)
@@ -163,16 +167,15 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		for _, w := range res.Warnings {
 			fmt.Fprintln(stderr, w.String())
 			hasWarnings = true
+			tally.add(w)
 		}
 		if res.Text != orig {
 			changed = true
+			changedFiles++
 		}
 
 		switch {
 		case checkOnly:
-			if res.Text != orig {
-				fmt.Fprintln(stdout, job.srcPath)
-			}
 		case writeInPlace:
 			if res.Text != orig {
 				if err := os.WriteFile(job.srcPath, []byte(res.Text), 0o644); err != nil {
@@ -195,8 +198,56 @@ func runMain(args []string, stdin io.Reader, stdout, stderr io.Writer) int {
 		}
 	}
 
+	if checkOnly {
+		tally.print(stdout)
+		fmt.Fprintf(stdout, "%d of %d files would change\n", changedFiles, len(jobs))
+	}
 	if checkOnly && (changed || hasWarnings) {
 		return exitCheckFailed
 	}
 	return exitOK
+}
+
+// warningTally counts each kind of warning, a kind being its message, and the files it appears in, so a run over a
+// tree shows which unsupported construct blocks the most files.
+type warningTally struct {
+	kinds []*warningKind
+}
+
+type warningKind struct {
+	message string
+	count   int
+	files   []string
+}
+
+func (t *warningTally) add(w Warning) {
+	var kind *warningKind
+	for _, k := range t.kinds {
+		if k.message == w.Message {
+			kind = k
+			break
+		}
+	}
+	if kind == nil {
+		kind = &warningKind{message: w.Message}
+		t.kinds = append(t.kinds, kind)
+	}
+	kind.count++
+	if !slices.Contains(kind.files, w.File) {
+		kind.files = append(kind.files, w.File)
+	}
+}
+
+// print writes one line per kind, most frequent first and by message among equals: the count, the number of files, and
+// the message.
+func (t *warningTally) print(w io.Writer) {
+	slices.SortFunc(t.kinds, func(a, b *warningKind) int {
+		if a.count != b.count {
+			return b.count - a.count
+		}
+		return strings.Compare(a.message, b.message)
+	})
+	for _, k := range t.kinds {
+		fmt.Fprintf(w, "%6d %4d files  %s\n", k.count, len(k.files), k.message)
+	}
 }

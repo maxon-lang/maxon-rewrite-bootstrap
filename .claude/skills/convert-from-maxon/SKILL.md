@@ -19,7 +19,7 @@ Go may not be on `PATH`; it is at `C:\Program Files\Go\bin`. Run from `c:\Users\
 
 ```powershell
 go run ./cmd/convert --out=C:\temp\conv C:\Users\Eric\Dev\maxon\stdlib\Array.maxon   # one file, to a scratch dir
-go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                          # list what would change or warn
+go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                          # each warning kind, its count and files
 ```
 
 (Build it once with `go build -o <scratchpad>\convert.exe ./cmd/convert` for repeated runs; keep the exe out of the repo.)
@@ -30,8 +30,10 @@ go run ./cmd/convert --check C:\Users\Eric\Dev\maxon\stdlib                     
   Several files need `--out`, `--write` or `--check`.
 - `-w`/`--write` rewrites the input in place. Never point it at the maxon repository; it is for files already in
   minimaxon (for example a file converted earlier that the tool now converts differently).
-- `--check` writes nothing, prints the paths that would change on stdout, and exits 1 if any file would change or
-  warned (exit 2 is a usage error). It cannot be combined with `--write` or `--out`.
+- `--check` writes nothing and exits 1 if any file would change or warned (exit 2 is a usage error). It cannot be
+  combined with `--write` or `--out`. On stdout it prints one line per kind of warning (its message): the count, the
+  number of files it appears in, then the message, most frequent first, and last how many files would change. Each
+  warning still goes to stderr, so `2>$null` leaves the summary, the list of what blocks the most files.
 - Warnings go to stderr as `file:line: warning: message`; the same message is left in the output as an inline
   `// TODO: message` comment on that line, so a converted file shows what blocks it.
 - The output is passed through the strict formatter (`syntax.Format`). If the formatter rejects it, the unformatted
@@ -58,8 +60,11 @@ Name the maxon source file in the commit message.
 Each warning is one of two kinds. Decide per message, not per file.
 
 1. **A feature minimaxon lacks.** The messages say "not supported in minimaxon": floats, tuples, closures,
-   default parameters, `static let`, `test` declarations, `#if`, custom `throws` types, `is`/`is not`, byte strings,
-   char literals, format specifiers, array/map literals, capabilities, `extends`, and so on. Leave the file out, or skip
+   default parameters, `static let`, `test` declarations, `#if`, union errors, `default throws`, `if try`, a block
+   handler (`otherwise (e) 'label'`) on a `try` expression, iterator `for` loops, byte strings, char literals, format
+   specifiers, array/map literals, capabilities, `extends`, and so on. README "Where it differs from Maxon" lists what
+   minimaxon still lacks and what it spells differently on purpose; the converter rewrites the second and warns of the
+   first, and nothing else. Leave the file out, or skip
    that test, until the feature lands in `self/`'s plan. Do not hand-edit the TODO away. The Go compiler implements only
    what `self/` needs; a feature that nothing in `self/` needs is not added to it.
 2. **A rewrite the tool should do.** The construct exists in minimaxon in another form, or the tool misses it: a
@@ -68,12 +73,15 @@ Each warning is one of two kinds. Decide per message, not per file.
    construct is not covered or the bug would come back.
    Many files that get a warning for the same construct mean a tool fix, not many edits.
 
-Plan Stage 1.2a realigns minimaxon with maxon, so some "not supported" warnings (error `throws`, `Option`, built-in
-names) describe minimaxon as it is now and go away as the stage lands. Re-run `--check` after each stage and update the
-tool so it no longer rewrites what now matches.
+Stage 1.2a realigned minimaxon with maxon: the syntax (`implements`, bare alias type arguments, quoted labels,
+`panic` of a string, keyword argument labels), error `throws`, `try ... otherwise`, the built-in names and the
+module visibility all match, so the tool neither rewrites nor warns about them. When a stage lands a feature or changes
+a spelling, re-run `--check` over `stdlib` and remove the rule or the warning for what now matches; a warning for a
+feature that works is a bug in the tool.
 
-`--check` over a whole tree is the to-do list: group the warnings by message (`2>&1 | Select-String warning`) to see which
-missing feature blocks the most files.
+`--check` over a whole tree is the to-do list: its summary shows which missing feature blocks the most files. After
+converting a multi-module project, run `minimaxon qualify <dir>`: the tool works one file at a time and leaves another
+module's names bare as Maxon writes them, where minimaxon requires them qualified.
 
 ## Spec tests
 

@@ -39,7 +39,7 @@ go test ./...
 | `minimaxon fmt [--check] <path>...` | put the `.maxon` files and the Maxon code blocks of the `.md` files under the paths in the one layout; `--check` changes nothing and exits 1 listing the files that are not in it (see "Layout" and "Changing the language") |
 | `minimaxon cache [trim\|clean]` | show the build cache's directory, size and last trim; trim it now; remove everything in it (see "Trimming") |
 | `minimaxon interp <file\|dir>` | development only: run under the tracking interpreter, which runs a map, a list, a pool, a frozen value, a cown and a behaviour, and reports a violation of the memory model; exits 4 on a violation |
-| `go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr |
+| `go run ./cmd/convert [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules) |
 
 `--emit-ir` writes the IR of every function beside the executable, as `<out>.ir`. `--jobs=N` sets how many
 modules compile at once. The default is one fewer than the processor count, and the executable is byte-identical
