@@ -224,9 +224,11 @@ type Run
 	var failedPhase as Count
 	// earlierErrors is how many errors the error list held when the compile started, which the phase of parse holds.
 	var earlierErrors as Count
+	// timings holds the time of each stage and module when --timings asks for it.
+	var timings as Timings
 
 	static function make(goal Goal, first Count, makesProgram bool, modules Count) returns Run
-		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0}
+		return Run{graph: TaskGraph.new(modules), goal: goal, first: first, makesProgram: makesProgram, checks: check.Checks.make(check.ModuleOrder.create(0), makesProgram: makesProgram), checksStarted: false, checked: noChecked(), checksEnded: false, generates: false, lowered: backend.FunctionLists.create(0), units: backend.UnitList.create(0), failed: false, failedPhase: 0, earlierErrors: 0, timings: Timings.off()}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors.
@@ -260,6 +262,9 @@ end 'noChecked'
 function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
 	var run = Run.make(goal, first: first, makesProgram: makesProgram, modules: p.modules.count())
 	run.earlierErrors = errs.count()
+	if options.timings 'timed'
+		run.timings = Timings.start(Stage.allCaseNames, modules: p.modules.count())
+	end 'timed'
 	if errs.count() > 0 'earlier'
 		run.failed = true
 		run.failedPhase = phaseOf(Stage.parse)
@@ -277,6 +282,9 @@ function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles
 	run.graph.addModuleTasks(Stage.resolve, order: modules, p: p, first: first)
 	run.graph.addProjectTask(Stage.order)
 	execute(run, p: p, memory: memory, output: output, options: options, ready: ready, errs: errs)
+	if run.timings.enabled 'report'
+		reportTimings(run, p: p, first: first)
+	end 'report'
 	keepEarliestErrors(run, errs: errs)
 	if not run.checksStarted 'unchecked'
 		run.checks = check.startChecks(p, order: check.ModuleOrder.create(0), makesProgram: makesProgram)
@@ -288,6 +296,15 @@ function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles
 	return run
 end 'runStages'
 
+// reportTimings prints the compile's timings on standard error.
+function reportTimings(run Run, p ast.Project, first Count)
+	var names = TimingNames.create(0)
+	for m in 0 upto p.modules.count() 'modules'
+		names.push(p.modules[m].path.clone())
+	end 'modules'
+	printError(run.timings.report("compile timings, goal {run.goal}", names: names, first: first))
+end 'reportTimings'
+
 // execute runs the tasks in order, the ones that a task adds as well. A task is skipped when an input was, or failed in an
 // earlier phase: a module whose dependency failed stops. A task of a later phase than the earliest that failed is skipped
 // too, since its errors would not be reported.
@@ -298,7 +315,11 @@ function execute(mutates run Run, mutates p ast.Project, memory project.SourceFi
 			run.graph.tasks[t].state = TaskState.skipped
 		end 'skip' else 'run'
 			let mark = errs.count()
-			runTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+			if run.timings.enabled 'timed'
+				runTimedTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+			end 'timed' else 'untimed'
+				runTask(run, p: p, task: t, memory: memory, output: output, options: options, ready: ready, errs: errs)
+			end 'untimed'
 			let found = try errs.count() - mark otherwise panic("driver: a task took errors out of the list")
 			run.graph.tasks[t].firstError = mark
 			run.graph.tasks[t].errorCount = found
@@ -338,6 +359,42 @@ function mustSkip(graph TaskGraph, task Count, failed bool, failedPhase Count) r
 	end 'inputs'
 	return false
 end 'mustSkip'
+
+// isModuleStage is whether a stage is of one module, as against a stage of the project as a whole.
+function isModuleStage(stage Stage) returns bool
+	return match stage 's'
+		parse gives true
+		parsed gives false
+		resolve gives true
+		order gives false
+		aliases gives true
+		declare gives true
+		entry gives false
+		constantOrder gives true
+		constants gives true
+		bodies gives true
+		verify gives true
+		endCheck gives false
+		lower gives true
+		program gives false
+		emit gives true
+		link gives false
+	end 's'
+end 'isModuleStage'
+
+// runTimedTask is runTask with its wall time added to the compile's timings.
+function runTimedTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+	let stage = run.graph.tasks[task].stage
+	let module = run.graph.tasks[task].module
+	let started = Clock.nowNanos()
+	runTask(run, p: p, task: task, memory: memory, output: output, options: options, ready: ready, errs: errs)
+	let elapsed = try Clock.nowNanos() - started otherwise panic("driver: the clock went backwards")
+	if isModuleStage(stage) 'ofModule'
+		run.timings.addModule(stage.ordinal, module: module, nanos: elapsed)
+	end 'ofModule' else 'ofProject'
+		run.timings.addProject(stage.ordinal, nanos: elapsed)
+	end 'ofProject'
+end 'runTimedTask'
 
 // runTask runs one task: every stage's work starts and ends here.
 function runTask(mutates run Run, mutates p ast.Project, task Count, memory project.SourceFiles, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList)

@@ -1,0 +1,25 @@
+// The timings table of --timings: the stage rows, their shares, and the slowest modules in order, with a module that took no
+// time left out.
+
+function testTimings()
+	var stages = driver.TimingNames.create(0)
+	stages.push("parse")
+	stages.push("link")
+	var timings = driver.Timings.start(stages, modules: 4)
+	timings.addModule(0, module: 1, nanos: 3000000)
+	timings.addModule(0, module: 2, nanos: 1000000)
+	timings.addProject(1, nanos: 4000000)
+	var names = driver.TimingNames.create(0)
+	names.push("runtime")
+	names.push("alpha")
+	names.push("beta")
+	names.push("gamma")
+	let text = timings.report("compile timings", names: names, first: 1)
+	let want = "compile timings: total 8.0 ms\n  stage                            ms       %\n---------------------------------------------\n  parse                           4.0   50.0%\n  link                            4.0   50.0%\n---------------------------------------------\n  total                           8.0  100.0%\n\nslowest modules\n  module                           ms       %\n---------------------------------------------\n  alpha                           3.0   37.5%\n  beta                            1.0   12.5%\n"
+	if text != want 'differs'
+		panic("timings: the report is\n{text}\nwhen it should be\n{want}")
+	end 'differs'
+	if driver.Timings.off().enabled 'off'
+		panic("timings: a compile without --timings is timed")
+	end 'off'
+end 'testTimings'

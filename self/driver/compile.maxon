@@ -11,7 +11,7 @@ function compileProject(path String, output String, options Options, mutates err
 	var p = ast.Project.new("")
 	var ready = backend.UnitList.create(0)
 	if output != "" and not project.isRuntimeDirectory(path) 'runtime'
-		prepareRuntime(p, ready: ready, errs: errs)
+		prepareRuntime(p, ready: ready, options: options, errs: errs)
 	end 'runtime'
 	if errs.count() > 0 'broken'
 		return
@@ -32,7 +32,7 @@ type SharedRuntime
 	static function prepare(mutates errs diag.ErrorList) returns SharedRuntime
 		var p = ast.Project.new("")
 		var ready = backend.UnitList.create(0)
-		prepareRuntime(p, ready: ready, errs: errs)
+		prepareRuntime(p, ready: ready, options: Options.new(), errs: errs)
 		return SharedRuntime{p: p, ready: ready}
 	end 'prepare'
 
@@ -123,10 +123,12 @@ end 'compileRuntimeTest'
 // prepareRuntime makes p the project of the runtime alone, checked, and ready the runtime's code, so that a program is
 // compiled by adding it to a copy of p and linking it with ready, which is the same for every program: the runtime's own
 // source is then loaded, checked and lowered once however many programs are compiled.
-function prepareRuntime(mutates p ast.Project, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+function prepareRuntime(mutates p ast.Project, mutates ready backend.UnitList, options Options, mutates errs diag.ErrorList)
 	let first = p.modules.count()
 	project.discoverRuntime(p)
-	_ = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: Options.new(), ready: ready, errs: errs)
+	var runtimeOptions = Options.new()
+	runtimeOptions.timings = options.timings
+	_ = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: ready, errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 	end 'failed'

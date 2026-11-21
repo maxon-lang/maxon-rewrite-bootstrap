@@ -50,7 +50,7 @@ generator.
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
-The compiler has no build cache and no `cache` command, and no `--timings`, `--trace=`, `--jobs=`, `--no-cache` or
+The compiler has no build cache and no `cache` command, and no `--trace=`, `--jobs=`, `--no-cache` or
 `--with=` (parallel compilation and the build cache are planned: see "The modules phase" and "Build cache (planned)"): it says
 so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
 runner (the corpus and the specs) build their executables in the temporary directory under names that hold the process id
@@ -81,7 +81,11 @@ as `<out>.map`: a line per function and routine the link kept, in address order,
 and its symbol, which `cmd/sample` reads. A profile of `self/` is two commands:
 `.\minimaxon.exe build self -o bin\prof.exe --emit-map`, then `go run ./cmd/sample bin\prof.exe check self`.
 `--verify-ir` checks the IR of every function with the IR verifier (see "The IR") before code is made, and stops the compile
-with an internal error naming the rules the first broken function breaks. `--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
+with an internal error naming the rules the first broken function breaks. `--timings` (on `build`, `run` and `check`) prints on standard error, once the stages have run, a table with one line for
+each stage of the task graph: the wall time its tasks took, in milliseconds, and its share of the total, and the five modules whose
+tasks took longest; a `build` prints it for the runtime's compile, which every build does first, and for the program's. The tasks
+run one at a time, so the stages' times add up to the compile's. The clock is read twice per task and only when the flag is on.
+`--count-allocations` builds an executable that counts its live heap boxes (see "Counting allocations"); it is for
 development, and `minimaxon test` always uses it. `--update-positions` makes `test` rewrite the `at L:C` of an
 `expect-error` whose code was reported at another place, and count the test as passed.
 
@@ -2563,8 +2567,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
 
 - `Clock` has only `nowNanos()`, which maxon's gives as `InstantNanos`, here a `Count`; maxon's `nowMs`, `osTickMs`,
   `threadCpuTicks`, `elapsedMs`, `elapsedNanos`, `remainingMs` and `WallClock` are not there. Natively a reading is the
-  OS tick counter (`GetTickCount64`) in nanoseconds, which resolves one timer tick of about 15 ms, until the runtime
-  reads `QueryPerformanceCounter`; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
+  performance counter (`QueryPerformanceCounter`) in nanoseconds; the interpreter's clock moves by 1000 ns at each reading, so a run is deterministic.
 
 - Conditional compilation, tests and `@heap` (see "Conditional compilation, tests and annotations"): a branch of `#if` is indented a tab deeper than its
   directives and each branch holds whole declarations, members or statements (Maxon lets the layout be what it likes and a branch

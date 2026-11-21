@@ -594,6 +594,7 @@ function selfTest()
 	testFormat()
 	testRewrite()
 	testAnalyses()
+	testTimings()
 	print("self: all checks passed\n")
 end 'selfTest'
 

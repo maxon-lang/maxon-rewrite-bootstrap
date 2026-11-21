@@ -350,16 +350,24 @@ function osCurrentPath() returns String
 	return text
 end 'osCurrentPath'
 
-// nanosPerMillisecond is what a reading of the tick counter is scaled to.
-let nanosPerMillisecond = 1000000 as Count
+// nanosPerSecond is what a count of whole seconds is scaled to.
+let nanosPerSecond = 1000000000 as Count
 
-// osClockNanos is the monotonic clock in nanoseconds. It reads the OS tick counter, GetTickCount64, which the compiler
-// that builds this runtime already imports and which resolves one timer tick; QueryPerformanceCounter and
-// QueryPerformanceFrequency are in the import list (rtImports) for the body that replaces this one, which only a
-// compiler that has them in its own list can build.
+// osClockNanos is the monotonic clock in nanoseconds, from the performance counter. The seconds and the remainder of
+// a second are scaled apart so that neither product passes a word whatever the counter's rate is.
 function osClockNanos() returns Count
-	let millis = __Raw.callImport0("GetTickCount64")
-	return try millis * nanosPerMillisecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+	var ticks = 0 as Count
+	var frequency = 0 as Count
+	_ = __Raw.callImport1("QueryPerformanceFrequency", arg1: __Raw.addressOf(frequency))
+	_ = __Raw.callImport1("QueryPerformanceCounter", arg1: __Raw.addressOf(ticks))
+	if frequency <= 0 'unreadable'
+		panic("the performance counter has no frequency")
+	end 'unreadable'
+	let wholeSeconds = ticks / frequency
+	let remainder = ticks mod frequency
+	let wholeNanos = try wholeSeconds * nanosPerSecond otherwise panic("the monotonic clock is past a word of nanoseconds")
+	let partNanos = try remainder * nanosPerSecond otherwise panic("the performance counter's rate is past a word of nanoseconds")
+	return try wholeNanos + partNanos / frequency otherwise panic("the monotonic clock is past a word of nanoseconds")
 end 'osClockNanos'
 
 // osProcessId is the id of the running process, which Windows answers as a DWORD.

@@ -1,0 +1,163 @@
+// The wall time of a compile by stage and by module, which --timings reports. The executor runs one task at a time, so the
+// stages' times add up to the compile's and each task's time is its own.
+
+export typealias TimeTotals = Array with Count
+
+export typealias TimingNames = Array with String
+
+// timingsTopModules is how many of the slowest modules the report lists.
+let timingsTopModules = 5 as Count
+
+let nanosPerTenthMillisecond = 100000 as Count
+
+let tenthsPerMillisecond = 10 as Count
+
+let permilleOfWhole = 1000 as Count
+
+let permillePerPercent = 10 as Count
+
+let nameColumnWidth = 26 as Count
+
+let timeColumnWidth = 11 as Count
+
+let shareColumnWidth = 8 as Count
+
+let nameIndent = "  "
+
+// Timings holds the time of every stage and of every module, in nanoseconds. A compile that is not timed holds none.
+export type Timings
+	// enabled is whether the tasks are timed.
+	export var enabled as bool
+	var stageNames as TimingNames
+	// stageNanos is by stage, and moduleNanos by module, of the tasks of a stage of one module.
+	var stageNanos as TimeTotals
+	var moduleNanos as TimeTotals
+
+	export static function off() returns Timings
+		return Timings{enabled: false, stageNames: TimingNames.create(0), stageNanos: TimeTotals.create(0), moduleNanos: TimeTotals.create(0)}
+	end 'off'
+
+	// start is a table for the stages named, in order, and for modules modules.
+	export static function start(consumes stageNames TimingNames, modules Count) returns Timings
+		var stageNanos = TimeTotals.create(0)
+		for _ in 0 upto stageNames.count() 'stages'
+			stageNanos.push(0)
+		end 'stages'
+		var moduleNanos = TimeTotals.create(0)
+		for _ in 0 upto modules 'modules'
+			moduleNanos.push(0)
+		end 'modules'
+		return Timings{enabled: true, stageNames: stageNames, stageNanos: stageNanos, moduleNanos: moduleNanos}
+	end 'start'
+
+	// addProject charges a task of a stage of the project as a whole.
+	export function addProject(mutates self, stage Count, nanos Count)
+		let before = stageNanos[stage]
+		stageNanos[stage] = try before + nanos otherwise panic("driver: the time of a stage passes a word of nanoseconds")
+	end 'addProject'
+
+	// addModule charges a task of a stage of one module, to the stage and to the module.
+	export function addModule(mutates self, stage Count, module Count, nanos Count)
+		addProject(stage, nanos: nanos)
+		let before = moduleNanos[module]
+		moduleNanos[module] = try before + nanos otherwise panic("driver: the time of a module passes a word of nanoseconds")
+	end 'addModule'
+
+	// total is the time of every task.
+	export function total() returns Count
+		var sum = 0 as Count
+		for i in 0 upto stageNanos.count() 'stages'
+			sum = try sum + stageNanos[i] otherwise panic("driver: the time of the stages passes a word of nanoseconds")
+		end 'stages'
+		return sum
+	end 'total'
+
+	// report is the table of the stages and of the slowest modules among those from first on, which names holds by module.
+	export function report(title String, names TimingNames, first Count) returns String
+		let whole = total()
+		var text = "{title}: total {millisText(whole)} ms\n"
+		text = "{text}{row("stage", time: "ms", share: "%")}{rule()}"
+		for i in 0 upto stageNanos.count() 'stages'
+			text = "{text}{row(stageNames[i], time: millisText(stageNanos[i]), share: shareText(stageNanos[i], whole: whole))}"
+		end 'stages'
+		text = "{text}{rule()}{row("total", time: millisText(whole), share: shareText(whole, whole: whole))}"
+		text = "{text}\nslowest modules\n{row("module", time: "ms", share: "%")}{rule()}"
+		var listed = TimeTotals.create(0)
+		for _ in 0 upto timingsTopModules 'ranks'
+			var found = false
+			var slowest = 0 as Count
+			for m in first upto moduleNanos.count() 'scan'
+				if moduleNanos[m] > 0 and not isListed(listed, module: m) 'candidate'
+					if not found or moduleNanos[m] > moduleNanos[slowest] 'slower'
+						found = true
+						slowest = m
+					end 'slower'
+				end 'candidate'
+			end 'scan'
+			if found 'some'
+				listed.push(slowest)
+				text = "{text}{row(names[slowest], time: millisText(moduleNanos[slowest]), share: shareText(moduleNanos[slowest], whole: whole))}"
+			end 'some'
+		end 'ranks'
+		return text
+	end 'report'
+end 'Timings'
+
+function isListed(listed TimeTotals, module Count) returns bool
+	for i in 0 upto listed.count() 'each'
+		if listed[i] == module 'same'
+			return true
+		end 'same'
+	end 'each'
+	return false
+end 'isListed'
+
+// millisText is a time in milliseconds to a tenth.
+function millisText(nanos Count) returns String
+	let tenths = nanos / nanosPerTenthMillisecond
+	return "{tenths / tenthsPerMillisecond}.{tenths mod tenthsPerMillisecond}"
+end 'millisText'
+
+// shareText is the part of whole that nanos is, as a percentage to a tenth.
+function shareText(nanos Count, whole Count) returns String
+	if whole == 0 'empty'
+		return "0.0%"
+	end 'empty'
+	let scaled = try nanos * permilleOfWhole otherwise panic("driver: a time passes a word when its share is taken")
+	let permille = scaled / whole
+	return "{permille / permillePerPercent}.{permille mod permillePerPercent}%"
+end 'shareText'
+
+// row is a line of the table: the name left, the time and the share right.
+function row(name String, time String, share String) returns String
+	return "{padRight("{nameIndent}{name}", width: nameColumnWidth)}{padLeft(time, width: timeColumnWidth)}{padLeft(share, width: shareColumnWidth)}\n"
+end 'row'
+
+function rule() returns String
+	let width = nameColumnWidth + timeColumnWidth + shareColumnWidth
+	return "{repeated(width, unit: "-")}\n"
+end 'rule'
+
+function padRight(text String, width Count) returns String
+	if text.byteLength() >= width 'full'
+		return text.clone()
+	end 'full'
+	let missing = try width - text.byteLength() otherwise panic("driver: a column is narrower than its text")
+	return "{text}{repeated(missing, unit: " ")}"
+end 'padRight'
+
+function padLeft(text String, width Count) returns String
+	if text.byteLength() >= width 'full'
+		return text.clone()
+	end 'full'
+	let missing = try width - text.byteLength() otherwise panic("driver: a column is narrower than its text")
+	return "{repeated(missing, unit: " ")}{text}"
+end 'padLeft'
+
+function repeated(count Count, unit String) returns String
+	var text = ""
+	for _ in 0 upto count 'each'
+		text = "{text}{unit}"
+	end 'each'
+	return text
+end 'repeated'
