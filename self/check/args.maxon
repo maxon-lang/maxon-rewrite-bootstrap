@@ -12,7 +12,7 @@ function funcSymbol(p ast.Project, f ast.FuncID) returns String
 			for i in 0 upto p.funcs.entries[f as Count].typeArgs.count() 'args'
 				names.push(ast.typeName(p.types, t: p.funcs.entries[f as Count].typeArgs[i]))
 			end 'args'
-			return "{name}[{joinNames(names, sep: ", ")}]"
+			return "{name}[{ast.joinNames(names, sep: ", ")}]"
 		end 'instance'
 		return name
 	end 'free'
@@ -22,17 +22,6 @@ function funcSymbol(p ast.Project, f ast.FuncID) returns String
 	end 'instance'
 	return "{ownerName}.{name}"
 end 'funcSymbol'
-
-function joinNames(items ast.StringList, sep String) returns String
-	var buf = ByteArray.create(0)
-	for i in 0 upto items.count() 'each'
-		if i > 0 'sep'
-			buf.append(sep.toByteArray())
-		end 'sep'
-		buf.append(items[i].toByteArray())
-	end 'each'
-	return String.from(buf)
-end 'joinNames'
 
 // argSlot is the parameter that the index-th argument given stands for: the first by its place, every other by its label.
 // It is none for an argument that names no parameter after the first, or that no label names.

@@ -16,7 +16,7 @@ function checkCycle(mutates c Checker, mutates p ast.Project, site ast.NodeID, t
 		failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: "type '{name}' has no finite size: via {path[0]} it contains itself with a larger type argument each time", errs: errs)
 		return
 	end 'growing'
-	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: joinNames(path, sep: " -> ")), errs: errs)
+	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: ast.joinNames(path, sep: " -> ")), errs: errs)
 end 'checkCycle'
 
 // reaches is whether a value of type from contains one of type target. A type that contains itself with a larger type
@@ -135,7 +135,7 @@ function signatureText(p ast.Project, name String, selfConv ast.Convention, spec
 		end 'convention'
 		parts.push("{word}{specs[i].name} {nameOfType(p, t: specs[i].ty)}")
 	end 'each'
-	var text = "function {name}({joinNames(parts, sep: ", ")})"
+	var text = "function {name}({ast.joinNames(parts, sep: ", ")})"
 	if ret != p.builtins.voidTy 'returns'
 		text = "{text} returns {nameOfType(p, t: ret)}"
 	end 'returns'
@@ -252,5 +252,5 @@ function missingMethods(p ast.Project, t ast.TypeID, iface ast.TypeID) returns S
 	if missing.count() == 0 'none'
 		return ""
 	end 'none'
-	return " and add the method(s) {joinNames(missing, sep: ", ")}"
+	return " and add the method(s) {ast.joinNames(missing, sep: ", ")}"
 end 'missingMethods'

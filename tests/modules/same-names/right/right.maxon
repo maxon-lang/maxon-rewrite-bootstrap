@@ -1,0 +1,47 @@
+export typealias Size = int(0 to 200)
+
+export type Span
+	export var label as String
+	export var size as Size
+
+	export static function make(consumes label String, size Size) returns Span
+		return Span{label: label, size: size}
+	end 'make'
+
+	export function describe() returns String
+		return "right span {label} of {size}"
+	end 'describe'
+end 'Span'
+
+export union Shape
+	named(label String)
+	empty
+
+	export function describe() returns String
+		return match self 'kind'
+			named(label) gives "right shape {label}"
+			empty gives "right empty shape"
+		end 'kind'
+	end 'describe'
+end 'Shape'
+
+export type Box uses T
+	export var item as T
+	export var copies as Count
+
+	export static function make(consumes item T) returns Self
+		return Self{item: item, copies: 2}
+	end 'make'
+
+	export function peek() returns T where T implements Copyable
+		return item.clone()
+	end 'peek'
+
+	export function describe() returns String
+		return "right box of {copies}"
+	end 'describe'
+end 'Box'
+
+export function pick(a T, b T) uses T returns T where T implements Copyable
+	return b.clone()
+end 'pick'

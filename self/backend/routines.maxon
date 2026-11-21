@@ -105,7 +105,7 @@ export type RoutineSet
 			self.remember(kind, ty: ty, symbol: free)
 			return free
 		end 'frees'
-		let name = routineSymbol(kind, typeLinkName: ast.typeLinkName(p.types, t: ty))
+		let name = routineSymbol(kind, typeLinkName: ast.typeLinkName(p, t: ty))
 		self.remember(kind, ty: ty, symbol: name)
 		list.push(TypeRoutine.make(kind, ty: ty, symbol: name.clone()))
 		return name

@@ -1,0 +1,56 @@
+typealias LeftSpans = Array with left.Span
+
+typealias RightSpans = Array with right.Span
+
+typealias LeftNumbers = left.Box with Count
+
+typealias RightNumbers = right.Box with Count
+
+function echo(x T) uses T returns T where T implements Copyable
+	return x.clone()
+end 'echo'
+
+function main() returns ExitCode
+	let a = left.Span.make("a", size: 5)
+	let b = right.Span.make("b", size: 150)
+	print("{a.describe()}\n")
+	print("{b.describe()}\n")
+	print("{left.pick(a.size, b: 7)} {right.pick(b.size, b: 8)}\n")
+	print("{echo(a.size)} {echo(b.size)}\n")
+	let leftBox = left.Box.make(left.Span.make("c", size: 6))
+	let rightBox = right.Box.make(right.Span.make("d", size: 160))
+	print("{leftBox.describe()}: {leftBox.peek().describe()}\n")
+	print("{rightBox.describe()}: {rightBox.peek().describe()}\n")
+	let leftNumbers = LeftNumbers.make(11)
+	let rightNumbers = RightNumbers.make(22)
+	print("{leftNumbers.peek()} {rightNumbers.peek()}\n")
+	var leftSpans = LeftSpans.create(0)
+	leftSpans.push(left.Span.make("e", size: 7))
+	var rightSpans = RightSpans.create(0)
+	rightSpans.push(right.Span.make("f", size: 170))
+	let leftCopy = leftSpans.clone()
+	let rightCopy = rightSpans.clone()
+	print("{leftCopy[0].describe()}\n")
+	print("{rightCopy[0].describe()}\n")
+	let leftShape = left.Shape.named("g")
+	let rightShape = right.Shape.named("h")
+	print("{leftShape.clone().describe()}\n")
+	print("{rightShape.clone().describe()}\n")
+	print("{left.Shape.empty.describe()}\n")
+	print("{right.Shape.empty.describe()}\n")
+	return 0
+end 'main'
+
+//> left span a of 5
+//> right span b of 150
+//> 5 8
+//> 5 150
+//> left box: left span c of 6
+//> right box of 2: right span d of 160
+//> 11 22
+//> left span e of 7
+//> right span f of 170
+//> left shape g
+//> right shape h
+//> left empty shape
+//> right empty shape

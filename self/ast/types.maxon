@@ -259,7 +259,6 @@ export type FuncEntry
 	export var nodeID as NodeID
 	export var isStatic as bool
 	export var isDestructor as bool
-	export var isExtern as bool
 	export var hasReceiver as bool
 	export var ownerTy as TypeID
 	export var selfConv as Convention
@@ -278,7 +277,7 @@ export type FuncEntry
 	export var bodyRef as diag.U32
 
 	export static function make(consumes name String, consumes visibility String, module diag.ModuleID, nodeID NodeID) returns FuncEntry
-		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, isExtern: false, hasReceiver: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32}
+		return FuncEntry{id: noFunc, name: name, visibility: visibility, hasDecl: false, decl: DeclRef.make(module, ordinal: 0 as DeclOrdinal), module: module, nodeID: nodeID, isStatic: false, isDestructor: false, hasReceiver: false, ownerTy: noType, selfConv: Convention.convLet, generics: TypeIDList.create(0), bounds: ParamBoundList.create(0), params: ParamSpecList.create(0), paramTypes: TypeIDList.create(0), paramLocals: LocalIDList.create(0), selfLocal: noLocal, retTy: noType, errTy: noType, genericOrigin: noFunc, typeArgs: TypeIDList.create(0), intrinsic: Intrinsic.intrNone, linkName: "", bodyRef: 0 as diag.U32}
 	end 'make'
 end 'FuncEntry'
 
@@ -580,6 +579,11 @@ export function instanceSpelling(base String, args Array with String) returns St
 	return String.from(b)
 end 'instanceSpelling'
 
+// intSpelling is how an integer type's range is written.
+function intSpelling(tt TypeTable, t TypeID) returns String
+	return "int({tt.entries[t as Count].minVal.toString()} to {tt.entries[t as Count].maxVal.toString()})"
+end 'intSpelling'
+
 export function typeName(tt TypeTable, t TypeID) returns String
 	if t == noType 'none'
 		return "<invalid>"
@@ -589,7 +593,7 @@ export function typeName(tt TypeTable, t TypeID) returns String
 		if tt.entries[t as Count].name != "" 'named'
 			return tt.entries[t as Count].name.clone()
 		end 'named'
-		return "int({tt.entries[t as Count].minVal.toString()} to {tt.entries[t as Count].maxVal.toString()})"
+		return intSpelling(tt, t: t)
 	end 'rng'
 	if tt.entries[t as Count].typeArgs.count() > 0 'inst'
 		var argNames = StringList.create(0)
@@ -638,7 +642,6 @@ export function instantiateFunc(mutates ft FuncTable, mutates tt TypeTable, orig
 	inst.decl = ft.entries[origin as Count].decl.clone()
 	inst.isStatic = ft.entries[origin as Count].isStatic
 	inst.isDestructor = ft.entries[origin as Count].isDestructor
-	inst.isExtern = ft.entries[origin as Count].isExtern
 	inst.hasReceiver = ft.entries[origin as Count].hasReceiver
 	inst.selfConv = ft.entries[origin as Count].selfConv
 	inst.intrinsic = ft.entries[origin as Count].intrinsic

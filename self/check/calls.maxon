@@ -514,7 +514,7 @@ function boundsText(p ast.Project, bounds ast.TypeIDList, param ast.TypeID) retu
 	for i in 0 upto bounds.count() 'each'
 		names.push(nameOfType(p, t: bounds[i]))
 	end 'each'
-	return ": a type parameter has only the methods of its bounds ({joinNames(names, sep: ", ")})"
+	return ": a type parameter has only the methods of its bounds ({ast.joinNames(names, sep: ", ")})"
 end 'boundsText'
 
 // copyCall types 'value.clone()'.

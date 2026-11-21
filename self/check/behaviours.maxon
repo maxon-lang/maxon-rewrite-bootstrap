@@ -390,7 +390,7 @@ function dropWithCandidates(p ast.Project, t ast.TypeID) returns String
 	if names.count() == 0 'none'
 		return ": '{nameOfType(p, t: t)}' has no such destructor; declare one, as 'function rollback(destructs self)'"
 	end 'none'
-	return ": name {joinNames(names, sep: " or ")}"
+	return ": name {ast.joinNames(names, sep: " or ")}"
 end 'dropWithCandidates'
 
 // checkCownCycle refuses a type that can reach itself through a cown. A cown owns a mutable value, and a behaviour can
@@ -404,7 +404,7 @@ function checkCownCycle(mutates c Checker, mutates p ast.Project, site ast.NodeI
 	if not reachesThroughCown(p, from: own, target: own, via: false, path: path, visited: visited) 'acyclic'
 		return
 	end 'acyclic'
-	failAt(c, p: p, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, t: t)}' can reach itself through a cown (via {joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
+	failAt(c, p: p, node: site, code: diag.errCownCycle, msg: "type '{nameOfType(p, t: t)}' can reach itself through a cown (via {ast.joinNames(path, sep: " -> ")}), so cowns could refer to each other and counting would never free them; store a handle, or a key into a map, instead of the reference", errs: errs)
 end 'checkCownCycle'
 
 // reachesThroughCown is whether a value of type from holds one of type target, with a cown on the way. via is whether the

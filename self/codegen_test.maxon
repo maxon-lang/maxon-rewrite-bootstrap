@@ -139,20 +139,27 @@ function block(index Count) returns ir.BlockID
 	return try index as ir.BlockID otherwise panic("too many blocks")
 end 'block'
 
-// addFunction declares a function whose link name is its own name, in the way a function from outside any module is.
+// addFunction declares a function of the root module.
 function addFunction(mutates p ast.Project, name String, errTy ast.TypeID) returns ast.FuncID
 	var entry = ast.FuncEntry.make(name.clone(), visibility: "", module: p.rootModule, nodeID: 0 as ast.NodeID)
-	entry.isExtern = true
 	entry.errTy = errTy
 	return ast.allocFunc(p.funcs, f: entry)
 end 'addFunction'
+
+// allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
+function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) returns ast.TypeID
+	var declared = entry
+	declared.hasDecl = true
+	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
+	return ast.allocType(p.types, e: declared)
+end 'allocRootType'
 
 // addPairType declares the record Pair with a number and a string.
 function addPairType(mutates p ast.Project) returns ast.TypeID
 	var entry = ast.TypeEntry.make(ast.TypeKind.record, name: "Pair")
 	entry.fields.push(ast.FieldInfo.make("n", ty: p.builtins.countTy, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as ast.NodeID, index: 0 as Count))
 	entry.fields.push(ast.FieldInfo.make("s", ty: p.builtins.stringTy, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as ast.NodeID, index: 1 as Count))
-	return ast.allocType(p.types, e: entry)
+	return allocRootType(p, entry: entry)
 end 'addPairType'
 
 // asmPrologue and asmEpilogue frame a function of the test runtime that calls Windows, which wants the stack aligned.
@@ -423,7 +430,7 @@ function addRoutineTypes(mutates p ast.Project, pair ast.TypeID) returns Routine
 	let stringTy = p.builtins.stringTy
 	var plainEntry = ast.TypeEntry.make(ast.TypeKind.record, name: "Plain")
 	plainEntry.fields.push(ast.FieldInfo.make("n", ty: countTy, isVar: true, exported: true, hasDefault: false, defaultExpr: 0 as ast.NodeID, index: 0 as Count))
-	let plain = ast.allocType(p.types, e: plainEntry)
+	let plain = allocRootType(p, entry: plainEntry)
 	var shapeEntry = ast.TypeEntry.make(ast.TypeKind.unionTy, name: "Shape")
 	var circle = ast.CaseFieldList.create(0)
 	circle.push(ast.CaseFieldInfo.make("r", ty: countTy))
@@ -431,7 +438,7 @@ function addRoutineTypes(mutates p ast.Project, pair ast.TypeID) returns Routine
 	var named = ast.CaseFieldList.create(0)
 	named.push(ast.CaseFieldInfo.make("n", ty: stringTy))
 	shapeEntry.cases.push(ast.CaseInfo.make("named", payload: named, hasRaw: false, rawValue: ast.I128.zero()))
-	let shape = ast.allocType(p.types, e: shapeEntry)
+	let shape = allocRootType(p, entry: shapeEntry)
 	var pairArgs = ast.TypeIDList.create(0)
 	pairArgs.push(pair)
 	let pairs = ast.instantiateType(p.types, origin: p.builtins.arrayOrigin, args: pairArgs)
@@ -599,6 +606,7 @@ end 'oneFunction'
 
 function testCodegen()
 	var p = ast.Project.new("self")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
 	let mainId = addFunction(p, name: "main", errTy: ast.noType)
 	runIr(p, fns: oneFunction(arithmeticMain(mainId)), entry: mainId, count: false, name: "minimaxon_cg_arithmetic.exe", expectedCode: 42, expectedOutput: "")
 	let sumId = addFunction(p, name: "sum", errTy: ast.noType)

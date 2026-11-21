@@ -2061,8 +2061,10 @@ A change to the syntax touches many programs, so tools do the mechanical part:
   only keyword spellings left in Go are the constants in `internal/interp/keywords_test.go`, which the program generator
   builds programs from, and a few assertions that name one keyword, which the Go tests find.
 - **`.\check.ps1`** runs every check this repository requires, formatting and applying `go fix` first, and stops at the
-  first failure; its last step is `minimaxon check runtime`, since neither test suite compiles the runtime. Arguments go
-  to `minimaxon test`, so `.\check.ps1 --update-positions` works.
+  first failure. After the two test suites it runs `minimaxon check runtime`, since neither compiles the runtime, and then
+  the self-hosting loop: the Go compiler builds `self/` as `bin\c1.exe`, `c1.exe` compiles `self/` again as `bin\c2.exe`,
+  and `c2.exe test` runs the corpus, so a change that only the compiled `self/` shows (a symbol that two modules share, a
+  runtime behaviour) fails here. Arguments go to `minimaxon test`, so `.\check.ps1 --update-positions` works.
 
 A refactoring is a list of `syntax.Edit`s (a byte range and its new text), applied by `syntax.ApplyEdits`, so a language
 server can send the same edits to an editor. `.claude/skills/language-change` holds the checklist for a change to the

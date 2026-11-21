@@ -268,7 +268,7 @@ function testAstModel()
 	let fid = proj.types.entries[proj.builtins.arrayOrigin as Count].findMethod("push").unwrap()
 	let instFid = ast.instantiateFunc(proj.funcs, tt: proj.types, origin: fid, args: args)
 	let ln = ast.funcLinkName(proj, fid: instFid)
-	assertEqStr(ln, expected: "Array[Count]::push[Count]", label: "funcLinkName")
+	assertEqStr(ln, expected: "(stdlib::Array with Count=int(0 to 18446744073709551615)).push", label: "funcLinkName")
 end 'testAstModel'
 
 function hexDigit(c Byte) returns Count
