@@ -116,7 +116,7 @@ export function endChecks(mutates p ast.Project, consumes ch Checks) returns Che
 end 'endChecks'
 
 // moduleAliases declares the bounds of the type parameters of the module's types, then its typealiases of instances.
-export function moduleAliases(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+export function moduleAliases(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	state.paramsOk = declareTypeParamBounds(state.checker, p: p, ms: state.unit, errs: errs)
 	declareAliases(state.checker, p: p, ms: state.unit, errs: errs)
 end 'moduleAliases'
@@ -124,13 +124,13 @@ end 'moduleAliases'
 // moduleDeclare declares the module's members and signatures, and checks the entry function where the module declares one:
 // the entry is the one that comes first in the order of the program's files, whatever directory it is in, and another
 // module that declares one has a duplicate.
-export function moduleDeclare(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+export function moduleDeclare(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let paramsOk = state.paramsOk.clone()
 	state.functions = declareModule(state.checker, p: p, ms: state.unit, paramsOk: paramsOk, errs: errs)
 	match state.entryRole 'role'
 		none then return
-		entry then state.entry = checkMain(state.checker, p: p, errs: errs)
-		second then reportSecondEntry(state.checker, p: p, errs: errs)
+		entry then state.entry = checkMain(state.checker, p: p, ms: state.unit, errs: errs)
+		second then reportSecondEntry(state.checker, p: p, ms: state.unit, errs: errs)
 	end 'role'
 end 'moduleDeclare'
 
@@ -194,13 +194,13 @@ export function moduleConstantOrder(mutates state ModuleState, p ast.Project, mu
 end 'moduleConstantOrder'
 
 // moduleConstants types the module's constants and the raw values of its enums and unions, each after those it names.
-export function moduleConstants(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+export function moduleConstants(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let order = state.constants.clone()
 	checkConstants(state.checker, p: p, ms: state.unit, order: order, errs: errs)
 end 'moduleConstants'
 
 // moduleBodies types the module's type declarations and functions.
-export function moduleBodies(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+export function moduleBodies(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let functions = state.functions.clone()
 	checkBodies(state.checker, p: p, ms: state.unit, declared: functions, errs: errs)
 end 'moduleBodies'
@@ -208,7 +208,7 @@ end 'moduleBodies'
 // moduleVerify checks the calls and the type arguments that the module's bodies left for the modules they reach, then
 // follows the values of the module's declarations and functions. The passes that follow values run only on a module that
 // has no error yet.
-export function moduleVerify(mutates state ModuleState, mutates p ast.Project, mutates errs diag.ErrorList)
+export function moduleVerify(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)
 	let mark = errs.count()
 	verifyExtensions(state.checker, p: p, ms: state.unit, errs: errs)
 	let valueTypes = state.checker.pendingValueTypes.clone()

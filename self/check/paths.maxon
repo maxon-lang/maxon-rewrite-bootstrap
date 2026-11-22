@@ -122,7 +122,7 @@ function pathText(o Ownership, p ast.Project, ms ast.ModuleState, path AccessPat
 	for i in 0 upto path.steps.count() 'each'
 		let k = path.steps[i].kind
 		if k == StepKind.stepElement 'element'
-			b.append("[{placeText(p.modules[o.c.modIdx].tree, e: path.steps[i].index)}]".toByteArray())
+			b.append("[{placeText(ms.tree, e: path.steps[i].index)}]".toByteArray())
 		end 'element' else if k == StepKind.stepField 'field'
 			b.append(".{fieldName(p, ms: ms, step: path.steps[i])}".toByteArray())
 		end 'field'
@@ -163,8 +163,8 @@ end 'withContents'
 // pathOf is the place an expression names, or a path with no root for an expression that computes a fresh value. A bare
 // field name selects from the receiver of the function being checked.
 function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns AccessPath
-	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
-	let k = p.modules[o.c.modIdx].tree.kindOf(n)
+	let n = ast.through(ms.tree, e: e)
+	let k = ms.tree.kindOf(n)
 	if k == ast.NodeKind.nameExpr 'name'
 		let name = ownName(o, node: n)
 		if name.kind == ast.NameKind.nameLocal 'local'
@@ -186,7 +186,7 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 		if member.kind != ast.MemberKind.memberField 'notField'
 			return AccessPath.none()
 		end 'notField'
-		let obj = ast.memberExprObj(p.modules[o.c.modIdx].tree, id: n)
+		let obj = ast.memberExprObj(ms.tree, id: n)
 		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
@@ -196,13 +196,13 @@ function pathOf(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) re
 		return path
 	end 'member'
 	if k == ast.NodeKind.indexExpr 'index'
-		let obj = ast.indexExprObj(p.modules[o.c.modIdx].tree, id: n)
+		let obj = ast.indexExprObj(ms.tree, id: n)
 		var path = pathOf(o, p: p, ms: ms, e: obj)
 		if not path.isPlace() 'fresh'
 			return path
 		end 'fresh'
 		withContents(p, ms: ms, steps: path.steps, t: ownType(o, node: obj))
-		path.steps.push(PathStep.element(indexArg(p.modules[o.c.modIdx].tree, e: n)))
+		path.steps.push(PathStep.element(indexArg(ms.tree, e: n)))
 		return path
 	end 'index'
 	return AccessPath.none()
@@ -214,14 +214,14 @@ function indexArg(tree ast.Tree, e ast.NodeID) returns ast.NodeID
 end 'indexArg'
 
 // projectsElement is whether a place is, or lies inside, an element of a primitive, which only the primitive owns.
-function projectsElement(o Ownership, p ast.Project, e ast.NodeID) returns bool
-	let n = ast.through(p.modules[o.c.modIdx].tree, e: e)
-	let k = p.modules[o.c.modIdx].tree.kindOf(n)
+function projectsElement(o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	let n = ast.through(ms.tree, e: e)
+	let k = ms.tree.kindOf(n)
 	if k == ast.NodeKind.indexExpr 'index'
 		return true
 	end 'index'
 	if k == ast.NodeKind.memberExpr 'member'
-		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, e: ast.memberExprObj(p.modules[o.c.modIdx].tree, id: n))
+		return ownMember(o, node: n).kind == ast.MemberKind.memberField and projectsElement(o, p: p, ms: ms, e: ast.memberExprObj(ms.tree, id: n))
 	end 'member'
 	return false
 end 'projectsElement'

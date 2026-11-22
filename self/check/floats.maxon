@@ -61,7 +61,7 @@ function floatMismatch(c Checker, p ast.Project, ms ast.ModuleState, node ast.No
 	let castable = typeIsAnonFloat(ms.types, t: src) or ast.isIntType(ms.types, t: src)
 	var fix = diag.Fix.none()
 	if castable 'cast'
-		fix = castFix(p.modules[c.modIdx].tree, e: node, target: tName)
+		fix = castFix(ms.tree, e: node, target: tName)
 	end 'cast'
 	checkFailFixed(c.modID, off: at, code: diag.errTypeMismatch, msg: wrong.words(tName, got: gotName(p, ms: ms, t: src), castable: false), fix: fix, errs: errs)
 end 'floatMismatch'
@@ -77,7 +77,7 @@ end 'requireOneFloatAlias'
 
 // checkFloatOp types an arithmetic operator one of whose operands is a float.
 function checkFloatOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op != "+" and op != "-" and op != "*" and op != "/" 'notArithmetic'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "'{op}' needs integers, found {nameOfType(p, ms: ms, t: l)} and {nameOfType(p, ms: ms, t: r)}; a float has + - * / and no '{op}'", errs: errs)
 		return ast.noType
@@ -110,7 +110,7 @@ end 'foldFloat'
 
 // checkFloatComparison types a comparison one of whose operands is a float; the other may be an integer, which converts.
 function checkFloatComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if not isNumberType(p, ms: ms, t: l) or not isNumberType(p, ms: ms, t: r) 'notNumbers'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: diag.comparisonTypeMismatch(nameOfType(p, ms: ms, t: l), right: nameOfType(p, ms: ms, t: r)), errs: errs)
 		return ast.noType

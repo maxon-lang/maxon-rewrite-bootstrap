@@ -157,7 +157,7 @@ end 'lowerRawCallCode'
 // lowerRawCodeAddress is the address of the code of the function of this module that its operand, a string literal,
 // names, which the checker made sure it declares.
 function lowerRawCodeAddress(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, recv Reg, args RegList) returns Reg
-	let fn = ast.functionNamed(p, module: p.modules[l.mi].id, name: plainText(l, p: p, e: c.ordered[0]))
+	let fn = ast.functionNamed(p, ms: ms, module: p.modules[l.mi].id, name: plainText(l, p: p, e: c.ordered[0]))
 	if fn == ast.noFunc 'missing'
 		panic("lower: the code of a function that the module does not declare")
 	end 'missing'

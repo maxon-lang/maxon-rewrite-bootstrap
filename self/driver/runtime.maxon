@@ -42,7 +42,7 @@ function runtimeFunctionID(p ast.Project, module diag.ModuleID, ord ast.DeclOrdi
 	if ord == noDeclaration 'none'
 		return ast.noFunc
 	end 'none'
-	return ast.declaredFunction(p, module: module, ord: ord)
+	return ast.declaredFunction(p, ms: ast.ModuleState.ofProject(), module: module, ord: ord)
 end 'runtimeFunctionID'
 
 function matchesSignature(p ast.Project, fid ast.FuncID, want ir.RtFunction) returns bool

@@ -109,9 +109,9 @@ end 'Accumulation'
 
 // rangeAccumulation is the shape of an assignment, if it is one that an accumulator is changed by.
 function rangeAccumulation(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID) returns table.Option with Accumulation
-	let target = ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)
-	let sum = ast.assignStmtValue(p.modules[r.modIdx].tree, id: s)
-	if p.modules[r.modIdx].tree.kindOf(target) != ast.NodeKind.nameExpr or p.modules[r.modIdx].tree.kindOf(sum) != ast.NodeKind.binaryExpr 'shape'
+	let target = ast.assignStmtTarget(ms.tree, id: s)
+	let sum = ast.assignStmtValue(ms.tree, id: s)
+	if ms.tree.kindOf(target) != ast.NodeKind.nameExpr or ms.tree.kindOf(sum) != ast.NodeKind.binaryExpr 'shape'
 		return table.Option.none
 	end 'shape'
 	return match consumes rangePlaceOf(r, p: p, ms: ms, e: target) 'place'
@@ -124,15 +124,15 @@ function accumulationOf(r Ranges, p ast.Project, ms ast.ModuleState, place Place
 	if place.depth != 0 or not ast.isIntType(ms.types, t: typeOf(r, e: target)) 'notLocal'
 		return table.Option.none
 	end 'notLocal'
-	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: sum)
+	let op = ast.binaryExprOp(ms.tree, id: sum)
 	let subtract = op == "-"
 	if op != "+" and not subtract 'notSum'
 		return table.Option.none
 	end 'notSum'
-	if namesPlace(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: sum), place: place) 'left'
+	if namesPlace(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree, id: sum), place: place) 'left'
 		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: subtract, eIsLeft: false))
 	end 'left'
-	if not subtract and namesPlace(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: sum), place: place) 'right'
+	if not subtract and namesPlace(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree, id: sum), place: place) 'right'
 		return table.Option.some(Accumulation.make(place.clone(), sum: sum, subtract: false, eIsLeft: true))
 	end 'right'
 	return table.Option.none
@@ -149,8 +149,8 @@ end 'namesPlace'
 // bound, which holds however many times the loop has run, and the probe of a loop learns from it how far the loop can
 // move it.
 function rangeAccumulate(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, a Accumulation)
-	let l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: a.sum))
-	let rs = rangeEval(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: a.sum))
+	let l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree, id: a.sum))
+	let rs = rangeEval(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree, id: a.sum))
 	let bound = rangeBoundOf(r, local: a.place.root)
 	let v = rangeOperate(r, p: p, ms: ms, e: a.sum, l: l, rs: rs, bound: bound)
 	if r.probing and not isDead(r, s: r.st) 'probed'
@@ -160,7 +160,7 @@ function rangeAccumulate(mutates r Ranges, p ast.Project, ms ast.ModuleState, s 
 			r.probe.record(a, e: rs)
 		end 'right'
 	end 'probed'
-	rangeWrite(r, p: p, ms: ms, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(p.modules[r.modIdx].tree, id: s)))
+	rangeWrite(r, p: p, ms: ms, place: a.place, s: v, t: typeOf(r, e: ast.assignStmtTarget(ms.tree, id: s)))
 end 'rangeAccumulate'
 
 // Accumulated is what the probe of a loop learned of an accumulator: how its statements can move it in one iteration of
@@ -259,13 +259,13 @@ typealias CandidateList = Array with Candidate
 // scanBlock finds the locals that a loop's statements assign by an accumulator statement. It reads statements and not
 // expressions, which cannot assign, so it is far cheaper than the walk it decides on.
 function scanBlock(r Ranges, p ast.Project, ms ast.ModuleState, body diag.U32, mutates found CandidateList)
-	for i in 0 upto p.modules[r.modIdx].tree.listLen(body) 'each'
-		scanStmt(r, p: p, ms: ms, s: p.modules[r.modIdx].tree.listAt(body, index: i) as ast.NodeID, found: found)
+	for i in 0 upto ms.tree.listLen(body) 'each'
+		scanStmt(r, p: p, ms: ms, s: ms.tree.listAt(body, index: i) as ast.NodeID, found: found)
 	end 'each'
 end 'scanBlock'
 
 function scanStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mutates found CandidateList)
-	let k = p.modules[r.modIdx].tree.kindOf(s)
+	let k = ms.tree.kindOf(s)
 	if k == ast.NodeKind.assignStmt 'assign'
 		match consumes rangeAccumulation(r, p: p, ms: ms, s: s) 'accumulation'
 			some(a) then noteCandidate(r, local: a.place.root, found: found)
@@ -274,40 +274,40 @@ function scanStmt(r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, mut
 		return
 	end 'assign'
 	if k == ast.NodeKind.ifStmt 'if'
-		scanBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
-		if ast.ifStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-			scanBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree, id: s), found: found)
+		if ast.ifStmtHasElse(ms.tree, id: s) 'else'
+			scanBlock(r, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree, id: s), found: found)
 		end 'else'
 		return
 	end 'if'
 	if k == ast.NodeKind.whileStmt 'while'
-		scanBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree, id: s), found: found)
 		return
 	end 'while'
 	if k == ast.NodeKind.forStmt 'for'
-		scanBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s), found: found)
 		return
 	end 'for'
 	if k == ast.NodeKind.ifTryStmt 'ifTry'
-		scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtThenRef(p.modules[r.modIdx].tree, id: s), found: found)
-		if ast.ifTryStmtHasElse(p.modules[r.modIdx].tree, id: s) 'else'
-			scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtElseRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtThenRef(ms.tree, id: s), found: found)
+		if ast.ifTryStmtHasElse(ms.tree, id: s) 'else'
+			scanBlock(r, p: p, ms: ms, body: ast.ifTryStmtElseRef(ms.tree, id: s), found: found)
 		end 'else'
 		return
 	end 'ifTry'
 	if k == ast.NodeKind.tryStmt 'try'
-		scanBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(p.modules[r.modIdx].tree, id: s), found: found)
-		if ast.tryStmtHasOtherwise(p.modules[r.modIdx].tree, id: s) 'handler'
-			scanBlock(r, p: p, ms: ms, body: ast.tryStmtHandlerRef(p.modules[r.modIdx].tree, id: s), found: found)
+		scanBlock(r, p: p, ms: ms, body: ast.tryStmtBodyRef(ms.tree, id: s), found: found)
+		if ast.tryStmtHasOtherwise(ms.tree, id: s) 'handler'
+			scanBlock(r, p: p, ms: ms, body: ast.tryStmtHandlerRef(ms.tree, id: s), found: found)
 		end 'handler'
 		return
 	end 'try'
 	if k == ast.NodeKind.matchStmt 'match'
-		let armsRef = ast.matchCoreArmsRef(p.modules[r.modIdx].tree, id: ast.matchStmtMatch(p.modules[r.modIdx].tree, id: s))
-		for i in 0 upto p.modules[r.modIdx].tree.listLen(armsRef) 'arms'
-			let arm = p.modules[r.modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
-			if ast.matchArmForm(p.modules[r.modIdx].tree, id: arm) == ast.ArmKind.armThen 'then'
-				scanStmt(r, p: p, ms: ms, s: ast.matchArmAction(p.modules[r.modIdx].tree, id: arm), found: found)
+		let armsRef = ast.matchCoreArmsRef(ms.tree, id: ast.matchStmtMatch(ms.tree, id: s))
+		for i in 0 upto ms.tree.listLen(armsRef) 'arms'
+			let arm = ms.tree.listAt(armsRef, index: i) as ast.NodeID
+			if ast.matchArmForm(ms.tree, id: arm) == ast.ArmKind.armThen 'then'
+				scanStmt(r, p: p, ms: ms, s: ast.matchArmAction(ms.tree, id: arm), found: found)
 			end 'then'
 		end 'arms'
 		return
@@ -349,7 +349,7 @@ end 'rangeCandidates'
 // rangeLoopHead makes the state at the top of a for loop: what may be assigned is forgotten, except the accumulators of
 // the body that the loop bounds.
 function rangeLoopHead(mutates r Ranges, p ast.Project, ms ast.ModuleState, s ast.NodeID, from Span, upper Span, trips ast.I128)
-	let cands = rangeCandidates(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	let cands = rangeCandidates(r, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s))
 	rangeForget(r, p: p, ms: ms)
 	if cands.count() == 0 'none'
 		return
@@ -387,7 +387,7 @@ function rangeProbeLoop(mutates r Ranges, p ast.Project, ms ast.ModuleState, s a
 	let top = r.st
 	let body = rangeLoopBody(r, p: p, ms: ms, s: s, top: top, from: from, upper: upper)
 	r.st = body
-	rangeBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[r.modIdx].tree, id: s))
+	rangeBlock(r, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s))
 	r.probing = false
 	r.st = head
 	truncatePlaces(r.written, count: written)

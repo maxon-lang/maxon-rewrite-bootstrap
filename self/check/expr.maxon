@@ -37,13 +37,13 @@ function declaredNameOfType(p ast.Project, ms ast.ModuleState, t ast.TypeID) ret
 end 'declaredNameOfType'
 
 // checkExpr types an expression, which gives the type it has, or none after it reported why it has none.
-function checkExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	return checkExpecting(c, p: p, ms: ms, e: e, want: ast.noType, errs: errs)
 end 'checkExpr'
 
 // checkExpecting types an expression whose context needs a value of want; want is none where the context needs none in
 // particular. The expectation reaches only the expression itself, and the branches that give its value.
-function checkExpecting(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkExpecting(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let outer = c.expect
 	c.expect = want
 	var t = visitExpr(c, p: p, ms: ms, e: e, errs: errs)
@@ -63,13 +63,13 @@ function recordType(mutates c Checker, e ast.NodeID, t ast.TypeID)
 	end 'typed'
 end 'recordType'
 
-function visitExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let k = p.modules[c.modIdx].tree.kindOf(e)
+function visitExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let k = ms.tree.kindOf(e)
 	if k == ast.NodeKind.intLit 'intLit'
-		return ast.internConstInt(ms.types, val: ast.intLitValue(p.modules[c.modIdx].tree, id: e))
+		return ast.internConstInt(ms.types, val: ast.intLitValue(ms.tree, id: e))
 	end 'intLit'
 	if k == ast.NodeKind.floatLit 'floatLit'
-		return ast.internConstFloat(ms.types, bits: ast.floatLitBits(p.modules[c.modIdx].tree, id: e))
+		return ast.internConstFloat(ms.types, bits: ast.floatLitBits(ms.tree, id: e))
 	end 'floatLit'
 	if k == ast.NodeKind.boolLit 'boolLit'
 		return p.builtins.boolTy
@@ -126,7 +126,7 @@ function visitExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 		return checkCollectionLit(c, p: p, ms: ms, e: e, errs: errs)
 	end 'collectionLitExpr'
 	if k == ast.NodeKind.matchExpr 'matchExpr'
-		let core = ast.matchExprMatch(p.modules[c.modIdx].tree, id: e)
+		let core = ast.matchExprMatch(ms.tree, id: e)
 		return checkMatch(c, p: p, ms: ms, core: core, isExpr: true, errs: errs)
 	end 'matchExpr'
 	if k == ast.NodeKind.closureExpr 'closureExpr'
@@ -139,12 +139,12 @@ function visitExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 end 'visitExpr'
 
 // checkStrLit types a string, whose interpolated values must be of a type that has a text.
-function checkStrLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let partsRef = ast.strLitPartsRef(p.modules[c.modIdx].tree, id: e)
-	let count = p.modules[c.modIdx].tree.strPartCount(partsRef)
+function checkStrLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let partsRef = ast.strLitPartsRef(ms.tree, id: e)
+	let count = ms.tree.strPartCount(partsRef)
 	for i in 0 upto count 'parts'
-		if p.modules[c.modIdx].tree.strPartIsExpr(partsRef, index: i) 'interpolated'
-			let part = p.modules[c.modIdx].tree.strPartExpr(partsRef, index: i)
+		if ms.tree.strPartIsExpr(partsRef, index: i) 'interpolated'
+			let part = ms.tree.strPartExpr(partsRef, index: i)
 			if not checkInterpolation(c, p: p, ms: ms, part: part, errs: errs) 'bad'
 				return ast.noType
 			end 'bad'
@@ -158,16 +158,16 @@ function checkByteStrLit(mutates c Checker, p ast.Project, mutates ms ast.Module
 	var args = ast.TypeIDList.create(0)
 	args.push(p.builtins.byteTy)
 	let origin = p.builtins.arrayOrigin
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkByteStrLit'
 
-function checkInterpolation(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, part ast.NodeID, mutates errs diag.ErrorList) returns bool
+function checkInterpolation(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, part ast.NodeID, mutates errs diag.ErrorList) returns bool
 	let typed = checkExpr(c, p: p, ms: ms, e: part, errs: errs)
 	if typed == ast.noType 'failed'
 		return false
 	end 'failed'
 	let t = ast.contentType(ms.types, t: typed)
-	let off = offsetOf(c, p: p, node: part)
+	let off = offsetOf(c, p: p, ms: ms, node: part)
 	if not requireSigned64(c, off: off, t: t, p: p, ms: ms, errs: errs) 'wide'
 		return false
 	end 'wide'
@@ -180,30 +180,30 @@ function checkInterpolation(mutates c Checker, mutates p ast.Project, mutates ms
 end 'checkInterpolation'
 
 // constantOf is the constant that a name written as an expression stands for, if it is one.
-function constantOf(p ast.Project, ref ast.DeclRef) returns table.Option with ast.ConstValue
-	return ast.declConst(p, ref: ref)
+function constantOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns table.Option with ast.ConstValue
+	return ast.declConst(p, ms: ms, ref: ref)
 end 'constantOf'
 
 // isQualifiedName is whether the resolver made a name of a name written with its module or its type, `mod.name`: it stands
 // for that declaration, never for a local, a field or a method of the enclosing type, which a bare name outranks.
-function isQualifiedName(c Checker, p ast.Project, e ast.NodeID) returns bool
-	return p.resolutions[c.modIdx].becomeNames.has(e as Count)
+function isQualifiedName(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	return ms.resolution.becomeNames.has(e as Count)
 end 'isQualifiedName'
 
 function checkQualifiedName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
-	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
+	let name = ast.nameExprName(ms.tree, id: e)
+	match consumes ms.resolution.decls.get(e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
 		none then panic("a qualified name '{name}' was resolved to no declaration")
 	end 'bound'
 end 'checkQualifiedName'
 
 function checkNameExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	if isQualifiedName(c, p: p, e: e) 'qualified'
+	if isQualifiedName(c, p: p, ms: ms, e: e) 'qualified'
 		return checkQualifiedName(c, p: p, ms: ms, e: e, errs: errs)
 	end 'qualified'
-	let name = ast.nameExprName(p.modules[c.modIdx].tree, id: e)
-	let off = offsetOf(c, p: p, node: e)
+	let name = ast.nameExprName(ms.tree, id: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let mark = errs.count()
 	let local = useLocal(c, p: p, ms: ms, use: e, name: name, errs: errs)
 	if failedSince(errs, mark: mark) 'refused'
@@ -230,7 +230,7 @@ function checkNameExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 			none then _ = 0
 		end 'selfField'
 	end 'behaviour'
-	match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
+	match consumes ms.resolution.decls.get(e as Count) 'bound'
 		some(ref) then return checkDeclaredName(c, p: p, ms: ms, e: e, ref: ref, name: name, errs: errs)
 		none then _ = 0
 	end 'bound'
@@ -249,12 +249,12 @@ function selfFieldType(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 end 'selfFieldType'
 
 function checkDeclaredName(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, consumes ref ast.DeclRef, name String, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if ast.declIsType(p, ref: ref) 'type'
 		checkFail(c.modID, off: off, code: diag.errExpressionError, msg: "'{name}' is a type, not a value", errs: errs)
 		return ast.noType
 	end 'type'
-	match consumes constantOf(p, ref: ref) 'const'
+	match consumes constantOf(p, ms: ms, ref: ref) 'const'
 		some(value) then return typeOfConstant(c, e: e, ref: ref, value: value)
 		none then _ = 0
 	end 'const'
@@ -273,15 +273,15 @@ end 'typeOfConstant'
 function checkSelfExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.inClosure 'closure'
 		// A closure in a method names its receiver by name, which the resolver made of 'self'.
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'closure'
 	if c.inBehaviour 'behaviour'
 		let owner = c.owner
-		return refuseBehaviourSelf(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), what: "'self'", t: owner, errs: errs)
+		return refuseBehaviourSelf(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), what: "'self'", t: owner, errs: errs)
 	end 'behaviour'
 	if c.fn == ast.noFunc or not ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].hasReceiver 'outside'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnexpectedToken, msg: diag.selfOutsideInstanceMethod(), errs: errs)
 		return ast.noType
 	end 'outside'
 	return c.owner
@@ -357,11 +357,11 @@ end 'setOperand'
 // checkBinary types an operator. A chain of operators nests to the left, so the chain is walked innermost first with a
 // loop: each operator is checked once the type of its left operand is known, which is what visiting the left operand
 // first gives.
-function checkBinary(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkBinary(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
-	var chain = ast.leftChain(p.modules[c.modIdx].tree, e: e)
+	var chain = ast.leftChain(ms.tree, e: e)
 	var node = ast.nextOperator(chain, e: e)
-	var l = checkExpr(c, p: p, ms: ms, e: ast.binaryExprL(p.modules[c.modIdx].tree, id: node), errs: errs)
+	var l = checkExpr(c, p: p, ms: ms, e: ast.binaryExprL(ms.tree, id: node), errs: errs)
 	while node != e 'inner'
 		if l == ast.noType 'badInner'
 			return ast.noType
@@ -377,14 +377,14 @@ function checkBinary(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 end 'checkBinary'
 
 // checkOperator types an operator whose left operand has the type l.
-function checkOperator(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, l ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let op = ast.binaryExprOp(p.modules[c.modIdx].tree, id: e)
-	let rNode = ast.binaryExprR(p.modules[c.modIdx].tree, id: e)
+function checkOperator(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, l ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let op = ast.binaryExprOp(ms.tree, id: e)
+	let rNode = ast.binaryExprR(ms.tree, id: e)
 	let r = checkExpr(c, p: p, ms: ms, e: rNode, errs: errs)
 	if r == ast.noType 'badRight'
 		return ast.noType
 	end 'badRight'
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op == "is" 'identity'
 		return checkIdentity(c, p: p, ms: ms, e: e, l: l, r: r, errs: errs)
 	end 'identity'
@@ -444,9 +444,9 @@ end 'hasIdentity'
 // checkIdentity types 'a is b' and 'a is not b': whether two names stand for one object. A record has one owner, so the
 // answer is true only where one operand borrows the other, or both borrow one owner.
 function checkIdentity(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	var op = "is"
-	if ast.binaryExprNegated(p.modules[c.modIdx].tree, id: e) 'negated'
+	if ast.binaryExprNegated(ms.tree, id: e) 'negated'
 		op = "is not"
 	end 'negated'
 	if not hasIdentity(p, ms: ms, t: l) or not hasIdentity(p, ms: ms, t: r) 'primitive'
@@ -492,7 +492,7 @@ end 'refuseOperands'
 
 // checkIntegerOp types an arithmetic, bitwise or shift operator on two integers.
 function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if not ast.isIntType(ms.types, t: l) or not ast.isIntType(ms.types, t: r) 'notInts'
 		return refuseOperands(c, p: p, ms: ms, off: off, op: op, l: l, r: r, errs: errs)
 	end 'notInts'
@@ -500,7 +500,7 @@ function checkIntegerOp(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let rConst = isConstInt(p, ms: ms, t: r)
 	if lConst and rConst 'folded'
 		setOperand(c, node: e, operand: p.builtins.anon64Ty)
-		return foldedType(c, p: p, ms: ms, off: off, rightOff: exprOffset(c, p: p, node: ast.binaryExprR(p.modules[c.modIdx].tree, id: e)), op: op, l: l, r: r, errs: errs)
+		return foldedType(c, p: p, ms: ms, off: off, rightOff: exprOffset(c, p: p, ms: ms, node: ast.binaryExprR(ms.tree, id: e)), op: op, l: l, r: r, errs: errs)
 	end 'folded'
 	if (op == "/" or op == "mod") and rConst and ms.types.lists[ast.typeList(ms.types, t: r)][ast.typeIndex(ms.types, t: r)].minVal.isZero() 'byZero'
 		checkFail(c.modID, off: off, code: diag.errDivisionByZero, msg: diag.divisionByProvableZero(op), errs: errs)
@@ -564,7 +564,7 @@ function foldedType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 end 'foldedType'
 
 function checkComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, op String, l ast.TypeID, r ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if ast.isIntType(ms.types, t: l) and ast.isIntType(ms.types, t: r) 'integers'
 		let word = operandWord(c, p: p, ms: ms, off: off, op: op, l: l, r: r, errs: errs)
 		if word == ast.noType 'noWord'
@@ -594,16 +594,16 @@ function checkComparison(mutates c Checker, p ast.Project, ms ast.ModuleState, e
 	return ast.noType
 end 'checkComparison'
 
-function checkUnary(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkUnary(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
-	let op = ast.unaryExprOp(p.modules[c.modIdx].tree, id: e)
-	let operand = ast.unaryExprE(p.modules[c.modIdx].tree, id: e)
+	let op = ast.unaryExprOp(ms.tree, id: e)
+	let operand = ast.unaryExprE(ms.tree, id: e)
 	let t = checkExpr(c, p: p, ms: ms, e: operand, errs: errs)
 	if t == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
 	setOperand(c, node: e, operand: t)
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if op == "not" 'not'
 		return checkNot(c, p: p, ms: ms, off: off, t: t, want: want, errs: errs)
 	end 'not'
@@ -670,28 +670,28 @@ function checkNegation(mutates c Checker, p ast.Project, mutates ms ast.ModuleSt
 	return exactType(p, ms: ms, word: word, lo: lo, hi: hi)
 end 'checkNegation'
 
-function requireBool(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, keyword String, mutates errs diag.ErrorList) returns bool
+function requireBool(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, keyword String, mutates errs diag.ErrorList) returns bool
 	let t = checkExpr(c, p: p, ms: ms, e: e, errs: errs)
 	if t == ast.noType 'failed'
 		return false
 	end 'failed'
 	if t != p.builtins.boolTy 'notBool'
-		checkFail(c.modID, off: exprOffset(c, p: p, node: e), code: diag.errTypeMismatch, msg: diag.nonBoolCondition(keyword, got: gotName(p, ms: ms, t: t)), errs: errs)
+		checkFail(c.modID, off: exprOffset(c, p: p, ms: ms, node: e), code: diag.errTypeMismatch, msg: diag.nonBoolCondition(keyword, got: gotName(p, ms: ms, t: t)), errs: errs)
 		return false
 	end 'notBool'
 	return true
 end 'requireBool'
 
-function checkCond(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let cond = ast.condExprCond(p.modules[c.modIdx].tree, id: e)
-	let thenNode = ast.condExprThen(p.modules[c.modIdx].tree, id: e)
-	let elseNode = ast.condExprElse(p.modules[c.modIdx].tree, id: e)
+function checkCond(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let cond = ast.condExprCond(ms.tree, id: e)
+	let thenNode = ast.condExprThen(ms.tree, id: e)
+	let elseNode = ast.condExprElse(ms.tree, id: e)
 	let condTy = checkExpr(c, p: p, ms: ms, e: cond, errs: errs)
 	if condTy == ast.noType 'badCond'
 		return ast.noType
 	end 'badCond'
 	if condTy != p.builtins.boolTy 'notBool'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errMatchTypeMismatch, msg: diag.ternaryNonBoolCondition(gotName(p, ms: ms, t: condTy)), errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errMatchTypeMismatch, msg: diag.ternaryNonBoolCondition(gotName(p, ms: ms, t: condTy)), errs: errs)
 		return ast.noType
 	end 'notBool'
 	let expected = c.expect
@@ -703,27 +703,27 @@ function checkCond(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 	if elseTy == ast.noType 'badElse'
 		return ast.noType
 	end 'badElse'
-	return joinTypes(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), clash: Clash.branches, a: thenTy, b: elseTy, errs: errs)
+	return joinTypes(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), clash: Clash.branches, a: thenTy, b: elseTy, errs: errs)
 end 'checkCond'
 
-function checkCast(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
-	let targetRef = ast.castExprTarget(p.modules[c.modIdx].tree, id: e)
-	let operand = ast.castExprE(p.modules[c.modIdx].tree, id: e)
+function checkCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let off = offsetOf(c, p: p, ms: ms, node: e)
+	let targetRef = ast.castExprTarget(ms.tree, id: e)
+	let operand = ast.castExprE(ms.tree, id: e)
 	let owner = c.owner
 	let mark = errs.count()
-	let bare = bareNumberName(p, modIdx: c.modIdx, tr: targetRef)
+	let bare = bareNumberName(p, ms: ms, tr: targetRef)
 	if bare != "" 'bare'
 		var message = diag.bareIntCast()
 		if bare == "float" 'float'
 			message = diag.bareFloatCast()
 		end 'float'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: targetRef), code: diag.errTypeMismatch, msg: message, errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: targetRef), code: diag.errTypeMismatch, msg: message, errs: errs)
 		return ast.noType
 	end 'bare'
 	let target = resolveTypeRef(c, p: p, ms: ms, tr: targetRef, selfTy: owner, errs: errs)
 	if target == ast.noType 'badTarget'
-		anchorUnknownTypes(c, mark: mark, at: p.modules[c.modIdx].tree.castKeywordStart(targetRef), errs: errs)
+		anchorUnknownTypes(c, mark: mark, at: ms.tree.castKeywordStart(targetRef), errs: errs)
 		return ast.noType
 	end 'badTarget'
 	if typeHasKind(p, ms: ms, t: target, kind: ast.TypeKind.funcTy) 'function'
@@ -790,13 +790,13 @@ end 'checkCast'
 
 // checkFunctionCast casts a function value to another function type of its shape, which re-brands it, as in maxon: the
 // value is the same closure. A closure written in the cast takes the target as the type it is written for.
-function checkFunctionCast(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFunctionCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let src = checkExpecting(c, p: p, ms: ms, e: operand, want: target, errs: errs)
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
 	if not typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.funcTy) or not shapeFits(p, ms: ms, src: src, dst: target) 'shape'
-		failCast(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), src: src, target: target, errs: errs)
+		failCast(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), src: src, target: target, errs: errs)
 		return ast.noType
 	end 'shape'
 	return target
@@ -911,8 +911,8 @@ export function failCast(c Checker, p ast.Project, ms ast.ModuleState, off diag.
 	checkFail(c.modID, off: off, code: diag.errUnsafeCast, msg: msg, errs: errs)
 end 'failCast'
 
-function checkPanic(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let message = ast.panicExprMessage(p.modules[c.modIdx].tree, id: e)
+function checkPanic(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let message = ast.panicExprMessage(ms.tree, id: e)
 	if checkExpr(c, p: p, ms: ms, e: message, errs: errs) == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
@@ -921,10 +921,10 @@ end 'checkPanic'
 
 // checkTry types a try: the value of its expression, or on a failure the value 'otherwise' gives or the jump it makes. One
 // that ignores a failure has no value, so it stands alone as a statement.
-function checkTry(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkTry(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let want = c.expect
-	let guarded = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
-	let propagates = ast.propagates(p.modules[c.modIdx].tree, e: e)
+	let guarded = ast.tryExprE(ms.tree, id: e)
+	let propagates = ast.propagates(ms.tree, e: e)
 	let alone = c.statement == e
 	var errors = ast.TypeIDList.create(0)
 	if not propagates 'catching'
@@ -937,18 +937,18 @@ function checkTry(mutates c Checker, mutates p ast.Project, mutates ms ast.Modul
 	if result == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let handler = ast.tryExprHandler(p.modules[c.modIdx].tree, id: e)
+	let handler = ast.tryExprHandler(ms.tree, id: e)
 	if handler != 0 'handler'
 		return checkTryHandler(c, p: p, ms: ms, e: e, result: result, errors: errors, alone: alone, errs: errs)
 	end 'handler'
-	if ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e) 'ignore'
+	if ast.tryExprIgnore(ms.tree, id: e) 'ignore'
 		if c.statement != e 'notAlone'
-			failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
+			failAt(c, p: p, ms: ms, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
 			return ast.noType
 		end 'notAlone'
 		return p.builtins.voidTy
 	end 'ignore'
-	let fallback = ast.tryFallback(p.modules[c.modIdx].tree, e: e)
+	let fallback = ast.tryFallback(ms.tree, e: e)
 	if fallback != 0 'value'
 		return checkFallback(c, p: p, ms: ms, e: e, fallback: fallback, result: result, want: want, errs: errs)
 	end 'value'
@@ -958,16 +958,16 @@ end 'checkTry'
 
 // checkTryHandler types the block handler of a try: it runs on a failure, binding the error when it names it. A handler that
 // leaves gives the try its expression's value; one that runs off its end gives none, so the try stands alone as a statement.
-function checkTryHandler(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, result ast.TypeID, errors ast.TypeIDList, alone bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkTryHandler(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, result ast.TypeID, errors ast.TypeIDList, alone bool, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.fn == ast.noFunc 'noFunction'
-		failAt(c, p: p, node: e, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to run a handler block in: give 'otherwise' the value to use", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to run a handler block in: give 'otherwise' the value to use", errs: errs)
 		return ast.noType
 	end 'noFunction'
-	let falls = ast.tryHandlerFallsThrough(p.modules[c.modIdx].tree, e: e)
+	let falls = ast.tryHandlerFallsThrough(ms.tree, e: e)
 	let want = c.expect
 	let statement = c.statement
-	let body = ast.handlerBlockBodyRef(p.modules[c.modIdx].tree, id: ast.tryExprHandler(p.modules[c.modIdx].tree, id: e))
-	let binding = ast.tryBinding(p.modules[c.modIdx].tree, e: e)
+	let body = ast.handlerBlockBodyRef(ms.tree, id: ast.tryExprHandler(ms.tree, id: e))
+	let binding = ast.tryBinding(ms.tree, e: e)
 	pushScope(c)
 	if binding == "" 'anonymous'
 		checkStmts(c, p: p, ms: ms, body: body, errs: errs)
@@ -981,40 +981,40 @@ function checkTryHandler(mutates c Checker, mutates p ast.Project, mutates ms as
 		return result
 	end 'leaves'
 	if not alone 'notAlone'
-		failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errErrorTypeMismatch, msg: diag.tryValueNeedsFallback(), errs: errs)
 		return ast.noType
 	end 'notAlone'
 	return p.builtins.voidTy
 end 'checkTryHandler'
 
 // checkTryJump types the statement that a try with no value makes on a failure.
-function checkTryJump(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList)
-	let ret = ast.tryExprRet(p.modules[c.modIdx].tree, id: e)
+function checkTryJump(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList)
+	let ret = ast.tryExprRet(ms.tree, id: e)
 	if ret != 0 'return'
 		if c.fn == ast.noFunc 'noFunction'
-			failAt(c, p: p, node: ret, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to return from: give 'otherwise' the value to use", errs: errs)
+			failAt(c, p: p, ms: ms, node: ret, code: diag.errUnexpectedToken, msg: "a constant or a default is in no function to return from: give 'otherwise' the value to use", errs: errs)
 			return
 		end 'noFunction'
 		checkReturn(c, p: p, ms: ms, s: ret, errs: errs)
 		return
 	end 'return'
-	let brk = ast.tryExprBrk(p.modules[c.modIdx].tree, id: e)
+	let brk = ast.tryExprBrk(ms.tree, id: e)
 	if brk != 0 'break'
-		checkJump(c, p: p, s: brk, isBreak: true, errs: errs)
+		checkJump(c, p: p, ms: ms, s: brk, isBreak: true, errs: errs)
 		return
 	end 'break'
-	let cont = ast.tryExprCont(p.modules[c.modIdx].tree, id: e)
+	let cont = ast.tryExprCont(ms.tree, id: e)
 	if cont != 0 'continue'
-		checkJump(c, p: p, s: cont, isBreak: false, errs: errs)
+		checkJump(c, p: p, ms: ms, s: cont, isBreak: false, errs: errs)
 		return
 	end 'continue'
-	let thr = ast.tryExprThr(p.modules[c.modIdx].tree, id: e)
+	let thr = ast.tryExprThr(ms.tree, id: e)
 	if thr != 0 'throw'
 		checkThrow(c, p: p, ms: ms, s: thr, errs: errs)
 	end 'throw'
 end 'checkTryJump'
 
-function checkFallback(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFallback(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, fallback ast.NodeID, result ast.TypeID, want ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	// A literal fallback is a value of the alias the call returns, as in maxon, so one outside its range is refused. Any
 	// other integer fallback with no type to take is joined with the result as a conditional's branches are, rather than
 	// computed in the result's alias, which it need not fit.
@@ -1026,22 +1026,22 @@ function checkFallback(mutates c Checker, mutates p ast.Project, mutates ms ast.
 	if other == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	if typeIsNamedInt(ms.types, t: result) and isConstInt(p, ms: ms, t: other) and fallbackIsPlainLiteral(p, c: c, fallback: fallback) 'literal'
+	if typeIsNamedInt(ms.types, t: result) and isConstInt(p, ms: ms, t: other) and fallbackIsPlainLiteral(p, ms: ms, c: c, fallback: fallback) 'literal'
 		let value = ms.types.lists[ast.typeList(ms.types, t: other)][ast.typeIndex(ms.types, t: other)].minVal.clone()
 		if not intRangeHolds(ms.types, dst: result, v: value) 'doesNotFit'
-			failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: otherwiseValueOutOfRange(p, ms: ms, value: value.toString(), target: result), errs: errs)
+			failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: otherwiseValueOutOfRange(p, ms: ms, value: value.toString(), target: result), errs: errs)
 			return ast.noType
 		end 'doesNotFit'
 	end 'literal'
-	return joinTypes(c, p: p, ms: ms, off: offsetOf(c, p: p, node: fallback), clash: Clash.other, a: result, b: other, errs: errs)
+	return joinTypes(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: fallback), clash: Clash.other, a: result, b: other, errs: errs)
 end 'checkFallback'
 
 // fallbackIsPlainLiteral is whether a fallback is an integer literal, negated or not: the only fallback that maxon holds to
 // the alias of the call's result.
-function fallbackIsPlainLiteral(p ast.Project, c Checker, fallback ast.NodeID) returns bool
+function fallbackIsPlainLiteral(p ast.Project, ms ast.ModuleState, c Checker, fallback ast.NodeID) returns bool
 	var literal = fallback
-	if p.modules[c.modIdx].tree.kindOf(fallback) == ast.NodeKind.unaryExpr and ast.unaryExprOp(p.modules[c.modIdx].tree, id: fallback) == "-" 'negated'
-		literal = ast.unaryExprE(p.modules[c.modIdx].tree, id: fallback)
+	if ms.tree.kindOf(fallback) == ast.NodeKind.unaryExpr and ast.unaryExprOp(ms.tree, id: fallback) == "-" 'negated'
+		literal = ast.unaryExprE(ms.tree, id: fallback)
 	end 'negated'
-	return p.modules[c.modIdx].tree.kindOf(literal) == ast.NodeKind.intLit
+	return ms.tree.kindOf(literal) == ast.NodeKind.intLit
 end 'fallbackIsPlainLiteral'

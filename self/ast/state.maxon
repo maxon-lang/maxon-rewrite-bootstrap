@@ -1,37 +1,92 @@
+// Lent is what of its module a task holds, beyond the type and function tables: what its stage writes, so that it reads
+// that part of its module in its state and every other module's in the project.
+export enum Lent
+	// none is a module between its tasks, or work of the project as a whole.
+	none
+	// tables are the module's tables and resolution, which a task of the lower reads and nothing after the check writes.
+	tables
+	// tree adds the module's tree, which the resolve and the bodies of the check rewrite.
+	tree
+	// source is the module the parse makes, whole, with the tables its shells are declared in.
+	source
+end 'Lent'
+
 // ModuleState is what a task of one module's stage writes: the type and function tables, in which the task makes and
-// fills entries only in its module's slot (beginModuleTask), and the shared slot only where it is a task of the project.
-// A stage takes it `mutates` and the project `p` as the read-only outputs of the modules it waited on, so that nothing a
-// stage is given lets it write another module's declarations. The tables are lent out of the project for the task and
-// given back when it ends (lendModule, giveBack), so that the project holds them between tasks.
+// fills entries only in its module's slot (beginModuleTask), and the shared slot only where it is a task of the project;
+// the module's tables of what its stages decide about its declarations; its resolution; and what else of the module its
+// stage writes (lent). A stage takes it `mutates` and the project `p` as the read-only outputs of the modules it waited on,
+// so that nothing a stage is given lets it write another module's declarations. The parts are lent out of the project for
+// the task and given back when it ends (lendModule, giveBack), so that the project holds them between tasks.
 export type ModuleState
 	export var module as diag.ModuleID
+	export var lent as Lent
 	export var types as TypeTable
 	export var funcs as FuncTable
+	export var tables as ModuleTables
+	export var resolution as Resolution
+	export var tree as Tree
+	// source is the module a task of the parse makes, but for its tables, which are the state's.
+	export var source as Module
 
-	export static function make(module diag.ModuleID, consumes types TypeTable, consumes funcs FuncTable) returns ModuleState
-		return ModuleState{module: module, types: types, funcs: funcs}
-	end 'make'
-
-	// idle is the state of a module between its tasks, which holds none of the tables.
+	// idle is the state of a module between its tasks, which holds none of its parts.
 	export static function idle(module diag.ModuleID) returns ModuleState
-		return ModuleState.make(module, types: TypeTable.lent(), funcs: FuncTable.lent())
+		return ModuleState{module: module, lent: Lent.none, types: TypeTable.lent(), funcs: FuncTable.lent(), tables: ModuleTables.lentOut(), resolution: Resolution.new(module), tree: Tree.new(module, text: ""), source: Module.new(module, path: "", text: "", files: FileSpanList.create(0))}
 	end 'idle'
+
+	// ofProject is the state of work of the project as a whole, which holds no module's parts: what it reads of a module, it
+	// reads in the project.
+	export static function ofProject() returns ModuleState
+		return ModuleState.idle(diag.stdlibID)
+	end 'ofProject'
 end 'ModuleState'
 
-// lendModule lends the tables of the project to the task of a stage of module, which beginModuleTask has begun.
-export function lendModule(mutates p Project, module diag.ModuleID) returns ModuleState
-	return ModuleState.make(module, types: exchange(p.types, value: TypeTable.lent()), funcs: exchange(p.funcs, value: FuncTable.lent()))
+// lendModule lends a task of module, which beginModuleTask has begun, the tables of the project and what lent says of the
+// module.
+export function lendModule(mutates p Project, module diag.ModuleID, lent Lent) returns ModuleState
+	let m = modIndex(module)
+	var ms = ModuleState.idle(module)
+	ms.lent = lent
+	ms.types = exchange(p.types, value: TypeTable.lent())
+	ms.funcs = exchange(p.funcs, value: FuncTable.lent())
+	match lent 'lent'
+		none then return ms
+		tables then _ = 0
+		tree then ms.tree = exchange(p.modules[m].tree, value: Tree.new(module, text: ""))
+		source then ms.source = exchange(p.modules[m], value: Module.new(module, path: "", text: "", files: FileSpanList.create(0)))
+	end 'lent'
+	if lent == Lent.source 'source'
+		ms.tables = exchange(ms.source.tables, value: ModuleTables.lentOut())
+	end 'source' else 'held'
+		ms.tables = exchange(p.modules[m].tables, value: ModuleTables.lentOut())
+	end 'held'
+	ms.resolution = exchange(p.resolutions[m], value: Resolution.new(module))
+	return ms
 end 'lendModule'
 
-// lendProject lends the tables of the project to work of the project as a whole, which may write any slot: a task of the
-// project, or what runs before and after the tasks.
+// lendProject lends the tables of the project to work of the project as a whole, which may write any slot and holds no
+// module's parts.
 export function lendProject(mutates p Project) returns ModuleState
-	return ModuleState.make(diag.stdlibID, types: exchange(p.types, value: TypeTable.lent()), funcs: exchange(p.funcs, value: FuncTable.lent()))
+	var ms = ModuleState.ofProject()
+	ms.types = exchange(p.types, value: TypeTable.lent())
+	ms.funcs = exchange(p.funcs, value: FuncTable.lent())
+	return ms
 end 'lendProject'
 
-// giveBack gives the project back the tables that lendModule or lendProject lent.
+// giveBack gives the project back what lendModule or lendProject lent.
 export function giveBack(mutates p Project, consumes ms ModuleState)
 	var held = ms
 	p.types = exchange(held.types, value: TypeTable.lent())
 	p.funcs = exchange(held.funcs, value: FuncTable.lent())
+	if held.lent == Lent.none 'none'
+		return
+	end 'none'
+	let m = modIndex(held.module)
+	if held.lent == Lent.source 'source'
+		p.modules[m] = exchange(held.source, value: Module.new(held.module, path: "", text: "", files: FileSpanList.create(0)))
+	end 'source'
+	if held.lent == Lent.tree 'tree'
+		p.modules[m].tree = exchange(held.tree, value: Tree.new(held.module, text: ""))
+	end 'tree'
+	p.modules[m].tables = exchange(held.tables, value: ModuleTables.lentOut())
+	p.resolutions[m] = exchange(held.resolution, value: Resolution.new(held.module))
 end 'giveBack'

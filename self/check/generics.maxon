@@ -13,10 +13,10 @@ function checkCycle(mutates c Checker, p ast.Project, mutates ms ast.ModuleState
 	end 'finite'
 	let name = ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: t))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: t))].name.clone()
 	if growing 'growing'
-		failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: "type '{name}' has no finite size: via {path[0]} it contains itself with a larger type argument each time", errs: errs)
+		failAt(c, p: p, ms: ms, node: site, code: diag.errTypeCycle, msg: "type '{name}' has no finite size: via {path[0]} it contains itself with a larger type argument each time", errs: errs)
 		return
 	end 'growing'
-	failAt(c, p: p, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: "{name} → {ast.joinNames(path, sep: " → ")}"), errs: errs)
+	failAt(c, p: p, ms: ms, node: site, code: diag.errTypeCycle, msg: diag.typeReferenceCycle(name, path: "{name} → {ast.joinNames(path, sep: " → ")}"), errs: errs)
 end 'checkCycle'
 
 // reaches is whether a value of type from contains one of type target. A type that contains itself with a larger type
@@ -80,16 +80,16 @@ function checkConformance(mutates c Checker, p ast.Project, mutates ms ast.Modul
 			return
 		end 'failed'
 	end 'interfaces'
-	failIncomplete(c, p: p, site: site, typeName: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].name.clone(), missing: missing, wrong: wrong, errs: errs)
+	failIncomplete(c, p: p, ms: ms, site: site, typeName: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].name.clone(), missing: missing, wrong: wrong, errs: errs)
 end 'checkConformance'
 
 // failIncomplete files the one error for a type that implements an interface incompletely: the methods it lacks, or else the
 // methods whose signature differs.
-function failIncomplete(c Checker, p ast.Project, site ast.NodeID, typeName String, missing ast.StringList, wrong ast.StringList, mutates errs diag.ErrorList)
+function failIncomplete(c Checker, p ast.Project, ms ast.ModuleState, site ast.NodeID, typeName String, missing ast.StringList, wrong ast.StringList, mutates errs diag.ErrorList)
 	if missing.count() > 0 'missing'
-		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{missing.count()}")}\n{bulletLines(missing)}", errs: errs)
+		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "{diag.missingMethods(typeName, count: "{missing.count()}")}\n{bulletLines(missing)}", errs: errs)
 	end 'missing' else if wrong.count() > 0 'wrong'
-		failAt(c, p: p, node: site, code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{wrong.count()}")}\n{bulletLines(wrong)}", errs: errs)
+		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "{diag.wrongSignatureMethods(typeName, count: "{wrong.count()}")}\n{bulletLines(wrong)}", errs: errs)
 	end 'wrong'
 end 'failIncomplete'
 
@@ -110,7 +110,7 @@ function checkInterface(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 	let ifaceOrig = ast.originOf(ms.types, t: iface)
 	if ms.types.lists[ast.typeList(ms.types, t: ifaceOrig)][ast.typeIndex(ms.types, t: ifaceOrig)].typeParams.count() > 0 and ms.types.lists[ast.typeList(ms.types, t: iface)][ast.typeIndex(ms.types, t: iface)].typeArgs.count() == 0 'unbound'
 		let associated = ms.types.lists[ast.typeList(ms.types, t: ms.types.lists[ast.typeList(ms.types, t: ifaceOrig)][ast.typeIndex(ms.types, t: ifaceOrig)].typeParams[0])][ast.typeIndex(ms.types, t: ms.types.lists[ast.typeList(ms.types, t: ifaceOrig)][ast.typeIndex(ms.types, t: ifaceOrig)].typeParams[0])].name.clone()
-		failAt(c, p: p, node: site, code: diag.errConformance, msg: diag.unboundAssociatedType(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].name, associated: associated, interfaceName: ms.types.lists[ast.typeList(ms.types, t: ifaceOrig)][ast.typeIndex(ms.types, t: ifaceOrig)].name), errs: errs)
+		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: diag.unboundAssociatedType(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].name, associated: associated, interfaceName: ms.types.lists[ast.typeList(ms.types, t: ifaceOrig)][ast.typeIndex(ms.types, t: ifaceOrig)].name), errs: errs)
 		return
 	end 'unbound'
 	if not requireCapabilities(c, p: p, ms: ms, site: site, nt: nt, iface: iface, errs: errs) 'capability'
@@ -137,7 +137,7 @@ function requireCapabilities(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		let lacking = lacksCap(c, p: p, ms: ms, wantCopy: copies, t: own)
 		if lacking.missing 'lacks'
 			let code = diag.errNotCopyable if copies else diag.errNotDroppable
-			failAt(c, p: p, node: site, code: code, msg: "'{nameOfType(p, ms: ms, t: own)}' cannot implement {ifaceName}, which extends {capName}: {lackWhyText(ms.types, info: lacking, capName: capName)}; {lackFixText(ms.types, info: lacking, capName: capName)}", errs: errs)
+			failAt(c, p: p, ms: ms, node: site, code: code, msg: "'{nameOfType(p, ms: ms, t: own)}' cannot implement {ifaceName}, which extends {capName}: {lackWhyText(ms.types, info: lacking, capName: capName)}; {lackFixText(ms.types, info: lacking, capName: capName)}", errs: errs)
 			return false
 		end 'lacks'
 	end 'extends'
@@ -160,7 +160,7 @@ function requireImplements(c Checker, p ast.Project, mutates ms ast.ModuleState,
 		return
 	end 'ambiguous'
 	if m != ast.noFunc and ms.funcs.slots[ast.funcSlot(m)][ast.funcIndex(m)].bounds.count() > 0 'ownBounds'
-		failAt(c, p: p, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
+		failAt(c, p: p, ms: ms, node: site, code: diag.errConformance, msg: "'{typeName}' says it implements {ifaceName}, but its method '{sigName}' adds a 'where' on the type's parameters, so '{typeName}' would implement {ifaceName} only for some instances: remove the 'where' from the method, or put the bound on the type", errs: errs)
 		return
 	end 'ownBounds'
 	let sigConv = ms.funcs.slots[ast.funcSlot(sig)][ast.funcIndex(sig)].selfConv

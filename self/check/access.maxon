@@ -1,13 +1,13 @@
 // checkStructLit types a record literal, which only a method of the record writes.
-function checkStructLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let typeName = ast.structLitExprTypeName(p.modules[c.modIdx].tree, id: e)
-	let off = offsetOf(c, p: p, node: e)
+function checkStructLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let typeName = ast.structLitExprTypeName(ms.tree, id: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	var target = ast.noType
 	if typeName == "Self" 'selfType'
 		target = c.owner
 	end 'selfType' else 'named'
-		match consumes p.resolutions[c.modIdx].decls.get(e as Count) 'bound'
-			some(ref) then target = declaredTypeOrNone(p, ref: ref)
+		match consumes ms.resolution.decls.get(e as Count) 'bound'
+			some(ref) then target = declaredTypeOrNone(p, ms: ms, ref: ref)
 			none then _ = 0
 		end 'bound'
 	end 'named'
@@ -28,17 +28,17 @@ function checkStructLit(mutates c Checker, mutates p ast.Project, mutates ms ast
 end 'checkStructLit'
 
 // checkLiteralFields types the field values of a record literal, and leaves the fields it does not give to their defaults.
-function checkLiteralFields(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkLiteralFields(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, rt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let orig = ast.originOf(ms.types, t: rt)
 	let fieldCount = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields.count()
 	var ordered = ast.NodeIDList.create(0)
 	for _ in 0 upto fieldCount 'slots'
 		ordered.push(0 as ast.NodeID)
 	end 'slots'
-	let fieldsRef = ast.structLitExprFieldsRef(p.modules[c.modIdx].tree, id: e)
-	let given = p.modules[c.modIdx].tree.listLen(fieldsRef)
+	let fieldsRef = ast.structLitExprFieldsRef(ms.tree, id: e)
+	let given = ms.tree.listLen(fieldsRef)
 	for i in 0 upto given 'given'
-		let sf = p.modules[c.modIdx].tree.listAt(fieldsRef, index: i) as ast.NodeID
+		let sf = ms.tree.listAt(fieldsRef, index: i) as ast.NodeID
 		if not checkLiteralField(c, p: p, ms: ms, rt: rt, sf: sf, ordered: ordered, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
@@ -46,7 +46,7 @@ function checkLiteralFields(mutates c Checker, mutates p ast.Project, mutates ms
 	for fi in 0 upto fieldCount 'defaults'
 		if ordered[fi] == 0 'left'
 			if not ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].hasDefault 'required'
-				checkFail(c.modID, off: braceOffset(c, p: p, literal: e), code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name, typeName: nameOfType(p, ms: ms, t: rt)), errs: errs)
+				checkFail(c.modID, off: braceOffset(c, p: p, ms: ms, literal: e), code: diag.errFieldNotInitialized, msg: diag.fieldNotInitialized(ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].name, typeName: nameOfType(p, ms: ms, t: rt)), errs: errs)
 				return ast.noType
 			end 'required'
 			recordFieldUses(c, defaultExpr: ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[fi].defaultExpr)
@@ -57,17 +57,17 @@ function checkLiteralFields(mutates c Checker, mutates p ast.Project, mutates ms
 end 'checkLiteralFields'
 
 // checkLiteralField types one field value of a record literal, as a value of the field's type.
-function checkLiteralField(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, rt ast.TypeID, sf ast.NodeID, mutates ordered ast.NodeIDList, mutates errs diag.ErrorList) returns bool
-	let name = ast.structFieldName(p.modules[c.modIdx].tree, id: sf)
-	let value = ast.structFieldValue(p.modules[c.modIdx].tree, id: sf)
+function checkLiteralField(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, rt ast.TypeID, sf ast.NodeID, mutates ordered ast.NodeIDList, mutates errs diag.ErrorList) returns bool
+	let name = ast.structFieldName(ms.tree, id: sf)
+	let value = ast.structFieldValue(ms.tree, id: sf)
 	let typeName = nameOfType(p, ms: ms, t: rt)
 	if not ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: rt))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: rt))].findField(name).isSome() 'unknown'
-		failAt(c, p: p, node: sf, code: diag.errUnknownField, msg: diag.unknownField(typeName, fieldName: name), errs: errs)
+		failAt(c, p: p, ms: ms, node: sf, code: diag.errUnknownField, msg: diag.unknownField(typeName, fieldName: name), errs: errs)
 		return false
 	end 'unknown'
 	let index = fieldIndexNamed(p, ms: ms, rt: rt, name: name)
 	if ordered[index] != 0 'twice'
-		failAt(c, p: p, node: sf, code: diag.errDuplicateDefinition, msg: "field '{name}' is given twice", errs: errs)
+		failAt(c, p: p, ms: ms, node: sf, code: diag.errDuplicateDefinition, msg: "field '{name}' is given twice", errs: errs)
 		return false
 	end 'twice'
 	let fieldTy = ast.fieldType(ms.types, owner: rt, index: index)
@@ -75,7 +75,7 @@ function checkLiteralField(mutates c Checker, mutates p ast.Project, mutates ms 
 	if t == ast.noType 'badValue'
 		return false
 	end 'badValue'
-	if not coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, ms: ms, t: rt)}'", bare: "field '{name}'"), errs: errs) 'badType'
+	if not coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, ms: ms, node: sf), src: t, target: fieldTy, wrong: Mismatch.assignment("field '{name}' of '{declaredNameOfType(p, ms: ms, t: rt)}'", bare: "field '{name}'"), errs: errs) 'badType'
 		return false
 	end 'badType'
 	ordered[index] = value
@@ -85,9 +85,9 @@ end 'checkLiteralField'
 // checkTupleLit types a tuple literal, whose elements are the fields of the record that the tuple type is. The type the
 // context expects, when it is a tuple of as many elements, gives each element its own; otherwise each element has the type
 // it is written with, and a bare number keeps the range it spans, or takes the whole word inside another literal.
-function checkTupleLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.tupleExprElemsRef(p.modules[c.modIdx].tree, id: e)
-	let count = p.modules[c.modIdx].tree.listLen(elemsRef)
+function checkTupleLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let elemsRef = ast.tupleExprElemsRef(ms.tree, id: e)
+	let count = ms.tree.listLen(elemsRef)
 	let want = c.expect
 	var given = ast.TypeIDList.create(0)
 	if ast.isTupleType(ms.types, t: want) and ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs.count() == count 'stated'
@@ -98,7 +98,7 @@ function checkTupleLit(mutates c Checker, mutates p ast.Project, mutates ms ast.
 	var elems = ast.TypeIDList.create(0)
 	var ordered = ast.NodeIDList.create(0)
 	for i in 0 upto count 'each'
-		let node = p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID
+		let node = ms.tree.listAt(elemsRef, index: i) as ast.NodeID
 		var wanted = ast.noType
 		if given.count() == count 'hasWanted'
 			wanted = given[i]
@@ -118,12 +118,12 @@ function checkTupleLit(mutates c Checker, mutates p ast.Project, mutates ms ast.
 end 'checkTupleLit'
 
 // checkTupleElement types one element of a tuple literal and gives the type it has in the tuple.
-function checkTupleElement(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, wanted ast.TypeID, want ast.TypeID, index Count, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+function checkTupleElement(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID, wanted ast.TypeID, want ast.TypeID, index Count, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
 	let t = checkExpecting(c, p: p, ms: ms, e: node, want: wanted, errs: errs)
 	if t == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let off = offsetOf(c, p: p, node: node)
+	let off = offsetOf(c, p: p, ms: ms, node: node)
 	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an element of a tuple is an expression with no value", errs: errs)
 		return ast.noType
@@ -133,7 +133,7 @@ function checkTupleElement(mutates c Checker, mutates p ast.Project, mutates ms 
 	end 'wide'
 	if wanted != ast.noType 'stated'
 		let elementPlace = "element {index} of tuple {nameOfType(p, ms: ms, t: want)}"
-		if not coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: wanted, wrong: Mismatch.assignment(elementPlace.clone(), bare: elementPlace), errs: errs) 'badType'
+		if not coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, ms: ms, node: node), src: t, target: wanted, wrong: Mismatch.assignment(elementPlace.clone(), bare: elementPlace), errs: errs) 'badType'
 			return ast.noType
 		end 'badType'
 		return wanted
@@ -154,8 +154,8 @@ function tupleElementType(p ast.Project, mutates ms ast.ModuleState, t ast.TypeI
 	return held
 end 'tupleElementType'
 
-function declaredTypeOrNone(p ast.Project, ref ast.DeclRef) returns ast.TypeID
-	match ast.declType(p, ref: ref) 'dt'
+function declaredTypeOrNone(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ast.TypeID
+	match ast.declType(p, ms: ms, ref: ref) 'dt'
 		some(tid) then return tid
 		none then return ast.noType
 	end 'dt'
@@ -164,51 +164,51 @@ end 'declaredTypeOrNone'
 // checkIndex types a subscript, which only an array, a map, a list or a pool has. An element of a primitive is a
 // projection, never a value of its own: what it is used for decides whether it borrows the element to read it or to change
 // it, and the ownership pass refuses to move one out.
-function checkIndex(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let obj = ast.indexExprObj(p.modules[c.modIdx].tree, id: e)
+function checkIndex(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let obj = ast.indexExprObj(ms.tree, id: e)
 	let typed = checkExpr(c, p: p, ms: ms, e: obj, errs: errs)
 	if typed == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
 	let t = ast.contentType(ms.types, t: typed)
-	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), t: t, use: "reading an element", errs: errs) 'cown'
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), t: t, use: "reading an element", errs: errs) 'cown'
 		return ast.noType
 	end 'cown'
 	let k = kindOfType(p, ms: ms, t: t)
 	if k != ast.TypeKind.builtinArray and k != ast.TypeKind.builtinMap and k != ast.TypeKind.builtinList and k != ast.TypeKind.builtinPool 'notSubscriptable'
-		failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "{nameOfType(p, ms: ms, t: t)} has no elements to index: only an array, a map, a list or a pool does", errs: errs)
 		return ast.noType
 	end 'notSubscriptable'
-	let argsRef = ast.indexExprArgsRef(p.modules[c.modIdx].tree, id: e)
-	let given = p.modules[c.modIdx].tree.listLen(argsRef)
+	let argsRef = ast.indexExprArgsRef(ms.tree, id: e)
+	let given = ms.tree.listLen(argsRef)
 	if given != 1 'arity'
-		failAt(c, p: p, node: e, code: diag.errTypeMismatch, msg: "an index is one value, given {given}", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errTypeMismatch, msg: "an index is one value, given {given}", errs: errs)
 		return ast.noType
 	end 'arity'
-	let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: 0 as Count) as ast.NodeID
+	let arg = ms.tree.listAt(argsRef, index: 0 as Count) as ast.NodeID
 	let indexTy = typeIndexType(p, ms: ms, ownerTy: t)
 	let argTy = checkExpecting(c, p: p, ms: ms, e: arg, want: indexTy, errs: errs)
 	if argTy == ast.noType 'badIndex'
 		return ast.noType
 	end 'badIndex'
-	if not coerce(c, p: p, ms: ms, node: arg, at: exprOffset(c, p: p, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
+	if not coerce(c, p: p, ms: ms, node: arg, at: exprOffset(c, p: p, ms: ms, node: arg), src: argTy, target: indexTy, wrong: Mismatch.expectedGot, errs: errs) 'badType'
 		return ast.noType
 	end 'badType'
 	return typeElemType(p, ms: ms, ownerTy: t)
 end 'checkIndex'
 
 // checkMember types 'Type.case' and the members that an enum or a union value has.
-function checkMember(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	if c.typing.members.has(e as Count) 'typed'
 		return ast.nodeType(c.typing, node: e)
 	end 'typed'
-	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: e)
-	let param = typeParamNamed(c, p: p, e: obj)
+	let obj = ast.memberExprObj(ms.tree, id: e)
+	let param = typeParamNamed(c, p: p, ms: ms, e: obj)
 	if param != ast.noType 'parameter'
 		return memberOfTypeParam(c, p: p, ms: ms, e: e, param: param, errs: errs)
 	end 'parameter'
 	var named = ast.noType
-	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
+	if ms.tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsName'
 		let mark = errs.count()
 		named = typeNamed(c, p: p, ms: ms, name: obj, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
@@ -218,8 +218,8 @@ function checkMember(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 	if named != ast.noType 'typeMember'
 		return checkTypeMember(c, p: p, ms: ms, e: e, obj: obj, nt: named, errs: errs)
 	end 'typeMember'
-	if p.modules[c.modIdx].tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsSized'
-		match consumes ast.sizedLimitValue(ast.nameExprName(p.modules[c.modIdx].tree, id: obj), member: ast.memberExprName(p.modules[c.modIdx].tree, id: e)) 'limit'
+	if ms.tree.kindOf(obj) == ast.NodeKind.nameExpr 'headIsSized'
+		match consumes ast.sizedLimitValue(ast.nameExprName(ms.tree, id: obj), member: ast.memberExprName(ms.tree, id: e)) 'limit'
 			some(v) then return checkLimitMember(c, p: p, ms: ms, e: e, value: v)
 			none then _ = 0
 		end 'limit'
@@ -238,15 +238,15 @@ end 'checkMember'
 // memberOfTypeParam refuses a member written on a type parameter's name: a requirement of its bounds is reached only on
 // a concrete type, and is no function value.
 function memberOfTypeParam(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, param ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let member = ast.memberExprName(ms.tree, id: e)
 	let paramName = nameOfType(p, ms: ms, t: param)
 	let req = boundRequirement(p, ms: ms, boundedFn: c.boundedFn, param: param, name: member)
 	if req.sig != ast.noFunc 'requirement'
 		let ifaceName = ms.types.lists[ast.typeList(ms.types, t: req.iface)][ast.typeIndex(ms.types, t: req.iface)].name.clone()
-		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
+		checkFail(c.modID, off: ms.tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
 		return ast.noType
 	end 'requirement'
-	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errUnknownStaticMember, msg: "'{paramName}' is a type parameter, which has no member '{member}': a type parameter has only the methods of its bounds, called on a value", errs: errs)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnknownStaticMember, msg: "'{paramName}' is a type parameter, which has no member '{member}': a type parameter has only the methods of its bounds, called on a value", errs: errs)
 	return ast.noType
 end 'memberOfTypeParam'
 
@@ -258,8 +258,8 @@ end 'checkLimitMember'
 
 // checkTypeMember types a case of an enum or a union written after the type's name.
 function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, obj ast.NodeID, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
-	let off = offsetOf(c, p: p, node: e)
+	let member = ast.memberExprName(ms.tree, id: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let k = kindOfType(p, ms: ms, t: nt)
 	var named = nt
 	if k == ast.TypeKind.unionTy and ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].typeParams.count() > 0 and ms.types.lists[ast.typeList(ms.types, t: nt)][ast.typeIndex(ms.types, t: nt)].findCase(member).isSome() 'inferred'
@@ -269,7 +269,7 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 		end 'cannotInfer'
 	end 'inferred'
 	let mark = errs.count()
-	_ = requireInstance(c, p: p, ms: ms, off: offsetOf(c, p: p, node: obj), nt: named, errs: errs)
+	_ = requireInstance(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: obj), nt: named, errs: errs)
 	if failedSince(errs, mark: mark) 'generic'
 		return ast.noType
 	end 'generic'
@@ -284,9 +284,9 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 		return ast.noType
 	end 'ambiguous'
 	if method != ast.noFunc 'method'
-		let spelled = "{writtenType(c, p: p, obj: obj)}.{member}"
+		let spelled = "{writtenType(c, p: p, ms: ms, obj: obj)}.{member}"
 		let words = diag.methodAsFunctionValue(spelled) if ms.funcs.slots[ast.funcSlot(method)][ast.funcIndex(method)].isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)
-		checkFail(c.modID, off: p.modules[c.modIdx].tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
+		checkFail(c.modID, off: ms.tree.memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
 		return ast.noType
 	end 'method'
 	if k == ast.TypeKind.record 'noMember'
@@ -298,9 +298,9 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 end 'checkTypeMember'
 
 // writtenType is a type's name as the source writes it: the path of its module comes first where another module declares it.
-function writtenType(c Checker, p ast.Project, obj ast.NodeID) returns String
-	let written = writtenName(p.modules[c.modIdx].tree, e: obj)
-	match consumes p.resolutions[c.modIdx].decls.get(obj as Count) 'bound'
+function writtenType(c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns String
+	let written = writtenName(ms.tree, e: obj)
+	match consumes ms.resolution.decls.get(obj as Count) 'bound'
 		some(ref) then return written if ref.module == c.modID else ast.inModule(p, modID: ref.module, name: written)
 		none then return written
 	end 'bound'
@@ -328,7 +328,7 @@ function checkCaseListMember(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	var elem = p.builtins.stringTy
 	if member == allCasesMember 'cases'
 		if kindOfType(p, ms: ms, t: nt) == ast.TypeKind.unionTy 'union'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: obj), code: diag.errInvalidFieldAccess, msg: diag.allCasesOnUnion(), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: obj), code: diag.errInvalidFieldAccess, msg: diag.allCasesOnUnion(), errs: errs)
 			return ast.noType
 		end 'union'
 		kind = ast.MemberKind.memberAllCases
@@ -338,11 +338,11 @@ function checkCaseListMember(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	var args = ast.TypeIDList.create(0)
 	args.push(elem)
 	let origin = p.builtins.arrayOrigin
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkCaseListMember'
 
 function checkCaseMember(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, member String, nt ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let isEnum = kindOfType(p, ms: ms, t: nt) == ast.TypeKind.enumTy
 	var word = unionWord
 	if isEnum 'enumKind'
@@ -352,7 +352,7 @@ function checkCaseMember(mutates c Checker, p ast.Project, ms ast.ModuleState, e
 	var caseIndex = 0 as Count
 	match consumes ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].findCase(member) 'found'
 		some(i) then caseIndex = i
-		none then return unknownCase(c, off: exprOffset(c, p: p, node: e), word: word, member: member, errs: errs)
+		none then return unknownCase(c, off: exprOffset(c, p: p, ms: ms, node: e), word: word, member: member, errs: errs)
 	end 'found'
 	if not isEnum and ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].cases[caseIndex].payload.count() > 0 'payload'
 		checkFail(c.modID, off: off, code: diag.errCallArgCountMismatch, msg: "case '{member}' carries a payload: construct it with arguments", errs: errs)
@@ -375,9 +375,9 @@ end 'unknownCase'
 
 // checkValueMember types a field of a record value, and '.name', '.ordinal' and '.rawValue' of an enum or a union value.
 function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let member = ast.memberExprName(ms.tree, id: e)
 	let content = ast.contentType(ms.types, t: t)
-	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), t: content, use: "reading '{member}'", errs: errs) 'cown'
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), t: content, use: "reading '{member}'", errs: errs) 'cown'
 		return ast.noType
 	end 'cown'
 	if typeHasKind(p, ms: ms, t: content, kind: ast.TypeKind.record) and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: content))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: content))].findField(member).isSome() 'field'
@@ -395,10 +395,10 @@ function checkValueMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 		return builtinMemberType(c, p: p, ms: ms, e: e, t: t, member: member, errs: errs)
 	end 'builtinMember'
 	if typeIsNominal(ms.types, t: t) and methodNamed(p, ms: ms, t: t, name: member) != ast.noFunc 'method'
-		failAt(c, p: p, node: e, code: diag.errUnsupported, msg: "a method value is not supported by minimaxon; call the method", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupported, msg: "a method value is not supported by minimaxon; call the method", errs: errs)
 		return ast.noType
 	end 'method'
-	failAt(c, p: p, node: e, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, ms: ms, t: t), fieldName: member), errs: errs)
+	failAt(c, p: p, ms: ms, node: e, code: diag.errUnknownField, msg: diag.unknownField(nameOfType(p, ms: ms, t: t), fieldName: member), errs: errs)
 	return ast.noType
 end 'checkValueMember'
 
@@ -409,7 +409,7 @@ function checkFieldMember(mutates c Checker, p ast.Project, mutates ms ast.Modul
 	let level = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[index].level
 	let owner = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].decl.module
 	if not ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'hidden'
-		failAt(c, p: p, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: rt)}.{member}", v: level, owner: owner, from: c.modID)}", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: rt)}.{member}", v: level, owner: owner, from: c.modID)}", errs: errs)
 		return ast.noType
 	end 'hidden'
 	var info = ast.MemberInfo.make(ast.MemberKind.memberField, ownerTy: rt)
@@ -485,5 +485,5 @@ function instantiateInferred(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	if failedSince(errs, mark: mark) 'cannotInfer'
 		return ast.noType
 	end 'cannotInfer'
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: obj), orig: ut, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: obj), orig: ut, args: args, errs: errs)
 end 'instantiateInferred'

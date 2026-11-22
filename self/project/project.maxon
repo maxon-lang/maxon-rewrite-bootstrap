@@ -540,87 +540,85 @@ function collectModuleTree(nodes DiscDirList, nodeIdx Count, mutates p ast.Proje
 	return mid
 end 'collectModuleTree'
 
-function allocShellTypeParams(mutates p ast.Project, modID diag.ModuleID, tid ast.TypeID, tps ast.TypeParamList, mutates errs diag.ErrorList)
+function allocShellTypeParams(mutates ms ast.ModuleState, p ast.Project, modID diag.ModuleID, tid ast.TypeID, tps ast.TypeParamList, mutates errs diag.ErrorList)
 	var seen = BoolStrMap.new()
-	let mIdx = ast.modIndex(modID)
 	for i in 0 upto tps.count() 'each'
 		let tpName = tps[i].name.clone()
 		let tpNode = tps[i].id
 		if seen.has(tpName) 'dup'
-			let off = p.modules[mIdx].tree.records[tpNode as Count].start
+			let off = ms.source.tree.records[tpNode as Count].start
 			diag.pushSiteError(errs, code: diag.errDuplicateDefinition, message: "'{tpName}' is already declared as a type parameter", module: modID, offset: off)
 			continue 'each'
 		end 'dup'
 		seen.insert(tpName.clone(), value: true)
 		let tpEntry = ast.TypeEntry.make(ast.TypeKind.typeParam, name: tpName)
-		let tpTid = ast.allocType(p.types, module: modID, e: tpEntry)
-		p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].typeParams.push(tpTid)
+		let tpTid = ast.allocType(ms.types, module: modID, e: tpEntry)
+		ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].typeParams.push(tpTid)
 	end 'each'
 end 'allocShellTypeParams'
 
-function createShellType(mutates p ast.Project, modID diag.ModuleID, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+function createShellType(mutates ms ast.ModuleState, p ast.Project, modID diag.ModuleID, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	let ref = ast.DeclRef.make(modID, ordinal: ord)
-	let d = ast.moduleDecl(p, ref: ref)
+	let d = ms.source.decls[ord as Count].clone()
 	match d 'k'
-		typeDecl(td) then allocRecordShell(p, ref: ref, td: td, errs: errs)
-		enumDecl(ed) then allocEnumShell(p, ref: ref, ed: ed)
-		unionDecl(ud) then allocUnionShell(p, ref: ref, ud: ud, errs: errs)
-		interfaceDecl(ifd) then allocIfaceShell(p, ref: ref, ifd: ifd, errs: errs)
+		typeDecl(td) then allocRecordShell(ms, p: p, ref: ref, td: td, errs: errs)
+		enumDecl(ed) then allocEnumShell(ms, p: p, ref: ref, ed: ed)
+		unionDecl(ud) then allocUnionShell(ms, p: p, ref: ref, ud: ud, errs: errs)
+		interfaceDecl(ifd) then allocIfaceShell(ms, p: p, ref: ref, ifd: ifd, errs: errs)
 		extensionDecl(_) then _ = 0
-		aliasDecl(ad) then ast.declareRangeAlias(p, ref: ref, ad: ad, errs: errs)
+		aliasDecl(ad) then ast.declareRangeAlias(ms, p: p, ref: ref, ad: ad, errs: errs)
 		funcDecl(_) then _ = 0
 		constDecl(_) then _ = 0
 	end 'k'
 end 'createShellType'
 
-function allocRecordShell(mutates p ast.Project, ref ast.DeclRef, td ast.TypeDecl, mutates errs diag.ErrorList)
+function allocRecordShell(mutates ms ast.ModuleState, p ast.Project, ref ast.DeclRef, td ast.TypeDecl, mutates errs diag.ErrorList)
 	var e = ast.TypeEntry.make(ast.TypeKind.record, name: td.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = td.isNoncopyable
-	let tid = ast.allocType(p.types, module: ref.module, e: e)
-	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
-	ast.setDeclType(p, ref: ref, t: tid)
+	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: td.typeParams, errs: errs)
+	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocRecordShell'
 
-function allocEnumShell(mutates p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
+function allocEnumShell(mutates ms ast.ModuleState, p ast.Project, ref ast.DeclRef, ed ast.EnumDecl)
 	var e = ast.TypeEntry.make(ast.TypeKind.enumTy, name: ed.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(p.types, module: ref.module, e: e)
-	ast.setDeclType(p, ref: ref, t: tid)
+	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocEnumShell'
 
-function allocUnionShell(mutates p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, mutates errs diag.ErrorList)
+function allocUnionShell(mutates ms ast.ModuleState, p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, mutates errs diag.ErrorList)
 	var e = ast.TypeEntry.make(ast.TypeKind.unionTy, name: ud.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
 	e.isNoncopyable = ud.isNoncopyable
-	let tid = ast.allocType(p.types, module: ref.module, e: e)
-	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
-	ast.setDeclType(p, ref: ref, t: tid)
+	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: ud.typeParams, errs: errs)
+	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocUnionShell'
 
-function allocIfaceShell(mutates p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
+function allocIfaceShell(mutates ms ast.ModuleState, p ast.Project, ref ast.DeclRef, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
 	var e = ast.TypeEntry.make(ast.TypeKind.interfaceTy, name: ifd.name.clone())
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let tid = ast.allocType(p.types, module: ref.module, e: e)
-	allocShellTypeParams(p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
-	ast.setDeclType(p, ref: ref, t: tid)
+	let tid = ast.allocType(ms.types, module: ref.module, e: e)
+	allocShellTypeParams(ms, p: p, modID: ref.module, tid: tid, tps: ifd.typeParams, errs: errs)
+	ast.setDeclType(ms, ref: ref, t: tid)
 end 'allocIfaceShell'
 
-function buildModuleTable(mutates p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList)
-	let mIdx = ast.modIndex(modID)
-	let count = p.modules[mIdx].decls.count()
+function buildModuleTable(mutates ms ast.ModuleState, p ast.Project, modID diag.ModuleID, mutates errs diag.ErrorList)
+	let count = ms.source.decls.count()
 	for i in 0 upto count 'each'
 		let ord = try i as ast.DeclOrdinal otherwise panic("too many decls")
-		createShellType(p, modID: modID, ord: ord, errs: errs)
-		let dName = p.modules[mIdx].decls[i].name()
-		let dOff = p.modules[mIdx].decls[i].offset(p.modules[mIdx].tree)
-		match p.modules[mIdx].indexDecl(ord) 'dup'
-			some(prevOrd) then pushDuplicateDecl(p.modules[mIdx], dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
-			none then noteNestedAlias(p.modules[mIdx], dName: dName, ord: ord)
+		createShellType(ms, p: p, modID: modID, ord: ord, errs: errs)
+		let dName = ms.source.decls[i].name()
+		let dOff = ms.source.decls[i].offset(ms.source.tree)
+		match ms.source.indexDecl(ord) 'dup'
+			some(prevOrd) then pushDuplicateDecl(ms.source, dName: dName, dOff: dOff, ord: ord, prevOrd: prevOrd, modID: modID, errs: errs)
+			none then noteNestedAlias(ms.source, dName: dName, ord: ord)
 		end 'dup'
 	end 'each'
 end 'buildModuleTable'
@@ -723,22 +721,22 @@ function lastPathPart(path String) returns String
 	return path.sliceBytes(start, endPos: path.byteLength())
 end 'lastPathPart'
 
-function parseSingleModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
-	let mPath = p.modules[modIdx].path.clone()
+function parseSingleModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
+	let mPath = ms.source.path.clone()
 	var fPaths = ast.StringList.create(0)
 	var fTexts = ast.StringList.create(0)
-	for i in 0 upto p.modules[modIdx].filePaths.count() 'readF'
-		let fp = p.modules[modIdx].filePaths[i].clone()
+	for i in 0 upto ms.source.filePaths.count() 'readF'
+		let fp = ms.source.filePaths[i].clone()
 		fPaths.push(fp.clone())
 		readFileText(fp, memory: memory, fTexts: fTexts, errs: errs)
 	end 'readF'
 	if fTexts.count() != fPaths.count() 'ioFail'
 		return
 	end 'ioFail'
-	let modID = p.modules[modIdx].id
+	let modID = ms.source.id
 	let res = syntax.parseModuleFiles(modID, path: mPath, filePaths: fPaths, fileTexts: fTexts, target: p.target)
 	match consumes res 'pr'
-		ok(parsedMod) then copyParsedIntoModule(p, modIdx: modIdx, parsedMod: parsedMod)
+		ok(parsedMod) then copyParsedIntoModule(ms, p: p, parsedMod: parsedMod)
 		err(found) then appendErrors(errs, found: found)
 	end 'pr'
 end 'parseSingleModule'
@@ -768,12 +766,12 @@ function readOneFile(fp String, mutates fTexts ast.StringList, mutates errs diag
 	end 'rf'
 end 'readOneFile'
 
-function copyParsedIntoModule(mutates p ast.Project, modIdx Count, consumes parsedMod ast.Module)
+function copyParsedIntoModule(mutates ms ast.ModuleState, p ast.Project, consumes parsedMod ast.Module)
 	var pm = parsedMod
-	p.modules[modIdx].files = pm.files
-	p.modules[modIdx].tree = pm.tree
-	p.modules[modIdx].decls = pm.decls
-	p.modules[modIdx].names = pm.names
+	ms.source.files = pm.files
+	ms.source.tree = pm.tree
+	ms.source.decls = pm.decls
+	ms.source.names = pm.names
 end 'copyParsedIntoModule'
 
 // sourceFiles are the paths of the source files of the project at dir, directory by directory in the order of the walk, as the
@@ -886,16 +884,19 @@ end 'discoverSingleFile'
 // parseModules parses the modules of p from the one at index first on.
 export function parseModules(mutates p ast.Project, first Count, memory SourceFiles, mutates errs diag.ErrorList)
 	for i in first upto p.modules.count() 'each'
-		parseModule(p, modIdx: i, memory: memory, errs: errs)
+		let module = p.modules[i].id
+		var ms = ast.lendModule(p, module: module, lent: ast.Lent.source)
+		parseModule(ms, p: p, memory: memory, errs: errs)
+		ast.giveBack(p, ms: ms)
 	end 'each'
 end 'parseModules'
 
 // parseModule reads a module's files, from memory when they are held there and from disk otherwise, parses them into the
 // module's tree and declarations, and gives the declarations their names and each type declaration its shell type.
-export function parseModule(mutates p ast.Project, modIdx Count, memory SourceFiles, mutates errs diag.ErrorList)
-	parseSingleModule(p, modIdx: modIdx, memory: memory, errs: errs)
-	let modID = p.modules[modIdx].id
-	buildModuleTable(p, modID: modID, errs: errs)
+export function parseModule(mutates ms ast.ModuleState, p ast.Project, memory SourceFiles, mutates errs diag.ErrorList)
+	parseSingleModule(ms, p: p, memory: memory, errs: errs)
+	let module = ms.module
+	buildModuleTable(ms, p: p, modID: module, errs: errs)
 end 'parseModule'
 
 // addRuntime loads the runtime's source as a module of p, so that it is checked, lowered and linked with the programs

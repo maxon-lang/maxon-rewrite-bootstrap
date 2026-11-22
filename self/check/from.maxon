@@ -8,11 +8,11 @@ let stringLiteralInterface = "InitableFromStringLiteral"
 
 // checkFromExpr types `Type from value`. The head is the name of the type, and the value a literal of the shape that type
 // is written from.
-function checkFromExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let head = ast.fromExprHead(p.modules[c.modIdx].tree, id: e)
-	let value = ast.fromExprValue(p.modules[c.modIdx].tree, id: e)
+function checkFromExpr(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let head = ast.fromExprHead(ms.tree, id: e)
+	let value = ast.fromExprValue(ms.tree, id: e)
 	var ty = ast.noType
-	if p.modules[c.modIdx].tree.kindOf(head) == ast.NodeKind.nameExpr 'name'
+	if ms.tree.kindOf(head) == ast.NodeKind.nameExpr 'name'
 		let mark = errs.count()
 		ty = typeNamed(c, p: p, ms: ms, name: head, errs: errs)
 		if failedSince(errs, mark: mark) 'failed'
@@ -25,7 +25,7 @@ function checkFromExpr(mutates c Checker, mutates p ast.Project, mutates ms ast.
 		if failedSince(errs, mark: mark) 'undefined'
 			return ast.noType
 		end 'undefined'
-		failAt(c, p: p, node: head, code: diag.errUnknownType, msg: "'{placeText(p.modules[c.modIdx].tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
+		failAt(c, p: p, ms: ms, node: head, code: diag.errUnknownType, msg: "'{placeText(ms.tree, e: head)}' names no type: 'from' follows the name of the type that is written from the value", errs: errs)
 		return ast.noType
 	end 'unnamed'
 	let kind = ast.typeKind(ms.types, t: ty)
@@ -37,18 +37,18 @@ end 'checkFromExpr'
 
 // checkFromCollection types an array or a list written from an array literal. A head that is an instance states the
 // element type, which each element must fit; the bare name takes the one the elements give.
-function checkFromCollection(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFromCollection(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
-	if p.modules[c.modIdx].tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
+	if ms.tree.kindOf(value) != ast.NodeKind.collectionLitExpr 'notLiteral'
 		if ast.typeKind(ms.types, t: ty) == ast.TypeKind.builtinList 'list'
-			failAt(c, p: p, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
+			failAt(c, p: p, ms: ms, node: value, code: diag.errUnsupportedFeature, msg: "Unsupported: '{name} from' an array value; write the elements as a literal: '{name} from [a, b]'", errs: errs)
 			return ast.noType
 		end 'list'
-		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal: '{name} from [a, b]'", errs: errs)
+		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'notLiteral'
-	if p.modules[c.modIdx].tree.listLen(ast.collectionLitExprValuesRef(p.modules[c.modIdx].tree, id: value)) > 0 'map'
-		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
+	if ms.tree.listLen(ast.collectionLitExprValuesRef(ms.tree, id: value)) > 0 'map'
+		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes an array literal, and this one gives keys: '{name} from [a, b]'", errs: errs)
 		return ast.noType
 	end 'map'
 	if ast.originOf(ms.types, t: ty) == p.builtins.fixedArrayOrigin 'fixed'
@@ -62,7 +62,7 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, mutates m
 			var args = ast.TypeIDList.create(0)
 			args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
 			let arrayOrigin = p.builtins.arrayOrigin
-			want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
+			want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: arrayOrigin, args: args, errs: errs)
 		end 'list'
 	end 'stated'
 	let literal = checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs)
@@ -74,29 +74,29 @@ function checkFromCollection(mutates c Checker, mutates p ast.Project, mutates m
 	end 'given'
 	var args = ast.TypeIDList.create(0)
 	args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: ty, args: args, errs: errs)
 end 'checkFromCollection'
 
 // checkFromFixedArray types a fixed array written from an array literal: an array of the element its head states, or of
 // the one the elements give, whose count is the literal's. A head that states a count takes a literal of as many elements.
-function checkFromFixedArray(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFromFixedArray(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let bare = ms.types.lists[ast.typeList(ms.types, t: ty)][ast.typeIndex(ms.types, t: ty)].typeParams.count() > 0
 	var want = ast.noType
 	if not bare 'stated'
 		var args = ast.TypeIDList.create(0)
 		args.push(ast.typeArgAt(ms.types, t: ty, index: 0))
 		let arrayOrigin = p.builtins.arrayOrigin
-		want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: arrayOrigin, args: args, errs: errs)
+		want = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: arrayOrigin, args: args, errs: errs)
 	end 'stated'
 	let literal = checkExpecting(c, p: p, ms: ms, e: value, want: want, errs: errs)
 	if literal == ast.noType 'failed'
 		return ast.noType
 	end 'failed'
-	let written = p.modules[c.modIdx].tree.listLen(ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: value)) as Count
+	let written = ms.tree.listLen(ast.collectionLitExprElemsRef(ms.tree, id: value)) as Count
 	if ast.statesCount(ms.types, t: ty) 'counted'
 		let count = ast.statedCount(ms.types, t: ty)
 		if written != count 'otherCount'
-			failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, ms: ms, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
+			failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{nameOfType(p, ms: ms, t: ty)}' holds {count} elements, and the literal writes {written}: write exactly {count}", errs: errs)
 			return ast.noType
 		end 'otherCount'
 		return ty
@@ -105,7 +105,7 @@ function checkFromFixedArray(mutates c Checker, mutates p ast.Project, mutates m
 	if bare 'bare'
 		var args = ast.TypeIDList.create(0)
 		args.push(ast.typeArgAt(ms.types, t: literal, index: 0))
-		unsized = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: ty, args: args, errs: errs)
+		unsized = instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: ty, args: args, errs: errs)
 		if unsized == ast.noType 'badElement'
 			return ast.noType
 		end 'badElement'
@@ -126,19 +126,19 @@ function implementsNamed(p ast.Project, ms ast.ModuleState, t ast.TypeID, name S
 end 'implementsNamed'
 
 // checkFromString types a type written from a string literal, which is a call of its `init` with the literal.
-function checkFromString(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkFromString(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, head ast.NodeID, e ast.NodeID, ty ast.TypeID, value ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = nameOfType(p, ms: ms, t: ty)
-	if p.modules[c.modIdx].tree.kindOf(value) != ast.NodeKind.strLit 'notLiteral'
-		failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes a string literal: '{name} from \"text\"'", errs: errs)
+	if ms.tree.kindOf(value) != ast.NodeKind.strLit 'notLiteral'
+		failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "'{name} from' takes a string literal: '{name} from \"text\"'", errs: errs)
 		return ast.noType
 	end 'notLiteral'
 	if not implementsNamed(p, ms: ms, t: ty, name: stringLiteralInterface) 'doesNotConform'
-		failAt(c, p: p, node: head, code: diag.errTypeMismatch, msg: diag.typeDoesNotConform(name, interfaceName: stringLiteralInterface), errs: errs)
+		failAt(c, p: p, ms: ms, node: head, code: diag.errTypeMismatch, msg: diag.typeDoesNotConform(name, interfaceName: stringLiteralInterface), errs: errs)
 		return ast.noType
 	end 'doesNotConform'
 	let init = methodNamed(p, ms: ms, t: ty, name: initName)
 	if init == ast.noFunc or not ms.funcs.slots[ast.funcSlot(init)][ast.funcIndex(init)].isStatic 'missing'
-		failAt(c, p: p, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnknownFunction, msg: diag.undefinedFunction("{name}.{initName}"), errs: errs)
 		return ast.noType
 	end 'missing'
 	if not requireVisible(c, p: p, ms: ms, node: e, target: init, errs: errs) 'hidden'

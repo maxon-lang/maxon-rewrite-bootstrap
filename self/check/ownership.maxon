@@ -513,7 +513,7 @@ function checkMethodsOwn(mutates o Ownership, p ast.Project, mutates ms ast.Modu
 end 'checkMethodsOwn'
 
 function checkIfDeclaredOwn(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, isDeclared BoolIntMap)
-	match consumes ast.nodeFunc(p, module: o.c.modID, node: f.id) 'entry'
+	match consumes ast.nodeFunc(p, ms: ms, module: o.c.modID, node: f.id) 'entry'
 		some(fid) then checkIfListed(o, p: p, ms: ms, f: f, fid: fid, isDeclared: isDeclared)
 		none then panic("the function '{f.name}' of module {o.c.modID} has no entry")
 	end 'entry'
@@ -581,7 +581,7 @@ function run(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, fid
 	end 'consumesSelf'
 	for i in 0 upto ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params.count() 'params'
 		let sym = ast.paramLocal(p, ms: ms, f: fid, index: i)
-		let site = offsetOfOwn(o, p: p, node: paramSites[i])
+		let site = offsetOfOwn(o, p: p, ms: ms, node: paramSites[i])
 		let conv = ms.funcs.slots[ast.funcSlot(fid)][ast.funcIndex(fid)].params[i].conv
 		if conv == ast.Convention.convSets 'sets'
 			o.setParams.push(sym)
@@ -602,11 +602,11 @@ end 'run'
 
 // funcSite is where the function being checked is declared.
 function funcSite(o Ownership, p ast.Project, ms ast.ModuleState) returns diag.U32
-	return offsetOfOwn(o, p: p, node: ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
+	return offsetOfOwn(o, p: p, ms: ms, node: ms.funcs.slots[ast.funcSlot(o.fn)][ast.funcIndex(o.fn)].nodeID)
 end 'funcSite'
 
-function offsetOfOwn(o Ownership, p ast.Project, node ast.NodeID) returns diag.U32
-	return p.modules[o.c.modIdx].tree.reportStartOf(node)
+function offsetOfOwn(o Ownership, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns diag.U32
+	return ms.tree.reportStartOf(node)
 end 'offsetOfOwn'
 
 // selfLocalOf is the receiver of the function being checked.
@@ -653,8 +653,8 @@ end 'requireDroppable'
 // requireTemporaryDroppable is the drop of a fresh value that the statement does not give to anything.
 function requireTemporaryDroppable(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, s OwnState, kind OwnDropKind)
 	let t = ownType(o, node: e)
-	if not s.dead and isManagedOwn(p, ms: ms, t: t) and not ast.isStorage(p.modules[o.c.modIdx].tree, typing: o.c.typing, node: e) 'fresh'
-		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, node: e), t: t, d: OwnDrop.make(kind, name: ""))
+	if not s.dead and isManagedOwn(p, ms: ms, t: t) and not ast.isStorage(ms.tree, typing: o.c.typing, node: e) 'fresh'
+		requireDroppable(o, p: p, ms: ms, site: offsetOfOwn(o, p: p, ms: ms, node: e), t: t, d: OwnDrop.make(kind, name: ""))
 	end 'fresh'
 end 'requireTemporaryDroppable'
 
@@ -749,8 +749,8 @@ function report(mutates o Ownership, consumes err diag.CompileError)
 end 'report'
 
 // lineOf is the line a site is on, for a message that says where a value was moved to.
-function lineOf(o Ownership, p ast.Project, site diag.U32) returns Count
-	return ast.locateModuleOffset(p.modules[o.c.modIdx], offset: site).line
+function lineOf(o Ownership, p ast.Project, ms ast.ModuleState, site diag.U32) returns Count
+	return ast.locateTextOffset(ms.tree.text, files: p.modules[o.c.modIdx].files, offset: site).line
 end 'lineOf'
 
 function fail(mutates o Ownership, p ast.Project, site diag.U32, code String, consumes msg String)
@@ -782,7 +782,7 @@ function cloneFixIf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 	if not canCopy(o, p: p, ms: ms, t: t) 'noCopy'
 		return diag.Fix.none()
 	end 'noCopy'
-	return cloneFix(p.modules[o.c.modIdx].tree, e: e)
+	return cloneFix(ms.tree, e: e)
 end 'cloneFixIf'
 
 // pushFrameOwn opens a frame for a loop or match.
@@ -879,10 +879,10 @@ end 'requireSetsInitialised'
 function checkValues(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal)
 	match p.modules[o.c.modIdx].decls[ord as Count].clone() 'k'
 		constDecl(cd) then checkValue(o, p: p, ms: ms, e: cd.value, name: cd.name)
-		typeDecl(_) then checkFieldValues(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		typeDecl(_) then checkFieldValues(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		funcDecl(_) then _ = 0
-		enumDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
-		unionDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		enumDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
+		unionDecl(_) then checkRawValueExprs(o, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(o.c.modID, ordinal: ord)))
 		aliasDecl(_) then _ = 0
 		interfaceDecl(_) then _ = 0
 		extensionDecl(_) then _ = 0

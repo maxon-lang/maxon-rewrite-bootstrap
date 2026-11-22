@@ -1,6 +1,6 @@
 // failAt reports an error at a node of the module being checked.
-function failAt(c Checker, p ast.Project, node ast.NodeID, consumes code String, consumes msg String, mutates errs diag.ErrorList)
-	checkFail(c.modID, off: offsetOf(c, p: p, node: node), code: code, msg: msg, errs: errs)
+function failAt(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID, consumes code String, consumes msg String, mutates errs diag.ErrorList)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: node), code: code, msg: msg, errs: errs)
 end 'failAt'
 
 // terminates is whether a statement never completes normally: it returns or panics on every path, so a function whose
@@ -76,25 +76,25 @@ function liveCount(tree ast.Tree, body diag.U32) returns Count
 	return n
 end 'liveCount'
 
-function checkBlock(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
+function checkBlock(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
 	pushScope(c)
 	checkStmts(c, p: p, ms: ms, body: body, errs: errs)
 	popScope(c)
 end 'checkBlock'
 
 // checkStmts types the statements of a block. Each stops at its first error and the ones after it are typed all the same.
-function checkStmts(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
-	let live = liveCount(p.modules[c.modIdx].tree, body: body)
+function checkStmts(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, body diag.U32, mutates errs diag.ErrorList)
+	let live = liveCount(ms.tree, body: body)
 	let outer = c.dead
-	for i in 0 upto p.modules[c.modIdx].tree.listLen(body) 'each'
+	for i in 0 upto ms.tree.listLen(body) 'each'
 		c.dead = outer or i >= live
-		checkStmt(c, p: p, ms: ms, s: p.modules[c.modIdx].tree.listAt(body, index: i) as ast.NodeID, errs: errs)
+		checkStmt(c, p: p, ms: ms, s: ms.tree.listAt(body, index: i) as ast.NodeID, errs: errs)
 	end 'each'
 	c.dead = outer
 end 'checkStmts'
 
-function checkStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let k = p.modules[c.modIdx].tree.kindOf(s)
+function checkStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let k = ms.tree.kindOf(s)
 	if k == ast.NodeKind.letStmt 'let'
 		checkLet(c, p: p, ms: ms, s: s, errs: errs)
 		return
@@ -116,7 +116,7 @@ function checkStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 		return
 	end 'expr'
 	if k == ast.NodeKind.discardStmt 'discard'
-		_ = checkExpr(c, p: p, ms: ms, e: ast.discardStmtValue(p.modules[c.modIdx].tree, id: s), errs: errs)
+		_ = checkExpr(c, p: p, ms: ms, e: ast.discardStmtValue(ms.tree, id: s), errs: errs)
 		return
 	end 'discard'
 	if k == ast.NodeKind.ifStmt 'if'
@@ -136,7 +136,7 @@ function checkStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 		return
 	end 'for'
 	if k == ast.NodeKind.matchStmt 'match'
-		_ = checkMatch(c, p: p, ms: ms, core: ast.matchStmtMatch(p.modules[c.modIdx].tree, id: s), isExpr: false, errs: errs)
+		_ = checkMatch(c, p: p, ms: ms, core: ast.matchStmtMatch(ms.tree, id: s), isExpr: false, errs: errs)
 		return
 	end 'match'
 	if k == ast.NodeKind.tryStmt 'try'
@@ -152,11 +152,11 @@ function checkStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 		return
 	end 'return'
 	if k == ast.NodeKind.breakStmt 'break'
-		checkJump(c, p: p, s: s, isBreak: true, errs: errs)
+		checkJump(c, p: p, ms: ms, s: s, isBreak: true, errs: errs)
 		return
 	end 'break'
 	if k == ast.NodeKind.continueStmt 'continue'
-		checkJump(c, p: p, s: s, isBreak: false, errs: errs)
+		checkJump(c, p: p, ms: ms, s: s, isBreak: false, errs: errs)
 		return
 	end 'continue'
 	if k == ast.NodeKind.whenStmt 'when'
@@ -166,30 +166,30 @@ function checkStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.Modu
 	panic("the node {s} of kind {k.name} is no statement")
 end 'checkStmt'
 
-function checkExprStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let whole = ast.exprStmtE(p.modules[c.modIdx].tree, id: s)
+function checkExprStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let whole = ast.exprStmtE(ms.tree, id: s)
 	var e = whole
 	var catches = false
-	if p.modules[c.modIdx].tree.kindOf(e) == ast.NodeKind.tryExpr 'try'
+	if ms.tree.kindOf(e) == ast.NodeKind.tryExpr 'try'
 		c.statement = e
-		catches = ast.tryExprHandler(p.modules[c.modIdx].tree, id: e) != 0 or ast.tryExprIgnore(p.modules[c.modIdx].tree, id: e)
-		e = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
+		catches = ast.tryExprHandler(ms.tree, id: e) != 0 or ast.tryExprIgnore(ms.tree, id: e)
+		e = ast.tryExprE(ms.tree, id: e)
 	end 'try'
-	let k = p.modules[c.modIdx].tree.kindOf(e)
+	let k = ms.tree.kindOf(e)
 	if not catches and k != ast.NodeKind.callExpr and k != ast.NodeKind.panicExpr 'notCall'
-		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "only a call can stand alone as a statement; bind the value with 'let', or discard it with '_ ='", errs: errs)
 		return
 	end 'notCall'
 	_ = checkExpr(c, p: p, ms: ms, e: whole, errs: errs)
 end 'checkExprStmt'
 
-function checkIf(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	if not requireBool(c, p: p, ms: ms, e: ast.ifStmtCond(p.modules[c.modIdx].tree, id: s), keyword: "if", errs: errs) 'badCond'
+function checkIf(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if not requireBool(c, p: p, ms: ms, e: ast.ifStmtCond(ms.tree, id: s), keyword: "if", errs: errs) 'badCond'
 		return
 	end 'badCond'
-	checkBlock(c, p: p, ms: ms, body: ast.ifStmtThenRef(p.modules[c.modIdx].tree, id: s), errs: errs)
-	if ast.ifStmtHasElse(p.modules[c.modIdx].tree, id: s) 'else'
-		checkBlock(c, p: p, ms: ms, body: ast.ifStmtElseRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	checkBlock(c, p: p, ms: ms, body: ast.ifStmtThenRef(ms.tree, id: s), errs: errs)
+	if ast.ifStmtHasElse(ms.tree, id: s) 'else'
+		checkBlock(c, p: p, ms: ms, body: ast.ifStmtElseRef(ms.tree, id: s), errs: errs)
 	end 'else'
 end 'checkIf'
 
@@ -203,25 +203,25 @@ end 'ifTryKeywordOffset'
 
 // failVoidTry refuses a 	ry of a call that returns nothing where a value is needed, and tells whether e was one.
 function failVoidTry(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns bool
-	if p.modules[c.modIdx].tree.kindOf(e) != ast.NodeKind.tryExpr 'notTry'
+	if ms.tree.kindOf(e) != ast.NodeKind.tryExpr 'notTry'
 		return false
 	end 'notTry'
-	let call = ast.tryExprE(p.modules[c.modIdx].tree, id: e)
-	if p.modules[c.modIdx].tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
+	let call = ast.tryExprE(ms.tree, id: e)
+	if ms.tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
 		return false
 	end 'notCall'
-	failAt(c, p: p, node: e, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(voidCalleeText(c, p: p, ms: ms, call: call)), errs: errs)
+	failAt(c, p: p, ms: ms, node: e, code: diag.errErrorTypeMismatch, msg: diag.callReturnsNoValue(voidCalleeText(c, p: p, ms: ms, call: call)), errs: errs)
 	return true
 end 'failVoidTry'
 
 // voidCalleeText is the callee of a call that returns nothing, as maxon names it: a method of a declared type with its type's name,\n// a method of a built-in type by its own name alone.
 function voidCalleeText(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns String
-	let callee = ast.callExprCallee(p.modules[c.modIdx].tree, id: call)
-	if p.modules[c.modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'plain'
-		return calleeText(p.modules[c.modIdx].tree, call: call)
+	let callee = ast.callExprCallee(ms.tree, id: call)
+	if ms.tree.kindOf(callee) != ast.NodeKind.memberExpr 'plain'
+		return calleeText(ms.tree, call: call)
 	end 'plain'
-	let name = ast.memberExprName(p.modules[c.modIdx].tree, id: callee)
-	let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)))
+	let name = ast.memberExprName(ms.tree, id: callee)
+	let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: callee)))
 	if holder != ast.noType and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: holder))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: holder))].hasDecl and ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: holder))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: holder))].decl.module != diag.stdlibID 'declared'
 		return "{declaredNameOfType(p, ms: ms, t: holder)}.{name}"
 	end 'declared'
@@ -236,11 +236,11 @@ end 'calleeText'
 // checkIfTryStmt types a conditional try: its call can fail, and what it gives is bound for the block that runs when it does
 // not. The else block runs on a failure, and names the error when it asks. The error binding is keyed by the call, the
 // binding of the result by the statement.
-function checkIfTryStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let call = ast.ifTryStmtCall(p.modules[c.modIdx].tree, id: s)
-	let name = ast.ifTryStmtName(p.modules[c.modIdx].tree, id: s)
-	if p.modules[c.modIdx].tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
-		checkFail(c.modID, off: ifTryKeywordOffset(p.modules[c.modIdx].tree, call: call), code: diag.errExpressionError, msg: "'if try' tests a call that can fail: write the call after 'try'", errs: errs)
+function checkIfTryStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let call = ast.ifTryStmtCall(ms.tree, id: s)
+	let name = ast.ifTryStmtName(ms.tree, id: s)
+	if ms.tree.kindOf(call) != ast.NodeKind.callExpr 'notCall'
+		checkFail(c.modID, off: ifTryKeywordOffset(ms.tree, call: call), code: diag.errExpressionError, msg: "'if try' tests a call that can fail: write the call after 'try'", errs: errs)
 		return
 	end 'notCall'
 	beginCatching(c)
@@ -250,9 +250,9 @@ function checkIfTryStmt(mutates c Checker, mutates p ast.Project, mutates ms ast
 		return
 	end 'badCall'
 	let hasValue = t != p.builtins.voidTy and t != p.builtins.neverTy
-	let at = ifTryKeywordOffset(p.modules[c.modIdx].tree, call: call)
+	let at = ifTryKeywordOffset(ms.tree, call: call)
 	if name == "" and hasValue 'discards'
-		checkFail(c.modID, off: at, code: diag.errIfTryDiscardsResult, msg: diag.ifTryDiscardsResult(calleeText(p.modules[c.modIdx].tree, call: call)), errs: errs)
+		checkFail(c.modID, off: at, code: diag.errIfTryDiscardsResult, msg: diag.ifTryDiscardsResult(calleeText(ms.tree, call: call)), errs: errs)
 		return
 	end 'discards'
 	if name != "" and not hasValue 'noValue'
@@ -261,15 +261,15 @@ function checkIfTryStmt(mutates c Checker, mutates p ast.Project, mutates ms ast
 	end 'noValue'
 	pushScope(c)
 	if name != "" 'bind'
-		bindLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: ast.ifTryStmtIsVar(p.modules[c.modIdx].tree, id: s), off: offsetOf(c, p: p, node: s), errs: errs)
+		bindLet(c, p: p, ms: ms, s: s, name: name, t: t, isVar: ast.ifTryStmtIsVar(ms.tree, id: s), off: offsetOf(c, p: p, ms: ms, node: s), errs: errs)
 	end 'bind'
-	checkStmts(c, p: p, ms: ms, body: ast.ifTryStmtThenRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	checkStmts(c, p: p, ms: ms, body: ast.ifTryStmtThenRef(ms.tree, id: s), errs: errs)
 	popScope(c)
-	if not ast.ifTryStmtHasElse(p.modules[c.modIdx].tree, id: s) 'noElse'
+	if not ast.ifTryStmtHasElse(ms.tree, id: s) 'noElse'
 		return
 	end 'noElse'
-	let failed = ast.ifTryStmtErrName(p.modules[c.modIdx].tree, id: s)
-	let handler = ast.ifTryStmtElseRef(p.modules[c.modIdx].tree, id: s)
+	let failed = ast.ifTryStmtErrName(ms.tree, id: s)
+	let handler = ast.ifTryStmtElseRef(ms.tree, id: s)
 	pushScope(c)
 	if failed == "" 'anonymous'
 		checkStmts(c, p: p, ms: ms, body: handler, errs: errs)
@@ -279,22 +279,22 @@ function checkIfTryStmt(mutates c Checker, mutates p ast.Project, mutates ms ast
 	popScope(c)
 end 'checkIfTryStmt'
 
-function checkWhile(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	if not requireBool(c, p: p, ms: ms, e: ast.whileStmtCond(p.modules[c.modIdx].tree, id: s), keyword: "while", errs: errs) 'badCond'
+function checkWhile(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if not requireBool(c, p: p, ms: ms, e: ast.whileStmtCond(ms.tree, id: s), keyword: "while", errs: errs) 'badCond'
 		return
 	end 'badCond'
-	pushBlock(c, label: ast.whileStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
-	checkBlock(c, p: p, ms: ms, body: ast.whileStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	pushBlock(c, label: ast.whileStmtLabel(ms.tree, id: s), isLoop: true, node: s)
+	checkBlock(c, p: p, ms: ms, body: ast.whileStmtBodyRef(ms.tree, id: s), errs: errs)
 	popBlock(c)
 end 'checkWhile'
 
-function checkFor(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	if not ast.forStmtIsRange(p.modules[c.modIdx].tree, id: s) 'iterates'
+function checkFor(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if not ast.forStmtIsRange(ms.tree, id: s) 'iterates'
 		checkForEach(c, p: p, ms: ms, s: s, errs: errs)
 		return
 	end 'iterates'
-	let lowerNode = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
-	let upperNode = ast.forStmtTo(p.modules[c.modIdx].tree, id: s)
+	let lowerNode = ast.forStmtFrom(ms.tree, id: s)
+	let upperNode = ast.forStmtTo(ms.tree, id: s)
 	let lowerTy = checkExpr(c, p: p, ms: ms, e: lowerNode, errs: errs)
 	if lowerTy == ast.noType 'badLower'
 		return
@@ -304,7 +304,7 @@ function checkFor(mutates c Checker, mutates p ast.Project, mutates ms ast.Modul
 		return
 	end 'badUpper'
 	if not ast.isIntType(ms.types, t: lowerTy) or not ast.isIntType(ms.types, t: upperTy) 'notInts'
-		failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: "a range needs integer bounds, found {nameOfType(p, ms: ms, t: lowerTy)} and {nameOfType(p, ms: ms, t: upperTy)}", errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: "a range needs integer bounds, found {nameOfType(p, ms: ms, t: lowerTy)} and {nameOfType(p, ms: ms, t: upperTy)}", errs: errs)
 		return
 	end 'notInts'
 	let varType = forVariableType(c, p: p, ms: ms, s: s, lowerTy: lowerTy, upperTy: upperTy, errs: errs)
@@ -316,30 +316,30 @@ end 'checkFor'
 
 // checkForBody declares the variable of a for and checks the body it is in scope for. A variable that borrows is an
 // element the collection lends, as a match binding of a payload is.
-function checkForBody(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, borrows bool, mutates errs diag.ErrorList)
-	enterForBody(c, p: p, s: s)
-	let destructures = p.modules[c.modIdx].tree.listLen(ast.forStmtVarsRef(p.modules[c.modIdx].tree, id: s)) > 0
+function checkForBody(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, varType ast.TypeID, borrows bool, mutates errs diag.ErrorList)
+	enterForBody(c, p: p, ms: ms, s: s)
+	let destructures = ms.tree.listLen(ast.forStmtVarsRef(ms.tree, id: s)) > 0
 	var local = ast.noLocal
 	var bound = ast.NodeIDList.create(0)
 	if destructures 'tuples'
 		local = declareTupleVariable(c, p: p, ms: ms, s: s, varType: varType, bound: bound, errs: errs)
 	end 'tuples' else 'single'
-		let name = ast.forStmtVar(p.modules[c.modIdx].tree, id: s)
-		local = declareLocal(c, p: p, ms: ms, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
+		let name = ast.forStmtVar(ms.tree, id: s)
+		local = declareLocal(c, p: p, ms: ms, name: name, t: varType, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: s), errs: errs)
 	end 'single'
 	if local != ast.noLocal 'declared'
 		c.typing.locals[local as Count].projected = borrows
 		c.typing.nodeLocals.insert(s as Count, value: local)
-		checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+		checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s), errs: errs)
 		if destructures 'steps'
-			putStepsBeforeBody(c, p: p, s: s, steps: bound)
+			putStepsBeforeBody(c, p: p, ms: ms, s: s, steps: bound)
 		end 'steps'
 	end 'declared'
 	leaveForBody(c)
 end 'checkForBody'
 
-function enterForBody(mutates c Checker, p ast.Project, s ast.NodeID)
-	pushBlock(c, label: ast.forStmtLabel(p.modules[c.modIdx].tree, id: s), isLoop: true, node: s)
+function enterForBody(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID)
+	pushBlock(c, label: ast.forStmtLabel(ms.tree, id: s), isLoop: true, node: s)
 	pushScope(c)
 end 'enterForBody'
 
@@ -351,21 +351,21 @@ end 'leaveForBody'
 // checkMapEntries types a for over the entries of a Map, in the order their keys were inserted. Each pass lends the key
 // and the value of one entry to the two names of the loop, as an array lends an element, so no pair is made for the
 // entry: the loop names both, `for (key, value) in m`, and `_` stands for one it does not need.
-function checkMapEntries(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	let namesRef = ast.forStmtVarsRef(p.modules[c.modIdx].tree, id: s)
-	if p.modules[c.modIdx].tree.listLen(namesRef) != 2 'notPair'
-		failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` needs a name for the key and one for the value, `for (key, value) in map`, with `_` for the one the body does not use: the map holds no pair of the two to bind to a single variable", errs: errs)
+function checkMapEntries(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
+	let namesRef = ast.forStmtVarsRef(ms.tree, id: s)
+	if ms.tree.listLen(namesRef) != 2 'notPair'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` needs a name for the key and one for the value, `for (key, value) in map`, with `_` for the one the body does not use: the map holds no pair of the two to bind to a single variable", errs: errs)
 		return
 	end 'notPair'
 	let args = ast.typeArgsOf(ms.types, t: t)
-	enterForBody(c, p: p, s: s)
+	enterForBody(c, p: p, ms: ms, s: s)
 	for i in 0 upto 2 'names'
-		let at = p.modules[c.modIdx].tree.listAt(namesRef, index: i) as ast.NodeID
-		let name = ast.bindNameName(p.modules[c.modIdx].tree, id: at)
+		let at = ms.tree.listAt(namesRef, index: i) as ast.NodeID
+		let name = ast.bindNameName(ms.tree, id: at)
 		if name == "_" 'discard'
 			continue 'names'
 		end 'discard'
-		let local = declareLocal(c, p: p, ms: ms, name: name, t: args[i], isVar: false, definedAt: s, off: offsetOf(c, p: p, node: at), errs: errs)
+		let local = declareLocal(c, p: p, ms: ms, name: name, t: args[i], isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: at), errs: errs)
 		if local == ast.noLocal 'failed'
 			leaveForBody(c)
 			return
@@ -373,7 +373,7 @@ function checkMapEntries(mutates c Checker, mutates p ast.Project, mutates ms as
 		c.typing.locals[local as Count].projected = ast.isManagedType(ms.types, t: args[i])
 		c.typing.nodeLocals.insert(at as Count, value: local)
 	end 'names'
-	checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(p.modules[c.modIdx].tree, id: s), errs: errs)
+	checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree, id: s), errs: errs)
 	leaveForBody(c)
 end 'checkMapEntries'
 
@@ -388,14 +388,14 @@ let createIteratorMethod = "createIterator"
 // checkForEach types a for over the elements of a collection. An array lends each element to the variable, as a
 // subscript lends it, and a map its keys and values; a type that declares the iteration protocol gives each one as the
 // value its current() returns.
-function checkForEach(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let source = ast.forStmtFrom(p.modules[c.modIdx].tree, id: s)
+function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let source = ast.forStmtFrom(ms.tree, id: s)
 	let typed = checkExpr(c, p: p, ms: ms, e: source, errs: errs)
 	if typed == ast.noType 'badSource'
 		return
 	end 'badSource'
 	let t = ast.contentType(ms.types, t: typed)
-	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: source), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
 		return
 	end 'cown'
 	if kindOfType(p, ms: ms, t: t) == ast.TypeKind.builtinArray 'array'
@@ -428,7 +428,7 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 		end 'none'
 		let thrown = ms.funcs.slots[ast.funcSlot(factory)][ast.funcIndex(factory)].errTy
 		if thrown != ast.noType and thrown != p.builtins.iterationErrorTy 'otherError'
-			failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, ms: ms, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}`, whose `{createIteratorMethod}()` throws `{nameOfType(p, ms: ms, t: thrown)}` — the loop absorbs what the traversal protocol throws without binding it, which is sound only for the payload-free `IterationError`; a factory throwing anything else must be called with an explicit `try` and its result iterated", errs: errs)
 			return ast.noType
 		end 'otherError'
 		let made = methodResult(p, ms: ms, recv: t, method: factory)
@@ -461,7 +461,7 @@ function checkIteration(mutates c Checker, p ast.Project, mutates ms ast.ModuleS
 end 'checkIteration'
 
 function failNotIterable(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList)
-	failAt(c, p: p, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
+	failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: `for … in` over a `{nameOfType(p, ms: ms, t: t)}` value — the compiler iterates an `Array`, a `Map`'s entries, the counted ranges `<lo> to <hi>` / `<lo> upto <hi>`, and any type declaring the cursor protocol `{currentMethod}()` + `{advanceMethod}() throws IterationError` or a `{createIteratorMethod}()` factory that returns one", errs: errs)
 end 'failNotIterable'
 
 // declaresCursor is whether a type is a cursor: its current() gives a value and cannot fail, and its advance() throws
@@ -513,21 +513,21 @@ end 'methodResult'
 // forVariableType is the type of the variable of a for: the alias of a bound that has one, else the range from the first
 // value of the lower bound to the last of the upper.
 function forVariableType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, lowerTy ast.TypeID, upperTy ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: s)
+	let off = offsetOf(c, p: p, ms: ms, node: s)
 	if typeIsNamedInt(ms.types, t: lowerTy) or typeIsNamedInt(ms.types, t: upperTy) 'named'
 		return unifyInts(c, p: p, ms: ms, off: off, clash: Clash.other, l: lowerTy, r: upperTy, errs: errs)
 	end 'named'
-	let lowerOff = offsetOf(c, p: p, node: ast.forStmtFrom(p.modules[c.modIdx].tree, id: s))
+	let lowerOff = offsetOf(c, p: p, ms: ms, node: ast.forStmtFrom(ms.tree, id: s))
 	if not requireSigned64(c, off: lowerOff, t: lowerTy, p: p, ms: ms, errs: errs) 'wideLower'
 		return ast.noType
 	end 'wideLower'
-	let upperOff = offsetOf(c, p: p, node: ast.forStmtTo(p.modules[c.modIdx].tree, id: s))
+	let upperOff = offsetOf(c, p: p, ms: ms, node: ast.forStmtTo(ms.tree, id: s))
 	if not requireSigned64(c, off: upperOff, t: upperTy, p: p, ms: ms, errs: errs) 'wideUpper'
 		return ast.noType
 	end 'wideUpper'
 	let lo = rangeLo(ms.types, t: lowerTy)
 	var hi = rangeHi(ms.types, t: upperTy)
-	if not ast.forStmtInclusive(p.modules[c.modIdx].tree, id: s) 'exclusive'
+	if not ast.forStmtInclusive(ms.tree, id: s) 'exclusive'
 		hi = hi.sub(ast.I128.one())
 	end 'exclusive'
 	return ast.internIntRange(ms.types, aliasName: "", minVal: lo.clone(), maxVal: ast.maxI128(lo, b: hi), inferred: true)
@@ -572,26 +572,26 @@ function checkHeapAnnotation(mutates c Checker, p ast.Project, ms ast.ModuleStat
 	if tag == "" 'owns'
 		return true
 	end 'owns'
-	checkFail(c.modID, off: try ast.letStmtNameRef(p.modules[c.modIdx].tree, id: s) - 1 otherwise panic("a name starts at no offset"), code: diag.errUnexpectedToken, msg: diag.heapAnnotationOnNonRecord(name, tag: tag), errs: errs)
+	checkFail(c.modID, off: try ast.letStmtNameRef(ms.tree, id: s) - 1 otherwise panic("a name starts at no offset"), code: diag.errUnexpectedToken, msg: diag.heapAnnotationOnNonRecord(name, tag: tag), errs: errs)
 	return false
 end 'checkHeapAnnotation'
 
-function checkLet(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	if ast.letStmtIsHeap(p.modules[c.modIdx].tree, id: s) and ast.letStmtAnnotation(p.modules[c.modIdx].tree, id: s) != heapAnnotationWord 'unknownAnnotation'
-		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: diag.unknownAnnotation(ast.letStmtAnnotation(p.modules[c.modIdx].tree, id: s)), errs: errs)
+function checkLet(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	if ast.letStmtIsHeap(ms.tree, id: s) and ast.letStmtAnnotation(ms.tree, id: s) != heapAnnotationWord 'unknownAnnotation'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: diag.unknownAnnotation(ast.letStmtAnnotation(ms.tree, id: s)), errs: errs)
 		return
 	end 'unknownAnnotation'
-	let name = ast.letStmtName(p.modules[c.modIdx].tree, id: s)
+	let name = ast.letStmtName(ms.tree, id: s)
 	if name == "_" 'discard'
-		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "write '_ = call()' to discard a result", errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "write '_ = call()' to discard a result", errs: errs)
 		return
 	end 'discard'
-	let isVar = ast.letStmtIsVar(p.modules[c.modIdx].tree, id: s)
-	let initNode = ast.letStmtInit(p.modules[c.modIdx].tree, id: s)
-	let off = offsetOf(c, p: p, node: s)
+	let isVar = ast.letStmtIsVar(ms.tree, id: s)
+	let initNode = ast.letStmtInit(ms.tree, id: s)
+	let off = offsetOf(c, p: p, ms: ms, node: s)
 	if initNode == 0 'declaredOnly'
 		let owner = c.owner
-		let declared = resolveTypeRef(c, p: p, ms: ms, tr: ast.letStmtType(p.modules[c.modIdx].tree, id: s), selfTy: owner, errs: errs)
+		let declared = resolveTypeRef(c, p: p, ms: ms, tr: ast.letStmtType(ms.tree, id: s), selfTy: owner, errs: errs)
 		if declared == ast.noType 'badType'
 			bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 			return
@@ -604,24 +604,24 @@ function checkLet(mutates c Checker, mutates p ast.Project, mutates ms ast.Modul
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'badInit'
-	let initOff = offsetOf(c, p: p, node: initNode)
+	let initOff = offsetOf(c, p: p, ms: ms, node: initNode)
 	if not requireSigned64(c, off: initOff, t: t, p: p, ms: ms, errs: errs) 'wide'
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'wide'
 	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
 		if not failVoidTry(c, p: p, ms: ms, e: initNode, errs: errs) 'plain'
-			failAt(c, p: p, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
+			failAt(c, p: p, ms: ms, node: initNode, code: diag.errTypeMismatch, msg: "'{name}' is bound to an expression with no value", errs: errs)
 		end 'plain'
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'noValue'
 	if isVar and (isConstInt(p, ms: ms, t: t) or typeIsAnonInt(ms.types, t: t) or holdsBareNumbers(p, ms: ms, t: t)) 'bareNumber'
-		failAt(c, p: p, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
+		failAt(c, p: p, ms: ms, node: initNode, code: diag.errExpressionError, msg: diag.varStartsFromBareNumber(), errs: errs)
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'bareNumber'
-	if ast.letStmtIsHeap(p.modules[c.modIdx].tree, id: s) and not checkHeapAnnotation(c, p: p, ms: ms, s: s, name: name, t: t, errs: errs) 'badHeap'
+	if ast.letStmtIsHeap(ms.tree, id: s) and not checkHeapAnnotation(c, p: p, ms: ms, s: s, name: name, t: t, errs: errs) 'badHeap'
 		bindLet(c, p: p, ms: ms, s: s, name: name, t: ast.noType, isVar: isVar, off: off, errs: errs)
 		return
 	end 'badHeap'
@@ -636,37 +636,37 @@ function bindLet(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.Nod
 end 'bindLet'
 
 // checkAssign types an assignment to a variable, a field or an element.
-function checkAssign(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let targetNode = ast.assignStmtTarget(p.modules[c.modIdx].tree, id: s)
-	let valueNode = ast.assignStmtValue(p.modules[c.modIdx].tree, id: s)
-	let k = p.modules[c.modIdx].tree.kindOf(targetNode)
+function checkAssign(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let targetNode = ast.assignStmtTarget(ms.tree, id: s)
+	let valueNode = ast.assignStmtValue(ms.tree, id: s)
+	let k = ms.tree.kindOf(targetNode)
 	var target = ast.noType
 	var wrong = Mismatch.expectedGot
 	if k == ast.NodeKind.nameExpr 'name'
 		target = checkNameExpr(c, p: p, ms: ms, e: targetNode, errs: errs)
 		if target != ast.noType and nameInfoOf(c.typing, node: targetNode).kind == ast.NameKind.nameConst 'constant'
 			let constant = ast.declName(p, ref: nameInfoOf(c.typing, node: targetNode).decl)
-			failAt(c, p: p, node: s, code: diag.errAssignToImmutable, msg: diag.letReassigned(constant), errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errAssignToImmutable, msg: diag.letReassigned(constant), errs: errs)
 			return
 		end 'constant'
-		let varPlace = "variable '{ast.nameExprName(p.modules[c.modIdx].tree, id: targetNode)}'"
+		let varPlace = "variable '{ast.nameExprName(ms.tree, id: targetNode)}'"
 		wrong = Mismatch.assignment(varPlace.clone(), bare: varPlace)
 	end 'name' else if k == ast.NodeKind.memberExpr 'member'
 		target = checkMember(c, p: p, ms: ms, e: targetNode, errs: errs)
 		if target == ast.noType 'badMember'
 			return
 		end 'badMember'
-		let memberName = ast.memberExprName(p.modules[c.modIdx].tree, id: targetNode)
+		let memberName = ast.memberExprName(ms.tree, id: targetNode)
 		if memberKindOf(c, node: targetNode) != ast.MemberKind.memberField 'notField'
-			failAt(c, p: p, node: s, code: diag.errAssignToImmutable, msg: "'{memberName}' cannot be assigned", errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errAssignToImmutable, msg: "'{memberName}' cannot be assigned", errs: errs)
 			return
 		end 'notField'
-		let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: targetNode)))
+		let holder = ast.contentType(ms.types, t: ast.nodeType(c.typing, node: ast.memberExprObj(ms.tree, id: targetNode)))
 		wrong = Mismatch.assignment("field '{memberName}' of '{declaredNameOfType(p, ms: ms, t: holder)}'", bare: "field '{memberName}'")
 	end 'member' else if k == ast.NodeKind.indexExpr 'index'
 		target = checkIndex(c, p: p, ms: ms, e: targetNode, errs: errs)
 	end 'index' else 'other'
-		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "only a variable, a field or an element can be assigned", errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "only a variable, a field or an element can be assigned", errs: errs)
 		return
 	end 'other'
 	if target == ast.noType 'badTarget'
@@ -680,7 +680,7 @@ function checkAssign(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 	if k == ast.NodeKind.nameExpr and not namesAssignable(c, node: targetNode) 'refused'
 		return
 	end 'refused'
-	_ = coerce(c, p: p, ms: ms, node: valueNode, at: placeOffset(c, p: p, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
+	_ = coerce(c, p: p, ms: ms, node: valueNode, at: placeOffset(c, p: p, ms: ms, place: targetNode), src: value, target: target, wrong: wrong, errs: errs)
 end 'checkAssign'
 
 // namesAssignable is whether the name that an assignment targets may be reassigned. When it may not, the value is not held to the\n// name's type, since the refusal is the assignment's, which the ownership pass reports.
@@ -703,29 +703,29 @@ function memberKindOf(c Checker, node ast.NodeID) returns ast.MemberKind
 	panic("the member at node {node} was typed without a record of what it is")
 end 'memberKindOf'
 
-function checkReturn(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+function checkReturn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let ret = ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].retTy
 	let fnName = ms.funcs.slots[ast.funcSlot(c.fn)][ast.funcIndex(c.fn)].name.clone()
-	let value = ast.returnStmtValue(p.modules[c.modIdx].tree, id: s)
+	let value = ast.returnStmtValue(ms.tree, id: s)
 	if ret == p.builtins.voidTy 'void'
 		if value != 0 and c.inClosure 'closure'
 			let given = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
 			if given != ast.noType and given != ret and given != p.builtins.neverTy 'valued'
-				failAt(c, p: p, node: value, code: diag.errTypeMismatch, msg: "the closure gives {nameOfType(p, ms: ms, t: given)}, and its function type returns nothing; call something that returns nothing, or give the function type a result", errs: errs)
+				failAt(c, p: p, ms: ms, node: value, code: diag.errTypeMismatch, msg: "the closure gives {nameOfType(p, ms: ms, t: given)}, and its function type returns nothing; call something that returns nothing, or give the function type a result", errs: errs)
 			end 'valued'
 			return
 		end 'closure'
 		if value != 0 'given'
 			if c.inBehaviour 'behaviour'
-				failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour", errs: errs)
+				failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: "a behaviour returns nothing and nothing waits for it: pass a result on by scheduling another behaviour", errs: errs)
 				return
 			end 'behaviour'
-			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.returnValueFromVoid(fnName), errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: diag.returnValueFromVoid(fnName), errs: errs)
 		end 'given'
 		return
 	end 'void'
 	if value == 0 'missing'
-		failAt(c, p: p, node: s, code: diag.errMissingReturn, msg: diag.returnWithoutValue(fnName), errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errMissingReturn, msg: diag.returnWithoutValue(fnName), errs: errs)
 		return
 	end 'missing'
 	if ret == ast.noType 'inferred'
@@ -746,33 +746,33 @@ function checkReturn(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 	if typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.funcTy) and typeHasKind(p, ms: ms, t: ret, kind: ast.TypeKind.funcTy) 'function'
 		// A return re-brands a function value of the right shape, as in maxon.
 		if not shapeFits(p, ms: ms, src: t, dst: ret) 'shape'
-			failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.functionShapeReturned(clashName(p, ms: ms, t: ret, other: t), got: clashName(p, ms: ms, t: t, other: ret)), errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: diag.functionShapeReturned(clashName(p, ms: ms, t: ret, other: t), got: clashName(p, ms: ms, t: t, other: ret)), errs: errs)
 		end 'shape'
 		return
 	end 'function'
-	_ = coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, node: s), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
+	_ = coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, ms: ms, node: s), src: t, target: ret, wrong: Mismatch.returned, errs: errs)
 end 'checkReturn'
 
 // checkThrow types a throw, which fails with a case of an error enum or a value of an error union.
-function checkThrow(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let value = ast.throwStmtValue(p.modules[c.modIdx].tree, id: s)
+function checkThrow(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let value = ast.throwStmtValue(ms.tree, id: s)
 	let e = checkExpr(c, p: p, ms: ms, e: value, errs: errs)
 	if e == ast.noType 'badValue'
 		return
 	end 'badValue'
 	if not ast.isErrorType(ms.types, t: e) 'notError'
-		failAt(c, p: p, node: s, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errTypeMismatch, msg: diag.thrownValueNotAnErrorEnum(), errs: errs)
 		return
 	end 'notError'
 	recordFailure(c, e: e)
 end 'checkThrow'
 
-function checkJump(mutates c Checker, p ast.Project, s ast.NodeID, isBreak bool, mutates errs diag.ErrorList)
-	var label = ast.continueStmtLabel(p.modules[c.modIdx].tree, id: s)
+function checkJump(mutates c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, isBreak bool, mutates errs diag.ErrorList)
+	var label = ast.continueStmtLabel(ms.tree, id: s)
 	if isBreak 'break'
-		label = ast.breakStmtLabel(p.modules[c.modIdx].tree, id: s)
+		label = ast.breakStmtLabel(ms.tree, id: s)
 	end 'break'
-	match consumes resolveJump(c, p: p, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
+	match consumes resolveJump(c, p: p, ms: ms, s: s, label: label, isBreak: isBreak, errs: errs) 'target'
 		some(node) then c.typing.jumps.insert(s as Count, value: node)
 		none then _ = 0
 	end 'target'
@@ -780,7 +780,7 @@ end 'checkJump'
 
 // resolveJump is the loop or match that a break or a continue leaves or repeats, or none after it reported why there is
 // none.
-function resolveJump(c Checker, p ast.Project, s ast.NodeID, label String, isBreak bool, mutates errs diag.ErrorList) returns table.Option with ast.NodeID
+function resolveJump(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID, label String, isBreak bool, mutates errs diag.ErrorList) returns table.Option with ast.NodeID
 	var word = "continue"
 	if isBreak 'break'
 		word = "break"
@@ -799,16 +799,16 @@ function resolveJump(c Checker, p ast.Project, s ast.NodeID, label String, isBre
 			continue 'blocks'
 		end 'other'
 		if not isBreak and not frame.isLoop 'notLoop'
-			failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "'continue' names '{label}', which is not a loop", errs: errs)
+			failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "'continue' names '{label}', which is not a loop", errs: errs)
 			return table.Option.none
 		end 'notLoop'
 		return table.Option.some(frame.node)
 	end 'blocks'
 	if label == "" 'noLoop'
-		failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "'{word}' outside a loop", errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "'{word}' outside a loop", errs: errs)
 		return table.Option.none
 	end 'noLoop'
-	failAt(c, p: p, node: s, code: diag.errUnexpectedToken, msg: "no enclosing loop or match is labelled '{label}'", errs: errs)
+	failAt(c, p: p, ms: ms, node: s, code: diag.errUnexpectedToken, msg: "no enclosing loop or match is labelled '{label}'", errs: errs)
 	return table.Option.none
 end 'resolveJump'
 
@@ -837,17 +837,17 @@ function recordFailure(mutates c Checker, e ast.TypeID)
 end 'recordFailure'
 
 // checkTryStmt types the body of a try block and its handler, which may name the error that failed.
-function checkTryStmt(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
-	let body = ast.tryStmtBodyRef(p.modules[c.modIdx].tree, id: s)
-	if not ast.tryStmtHasOtherwise(p.modules[c.modIdx].tree, id: s) 'plain'
+function checkTryStmt(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
+	let body = ast.tryStmtBodyRef(ms.tree, id: s)
+	if not ast.tryStmtHasOtherwise(ms.tree, id: s) 'plain'
 		checkBlock(c, p: p, ms: ms, body: body, errs: errs)
 		return
 	end 'plain'
 	beginCatching(c)
 	checkBlock(c, p: p, ms: ms, body: body, errs: errs)
 	let errors = endCatching(c)
-	let handler = ast.tryStmtHandlerRef(p.modules[c.modIdx].tree, id: s)
-	let binding = ast.tryStmtBinding(p.modules[c.modIdx].tree, id: s)
+	let handler = ast.tryStmtHandlerRef(ms.tree, id: s)
+	let binding = ast.tryStmtBinding(ms.tree, id: s)
 	pushScope(c)
 	if binding == "" 'anonymous'
 		checkStmts(c, p: p, ms: ms, body: handler, errs: errs)
@@ -860,12 +860,12 @@ end 'checkTryStmt'
 
 // checkHandlerBinding types the body of a handler that names the error, which a try block's handler must match on and a
 // try expression's need not.
-function checkHandlerBinding(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, binding String, errors ast.TypeIDList, body diag.U32, requireMatch bool, mutates errs diag.ErrorList)
+function checkHandlerBinding(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, binding String, errors ast.TypeIDList, body diag.U32, requireMatch bool, mutates errs diag.ErrorList)
 	let handled = handlerError(c, p: p, ms: ms, s: s, binding: binding, errors: errors, errs: errs)
 	if handled == ast.noType 'ambiguous'
 		return
 	end 'ambiguous'
-	let local = declareLocal(c, p: p, ms: ms, name: binding, t: handled, isVar: false, definedAt: s, off: offsetOf(c, p: p, node: s), errs: errs)
+	let local = declareLocal(c, p: p, ms: ms, name: binding, t: handled, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: s), errs: errs)
 	if local == ast.noLocal 'failed'
 		return
 	end 'failed'
@@ -874,7 +874,7 @@ function checkHandlerBinding(mutates c Checker, mutates p ast.Project, mutates m
 	checkStmts(c, p: p, ms: ms, body: body, errs: errs)
 	let frame = try c.bindings.pop() otherwise panic("a handler ended that was never begun")
 	if requireMatch and not frame.matched 'unmatched'
-		failAt(c, p: p, node: s, code: diag.errTryBlockBindingNotMatched, msg: diag.tryBlockBindingNotMatched(binding), errs: errs)
+		failAt(c, p: p, ms: ms, node: s, code: diag.errTryBlockBindingNotMatched, msg: diag.tryBlockBindingNotMatched(binding), errs: errs)
 	end 'unmatched'
 end 'checkHandlerBinding'
 
@@ -887,16 +887,16 @@ function handlerError(c Checker, p ast.Project, ms ast.ModuleState, s ast.NodeID
 	if errors.count() == 1 'one'
 		return errors[0]
 	end 'one'
-	failAt(c, p: p, node: s, code: diag.errErrorTypeMismatch, msg: "the block fails with '{nameOfType(p, ms: ms, t: errors[0])}' and with '{nameOfType(p, ms: ms, t: errors[1])}', and '({binding})' names one error: give the calls of one of them a 'try ... otherwise' of their own, or drop '({binding})'", errs: errs)
+	failAt(c, p: p, ms: ms, node: s, code: diag.errErrorTypeMismatch, msg: "the block fails with '{nameOfType(p, ms: ms, t: errors[0])}' and with '{nameOfType(p, ms: ms, t: errors[1])}', and '({binding})' names one error: give the calls of one of them a 'try ... otherwise' of their own, or drop '({binding})'", errs: errs)
 	return ast.noType
 end 'handlerError'
 
 // markMatchedBinding notes a match on the error that a handler names.
-function markMatchedBinding(mutates c Checker, p ast.Project, subject ast.NodeID)
-	if p.modules[c.modIdx].tree.kindOf(subject) != ast.NodeKind.nameExpr 'notName'
+function markMatchedBinding(mutates c Checker, p ast.Project, ms ast.ModuleState, subject ast.NodeID)
+	if ms.tree.kindOf(subject) != ast.NodeKind.nameExpr 'notName'
 		return
 	end 'notName'
-	let local = lookupLocal(c, name: ast.nameExprName(p.modules[c.modIdx].tree, id: subject))
+	let local = lookupLocal(c, name: ast.nameExprName(ms.tree, id: subject))
 	for i in 0 upto c.bindings.count() 'each'
 		if c.bindings[i].local == local 'hit'
 			c.bindings[i].matched = true

@@ -33,19 +33,19 @@ end 'rangeNarrowed'
 
 // rangeNarrow narrows st, which is from or a copy of it made on the first change, by c having the value truth.
 function rangeNarrow(mutates r Ranges, p ast.Project, ms ast.ModuleState, mutates st Count, from Count, c ast.NodeID, truth bool, since Count)
-	let k = p.modules[r.modIdx].tree.kindOf(c)
+	let k = ms.tree.kindOf(c)
 	if k == ast.NodeKind.unaryExpr 'unary'
-		if ast.unaryExprOp(p.modules[r.modIdx].tree, id: c) == "not" and typeOf(r, e: c) == p.builtins.boolTy 'not'
-			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: ast.unaryExprE(p.modules[r.modIdx].tree, id: c), truth: not truth, since: since)
+		if ast.unaryExprOp(ms.tree, id: c) == "not" and typeOf(r, e: c) == p.builtins.boolTy 'not'
+			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: ast.unaryExprE(ms.tree, id: c), truth: not truth, since: since)
 		end 'not'
 		return
 	end 'unary'
 	if k != ast.NodeKind.binaryExpr 'other'
 		return
 	end 'other'
-	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: c)
-	let l = ast.binaryExprL(p.modules[r.modIdx].tree, id: c)
-	let right = ast.binaryExprR(p.modules[r.modIdx].tree, id: c)
+	let op = ast.binaryExprOp(ms.tree, id: c)
+	let l = ast.binaryExprL(ms.tree, id: c)
+	let right = ast.binaryExprR(ms.tree, id: c)
 	if (op == "and" and truth) or (op == "or" and not truth) 'both'
 		if typeOf(r, e: c) == p.builtins.boolTy 'logical'
 			rangeNarrow(r, p: p, ms: ms, st: st, from: from, c: l, truth: truth, since: since)
@@ -177,18 +177,18 @@ function rangePeek(r Ranges, p ast.Project, ms ast.ModuleState, s Count, e ast.N
 		some(place) then return rangeSpanAt(r, p: p, ms: ms, s: s, place: place, t: t)
 		none then _ = 0
 	end 'place'
-	if p.modules[r.modIdx].tree.kindOf(e) == ast.NodeKind.nameExpr 'name'
+	if ms.tree.kindOf(e) == ast.NodeKind.nameExpr 'name'
 		let name = nameInfoOf(r.typing, node: e)
 		if name.kind == ast.NameKind.nameConst 'constant'
-			return constSpan(p, ref: name.decl)
+			return constSpan(p, ms: ms, ref: name.decl)
 		end 'constant'
 	end 'name'
 	return typeSpan(ms.types, t: t)
 end 'rangePeek'
 
 // constSpan is the span that the range analysis gave a constant's value.
-function constSpan(p ast.Project, ref ast.DeclRef) returns Span
-	return match consumes ast.declConst(p, ref: ref) 'constant'
+function constSpan(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns Span
+	return match consumes ast.declConst(p, ms: ms, ref: ref) 'constant'
 		some(value) gives Span.make(value.low.clone(), hi: value.high.clone())
 		none panic("ranges: the constant {ref.ordinal} of module {ref.module} has no value")
 	end 'constant'
@@ -217,9 +217,9 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 	if isConstInt(p, ms: ms, t: t) 'literal'
 		return typeSpan(ms.types, t: t)
 	end 'literal'
-	let k = p.modules[r.modIdx].tree.kindOf(e)
+	let k = ms.tree.kindOf(e)
 	if k == ast.NodeKind.intLit 'intLit'
-		return Span.exactly(ast.intLitValue(p.modules[r.modIdx].tree, id: e))
+		return Span.exactly(ast.intLitValue(ms.tree, id: e))
 	end 'intLit'
 	if k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit 'nothing'
 		return noSpan()
@@ -237,11 +237,11 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 		return rangeNameExpr(r, p: p, ms: ms, e: e)
 	end 'name'
 	if k == ast.NodeKind.panicExpr 'panic'
-		_ = rangeEval(r, p: p, ms: ms, e: ast.panicExprMessage(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.panicExprMessage(ms.tree, id: e))
 		return noSpan()
 	end 'panic'
 	if k == ast.NodeKind.matchExpr 'match'
-		return rangeMatch(r, p: p, ms: ms, core: ast.matchExprMatch(p.modules[r.modIdx].tree, id: e))
+		return rangeMatch(r, p: p, ms: ms, core: ast.matchExprMatch(ms.tree, id: e))
 	end 'match'
 	if k == ast.NodeKind.memberExpr 'member'
 		return rangeMemberExpr(r, p: p, ms: ms, e: e)
@@ -253,7 +253,7 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 		return rangeCallExpr(r, p: p, ms: ms, e: e)
 	end 'call'
 	if k == ast.NodeKind.fromExpr 'from'
-		_ = rangeEval(r, p: p, ms: ms, e: ast.fromExprValue(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.fromExprValue(ms.tree, id: e))
 		return noSpan()
 	end 'from'
 	if k == ast.NodeKind.condExpr 'cond'
@@ -275,7 +275,7 @@ function rangeEval(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.No
 		rangeClosure(r, p: p, ms: ms, e: e)
 		return noSpan()
 	end 'closure'
-	if k == ast.NodeKind.typeQueryExpr and ast.typeQueryExprOp(p.modules[r.modIdx].tree, id: e) == "sizeof" 'sizeof'
+	if k == ast.NodeKind.typeQueryExpr and ast.typeQueryExprOp(ms.tree, id: e) == "sizeof" 'sizeof'
 		// The size of a value of a type a generic's parameters build, which each instance knows: a value is never larger
 		// than the address space.
 		return Span.make(ast.I128.one(), hi: ast.I128.i64Max())
@@ -299,10 +299,10 @@ function rangeClosure(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 end 'rangeClosure'
 
 function rangeStrLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let partsRef = ast.strLitPartsRef(p.modules[r.modIdx].tree, id: e)
-	for i in 0 upto p.modules[r.modIdx].tree.strPartCount(partsRef) 'parts'
-		if p.modules[r.modIdx].tree.strPartIsExpr(partsRef, index: i) 'interpolated'
-			_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.strPartExpr(partsRef, index: i))
+	let partsRef = ast.strLitPartsRef(ms.tree, id: e)
+	for i in 0 upto ms.tree.strPartCount(partsRef) 'parts'
+		if ms.tree.strPartIsExpr(partsRef, index: i) 'interpolated'
+			_ = rangeEval(r, p: p, ms: ms, e: ms.tree.strPartExpr(partsRef, index: i))
 		end 'interpolated'
 	end 'parts'
 	return noSpan()
@@ -322,12 +322,12 @@ function rangeStructLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 end 'rangeStructLit'
 
 function rangeCollectionLit(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let elemsRef = ast.collectionLitExprElemsRef(p.modules[r.modIdx].tree, id: e)
-	let valuesRef = ast.collectionLitExprValuesRef(p.modules[r.modIdx].tree, id: e)
-	for i in 0 upto p.modules[r.modIdx].tree.listLen(elemsRef) 'each'
-		_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID)
-		if p.modules[r.modIdx].tree.listLen(valuesRef) > 0 'pair'
-			_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID)
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree, id: e)
+	for i in 0 upto ms.tree.listLen(elemsRef) 'each'
+		_ = rangeEval(r, p: p, ms: ms, e: ms.tree.listAt(elemsRef, index: i) as ast.NodeID)
+		if ms.tree.listLen(valuesRef) > 0 'pair'
+			_ = rangeEval(r, p: p, ms: ms, e: ms.tree.listAt(valuesRef, index: i) as ast.NodeID)
 		end 'pair'
 	end 'each'
 	return noSpan()
@@ -343,7 +343,7 @@ function rangeNameExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 	end 'int'
 	let name = nameInfoOf(r.typing, node: e)
 	if name.kind == ast.NameKind.nameConst and ast.isIntType(ms.types, t: t) 'constant'
-		return constSpan(p, ref: name.decl)
+		return constSpan(p, ms: ms, ref: name.decl)
 	end 'constant'
 	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeNameExpr'
@@ -351,7 +351,7 @@ end 'rangeNameExpr'
 function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let kind = memberInfoOf(r, e: e).kind
 	if not ast.memberOfType(kind) 'value'
-		_ = rangeEval(r, p: p, ms: ms, e: ast.memberExprObj(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.memberExprObj(ms.tree, id: e))
 	end 'value'
 	let t = typeOf(r, e: e)
 	if ast.isIntType(ms.types, t: t) 'int'
@@ -364,10 +364,10 @@ function rangeMemberExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e 
 end 'rangeMemberExpr'
 
 function rangeIndexExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	_ = rangeEval(r, p: p, ms: ms, e: ast.indexExprObj(p.modules[r.modIdx].tree, id: e))
-	let argsRef = ast.indexExprArgsRef(p.modules[r.modIdx].tree, id: e)
-	for i in 0 upto p.modules[r.modIdx].tree.listLen(argsRef) 'args'
-		_ = rangeEval(r, p: p, ms: ms, e: p.modules[r.modIdx].tree.listAt(argsRef, index: i) as ast.NodeID)
+	_ = rangeEval(r, p: p, ms: ms, e: ast.indexExprObj(ms.tree, id: e))
+	let argsRef = ast.indexExprArgsRef(ms.tree, id: e)
+	for i in 0 upto ms.tree.listLen(argsRef) 'args'
+		_ = rangeEval(r, p: p, ms: ms, e: ms.tree.listAt(argsRef, index: i) as ast.NodeID)
 	end 'args'
 	return rangeTyped(r, p: p, ms: ms, e: e)
 end 'rangeIndexExpr'
@@ -377,12 +377,12 @@ function rangeCallExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e as
 		some(info) gives info
 		none panic("ranges: the call at node {e} was typed without a record of what it calls")
 	end 'call'
-	let receiver = ast.callReceiver(p.modules[r.modIdx].tree, e: e, kind: call.kind)
+	let receiver = ast.callReceiver(ms.tree, e: e, kind: call.kind)
 	if receiver != 0 'receiver'
 		_ = rangeEval(r, p: p, ms: ms, e: receiver)
 	end 'receiver'
 	if call.kind == ast.CallKind.callValue 'value'
-		_ = rangeEval(r, p: p, ms: ms, e: ast.callExprCallee(p.modules[r.modIdx].tree, id: e))
+		_ = rangeEval(r, p: p, ms: ms, e: ast.callExprCallee(ms.tree, id: e))
 	end 'value'
 	var first = noSpan()
 	for i in 0 upto call.ordered.count() 'args'
@@ -447,7 +447,7 @@ function rangeCountedAccess(mutates r Ranges, p ast.Project, ms ast.ModuleState,
 		return
 	end 'inside'
 	if index.lo.eq(index.hi) and index.lo.gt(last) and not r.probing 'constant'
-		rangeRaise(r, p: p, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
+		rangeRaise(r, p: p, ms: ms, node: info.ordered[0], code: diag.errTypeMismatch, msg: "Value {index.lo.toString()} is outside the range of the indices of 'FixedArray with {count}' (int(0 to {last.toString()}))")
 		return
 	end 'constant'
 	rangeFallible(r, p: p, ms: ms, site: e, err: p.builtins.arrayErrorTy, why: Unchecked.index(method, count: count))
@@ -474,16 +474,16 @@ function rangeChangedAt(mutates r Ranges, p ast.Project, ms ast.ModuleState, e a
 end 'rangeChangedAt'
 
 function rangeCondExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let cond = ast.condExprCond(p.modules[r.modIdx].tree, id: e)
+	let cond = ast.condExprCond(ms.tree, id: e)
 	let since = rangeCondition(r, p: p, ms: ms, c: cond)
 	let start = rangeKeep(r)
 	let whenTrue = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: true, since: since)
 	r.st = whenTrue
-	let thenSpan = rangeEval(r, p: p, ms: ms, e: ast.condExprThen(p.modules[r.modIdx].tree, id: e))
+	let thenSpan = rangeEval(r, p: p, ms: ms, e: ast.condExprThen(ms.tree, id: e))
 	let thenEnd = r.st
 	let whenFalse = rangeNarrowed(r, p: p, ms: ms, from: start, c: cond, truth: false, since: since)
 	r.st = whenFalse
-	let els = rangeEval(r, p: p, ms: ms, e: ast.condExprElse(p.modules[r.modIdx].tree, id: e))
+	let els = rangeEval(r, p: p, ms: ms, e: ast.condExprElse(ms.tree, id: e))
 	let elseEnd = r.st
 	r.st = r.states.joined(thenEnd, b: elseEnd)
 	if isDead(r, s: thenEnd) 'onlyElse'
@@ -502,8 +502,8 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 		some(id) gives r.typing.locals[id as Count].ty
 		none gives ast.noType
 	end 'local'
-	let added = rangeEnterTry(r, p: p, ms: ms, site: e, handles: not ast.propagates(p.modules[r.modIdx].tree, e: e), takes: takes)
-	let v = rangeEval(r, p: p, ms: ms, e: ast.tryExprE(p.modules[r.modIdx].tree, id: e))
+	let added = rangeEnterTry(r, p: p, ms: ms, site: e, handles: not ast.propagates(ms.tree, e: e), takes: takes)
+	let v = rangeEval(r, p: p, ms: ms, e: ast.tryExprE(ms.tree, id: e))
 	if not added 'passed'
 		return v
 	end 'passed'
@@ -514,20 +514,20 @@ function rangeTryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast
 	let ended = rangeKeep(r)
 	r.st = h.entry
 	var other = noSpan()
-	let value = ast.tryFallback(p.modules[r.modIdx].tree, e: e)
-	let handler = ast.tryExprHandler(p.modules[r.modIdx].tree, id: e)
-	let ret = ast.tryExprRet(p.modules[r.modIdx].tree, id: e)
-	let brk = ast.tryExprBrk(p.modules[r.modIdx].tree, id: e)
-	let thr = ast.tryExprThr(p.modules[r.modIdx].tree, id: e)
+	let value = ast.tryFallback(ms.tree, e: e)
+	let handler = ast.tryExprHandler(ms.tree, id: e)
+	let ret = ast.tryExprRet(ms.tree, id: e)
+	let brk = ast.tryExprBrk(ms.tree, id: e)
+	let thr = ast.tryExprThr(ms.tree, id: e)
 	if value != 0 'value'
 		other = rangeEval(r, p: p, ms: ms, e: value)
 	end 'value' else if handler != 0 'handler'
-		rangeBlock(r, p: p, ms: ms, body: ast.handlerBlockBodyRef(p.modules[r.modIdx].tree, id: handler))
+		rangeBlock(r, p: p, ms: ms, body: ast.handlerBlockBodyRef(ms.tree, id: handler))
 	end 'handler' else if ret != 0 'return'
 		rangeReturnStmt(r, p: p, ms: ms, s: ret)
 	end 'return' else if brk != 0 'break'
 		rangeBreakStmt(r, s: brk)
-	end 'break' else if ast.tryExprCont(p.modules[r.modIdx].tree, id: e) != 0 'continue'
+	end 'break' else if ast.tryExprCont(ms.tree, id: e) != 0 'continue'
 		r.st = deadState
 	end 'continue' else if thr != 0 'throw'
 		rangeThrowStmt(r, p: p, ms: ms, s: thr)
@@ -548,10 +548,10 @@ end 'rangeTryExpr'
 // a comparison, or an operator on integers.
 function rangeBinaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
 	let since = r.written.count()
-	var chain = ast.leftChain(p.modules[r.modIdx].tree, e: e)
+	var chain = ast.leftChain(ms.tree, e: e)
 	ast.trimFolded(p, ms: ms, typing: r.typing, chain: chain)
 	var node = ast.nextOperator(chain, e: e)
-	var l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: node))
+	var l = rangeEval(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree, id: node))
 	while node != e 'inner'
 		l = rangeOperator(r, p: p, ms: ms, e: node, l: l, since: since)
 		node = ast.nextOperator(chain, e: e)
@@ -562,9 +562,9 @@ end 'rangeBinaryExpr'
 // rangeOperator is the span of an operator whose left operand has been walked and has the span l; since is where the
 // places that the whole expression changes begin in written.
 function rangeOperator(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, since Count) returns Span
-	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
-	let left = ast.binaryExprL(p.modules[r.modIdx].tree, id: e)
-	let right = ast.binaryExprR(p.modules[r.modIdx].tree, id: e)
+	let op = ast.binaryExprOp(ms.tree, id: e)
+	let left = ast.binaryExprL(ms.tree, id: e)
+	let right = ast.binaryExprR(ms.tree, id: e)
 	if (op == "and" or op == "or") and typeOf(r, e: e) == p.builtins.boolTy 'logical'
 		let start = rangeKeep(r)
 		let rightRuns = rangeNarrowed(r, p: p, ms: ms, from: start, c: left, truth: op == "and", since: since)
@@ -581,7 +581,7 @@ end 'rangeOperator'
 // rangeOperate is the span of an operator on operands of the spans l and rs. An exact result outside bound, if there is
 // one, is one the code cannot reach.
 function rangeOperate(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, l Span, rs Span, bound table.Option with Span) returns Span
-	let op = ast.binaryExprOp(p.modules[r.modIdx].tree, id: e)
+	let op = ast.binaryExprOp(ms.tree, id: e)
 	if isComparisonOp(op) or not ast.isIntType(ms.types, t: typeOf(r, e: e)) 'noSpan'
 		return noSpan()
 	end 'noSpan'
@@ -623,8 +623,8 @@ end 'withinBound'
 
 // rangeDifferenceLow is the least a subtraction of two places can give, by what is known of how far apart they are.
 function rangeDifferenceLow(r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID, low ast.I128) returns ast.I128
-	let px = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprL(p.modules[r.modIdx].tree, id: e))
-	let py = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprR(p.modules[r.modIdx].tree, id: e))
+	let px = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprL(ms.tree, id: e))
+	let py = rangePlaceOf(r, p: p, ms: ms, e: ast.binaryExprR(ms.tree, id: e))
 	match px 'x'
 		some(x) then return gapLow(r, x: x, y: py, low: low)
 		none then return low.clone()
@@ -761,7 +761,7 @@ function uncheckedText(r Ranges, p ast.Project, ms ast.ModuleState, why Unchecke
 	return match why 'why'
 		call(name) gives diag.throwingCallRequiresTry(name)
 		index(method, count) gives "{diag.throwingCallRequiresTry(method)} — its index is not proven inside the fixed array's {count} elements; wrap it as `try … otherwise …`, or give the index a ranged type within `int(0 to {ast.I128.fromCount(count).sub(ast.I128.one()).toString()})`"
-		operation(op, fails, node, ty) gives "{failureText(p, ms: ms, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(p.modules[r.modIdx].tree, fails: fails, e: node))}"
+		operation(op, fails, node, ty) gives "{failureText(p, ms: ms, op: op, fails: fails, ty: ty)}{operandFix(guardAdvice(ms.tree, fails: fails, e: node))}"
 		cast(ty) gives castText(p, ms: ms, ty: ty)
 		recovered(iface, ty) gives "the value of '{nameOfType(p, ms: ms, t: iface)}' may hold a value of another type than '{nameOfType(p, ms: ms, t: ty)}', and then the cast fails with CastError.otherType; handle the failure with 'try'"
 		returned(ty, _) gives castText(p, ms: ms, ty: ty)
@@ -795,7 +795,7 @@ end 'setFails'
 function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site ast.NodeID, err ast.TypeID, why Unchecked)
 	if r.handlers.count() == 0 'uncovered'
 		if not r.probing 'report'
-			rangeRaiseFixed(r, p: p, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: uncheckedFix(p, ms: ms, t: p.modules[r.modIdx].tree, why: why, site: site))
+			rangeRaiseFixed(r, p: p, ms: ms, node: uncheckedNode(why, site: site), code: diag.errUncheckedFailure, msg: uncheckedText(r, p: p, ms: ms, why: why), fix: uncheckedFix(p, ms: ms, t: ms.tree, why: why, site: site))
 		end 'report'
 		return
 	end 'uncovered'
@@ -805,11 +805,11 @@ function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site
 	if not r.probing 'judged'
 		let thrown = fnErrorType(r, p: p, ms: ms)
 		if propagates and thrown != err 'otherError'
-			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, ms: ms, t: err), enclosing: nameOfType(p, ms: ms, t: thrown)))
+			rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: diag.propagateMismatch(nameOfType(p, ms: ms, t: err), enclosing: nameOfType(p, ms: ms, t: thrown)))
 			return
 		end 'otherError'
 		if takes != ast.noType and takes != err 'otherHandler'
-			rangeRaise(r, p: p, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, ms: ms, t: err)}', but the handler of the try around it names a '{nameOfType(p, ms: ms, t: takes)}': give it a 'try ... otherwise' of its own")
+			rangeRaise(r, p: p, ms: ms, node: site, code: diag.errErrorTypeMismatch, msg: "this fails with '{nameOfType(p, ms: ms, t: err)}', but the handler of the try around it names a '{nameOfType(p, ms: ms, t: takes)}': give it a 'try ... otherwise' of its own")
 			return
 		end 'otherHandler'
 	end 'judged'
@@ -822,13 +822,13 @@ function rangeFallible(mutates r Ranges, p ast.Project, ms ast.ModuleState, site
 end 'rangeFallible'
 
 function rangeUnaryExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let operand = ast.unaryExprE(p.modules[r.modIdx].tree, id: e)
+	let operand = ast.unaryExprE(ms.tree, id: e)
 	let v = rangeEval(r, p: p, ms: ms, e: operand)
 	let t = typeOf(r, e: e)
 	if not ast.isIntType(ms.types, t: t) 'notInt'
 		return noSpan()
 	end 'notInt'
-	let op = ast.unaryExprOp(p.modules[r.modIdx].tree, id: e)
+	let op = ast.unaryExprOp(ms.tree, id: e)
 	// A negation is computed in a signed word whatever type the context gives its result, and a complement in its
 	// operand's word.
 	let unsigned = op == "not" and ast.isUnsignedInt(ms.types, t: typeOf(r, e: operand))
@@ -855,7 +855,7 @@ end 'rangeUnaryExpr'
 
 // rangeCastExpr fails where the value may lie outside the target's range.
 function rangeCastExpr(mutates r Ranges, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns Span
-	let operand = ast.castExprE(p.modules[r.modIdx].tree, id: e)
+	let operand = ast.castExprE(ms.tree, id: e)
 	let v = rangeEval(r, p: p, ms: ms, e: operand)
 	let ty = typeOf(r, e: e)
 	let src = typeOf(r, e: operand)

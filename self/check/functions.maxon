@@ -31,7 +31,7 @@ end 'enterContext'
 
 // newFuncEntry makes the entry of a function or a method and registers it under its node, and a function of the
 // module's top level under its declaration too. A method belongs to the type nt; a function to none.
-function newFuncEntry(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, ownerTy ast.TypeID, ref ast.DeclRef) returns ast.FuncID
+function newFuncEntry(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, ownerTy ast.TypeID, ref ast.DeclRef) returns ast.FuncID
 	var fn = ast.FuncEntry.make(f.name.clone(), visibility: f.visibility.clone(), module: c.modID, nodeID: f.id)
 	fn.isStatic = f.isStatic
 	fn.isDestructor = f.receiver == ast.Convention.convDestructs.keyword()
@@ -43,9 +43,9 @@ function newFuncEntry(mutates c Checker, mutates p ast.Project, mutates ms ast.M
 		fn.decl = ref.clone()
 	end 'free'
 	let fid = ast.allocFunc(ms.funcs, module: c.modID, f: fn)
-	ast.setNodeFunc(p, module: c.modID, node: f.id, f: fid)
+	ast.setNodeFunc(ms, module: c.modID, node: f.id, f: fid)
 	if ownerTy == ast.noType 'registered'
-		ast.setDeclFunc(p, ref: ref, f: fid)
+		ast.setDeclFunc(ms, ref: ref, f: fid)
 	end 'registered'
 	return fid
 end 'newFuncEntry'
@@ -53,10 +53,10 @@ end 'newFuncEntry'
 // declareGenerics gives a function its type parameters: its own, or for a method the ones of its type, which its
 // 'where' may bound further. A method that an extension of an interface adds belongs to the extension's parameter 'Self',
 // and takes it and the associated types of the interface that bounds it.
-function declareGenerics(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
+function declareGenerics(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates errs diag.ErrorList)
 	let isMethod = nt != ast.noType
 	if f.typeParams.count() > 0 and isMethod 'ownParams'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errGenericDeclaration, msg: "the method '{f.name}' takes no type parameters of its own: use the type's, or write a function", errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errGenericDeclaration, msg: "the method '{f.name}' takes no type parameters of its own: use the type's, or write a function", errs: errs)
 		return
 	end 'ownParams'
 	let ofInterface = isMethod and ast.typeKind(ms.types, t: nt) == ast.TypeKind.typeParam
@@ -70,9 +70,9 @@ function declareGenerics(mutates c Checker, mutates p ast.Project, mutates ms as
 		let mark = errs.count()
 		for i in 0 upto f.whereList.count() 'cons'
 			let cs = f.whereList[i].clone()
-			let constrained = boundedParamOf(c, p: p, cs: cs)
-			for bi in 0 upto p.modules[c.modIdx].tree.listLen(cs.bounds) 'bounds'
-				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: p.modules[c.modIdx].tree.listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
+			let constrained = boundedParamOf(c, p: p, ms: ms, cs: cs)
+			for bi in 0 upto ms.tree.listLen(cs.bounds) 'bounds'
+				let iface = resolveBoundTypeRef(c, p: p, ms: ms, tr: ms.tree.listAt(cs.bounds, index: bi) as ast.NodeID, isBound: true, errs: errs)
 				if failedSince(errs, mark: mark) 'failed'
 					return
 				end 'failed'
@@ -91,8 +91,8 @@ function declareGenerics(mutates c Checker, mutates p ast.Project, mutates ms as
 end 'declareGenerics'
 
 // addFunction declares the signature of a function or of a method of the type nt, which is none for a function.
-function addFunction(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let off = offsetOf(c, p: p, node: f.id)
+function addFunction(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, f ast.FuncDecl, fid ast.FuncID, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, ms: ms, node: f.id)
 	if nt == ast.noType and f.isStatic 'staticFree'
 		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "a static function belongs in a 'type'", errs: errs)
 		return
@@ -142,15 +142,15 @@ function addFunction(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 end 'addFunction'
 
 // addMethods declares the methods of a type, a union or an enum.
-function addMethods(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+function addMethods(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, methods ast.FuncDeclList, nt ast.TypeID, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
 	let isRecord = ast.typeKind(ms.types, t: nt) == ast.TypeKind.record
 	for i in 0 upto methods.count() 'each'
 		addMethod(c, p: p, ms: ms, m: methods[i].clone(), nt: nt, isRecord: isRecord, declared: declared, errs: errs)
 	end 'each'
 end 'addMethods'
 
-function addMethod(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, m ast.FuncDecl, nt ast.TypeID, isRecord bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
-	let off = offsetOf(c, p: p, node: m.id)
+function addMethod(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, m ast.FuncDecl, nt ast.TypeID, isRecord bool, mutates declared ast.FuncIDList, mutates errs diag.ErrorList)
+	let off = offsetOf(c, p: p, ms: ms, node: m.id)
 	if m.isStatic and not isRecord 'static'
 		checkFail(c.modID, off: off, code: diag.errUnsupportedFeature, msg: "a static function belongs in a 'type'", errs: errs)
 		return
@@ -214,11 +214,11 @@ function functionOf(consumes d ast.Decl) returns table.Option with ast.FuncDecl
 end 'functionOf'
 
 // returnsExitCode is whether the function returns a typealias named ExitCode.
-function returnsExitCode(c Checker, p ast.Project, f ast.FuncDecl) returns bool
+function returnsExitCode(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl) returns bool
 	if f.returnsRef == 0 'none'
 		return false
 	end 'none'
-	match consumes p.resolutions[c.modIdx].decls.get(f.returnsRef as Count) 'bound'
+	match consumes ms.resolution.decls.get(f.returnsRef as Count) 'bound'
 		some(ref) then return namesExitCode(ast.moduleDecl(p, ref: ref))
 		none then return false
 	end 'bound'
@@ -239,26 +239,26 @@ end 'namesExitCode'
 
 // checkMain checks the entry function that the module declares, which takes no parameters, returns an ExitCode and throws
 // nothing, and gives its function. It gives none after it reported why the function is not one.
-export function checkMain(mutates c Checker, p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
+export function checkMain(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList) returns ast.FuncID
 	var f as ast.FuncDecl
 	match consumes mainDecl(p, modIdx: c.modIdx) 'found'
 		some(fd) then f = fd
 		none then panic("checkMain: module {c.modID} declares no {entryFunction}")
 	end 'found'
-	let off = offsetOf(c, p: p, node: f.id)
+	let off = offsetOf(c, p: p, ms: ms, node: f.id)
 	if f.params.count() > 0 'params'
 		checkFail(c.modID, off: off, code: diag.errEntryTakesParameters, msg: diag.entryTakesParameters(entryFunction), errs: errs)
 		return ast.noFunc
 	end 'params'
-	if not returnsExitCode(c, p: p, f: f) 'returns'
+	if not returnsExitCode(c, p: p, ms: ms, f: f) 'returns'
 		checkFail(c.modID, off: off, code: diag.errMainWrongReturnType, msg: diag.entryWrongReturnType(entryFunction), errs: errs)
 		return ast.noFunc
 	end 'returns'
 	if f.throwsRef != 0 'throws'
-		checkFail(c.modID, off: offsetOf(c, p: p, node: f.throwsRef), code: diag.errMainCannotThrow, msg: diag.entryCannotThrow(entryFunction), errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.throwsRef), code: diag.errMainCannotThrow, msg: diag.entryCannotThrow(entryFunction), errs: errs)
 		return ast.noFunc
 	end 'throws'
-	return mainFuncOf(c, p: p, f: f)
+	return mainFuncOf(c, p: p, ms: ms, f: f)
 end 'checkMain'
 
 // entryOrder is where the module's entry function stands in the order of the program's files, which is the byte order of their
@@ -287,12 +287,12 @@ let slashByte = 47 as Byte
 
 // reportSecondEntry reports the entry function of a module when an earlier module of the program declares one: the program has
 // one entry, whatever directory declares it.
-export function reportSecondEntry(mutates c Checker, p ast.Project, mutates errs diag.ErrorList)
+export function reportSecondEntry(mutates c Checker, p ast.Project, ms ast.ModuleState, mutates errs diag.ErrorList)
 	let ord = match consumes entryOrdinal(p, modIdx: c.modIdx) 'found'
 		some(o) gives o
 		none panic("reportSecondEntry: module {c.modID} declares no {entryFunction}")
 	end 'found'
-	let off = p.modules[c.modIdx].decls[ord as Count].offset(p.modules[c.modIdx].tree)
+	let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree)
 	checkFail(c.modID, off: off, code: diag.errDuplicateDefinition, msg: diag.duplicateDefinition(entryFunction, keyword: "function"), errs: errs)
 end 'reportSecondEntry'
 
@@ -301,8 +301,8 @@ export function reportNoEntry(mutates errs diag.ErrorList)
 	diag.pushUnplacedError(errs, code: diag.errNoMainFunction, message: diag.noEntryFunction(entryFunction))
 end 'reportNoEntry'
 
-function mainFuncOf(c Checker, p ast.Project, f ast.FuncDecl) returns ast.FuncID
-	match ast.nodeFunc(p, module: c.modID, node: f.id) 'fn'
+function mainFuncOf(c Checker, p ast.Project, ms ast.ModuleState, f ast.FuncDecl) returns ast.FuncID
+	match ast.nodeFunc(p, ms: ms, module: c.modID, node: f.id) 'fn'
 		some(fid) then return fid
 		none then _ = 0
 	end 'fn'

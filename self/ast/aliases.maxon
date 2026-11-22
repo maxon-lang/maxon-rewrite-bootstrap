@@ -65,16 +65,16 @@ end 'aliasNamesInstance'
 
 // isGenericOwned is whether the typealias of the name is declared in the body of a generic type, where a range would be a
 // distinct type for each instance.
-function isGenericOwned(p Project, modIdx Count, name String) returns bool
+function isGenericOwned(m Module, name String) returns bool
 	match consumes nestedAliasOwner(name) 'owner'
-		some(ownerName) then return typeParamCountOf(p, modIdx: modIdx, name: ownerName) > 0
+		some(ownerName) then return typeParamCountOf(m, name: ownerName) > 0
 		none then return false
 	end 'owner'
 end 'isGenericOwned'
 
-function typeParamCountOf(p Project, modIdx Count, name String) returns Count
-	match consumes p.modules[modIdx].names.get(name) 'declared'
-		some(ord) then return typeParamCountOfDecl(p.modules[modIdx].decls[ord as Count])
+function typeParamCountOf(m Module, name String) returns Count
+	match consumes m.names.get(name) 'declared'
+		some(ord) then return typeParamCountOfDecl(m.decls[ord as Count])
 		none then return 0
 	end 'declared'
 end 'typeParamCountOf'
@@ -100,22 +100,21 @@ end 'perInstanceRangeRefusal'
 // declareRangeAlias gives a typealias of a range its integer type, which is its own even where another alias has the
 // same range. A typealias of an instance has none yet: its type is the instance, which the checker's aliases stage
 // finds once the types it names are known.
-export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
+export function declareRangeAlias(mutates ms ModuleState, p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
 	if aliasNamesInstance(ad) 'instance'
 		return
 	end 'instance'
-	let modIdx = modIndex(ref.module)
-	let off = p.modules[modIdx].tree.startOf(ad.id)
-	if isGenericOwned(p, modIdx: modIdx, name: ad.name) 'perInstance'
+	let off = ms.source.tree.startOf(ad.id)
+	if isGenericOwned(ms.source, name: ad.name) 'perInstance'
 		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: perInstanceRangeRefusal(ad.name), module: ref.module, offset: off)
 		return
 	end 'perInstance'
 	if ad.high.id == (0 as NodeID) 'noHigh'
-		declareBitsAlias(p, ref: ref, ad: ad, errs: errs)
+		declareBitsAlias(ms, p: p, ref: ref, ad: ad, errs: errs)
 		return
 	end 'noHigh'
 	if ad.number == "float" 'float'
-		declareFloatAlias(p, ref: ref, ad: ad, errs: errs)
+		declareFloatAlias(ms, p: p, ref: ref, ad: ad, errs: errs)
 		return
 	end 'float'
 	if ad.number != "" 'otherNumber'
@@ -123,12 +122,12 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 		return
 	end 'otherNumber'
 	var lo as I128
-	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
+	match consumes boundValue(ref.module, tree: ms.source.tree, b: ad.low, errs: errs) 'low'
 		some(v) then lo = v
 		none then return
 	end 'low'
 	var hi as I128
-	match consumes boundValue(ref.module, tree: p.modules[modIdx].tree, b: ad.high, errs: errs) 'high'
+	match consumes boundValue(ref.module, tree: ms.source.tree, b: ad.high, errs: errs) 'high'
 		some(v) then hi = v
 		none then return
 	end 'high'
@@ -148,8 +147,8 @@ export function declareRangeAlias(mutates p Project, ref DeclRef, ad AliasDecl, 
 	e.maxVal = hi
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, module: ref.module, e: e)
-	setDeclType(p, ref: ref, t: t)
+	let t = allocType(ms.types, module: ref.module, e: e)
+	setDeclType(ms, ref: ref, t: t)
 end 'declareRangeAlias'
 
 // bitsKeyword is the name of a typealias of a raw bit pattern: bits(64), whose width is its only argument.
@@ -182,14 +181,13 @@ end 'boundText'
 
 // declareBitsAlias gives a typealias of a bit pattern its type: an unsigned integer of the pattern's width, which every
 // bit pattern of that width is a value of. A range written with one argument, other than bits, is a syntax error.
-function declareBitsAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
-	let modIdx = modIndex(ref.module)
+function declareBitsAlias(mutates ms ModuleState, p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
 	if ad.number != bitsKeyword 'notBits'
-		diag.pushSiteError(errs, code: diag.errExpectedToken, message: diag.expectedToken("'to' or 'upto'", got: ")"), module: ref.module, offset: p.modules[modIdx].tree.startOf(ad.low.id))
+		diag.pushSiteError(errs, code: diag.errExpectedToken, message: diag.expectedToken("'to' or 'upto'", got: ")"), module: ref.module, offset: ms.source.tree.startOf(ad.low.id))
 		return
 	end 'notBits'
 	if ad.low.sized != "" or ad.low.negative or not isLegalBitWidth(ad.low.value) 'illegal'
-		diag.pushSiteError(errs, code: diag.errIllegalBitWidth, message: diag.illegalBitWidth(boundText(ad.low)), module: ref.module, offset: p.modules[modIdx].tree.startOf(ad.low.id))
+		diag.pushSiteError(errs, code: diag.errIllegalBitWidth, message: diag.illegalBitWidth(boundText(ad.low)), module: ref.module, offset: ms.source.tree.startOf(ad.low.id))
 		return
 	end 'illegal'
 	let width = ad.low.value.lo
@@ -198,26 +196,25 @@ function declareBitsAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates 
 	e.bitsWidth = width
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, module: ref.module, e: e)
-	setDeclType(p, ref: ref, t: t)
+	let t = allocType(ms.types, module: ref.module, e: e)
+	setDeclType(ms, ref: ref, t: t)
 end 'declareBitsAlias'
 
 // declareFloatAlias gives a typealias of a float range its type, whose bounds are doubles: a float or an integer
 // literal, or the limit of f64 or f32.
-function declareFloatAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
-	let modIdx = modIndex(ref.module)
-	let off = p.modules[modIdx].tree.startOf(ad.id)
+function declareFloatAlias(mutates ms ModuleState, p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
+	let off = ms.source.tree.startOf(ad.id)
 	if not ad.inclusive 'exclusive'
 		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "a float range includes its upper bound: write 'to' in place of 'upto'", module: ref.module, offset: off)
 		return
 	end 'exclusive'
 	var lo = 0 as Count
-	match floatBound(ref.module, tree: p.modules[modIdx].tree, b: ad.low, errs: errs) 'low'
+	match floatBound(ref.module, tree: ms.source.tree, b: ad.low, errs: errs) 'low'
 		some(v) then lo = v
 		none then return
 	end 'low'
 	var hi = 0 as Count
-	match floatBound(ref.module, tree: p.modules[modIdx].tree, b: ad.high, errs: errs) 'high'
+	match floatBound(ref.module, tree: ms.source.tree, b: ad.high, errs: errs) 'high'
 		some(v) then hi = v
 		none then return
 	end 'high'
@@ -230,8 +227,8 @@ function declareFloatAlias(mutates p Project, ref DeclRef, ad AliasDecl, mutates
 	e.maxVal = I128.fromCount(hi)
 	e.hasDecl = true
 	e.decl = ref.clone()
-	let t = allocType(p.types, module: ref.module, e: e)
-	setDeclType(p, ref: ref, t: t)
+	let t = allocType(ms.types, module: ref.module, e: e)
+	setDeclType(ms, ref: ref, t: t)
 end 'declareFloatAlias'
 
 // floatBound is the double a bound of a float range writes, or none after it reported why it names none. A bound that

@@ -90,7 +90,7 @@ function witnessFor(p ast.Project, mutates ms ast.ModuleState, module diag.Modul
 	end 'found'
 	let key = ast.extensionKey(p, ms: ms, t: recv)
 	if key.isSome() 'extensions'
-		match consumes ast.extensionMethod(p, from: conformance, owner: key.unwrap(), name: name) 'ofType'
+		match consumes ast.extensionMethod(p, ms: ms, from: conformance, owner: key.unwrap(), name: name) 'ofType'
 			found(fid) then return instantiateMethod(p, ms: ms, module: module, site: site, method: fid, recv: recv, errs: errs)
 			absent then _ = 0
 			ambiguous(_, _) then panic("the conformance of {ast.typeName(ms.types, t: recv)} in {ast.describeModule(p, modID: conformance)} has two methods '{name}'")

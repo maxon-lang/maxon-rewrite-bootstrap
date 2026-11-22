@@ -469,7 +469,7 @@ export type TypeTable
 	// ends are, by slot and by phase, how many shapes the slot held when the task of its module's stage of that phase ended:
 	// what a task that waited on that stage reads of the slot, whatever the module's later stages have made since.
 	var ends as SlotLists
-	// writer is the slot that the running task may make types in besides sharedSlot (see beginModuleTask).
+	// writer is the slot that the running task may make types in (see beginModuleTask).
 	var writer as Count
 	// kinds are the kinds by their ordinal, which a structural handle holds.
 	var kinds as Array with TypeKind
@@ -526,10 +526,11 @@ let sharedSlot = 0 as Count
 // entries in any slot.
 let unscheduled = 65536 as Count
 
-// requireWriter stops the compile where a task makes an entry in the slot of a module it is no stage of: that module's
-// handles would then depend on the order the tasks run in.
+// requireWriter stops the compile where a task makes an entry in a slot other than its own: in the slot of a module it is no
+// stage of, whose handles would then depend on the order the tasks run in, or, for a task of a module, in sharedSlot, which
+// the tasks of every module read and which only what runs before them and the tasks of the project write.
 function requireWriter(writer Count, slot Count)
-	if slot != sharedSlot and writer != unscheduled and slot != writer 'foreign'
+	if writer != unscheduled and slot != writer 'foreign'
 		panic("an entry is made in slot {slot} by a task that may make them only in slot {writer}")
 	end 'foreign'
 end 'requireWriter'
@@ -778,7 +779,7 @@ export function endModuleTask(mutates tt TypeTable, module diag.ModuleID, phase 
 	tt.ends[slot][phase] = tt.lists[shapeList(slot)].count()
 end 'endModuleTask'
 
-// beginModuleTask lets the task of a stage of module, which begins, make entries in its slot and in sharedSlot only, and read
+// beginModuleTask lets the task of a stage of module, which begins, make entries in its slot only, and read
 // the shapes that the stage of phase made of each module it waited on.
 export function beginModuleTask(mutates tt TypeTable, mutates ft FuncTable, module diag.ModuleID, phase Count)
 	let slot = moduleSlot(module)
@@ -1603,12 +1604,12 @@ export function typeName(tt TypeTable, t TypeID) returns String
 end 'typeName'
 
 export type FuncTable
-	// slots are the entries of the functions by slot: the built-ins' and the instances' in sharedSlot, and each module's
-	// functions, methods, signatures, closures and behaviours in its own.
+	// slots are the entries of the functions by slot: the built-ins' in sharedSlot, and each module's functions, methods,
+	// signatures, closures and behaviours and the instances its stages ask for in its own.
 	export var slots as FuncEntryLists
 	// instCaches are, by slot, the instances of generic functions that the stages of the slot's module made, by their key.
 	var instCaches as FuncInternMaps
-	// writer is the slot that the running task may make functions in besides sharedSlot (see beginModuleTask).
+	// writer is the slot that the running task may make functions in (see beginModuleTask).
 	var writer as Count
 
 	export static function new() returns FuncTable

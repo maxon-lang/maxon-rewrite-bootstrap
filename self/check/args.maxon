@@ -49,32 +49,32 @@ function omittedIndex(c Checker, call ast.NodeID) returns table.Option with Coun
 	return table.Option.none
 end 'omittedIndex'
 
-function argumentCount(c Checker, p ast.Project, call ast.NodeID) returns Count
-	return p.modules[c.modIdx].tree.listLen(ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call))
+function argumentCount(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID) returns Count
+	return ms.tree.listLen(ast.callExprArgsRef(ms.tree, id: call))
 end 'argumentCount'
 
 // positionalName is the name of a parameter of a built-in function that its argument fills by its place, never by a label.
 let positionalName = "_"
 
 // failArity reports a call whose arguments do not fit the parameters, counting the receiver of a method as an argument, as maxon does.
-function failArity(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, given Count, receivers Count, mutates errs diag.ErrorList)
+function failArity(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, given Count, receivers Count, mutates errs diag.ErrorList)
 	let expectedCount = try specs.count() + receivers otherwise panic("an argument count overflows")
 	let givenCount = try given + receivers otherwise panic("an argument count overflows")
-	failAt(c, p: p, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{expectedCount}", got: "{givenCount}"), errs: errs)
+	failAt(c, p: p, ms: ms, node: call, code: diag.errCallArgCountMismatch, msg: diag.argArityMismatch(callee, expected: "{expectedCount}", got: "{givenCount}"), errs: errs)
 end 'failArity'
 
 // orderArgs puts a call's arguments in the order of the parameters, which labels name after the first. receivers is 1 for a method called on a value, which maxon counts as an argument in the arity message.
-function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
+function orderArgs(c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	var ordered = ast.NodeIDList.create(0)
-	let argsRef = ast.callExprArgsRef(p.modules[c.modIdx].tree, id: call)
-	let total = p.modules[c.modIdx].tree.listLen(argsRef)
+	let argsRef = ast.callExprArgsRef(ms.tree, id: call)
+	let total = ms.tree.listLen(argsRef)
 	let skipped = omittedIndex(c, call: call)
 	var given = total
 	if skipped.isSome() 'skips'
 		given = try total - 1 otherwise 0 as Count
 	end 'skips'
 	if given > specs.count() 'arity'
-		failArity(c, p: p, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
+		failArity(c, p: p, ms: ms, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
 		return ordered
 	end 'arity'
 	for _ in 0 upto specs.count() 'slots'
@@ -85,28 +85,28 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 		if omittedAt(skipped, index: ai) 'left'
 			continue 'args'
 		end 'left'
-		let arg = p.modules[c.modIdx].tree.listAt(argsRef, index: ai) as ast.NodeID
-		let label = ast.argLabel(p.modules[c.modIdx].tree, id: arg)
+		let arg = ms.tree.listAt(argsRef, index: ai) as ast.NodeID
+		let label = ast.argLabel(ms.tree, id: arg)
 		var slot = seen
 		if seen < specs.count() and specs[seen].name == positionalName 'positional'
 			if label != "" 'labelled'
-				failAt(c, p: p, node: arg, code: diag.errBuiltinArgNamed, msg: diag.builtinArgNamed(), errs: errs)
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errBuiltinArgNamed, msg: diag.builtinArgNamed(), errs: errs)
 				return ordered
 			end 'labelled'
 		end 'positional' else if seen == 0 and label == "" 'first'
 			slot = 0
 		end 'first' else 'labelled'
 			if seen == 0 and specs[0].defaultExpr == 0 and not specs[0].labelled 'noDefault'
-				failAt(c, p: p, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallFirstArgNamed, msg: diag.firstArgNamed(), errs: errs)
 				return ordered
 			end 'noDefault'
 			if label == "" 'unlabelled'
-				failAt(c, p: p, node: arg, code: diag.errCallArgMissingLabel, msg: diag.argMissingLabel(), errs: errs)
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallArgMissingLabel, msg: diag.argMissingLabel(), errs: errs)
 				return ordered
 			end 'unlabelled'
 			let found = argSlot(seen, label: label, specs: specs)
 			if not found.isSome() 'unknown'
-				failAt(c, p: p, node: arg, code: diag.errCallUnknownArgLabel, msg: diag.argUnknownLabel(callee, label: label), errs: errs)
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallUnknownArgLabel, msg: diag.argUnknownLabel(callee, label: label), errs: errs)
 				return ordered
 			end 'unknown'
 			match consumes found 'slotOf'
@@ -114,16 +114,16 @@ function orderArgs(c Checker, p ast.Project, call ast.NodeID, callee String, spe
 				none then _ = 0
 			end 'slotOf'
 			if ordered[slot] != 0 'duplicate'
-				failAt(c, p: p, node: arg, code: diag.errCallDuplicateArg, msg: diag.argDuplicate(label, callee: callee), errs: errs)
+				failAt(c, p: p, ms: ms, node: arg, code: diag.errCallDuplicateArg, msg: diag.argDuplicate(label, callee: callee), errs: errs)
 				return ordered
 			end 'duplicate'
 		end 'labelled'
-		ordered[slot] = ast.argValue(p.modules[c.modIdx].tree, id: arg)
+		ordered[slot] = ast.argValue(ms.tree, id: arg)
 		seen = try seen + 1 otherwise seen
 	end 'args'
 	for j in 0 upto specs.count() 'required'
 		if ordered[j] == 0 and specs[j].defaultExpr == 0 'missing'
-			failArity(c, p: p, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
+			failArity(c, p: p, ms: ms, call: call, callee: callee, specs: specs, given: given, receivers: receivers, errs: errs)
 			return ordered
 		end 'missing'
 	end 'required'
@@ -139,9 +139,9 @@ end 'omittedAt'
 
 // checkedArgs orders a call's arguments and types them, before the parameters' types are known: a generic callee's type
 // arguments come from them.
-function checkedArgs(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
+function checkedArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
-	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
+	let ordered = orderArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
@@ -157,9 +157,9 @@ function checkedArgs(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 end 'checkedArgs'
 
 // bindArgs orders a call's arguments and checks each against its parameter, typing it first unless it was typed already.
-function bindArgs(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
+function bindArgs(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, callee String, specs ast.ParamSpecList, receivers Count, argsChecked bool, payload bool, mutates errs diag.ErrorList) returns ast.NodeIDList
 	let mark = errs.count()
-	let ordered = orderArgs(c, p: p, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
+	let ordered = orderArgs(c, p: p, ms: ms, call: call, callee: callee, specs: specs, receivers: receivers, errs: errs)
 	if failedSince(errs, mark: mark) 'badOrder'
 		return ordered
 	end 'badOrder'
@@ -183,7 +183,7 @@ end 'bindArgs'
 // parameter takes the contents of a frozen value for.
 function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, value ast.NodeID, callee String, spec ast.ParamSpec, payload bool, mutates errs diag.ErrorList) returns bool
 	let t = ast.nodeType(c.typing, node: value)
-	let temporary = ast.isMutatingFunction(ms.types, t: spec.ty) and not ast.isStorage(p.modules[c.modIdx].tree, typing: c.typing, node: value)
+	let temporary = ast.isMutatingFunction(ms.types, t: spec.ty) and not ast.isStorage(ms.tree, typing: c.typing, node: value)
 	if ast.isByAddress(spec.conv) and not temporary 'byAddress'
 		if t != spec.ty 'different'
 			let expected = nameOfType(p, ms: ms, t: spec.ty)
@@ -194,22 +194,22 @@ function coerceArg(mutates c Checker, p ast.Project, mutates ms ast.ModuleState,
 			end 'subtype' else if ast.isIntType(ms.types, t: t) and ast.isIntType(ms.types, t: spec.ty) 'integers'
 				msg = diag.argTypeMismatchCast("'{spec.name}'", expected: expected, got: got)
 			end 'integers'
-			failAt(c, p: p, node: call, code: diag.errTypeMismatch, msg: msg, errs: errs)
+			failAt(c, p: p, ms: ms, node: call, code: diag.errTypeMismatch, msg: msg, errs: errs)
 			return false
 		end 'different'
 		return true
 	end 'byAddress'
 	if isFrozenType(p, ms: ms, t: t) and ast.contentType(ms.types, t: t) == spec.ty 'frozen'
 		if spec.conv != ast.Convention.convLet 'keeps'
-			failAt(c, p: p, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
+			failAt(c, p: p, ms: ms, node: value, code: diag.errFrozenChange, msg: "the {spec.conv.keyword()} parameter '{spec.name}' of '{callee}' would change or keep the contents of a frozen value, which are immutable and shared; pass an owned copy: 'thaw(...)'", errs: errs)
 			return false
 		end 'keeps'
 		return true
 	end 'frozen'
 	if payload 'payload'
-		return coerce(c, p: p, ms: ms, node: value, at: closingOffset(c, p: p, call: call), src: t, target: spec.ty, wrong: Mismatch.expectedGot, errs: errs)
+		return coerce(c, p: p, ms: ms, node: value, at: closingOffset(c, p: p, ms: ms, call: call), src: t, target: spec.ty, wrong: Mismatch.expectedGot, errs: errs)
 	end 'payload'
-	return coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
+	return coerce(c, p: p, ms: ms, node: value, at: offsetOf(c, p: p, ms: ms, node: call), src: t, target: spec.ty, wrong: Mismatch.argument(argumentLabel(spec.name)), errs: errs)
 end 'coerceArg'
 
 let asciiZero = 48 as Byte
@@ -328,7 +328,7 @@ function inferRest(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID
 	end 'expected'
 	for i in 0 upto filled.count() 'each'
 		if filled[i] == ast.noType 'open'
-			failAt(c, p: p, node: node, code: diag.errCannotInfer, msg: "the type argument '{ms.types.lists[ast.typeList(ms.types, t: params[i])][ast.typeIndex(ms.types, t: params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
+			failAt(c, p: p, ms: ms, node: node, code: diag.errCannotInfer, msg: "the type argument '{ms.types.lists[ast.typeList(ms.types, t: params[i])][ast.typeIndex(ms.types, t: params[i])].name}' of '{callee}' is fixed neither by the arguments nor by where the result goes: pass an argument whose type names it, use the result where its type is declared (a return, an argument, an assignment), or call it through a typealias of the instance", errs: errs)
 			return filled
 		end 'open'
 	end 'each'
@@ -362,7 +362,7 @@ function requireVisible(c Checker, p ast.Project, ms ast.ModuleState, node ast.N
 	if ast.isVisibleFrom(p, v: level, owner: owner, from: c.modID) 'visible'
 		return true
 	end 'visible'
-	failAt(c, p: p, node: node, code: diag.errNotExported, msg: ast.notVisible(p, name: funcSymbol(p, tt: ms.types, ft: ms.funcs, f: target), v: level, owner: owner, from: c.modID), errs: errs)
+	failAt(c, p: p, ms: ms, node: node, code: diag.errNotExported, msg: ast.notVisible(p, name: funcSymbol(p, tt: ms.types, ft: ms.funcs, f: target), v: level, owner: owner, from: c.modID), errs: errs)
 	return false
 end 'requireVisible'
 
@@ -379,13 +379,13 @@ end 'queuePending'
 
 // verifyCalls binds the arguments of the calls into other modules to the parameters of their functions, which those
 // modules have declared since the calls were checked. A call stops at its first error.
-export function verifyCalls(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, calls PendingCallList, mutates errs diag.ErrorList)
+export function verifyCalls(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, calls PendingCallList, mutates errs diag.ErrorList)
 	for i in 0 upto calls.count() 'each'
 		verifyCall(c, p: p, ms: ms, pending: calls[i], errs: errs)
 	end 'each'
 end 'verifyCalls'
 
-function verifyCall(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, pending PendingCall, mutates errs diag.ErrorList)
+function verifyCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, pending PendingCall, mutates errs diag.ErrorList)
 	c.hasOmitted = pending.hasOmittedArg
 	c.omittedCall = pending.callNode
 	c.omittedArgIdx = pending.omittedArgIdx

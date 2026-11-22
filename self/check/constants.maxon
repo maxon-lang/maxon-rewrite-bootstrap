@@ -41,7 +41,7 @@ function typedByConstants(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) re
 	if not isNominalDecl(p.modules[ast.modIndex(ref.module)].decls[ref.ordinal as Count]) 'notNominal'
 		return false
 	end 'notNominal'
-	return ms.types.lists[ast.typeList(ms.types, t: declTypeOf(p, ref: ref))][ast.typeIndex(ms.types, t: declTypeOf(p, ref: ref))].rawKind == ast.RawKind.value
+	return ms.types.lists[ast.typeList(ms.types, t: declTypeOf(p, ms: ms, ref: ref))][ast.typeIndex(ms.types, t: declTypeOf(p, ms: ms, ref: ref))].rawKind == ast.RawKind.value
 end 'typedByConstants'
 
 function pushIfConstant(p ast.Project, ms ast.ModuleState, consumes ref ast.DeclRef, mutates out ConstReads)
@@ -54,64 +54,64 @@ end 'pushIfConstant'
 // runs code. It walks every
 // expression a constant could hold, including ones the checker then refuses, because a missed reference would type a
 // constant before one it reads.
-function constRefs(p ast.Project, ms ast.ModuleState, modIdx Count, e ast.NodeID, mutates out ConstReads)
+function constRefs(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, mutates out ConstReads)
 	if e == 0 'nil'
 		return
 	end 'nil'
-	let k = p.modules[modIdx].tree.kindOf(e)
+	let k = tree.kindOf(e)
 	if k == ast.NodeKind.nameExpr 'name'
-		match consumes p.resolutions[modIdx].decls.get(e as Count) 'bound'
+		match consumes res.decls.get(e as Count) 'bound'
 			some(ref) then pushIfConstant(p, ms: ms, ref: ref, out: out)
 			none then _ = 0
 		end 'bound'
 		return
 	end 'name'
 	if k == ast.NodeKind.strLit 'str'
-		constRefsOfString(p, ms: ms, modIdx: modIdx, e: e, out: out)
+		constRefsOfString(p, ms: ms, tree: tree, res: res, e: e, out: out)
 		return
 	end 'str'
 	if k == ast.NodeKind.matchExpr 'match'
-		constRefsOfMatch(p, ms: ms, modIdx: modIdx, core: ast.matchExprMatch(p.modules[modIdx].tree, id: e), out: out)
+		constRefsOfMatch(p, ms: ms, tree: tree, res: res, core: ast.matchExprMatch(tree, id: e), out: out)
 		return
 	end 'match'
 	if k == ast.NodeKind.callExpr or k == ast.NodeKind.indexExpr or k == ast.NodeKind.structLitExpr or k == ast.NodeKind.collectionLitExpr or k == ast.NodeKind.tupleExpr 'lists'
-		constRefsOfLists(p, ms: ms, modIdx: modIdx, e: e, k: k, out: out)
+		constRefsOfLists(p, ms: ms, tree: tree, res: res, e: e, k: k, out: out)
 		return
 	end 'lists'
-	constRefsOfOperands(p, ms: ms, modIdx: modIdx, e: e, k: k, out: out)
+	constRefsOfOperands(p, ms: ms, tree: tree, res: res, e: e, k: k, out: out)
 end 'constRefs'
 
-function constRefsOfString(p ast.Project, ms ast.ModuleState, modIdx Count, e ast.NodeID, mutates out ConstReads)
-	let partsRef = ast.strLitPartsRef(p.modules[modIdx].tree, id: e)
-	for i in 0 upto p.modules[modIdx].tree.strPartCount(partsRef) 'parts'
-		if p.modules[modIdx].tree.strPartIsExpr(partsRef, index: i) 'expr'
-			constRefs(p, ms: ms, modIdx: modIdx, e: p.modules[modIdx].tree.strPartExpr(partsRef, index: i), out: out)
+function constRefsOfString(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, mutates out ConstReads)
+	let partsRef = ast.strLitPartsRef(tree, id: e)
+	for i in 0 upto tree.strPartCount(partsRef) 'parts'
+		if tree.strPartIsExpr(partsRef, index: i) 'expr'
+			constRefs(p, ms: ms, tree: tree, res: res, e: tree.strPartExpr(partsRef, index: i), out: out)
 		end 'expr'
 	end 'parts'
 end 'constRefsOfString'
 
 // constRefsOfOperands covers the expressions that hold a fixed number of operands, and the ones that hold none.
-function constRefsOfOperands(p ast.Project, ms ast.ModuleState, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
+function constRefsOfOperands(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
 	if k == ast.NodeKind.binaryExpr 'binary'
-		constRefsOfChain(p, ms: ms, modIdx: modIdx, e: e, out: out)
+		constRefsOfChain(p, ms: ms, tree: tree, res: res, e: e, out: out)
 	end 'binary' else if k == ast.NodeKind.unaryExpr 'unary'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.unaryExprE(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.unaryExprE(tree, id: e), out: out)
 	end 'unary' else if k == ast.NodeKind.tryExpr 'try'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.tryExprE(p.modules[modIdx].tree, id: e), out: out)
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.tryFallback(p.modules[modIdx].tree, e: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.tryExprE(tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.tryFallback(tree, e: e), out: out)
 	end 'try' else if k == ast.NodeKind.condExpr 'cond'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.condExprCond(p.modules[modIdx].tree, id: e), out: out)
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.condExprThen(p.modules[modIdx].tree, id: e), out: out)
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.condExprElse(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.condExprCond(tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.condExprThen(tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.condExprElse(tree, id: e), out: out)
 	end 'cond' else if k == ast.NodeKind.castExpr 'cast'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.castExprE(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.castExprE(tree, id: e), out: out)
 	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.fromExprValue(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.fromExprValue(tree, id: e), out: out)
 	end 'from' else if k == ast.NodeKind.memberExpr 'member'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.memberExprObj(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.memberExprObj(tree, id: e), out: out)
 	end 'member' else if k == ast.NodeKind.panicExpr 'panic'
 		out.runs = true
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.panicExprMessage(p.modules[modIdx].tree, id: e), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.panicExprMessage(tree, id: e), out: out)
 	end 'panic' else if k == ast.NodeKind.intLit or k == ast.NodeKind.floatLit or k == ast.NodeKind.boolLit or k == ast.NodeKind.selfExpr or k == ast.NodeKind.byteStrLit or k == ast.NodeKind.typeQueryExpr 'leaf'
 		_ = 0
 	end 'leaf' else if k == ast.NodeKind.closureExpr 'closure'
@@ -124,52 +124,52 @@ end 'constRefsOfOperands'
 
 // constRefsOfChain covers an operator and the operators nested in its left operand, innermost first, so that a long chain
 // takes no stack.
-function constRefsOfChain(p ast.Project, ms ast.ModuleState, modIdx Count, e ast.NodeID, mutates out ConstReads)
-	var chain = ast.leftChain(p.modules[modIdx].tree, e: e)
+function constRefsOfChain(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, mutates out ConstReads)
+	var chain = ast.leftChain(tree, e: e)
 	var node = ast.nextOperator(chain, e: e)
-	constRefs(p, ms: ms, modIdx: modIdx, e: ast.binaryExprL(p.modules[modIdx].tree, id: node), out: out)
+	constRefs(p, ms: ms, tree: tree, res: res, e: ast.binaryExprL(tree, id: node), out: out)
 	while node != e 'inner'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.binaryExprR(p.modules[modIdx].tree, id: node), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.binaryExprR(tree, id: node), out: out)
 		node = ast.nextOperator(chain, e: e)
 	end 'inner'
-	constRefs(p, ms: ms, modIdx: modIdx, e: ast.binaryExprR(p.modules[modIdx].tree, id: e), out: out)
+	constRefs(p, ms: ms, tree: tree, res: res, e: ast.binaryExprR(tree, id: e), out: out)
 end 'constRefsOfChain'
 
 // constRefsOfLists covers the expressions that hold a list of operands.
-function constRefsOfLists(p ast.Project, ms ast.ModuleState, modIdx Count, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
+function constRefsOfLists(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, e ast.NodeID, k ast.NodeKind, mutates out ConstReads)
 	if k == ast.NodeKind.callExpr 'call'
-		out.runs = out.runs or not isCopyCall(p, modIdx: modIdx, call: e)
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.callExprCallee(p.modules[modIdx].tree, id: e), out: out)
-		let argsRef = ast.callExprArgsRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'args'
-			let arg = p.modules[modIdx].tree.listAt(argsRef, index: i) as ast.NodeID
-			constRefs(p, ms: ms, modIdx: modIdx, e: ast.argValue(p.modules[modIdx].tree, id: arg), out: out)
+		out.runs = out.runs or not isCopyCall(p, tree: tree, call: e)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.callExprCallee(tree, id: e), out: out)
+		let argsRef = ast.callExprArgsRef(tree, id: e)
+		for i in 0 upto tree.listLen(argsRef) 'args'
+			let arg = tree.listAt(argsRef, index: i) as ast.NodeID
+			constRefs(p, ms: ms, tree: tree, res: res, e: ast.argValue(tree, id: arg), out: out)
 		end 'args'
 	end 'call' else if k == ast.NodeKind.indexExpr 'index'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.indexExprObj(p.modules[modIdx].tree, id: e), out: out)
-		let argsRef = ast.indexExprArgsRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(argsRef) 'indices'
-			constRefs(p, ms: ms, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.indexExprObj(tree, id: e), out: out)
+		let argsRef = ast.indexExprArgsRef(tree, id: e)
+		for i in 0 upto tree.listLen(argsRef) 'indices'
+			constRefs(p, ms: ms, tree: tree, res: res, e: tree.listAt(argsRef, index: i) as ast.NodeID, out: out)
 		end 'indices'
 	end 'index' else if k == ast.NodeKind.structLitExpr 'literal'
-		let fieldsRef = ast.structLitExprFieldsRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(fieldsRef) 'fields'
-			let field = p.modules[modIdx].tree.listAt(fieldsRef, index: i) as ast.NodeID
-			constRefs(p, ms: ms, modIdx: modIdx, e: ast.structFieldValue(p.modules[modIdx].tree, id: field), out: out)
+		let fieldsRef = ast.structLitExprFieldsRef(tree, id: e)
+		for i in 0 upto tree.listLen(fieldsRef) 'fields'
+			let field = tree.listAt(fieldsRef, index: i) as ast.NodeID
+			constRefs(p, ms: ms, tree: tree, res: res, e: ast.structFieldValue(tree, id: field), out: out)
 		end 'fields'
 	end 'literal' else if k == ast.NodeKind.tupleExpr 'tuple'
-		let tupleRef = ast.tupleExprElemsRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(tupleRef) 'members'
-			constRefs(p, ms: ms, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(tupleRef, index: i) as ast.NodeID, out: out)
+		let tupleRef = ast.tupleExprElemsRef(tree, id: e)
+		for i in 0 upto tree.listLen(tupleRef) 'members'
+			constRefs(p, ms: ms, tree: tree, res: res, e: tree.listAt(tupleRef, index: i) as ast.NodeID, out: out)
 		end 'members'
 	end 'tuple' else if k == ast.NodeKind.collectionLitExpr 'collection'
-		let elemsRef = ast.collectionLitExprElemsRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(elemsRef) 'elems'
-			constRefs(p, ms: ms, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)
+		let elemsRef = ast.collectionLitExprElemsRef(tree, id: e)
+		for i in 0 upto tree.listLen(elemsRef) 'elems'
+			constRefs(p, ms: ms, tree: tree, res: res, e: tree.listAt(elemsRef, index: i) as ast.NodeID, out: out)
 		end 'elems'
-		let valuesRef = ast.collectionLitExprValuesRef(p.modules[modIdx].tree, id: e)
-		for i in 0 upto p.modules[modIdx].tree.listLen(valuesRef) 'values'
-			constRefs(p, ms: ms, modIdx: modIdx, e: p.modules[modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, out: out)
+		let valuesRef = ast.collectionLitExprValuesRef(tree, id: e)
+		for i in 0 upto tree.listLen(valuesRef) 'values'
+			constRefs(p, ms: ms, tree: tree, res: res, e: tree.listAt(valuesRef, index: i) as ast.NodeID, out: out)
 		end 'values'
 	end 'collection' else 'unknown'
 		panic("the node {e} of kind {k.name} holds no list of operands")
@@ -177,39 +177,42 @@ function constRefsOfLists(p ast.Project, ms ast.ModuleState, modIdx Count, e ast
 end 'constRefsOfLists'
 
 // isCopyCall is whether a call is `x.clone()`, which copies a value and runs no code of the program.
-function isCopyCall(p ast.Project, modIdx Count, call ast.NodeID) returns bool
-	let callee = ast.callExprCallee(p.modules[modIdx].tree, id: call)
-	if p.modules[modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+function isCopyCall(p ast.Project, tree ast.Tree, call ast.NodeID) returns bool
+	let callee = ast.callExprCallee(tree, id: call)
+	if tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
 		return false
 	end 'notMember'
-	return ast.memberExprName(p.modules[modIdx].tree, id: callee) == cloneMethod and p.modules[modIdx].tree.listLen(ast.callExprArgsRef(p.modules[modIdx].tree, id: call)) == 0
+	return ast.memberExprName(tree, id: callee) == cloneMethod and tree.listLen(ast.callExprArgsRef(tree, id: call)) == 0
 end 'isCopyCall'
 
 // constRefsOfMatch covers a match expression: its subject and, in each arm, its patterns' values and the arm's value. A
 // 'then' arm, the only one holding a statement, is refused in one.
-function constRefsOfMatch(p ast.Project, ms ast.ModuleState, modIdx Count, core ast.NodeID, mutates out ConstReads)
-	constRefs(p, ms: ms, modIdx: modIdx, e: ast.matchCoreSubject(p.modules[modIdx].tree, id: core), out: out)
-	let armsRef = ast.matchCoreArmsRef(p.modules[modIdx].tree, id: core)
-	for i in 0 upto p.modules[modIdx].tree.listLen(armsRef) 'arms'
-		let arm = p.modules[modIdx].tree.listAt(armsRef, index: i) as ast.NodeID
-		let patternsRef = ast.matchArmPatternsRef(p.modules[modIdx].tree, id: arm)
-		for j in 0 upto p.modules[modIdx].tree.listLen(patternsRef) 'patterns'
-			let pattern = p.modules[modIdx].tree.listAt(patternsRef, index: j) as ast.NodeID
-			constRefs(p, ms: ms, modIdx: modIdx, e: ast.patternValue(p.modules[modIdx].tree, id: pattern), out: out)
-			constRefs(p, ms: ms, modIdx: modIdx, e: ast.patternHigh(p.modules[modIdx].tree, id: pattern), out: out)
+function constRefsOfMatch(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, core ast.NodeID, mutates out ConstReads)
+	constRefs(p, ms: ms, tree: tree, res: res, e: ast.matchCoreSubject(tree, id: core), out: out)
+	let armsRef = ast.matchCoreArmsRef(tree, id: core)
+	for i in 0 upto tree.listLen(armsRef) 'arms'
+		let arm = tree.listAt(armsRef, index: i) as ast.NodeID
+		let patternsRef = ast.matchArmPatternsRef(tree, id: arm)
+		for j in 0 upto tree.listLen(patternsRef) 'patterns'
+			let pattern = tree.listAt(patternsRef, index: j) as ast.NodeID
+			constRefs(p, ms: ms, tree: tree, res: res, e: ast.patternValue(tree, id: pattern), out: out)
+			constRefs(p, ms: ms, tree: tree, res: res, e: ast.patternHigh(tree, id: pattern), out: out)
 		end 'patterns'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ast.matchArmValue(p.modules[modIdx].tree, id: arm), out: out)
+		constRefs(p, ms: ms, tree: tree, res: res, e: ast.matchArmValue(tree, id: arm), out: out)
 	end 'arms'
 end 'constRefsOfMatch'
 
-// constReadsOf is what the value of a declaration that the constants stage types reads: a constant's value, or every raw
-// value that the cases of an enum or a union write.
+// constReadsOf is what the value of a declaration of its module that the constants stage types reads: a constant's value,
+// or every raw value that the cases of an enum or a union write.
 function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns ConstReads
 	var out = ConstReads.create()
 	let modIdx = ast.modIndex(ref.module)
+	if ref.module != ms.module 'other'
+		panic("the constants stage of module {ms.module} orders a constant of module {ref.module}")
+	end 'other'
 	if ast.declIsConst(p, ref: ref) 'constant'
 		match p.modules[modIdx].decls[ref.ordinal as Count] 'k'
-			constDecl(cd) then constRefs(p, ms: ms, modIdx: modIdx, e: cd.value, out: out)
+			constDecl(cd) then constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: cd.value, out: out)
 			funcDecl(_) then panic("the constant at ordinal {ref.ordinal} is a function")
 			typeDecl(_) then panic("the constant at ordinal {ref.ordinal} is a type")
 			enumDecl(_) then panic("the constant at ordinal {ref.ordinal} is an enum")
@@ -220,9 +223,9 @@ function constReadsOf(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) return
 		end 'k'
 		return out
 	end 'constant'
-	let tid = declTypeOf(p, ref: ref)
+	let tid = declTypeOf(p, ms: ms, ref: ref)
 	for i in 0 upto ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases.count() 'cases'
-		constRefs(p, ms: ms, modIdx: modIdx, e: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr, out: out)
+		constRefs(p, ms: ms, tree: ms.tree, res: ms.resolution, e: ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr, out: out)
 	end 'cases'
 	return out
 end 'constReadsOf'
@@ -248,7 +251,7 @@ function visitConst(mutates w ConstOrder, c Checker, p ast.Project, ms ast.Modul
 		return true
 	end 'done'
 	if st == constVisiting 'cycle'
-		let off = p.modules[c.modIdx].decls[ord as Count].offset(p.modules[c.modIdx].tree)
+		let off = p.modules[c.modIdx].decls[ord as Count].offset(ms.tree)
 		checkFail(c.modID, off: off, code: diag.errDependsOnItself, msg: diag.circularConstants(constCycle(p.modules[c.modIdx], path: w.path, ord: ord)), errs: errs)
 		return false
 	end 'cycle'
@@ -289,7 +292,7 @@ end 'constantOrder'
 // string that interpolates, or a type that cannot be copied. The constant is named name and declared at node, and value is
 // what it is written as.
 function checkConstantType(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, name String, node ast.NodeID, value ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns bool
-	let off = offsetOf(c, p: p, node: node)
+	let off = offsetOf(c, p: p, ms: ms, node: node)
 	if typeIsAnonInt(ms.types, t: t) 'anonymous'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "constant '{name}' has the range {nameOfType(p, ms: ms, t: t)}, which no type names: give it an alias, 'as <Alias>'", errs: errs)
 		return false
@@ -298,7 +301,7 @@ function checkConstantType(mutates c Checker, p ast.Project, mutates ms ast.Modu
 		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "constant '{name}' must be a value known before the program runs", errs: errs)
 		return false
 	end 'noValue'
-	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, e: value) 'interpolates'
+	if t == p.builtins.stringTy and not interpolatesNothing(c, p: p, ms: ms, e: value) 'interpolates'
 		checkFail(c.modID, off: off, code: diag.errNonConstantInitializer, msg: "a constant string cannot interpolate", errs: errs)
 		return false
 	end 'interpolates'
@@ -313,11 +316,11 @@ function checkConstantType(mutates c Checker, p ast.Project, mutates ms ast.Modu
 end 'checkConstantType'
 
 // interpolatesNothing is whether the value is no string with an interpolated part.
-function interpolatesNothing(c Checker, p ast.Project, e ast.NodeID) returns bool
-	if p.modules[c.modIdx].tree.kindOf(e) != ast.NodeKind.strLit 'notString'
+function interpolatesNothing(c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID) returns bool
+	if ms.tree.kindOf(e) != ast.NodeKind.strLit 'notString'
 		return true
 	end 'notString'
-	return p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: e))
+	return ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: e))
 end 'interpolatesNothing'
 
 // constantValue is the constant with the type its value has, and the value where the type holds it: an integer constant
@@ -340,13 +343,13 @@ end 'constOwner'
 
 function ownerSelfType(c Checker, p ast.Project, mutates ms ast.ModuleState, typeName String) returns ast.TypeID
 	match consumes p.modules[c.modIdx].names.get(typeName) 'declared'
-		some(ord) then return ast.selfType(ms.types, declTy: declTypeOf(p, ref: ast.DeclRef.make(c.modID, ordinal: ord)))
+		some(ord) then return ast.selfType(ms.types, declTy: declTypeOf(p, ms: ms, ref: ast.DeclRef.make(c.modID, ordinal: ord)))
 		none then panic("the type '{typeName}' of a static let is not among the declarations of its module")
 	end 'declared'
 end 'ownerSelfType'
 
 // checkConst types a constant's value, which gives the constant its type.
-function checkConst(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
+function checkConst(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ord ast.DeclOrdinal, mutates errs diag.ErrorList)
 	var cd as ast.ConstDecl
 	match p.modules[c.modIdx].decls[ord as Count].clone() 'k'
 		constDecl(v) then cd = v.clone()
@@ -372,18 +375,18 @@ function checkConst(mutates c Checker, mutates p ast.Project, mutates ms ast.Mod
 			value.low = s.lo.clone()
 			value.high = s.hi.clone()
 		end 'int'
-		ast.setDeclConst(p, ref: ast.DeclRef.make(c.modID, ordinal: ord), value: value)
+		ast.setDeclConst(ms, ref: ast.DeclRef.make(c.modID, ordinal: ord), value: value)
 	end 'typed'
 end 'checkConst'
 
 // checkConstants types the module's constants and the raw values of its enums and unions in the order constantOrder gave.
-export function checkConstants(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, order OrdinalList, mutates errs diag.ErrorList)
+export function checkConstants(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, order OrdinalList, mutates errs diag.ErrorList)
 	for i in 0 upto order.count() 'each'
 		let ref = ast.DeclRef.make(c.modID, ordinal: order[i])
 		match p.modules[c.modIdx].decls[order[i] as Count].clone() 'k'
 			constDecl(_) then checkConst(c, p: p, ms: ms, ord: order[i], errs: errs)
-			enumDecl(ed) then checkTypeRawValues(c, p: p, ms: ms, tid: declTypeOf(p, ref: ref), cases: enumRawCases(ed), errs: errs)
-			unionDecl(ud) then checkTypeRawValues(c, p: p, ms: ms, tid: declTypeOf(p, ref: ref), cases: unionRawCases(ud), errs: errs)
+			enumDecl(ed) then checkTypeRawValues(c, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ref), cases: enumRawCases(ed), errs: errs)
+			unionDecl(ud) then checkTypeRawValues(c, p: p, ms: ms, tid: declTypeOf(p, ms: ms, ref: ref), cases: unionRawCases(ud), errs: errs)
 			funcDecl(_) then panic("the constants stage orders the function at ordinal {order[i]}")
 			typeDecl(_) then panic("the constants stage orders the type at ordinal {order[i]}")
 			aliasDecl(_) then panic("the constants stage orders the typealias at ordinal {order[i]}")
@@ -397,11 +400,11 @@ end 'checkConstants'
 // (`Meta.create(4, isMemory: true)`): the call is known before the program runs, as the literal it returns is, so a constant
 // may make it where it makes no other.
 function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, callee ast.NodeID) returns bool
-	if p.modules[c.modIdx].tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
+	if ms.tree.kindOf(callee) != ast.NodeKind.memberExpr 'notMember'
 		return false
 	end 'notMember'
-	let obj = ast.memberExprObj(p.modules[c.modIdx].tree, id: callee)
-	if p.modules[c.modIdx].tree.kindOf(obj) != ast.NodeKind.nameExpr 'notType'
+	let obj = ast.memberExprObj(ms.tree, id: callee)
+	if ms.tree.kindOf(obj) != ast.NodeKind.nameExpr 'notType'
 		return false
 	end 'notType'
 	var probe = diag.ErrorList.create(0)
@@ -409,7 +412,7 @@ function isLiteralFactoryCall(c Checker, p ast.Project, ms ast.ModuleState, call
 	if probe.count() > 0 or t == ast.noType or not typeHasKind(p, ms: ms, t: t, kind: ast.TypeKind.record) 'notRecord'
 		return false
 	end 'notRecord'
-	let fn = methodOf(c, p: p, ms: ms, t: t, name: ast.memberExprName(p.modules[c.modIdx].tree, id: callee), node: callee, errs: probe)
+	let fn = methodOf(c, p: p, ms: ms, t: t, name: ast.memberExprName(ms.tree, id: callee), node: callee, errs: probe)
 	return probe.count() == 0 and fn != ast.noFunc and isLiteralFactory(p, ms: ms, fn: fn)
 end 'isLiteralFactoryCall'
 
@@ -424,20 +427,30 @@ function isLiteralFactory(p ast.Project, ms ast.ModuleState, fn ast.FuncID) retu
 	if ms.types.lists[ast.typeList(ms.types, t: ast.originOf(ms.types, t: owner))][ast.typeIndex(ms.types, t: ast.originOf(ms.types, t: owner))].typeParams.count() > 0 'genericOwner'
 		return false
 	end 'genericOwner'
-	let mi = ast.modIndex(ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module)
+	let module = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].module
 	let body = ms.funcs.slots[ast.funcSlot(fn)][ast.funcIndex(fn)].bodyRef
-	if p.modules[mi].tree.listLen(body) != 1 'statements'
+	if module == ms.module 'own'
+		return returnsLiteral(p, ms: ms, tree: ms.tree, res: ms.resolution, body: body)
+	end 'own'
+	let mi = ast.modIndex(module)
+	p.modules[mi].tables.requireHeld()
+	return returnsLiteral(p, ms: ms, tree: p.modules[mi].tree, res: p.resolutions[mi], body: body)
+end 'isLiteralFactory'
+
+// returnsLiteral is whether the body, in tree, is one `return` of a record literal whose fields run no code.
+function returnsLiteral(p ast.Project, ms ast.ModuleState, tree ast.Tree, res ast.Resolution, body diag.U32) returns bool
+	if tree.listLen(body) != 1 'statements'
 		return false
 	end 'statements'
-	let s = p.modules[mi].tree.listAt(body, index: 0) as ast.NodeID
-	if p.modules[mi].tree.kindOf(s) != ast.NodeKind.returnStmt 'notReturn'
+	let s = tree.listAt(body, index: 0) as ast.NodeID
+	if tree.kindOf(s) != ast.NodeKind.returnStmt 'notReturn'
 		return false
 	end 'notReturn'
-	let value = ast.returnStmtValue(p.modules[mi].tree, id: s)
-	if value == 0 or p.modules[mi].tree.kindOf(value) != ast.NodeKind.structLitExpr 'notLiteral'
+	let value = ast.returnStmtValue(tree, id: s)
+	if value == 0 or tree.kindOf(value) != ast.NodeKind.structLitExpr 'notLiteral'
 		return false
 	end 'notLiteral'
 	var reads = ConstReads.create()
-	constRefs(p, ms: ms, modIdx: mi, e: value, out: reads)
+	constRefs(p, ms: ms, tree: tree, res: res, e: value, out: reads)
 	return not reads.runs
-end 'isLiteralFactory'
+end 'returnsLiteral'

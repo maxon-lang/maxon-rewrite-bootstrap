@@ -473,12 +473,12 @@ function isNameBound(r Resolver, name String) returns bool
 	return r.fields.has(name)
 end 'isNameBound'
 
-function resolvesDeclMember(p ast.Project, ref ast.DeclRef, memberName String) returns bool
+function resolvesDeclMember(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, memberName String) returns bool
 	let d = ast.moduleDecl(p, ref: ref)
 	match d 'k'
-		typeDecl(td) then return typeHasStatic(p, ref: ref, td: td, memberName: memberName)
-		enumDecl(ed) then return enumHasCase(p, ref: ref, ed: ed, memberName: memberName)
-		unionDecl(ud) then return unionHasCase(p, ref: ref, ud: ud, memberName: memberName)
+		typeDecl(td) then return typeHasStatic(p, ms: ms, ref: ref, td: td, memberName: memberName)
+		enumDecl(ed) then return enumHasCase(p, ms: ms, ref: ref, ed: ed, memberName: memberName)
+		unionDecl(ud) then return unionHasCase(p, ms: ms, ref: ref, ud: ud, memberName: memberName)
 		interfaceDecl(_) then return false
 		funcDecl(_) then return false
 		constDecl(_) then return false
@@ -490,62 +490,62 @@ end 'resolvesDeclMember'
 // typeHasStatic, enumHasCase and unionHasCase decide from what the module that declares the type writes, since its declare
 // stage, which fills the type's entry, may not have run yet: a static function or a case of that name. Only the standard
 // library's entries are complete before every resolve, and they hold built-in members that its declarations do not write.
-function typeHasStatic(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, memberName String) returns bool
+function typeHasStatic(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, td ast.TypeDecl, memberName String) returns bool
 	for i in 0 upto td.methods.count() 'each'
 		if td.methods[i].isStatic and td.methods[i].name == memberName 'hit'
 			return true
 		end 'hit'
 	end 'each'
-	match stdlibEntry(p, ref: ref) 'dt'
-		some(tid) then return p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].findMethod(memberName).isSome()
+	match stdlibEntry(p, ms: ms, ref: ref) 'dt'
+		some(tid) then return ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findMethod(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'typeHasStatic'
 
-function enumHasCase(p ast.Project, ref ast.DeclRef, ed ast.EnumDecl, memberName String) returns bool
+function enumHasCase(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, ed ast.EnumDecl, memberName String) returns bool
 	for i in 0 upto ed.cases.count() 'each'
 		if ed.cases[i].name == memberName 'hit'
 			return true
 		end 'hit'
 	end 'each'
-	return stdlibHasCase(p, ref: ref, memberName: memberName)
+	return stdlibHasCase(p, ms: ms, ref: ref, memberName: memberName)
 end 'enumHasCase'
 
-function unionHasCase(p ast.Project, ref ast.DeclRef, ud ast.UnionDecl, memberName String) returns bool
+function unionHasCase(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, ud ast.UnionDecl, memberName String) returns bool
 	for i in 0 upto ud.cases.count() 'each'
 		if ud.cases[i].name == memberName 'hit'
 			return true
 		end 'hit'
 	end 'each'
-	return stdlibHasCase(p, ref: ref, memberName: memberName)
+	return stdlibHasCase(p, ms: ms, ref: ref, memberName: memberName)
 end 'unionHasCase'
 
-function stdlibHasCase(p ast.Project, ref ast.DeclRef, memberName String) returns bool
-	match stdlibEntry(p, ref: ref) 'dt'
-		some(tid) then return p.types.lists[ast.typeList(p.types, t: tid)][ast.typeIndex(p.types, t: tid)].findCase(memberName).isSome()
+function stdlibHasCase(p ast.Project, ms ast.ModuleState, ref ast.DeclRef, memberName String) returns bool
+	match stdlibEntry(p, ms: ms, ref: ref) 'dt'
+		some(tid) then return ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(memberName).isSome()
 		none then return false
 	end 'dt'
 end 'stdlibHasCase'
 
 // stdlibEntry is the type of ref where the standard library declares it, whose entry is complete before any resolve.
-function stdlibEntry(p ast.Project, ref ast.DeclRef) returns table.Option with ast.TypeID
+function stdlibEntry(p ast.Project, ms ast.ModuleState, ref ast.DeclRef) returns table.Option with ast.TypeID
 	if ref.module != diag.stdlibID 'user'
 		return table.Option.none
 	end 'user'
-	return ast.declType(p, ref: ref)
+	return ast.declType(p, ms: ms, ref: ref)
 end 'stdlibEntry'
 
-function resolveBlock(mutates r Resolver, p ast.Project, listRef diag.U32, mutates errs diag.ErrorList)
+function resolveBlock(mutates r Resolver, p ast.Project, ms ast.ModuleState, listRef diag.U32, mutates errs diag.ErrorList)
 	pushScope(r)
 	let n = r.tree.listLen(listRef)
 	for i in 0 upto n 'each'
 		let s = r.tree.listAt(listRef, index: i) as ast.NodeID
-		resolveStmt(r, p: p, id: s, errs: errs)
+		resolveStmt(r, p: p, ms: ms, id: s, errs: errs)
 	end 'each'
 	popScope(r)
 end 'resolveBlock'
 
-function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	if id == 0 'nil'
 		return
 	end 'nil'
@@ -553,19 +553,19 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 	if k == ast.NodeKind.letStmt 'sLet'
 		let initNode = ast.letStmtInit(r.tree, id: id)
 		if initNode != 0 'hi'
-			resolveExpr(r, p: p, id: initNode, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: initNode, errs: errs)
 		end 'hi' else 'tp'
 			resolveTypeRef(r, p: p, tr: ast.letStmtType(r.tree, id: id), errs: errs)
 		end 'tp'
 		bindLocalName(r, name: ast.letStmtName(r.tree, id: id))
 	end 'sLet' else if k == ast.NodeKind.destructStmt 'sDes'
-		resolveExpr(r, p: p, id: ast.destructStmtInit(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.destructStmtInit(r.tree, id: id), errs: errs)
 		let namesRef = ast.destructStmtNamesRef(r.tree, id: id)
 		for i in 0 upto r.tree.listLen(namesRef) 'names'
 			bindLocalName(r, name: ast.bindNameName(r.tree, id: r.tree.listAt(namesRef, index: i) as ast.NodeID))
 		end 'names'
 	end 'sDes' else if k == ast.NodeKind.tupleAssignStmt 'sTup'
-		resolveExpr(r, p: p, id: ast.tupleAssignStmtValue(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.tupleAssignStmtValue(r.tree, id: id), errs: errs)
 		let targetsRef = ast.tupleAssignStmtTargetsRef(r.tree, id: id)
 		for i in 0 upto r.tree.listLen(targetsRef) 'targets'
 			let target = r.tree.listAt(targetsRef, index: i) as ast.NodeID
@@ -574,45 +574,45 @@ function resolveStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 			end 'declares'
 		end 'targets'
 	end 'sTup' else if k == ast.NodeKind.assignStmt 'sAss'
-		resolveExpr(r, p: p, id: ast.assignStmtTarget(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.assignStmtValue(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.assignStmtTarget(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.assignStmtValue(r.tree, id: id), errs: errs)
 	end 'sAss' else if k == ast.NodeKind.discardStmt 'sDisc'
-		resolveExpr(r, p: p, id: ast.discardStmtValue(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.discardStmtValue(r.tree, id: id), errs: errs)
 	end 'sDisc' else if k == ast.NodeKind.exprStmt 'sExpr'
-		resolveExpr(r, p: p, id: ast.exprStmtE(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.exprStmtE(r.tree, id: id), errs: errs)
 	end 'sExpr' else if k == ast.NodeKind.ifStmt 'sIf'
 		checkEnd(r, label: ast.ifStmtLabel(r.tree, id: id), endNode: ast.ifStmtEnd(r.tree, id: id), errs: errs)
 		checkEnd(r, label: ast.ifStmtElseLabel(r.tree, id: id), endNode: ast.ifStmtElseEnd(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.ifStmtCond(r.tree, id: id), errs: errs)
-		resolveBlock(r, p: p, listRef: ast.ifStmtThenRef(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.ifStmtCond(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, ms: ms, listRef: ast.ifStmtThenRef(r.tree, id: id), errs: errs)
 		if ast.ifStmtHasElse(r.tree, id: id) 'el'
-			resolveBlock(r, p: p, listRef: ast.ifStmtElseRef(r.tree, id: id), errs: errs)
+			resolveBlock(r, p: p, ms: ms, listRef: ast.ifStmtElseRef(r.tree, id: id), errs: errs)
 		end 'el'
 	end 'sIf' else if k == ast.NodeKind.ifTryStmt 'sIfTry'
-		resolveIfTryStmt(r, p: p, id: id, errs: errs)
+		resolveIfTryStmt(r, p: p, ms: ms, id: id, errs: errs)
 	end 'sIfTry' else if k == ast.NodeKind.whileStmt 'sWh'
 		checkEnd(r, label: ast.whileStmtLabel(r.tree, id: id), endNode: ast.whileStmtEnd(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
-		resolveBlock(r, p: p, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.whileStmtCond(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, ms: ms, listRef: ast.whileStmtBodyRef(r.tree, id: id), errs: errs)
 	end 'sWh' else if k == ast.NodeKind.forStmt 'sFor'
 		checkEnd(r, label: ast.forStmtLabel(r.tree, id: id), endNode: ast.forStmtEnd(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.forStmtFrom(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.forStmtTo(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.forStmtFrom(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.forStmtTo(r.tree, id: id), errs: errs)
 		pushScopeList(r, names: forNames(r, id: id))
-		resolveBlock(r, p: p, listRef: ast.forStmtBodyRef(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, ms: ms, listRef: ast.forStmtBodyRef(r.tree, id: id), errs: errs)
 		popScope(r)
 	end 'sFor' else if k == ast.NodeKind.matchStmt 'sM'
-		resolveMatchCore(r, p: p, mc: ast.matchStmtMatch(r.tree, id: id), errs: errs)
+		resolveMatchCore(r, p: p, ms: ms, mc: ast.matchStmtMatch(r.tree, id: id), errs: errs)
 	end 'sM' else if k == ast.NodeKind.whenStmt 'sWhen'
-		resolveWhenStmt(r, p: p, id: id, errs: errs)
+		resolveWhenStmt(r, p: p, ms: ms, id: id, errs: errs)
 	end 'sWhen' else if k == ast.NodeKind.tryStmt 'sTry'
-		resolveTryStmt(r, p: p, id: id, errs: errs)
+		resolveTryStmt(r, p: p, ms: ms, id: id, errs: errs)
 	end 'sTry' else if k == ast.NodeKind.throwStmt 'sThrow'
-		resolveExpr(r, p: p, id: ast.throwStmtValue(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.throwStmtValue(r.tree, id: id), errs: errs)
 	end 'sThrow' else if k == ast.NodeKind.returnStmt 'sRet'
 		let rv = ast.returnStmtValue(r.tree, id: id)
 		if rv != 0 'rv'
-			resolveExpr(r, p: p, id: rv, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: rv, errs: errs)
 		end 'rv'
 	end 'sRet' else if k == ast.NodeKind.breakStmt or k == ast.NodeKind.continueStmt 'sBrk'
 		_ = 0
@@ -635,7 +635,7 @@ function forNames(r Resolver, id ast.NodeID) returns ast.StringList
 	return names
 end 'forNames'
 
-function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveWhenStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.whenStmtLabel(r.tree, id: id), endNode: ast.whenStmtEnd(r.tree, id: id), errs: errs)
 	let cRef = ast.whenStmtCownsRef(r.tree, id: id)
 	let cLen = r.tree.listLen(cRef)
@@ -653,7 +653,7 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	let outer = r.inClosure
 	r.inClosure = false
 	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
-	resolveBlock(r, p: p, listRef: ast.whenStmtBodyRef(r.tree, id: id), errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: ast.whenStmtBodyRef(r.tree, id: id), errs: errs)
 	if r.whenDepth > 0 'dec'
 		r.whenDepth = r.whenDepth - 1
 	end 'dec'
@@ -661,9 +661,9 @@ function resolveWhenStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 	popScope(r)
 end 'resolveWhenStmt'
 
-function resolveTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.tryStmtLabel(r.tree, id: id), endNode: ast.tryStmtEnd(r.tree, id: id), errs: errs)
-	resolveBlock(r, p: p, listRef: ast.tryStmtBodyRef(r.tree, id: id), errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: ast.tryStmtBodyRef(r.tree, id: id), errs: errs)
 	if ast.tryStmtHasOtherwise(r.tree, id: id) 'ho'
 		checkEnd(r, label: ast.tryStmtHandlerLabel(r.tree, id: id), endNode: ast.tryStmtHandlerEnd(r.tree, id: id), errs: errs)
 		let bnd = ast.tryStmtBinding(r.tree, id: id)
@@ -672,23 +672,23 @@ function resolveTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutate
 			bs.push(bnd)
 		end 'hasB'
 		pushScopeList(r, names: bs)
-		resolveBlock(r, p: p, listRef: ast.tryStmtHandlerRef(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, ms: ms, listRef: ast.tryStmtHandlerRef(r.tree, id: id), errs: errs)
 		popScope(r)
 	end 'ho'
 end 'resolveTryStmt'
 
 // resolveIfTryStmt resolves a conditional try: its binding is in scope in the block that runs on success, and the name of
 // the error in the one that runs on failure.
-function resolveIfTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveIfTryStmt(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.ifTryStmtLabel(r.tree, id: id), endNode: ast.ifTryStmtEnd(r.tree, id: id), errs: errs)
 	checkEnd(r, label: ast.ifTryStmtElseLabel(r.tree, id: id), endNode: ast.ifTryStmtElseEnd(r.tree, id: id), errs: errs)
-	resolveExpr(r, p: p, id: ast.ifTryStmtCall(r.tree, id: id), errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: ast.ifTryStmtCall(r.tree, id: id), errs: errs)
 	var bound = ast.StringList.create(0)
 	if ast.ifTryStmtName(r.tree, id: id) != "" 'named'
 		bound.push(ast.ifTryStmtName(r.tree, id: id))
 	end 'named'
 	pushScopeList(r, names: bound)
-	resolveBlock(r, p: p, listRef: ast.ifTryStmtThenRef(r.tree, id: id), errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: ast.ifTryStmtThenRef(r.tree, id: id), errs: errs)
 	popScope(r)
 	if ast.ifTryStmtHasElse(r.tree, id: id) 'else'
 		var failed = ast.StringList.create(0)
@@ -696,14 +696,14 @@ function resolveIfTryStmt(mutates r Resolver, p ast.Project, id ast.NodeID, muta
 			failed.push(ast.ifTryStmtErrName(r.tree, id: id))
 		end 'named'
 		pushScopeList(r, names: failed)
-		resolveBlock(r, p: p, listRef: ast.ifTryStmtElseRef(r.tree, id: id), errs: errs)
+		resolveBlock(r, p: p, ms: ms, listRef: ast.ifTryStmtElseRef(r.tree, id: id), errs: errs)
 		popScope(r)
 	end 'else'
 end 'resolveIfTryStmt'
 
-function resolveMatchCore(mutates r Resolver, p ast.Project, mc ast.NodeID, mutates errs diag.ErrorList)
+function resolveMatchCore(mutates r Resolver, p ast.Project, ms ast.ModuleState, mc ast.NodeID, mutates errs diag.ErrorList)
 	checkEnd(r, label: ast.matchCoreLabel(r.tree, id: mc), endNode: ast.matchCoreEnd(r.tree, id: mc), errs: errs)
-	resolveExpr(r, p: p, id: ast.matchCoreSubject(r.tree, id: mc), errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: ast.matchCoreSubject(r.tree, id: mc), errs: errs)
 	let armsRef = ast.matchCoreArmsRef(r.tree, id: mc)
 	let armCount = r.tree.listLen(armsRef)
 	for i in 0 upto armCount 'eachArm'
@@ -722,11 +722,11 @@ function resolveMatchCore(mutates r Resolver, p ast.Project, mc ast.NodeID, muta
 		pushScopeList(r, names: bNames)
 		let act = ast.matchArmAction(r.tree, id: arm)
 		if act != 0 'act'
-			resolveStmt(r, p: p, id: act, errs: errs)
+			resolveStmt(r, p: p, ms: ms, id: act, errs: errs)
 		end 'act'
 		let val = ast.matchArmValue(r.tree, id: arm)
 		if val != 0 'val'
-			resolveExpr(r, p: p, id: val, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: val, errs: errs)
 		end 'val'
 		popScope(r)
 	end 'eachArm'
@@ -793,7 +793,7 @@ function staticConstOf(p ast.Project, ref ast.DeclRef, td ast.TypeDecl, member S
 	return table.Option.none
 end 'staticConstOf'
 
-function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveMemberExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	var revSegs = SegmentList.create(0)
 	var cur = id
 	while r.tree.kindOf(cur) == ast.NodeKind.memberExpr 'collect'
@@ -807,12 +807,12 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		segs.push(revSegs[idx].clone())
 	end 'rev'
 	if r.tree.kindOf(cur) != ast.NodeKind.nameExpr 'notName'
-		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
 	end 'notName'
 	let headName = ast.nameExprName(r.tree, id: cur)
 	if isNameBound(r, name: headName) or headName == "Self" or r.typeParams.has(headName) 'bound'
-		resolveExpr(r, p: p, id: ast.memberExprObj(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.memberExprObj(r.tree, id: id), errs: errs)
 		return
 	end 'bound'
 	let bare = bareLookup(r, p: p, name: headName)
@@ -829,7 +829,7 @@ function resolveMemberExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 				return
 			end 'done'
 		end 'typeHead'
-		let hasMem = isTy and resolvesDeclMember(p, ref: bare.decl, memberName: segs[0].name)
+		let hasMem = isTy and resolvesDeclMember(p, ms: ms, ref: bare.decl, memberName: segs[0].name)
 		if isConst or hasMem or (not isModuleRoot(p, name: headName)) 'keepBare'
 			let headOff = r.tree.startOf(cur)
 			match consumes takeLookup(r, p: p, lr: bare, off: headOff, errs: errs) 'tk'
@@ -873,18 +873,18 @@ end 'rewriteMemberToName'
 
 // resolveChain resolves an operator and the operators nested in its left operand, innermost first, so that a long chain
 // takes no stack.
-function resolveChain(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveChain(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	var chain = ast.leftChain(r.tree, e: id)
 	var node = ast.nextOperator(chain, e: id)
-	resolveExpr(r, p: p, id: ast.binaryExprL(r.tree, id: node), errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: ast.binaryExprL(r.tree, id: node), errs: errs)
 	while node != id 'inner'
-		resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: node), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.binaryExprR(r.tree, id: node), errs: errs)
 		node = ast.nextOperator(chain, e: id)
 	end 'inner'
-	resolveExpr(r, p: p, id: ast.binaryExprR(r.tree, id: id), errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: ast.binaryExprR(r.tree, id: id), errs: errs)
 end 'resolveChain'
 
-function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	if id == 0 'nil'
 		return
 	end 'nil'
@@ -897,71 +897,71 @@ function resolveExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates e
 	end 'leaf' else if k == ast.NodeKind.nameExpr 'nm'
 		resolveNameExpr(r, p: p, id: id, errs: errs)
 	end 'nm' else if k == ast.NodeKind.memberExpr 'mem'
-		resolveMemberExpr(r, p: p, id: id, errs: errs)
+		resolveMemberExpr(r, p: p, ms: ms, id: id, errs: errs)
 	end 'mem' else if k == ast.NodeKind.indexExpr 'idx'
-		resolveExpr(r, p: p, id: ast.indexExprObj(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.indexExprObj(r.tree, id: id), errs: errs)
 		let argsRef = ast.indexExprArgsRef(r.tree, id: id)
 		for i in 0 upto r.tree.listLen(argsRef) 'each'
-			resolveExpr(r, p: p, id: r.tree.listAt(argsRef, index: i) as ast.NodeID, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: r.tree.listAt(argsRef, index: i) as ast.NodeID, errs: errs)
 		end 'each'
 	end 'idx' else if k == ast.NodeKind.strLit 'str'
 		let partsRef = ast.strLitPartsRef(r.tree, id: id)
 		let n = r.tree.strPartCount(partsRef)
 		for i in 0 upto n 'each'
 			if r.tree.strPartIsExpr(partsRef, index: i) 'expr'
-				resolveExpr(r, p: p, id: r.tree.strPartExpr(partsRef, index: i), errs: errs)
+				resolveExpr(r, p: p, ms: ms, id: r.tree.strPartExpr(partsRef, index: i), errs: errs)
 			end 'expr'
 		end 'each'
 	end 'str' else if k == ast.NodeKind.binaryExpr 'bin'
-		resolveChain(r, p: p, id: id, errs: errs)
+		resolveChain(r, p: p, ms: ms, id: id, errs: errs)
 	end 'bin' else if k == ast.NodeKind.unaryExpr 'un'
-		resolveExpr(r, p: p, id: ast.unaryExprE(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.unaryExprE(r.tree, id: id), errs: errs)
 	end 'un' else if k == ast.NodeKind.condExpr 'cnd'
-		resolveExpr(r, p: p, id: ast.condExprCond(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.condExprThen(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.condExprElse(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.condExprCond(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.condExprThen(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.condExprElse(r.tree, id: id), errs: errs)
 	end 'cnd' else if k == ast.NodeKind.tryExpr 'tryE'
-		resolveExpr(r, p: p, id: ast.tryExprE(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.tryExprE(r.tree, id: id), errs: errs)
 		let val = ast.tryFallback(r.tree, e: id)
 		if val != 0 'v'
-			resolveExpr(r, p: p, id: val, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: val, errs: errs)
 		end 'v'
 		let handler = ast.tryExprHandler(r.tree, id: id)
 		if handler != 0 'handler'
-			resolveTryHandler(r, p: p, id: id, errs: errs)
+			resolveTryHandler(r, p: p, ms: ms, id: id, errs: errs)
 		end 'handler'
 		let ret = ast.tryExprRet(r.tree, id: id)
 		if ret != 0 'rt'
 			let rv = ast.returnStmtValue(r.tree, id: ret)
 			if rv != 0 'rv'
-				resolveExpr(r, p: p, id: rv, errs: errs)
+				resolveExpr(r, p: p, ms: ms, id: rv, errs: errs)
 			end 'rv'
 		end 'rt'
 		let thr = ast.tryExprThr(r.tree, id: id)
 		if thr != 0 'th'
-			resolveExpr(r, p: p, id: ast.throwStmtValue(r.tree, id: thr), errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: ast.throwStmtValue(r.tree, id: thr), errs: errs)
 		end 'th'
 	end 'tryE' else if k == ast.NodeKind.callExpr 'call'
-		resolveCallExpr(r, p: p, id: id, errs: errs)
+		resolveCallExpr(r, p: p, ms: ms, id: id, errs: errs)
 	end 'call' else if k == ast.NodeKind.structLitExpr 'slit'
-		resolveStructLitExpr(r, p: p, id: id, errs: errs)
+		resolveStructLitExpr(r, p: p, ms: ms, id: id, errs: errs)
 	end 'slit' else if k == ast.NodeKind.collectionLitExpr 'coll'
-		resolveExprList(r, p: p, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
-		resolveExprList(r, p: p, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
+		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprElemsRef(r.tree, id: id), errs: errs)
+		resolveExprList(r, p: p, ms: ms, list: ast.collectionLitExprValuesRef(r.tree, id: id), errs: errs)
 	end 'coll' else if k == ast.NodeKind.tupleExpr 'tup'
-		resolveExprList(r, p: p, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
+		resolveExprList(r, p: p, ms: ms, list: ast.tupleExprElemsRef(r.tree, id: id), errs: errs)
 	end 'tup' else if k == ast.NodeKind.castExpr 'cast'
-		resolveExpr(r, p: p, id: ast.castExprE(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.castExprE(r.tree, id: id), errs: errs)
 		resolveTypeRef(r, p: p, tr: ast.castExprTarget(r.tree, id: id), errs: errs)
 	end 'cast' else if k == ast.NodeKind.fromExpr 'from'
-		resolveExpr(r, p: p, id: ast.fromExprHead(r.tree, id: id), errs: errs)
-		resolveExpr(r, p: p, id: ast.fromExprValue(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.fromExprHead(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.fromExprValue(r.tree, id: id), errs: errs)
 	end 'from' else if k == ast.NodeKind.matchExpr 'me'
-		resolveMatchCore(r, p: p, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
+		resolveMatchCore(r, p: p, ms: ms, mc: ast.matchExprMatch(r.tree, id: id), errs: errs)
 	end 'me' else if k == ast.NodeKind.panicExpr 'pe'
-		resolveExpr(r, p: p, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.panicExprMessage(r.tree, id: id), errs: errs)
 	end 'pe' else if k == ast.NodeKind.closureExpr 'closure'
-		resolveClosureExpr(r, p: p, id: id, errs: errs)
+		resolveClosureExpr(r, p: p, ms: ms, id: id, errs: errs)
 	end 'closure' else if k == ast.NodeKind.typeQueryExpr 'query'
 		resolveTypeRef(r, p: p, tr: ast.typeQueryExprType(r.tree, id: id), errs: errs)
 	end 'query' else 'unk'
@@ -971,7 +971,7 @@ end 'resolveExpr'
 
 // resolveClosureExpr resolves a closure, whose body sees its parameters and captures the names around it as the body of a
 // behaviour does.
-function resolveClosureExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveClosureExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	let paramsRef = ast.closureExprParamsRef(r.tree, id: id)
 	var names = ast.StringList.create(0)
 	for i in 0 upto r.tree.listLen(paramsRef) 'params'
@@ -990,7 +990,7 @@ function resolveClosureExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mu
 	let outer = r.inClosure
 	r.inClosure = true
 	r.whenDepth = try r.whenDepth + 1 otherwise r.whenDepth
-	resolveBlock(r, p: p, listRef: ast.closureExprBodyRef(r.tree, id: id), errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: ast.closureExprBodyRef(r.tree, id: id), errs: errs)
 	if r.whenDepth > 0 'dec'
 		r.whenDepth = r.whenDepth - 1
 	end 'dec'
@@ -998,15 +998,15 @@ function resolveClosureExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mu
 	popScope(r)
 end 'resolveClosureExpr'
 
-function resolveExprList(mutates r Resolver, p ast.Project, list diag.U32, mutates errs diag.ErrorList)
+function resolveExprList(mutates r Resolver, p ast.Project, ms ast.ModuleState, list diag.U32, mutates errs diag.ErrorList)
 	for i in 0 upto r.tree.listLen(list) 'each'
-		resolveExpr(r, p: p, id: r.tree.listAt(list, index: i) as ast.NodeID, errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: r.tree.listAt(list, index: i) as ast.NodeID, errs: errs)
 	end 'each'
 end 'resolveExprList'
 
 // resolveTryHandler resolves a try expression's block handler, which sees the error it binds. The binding is the name in
 // parentheses before the label, which the parser takes for an expression.
-function resolveTryHandler(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveTryHandler(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	let handler = ast.tryExprHandler(r.tree, id: id)
 	checkEnd(r, label: ast.handlerBlockLabel(r.tree, id: handler), endNode: ast.handlerBlockEnd(r.tree, id: handler), errs: errs)
 	var bs = ast.StringList.create(0)
@@ -1015,13 +1015,13 @@ function resolveTryHandler(mutates r Resolver, p ast.Project, id ast.NodeID, mut
 		bs.push(ast.nameExprName(r.tree, id: bound))
 	end 'binds'
 	pushScopeList(r, names: bs)
-	resolveBlock(r, p: p, listRef: ast.handlerBlockBodyRef(r.tree, id: handler), errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: ast.handlerBlockBodyRef(r.tree, id: handler), errs: errs)
 	popScope(r)
 end 'resolveTryHandler'
 
-function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveCallExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	let callee = ast.callExprCallee(r.tree, id: id)
-	resolveExpr(r, p: p, id: callee, errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: callee, errs: errs)
 	var constructsCown = false
 	if r.tree.kindOf(callee) == ast.NodeKind.nameExpr 'nm'
 		match r.res.decls.get(callee as Count) 'd'
@@ -1036,11 +1036,11 @@ function resolveCallExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutat
 		if constructsCown and ast.argLabel(r.tree, id: aNode) == ast.dropWithLabel 'skipDW'
 			continue 'each'
 		end 'skipDW'
-		resolveExpr(r, p: p, id: ast.argValue(r.tree, id: aNode), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.argValue(r.tree, id: aNode), errs: errs)
 	end 'each'
 end 'resolveCallExpr'
 
-function resolveStructLitExpr(mutates r Resolver, p ast.Project, id ast.NodeID, mutates errs diag.ErrorList)
+function resolveStructLitExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, id ast.NodeID, mutates errs diag.ErrorList)
 	let tName = ast.structLitExprTypeName(r.tree, id: id)
 	if tName != "Self" 'named'
 		let off = r.tree.startOf(id)
@@ -1054,7 +1054,7 @@ function resolveStructLitExpr(mutates r Resolver, p ast.Project, id ast.NodeID, 
 	let n = r.tree.listLen(fieldsRef)
 	for i in 0 upto n 'each'
 		let fi = r.tree.listAt(fieldsRef, index: i) as ast.NodeID
-		resolveExpr(r, p: p, id: ast.structFieldValue(r.tree, id: fi), errs: errs)
+		resolveExpr(r, p: p, ms: ms, id: ast.structFieldValue(r.tree, id: fi), errs: errs)
 	end 'each'
 end 'resolveStructLitExpr'
 
@@ -1158,14 +1158,14 @@ end 'resolveConforms'
 
 // resolveParamDefaults resolves the default of each parameter in the scope of the declaration alone: it sees no parameter, no field and no
 // 'self'.
-function resolveParamDefaults(mutates r Resolver, p ast.Project, params ast.ParamList, mutates errs diag.ErrorList)
+function resolveParamDefaults(mutates r Resolver, p ast.Project, ms ast.ModuleState, params ast.ParamList, mutates errs diag.ErrorList)
 	for i in 0 upto params.count() 'each'
 		let dExpr = params[i].defaultRef
 		if dExpr != 0 'default'
 			r.scopes = ScopeStack.create(0)
 			pushScope(r)
 			r.fields = BoolStrMap.new()
-			resolveExpr(r, p: p, id: dExpr, errs: errs)
+			resolveExpr(r, p: p, ms: ms, id: dExpr, errs: errs)
 			popScope(r)
 		end 'default'
 	end 'each'
@@ -1190,11 +1190,11 @@ end 'resolveInterfaceList'
 
 // resolveFuncDecl resolves a function, or a method, which has a receiver when hasReceiver is set: a closure in its body
 // captures 'self' by that name.
-function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
+function resolveFuncDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, f ast.FuncDecl, s Surface, fieldNames BoolStrMap, hasReceiver bool, mutates errs diag.ErrorList)
 	let outer = enterTypeParams(r, p: p, owner: f.name, s: s, params: f.typeParams, constraints: f.whereList, errs: errs)
 	checkEnd(r, label: ast.sourceName(f), endNode: f.endRef, errs: errs)
 	signature(r, p: p, s: s, params: f.params, returnsRef: f.returnsRef, throwsRef: f.throwsRef, errs: errs)
-	resolveParamDefaults(r, p: p, params: f.params, errs: errs)
+	resolveParamDefaults(r, p: p, ms: ms, params: f.params, errs: errs)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = cloneBoolStrMap(fieldNames)
@@ -1204,7 +1204,7 @@ function resolveFuncDecl(mutates r Resolver, p ast.Project, f ast.FuncDecl, s Su
 	if hasReceiver 'receiver'
 		bindLocalName(r, name: ast.receiverName)
 	end 'receiver'
-	resolveBlock(r, p: p, listRef: f.body, errs: errs)
+	resolveBlock(r, p: p, ms: ms, listRef: f.body, errs: errs)
 	popScope(r)
 	r.typeParams = outer
 end 'resolveFuncDecl'
@@ -1213,17 +1213,17 @@ function cloneBoolStrMap(m BoolStrMap) returns BoolStrMap
 	return m.clone()
 end 'cloneBoolStrMap'
 
-function resolveTopDecl(mutates r Resolver, p ast.Project, d ast.Decl, mutates errs diag.ErrorList)
+function resolveTopDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, d ast.Decl, mutates errs diag.ErrorList)
 	let emptyFields = BoolStrMap.new()
 	match d 'k'
-		funcDecl(fd) then resolveFuncDecl(r, p: p, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
-		constDecl(cd) then resolveTopConst(r, p: p, cd: cd, errs: errs)
-		typeDecl(td) then resolveTypeDecl(r, p: p, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
-		enumDecl(ed) then resolveEnumDecl(r, p: p, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
-		unionDecl(ud) then resolveUnionDecl(r, p: p, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
+		funcDecl(fd) then resolveFuncDecl(r, p: p, ms: ms, f: fd, s: declSurface(r, d: d, noun: "function"), fieldNames: emptyFields, hasReceiver: false, errs: errs)
+		constDecl(cd) then resolveTopConst(r, p: p, ms: ms, cd: cd, errs: errs)
+		typeDecl(td) then resolveTypeDecl(r, p: p, ms: ms, td: td, s: declSurface(r, d: d, noun: "type"), errs: errs)
+		enumDecl(ed) then resolveEnumDecl(r, p: p, ms: ms, ed: ed, s: declSurface(r, d: d, noun: "enum"), errs: errs)
+		unionDecl(ud) then resolveUnionDecl(r, p: p, ms: ms, ud: ud, s: declSurface(r, d: d, noun: "union"), errs: errs)
 		aliasDecl(ad) then resolveTopAlias(r, p: p, ad: ad, s: declSurface(r, d: d, noun: "typealias"), errs: errs)
-		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ifd: ifd, errs: errs)
-		extensionDecl(xd) then resolveExtensionDecl(r, p: p, xd: xd, s: declSurface(r, d: d, noun: "extension"), errs: errs)
+		interfaceDecl(ifd) then resolveInterfaceDecl(r, p: p, ms: ms, ifd: ifd, errs: errs)
+		extensionDecl(xd) then resolveExtensionDecl(r, p: p, ms: ms, xd: xd, s: declSurface(r, d: d, noun: "extension"), errs: errs)
 	end 'k'
 end 'resolveTopDecl'
 
@@ -1237,30 +1237,30 @@ end 'resolveTopAlias'
 
 // resolveTopConst resolves a constant of the module, except a static let that a type's body declares, which its type resolves
 // with the type's other members in scope.
-function resolveTopConst(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
+function resolveTopConst(mutates r Resolver, p ast.Project, ms ast.ModuleState, cd ast.ConstDecl, mutates errs diag.ErrorList)
 	if not ast.isNestedAlias(cd.name) 'topLevel'
-		resolveConstDecl(r, p: p, cd: cd, errs: errs)
+		resolveConstDecl(r, p: p, ms: ms, cd: cd, errs: errs)
 	end 'topLevel'
 end 'resolveTopConst'
 
-function resolveConstDecl(mutates r Resolver, p ast.Project, cd ast.ConstDecl, mutates errs diag.ErrorList)
-	resolveStandaloneExpr(r, p: p, e: cd.value, errs: errs)
+function resolveConstDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, cd ast.ConstDecl, mutates errs diag.ErrorList)
+	resolveStandaloneExpr(r, p: p, ms: ms, e: cd.value, errs: errs)
 end 'resolveConstDecl'
 
 // resolveStandaloneExpr resolves an expression that no function holds, a constant's value, a field's default or a raw value, which
 // names no local and no field.
-function resolveStandaloneExpr(mutates r Resolver, p ast.Project, e ast.NodeID, mutates errs diag.ErrorList)
+function resolveStandaloneExpr(mutates r Resolver, p ast.Project, ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList)
 	r.scopes = ScopeStack.create(0)
 	pushScope(r)
 	r.fields = BoolStrMap.new()
-	resolveExpr(r, p: p, id: e, errs: errs)
+	resolveExpr(r, p: p, ms: ms, id: e, errs: errs)
 	popScope(r)
 end 'resolveStandaloneExpr'
 
-function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
+function resolveTypeDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, td ast.TypeDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: td.name, endNode: td.endRef, errs: errs)
 	let outer = enterTypeParams(r, p: p, owner: td.name, s: s, params: td.typeParams, constraints: td.whereList, errs: errs)
-	resolveNestedAliases(r, p: p, owner: td.name, aliases: td.aliases, statics: td.statics, s: s, errs: errs)
+	resolveNestedAliases(r, p: p, ms: ms, owner: td.name, aliases: td.aliases, statics: td.statics, s: s, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: td.conforms, errs: errs)
 	var fNames = BoolStrMap.new()
 	for i in 0 upto td.fields.count() 'flds'
@@ -1273,16 +1273,16 @@ function resolveTypeDecl(mutates r Resolver, p ast.Project, td ast.TypeDecl, s S
 		end 'ht'
 		let dExpr = td.fields[i].defaultRef
 		if dExpr != 0 'hd'
-			resolveStandaloneExpr(r, p: p, e: dExpr, errs: errs)
+			resolveStandaloneExpr(r, p: p, ms: ms, e: dExpr, errs: errs)
 		end 'hd'
 	end 'flds'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto td.methods.count() 'meths'
-		let ms = methodSurface(r, owner: td.name, m: td.methods[i])
+		let surface = methodSurface(r, owner: td.name, m: td.methods[i])
 		if td.methods[i].isStatic 'st'
-			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: false, errs: errs)
+			resolveFuncDecl(r, p: p, ms: ms, f: td.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		end 'st' else 'inst'
-			resolveFuncDecl(r, p: p, f: td.methods[i].clone(), s: ms, fieldNames: fNames, hasReceiver: true, errs: errs)
+			resolveFuncDecl(r, p: p, ms: ms, f: td.methods[i].clone(), s: surface, fieldNames: fNames, hasReceiver: true, errs: errs)
 		end 'inst'
 	end 'meths'
 	r.members = ast.DeclRefIndex.new()
@@ -1292,7 +1292,7 @@ end 'resolveTypeDecl'
 // resolveNestedAliases brings the typealiases and the static lets that the body of the type or interface owner declares into
 // scope, then resolves the targets of the typealiases, which may name the parameters and each other, and the values of the
 // static lets.
-function resolveNestedAliases(mutates r Resolver, p ast.Project, owner String, aliases ast.AliasDeclList, statics ast.ConstDeclList, s Surface, mutates errs diag.ErrorList)
+function resolveNestedAliases(mutates r Resolver, p ast.Project, ms ast.ModuleState, owner String, aliases ast.AliasDeclList, statics ast.ConstDeclList, s Surface, mutates errs diag.ErrorList)
 	for i in 0 upto aliases.count() 'scope'
 		match consumes p.modules[ast.modIndex(r.modID)].names.get(ast.nestedAliasName(owner, name: aliases[i].name)) 'declared'
 			some(ord) then r.members.insert(aliases[i].name.clone(), value: ast.DeclRef.make(r.modID, ordinal: ord))
@@ -1311,31 +1311,31 @@ function resolveNestedAliases(mutates r Resolver, p ast.Project, owner String, a
 		resolveAliasDecl(r, p: p, ad: a, s: surface, errs: errs)
 	end 'targets'
 	for i in 0 upto statics.count() 'values'
-		resolveConstDecl(r, p: p, cd: statics[i].clone(), errs: errs)
+		resolveConstDecl(r, p: p, ms: ms, cd: statics[i].clone(), errs: errs)
 	end 'values'
 end 'resolveNestedAliases'
 
 // resolveRawValue resolves the value that a case writes after '=', where it is not a literal: a literal names nothing.
-function resolveRawValue(mutates r Resolver, p ast.Project, raw ast.NodeID, mutates errs diag.ErrorList)
+function resolveRawValue(mutates r Resolver, p ast.Project, ms ast.ModuleState, raw ast.NodeID, mutates errs diag.ErrorList)
 	if raw != 0 'written'
-		resolveStandaloneExpr(r, p: p, e: raw, errs: errs)
+		resolveStandaloneExpr(r, p: p, ms: ms, e: raw, errs: errs)
 	end 'written'
 end 'resolveRawValue'
 
-function resolveEnumDecl(mutates r Resolver, p ast.Project, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
+function resolveEnumDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, ed ast.EnumDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ed.name, endNode: ed.endRef, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ed.conforms, errs: errs)
 	for i in 0 upto ed.cases.count() 'cs'
-		resolveRawValue(r, p: p, raw: ed.cases[i].raw, errs: errs)
+		resolveRawValue(r, p: p, ms: ms, raw: ed.cases[i].raw, errs: errs)
 	end 'cs'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ed.methods.count() 'meths'
-		let ms = methodSurface(r, owner: ed.name, m: ed.methods[i])
-		resolveFuncDecl(r, p: p, f: ed.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: not ed.methods[i].isStatic, errs: errs)
+		let surface = methodSurface(r, owner: ed.name, m: ed.methods[i])
+		resolveFuncDecl(r, p: p, ms: ms, f: ed.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: not ed.methods[i].isStatic, errs: errs)
 	end 'meths'
 end 'resolveEnumDecl'
 
-function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
+function resolveUnionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, ud ast.UnionDecl, s Surface, mutates errs diag.ErrorList)
 	checkEnd(r, label: ud.name, endNode: ud.endRef, errs: errs)
 	let outer = enterTypeParams(r, p: p, owner: ud.name, s: s, params: ud.typeParams, constraints: ud.whereList, errs: errs)
 	resolveConforms(r, p: p, s: s, conforms: ud.conforms, errs: errs)
@@ -1346,12 +1346,12 @@ function resolveUnionDecl(mutates r Resolver, p ast.Project, ud ast.UnionDecl, s
 			let cs = Surface.make(s.tier, noun: "union case", name: "{ud.name}.{ud.cases[i].name}", at: r.tree.startOf(tRef))
 			signatureType(r, p: p, s: cs, position: "in the type of payload '{ud.cases[i].fields[j].name}'", tr: tRef, errs: errs)
 		end 'ps'
-		resolveRawValue(r, p: p, raw: ud.cases[i].raw, errs: errs)
+		resolveRawValue(r, p: p, ms: ms, raw: ud.cases[i].raw, errs: errs)
 	end 'cs'
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto ud.methods.count() 'meths'
-		let ms = methodSurface(r, owner: ud.name, m: ud.methods[i])
-		resolveFuncDecl(r, p: p, f: ud.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: not ud.methods[i].isStatic, errs: errs)
+		let surface = methodSurface(r, owner: ud.name, m: ud.methods[i])
+		resolveFuncDecl(r, p: p, ms: ms, f: ud.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: not ud.methods[i].isStatic, errs: errs)
 	end 'meths'
 	r.typeParams = outer
 end 'resolveUnionDecl'
@@ -1413,7 +1413,7 @@ end 'declaredFieldNames'
 
 // resolveExtensionDecl resolves the type an extension extends and the methods it adds, which see the type parameters and the
 // fields of that type. Each type parameter has a node of the extension's own, since the type's nodes are in its module.
-function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.ExtensionDecl, s Surface, mutates errs diag.ErrorList)
+function resolveExtensionDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, xd ast.ExtensionDecl, s Surface, mutates errs diag.ErrorList)
 	let name = extendedName(r, xd: xd)
 	checkEnd(r, label: name, endNode: xd.endRef, errs: errs)
 	if not xd.isInt 'target'
@@ -1435,11 +1435,11 @@ function resolveExtensionDecl(mutates r Resolver, p ast.Project, xd ast.Extensio
 	enterConstraints(r, p: p, owner: name, s: s, constraints: xd.whereList, ofExtension: true, errs: errs)
 	let emptyFields = BoolStrMap.new()
 	for i in 0 upto xd.methods.count() 'meths'
-		let ms = methodSurface(r, owner: name, m: xd.methods[i])
+		let surface = methodSurface(r, owner: name, m: xd.methods[i])
 		if xd.methods[i].isStatic 'st'
-			resolveFuncDecl(r, p: p, f: xd.methods[i].clone(), s: ms, fieldNames: emptyFields, hasReceiver: false, errs: errs)
+			resolveFuncDecl(r, p: p, ms: ms, f: xd.methods[i].clone(), s: surface, fieldNames: emptyFields, hasReceiver: false, errs: errs)
 		end 'st' else 'inst'
-			resolveFuncDecl(r, p: p, f: xd.methods[i].clone(), s: ms, fieldNames: fieldNames, hasReceiver: true, errs: errs)
+			resolveFuncDecl(r, p: p, ms: ms, f: xd.methods[i].clone(), s: surface, fieldNames: fieldNames, hasReceiver: true, errs: errs)
 		end 'inst'
 	end 'meths'
 	r.members = ast.DeclRefIndex.new()
@@ -1493,12 +1493,12 @@ end 'resolveAliasDecl'
 
 // resolveInterfaceDecl resolves the requirements, which take the interface's visibility: a conformer's caller reaches
 // them through the interface.
-function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
+function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ms ast.ModuleState, ifd ast.InterfaceDecl, mutates errs diag.ErrorList)
 	checkEnd(r, label: ifd.name, endNode: ifd.endRef, errs: errs)
 	let tier = ast.visibilityOf(ifd.visibility)
 	let ifs = Surface.make(tier, noun: "interface", name: ifd.name.clone(), at: r.tree.startOf(ifd.id))
 	let outer = enterTypeParams(r, p: p, owner: ifd.name, s: ifs, params: ifd.typeParams, constraints: ast.ConstraintList.create(0), errs: errs)
-	resolveNestedAliases(r, p: p, owner: ifd.name, aliases: ifd.aliases, statics: ast.ConstDeclList.create(0), s: ifs, errs: errs)
+	resolveNestedAliases(r, p: p, ms: ms, owner: ifd.name, aliases: ifd.aliases, statics: ast.ConstDeclList.create(0), s: ifs, errs: errs)
 	resolveInterfaceList(r, p: p, s: ifs, interfaces: ifd.parents, position: "in its extends clause", errs: errs)
 	r.expandsMembers = true
 	for i in 0 upto ifd.methods.count() 'sigs'
@@ -1511,23 +1511,18 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ifd ast.Interfa
 	r.typeParams = outer
 end 'resolveInterfaceDecl'
 
-export function resolveModule(mutates p ast.Project, modIdx Count, mutates errs diag.ErrorList)
-	let modID = p.modules[modIdx].id
-	let swappedTree = exchange(p.modules[modIdx].tree, value: ast.Tree.new(modID, text: ""))
-	let swappedRes = exchange(p.resolutions[modIdx], value: ast.Resolution.new(modID))
-	var r = Resolver.make(modID, tree: swappedTree, res: swappedRes)
+export function resolveModule(mutates ms ast.ModuleState, p ast.Project, mutates errs diag.ErrorList)
+	let modID = ms.module
+	let modIdx = ast.modIndex(modID)
+	var r = Resolver.make(modID, tree: exchange(ms.tree, value: ast.Tree.new(modID, text: "")), res: exchange(ms.resolution, value: ast.Resolution.new(modID)))
 	let declCount = p.modules[modIdx].decls.count()
 	for i in 0 upto declCount 'eachD'
 		r.typeParams = TypeParamMap.new()
 		let d = p.modules[modIdx].decls[i].clone()
-		resolveTopDecl(r, p: p, d: d, errs: errs)
+		resolveTopDecl(r, p: p, ms: ms, d: d, errs: errs)
 	end 'eachD'
-	var dummyTree = ast.Tree.new(modID, text: "")
-	var dummyRes = ast.Resolution.new(modID)
-	let finalTree = exchange(r.tree, value: dummyTree)
-	let finalRes = exchange(r.res, value: dummyRes)
-	p.modules[modIdx].tree = finalTree
-	p.resolutions[modIdx] = finalRes
+	ms.tree = exchange(r.tree, value: ast.Tree.new(modID, text: ""))
+	ms.resolution = exchange(r.res, value: ast.Resolution.new(modID))
 end 'resolveModule'
 
 export function resolveProject(mutates p ast.Project, mutates errs diag.ErrorList)
@@ -1538,6 +1533,9 @@ end 'resolveProject'
 // already.
 export function resolveFrom(mutates p ast.Project, first Count, mutates errs diag.ErrorList)
 	for i in first upto p.modules.count() 'eachM'
-		resolveModule(p, modIdx: i, errs: errs)
+		let module = p.modules[i].id
+		var ms = ast.lendModule(p, module: module, lent: ast.Lent.tree)
+		resolveModule(ms, p: p, errs: errs)
+		ast.giveBack(p, ms: ms)
 	end 'eachM'
 end 'resolveFrom'

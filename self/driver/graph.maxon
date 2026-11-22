@@ -448,9 +448,9 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 		ast.beginProjectTask(p.types, ft: p.funcs)
 	end 'ofProject'
 	match run.graph.tasks[task].stage 's'
-		parse then project.parseModule(p, modIdx: m, memory: memory, errs: errs)
+		parse then parseTask(p, m: m, memory: memory, errs: errs)
 		parsed then return
-		resolve then resolve.resolveModule(p, modIdx: m, errs: errs)
+		resolve then resolveTask(p, m: m, errs: errs)
 		order then orderModules(run, p: p, errs: errs)
 		aliases then checkTask(run, p: p, m: m, stage: Stage.aliases, errs: errs)
 		declare then checkTask(run, p: p, m: m, stage: Stage.declare, errs: errs)
@@ -470,11 +470,27 @@ function runTask(mutates run Run, mutates p ast.Project, task Count, memory proj
 	end 'ended'
 end 'runTask'
 
+// parseTask parses module m into the module the task is lent, which it gives the project when it ends.
+function parseTask(mutates p ast.Project, m Count, memory project.SourceFiles, mutates errs diag.ErrorList)
+	let module = p.modules[m].id
+	var ms = ast.lendModule(p, module: module, lent: ast.Lent.source)
+	project.parseModule(ms, p: p, memory: memory, errs: errs)
+	ast.giveBack(p, ms: ms)
+end 'parseTask'
+
+// resolveTask resolves module m, whose tree and resolution it is lent.
+function resolveTask(mutates p ast.Project, m Count, mutates errs diag.ErrorList)
+	let module = p.modules[m].id
+	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tree)
+	resolve.resolveModule(ms, p: p, errs: errs)
+	ast.giveBack(p, ms: ms)
+end 'resolveTask'
+
 // checkTask runs a stage of the check of module m: the module's state, to which the project lends its tables for the task, is
 // what the stage writes, and the project is what it reads of the modules it waited on.
 function checkTask(mutates run Run, mutates p ast.Project, m Count, stage Stage, mutates errs diag.ErrorList)
 	let module = p.modules[m].id
-	run.checks.modules[m].unit = ast.lendModule(p, module: module)
+	run.checks.modules[m].unit = ast.lendModule(p, module: module, lent: ast.Lent.tree)
 	match stage 's'
 		parse then panic("driver: the parse is no stage of the check")
 		parsed then panic("driver: parsed is no stage of the check")
@@ -636,7 +652,7 @@ function lowerModule(mutates run Run, mutates p ast.Project, m Count, options Op
 	let slot = try m - run.first otherwise panic("driver: a module that was compiled already is lowered again")
 	var found = diag.ErrorList.create(0)
 	let module = p.modules[m].id
-	var ms = ast.lendModule(p, module: module)
+	var ms = ast.lendModule(p, module: module, lent: ast.Lent.tables)
 	if lowersBodies(run.goal) 'lower'
 		run.lowered[slot] = ir.lowerModule(p, ms: ms, functions: run.checked.functions[m], callers: run.checked.callers[m], errs: found)
 	end 'lower' else 'instances'

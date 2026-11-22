@@ -10,7 +10,7 @@ function declareRecordMembers(mutates c Checker, p ast.Project, mutates ms ast.M
 	for i in 0 upto td.fields.count() 'each'
 		let f = td.fields[i].clone()
 		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findField(f.name).isSome() 'dup'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errDuplicateDefinition, msg: diag.duplicateField(f.name, typeName: td.name), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errDuplicateDefinition, msg: diag.duplicateField(f.name, typeName: td.name), errs: errs)
 			return
 		end 'dup'
 		var ft = p.builtins.voidTy
@@ -21,7 +21,7 @@ function declareRecordMembers(mutates c Checker, p ast.Project, mutates ms ast.M
 			end 'badType'
 		end 'typed'
 		if f.typeRef != 0 and ast.holdsGrowingInstance(ms.types, t: ft, origin: tid) 'grows'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: f.typeRef), code: diag.errGenericGrowsWithoutBound, msg: diag.genericTypeGrowsWithoutBound(f.name, owner: td.name, declared: declaredTypeName(p, ms: ms, c: c, tr: f.typeRef, t: ft)), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.typeRef), code: diag.errGenericGrowsWithoutBound, msg: diag.genericTypeGrowsWithoutBound(f.name, owner: td.name, declared: declaredTypeName(p, ms: ms, c: c, tr: f.typeRef, t: ft)), errs: errs)
 			return
 		end 'grows'
 		let level = ast.visibilityOf(f.visibility)
@@ -33,7 +33,7 @@ end 'declareRecordMembers'
 
 // declaredTypeName is how a declaration writes a type in a message: the typealias that names it, else the type.
 function declaredTypeName(p ast.Project, ms ast.ModuleState, c Checker, tr ast.NodeID, t ast.TypeID) returns String
-	match consumes p.resolutions[c.modIdx].decls.get(tr as Count) 'bound'
+	match consumes ms.resolution.decls.get(tr as Count) 'bound'
 		some(ref) then return aliasOrTypeName(p, ms: ms, ref: ref, t: t)
 		none then return ast.typeName(ms.types, t: t)
 	end 'bound'
@@ -74,11 +74,11 @@ end 'RawState'
 
 // rawKindOf is the kind of raw value that a case writes: the literal's kind, an integer for a case that writes none, and a
 // value for any other expression.
-function rawKindOf(p ast.Project, modIdx Count, raw ast.NodeID) returns ast.RawKind
+function rawKindOf(p ast.Project, ms ast.ModuleState, raw ast.NodeID) returns ast.RawKind
 	if raw == 0 'none'
 		return ast.RawKind.integer
 	end 'none'
-	let k = p.modules[modIdx].tree.kindOf(raw)
+	let k = ms.tree.kindOf(raw)
 	if k == ast.NodeKind.intLit 'integer'
 		return ast.RawKind.integer
 	end 'integer'
@@ -97,7 +97,7 @@ end 'rawKindOf'
 // whether it did not refuse.
 function readRaw(mutates c Checker, p ast.Project, ms ast.ModuleState, tid ast.TypeID, raw ast.NodeID, off diag.U32, mutates st RawState, mutates errs diag.ErrorList) returns bool
 	st.explicit = raw != 0
-	let kind = rawKindOf(p, modIdx: c.modIdx, raw: raw)
+	let kind = rawKindOf(p, ms: ms, raw: raw)
 	let valued = kind == ast.RawKind.value or (st.started and st.kind == ast.RawKind.value)
 	if st.started and not valued and st.kind != kind 'mismatch'
 		checkFail(c.modID, off: off, code: diag.errEnumRawValueTypeMismatch, msg: diag.rawValueTypeMismatch(st.kind.noun(), got: kind.noun()), errs: errs)
@@ -110,24 +110,24 @@ function readRaw(mutates c Checker, p ast.Project, ms ast.ModuleState, tid ast.T
 	if kind == ast.RawKind.integer 'integer'
 		st.value = st.next.clone()
 		if st.explicit 'written'
-			st.value = ast.intLitValue(p.modules[c.modIdx].tree, id: raw)
+			st.value = ast.intLitValue(ms.tree, id: raw)
 		end 'written'
 		st.next = st.value.add(ast.I128.one())
 		st.text = ""
 		shown = st.value.toString()
 	end 'integer' else if kind == ast.RawKind.float 'floatKind'
-		let bits = ast.floatLitBits(p.modules[c.modIdx].tree, id: raw)
+		let bits = ast.floatLitBits(ms.tree, id: raw)
 		st.value = ast.I128.fromCount(bits)
 		st.text = ""
 		shown = ast.floatDiagnosticText(bits)
 	end 'floatKind' else if kind == ast.RawKind.string 'stringKind'
-		let parts = ast.strLitPartsRef(p.modules[c.modIdx].tree, id: raw)
-		if not p.modules[c.modIdx].tree.strIsPlain(parts) 'interpolated'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: raw), code: diag.errRawValueNotLiteral, msg: "a raw value is a constant: write the string without an interpolated value", errs: errs)
+		let parts = ast.strLitPartsRef(ms.tree, id: raw)
+		if not ms.tree.strIsPlain(parts) 'interpolated'
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: raw), code: diag.errRawValueNotLiteral, msg: "a raw value is a constant: write the string without an interpolated value", errs: errs)
 			return false
 		end 'interpolated'
 		st.value = ast.I128.zero()
-		st.text = ast.strPartsText(p.modules[c.modIdx].tree, partsRef: parts)
+		st.text = ast.strPartsText(ms.tree, partsRef: parts)
 		shown = st.text.clone()
 	end 'stringKind' else 'valueKind'
 		st.value = ast.I128.zero()
@@ -169,7 +169,7 @@ function declareEnumMembers(mutates c Checker, p ast.Project, mutates ms ast.Mod
 	var st = RawState.new()
 	for i in 0 upto ed.cases.count() 'each'
 		let cs = ed.cases[i].clone()
-		let off = offsetOf(c, p: p, node: cs.id)
+		let off = offsetOf(c, p: p, ms: ms, node: cs.id)
 		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(cs.name).isSome() 'dup'
 			checkFail(c.modID, off: off, code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
@@ -193,14 +193,14 @@ function declareUnionMembers(mutates c Checker, p ast.Project, mutates ms ast.Mo
 	for i in 0 upto ud.cases.count() 'each'
 		let cs = ud.cases[i].clone()
 		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].findCase(cs.name).isSome() 'dup'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: cs.id), code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: cs.id), code: diag.errEnumDuplicateCase, msg: diag.duplicateEnumCase(cs.name), errs: errs)
 			return
 		end 'dup'
 		var payload = ast.CaseFieldList.create(0)
 		for j in 0 upto cs.fields.count() 'fields'
 			let f = cs.fields[j].clone()
 			if f.convention != "" 'convention'
-				checkFail(c.modID, off: offsetOf(c, p: p, node: f.id), code: diag.errUnexpectedToken, msg: "a union payload is not a parameter and takes no '{f.convention}'", errs: errs)
+				checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: f.id), code: diag.errUnexpectedToken, msg: "a union payload is not a parameter and takes no '{f.convention}'", errs: errs)
 				return
 			end 'convention'
 			let t = resolveTypeRef(c, p: p, ms: ms, tr: f.typeRef, selfTy: selfTy, errs: errs)
@@ -209,7 +209,7 @@ function declareUnionMembers(mutates c Checker, p ast.Project, mutates ms ast.Mo
 			end 'badType'
 			payload.push(ast.CaseFieldInfo.make(f.name.clone(), ty: t))
 		end 'fields'
-		if not readRaw(c, p: p, ms: ms, tid: tid, raw: cs.raw, off: offsetOf(c, p: p, node: cs.id), st: st, errs: errs) 'refused'
+		if not readRaw(c, p: p, ms: ms, tid: tid, raw: cs.raw, off: offsetOf(c, p: p, ms: ms, node: cs.id), st: st, errs: errs) 'refused'
 			return
 		end 'refused'
 		pushRawCase(p, ms: ms, tid: tid, name: cs.name.clone(), payload: payload, st: st)
@@ -219,7 +219,7 @@ end 'declareUnionMembers'
 // declareParentInterfaces records the interfaces that an interface extends in its conforms. A parent binds no associated
 // types, which its requirements would have to take from the child's, and one that extends the interface again is a cycle.
 function declareParentInterfaces(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, ifd ast.InterfaceDecl, tid ast.TypeID, mutates errs diag.ErrorList)
-	let off = offsetOf(c, p: p, node: ifd.id)
+	let off = offsetOf(c, p: p, ms: ms, node: ifd.id)
 	let parents = conformedInterfaces(c, p: p, ms: ms, interfaces: ifd.parents, capabilities: true, errs: errs)
 	for i in 0 upto parents.count() 'each'
 		let parent = parents[i]

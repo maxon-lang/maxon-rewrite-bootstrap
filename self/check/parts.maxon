@@ -117,10 +117,10 @@ end 'requireMayTakeApart'
 
 // requireMayTakeApartFrom checks each record along a field path that a move takes a part from.
 function requireMayTakeApartFrom(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.NodeID, what String) returns bool
-	let k = p.modules[o.c.modIdx].tree.kindOf(e)
-	let site = offsetOfOwn(o, p: p, node: e)
+	let k = ms.tree.kindOf(e)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	if k == ast.NodeKind.memberExpr 'member'
-		let obj = ast.memberExprObj(p.modules[o.c.modIdx].tree, id: e)
+		let obj = ast.memberExprObj(ms.tree, id: e)
 		return requireMayTakeApartFrom(o, p: p, ms: ms, e: obj, what: what) and requireMayTakeApart(o, p: p, ms: ms, site: site, t: ownType(o, node: obj), what: what)
 	end 'member'
 	if k == ast.NodeKind.nameExpr and ownName(o, node: e).kind == ast.NameKind.nameSelfField 'selfField'
@@ -134,7 +134,7 @@ end 'requireMayTakeApartFrom'
 // movePart moves a field out of the local that e's path starts at: the local is then partly moved, which a fact says by
 // listing the fields that are gone.
 function movePart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, path AccessPath, consumes dest OwnDest, consumes s OwnState) returns OwnState
-	let site = offsetOfOwn(o, p: p, node: e)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: e)
 	requireNotProjected(o, p: p, ms: ms, path: path, site: site)
 	if not requireMayTakeApartFrom(o, p: p, ms: ms, e: e, what: "moving '{pathText(o, p: p, ms: ms, path: path)}'") 'refused'
 		return s
@@ -168,7 +168,7 @@ function readPart(mutates o Ownership, p ast.Project, ms ast.ModuleState, e ast.
 	for i in 0 upto fact.moves.count() 'each'
 		if fact.moves[i].overlapsPath(path) 'gone'
 			let moved = moveText(o, p: p, ms: ms, m: fact.moves[i], root: path.root)
-			fail(o, p: p, site: offsetOfOwn(o, p: p, node: e), code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' overlaps '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again before using it")
+			fail(o, p: p, site: offsetOfOwn(o, p: p, ms: ms, node: e), code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' overlaps '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, ms: ms, site: fact.moves[i].site)}; assign '{moved}' again before using it")
 			break 'each'
 		end 'gone'
 	end 'each'
@@ -186,7 +186,7 @@ function assignPart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 		return table.Option.none
 	end 'whole'
 	let fact = s.factOf(path.root)
-	let site = offsetOfOwn(o, p: p, node: st)
+	let site = offsetOfOwn(o, p: p, ms: ms, node: st)
 	var kept = OwnMoves.create(0)
 	var under = OwnMoves.create(0)
 	var reinitialised = false
@@ -200,7 +200,7 @@ function assignPart(mutates o Ownership, p ast.Project, mutates ms ast.ModuleSta
 			under.push(fact.moves[i].clone())
 		end 'inside' else 'around'
 			let moved = moveText(o, p: p, ms: ms, m: fact.moves[i], root: path.root)
-			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' lies inside '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, site: fact.moves[i].site)}; assign '{moved}' again first")
+			fail(o, p: p, site: site, code: diag.errUseAfterMove, msg: "'{pathText(o, p: p, ms: ms, path: path)}' lies inside '{moved}', which was moved into {fact.moves[i].dest.text()} at line {lineOf(o, p: p, ms: ms, site: fact.moves[i].site)}; assign '{moved}' again first")
 			return table.Option.some(s.clone())
 		end 'around'
 	end 'each'

@@ -30,7 +30,7 @@ end 'unionRawCases'
 // checkTypeRawValues types the raw values of an enum or a union whose cases write ones that are no literal. Each is a
 // constant of the program, typed by the constants stage in the order of the constants it reads and checked as the value of a
 // constant is; all the cases of a type write the same type, which is the type of its `.rawValue`.
-function checkTypeRawValues(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, cases RawCases, mutates errs diag.ErrorList)
+function checkTypeRawValues(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, cases RawCases, mutates errs diag.ErrorList)
 	if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].rawKind != ast.RawKind.value 'literals'
 		return
 	end 'literals'
@@ -41,7 +41,7 @@ function checkTypeRawValues(mutates c Checker, mutates p ast.Project, mutates ms
 		var noun = ""
 		var t = ast.noType
 		if ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[i].rawExpr == 0 as ast.NodeID 'literal'
-			noun = rawKindOf(p, modIdx: c.modIdx, raw: cases.raws[i]).noun()
+			noun = rawKindOf(p, ms: ms, raw: cases.raws[i]).noun()
 		end 'literal' else 'value'
 			t = checkRawValue(c, p: p, ms: ms, tid: tid, index: i, node: cases.nodes[i], raw: cases.raws[i], errs: errs)
 			if t == ast.noType 'failed'
@@ -53,18 +53,18 @@ function checkTypeRawValues(mutates c Checker, mutates p ast.Project, mutates ms
 			settled = t
 			settledNoun = noun.clone()
 		end 'first' else if t != settled or noun != settledNoun 'mismatch'
-			checkFail(c.modID, off: offsetOf(c, p: p, node: cases.nodes[i]), code: diag.errEnumRawValueTypeMismatch, msg: diag.rawValueTypeMismatch(settledNoun.clone(), got: noun), errs: errs)
+			checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: cases.nodes[i]), code: diag.errEnumRawValueTypeMismatch, msg: diag.rawValueTypeMismatch(settledNoun.clone(), got: noun), errs: errs)
 		end 'mismatch'
 	end 'each'
 	if not failedSince(errs, mark: mark) 'typed'
-		ast.setRawType(p, ms: ms, t: tid, raw: settled)
+		ast.setRawType(ms, t: tid, raw: settled)
 	end 'typed'
 end 'checkTypeRawValues'
 
 // checkRawValue types the value that the case at index writes as the value of a constant, and gives its type, or none after
 // it reported why it has none. Unlike a constant of the module, it may build any record, whatever its constructors say, since
 // it belongs to the type.
-function checkRawValue(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, index Count, node ast.NodeID, raw ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkRawValue(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, tid ast.TypeID, index Count, node ast.NodeID, raw ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = "{ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].name}.{ms.types.lists[ast.typeList(ms.types, t: tid)][ast.typeIndex(ms.types, t: tid)].cases[index].name}"
 	enterContext(c, p: p, ms: ms, f: ast.noFunc, owner: ast.noType, calls: false)
 	c.constName = name.clone()
@@ -90,7 +90,7 @@ function rawValuesUntyped(p ast.Project, ms ast.ModuleState, t ast.TypeID) retur
 end 'rawValuesUntyped'
 
 function failRawUntyped(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, t ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	checkFail(c.modID, off: offsetOf(c, p: p, node: e), code: diag.errExpressionError, msg: "the raw values of '{nameOfType(p, ms: ms, t: t)}' have no type", errs: errs)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errExpressionError, msg: "the raw values of '{nameOfType(p, ms: ms, t: t)}' have no type", errs: errs)
 	return ast.noType
 end 'failRawUntyped'
 
@@ -116,12 +116,12 @@ function rawFieldType(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	let field = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].fields[index].clone()
 	let owner = ms.types.lists[ast.typeList(ms.types, t: orig)][ast.typeIndex(ms.types, t: orig)].decl.module
 	if not ast.isVisibleFrom(p, v: field.level, owner: owner, from: c.modID) 'hidden'
-		failAt(c, p: p, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: record)}.{field.name}", v: field.level, owner: owner, from: c.modID)}", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errFieldNotExported, msg: "field {ast.notVisible(p, name: "{nameOfType(p, ms: ms, t: record)}.{field.name}", v: field.level, owner: owner, from: c.modID)}", errs: errs)
 		return ast.noType
 	end 'hidden'
 	let ft = ast.fieldType(ms.types, owner: record, index: index)
 	if isManagedOwn(p, ms: ms, t: ft) 'managed'
-		failAt(c, p: p, node: e, code: diag.errUnsupportedFeature, msg: "Unsupported: the field '{field.name}' of the raw value of '{nameOfType(p, ms: ms, t: t)}' holds a value that is made with the raw value, so it is not read off the case: write '.rawValue.{field.name}'", errs: errs)
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: "Unsupported: the field '{field.name}' of the raw value of '{nameOfType(p, ms: ms, t: t)}' holds a value that is made with the raw value, so it is not read off the case: write '.rawValue.{field.name}'", errs: errs)
 		return ast.noType
 	end 'managed'
 	return ft
@@ -153,11 +153,11 @@ end 'CaseRead'
 // payload, and none for any other expression. Making such a case needs its payload, so a member of it that its tag answers
 // (`Op.mul.latency`) is read without making one.
 function payloadCaseNamed(mutates c Checker, p ast.Project, ms ast.ModuleState, obj ast.NodeID) returns table.Option with CaseRead
-	if p.modules[c.modIdx].tree.kindOf(obj) != ast.NodeKind.memberExpr 'notMember'
+	if ms.tree.kindOf(obj) != ast.NodeKind.memberExpr 'notMember'
 		return table.Option.none
 	end 'notMember'
-	let head = ast.memberExprObj(p.modules[c.modIdx].tree, id: obj)
-	if p.modules[c.modIdx].tree.kindOf(head) != ast.NodeKind.nameExpr 'notName'
+	let head = ast.memberExprObj(ms.tree, id: obj)
+	if ms.tree.kindOf(head) != ast.NodeKind.nameExpr 'notName'
 		return table.Option.none
 	end 'notName'
 	var probe = diag.ErrorList.create(0)
@@ -165,7 +165,7 @@ function payloadCaseNamed(mutates c Checker, p ast.Project, ms ast.ModuleState, 
 	if probe.count() > 0 or not typeHasKind(p, ms: ms, t: named, kind: ast.TypeKind.unionTy) or ms.types.lists[ast.typeList(ms.types, t: named)][ast.typeIndex(ms.types, t: named)].typeParams.count() > 0 'notUnion'
 		return table.Option.none
 	end 'notUnion'
-	match consumes ms.types.lists[ast.typeList(ms.types, t: named)][ast.typeIndex(ms.types, t: named)].findCase(ast.memberExprName(p.modules[c.modIdx].tree, id: obj)) 'found'
+	match consumes ms.types.lists[ast.typeList(ms.types, t: named)][ast.typeIndex(ms.types, t: named)].findCase(ast.memberExprName(ms.tree, id: obj)) 'found'
 		some(i) then return payloadRead(p, ms: ms, t: named, caseIndex: i)
 		none then return table.Option.none
 	end 'found'
@@ -181,7 +181,7 @@ end 'payloadRead'
 // checkCaseRead types a member that the tag of a case with a payload answers: its name, its ordinal, its raw value, or a
 // field of its raw value. Any other member of it is not a value that can be made without the payload.
 function checkCaseRead(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
-	let member = ast.memberExprName(p.modules[c.modIdx].tree, id: e)
+	let member = ast.memberExprName(ms.tree, id: e)
 	var kind = ast.MemberKind.memberCaseRawField
 	var result = p.builtins.stringTy
 	var fieldIndex = 0 as Count
@@ -218,6 +218,6 @@ end 'checkCaseRead'
 
 function caseNeedsPayload(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, read CaseRead, mutates errs diag.ErrorList) returns ast.TypeID
 	let name = ms.types.lists[ast.typeList(ms.types, t: read.owner)][ast.typeIndex(ms.types, t: read.owner)].cases[read.caseIndex].name.clone()
-	checkFail(c.modID, off: offsetOf(c, p: p, node: ast.memberExprObj(p.modules[c.modIdx].tree, id: e)), code: diag.errCallArgCountMismatch, msg: "case '{name}' carries a payload: construct it with arguments", errs: errs)
+	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: ast.memberExprObj(ms.tree, id: e)), code: diag.errCallArgCountMismatch, msg: "case '{name}' carries a payload: construct it with arguments", errs: errs)
 	return ast.noType
 end 'caseNeedsPayload'

@@ -15,7 +15,7 @@ end 'hasZero'
 // unless n is the literal 0. A generic body is checked once, so an element of a type parameter has no zero there.
 function checkArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let count = ordered[0]
-	if p.modules[c.modIdx].tree.kindOf(count) == ast.NodeKind.intLit and ast.intLitMagnitude(p.modules[c.modIdx].tree, id: count).isZero() 'empty'
+	if ms.tree.kindOf(count) == ast.NodeKind.intLit and ast.intLitMagnitude(ms.tree, id: count).isZero() 'empty'
 		return
 	end 'empty'
 	let elem = callElement(c, call: call)
@@ -24,39 +24,39 @@ function checkArrayCreateArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 	end 'zero'
 	let name = nameOfType(p, ms: ms, t: elem)
 	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
-		failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
+		failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of a type parameter: '{name}' may be instantiated with a type that has no zero value (a managed type, a handle, an enum, or a ranged alias that excludes 0). Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 		return
 	end 'parameter'
-	failAt(c, p: p, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
+	failAt(c, p: p, ms: ms, node: count, code: diag.errZeroOutsideElement, msg: "'create(n)' cannot publish zeroed slots of '{name}': zero is not a value of '{name}'. Create it empty with 'create(0)' and append with 'push(value)'", errs: errs)
 end 'checkArrayCreateArgs'
 
 // checkRawCallImportArgs refuses a DLL import named by anything but a string literal: the name is the import's entry in
 // the executable's import table, which the link fixes, so it is never computed.
 function checkRawCallImportArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let name = ordered[0]
-	if isPlainStringLiteral(c, p: p, node: name) 'literal'
+	if isPlainStringLiteral(c, p: p, ms: ms, node: name) 'literal'
 		return
 	end 'literal'
-	failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "a DLL import is named by a string literal, as in '__Raw.callImport1(\"ExitProcess\", arg1: code)'", errs: errs)
+	failAt(c, p: p, ms: ms, node: name, code: diag.errExpressionError, msg: "a DLL import is named by a string literal, as in '__Raw.callImport1(\"ExitProcess\", arg1: code)'", errs: errs)
 end 'checkRawCallImportArgs'
 
 // checkRawCodeAddressArgs refuses a function named by anything but a string literal, or by a name that the module does
 // not declare a function by: the address is the function's symbol, which the link fixes, so it is never computed.
 function checkRawCodeAddressArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)
 	let name = ordered[0]
-	if not isPlainStringLiteral(c, p: p, node: name) 'computed'
-		failAt(c, p: p, node: name, code: diag.errExpressionError, msg: "the function whose code is wanted is named by a string literal, as in '__Raw.codeAddress(\"workerMain\")'", errs: errs)
+	if not isPlainStringLiteral(c, p: p, ms: ms, node: name) 'computed'
+		failAt(c, p: p, ms: ms, node: name, code: diag.errExpressionError, msg: "the function whose code is wanted is named by a string literal, as in '__Raw.codeAddress(\"workerMain\")'", errs: errs)
 		return
 	end 'computed'
-	let text = ast.strPartsText(p.modules[c.modIdx].tree, partsRef: ast.strLitPartsRef(p.modules[c.modIdx].tree, id: name))
-	if ast.functionNamed(p, module: p.modules[c.modIdx].id, name: text) == ast.noFunc 'missing'
-		failAt(c, p: p, node: name, code: diag.errUnknownFunction, msg: "this module declares no function '{text}': name a function it declares at its top level", errs: errs)
+	let text = ast.strPartsText(ms.tree, partsRef: ast.strLitPartsRef(ms.tree, id: name))
+	if ast.functionNamed(p, ms: ms, module: p.modules[c.modIdx].id, name: text) == ast.noFunc 'missing'
+		failAt(c, p: p, ms: ms, node: name, code: diag.errUnknownFunction, msg: "this module declares no function '{text}': name a function it declares at its top level", errs: errs)
 	end 'missing'
 end 'checkRawCodeAddressArgs'
 
 // isPlainStringLiteral is whether the node is a string literal with no interpolation, whose text is known to the compile.
-function isPlainStringLiteral(c Checker, p ast.Project, node ast.NodeID) returns bool
-	return p.modules[c.modIdx].tree.kindOf(node) == ast.NodeKind.strLit and p.modules[c.modIdx].tree.strIsPlain(ast.strLitPartsRef(p.modules[c.modIdx].tree, id: node))
+function isPlainStringLiteral(c Checker, p ast.Project, ms ast.ModuleState, node ast.NodeID) returns bool
+	return ms.tree.kindOf(node) == ast.NodeKind.strLit and ms.tree.strIsPlain(ast.strLitPartsRef(ms.tree, id: node))
 end 'isPlainStringLiteral'
 
 // callElement is the element type of the array that the call at node is a call on.
@@ -78,14 +78,14 @@ function checkArrayResizeArgs(mutates c Checker, p ast.Project, ms ast.ModuleSta
 	end 'zero'
 	let name = nameOfType(p, ms: ms, t: elem)
 	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.typeParam) 'parameter'
-		failAt(c, p: p, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
+		failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of a type parameter: '{name}' is instantiated with a type that has no zero value (a managed type, an enum or union whose raw values include no 0, or a ranged alias that excludes 0), so the grown slots are zero and zero is not a value of it. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
 		return
 	end 'parameter'
 	if ast.isManagedType(ms.types, t: elem) 'managed'
-		failAt(c, p: p, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': a grown slot holds NO element — Maxon has no default constructor — so 'count()' would not agree with 'get()'. Append with 'push(value)'", errs: errs)
+		failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': a grown slot holds NO element — Maxon has no default constructor — so 'count()' would not agree with 'get()'. Append with 'push(value)'", errs: errs)
 		return
 	end 'managed'
-	failAt(c, p: p, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': the grown slots are zero and zero is not a value of '{name}'. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
+	failAt(c, p: p, ms: ms, node: call, code: diag.errZeroOutsideElement, msg: "'resize' cannot grow an array of '{name}': the grown slots are zero and zero is not a value of '{name}'. Append with 'push(value)' or 'growFilled(n, value:)'", errs: errs)
 end 'checkArrayResizeArgs'
 
 // checkElementsComparable refuses a method that compares elements, for an element that this compiler cannot compare: it
@@ -95,7 +95,7 @@ function checkElementsComparable(mutates c Checker, p ast.Project, ms ast.Module
 	if typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.intRange) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primBool) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.primString) or typeHasKind(p, ms: ms, t: elem, kind: ast.TypeKind.enumTy) 'comparable'
 		return
 	end 'comparable'
-	failAt(c, p: p, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
+	failAt(c, p: p, ms: ms, node: call, code: diag.errUnsupportedFeature, msg: "Unsupported: '{method}' on an array of '{nameOfType(p, ms: ms, t: elem)}': only an array of integers, bools, enums or strings compares its elements, since there is no Equatable interface yet", errs: errs)
 end 'checkElementsComparable'
 
 function checkArrayContainsArgs(mutates c Checker, p ast.Project, ms ast.ModuleState, call ast.NodeID, ordered ast.NodeIDList, mutates errs diag.ErrorList)

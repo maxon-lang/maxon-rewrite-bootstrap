@@ -98,10 +98,31 @@ export type ModuleTables
 	// handle.
 	var localsAt as FuncLocalsMap
 	var funcLocals as FuncLocalsList
+	// extMethods, extAliases and extConforms are what the module's extensions add to types, whichever module declares them.
+	export var extMethods as ExtMethodList
+	export var extAliases as ExtAliasList
+	export var extConforms as ExtConformList
+	// lent is whether these are the tables a project holds while a task of the module holds the module's own: no stage reads
+	// them, as the task reads its module's tables in its state.
+	var lent as bool
 
 	export static function new() returns Self
-		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new(), rawTypes: TypeRawMap.new(), localsAt: FuncLocalsMap.new(), funcLocals: FuncLocalsList.create(0)}
+		return Self{declTypes: TypeIDList.create(0), paramTypes: NodeTypeMap.new(), declFuncs: FuncIDList.create(0), nodeFuncs: NodeFuncMap.new(), declConsts: OrdinalConstMap.new(), rawTypes: TypeRawMap.new(), localsAt: FuncLocalsMap.new(), funcLocals: FuncLocalsList.create(0), extMethods: ExtMethodList.create(0), extAliases: ExtAliasList.create(0), extConforms: ExtConformList.create(0), lent: false}
 	end 'new'
+
+	export static function lentOut() returns Self
+		var t = Self.new()
+		t.lent = true
+		return t
+	end 'lentOut'
+
+	// requireHeld panics where the tables are lent to a task: a read of them is one of a module the task holds, which it
+	// reads in its state.
+	export function requireHeld()
+		if lent 'lent'
+			panic("a module's tables are read in the project while a task of the module holds them")
+		end 'lent'
+	end 'requireHeld'
 
 	export function declType(ord DeclOrdinal) returns table.Option with TypeID
 		let i = ord as Count
@@ -218,58 +239,94 @@ export type ModuleTables
 	end 'localsFor'
 end 'ModuleTables'
 
+// The accessors of the module tables read the tables of the module that decides the entry: the standard library's in the
+// project, the task's own module's in its state, and another module's in the project once the task waited for it. Only a
+// task of the module writes them, in its state.
+
+// requireOwn panics where a stage writes the tables of a module other than its own.
+function requireOwn(ms ModuleState, module diag.ModuleID)
+	if module != ms.module 'other'
+		panic("a stage of module {ms.module} writes the tables of module {module}")
+	end 'other'
+end 'requireOwn'
+
 // declType is the type that the module which declares ref gave it.
-export function declType(p Project, ref DeclRef) returns table.Option with TypeID
+export function declType(p Project, ms ModuleState, ref DeclRef) returns table.Option with TypeID
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.tables.declType(ref.ordinal)
 	end 'std'
+	if ref.module == ms.module 'own'
+		return ms.tables.declType(ref.ordinal)
+	end 'own'
+	p.modules[modIndex(ref.module)].tables.requireHeld()
 	return p.modules[modIndex(ref.module)].tables.declType(ref.ordinal)
 end 'declType'
 
-export function setDeclType(mutates p Project, ref DeclRef, t TypeID)
-	p.modules[modIndex(ref.module)].tables.setDeclType(ref.ordinal, t: t)
+export function setDeclType(mutates ms ModuleState, ref DeclRef, t TypeID)
+	requireOwn(ms, module: ref.module)
+	ms.tables.setDeclType(ref.ordinal, t: t)
 end 'setDeclType'
 
 // paramType is the type of the type parameter that module declares at node.
-export function paramType(p Project, module diag.ModuleID, node NodeID) returns table.Option with TypeID
+export function paramType(p Project, ms ModuleState, module diag.ModuleID, node NodeID) returns table.Option with TypeID
+	if module == ms.module 'own'
+		return ms.tables.paramType(node)
+	end 'own'
+	p.modules[modIndex(module)].tables.requireHeld()
 	return p.modules[modIndex(module)].tables.paramType(node)
 end 'paramType'
 
-export function setParamType(mutates p Project, module diag.ModuleID, node NodeID, t TypeID)
-	p.modules[modIndex(module)].tables.setParamType(node, t: t)
+export function setParamType(mutates ms ModuleState, module diag.ModuleID, node NodeID, t TypeID)
+	requireOwn(ms, module: module)
+	ms.tables.setParamType(node, t: t)
 end 'setParamType'
 
 // declFunc is the function that the declaration ref is.
-export function declFunc(p Project, ref DeclRef) returns table.Option with FuncID
+export function declFunc(p Project, ms ModuleState, ref DeclRef) returns table.Option with FuncID
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.tables.declFunc(ref.ordinal)
 	end 'std'
+	if ref.module == ms.module 'own'
+		return ms.tables.declFunc(ref.ordinal)
+	end 'own'
+	p.modules[modIndex(ref.module)].tables.requireHeld()
 	return p.modules[modIndex(ref.module)].tables.declFunc(ref.ordinal)
 end 'declFunc'
 
-export function setDeclFunc(mutates p Project, ref DeclRef, f FuncID)
-	p.modules[modIndex(ref.module)].tables.setDeclFunc(ref.ordinal, f: f)
+export function setDeclFunc(mutates ms ModuleState, ref DeclRef, f FuncID)
+	requireOwn(ms, module: ref.module)
+	ms.tables.setDeclFunc(ref.ordinal, f: f)
 end 'setDeclFunc'
 
 // nodeFunc is the function that the function declaration module declares at node is.
-export function nodeFunc(p Project, module diag.ModuleID, node NodeID) returns table.Option with FuncID
+export function nodeFunc(p Project, ms ModuleState, module diag.ModuleID, node NodeID) returns table.Option with FuncID
+	if module == ms.module 'own'
+		return ms.tables.nodeFunc(node)
+	end 'own'
+	p.modules[modIndex(module)].tables.requireHeld()
 	return p.modules[modIndex(module)].tables.nodeFunc(node)
 end 'nodeFunc'
 
-export function setNodeFunc(mutates p Project, module diag.ModuleID, node NodeID, f FuncID)
-	p.modules[modIndex(module)].tables.setNodeFunc(node, f: f)
+export function setNodeFunc(mutates ms ModuleState, module diag.ModuleID, node NodeID, f FuncID)
+	requireOwn(ms, module: module)
+	ms.tables.setNodeFunc(node, f: f)
 end 'setNodeFunc'
 
 // declConst is the value of the constant ref, once the module that declares it has typed it.
-export function declConst(p Project, ref DeclRef) returns table.Option with ConstValue
+export function declConst(p Project, ms ModuleState, ref DeclRef) returns table.Option with ConstValue
 	if ref.module == diag.stdlibID 'std'
 		return p.stdlib.tables.declConst(ref.ordinal)
 	end 'std'
+	if ref.module == ms.module 'own'
+		return ms.tables.declConst(ref.ordinal)
+	end 'own'
+	p.modules[modIndex(ref.module)].tables.requireHeld()
 	return p.modules[modIndex(ref.module)].tables.declConst(ref.ordinal)
 end 'declConst'
 
-export function setDeclConst(mutates p Project, ref DeclRef, consumes value ConstValue)
-	p.modules[modIndex(ref.module)].tables.setDeclConst(ref.ordinal, value: value)
+export function setDeclConst(mutates ms ModuleState, ref DeclRef, consumes value ConstValue)
+	requireOwn(ms, module: ref.module)
+	ms.tables.setDeclConst(ref.ordinal, value: value)
 end 'setDeclConst'
 
 typealias Reached = Array with bool
@@ -317,17 +374,22 @@ export function rawTypeOf(p Project, ms ModuleState, t TypeID) returns TypeID
 	if module == diag.stdlibID 'std'
 		return p.stdlib.tables.rawType(t)
 	end 'std'
+	if module == ms.module 'own'
+		return ms.tables.rawType(t)
+	end 'own'
+	p.modules[modIndex(module)].tables.requireHeld()
 	return p.modules[modIndex(module)].tables.rawType(t)
 end 'rawTypeOf'
 
 // setRawType records the type of the raw values of t, which the module that declares it has typed.
-export function setRawType(mutates p Project, ms ModuleState, t TypeID, raw TypeID)
+export function setRawType(mutates ms ModuleState, t TypeID, raw TypeID)
 	let s = typeList(ms.types, t: t)
 	let i = typeIndex(ms.types, t: t)
 	if not ms.types.lists[s][i].hasDecl 'undeclared'
 		panic("raw values are typed for '{ms.types.lists[s][i].name}', which no module declares")
 	end 'undeclared'
-	p.modules[modIndex(ms.types.lists[s][i].decl.module)].tables.setRawType(t, raw: raw)
+	requireOwn(ms, module: ms.types.lists[s][i].decl.module)
+	ms.tables.setRawType(t, raw: raw)
 end 'setRawType'
 
 // receiverLocal is the local the body of f binds its receiver to, or noLocal.
@@ -336,6 +398,10 @@ export function receiverLocal(p Project, ms ModuleState, f FuncID) returns Local
 	if module == diag.stdlibID 'std'
 		return p.stdlib.tables.receiverLocal(f)
 	end 'std'
+	if module == ms.module 'own'
+		return ms.tables.receiverLocal(f)
+	end 'own'
+	p.modules[modIndex(module)].tables.requireHeld()
 	return p.modules[modIndex(module)].tables.receiverLocal(f)
 end 'receiverLocal'
 
@@ -345,17 +411,21 @@ export function paramLocal(p Project, ms ModuleState, f FuncID, index Count) ret
 	if module == diag.stdlibID 'std'
 		return p.stdlib.tables.paramLocal(f, index: index)
 	end 'std'
+	if module == ms.module 'own'
+		return ms.tables.paramLocal(f, index: index)
+	end 'own'
+	p.modules[modIndex(module)].tables.requireHeld()
 	return p.modules[modIndex(module)].tables.paramLocal(f, index: index)
 end 'paramLocal'
 
-export function setReceiverLocal(mutates p Project, ms ModuleState, f FuncID, l LocalID)
-	let module = ms.funcs.slots[funcSlot(f)][funcIndex(f)].module
-	p.modules[modIndex(module)].tables.setReceiverLocal(f, l: l)
+export function setReceiverLocal(mutates ms ModuleState, f FuncID, l LocalID)
+	requireOwn(ms, module: ms.funcs.slots[funcSlot(f)][funcIndex(f)].module)
+	ms.tables.setReceiverLocal(f, l: l)
 end 'setReceiverLocal'
 
-export function pushParamLocal(mutates p Project, ms ModuleState, f FuncID, l LocalID)
-	let module = ms.funcs.slots[funcSlot(f)][funcIndex(f)].module
-	p.modules[modIndex(module)].tables.pushParamLocal(f, l: l)
+export function pushParamLocal(mutates ms ModuleState, f FuncID, l LocalID)
+	requireOwn(ms, module: ms.funcs.slots[funcSlot(f)][funcIndex(f)].module)
+	ms.tables.pushParamLocal(f, l: l)
 end 'pushParamLocal'
 
 export typealias PathModMap = table.StringMap with diag.ModuleID
@@ -710,15 +780,15 @@ export function notVisible(p Project, name String, v Visibility, owner diag.Modu
 end 'notVisible'
 
 // functionNamed is the function that a module declares by name at its top level, or noFunc when the name is not one.
-export function functionNamed(p Project, module diag.ModuleID, name String) returns FuncID
+export function functionNamed(p Project, ms ModuleState, module diag.ModuleID, name String) returns FuncID
 	return match p.modules[modIndex(module)].names.get(name) 'declared'
-		some(ord) gives declaredFunction(p, module: module, ord: ord)
+		some(ord) gives declaredFunction(p, ms: ms, module: module, ord: ord)
 		none gives noFunc
 	end 'declared'
 end 'functionNamed'
 
 // declaredFunction is the function that a module's declaration at ord is, or noFunc when it is not a function.
-export function declaredFunction(p Project, module diag.ModuleID, ord DeclOrdinal) returns FuncID
+export function declaredFunction(p Project, ms ModuleState, module diag.ModuleID, ord DeclOrdinal) returns FuncID
 	let isFunction = match p.modules[modIndex(module)].decls[ord as Count] 'kind'
 		funcDecl(_) gives true
 		typeDecl(_) gives false
@@ -732,7 +802,7 @@ export function declaredFunction(p Project, module diag.ModuleID, ord DeclOrdina
 	if not isFunction 'other'
 		return noFunc
 	end 'other'
-	return match declFunc(p, ref: DeclRef.make(module, ordinal: ord)) 'fid'
+	return match declFunc(p, ms: ms, ref: DeclRef.make(module, ordinal: ord)) 'fid'
 		some(fid) gives fid
 		none gives noFunc
 	end 'fid'

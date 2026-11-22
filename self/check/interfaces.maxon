@@ -112,7 +112,7 @@ function boxInto(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, n
 		end 'notCopyable'
 	end 'copyable'
 	// A try that passes its failure on gives its expression's value, which is what is put in the box.
-	let valueNode = ast.through(p.modules[c.modIdx].tree, e: node)
+	let valueNode = ast.through(ms.tree, e: node)
 	if not c.typing.boxes.has(valueNode as Count) 'first'
 		c.typing.boxes.insert(valueNode as Count, value: iface)
 		c.pendingBoxes.push(PendingBox.make(at, src: src, iface: iface, withinFn: c.boundedFn, code: diag.errTypeMismatch, refusal: wrong.conformWords(srcName, iface: ifaceName)))
@@ -149,12 +149,12 @@ end 'requireBoxConforms'
 
 // checkInterfaceCast types a cast to an interface: a value of a type that implements it is put in a value of it, as where
 // a value of it is expected. An interface value converts to no other interface, as in maxon.
-function checkInterfaceCast(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
+function checkInterfaceCast(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, operand ast.NodeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
 	let src = checkExpecting(c, p: p, ms: ms, e: operand, want: target, errs: errs)
 	if src == ast.noType 'badSource'
 		return ast.noType
 	end 'badSource'
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	if typeHasKind(p, ms: ms, t: src, kind: ast.TypeKind.interfaceTy) 'interface'
 		if sameType(ms.types, a: src, b: target) 'same'
 			checkFail(c.modID, off: off, code: diag.errUnsupported, msg: "a cast to {nameOfType(p, ms: ms, t: target)} is not supported by minimaxon", errs: errs)
@@ -173,7 +173,7 @@ end 'checkInterfaceCast'
 // box. It fails with CastError.otherType where the box holds a value of another type, so a try covers it, and the type must
 // implement the interface, or no value of it would ever be in such a box.
 function checkRecoveryCast(mutates c Checker, p ast.Project, ms ast.ModuleState, e ast.NodeID, src ast.TypeID, target ast.TypeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let off = offsetOf(c, p: p, node: e)
+	let off = offsetOf(c, p: p, ms: ms, node: e)
 	let srcName = nameOfType(p, ms: ms, t: src)
 	let targetName = nameOfType(p, ms: ms, t: target)
 	if not boxable(p, ms: ms, t: target) 'unboxable'
@@ -188,7 +188,7 @@ end 'checkRecoveryCast'
 // witnessCall types a call of a method that the interface of a value requires, which runs the method of the type the
 // value holds, through the table of the box. A method that an extension of the interface adds is lent the box: its
 // instance at the interface value's type reaches the requirements through the table.
-function witnessCall(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, iface ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
+function witnessCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, call ast.NodeID, iface ast.TypeID, receiver ast.TypeID, name String, mutates errs diag.ErrorList) returns ast.TypeID
 	let ifaceName = nameOfType(p, ms: ms, t: iface)
 	let named = requirementsNamed(p, ms: ms, iface: iface, name: name)
 	if named.count() == 0 'notRequired'
@@ -201,11 +201,11 @@ function witnessCall(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 		if extended != ast.noFunc 'extension'
 			return callInterfaceExtension(c, p: p, ms: ms, call: call, receiver: receiver, content: iface, method: extended, have: have, errs: errs)
 		end 'extension'
-		failAt(c, p: p, node: call, code: diag.errUnknownFunction, msg: "'{ifaceName}' has no method '{name}': a value of an interface has the methods the interface requires and those that the extensions of it that are seen here add, and no others", errs: errs)
+		failAt(c, p: p, ms: ms, node: call, code: diag.errUnknownFunction, msg: "'{ifaceName}' has no method '{name}': a value of an interface has the methods the interface requires and those that the extensions of it that are seen here add, and no others", errs: errs)
 		return ast.noType
 	end 'notRequired'
 	if named.count() > 1 'inheritedTwice'
-		failAt(c, p: p, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])}, and a call through a value of '{ifaceName}' runs one of them; rename one requirement", errs: errs)
+		failAt(c, p: p, ms: ms, node: call, code: diag.errAmbiguousBound, msg: "'{name}' is required by both {requirementText(p, ms: ms, req: named[0])} and {requirementText(p, ms: ms, req: named[1])}, and a call through a value of '{ifaceName}' runs one of them; rename one requirement", errs: errs)
 		return ast.noType
 	end 'inheritedTwice'
 	let sig = named[0].sig

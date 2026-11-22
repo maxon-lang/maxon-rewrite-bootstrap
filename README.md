@@ -511,18 +511,29 @@ verify; a constant waits for the constants of the modules it names; a check read
 it reaches. A task that waits for one that failed in its own stage still runs, as every module of a stage is visited; one whose
 input failed in an earlier stage, or was skipped, does not (a module whose dependency failed stops).
 
-**What a stage is given.** A stage of the check (`check.moduleAliases` to `check.moduleVerify`) takes its module's
-`check.ModuleState` `mutates`, the project `p` read-only, and the error list; the lower (`ir.lowerModule`, `ir.findInstances`)
-takes `p` read-only and its module's `ast.ModuleState` `mutates`. An `ast.ModuleState` holds what the task writes of the model:
-the `TypeTable` and `FuncTable`, which the driver lends out of the project for the task (`ast.lendModule`, `ast.giveBack`) and
-in which the task makes and fills entries only in its module's slot (`beginModuleTask`, checked by `requireWriter`).
-`check.ModuleState` holds it (`unit`) with the checker's state of the module. Every function of `check` and `ir` that writes a
-table takes the state `mutates` (`ms`) and the project read-only; one that only reads takes the state read-only, and what runs
-after the tasks too (the IR printer and verifier, link names, `ir.funcSymbol`) takes the tables it reads (`tt`, `ft`). What a
-stage reads of another module's shapes is what that module's stage it waited on had made when it ended (`TypeTable.ends`), so
-the order the tasks run in cannot change it. Still written through the project: a check stage's own module's tree (the
-rewrites of the bodies stage), declaration tables, extension lists and resolution, and the parse, resolve and emit, which take
-the project `mutates`.
+**What a stage is given.** A stage of a module takes its module's state `mutates`, the project `p` read-only, and the error
+list: the parse (`project.parseModule`), the resolve (`resolve.resolveModule`) and the lower (`ir.lowerModule`,
+`ir.findInstances`) an `ast.ModuleState`, a stage of the check (`check.moduleAliases` to `check.moduleVerify`) a
+`check.ModuleState`, which holds one (`unit`) with the checker's state of the module. An `ast.ModuleState` holds what the task
+writes of the model, which the driver lends out of the project for the task and takes back when it ends (`ast.lendModule`,
+`ast.giveBack`): the `TypeTable` and `FuncTable`, in which the task makes and fills entries only in its module's slot, never in
+slot 0, the built-ins' and the standard library's, which only what runs before the tasks and the tasks of the project write
+(`beginModuleTask`, checked by `requireWriter`); the module's `ModuleTables` (the type, function and constant of each
+declaration, the locals its bodies bind, and what its extensions add to types) and its `Resolution`; and what else of the
+module its stage writes (`ast.Lent`): the whole module it makes for the parse (`source`), the tree for the resolve and the
+check (`tree`: the resolve rewrites qualified names in it and the bodies stage desugars into it), nothing more for the lower
+(`tables`), which reads every module's tree in the project as the check left it. A stage reads its own module's lent parts in
+its state and every other module's in the project, through the accessors of the module tables (`ast.declType`,
+`ast.declFunc`, `ast.paramType`, `ast.nodeFunc`, `ast.declConst`, `ast.rawTypeOf`, `ast.receiverLocal`, `ast.paramLocal`), of
+the extensions (`ast.extensionMethod` and the rest) and of the modules a module names (`ast.namedCount`, `ast.namedModule`),
+each taking the state; the tables a project holds while a task holds them refuse a read (`ModuleTables.requireHeld`), and a
+setter refuses a module other than the state's (`requireOwn`). Every function that writes takes the state `mutates` (`ms`)
+and the project read-only; one that only reads takes the state read-only, and what runs after the tasks too (the IR printer
+and verifier, link names, `ir.funcSymbol`) takes the tables it reads (`tt`, `ft`), or the state of the project
+(`ModuleState.ofProject`), which holds no module. What a stage reads of another module's shapes is what that module's stage
+it waited on had made when it ended (`TypeTable.ends`), so the order the tasks run in cannot change it. Only the emit
+(`backend.emitModule`) and the work of the project as a whole still take the project `mutates`.
+
 
 The executor (`execute`) runs the tasks on one thread, one at a time, in the order they were added: stage by stage, and within
 a stage in the module order (the dependency order from the check on, module order for parse, resolve and emit), so every task's

@@ -28,14 +28,14 @@ function expectedArgs(p ast.Project, ms ast.ModuleState, want ast.TypeID, kind a
 	return ast.cloneTypeArgs(ms.types.lists[ast.typeList(ms.types, t: want)][ast.typeIndex(ms.types, t: want)].typeArgs)
 end 'expectedArgs'
 
-function checkCollectionLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
-	let valuesRef = ast.collectionLitExprValuesRef(p.modules[c.modIdx].tree, id: e)
-	if p.modules[c.modIdx].tree.listLen(elemsRef) == 0 'empty'
-		failAt(c, p: p, node: e, code: diag.errUnsupportedFeature, msg: diag.emptyArrayLiteral(), errs: errs)
+function checkCollectionLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, mutates errs diag.ErrorList) returns ast.TypeID
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree, id: e)
+	if ms.tree.listLen(elemsRef) == 0 'empty'
+		failAt(c, p: p, ms: ms, node: e, code: diag.errUnsupportedFeature, msg: diag.emptyArrayLiteral(), errs: errs)
 		return ast.noType
 	end 'empty'
-	let isMap = p.modules[c.modIdx].tree.listLen(valuesRef) > 0
+	let isMap = ms.tree.listLen(valuesRef) > 0
 	let wide = c.literalWide
 	let want = c.expect
 	c.literalWide = true
@@ -49,27 +49,27 @@ function checkCollectionLit(mutates c Checker, mutates p ast.Project, mutates ms
 	return result
 end 'checkCollectionLit'
 
-function checkArrayLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let elemsRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
+function checkArrayLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+	let elemsRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
 	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinArray)
 	var elems = Column.open("'value'")
 	if given.count() == 1 and given[0] != ast.noType 'stated'
 		elems = Column.fixedTo(given[0], label: "'value'")
 	end 'stated'
-	for i in 0 upto p.modules[c.modIdx].tree.listLen(elemsRef) 'each'
-		if not addToColumn(c, p: p, ms: ms, col: elems, node: p.modules[c.modIdx].tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
+	for i in 0 upto ms.tree.listLen(elemsRef) 'each'
+		if not addToColumn(c, p: p, ms: ms, col: elems, node: ms.tree.listAt(elemsRef, index: i) as ast.NodeID, errs: errs) 'bad'
 			return ast.noType
 		end 'bad'
 	end 'each'
 	var args = ast.TypeIDList.create(0)
 	args.push(columnType(p, ms: ms, col: elems, wide: wide))
 	let origin = p.builtins.arrayOrigin
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkArrayLit'
 
-function checkMapLit(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
-	let keysRef = ast.collectionLitExprElemsRef(p.modules[c.modIdx].tree, id: e)
-	let valuesRef = ast.collectionLitExprValuesRef(p.modules[c.modIdx].tree, id: e)
+function checkMapLit(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, want ast.TypeID, wide bool, mutates errs diag.ErrorList) returns ast.TypeID
+	let keysRef = ast.collectionLitExprElemsRef(ms.tree, id: e)
+	let valuesRef = ast.collectionLitExprValuesRef(ms.tree, id: e)
 	let given = expectedArgs(p, ms: ms, want: want, kind: ast.TypeKind.builtinMap)
 	var keys = Column.open("'key'")
 	var values = Column.open("'value'")
@@ -77,11 +77,11 @@ function checkMapLit(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 		keys = Column.fixedTo(given[0], label: "'key'")
 		values = Column.fixedTo(given[1], label: "'value'")
 	end 'stated'
-	for i in 0 upto p.modules[c.modIdx].tree.listLen(keysRef) 'each'
-		if not addToColumn(c, p: p, ms: ms, col: keys, node: p.modules[c.modIdx].tree.listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
+	for i in 0 upto ms.tree.listLen(keysRef) 'each'
+		if not addToColumn(c, p: p, ms: ms, col: keys, node: ms.tree.listAt(keysRef, index: i) as ast.NodeID, errs: errs) 'badKey'
 			return ast.noType
 		end 'badKey'
-		if not addToColumn(c, p: p, ms: ms, col: values, node: p.modules[c.modIdx].tree.listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
+		if not addToColumn(c, p: p, ms: ms, col: values, node: ms.tree.listAt(valuesRef, index: i) as ast.NodeID, errs: errs) 'badValue'
 			return ast.noType
 		end 'badValue'
 	end 'each'
@@ -89,11 +89,11 @@ function checkMapLit(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 	args.push(columnType(p, ms: ms, col: keys, wide: wide))
 	args.push(columnType(p, ms: ms, col: values, wide: wide))
 	let origin = p.builtins.mapOrigin
-	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, node: e), orig: origin, args: args, errs: errs)
+	return instantiateGeneric(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: e), orig: origin, args: args, errs: errs)
 end 'checkMapLit'
 
 // addToColumn types an element and folds its type into the column, which gives whether it could.
-function addToColumn(mutates c Checker, mutates p ast.Project, mutates ms ast.ModuleState, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
+function addToColumn(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, mutates col Column, node ast.NodeID, mutates errs diag.ErrorList) returns bool
 	var wanted = col.ty
 	if not col.fixed and ast.isIntType(ms.types, t: col.ty) 'integers'
 		wanted = ast.noType
@@ -102,7 +102,7 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 	if t == ast.noType 'failed'
 		return false
 	end 'failed'
-	let off = offsetOf(c, p: p, node: node)
+	let off = offsetOf(c, p: p, ms: ms, node: node)
 	if t == p.builtins.voidTy or t == p.builtins.neverTy 'noValue'
 		checkFail(c.modID, off: off, code: diag.errTypeMismatch, msg: "an element of a literal is an expression with no value", errs: errs)
 		return false
@@ -111,7 +111,7 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 		return false
 	end 'wide'
 	if col.fixed 'stated'
-		return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+		return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, ms: ms, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 	end 'stated'
 	if col.ty == ast.noType 'first'
 		col.ty = bareRange(p, ms: ms, t: t)
@@ -124,7 +124,7 @@ function addToColumn(mutates c Checker, mutates p ast.Project, mutates ms ast.Mo
 		col.ty = joinTypes(c, p: p, ms: ms, off: off, clash: Clash.other, a: col.ty, b: t, errs: errs)
 		return col.ty != ast.noType
 	end 'integers'
-	return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
+	return coerce(c, p: p, ms: ms, node: node, at: exprOffset(c, p: p, ms: ms, node: node), src: t, target: col.ty, wrong: Mismatch.argument(col.label.clone()), errs: errs)
 end 'addToColumn'
 
 // requireCommonWord refuses two integer types that no 64-bit word holds together: one may be negative while the other
