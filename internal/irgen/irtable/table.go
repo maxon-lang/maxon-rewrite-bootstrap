@@ -30,6 +30,11 @@ const (
 	kFrameBox             // a frame box of the function's frame
 	kCases                // cases of the function's Cases, from the field to the count in Count, each with the arguments it passes
 	kTable                // a table of the function's Tables: the table of an interface value
+	// kFloats says which of a call's Args are floats, a bit for each by its place among them, which native code passes
+	// in xmm registers; the interpreter, to which a float is a word like any other, never reads it. It is no field of
+	// the record: the function's float pool holds it by where the call's Args start, the field of the list it follows,
+	// and holds nothing for a call that passes no float.
+	kFloats
 	// kEdgeArgs are the registers in Args, from the field to the count in Count, that an edge passes to the parameters of
 	// the block it goes to; kMoreEdgeArgs are those of a later edge, right after the kEdgeArgs before it, as many as the
 	// field says. An edge that a terminator's plain constructor makes passes none.
@@ -189,6 +194,7 @@ var flags = []flag{
 	{"Checked", "Checked is on a Bin or a Neg whose result may not fit the word: when it does not, the instruction goes to its\n// failure block instead of to the next instruction."},
 	{"Throws", "Throws is on a Call of a function that throws: its error register receives 0 when it returned and the\n// error's case plus 1 when it failed."},
 	{"Proven", "Proven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a\n// check before it has proved inside the collection: its expansion is the access alone, with no bounds check."},
+	{"FloatResult", "FloatResult is on a call whose result is a float, which native code returns in an xmm register."},
 }
 
 func reg(name string, f field) operand { return operand{Name: name, Kind: kReg, Field: f} }
@@ -206,6 +212,10 @@ var (
 	widthOp   = operand{Name: "Width", Kind: kEnum, Field: fSub, Enum: "RawWidth"}
 	// collectionOp is the box a collection operation reads.
 	collectionOp = operand{Name: "Of", Kind: kEnum, Field: fSub, Enum: "Collection"}
+	// floatsOp and floatResultOp are a call's float signature: which of its arguments and whether its result are floats,
+	// as the static signature of what it calls says (README, "The machine IR").
+	floatsOp      = operand{Name: "Floats", Kind: kFloats, Field: fA, Text: " floats "}
+	floatResultOp = operand{Name: "FloatResult", Kind: kFlag, Field: fFlags, Flag: "FloatResult", Text: " returns float"}
 )
 
 var ops = []op{
@@ -323,8 +333,8 @@ var ops = []op{
 		Operands: []operand{num("Bytes")}, Effects: []effect{effCalls, effAllocates}, Text: "alloc {Bytes}"},
 	{Name: "Call", Eval: noEval, Doc: "Call applies Callee to Args.", Result: optionalResult,
 		Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}, argsOp,
-			{Name: "ErrReg", Kind: kErrorReg, Field: fImm, Flag: "Throws", Text: " error "}},
-		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "call {Callee}({Args}){ErrReg}"},
+			{Name: "ErrReg", Kind: kErrorReg, Field: fImm, Flag: "Throws", Text: " error "}, floatsOp, floatResultOp},
+		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "call {Callee}({Args}){ErrReg}{Floats}{FloatResult}"},
 	{Name: "CallRuntime", Eval: noEval, Doc: "CallRuntime applies the runtime entry Symbol to Args; Routine is what the entry stores to call\n// later (the destructor of a cown).",
 		Result: optionalResult,
 		Operands: []operand{symbolOp, argsOp,
@@ -341,8 +351,8 @@ var ops = []op{
 	{Name: "FuncValue", Eval: noEval, Doc: "FuncValue gives a new closure of the function Callee, which captures nothing.", Result: valueResult,
 		Operands: []operand{{Name: "Callee", Kind: kCallee, Field: fC}}, Effects: []effect{effCalls, effAllocates}, Text: "funcvalue {Callee}"},
 	{Name: "CallValue", Eval: noEval, Doc: "CallValue calls the closure that is the first of Args with all of Args: the code it holds takes the closure\n// first, to read what it captured, and a named function's code ignores it.",
-		Result: optionalResult, Operands: []operand{argsOp}, Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees},
-		Text: "callvalue({Args})"},
+		Result: optionalResult, Operands: []operand{argsOp, floatsOp, floatResultOp}, Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees},
+		Text: "callvalue({Args}){Floats}{FloatResult}"},
 	{Name: "Box", Eval: noEval, Doc: "Box gives a new interface value: a box on the heap of the address of the table Table and the value Value, which\n// the box owns.",
 		Result: valueResult, Operands: []operand{{Name: "Table", Kind: kTable, Field: fC}, reg("Value", fA)},
 		Effects: []effect{effCalls, effAllocates}, Text: "box {Table}, {Value}"},
@@ -352,8 +362,8 @@ var ops = []op{
 	{Name: "CallWitness", Eval: noEval, Doc: "CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with\n// the value the box holds, given as Recv says, and the rest of Args.",
 		Result: optionalResult,
 		Operands: []operand{{Name: "Recv", Kind: kEnum, Field: fSub, Enum: "ReceiverConv"}, {Name: "Slot", Kind: kInt, Field: fC}, argsOp,
-			{Name: "ErrReg", Kind: kErrorReg, Field: fImm, Flag: "Throws", Text: " error "}},
-		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "callwitness.{Recv} {Slot}({Args}){ErrReg}"},
+			{Name: "ErrReg", Kind: kErrorReg, Field: fImm, Flag: "Throws", Text: " error "}, floatsOp, floatResultOp},
+		Effects: []effect{effReads, effWrites, effCalls, effAllocates, effFrees}, Text: "callwitness.{Recv} {Slot}({Args}){ErrReg}{Floats}{FloatResult}"},
 	{Name: "IsType", Eval: noEval, Doc: "IsType gives 1 when the interface value Src holds a value of the type Ty, and 0 when it holds one of another type.",
 		Result: valueResult, Operands: []operand{reg("Src", fA), typeOp}, Effects: []effect{effReads, effCalls}, Text: "istype {Src} {Ty}"},
 	{Name: "Drop", Eval: noEval, Doc: "Drop drops the value in Src, of type Ty.",

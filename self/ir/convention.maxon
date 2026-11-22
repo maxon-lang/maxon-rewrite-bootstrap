@@ -1,0 +1,142 @@
+// The float signatures of calls (README, "The machine IR"). Native code passes a float argument in an xmm register and
+// gives a float result in one, so a call and every function it can reach must say the same of each argument and of the
+// result. Each side reads it off one static signature: a direct call and the function it calls off the function's
+// declaration, a call of a function value and the body of a closure off the function type, and a call through the table
+// of an interface value off the requirement as the call sees it, which the declaration of every method that meets it
+// matches. A float in a place that a signature calls a word is passed as one, as both sides then do.
+
+// FloatPlace is the place of an argument in a FloatMask.
+typealias FloatPlace = int(0 to 63)
+
+// floatMaskBits is how many arguments a FloatMask holds.
+let floatMaskBits = 64
+
+// FloatSignature is which of a call's arguments, by their place among the arguments, and whether its result are floats.
+export type FloatSignature
+	export var args as FloatMask
+	export var result as bool
+
+	export static function make(args FloatMask, result bool) returns FloatSignature
+		return FloatSignature{args: args, result: result}
+	end 'make'
+
+	// words is the signature of a call that passes and returns only words.
+	export static function words() returns FloatSignature
+		return FloatSignature{args: 0 as FloatMask, result: false}
+	end 'words'
+end 'FloatSignature'
+
+// floatBit is the bit of the argument at a place.
+export function floatBit(place Count) returns FloatMask
+	let at = try place as FloatPlace otherwise panic("ir: a float argument past the {floatMaskBits} that a call's float signature holds")
+	return (1 as FloatMask) shl at
+end 'floatBit'
+
+// isFloatAt is whether the argument at a place is a float by a mask.
+export function isFloatAt(mask FloatMask, place Count) returns bool
+	if place >= floatMaskBits 'past'
+		return false
+	end 'past'
+	return (mask and floatBit(place)) != 0
+end 'isFloatAt'
+
+// callFloats is which of the arguments of a call x of f are floats: the one reader of the float pool, by where the call's
+// arguments start. A call that passes nothing starts where the next run of arguments does, so it reads none.
+export function callFloats(f IrFunction, x Instr) returns FloatMask
+	if callArgCount(x) == 0 'none'
+		return 0 as FloatMask
+	end 'none'
+	return match x.op 'op'
+		opCall gives f.floatsAt(callArgsStart(x))
+		opCallValue gives f.floatsAt(callValueArgsStart(x))
+		opCallWitness gives f.floatsAt(callWitnessArgsStart(x))
+		default panic("ir: the float signature of an instruction that is no call of a function")
+	end 'op'
+end 'callFloats'
+
+// callArgCount is how many arguments a call of a function passes.
+export function callArgCount(x Instr) returns Count
+	return match x.op 'op'
+		opCall gives callArgsCount(x)
+		opCallValue gives callValueArgsCount(x)
+		opCallWitness gives callWitnessArgsCount(x)
+		default panic("ir: the arguments of an instruction that is no call of a function")
+	end 'op'
+end 'callArgCount'
+
+// floatOrWord is how a message names the class of a value.
+function floatOrWord(float bool) returns String
+	if float 'float'
+		return "float"
+	end 'float'
+	return "word"
+end 'floatOrWord'
+
+// callReturnsFloat is whether a call x gives a float.
+export function callReturnsFloat(x Instr) returns bool
+	return match x.op 'op'
+		opCall gives callFloatResult(x)
+		opCallValue gives callValueFloatResult(x)
+		opCallWitness gives callWitnessFloatResult(x)
+		default panic("ir: the float result of an instruction that is no call of a function")
+	end 'op'
+end 'callReturnsFloat'
+
+// floatsText is how the printer writes a mask: the places of its floats.
+export function floatsText(mask FloatMask) returns String
+	var b = ByteArray.create(0)
+	for place in 0 upto floatMaskBits 'places'
+		if isFloatAt(mask, place: place) 'float'
+			if b.count() > 0 'sep'
+				b.append(", ".toByteArray())
+			end 'sep'
+			b.append("{place}".toByteArray())
+		end 'float'
+	end 'places'
+	return "[{String.from(b)}]"
+end 'floatsText'
+
+// passesFloat is whether a value of type t passed by the convention conv is a float in a register: one passed by the
+// address of the caller's place is a word.
+function passesFloat(p ast.Project, ms ast.ModuleState, conv ast.Convention, t ast.TypeID) returns bool
+	return passesFloatIn(ms.types, reads: p.types, conv: conv, t: t)
+end 'passesFloat'
+
+function passesFloatIn(tt ast.TypeSlot, reads ast.TypeTable, conv ast.Convention, t ast.TypeID) returns bool
+	return not ast.isByAddress(conv) and ast.isFloatType(tt, reads: reads, t: t)
+end 'passesFloatIn'
+
+// funcSignature is the float signature of a call of the function fid, and of the function: its receiver first, where it
+// has one, then its parameters, and its result unless it lends a place. An instance of a generic function has its types
+// substituted in its declaration, so the declaration is what both the function and every call of it read.
+export function funcSignature(p ast.Project, ms ast.ModuleState, fid ast.FuncID) returns FloatSignature
+	return funcSignatureIn(ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: fid)
+end 'funcSignature'
+
+// funcSignatureIn is funcSignature read through a module's slots of the tables.
+function funcSignatureIn(tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, fid ast.FuncID) returns FloatSignature
+	var args = 0 as FloatMask
+	let first = ast.leadingParams(ast.funcEntry(ft, funcReads: funcReads, f: fid))
+	if ast.funcEntry(ft, funcReads: funcReads, f: fid).hasReceiver and passesFloatIn(tt, reads: reads, conv: ast.funcEntry(ft, funcReads: funcReads, f: fid).selfConv, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).ownerTy) 'receiver'
+		args = floatBit(0)
+	end 'receiver'
+	for i in 0 upto ast.funcEntry(ft, funcReads: funcReads, f: fid).params.count() 'params'
+		if passesFloatIn(tt, reads: reads, conv: ast.funcEntry(ft, funcReads: funcReads, f: fid).params[i].conv, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).paramTypes[i]) 'float'
+			args = args or floatBit(try first + i otherwise panic("ir: too many parameters"))
+		end 'float'
+	end 'params'
+	let lends = ast.funcEntry(ft, funcReads: funcReads, f: fid).result == ast.ResultConv.resultBorrowed
+	return FloatSignature.make(args, result: not lends and ast.isFloatType(tt, reads: reads, t: ast.funcEntry(ft, funcReads: funcReads, f: fid).retTy))
+end 'funcSignatureIn'
+
+// valueSignature is the float signature of a call of a function value of the function type t, whose type arguments the
+// caller has applied, and of the body of a closure of that type: the closure first, a word, then the parameters.
+export function valueSignature(p ast.Project, ms ast.ModuleState, t ast.TypeID) returns FloatSignature
+	var args = 0 as FloatMask
+	for i in 0 upto ast.funcParamCount(ms.types, reads: p.types, t: t) 'params'
+		if passesFloat(p, ms: ms, conv: ast.funcParamConv(ms.types, reads: p.types, t: t, index: i), t: ast.funcParamType(ms.types, reads: p.types, t: t, index: i)) 'float'
+			args = args or floatBit(try i + 1 otherwise panic("ir: too many parameters"))
+		end 'float'
+	end 'params'
+	return FloatSignature.make(args, result: ast.isFloatType(ms.types, reads: p.types, t: ast.funcResult(ms.types, reads: p.types, t: t)))
+end 'valueSignature'

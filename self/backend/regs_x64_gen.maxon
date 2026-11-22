@@ -30,6 +30,27 @@ end 'x64InternalArg'
 // x64InternalResult is the register of a call's result.
 export let x64InternalResult = X64Register.r8
 
+// x64InternalFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the
+// rest go on the stack.
+export let x64InternalFloatArgCount = 6
+
+// x64InternalFloatArg is the number in the register file of the register of a float argument, of the first
+// x64InternalFloatArgCount.
+export function x64InternalFloatArg(index Count) returns RegNum
+	return match index 'index'
+		0 gives 16 as RegNum
+		1 gives 17 as RegNum
+		2 gives 18 as RegNum
+		3 gives 19 as RegNum
+		4 gives 20 as RegNum
+		5 gives 21 as RegNum
+		default panic("backend: a float argument past the registers of the internal convention")
+	end 'index'
+end 'x64InternalFloatArg'
+
+// x64InternalFloatResult is the number in the register file of the register of a call's float result.
+export let x64InternalFloatResult = 16 as RegNum
+
 // x64InternalError is the register of the error flag of a function that throws: 0 when it returned, and the
 // error's case plus 1 when it failed.
 export let x64InternalError = X64Register.r10

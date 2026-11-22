@@ -158,10 +158,58 @@ export type IrFunction
 	// lendsResult is whether the function returns a place that it borrows from its arguments, a word that the caller only
 	// reads and never owns, rather than a value it hands on.
 	export var lendsResult as bool
+	// floatParams are which of the function's parameters, by their place, and floatResult whether its result, are floats,
+	// which every call that reaches it says alike (convention.maxon). A behaviour's body takes none: its thunk passes the
+	// words of the behaviour's record.
+	export var floatParams as FloatMask
+	export var floatResult as bool
+	// The float pool: floatMasks[i] is the float signature's mask of the call whose arguments start at floatStarts[i] in
+	// args, in the order of the starts, for each call that passes a float; a call that passes none has no entry.
+	export var floatStarts as Array with Count
+	export var floatMasks as Array with FloatMask
 
 	export static function new(decl ast.FuncID, consumes name String, paramCount Count) returns IrFunction
-		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), frameBoxes: 0, instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), blockParams: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), tables: WitnessTableList.create(0), datums: DatumList.create(0), refusals: RefusalList.create(0), usesArrays: false, usesBytes: false, usesOs: false, bodies: IrFunctionList.create(0), captureTypes: ast.TypeIDList.create(0), captureOwned: Array.create(0), cownTypes: ast.TypeIDList.create(0), lendsResult: false}
+		return IrFunction{decl: decl, name: name, paramCount: paramCount, slots: IrKindList.create(0), regs: IrKindList.create(0), frameBoxes: 0, instrs: InstrList.create(0), blocks: BlockList.create(0), args: RegList.create(0), blockParams: RegList.create(0), types: ast.TypeIDList.create(0), callees: ast.FuncIDList.create(0), strings: ast.StringList.create(0), cases: CaseList.create(0), tables: WitnessTableList.create(0), datums: DatumList.create(0), refusals: RefusalList.create(0), usesArrays: false, usesBytes: false, usesOs: false, bodies: IrFunctionList.create(0), captureTypes: ast.TypeIDList.create(0), captureOwned: Array.create(0), cownTypes: ast.TypeIDList.create(0), lendsResult: false, floatParams: 0 as FloatMask, floatResult: false, floatStarts: Array.create(0), floatMasks: Array.create(0)}
 	end 'new'
+
+	// keepFloats puts in the float pool the mask of the call whose arguments start at start, the last of the pool's, if it
+	// passes a float.
+	export function keepFloats(mutates self, start Count, mask FloatMask)
+		if mask == 0 'words'
+			return
+		end 'words'
+		let kept = floatStarts.count()
+		if kept > 0 and floatStarts[try kept - 1 otherwise panic("ir: a float pool below empty")] >= start 'order'
+			panic("ir: a call's float signature kept before one whose arguments start later")
+		end 'order'
+		floatStarts.push(start)
+		floatMasks.push(mask)
+	end 'keepFloats'
+
+	// floatsAt is the mask of the call whose arguments start at start, 0 for one that passes no float.
+	export function floatsAt(start Count) returns FloatMask
+		var low = 0 as Count
+		var high = floatStarts.count()
+		while low < high 'search'
+			let mid = try low + (high - low) / 2 otherwise panic("ir: a float pool past memory")
+			let at = floatStarts[mid]
+			if at == start 'found'
+				return floatMasks[mid]
+			end 'found'
+			if at < start 'above'
+				low = try mid + 1 otherwise panic("ir: a float pool past memory")
+			end 'above' else 'below'
+				high = mid
+			end 'below'
+		end 'search'
+		return 0 as FloatMask
+	end 'floatsAt'
+
+	// takeSignature makes the function's float signature sig.
+	export function takeSignature(mutates self, sig FloatSignature)
+		floatParams = sig.args
+		floatResult = sig.result
+	end 'takeSignature'
 
 	export function newReg(mutates self, kind IrKind) returns Reg
 		let n = regs.count()

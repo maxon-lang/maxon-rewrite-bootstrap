@@ -194,7 +194,7 @@ type ColourCheck
 			end 'swap'
 			self.operand(operandAt(x, index: at), yr: operandAt(y, index: i), site: site)
 		end 'uses'
-		var fixed = implicitUses(x, convs: convs, canThrow: fn.canThrow) and not reservedMask()
+		var fixed = implicitUses(x, fn: fn) and not reservedMask()
 		while fixed != 0 'fixedUses'
 			let r = lowestRegister(fixed)
 			fixed = fixed and not maskOfCount(r)

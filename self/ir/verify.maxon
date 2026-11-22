@@ -15,6 +15,9 @@ end 'verifyIr'
 function verifyInto(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction, mutates problems ast.StringList)
 	var v = Verifier.new(irSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f))
 	v.run(f)
+	if v.problems.count() == 0 'whole'
+		v.checkFloats(tt, reads: reads, ft: ft, funcReads: funcReads, f: f)
+	end 'whole'
 	problems.append(v.problems)
 	for i in 0 upto f.bodies.count() 'bodies'
 		verifyInto(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, f: f.bodies[i], problems: problems)
@@ -76,6 +79,65 @@ type Verifier
 		end 'each'
 		return ok
 	end 'regsOk'
+
+	// checkFloats holds each call to the float signature of the code it reaches, where the function shows that code
+	// (convention.maxon): a direct call to its callee's declaration; a callvalue of a closure that the function makes to
+	// the closure's body, and of a named function made a value to the function's declaration; and a callwitness on an
+	// interface value that the function boxes to the method in the box's table. A function value or an interface value
+	// that comes from elsewhere (a parameter, a field, a block's parameter) shows no code, and is held only where it is
+	// made.
+	function checkFloats(mutates self, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction)
+		for k in 0 upto f.instrs.count() 'instrs'
+			let op = f.instrs[k].op
+			if op == Opcode.opCall 'call'
+				let sig = funcSignatureIn(tt, reads: reads, ft: ft, funcReads: funcReads, fid: callCallee(f, x: f.instrs[k]))
+				self.expectFloats(f, k: k, args: sig.args, result: sig.result, shift: 0, of: "its callee's declaration")
+			end 'call' else if op == Opcode.opCallValue 'value'
+				let made = flow.defs.instr[regIndex(f.args[try callValueArgsStart(f.instrs[k]) as Count otherwise panic("ir: arguments before the pool")])]
+				if made != noDef 'shown'
+					let at = try made as Count otherwise panic("ir: a definition before the instructions")
+					if f.instrs[at].op == Opcode.opClosure 'closure'
+						let body = closureBody(f, x: f.instrs[at])
+						self.expectFloats(f, k: k, args: f.bodies[body].floatParams, result: f.bodies[body].floatResult, shift: 0, of: "its closure's body")
+					end 'closure' else if f.instrs[at].op == Opcode.opFuncValue 'named'
+						let sig = funcSignatureIn(tt, reads: reads, ft: ft, funcReads: funcReads, fid: funcValueCallee(f, x: f.instrs[at]))
+						self.expectFloats(f, k: k, args: sig.args, result: sig.result, shift: 1, of: "the declaration of the function it holds")
+					end 'named'
+				end 'shown'
+			end 'value' else if op == Opcode.opCallWitness 'witness'
+				let made = flow.defs.instr[regIndex(f.args[try callWitnessArgsStart(f.instrs[k]) as Count otherwise panic("ir: arguments before the pool")])]
+				if made != noDef 'shown'
+					let at = try made as Count otherwise panic("ir: a definition before the instructions")
+					if f.instrs[at].op == Opcode.opBox 'box'
+						self.expectMethodFloats(tt, reads: reads, ft: ft, funcReads: funcReads, f: f, k: k, t: boxTable(f, x: f.instrs[at]))
+					end 'box' else if f.instrs[at].op == Opcode.opFrameBox 'frameBox'
+						self.expectMethodFloats(tt, reads: reads, ft: ft, funcReads: funcReads, f: f, k: k, t: frameBoxTable(f, x: f.instrs[at]))
+					end 'frameBox'
+				end 'shown'
+			end 'witness'
+		end 'instrs'
+	end 'checkFloats'
+
+	// expectMethodFloats holds the callwitness f.instrs[k] to the method that its slot names in the table t.
+	function expectMethodFloats(mutates self, tt ast.TypeSlot, reads ast.TypeTable, ft ast.FuncSlot, funcReads ast.FuncTable, f IrFunction, k Count, t WitnessTable)
+		let sig = funcSignatureIn(tt, reads: reads, ft: ft, funcReads: funcReads, fid: t.methods[callWitnessSlot(f.instrs[k])])
+		self.expectFloats(f, k: k, args: sig.args, result: sig.result, shift: 0, of: "the method of its interface value's table")
+	end 'expectMethodFloats'
+
+	// expectFloats holds the call f.instrs[k] to the signature args and result of the code it reaches, whose parameter
+	// i is the call's argument i + shift (the closure a named function's code does not take).
+	function expectFloats(mutates self, f IrFunction, k Count, args FloatMask, result bool, shift Count, of String)
+		let mask = callFloats(f, x: f.instrs[k])
+		for i in shift upto callArgCount(f.instrs[k]) 'args'
+			if isFloatAt(mask, place: i) != isFloatAt(args, place: try i - shift otherwise panic("ir: an argument below the shift")) 'differs'
+				self.problem("instruction {k} passes the floats {floatsText(mask)}, which {of} does not take")
+				return
+			end 'differs'
+		end 'args'
+		if callReturnsFloat(f.instrs[k]) != result 'result'
+			self.problem("instruction {k} takes its result as a {floatOrWord(callReturnsFloat(f.instrs[k]))}, which {of} gives as a {floatOrWord(result)}")
+		end 'result'
+	end 'expectFloats'
 
 	// checkShape checks that every block, register and argument that the function names is there and that every edge
 	// passes what its target takes; the analyses after it index by them.

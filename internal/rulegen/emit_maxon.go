@@ -318,7 +318,7 @@ func auxRead(o irtable.Op, x irtable.Operand, instr string) string {
 		return instr + "." + string(x.Field) + " as ir.BlockID"
 	case irtable.KText, irtable.KType, irtable.KCallee, irtable.KTable:
 		return instr + "." + string(x.Field)
-	case irtable.KReg, irtable.KRegs, irtable.KMoreRegs, irtable.KEnum, irtable.KFlag, irtable.KRoutine, irtable.KErrorReg, irtable.KCases, irtable.KEdgeArgs, irtable.KMoreEdgeArgs:
+	case irtable.KReg, irtable.KRegs, irtable.KMoreRegs, irtable.KEnum, irtable.KFlag, irtable.KRoutine, irtable.KErrorReg, irtable.KCases, irtable.KEdgeArgs, irtable.KMoreEdgeArgs, irtable.KFloats:
 		panic("rulegen: no pattern reads the operand " + x.Name)
 	}
 	panic(fmt.Sprintf("rulegen: an operand of kind %d", x.Kind))
@@ -352,6 +352,8 @@ func (e *ruleEmitter) build(t *term, dst string) string {
 		switch x.Kind {
 		case irtable.KEdgeArgs, irtable.KMoreEdgeArgs:
 			panic("rulegen: a result builds the terminator " + o.Name + ", whose edges carry arguments")
+		case irtable.KFloats:
+			panic("rulegen: a result builds the call " + o.Name + ", whose float signature its function's pool holds")
 		case irtable.KEnum:
 			en := enumOf(x.Enum)
 			v = "ir." + en.Name + "." + lowerFirst(en.Prefix) + t.cas

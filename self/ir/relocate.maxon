@@ -31,6 +31,10 @@ export function relocationInto(mutates dest IrFunction, from IrFunction, consume
 	for i in 0 upto from.args.count() 'args'
 		dest.args.push(renamedReg(names, r: from.args[i]))
 	end 'args'
+	// The float signatures go where their calls' arguments went.
+	for i in 0 upto from.floatStarts.count() 'floats'
+		dest.keepFloats(try args + from.floatStarts[i] otherwise panic("ir: a call's arguments moved past memory"), mask: from.floatMasks[i])
+	end 'floats'
 	let cases = dest.cases.count()
 	let named = namedCases(from)
 	for i in 0 upto from.cases.count() 'cases'

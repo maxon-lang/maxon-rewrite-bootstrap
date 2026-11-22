@@ -92,6 +92,7 @@ var kindFields = map[kind][]field{
 	kFrameBox: {fImm},
 	kCases:    {fFirst},
 	kTable:    {fC},
+	kFloats:   {fA},
 
 	kEdgeArgs:     {fArgs},
 	kMoreEdgeArgs: {fElseArgs},
@@ -123,7 +124,10 @@ func check() {
 			if !slices.Contains(kindFields[x.Kind], x.Field) || !slices.Contains(recordFields, x.Field) {
 				fail("%s.%s cannot be held in the field %s", o.Name, x.Name, x.Field)
 			}
-			if prev, ok := used[x.Field]; ok && x.Kind != kFlag {
+			if x.Kind == kFloats && !slices.ContainsFunc(o.Operands[:i], func(y operand) bool { return y.Kind == kRegs && y.Field == x.Field }) {
+				fail("%s.%s follows no list of registers in its field, by whose start the float pool holds it", o.Name, x.Name)
+			}
+			if prev, ok := used[x.Field]; ok && x.Kind != kFlag && x.Kind != kFloats {
 				fail("%s.%s and %s.%s are both in the field %s", o.Name, x.Name, o.Name, prev, x.Field)
 			}
 			used[x.Field] = x.Name
@@ -149,8 +153,8 @@ func check() {
 			if (needsFlag && x.Flag == "") || (x.Flag != "" && flagOf(x.Flag) < 0) || (x.Flag != "" && !needsFlag && x.Kind != kFail) {
 				fail("%s.%s names the flag %q, which it cannot have", o.Name, x.Name, x.Flag)
 			}
-			if (optional(x) || x.Kind == kFlag) != (x.Text != "") {
-				fail("%s.%s: an optional operand or a flag, and only one, has the text the printer writes when it is there", o.Name, x.Name)
+			if (optional(x) || x.Kind == kFlag || x.Kind == kFloats) != (x.Text != "") {
+				fail("%s.%s: an optional operand, a flag or a float signature, and only one, has the text the printer writes when it is there", o.Name, x.Name)
 			}
 			if !strings.Contains(o.Text, "{"+x.Name+"}") {
 				fail("%s does not print its operand %s", o.Name, x.Name)

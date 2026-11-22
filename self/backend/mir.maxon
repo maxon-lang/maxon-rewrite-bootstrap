@@ -286,9 +286,12 @@ export type MirFunction
 	// canThrow is whether the function returns an error beside its value, so a return reads the convention's error
 	// register too.
 	export var canThrow as bool
+	// floatResult is whether the function's result is a float, which a return reads from the convention's float result
+	// register rather than its word's.
+	export var floatResult as bool
 
 	export static function new(symbol String, canThrow bool) returns MirFunction
-		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow}
+		return MirFunction{symbol: symbol.clone(), instrs: MInstrList.create(0), blocks: MBlockList.create(0), order: MBlockIDList.create(0), blockParams: MRegList.create(0), edges: MEdgeList.create(0), edgeArgs: MRegList.create(0), copies: MCopyList.create(0), symbols: NameList.create(0), classes: RegClassList.create(0), fixedSlots: 0, spillSlots: 0, savedRegs: 0, canThrow: canThrow, floatResult: false}
 	end 'new'
 
 	export function newVReg(mutates self, class RegClass) returns MReg

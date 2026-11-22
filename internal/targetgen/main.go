@@ -75,6 +75,29 @@ func generalRegister(t target.Target, name string) (string, error) {
 	return "", fmt.Errorf("%s: %s is no register", t.Name, name)
 }
 
+// emitFloats writes where a convention passes floats, as numbers in the register file, since the backend's register enum
+// names only the general registers.
+func emitFloats(b *strings.Builder, t target.Target, c target.Convention) error {
+	p := t.Name + c.Prefix
+	fmt.Fprintf(b, "// %sFloatArgCount is how many float arguments a call passes in registers, counted apart from the integer ones; the\n// rest go on the stack.\nexport let %sFloatArgCount = %d\n\n", p, p, len(c.FloatArgs))
+	fmt.Fprintf(b, "// %sFloatArg is the number in the register file of the register of a float argument, of the first\n// %sFloatArgCount.\n", p, p)
+	fmt.Fprintf(b, "export function %sFloatArg(index Count) returns RegNum\n\treturn match index 'index'\n", p)
+	for i, a := range c.FloatArgs {
+		n, err := t.Number(a)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(b, "\t\t%d gives %d as RegNum\n", i, n)
+	}
+	fmt.Fprintf(b, "\t\tdefault panic(\"backend: a float argument past the registers of the %s convention\")\n\tend 'index'\nend '%sFloatArg'\n\n", strings.ToLower(c.Prefix), p)
+	n, err := t.Number(c.FloatResult)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(b, "// %sFloatResult is the number in the register file of the register of a call's float result.\nexport let %sFloatResult = %d as RegNum\n\n", p, p, n)
+	return nil
+}
+
 func emitConvention(b *strings.Builder, t target.Target, c target.Convention) error {
 	p := t.Name + c.Prefix
 	fmt.Fprintf(b, "// The %s convention: %s.\n\n", strings.ToLower(c.Prefix), c.Doc)
@@ -94,6 +117,11 @@ func emitConvention(b *strings.Builder, t target.Target, c target.Convention) er
 		return err
 	}
 	fmt.Fprintf(b, "// %sResult is the register of a call's result.\nexport let %sResult = %s\n\n", p, p, r)
+	if len(c.FloatArgs) > 0 {
+		if err := emitFloats(b, t, c); err != nil {
+			return err
+		}
+	}
 	if c.Error != "" {
 		e, err := generalRegister(t, c.Error)
 		if err != nil {

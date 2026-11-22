@@ -369,13 +369,14 @@ function emitStr(mutates l Lowerer, d Reg, consumes text String)
 	emit(l, i: instr)
 end 'emitStr'
 
-export function emitCall(mutates l Lowerer, dst Reg, target ast.FuncID, args RegList)
-	let instr = l.b.call(dst, target: target, args: args)
+// emitCall calls the function target, by the float signature of its declaration, which the function's own is.
+export function emitCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, dst Reg, target ast.FuncID, args RegList)
+	let instr = l.b.call(dst, target: target, args: args, sig: funcSignature(p, ms: ms, fid: target))
 	emit(l, i: instr)
 end 'emitCall'
 
-function emitThrowingCall(mutates l Lowerer, dst Reg, target ast.FuncID, args RegList, err Reg)
-	let instr = l.b.throwingCall(dst, target: target, args: args, err: err)
+function emitThrowingCall(mutates l Lowerer, p ast.Project, ms ast.ModuleState, dst Reg, target ast.FuncID, args RegList, err Reg)
+	let instr = l.b.throwingCall(dst, target: target, args: args, err: err, sig: funcSignature(p, ms: ms, fid: target))
 	emit(l, i: instr)
 end 'emitThrowingCall'
 

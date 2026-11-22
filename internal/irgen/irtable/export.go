@@ -45,6 +45,7 @@ const (
 	KFrameBox     = kFrameBox
 	KCases        = kCases
 	KTable        = kTable
+	KFloats       = kFloats
 	KEdgeArgs     = kEdgeArgs
 	KMoreEdgeArgs = kMoreEdgeArgs
 

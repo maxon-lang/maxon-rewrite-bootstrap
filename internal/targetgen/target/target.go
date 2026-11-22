@@ -29,10 +29,14 @@ type Convention struct {
 	Doc string
 	// Prefix starts the names of the convention's declarations, after the target's.
 	Prefix string
-	// Args are the registers of the integer arguments in order; the arguments past them go on the stack.
-	Args []string
-	// Result is the register of the result.
-	Result string
+	// Args are the registers of the integer arguments in order, and FloatArgs those of the float arguments: each class
+	// counts its own arguments, so the third float is in the third of FloatArgs however many integers come before it.
+	// The arguments past a class's registers go on the stack, all of them in one run in the order of the arguments. A
+	// convention with no FloatArgs passes a float as an integer.
+	Args, FloatArgs []string
+	// Result is the register of an integer result, and FloatResult of a float one, or "" for a convention with no
+	// FloatArgs.
+	Result, FloatResult string
 	// Error is the register of the error flag of a function that throws, or "" for a convention with none.
 	Error string
 	// CalleeSaved are the registers a call keeps, and CallerSaved the ones it may leave holding anything; together
@@ -130,8 +134,27 @@ func (t Target) Check() error {
 		if kept&lost != 0 || kept&reserved != 0 || lost&reserved != 0 || kept|lost|reserved != all {
 			return fmt.Errorf("%s %s: the callee-saved, caller-saved and reserved registers do not split the register file", t.Name, c.Prefix)
 		}
+		if (len(c.FloatArgs) == 0) != (c.FloatResult == "") {
+			return fmt.Errorf("%s %s: a convention has float arguments exactly when it has a float result", t.Name, c.Prefix)
+		}
+		for _, n := range append(slices.Clone(c.FloatArgs), c.FloatResult) {
+			if n == "" {
+				continue
+			}
+			i, err := t.Number(n)
+			if err != nil {
+				return err
+			}
+			if t.Registers[i].Class != Vector {
+				return fmt.Errorf("%s %s: %s passes a float but is no vector register", t.Name, c.Prefix, n)
+			}
+		}
 		moved := slices.Clone(c.Args)
+		moved = append(moved, c.FloatArgs...)
 		moved = append(moved, c.Result)
+		if c.FloatResult != "" {
+			moved = append(moved, c.FloatResult)
+		}
 		if c.Error != "" {
 			moved = append(moved, c.Error)
 		}
@@ -171,11 +194,14 @@ var X64Windows = Target{
 		Doc:         "the convention between the compiler's own functions, maxon's",
 		Prefix:      "Internal",
 		Args:        []string{"rcx", "rdx", "rax", "r9", "rsi", "rdi"},
+		FloatArgs:   []string{"xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
 		Result:      "r8",
+		FloatResult: "xmm0",
 		Error:       "r10",
 		CalleeSaved: []string{"rbx", "r12", "r13", "r14", "r15", "xmm6", "xmm7", "xmm8", "xmm9", "xmm10", "xmm11", "xmm12", "xmm13", "xmm14", "xmm15"},
 		CallerSaved: []string{"rax", "rcx", "rdx", "rsi", "rdi", "r8", "r9", "r10", "r11", "xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5"},
 	},
+	// No function of a DLL that the runtime imports takes or returns a float, so the host convention passes only words.
 	Host: Convention{
 		Doc:         "Win64, the convention of a DLL's functions",
 		Prefix:      "Host",

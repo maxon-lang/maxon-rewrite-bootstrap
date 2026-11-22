@@ -1,11 +1,12 @@
 // The register classes of a function's values. Floats are computed in xmm registers and everything else in general ones,
 // and the IR keeps no types, so selection decides the class of each IR register by what reads and writes it: a float
 // operation wants its operands and its result in xmm registers, a constant, a load and a store take either (movsd moves a
-// word as mov does), and every other operation, the calls and the returns among them, wants general ones. The registers
-// that edges join, a block's parameters and the arguments passed to them, are one class, the one more of their reads and
-// writes want; a tie is general. Where a value meets an operand of the other class after all (a float's bits that an
-// integer operation reads, a float passed to a call), legalizeClasses moves it there by movq, so the choice decides how
-// many moves the code has and never what it computes.
+// word as mov does), a call, a parameter and a return want the class their float signature passes each value in, and
+// every other operation wants general ones. The registers that edges join, a block's parameters and the arguments passed
+// to them, are one class, the one more of their reads and writes want; a tie is general. Where a value meets an operand
+// of the other class after all (a float's bits that an integer operation reads, a float that a runtime entry takes as a
+// word), legalizeClasses moves it there by movq, so the choice decides how many moves the code has and never what it
+// computes.
 
 // ClassChoice is the state of the class analysis, kept from one function to the next: a union-find forest over the
 // function's registers, and by root the weight of its set, the reads and writes that want an xmm register less those
@@ -98,6 +99,32 @@ export type ClassChoice
 		self.wantsGpr(general)
 	end 'weighConversion'
 
+	// wantsClass has r want an xmm register for a float and a general one for a word.
+	function wantsClass(mutates self, r ir.Reg, float bool)
+		if float 'float'
+			self.wantsXmm(r)
+		end 'float' else 'word'
+			self.wantsGpr(r)
+		end 'word'
+	end 'wantsClass'
+
+	// weighCall has each argument of a call, args[start] on, count of them, and its result want the class the call's float
+	// signature passes them in, and its error a general register.
+	function weighCall(mutates self, f ir.IrFunction, x ir.Instr, start Count, count Count)
+		let floats = ir.callFloats(f, x: x)
+		let floatResult = ir.callReturnsFloat(x)
+		for i in 0 upto count 'args'
+			let r = f.args[try start + i otherwise panic("backend: an argument past the pool")]
+			self.wantsClass(r, float: ir.isFloatAt(floats, place: i))
+		end 'args'
+		reads.clear()
+		ir.instrWrites(x, out: reads)
+		for i in 0 upto reads.count() 'writes'
+			let r = reads[i]
+			self.wantsClass(r, float: floatResult and r == x.dst)
+		end 'writes'
+	end 'weighCall'
+
 	// wantsGprAll has every register x reads and writes want a general register.
 	function wantsGprAll(mutates self, f ir.IrFunction, x ir.Instr)
 		reads.clear()
@@ -126,10 +153,13 @@ export type ClassChoice
 			opStoreAt then self.wantsGpr(ir.storeAtAddr(x))
 			opElemLoad then self.wantsGprBoth(ir.elemLoadArr(x), b: ir.elemLoadIndex(x))
 			opWordAt then self.wantsGprBoth(ir.wordAtData(x), b: ir.wordAtIndex(x))
+			opLoadParam then self.wantsClass(x.dst, float: ir.isFloatAt(f.floatParams, place: ir.loadParamParam(x)))
+			opCall then self.weighCall(f, x: x, start: ir.callArgsStart(x), count: ir.callArgsCount(x))
+			opCallValue then self.weighCall(f, x: x, start: ir.callValueArgsStart(x), count: ir.callValueArgsCount(x))
+			opCallWitness then self.weighCall(f, x: x, start: ir.callWitnessArgsStart(x), count: ir.callWitnessArgsCount(x))
 			opStr or
 			opDatum or
 			opSlotAddr or
-			opLoadParam or
 			opFieldAddr or
 			opLoadGlobal or
 			opLoadRaw or
@@ -155,15 +185,12 @@ export type ClassChoice
 			opBuffer or
 			opByteAt or
 			opAlloc or
-			opCall or
 			opCallRuntime or
 			opWhen or
 			opClosure or
 			opFuncValue or
-			opCallValue or
 			opBox or
 			opFrameBox or
-			opCallWitness or
 			opIsType or
 			opDrop or
 			opDropSlot or
@@ -175,13 +202,15 @@ export type ClassChoice
 	end 'weigh'
 
 	// weighTerm joins each edge of block b's terminator with its target's parameters, and has what else the terminator
-	// reads (a condition, a switch's value, a returned value) want a general register.
+	// reads (a condition, a switch's value, a returned value) want a general register, but a float the function returns,
+	// which wants an xmm one.
 	function weighTerm(mutates self, f ir.IrFunction, b Count)
 		reads.clear()
 		ir.termReads(f, t: f.blocks[b].term, out: reads)
+		let returnsFloat = f.floatResult and f.blocks[b].term.kind == ir.TermKind.termRet
 		for i in 0 upto reads.count() 'reads'
 			let r = reads[i]
-			self.wantsGpr(r)
+			self.wantsClass(r, float: returnsFloat)
 		end 'reads'
 		edges.clear()
 		ir.visitTerm(edges, f: f, t: f.blocks[b].term)

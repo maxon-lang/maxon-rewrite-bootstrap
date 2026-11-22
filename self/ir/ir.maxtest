@@ -220,7 +220,7 @@ test 'main'
 	let argA = konst(l, value: 1 as Word)
 	let argB = konst(l, value: 2 as Word)
 	let h = newReg(l, kind: IrKind.kindScalar)
-	emitCall(l, dst: h, target: helper, args: argsOf2(argA, b: argB))
+	emitCall(l, p: p, ms: ms, dst: h, target: helper, args: argsOf2(argA, b: argB))
 	emit(l, i: newStoreSlot(1 as Count, src: h, borrow: false))
 	popScope(l, p: p)
 	// if h == 1 'one'

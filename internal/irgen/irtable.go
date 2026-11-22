@@ -37,6 +37,7 @@ const (
 	kFrameBox     = irtable.KFrameBox
 	kCases        = irtable.KCases
 	kTable        = irtable.KTable
+	kFloats       = irtable.KFloats
 	kEdgeArgs     = irtable.KEdgeArgs
 	kMoreEdgeArgs = irtable.KMoreEdgeArgs
 

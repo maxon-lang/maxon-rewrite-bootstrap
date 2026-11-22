@@ -205,6 +205,16 @@ export type Builder
 		return start
 	end 'arguments'
 
+	// callArguments adds the arguments of a call of a function to the pool, with which of them are floats to the float
+	// pool, and gives where they start.
+	function callArguments(mutates self, args RegList, floats FloatMask) returns Reg
+		let start = self.arguments(args)
+		if args.count() > 0 'some'
+			f.keepFloats(try start as Count otherwise panic("ir: arguments before the pool"), mask: floats)
+		end 'some'
+		return start
+	end 'callArguments'
+
 	// edgeArguments adds the arguments of an edge to the pool and gives where they start.
 	function edgeArguments(mutates self, args RegList) returns Index
 		let start = indexOf(f.args.count())
@@ -236,16 +246,16 @@ export type Builder
 		return indexOf(n)
 	end 'typed'
 
-	// call calls a function; dst is noReg for one whose value nothing reads.
-	export function call(mutates self, dst Reg, target ast.FuncID, args RegList) returns Instr
-		return self.throwingCall(dst, target: target, args: args, err: noReg)
+	// call calls a function, whose float signature is sig; dst is noReg for one whose value nothing reads.
+	export function call(mutates self, dst Reg, target ast.FuncID, args RegList, sig FloatSignature) returns Instr
+		return self.throwingCall(dst, target: target, args: args, err: noReg, sig: sig)
 	end 'call'
 
 	// throwingCall calls a function that throws, whose error err receives.
-	export function throwingCall(mutates self, dst Reg, target ast.FuncID, args RegList, err Reg) returns Instr
+	export function throwingCall(mutates self, dst Reg, target ast.FuncID, args RegList, err Reg, sig FloatSignature) returns Instr
 		let at = self.callee(target)
-		let start = self.arguments(args)
-		return newCall(dst, callee: at, argsStart: start, argsCount: regOf(args.count()), errReg: err)
+		let start = self.callArguments(args, floats: sig.args)
+		return newCall(dst, callee: at, argsStart: start, argsCount: regOf(args.count()), errReg: err, floatResult: sig.result)
 	end 'throwingCall'
 
 	// callRuntime calls a runtime entry. routine is the function the entry stores to call later, noFunc for every entry
@@ -283,13 +293,13 @@ export type Builder
 		return newCodeAddress(dst, callee: self.callee(fn))
 	end 'codeAddressInstr'
 
-	// callValueInstr calls the closure in target with args.
-	export function callValueInstr(mutates self, dst Reg, target Reg, args RegList) returns Instr
+	// callValueInstr calls the closure in target with args, by the float signature sig of its function type.
+	export function callValueInstr(mutates self, dst Reg, target Reg, args RegList, sig FloatSignature) returns Instr
 		var all = RegList.create(0)
 		all.push(target)
 		all.append(args)
-		let start = self.arguments(all)
-		return newCallValue(dst, argsStart: start, argsCount: regOf(all.count()))
+		let start = self.callArguments(all, floats: sig.args)
+		return newCallValue(dst, argsStart: start, argsCount: regOf(all.count()), floatResult: sig.result)
 	end 'callValueInstr'
 
 	// whenInstr schedules a behaviour that body added.
@@ -323,13 +333,13 @@ export type Builder
 	end 'frameBox'
 
 	// callWitness calls the method in place slot of the table of the interface value recv, with the value it holds given as
-	// conv says, and args; err is noReg for a method that does not throw.
-	export function callWitness(mutates self, dst Reg, conv ReceiverConv, slot Count, recv Reg, args RegList, err Reg) returns Instr
+	// conv says, and args, by the float signature sig of the requirement; err is noReg for a method that does not throw.
+	export function callWitness(mutates self, dst Reg, conv ReceiverConv, slot Count, recv Reg, args RegList, err Reg, sig FloatSignature) returns Instr
 		var all = RegList.create(0)
 		all.push(recv)
 		all.append(args)
-		let start = self.arguments(all)
-		return newCallWitness(dst, recv: conv, slot: slot, argsStart: start, argsCount: regOf(all.count()), errReg: err)
+		let start = self.callArguments(all, floats: sig.args)
+		return newCallWitness(dst, recv: conv, slot: slot, argsStart: start, argsCount: regOf(all.count()), errReg: err, floatResult: sig.result)
 	end 'callWitness'
 
 	// drop drops the owned value in a register, such as a temporary that nothing took, a removed element, or the old

@@ -110,12 +110,12 @@ func lowerFirst(s string) string { return strings.ToLower(s[:1]) + s[1:] }
 func upperFirst(s string) string { return strings.ToUpper(s[:1]) + s[1:] }
 
 // positionals are the operands of an operation that a term gives in order: all but its enum case and flags, which are
-// suffixes of its name, and the arguments of its edges, which no pattern can read and a rule for a terminator keeps with
-// the edge.
+// suffixes of its name, the arguments of its edges, which no pattern can read and a rule for a terminator keeps with
+// the edge, and a call's float signature, which its function's pool holds.
 func positionals(o irtable.Op) []irtable.Operand {
 	var out []irtable.Operand
 	for _, x := range o.Operands {
-		if x.Kind != irtable.KEnum && x.Kind != irtable.KFlag && x.Kind != irtable.KEdgeArgs && x.Kind != irtable.KMoreEdgeArgs {
+		if x.Kind != irtable.KEnum && x.Kind != irtable.KFlag && x.Kind != irtable.KEdgeArgs && x.Kind != irtable.KMoreEdgeArgs && x.Kind != irtable.KFloats {
 			out = append(out, x)
 		}
 	}

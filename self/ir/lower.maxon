@@ -628,11 +628,11 @@ function protocolCall(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let target = callee(l, p: p, ms: ms, node: s, info: info, receiver: 0 as ast.NodeID)
 	let args = argsOf1(recv)
 	if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: target).errTy == ast.noType 'plain'
-		emitCall(l, dst: dst, target: target, args: args)
+		emitCall(l, p: p, ms: ms, dst: dst, target: target, args: args)
 		return dst
 	end 'plain'
 	let err = newReg(l, kind: IrKind.kindScalar)
-	emitThrowingCall(l, dst: dst, target: target, args: args, err: err)
+	emitThrowingCall(l, p: p, ms: ms, dst: dst, target: target, args: args, err: err)
 	let ok = l.b.newBlock()
 	let zero = konst(l, value: 0 as Word)
 	let failed = compare(l, op: CmpOp.cmpNe, a: err, b: zero, unsigned: false)
@@ -653,7 +653,8 @@ export function lowerFunction(p ast.Project, mutates ms ast.ModuleState, fn ast.
 		bindArgs = ast.cloneTypeArgs(ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).typeArgs)
 	end 'instance'
 	begin(l, p: p, ms: ms, fn: fn, bindParams: bindParams, bindArgs: bindArgs, bindWitnesses: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).witnesses.clone(), name: "")
-	let f = lowerBody(l, p: p, ms: ms)
+	var f = lowerBody(l, p: p, ms: ms)
+	f.takeSignature(funcSignature(p, ms: ms, fid: fn))
 	instances = exchange(l.instances, value: InstanceSet.new())
 	return f
 end 'lowerFunction'

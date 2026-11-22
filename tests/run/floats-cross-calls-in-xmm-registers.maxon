@@ -1,0 +1,164 @@
+// Floats cross calls in xmm registers: integer and float arguments mixed past the registers of each class, so some of
+// each go on the stack, float results, and floats through a function value, a closure, an interface's table, a
+// behaviour, a generic function and a method of a generic type instantiated with a float, a function that throws, and a
+// recursion that keeps floats live across its calls.
+typealias Real = float(f64.min to f64.max)
+
+typealias Blend = function(Real, Real) returns Real
+
+typealias Integer = int(i64.min to i64.max)
+
+// mixed takes eight words and eight floats interleaved, two of each past the six registers of its class.
+function mixed(a Integer, x Real, b Integer, y Real, c Integer, z Real, d Integer, w Real, e Integer, v Real, f Integer, u Real, g Integer, t Real, h Integer, s Real) returns Real
+	let words = try a + b * 2 + c * 3 + d * 4 + e * 5 + f * 6 + g * 7 + h * 8 otherwise 0
+	return words as Real + x + y * 2.0 + z * 3.0 + w * 4.0 + v * 5.0 + u * 6.0 + t * 7.0 + s * 8.0
+end 'mixed'
+
+// floatsFirst takes all its floats before its words, which then count from the first word register.
+function floatsFirst(x Real, y Real, z Real, w Real, v Real, u Real, t Real, a Integer, b Integer) returns Integer
+	return try trunc(kept(x, depth: 1) + y + z + w + v + u + t * 10.0) + a * 100 + b * 1000 otherwise 0
+end 'floatsFirst'
+
+// kept is x, by depth calls of itself, which no function that calls it is inlined past.
+function kept(x T, depth Integer) uses T returns T where T implements Copyable
+	if depth == 0 'done'
+		return x.clone()
+	end 'done'
+	return kept(x, depth: try depth - 1 otherwise 0)
+end 'kept'
+
+function mix(a Real, b Real) returns Real
+	return a * 0.75 + b * 0.25
+end 'mix'
+
+function apply(f Blend, x Real, y Real) returns Real
+	return f(x, y)
+end 'apply'
+
+interface Scaler
+	function scale(by Real, times Integer) returns Real
+end 'Scaler'
+
+type Gain implements Scaler
+	var base as Real
+
+	static function create(base Real) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function scale(by Real, times Integer) returns Real
+		return base * by * times as Real
+	end 'scale'
+end 'Gain'
+
+function scaleOf(s Scaler, by Real) returns Real
+	return s.scale(by, times: 3)
+end 'scaleOf'
+
+// Source's element is a float only where it is bound to one, as it is for the interface value step calls through.
+interface Source uses Element
+	function next(by Element) returns Element
+end 'Source'
+
+type Halver implements Source with Real
+	var base as Real
+
+	static function create(base Real) returns Self
+		return Self{base: base}
+	end 'create'
+
+	function next(by Real) returns Real
+		return base * 0.5 + by
+	end 'next'
+end 'Halver'
+
+function step(s Source with Real, by Real) returns Real
+	return s.next(by)
+end 'step'
+
+function pick(first bool, a T, b T) uses T returns T where T implements Copyable
+	if first 'first'
+		return kept(a, depth: 1)
+	end 'first'
+	return kept(b, depth: 1)
+end 'pick'
+
+type Cell uses T where T implements Copyable
+	var value as T
+
+	static function create(value T) returns Self
+		return Self{value: value.clone()}
+	end 'create'
+
+	function get() returns T
+		return kept(value, depth: 1)
+	end 'get'
+end 'Cell'
+
+typealias RealCell = Cell with Real
+
+enum Fault
+	negative
+end 'Fault'
+
+function root(x Real) returns Real throws Fault
+	if x < 0.0 'negative'
+		throw Fault.negative
+	end 'negative'
+	return sqrt(kept(x, depth: 1))
+end 'root'
+
+// fall keeps a and b live across the call it makes of itself.
+function fall(n Integer, a Real, b Real) returns Real
+	if n == 0 'done'
+		return a + b
+	end 'done'
+	let next = fall(try n - 1 otherwise 0, a: b * 0.5, b: a + 1.0)
+	return next * 0.5 + a - b
+end 'fall'
+
+type Total
+	export var sum as Real
+
+	static function create() returns Self
+		return Self{sum: 0.0}
+	end 'create'
+end 'Total'
+
+function main() returns ExitCode
+	print("{mixed(1, x: 0.5, b: 2, y: 1.5, c: 3, z: 2.5, d: 4, w: 3.5, e: 5, v: 4.5, f: 6, u: 5.5, g: 7, t: 6.5, h: 8, s: 7.5)}\n")
+	print("{floatsFirst(0.5, y: 1.5, z: 2.0, w: 3.0, v: 4.0, u: 5.0, t: 0.75, a: 3, b: 4)}\n")
+	let k = 0.125
+	let near = function(a Real, b Real) gives a * k + b
+	print("{apply(mix, x: 2.0, y: 6.0)} {apply(near, x: 8.0, y: 0.5)} {near(1.0, 2.0)}\n")
+	print("{scaleOf(Gain.create(1.5), by: 2.0)} {step(Halver.create(3.0), by: 0.25)}\n")
+	let cell = RealCell.create(2.25)
+	let one = 1.0 as Real
+	let other = 4.5 as Real
+	print("{pick(false, a: one, b: other)} {cell.get()}\n")
+	let good = try root(6.25) otherwise -1.0
+	let bad = try root(-1.0) otherwise -1.0
+	print("{good} {bad}\n")
+	print("{fall(10, a: 1.0, b: 2.0)}\n")
+	let total = cown(Total.create())
+	let step = 0.5
+	for i in 0 upto 3 'each'
+		let part = i as Real * step
+		when total as t 'add'
+			t.sum = t.sum + part + step
+		end 'add'
+	end 'each'
+	when total as t 'show'
+		print("{t.sum}\n")
+	end 'show'
+	return 0
+end 'main'
+
+//> 390.0
+//> 4323
+//> 3.0 1.5 2.125
+//> 9.0 1.75
+//> 4.5 2.25
+//> 2.5 -1.0
+//> -1.9951171875
+//> 3.0

@@ -76,7 +76,7 @@ type Fn
 	end 'runtime'
 
 	function call(mutates self, target ast.FuncID, args ir.RegList)
-		let i = b.call(ir.noReg, target: target, args: args)
+		let i = b.call(ir.noReg, target: target, args: args, sig: ir.FloatSignature.words())
 		self.emit(i)
 	end 'call'
 

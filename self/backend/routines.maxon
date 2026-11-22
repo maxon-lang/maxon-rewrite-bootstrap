@@ -702,8 +702,9 @@ export function emitCaptureDrop(mutates u CodeUnit, p ast.Project, mutates ms as
 end 'emitCaptureDrop'
 
 // emitBehaviourThunk writes the thunk that the scheduler runs a behaviour's record with, once the behaviour holds every
-// cown it names: it calls the body with the address of each cown's value and then each capture, which the body drops as
-// it drops a consumes parameter; has the runtime hand each cown to the behaviour queued after it; drops the behaviour's
+// cown it names: it calls the body with the address of each cown's value and then each capture, words in the general
+// registers, as a behaviour's body takes them whatever their types, and which the body drops as it drops a consumes
+// parameter; has the runtime hand each cown to the behaviour queued after it; drops the behaviour's
 // hold on each cown, in source order as the interpreter does, which may end a cown and run its destructor on this
 // thread; and frees the record. The scheduler counts the behaviour finished when the thunk returns.
 export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, symbol String, body ir.IrFunction, bodySymbol String, instance bool)
@@ -714,7 +715,7 @@ export function emitBehaviourThunk(mutates u CodeUnit, p ast.Project, mutates ms
 	routinePrologue(u, locals: 0)
 	let inRegisters = argsInRegisters(ConventionKind.internal, count: body.paramCount)
 	let scratch = regMaskOf(thunkBase) or regMaskOf(thunkWord)
-	if (scratch and (regsOfArgs(inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
+	if (scratch and (wordArgRegs(ConventionKind.internal, count: inRegisters) or not x64InternalCallerSaved())) != 0 'scratch'
 		panic("routines: a thunk's scratch register passes an argument or is one a call keeps")
 	end 'scratch'
 	u.asm.load(thunkBase, base: rbp, disp: routineArg)
@@ -751,15 +752,6 @@ function loadBehaviourWord(mutates u CodeUnit, into X64Register, start Count, in
 		u.asm.addImm(into, imm: imm32Of(cownValueOffset))
 	end 'cown'
 end 'loadBehaviourWord'
-
-// regsOfArgs are the registers of the first count arguments of the internal convention.
-function regsOfArgs(count Count) returns RegMask
-	var mask = 0 as RegMask
-	for i in 0 upto count 'args'
-		mask = mask or regMaskOf(argRegister(ConventionKind.internal, index: i))
-	end 'args'
-	return mask
-end 'regsOfArgs'
 
 // jumpIfImmortal jumps when the string that the argument is lives in the executable's data section, which no one frees:
 // its address is between the bounds the linker defines. A string on the heap is never there.

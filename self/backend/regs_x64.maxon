@@ -89,11 +89,20 @@ function argRegister(kind ConventionKind, index Count) returns X64Register
 	end 'kind'
 end 'argRegister'
 
-// argsInRegisters is how many of a call's arguments, count of them, a convention passes in registers.
+// argsInRegisters is how many of a call's words, count of them, a convention passes in registers.
 function argsInRegisters(kind ConventionKind, count Count) returns Count
 	let registers = argRegisterCount(kind)
 	return count if count < registers else registers
 end 'argsInRegisters'
+
+// wordArgRegs are the registers of the first count words that a convention passes in registers.
+function wordArgRegs(kind ConventionKind, count Count) returns RegMask
+	var mask = 0 as RegMask
+	for i in 0 upto count 'args'
+		mask = mask or regMaskOf(argRegister(kind, index: i))
+	end 'args'
+	return mask
+end 'wordArgRegs'
 
 // resultRegister is the register of a call's result.
 function resultRegister(kind ConventionKind) returns X64Register
@@ -102,6 +111,66 @@ function resultRegister(kind ConventionKind) returns X64Register
 		host gives x64HostResult
 	end 'kind'
 end 'resultRegister'
+
+// internalResult is the register, by its number in the register file, in which the internal convention returns a result:
+// a float's or a word's.
+function internalResult(float bool) returns RegNum
+	if float 'float'
+		return x64InternalFloatResult
+	end 'float'
+	return regNumOf(x64InternalResult)
+end 'internalResult'
+
+// An argument's place is where the internal convention passes it: a register, by its number in the register file, or
+// the stack, by its place among the arguments there from stackPlaceBase on.
+let stackPlaceBase = x64RegisterFileSize
+
+function stackPlace(slot Count) returns Count
+	return try stackPlaceBase + slot otherwise panic("backend: an argument past memory")
+end 'stackPlace'
+
+function isStackPlace(place Count) returns bool
+	return place >= stackPlaceBase
+end 'isStackPlace'
+
+// stackSlotOf is the place among the arguments on the stack of a place there, the first nearest the return address.
+function stackSlotOf(place Count) returns Count
+	return try place - stackPlaceBase otherwise panic("backend: a register taken for a place on the stack")
+end 'stackSlotOf'
+
+// physOfNumber is the physical register of a number in the register file.
+function physOfNumber(number RegNum) returns MReg
+	return number as MReg
+end 'physOfNumber'
+
+// placeRegister is the physical register of a place in a register.
+function placeRegister(place Count) returns MReg
+	return try place as MReg otherwise panic("backend: a place past the register file")
+end 'placeRegister'
+
+// placeArgs gives each argument of a call of the internal convention, in the order the convention passes them, its place
+// in places, by whether it is a float (floats), as maxon's convention does: each class counts its own arguments into its
+// own registers, so the first float is in the first float register however many words come before it, and the arguments
+// past a class's registers go on the stack in one run, in the order of the arguments. It is how many go on the stack.
+function placeArgs(floats Array with bool, mutates places CountList) returns Count
+	places.clear()
+	var words = 0 as Count
+	var vectors = 0 as Count
+	var stacked = 0 as Count
+	for i in 0 upto floats.count() 'args'
+		if floats[i] and vectors < x64InternalFloatArgCount 'vector'
+			places.push(x64InternalFloatArg(vectors) as Count)
+			vectors = try vectors + 1 otherwise panic("backend: more arguments than memory")
+		end 'vector' else if not floats[i] and words < x64InternalArgCount 'word'
+			places.push(regNumOf(x64InternalArg(words)) as Count)
+			words = try words + 1 otherwise panic("backend: more arguments than memory")
+		end 'word' else 'stack'
+			places.push(stackPlace(stacked))
+			stacked = try stacked + 1 otherwise panic("backend: more arguments than memory")
+		end 'stack'
+	end 'args'
+	return stacked
+end 'placeArgs'
 
 // argWord is the register of the first argument of the internal convention: the one argument of the routines and the
 // runtime entries that the routines and the entry stub call.
@@ -114,33 +183,24 @@ function resultWord() returns X64Register
 	return resultRegister(ConventionKind.internal)
 end 'resultWord'
 
-// CallConvention is what a call of a convention reads and keeps. Arguments past its registers go on the stack, the
-// first of them nearest the return address.
+// CallConvention is what a call of a convention keeps. Arguments past its registers go on the stack, the first of them
+// nearest the return address.
 type CallConvention
-	// argMasks are, for each number of arguments in registers, the registers that hold them, which the call reads.
-	export var argMasks as RegMaskList
 	// clobbered are the registers a call leaves holding nothing, and calleeSaved the ones it keeps.
 	export var clobbered as RegMask
 	export var calleeSaved as RegMask
 
-	static function make(kind ConventionKind, calleeSaved RegMask) returns CallConvention
-		var masks = RegMaskList.create(0)
-		var held = 0 as RegMask
-		masks.push(held)
-		for i in 0 upto argRegisterCount(kind) 'args'
-			held = held or regMaskOf(argRegister(kind, index: i))
-			masks.push(held)
-		end 'args'
+	static function make(calleeSaved RegMask) returns CallConvention
 		let all = allocatable(RegClass.gpr) or allocatable(RegClass.xmm)
-		return CallConvention{argMasks: masks, clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
+		return CallConvention{clobbered: all and not calleeSaved, calleeSaved: calleeSaved}
 	end 'make'
 end 'CallConvention'
 
 // conventionOf is a convention's table.
 function conventionOf(kind ConventionKind) returns CallConvention
 	return match kind 'kind'
-		internal gives CallConvention.make(kind, calleeSaved: x64InternalCalleeSaved())
-		host gives CallConvention.make(kind, calleeSaved: x64HostCalleeSaved())
+		internal gives CallConvention.make(x64InternalCalleeSaved())
+		host gives CallConvention.make(x64HostCalleeSaved())
 	end 'kind'
 end 'conventionOf'
 
@@ -156,7 +216,7 @@ export type Conventions
 	// keeping is the conventions with an internal one that keeps calleeSaved across a call instead of the target's
 	// callee-saved registers, for the allocator's tests.
 	export static function keeping(calleeSaved RegMask) returns Conventions
-		return Conventions{internal: CallConvention.make(ConventionKind.internal, calleeSaved: calleeSaved), host: conventionOf(ConventionKind.host)}
+		return Conventions{internal: CallConvention.make(calleeSaved), host: conventionOf(ConventionKind.host)}
 	end 'keeping'
 end 'Conventions'
 
@@ -168,26 +228,22 @@ function callConvention(x MInstr) returns ConventionKind
 	return ConventionKind.internal
 end 'callConvention'
 
-// A call instruction's imm is how many of its arguments are in its convention's registers, which it reads.
+// A call instruction's imm is the registers of its arguments, which it reads.
 
 // newCall is a call of a form whose last field refers to ref and aux (none for a call through a register, a), passing
-// inRegisters arguments in the registers of its convention.
-export function newCall(form X64Form, a MReg, ref MRef, aux Imm32, inRegisters Count) returns MInstr
+// arguments in the registers argRegs.
+export function newCall(form X64Form, a MReg, ref MRef, aux Imm32, argRegs RegMask) returns MInstr
 	var x = newReferring(form, a: a, ref: ref, aux: aux)
-	x.imm = try inRegisters as FullRangeInt otherwise panic("backend: a call past its registers")
+	x.imm = argRegs as FullRangeInt
 	return x
 end 'newCall'
 
 // callUses are the argument registers a call reads.
-function callUses(x MInstr, convs Conventions) returns RegMask
+function callUses(x MInstr) returns RegMask
 	if not isCall(x.form) 'other'
 		return 0
 	end 'other'
-	let n = try x.imm as Count otherwise panic("backend: a call's count of register arguments below 0")
-	return match callConvention(x) 'kind'
-		internal gives convs.internal.argMasks[n]
-		host gives convs.host.argMasks[n]
-	end 'kind'
+	return x.imm as RegMask
 end 'callUses'
 
 // isUnconditionalJump is whether a branch along an edge always takes it, so the edge's copies can go before it.
@@ -266,11 +322,11 @@ function sharesDying(x MInstr, reusedDies bool, otherDies bool) returns bool
 	return reusedDies or (commutes(x) and isVirtual(x.c) and otherDies)
 end 'sharesDying'
 
-// implicitUses are the registers an instruction reads that no operand names: a form's fixed uses, and the result
-// registers a return reads.
-function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMask
+// implicitUses are the registers an instruction of fn reads that no operand names: a form's fixed uses, the argument
+// registers a call reads, and the result registers a return reads.
+function implicitUses(x MInstr, fn MirFunction) returns RegMask
 	return match x.kind 'kind'
-		target gives fixedUses(x.form) or returnUses(x, canThrow: canThrow) or callUses(x, convs: convs)
+		target gives fixedUses(x.form) or returnUses(x, fn: fn) or callUses(x)
 		copy or
 		reload or
 		spill or
@@ -281,14 +337,16 @@ function implicitUses(x MInstr, convs Conventions, canThrow bool) returns RegMas
 	end 'kind'
 end 'implicitUses'
 
-function returnUses(x MInstr, canThrow bool) returns RegMask
+// returnUses are the registers a return of fn reads: its result's, and its error's when it throws.
+function returnUses(x MInstr, fn MirFunction) returns RegMask
 	if not isReturn(x.form) 'other'
 		return 0
 	end 'other'
-	if canThrow 'error'
-		return regMaskOf(x64InternalResult) or regMaskOf(x64InternalError)
+	let result = regBit(internalResult(fn.floatResult))
+	if fn.canThrow 'error'
+		return result or regMaskOf(x64InternalError)
 	end 'error'
-	return regMaskOf(x64InternalResult)
+	return result
 end 'returnUses'
 
 // implicitDefs are the registers an instruction writes that no operand names: a form's fixed results and clobbers,
@@ -346,7 +404,7 @@ function isRematerializable(x MInstr) returns bool
 end 'isRematerializable'
 
 // isZeroIdiom is whether an instruction sets its register to zero whatever the register held, the exclusive or of a
-// register with itself: it reads nothing, so no value need be in the register before it.
+// register with itself, a general or an xmm one: it reads nothing, so no value need be in the register before it.
 function isZeroIdiom(x MInstr) returns bool
-	return x.kind == MKind.target and x.form == X64Form.xorRegReg and isPhysical(x.b) and x.b == x.c and x.a == x.b
+	return x.kind == MKind.target and (x.form == X64Form.xorRegReg or x.form == X64Form.xorpsRegReg) and isPhysical(x.b) and x.b == x.c and x.a == x.b
 end 'isZeroIdiom'

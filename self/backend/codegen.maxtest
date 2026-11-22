@@ -78,7 +78,7 @@ type FnBuilder
 		let count = try args.count() as ir.Reg otherwise panic("too many arguments")
 		let start = self.pushArgs(args)
 		let calleeAt = self.calleeIndex(callee)
-		self.emit(ir.newCall(dst, callee: calleeAt, argsStart: start, argsCount: count, errReg: errReg))
+		self.emit(ir.newCall(dst, callee: calleeAt, argsStart: start, argsCount: count, errReg: errReg, floatResult: false))
 		return dst
 	end 'call'
 

@@ -1001,7 +1001,7 @@ what a later pass such as reference counting or an optimization changes.
   word is checked. Each of them names the block it goes to when the check fails, `else b4`,
   which is the only way an instruction leaves its block before its end: there the failure drops what it leaves and goes to the
   handler of its `try`, or returns the error with `throw`. A function that throws returns its error beside its value, 0 when it
-  returned and the error's case plus 1 when it failed (`rdx` in the executable), and a `call` of one names the register that
+  returned and the error's case plus 1 when it failed (`r10` in the executable), and a `call` of one names the register that
   receives it (`error %7`). An allocation is `alloc`.
 - An instruction is one fixed-size record (`ir.Instr`): an opcode, three registers, a small index, an immediate and two bytes
   (`sub` and `flags`) whose meaning the opcode says (the IR table, `internal/irgen/irtable/table.go`, has it, and the getters of each
@@ -1050,11 +1050,33 @@ Native code goes from the IR, in SSA form, to machine IR (see "The machine IR") 
 registers do not suffice, refusing a hot loop that needs more registers than the target has (E5001), and gives every
 virtual register a register (see "The machine IR"). A frame larger than a page touches each page as it grows, as Windows
 requires. Calls use the internal convention of the target table (`internal/targetgen`, maxon's): the integer arguments
-in `rcx`, `rdx`, `rax`, `r9`, `rsi` and `rdi`, the rest pushed right to left, so that the first of them is nearest the
-return address, which the caller pops; the result in `r8` and the error flag of a function that throws in `r10`; `rbx`,
-`r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a function pushes those it uses. A function copies
-its parameters out of the argument registers in its prologue (`Selector.takeParams`), and reads one passed on the stack
-from the frame. The Win64 ABI applies only to the DLL imports that the runtime calls (`import`).
+in `rcx`, `rdx`, `rax`, `r9`, `rsi` and `rdi` and the float arguments in `xmm0` to `xmm5`, each class counted apart as
+maxon counts them (the third float is in `xmm2` however many integers come before it), and the arguments past their
+class's registers in one run on the stack in the order of the arguments, pushed right to left, so that the first of them
+is nearest the return address, which the caller pops (`placeArgs`); the result in `r8`, a float result in `xmm0`, and the
+error flag of a function that throws in `r10`; `rbx`, `r12` to `r15` and `xmm6` to `xmm15` are callee-saved, and a
+function pushes those it uses. A function copies its parameters out of the argument registers in its prologue
+(`Selector.takeParams`), and reads one passed on the stack from the frame. The Win64 ABI applies only to the DLL imports
+that the runtime calls (`import`), none of which takes or returns a float.
+
+**Floats across calls.** Which arguments of a call and whether its result are floats is its float signature
+(`ir.FloatSignature`, `self/ir/convention.maxon`): a bit for each argument by its place (an `ir.FloatMask` of 64) and a
+flag (`FloatResult`) of a `call`, a `callvalue` and a `callwitness`, which the printer writes as ` floats [0, 2] returns
+float`, and `floatParams` and `floatResult` on each `IrFunction`. The mask is no field of the instruction: the function's
+float pool (`floatStarts`, `floatMasks`) holds it by where the call's arguments start in `args`, in their order, only for
+a call that passes a float, and `ir.callFloats(f, x)` is its one reader; inlining moves it with the arguments
+(`relocationInto`). The interpreter never reads them; selection passes and takes each value in the class they say, and
+`--verify-ir` holds each call to the code it reaches where the function shows that code: a `call` to its callee's
+declaration, a `callvalue` of a closure or a named function that the function makes, and a `callwitness` on an interface
+value that it boxes, to the method of the box's table. A call and every function it can reach read them off one static
+signature: a `call` and the function it calls off the function's declaration (`ir.funcSignature`; an instance of a generic
+has its types substituted there), a `callvalue` and a closure's body off the function type, with the type arguments of
+the code around them applied (`ir.valueSignature`), and a `callwitness` off the requirement as the call sees it, the
+interface value's types bound, which the declaration of every method that meets it matches (and the value the box holds,
+never a float). A function value of a named function calls its code, whose declaration matches the function type. A
+parameter passed by address (`mutates`, `sets`) and a result that `returns borrowed` lends are words. A behaviour's body
+takes words, as its thunk passes the words of the behaviour's record, and so do a runtime entry (`runtime`), whose
+signature `check runtime` holds to words, `callcode`, the drop and copy routines, the thread start and the entry stub.
 
 Records and union values are heap boxes of 8-byte words (a union's first word is its case index), allocated with `HeapAlloc` on
 the process heap (`runtime::alloc`) and freed with `HeapFree` (`runtime::free`) where their owner dies (see "Drops"); a box is
@@ -1459,8 +1481,9 @@ of the backend. `regs_x64.maxon` holds the constraints the allocator reads, neve
 `defines`, `reuses`, `implicitUses` (a form's fixed uses, and the result registers at a return) and `implicitDefs` (fixed
 results, clobbers and a call's convention), the register file's masks (`classMask`, `allocatable`, `reservedMask`) and the
 calling conventions (`CallConvention`: the argument registers a call reads, and what it keeps), built from the
-target table's declarations (`regs_x64_gen.maxon`): the internal one and Win64 for an import. A call's `imm` is how many
-of its arguments are in its convention's registers, which `implicitUses` counts as read by it (`newCall`).
+target table's declarations (`regs_x64_gen.maxon`): the internal one and Win64 for an import. A call's `imm` is the
+registers its arguments are in, which `implicitUses` counts as read by it (`newCall`), and a return reads the result
+register of its function's class (`MirFunction.floatResult`).
 
 Before allocation, `DeadCode` (`dead.maxon`) has every read of a virtual register that a copy of another one defines read
 that one instead (in SSA form the two hold one value wherever the copy's is live, so no point holds more values; a read of
@@ -1474,17 +1497,18 @@ operand of its load or store.
 
 **Register classes** (`classes.maxon`): the IR keeps no types, so selection gives each IR register its class by what reads
 and writes it (`ClassChoice`): a float operation wants its operands and its result in xmm registers, a constant, a load
-and a store take either, and every other operation, the calls and the returns among them, a general one; a block's
-parameters and the arguments passed to them are one class, the one more of their reads and writes want, a tie general.
+and a store take either, a call's arguments and result, a parameter and a returned value the class their float signature
+passes them in, and every other operation a general one; a block's parameters and the arguments passed to them are one
+class, the one more of their reads and writes want, a tie general.
 The rules then pick the xmm forms of a constant (`movsd` from a word of the unit's data, `DataSection.wordOffset`), a load
 and a store (`movsd`) for a value in an xmm register. Before the dead code removal, `legalizeClasses` moves each value that
-an operand of the other class reads or writes after all (a float's bits that an integer operation reads, a float passed
-to a call, which takes it in a general register) by `movq`, so the analysis decides how many moves there are, never what
-the code computes. Liveness, pressure, spilling, E5001 and the colouring and its repair are per class, each against its
+an operand of the other class reads or writes after all (a float's bits that an integer operation reads, a float that a
+runtime entry takes as a word) by `movq`, so the analysis decides how many moves there are, never what the code computes. Liveness, pressure, spilling, E5001 and the colouring and its repair are per class, each against its
 own registers; a float is spilled to a word slot by `movsd`, an xmm copy is `movaps`, SSA destruction exchanges two xmm
 registers with `xorps`, and the callee-saved `xmm6` to `xmm15` that a function's values get are saved whole by `movups`
-below its slots in the prologue and restored before each return. A float argument, result or parameter is a word in the
-internal convention's general registers; maxon's float convention (`xmm0` to `xmm5`, the result in `xmm0`) is not built.
+below its slots in the prologue and restored before each return. A float argument, result or parameter is in the internal
+convention's float registers (see "Floats across calls"), and a float live across a call stays in `xmm6` to `xmm15` as
+an integer does in `rbx` and `r12` to `r15`.
 
 `emitModule` allocates each function it selects with an `Allocator` the module's functions share (`regalloc.maxon`):
 spilling, then colouring, below. The frame holds, from the frame pointer down, the slots given before allocation
@@ -1698,8 +1722,9 @@ function's frame is not aligned, and keeps `rsp` in a value that allocation puts
 `ir.rtSymbol`, which gives a mapped entry its function's link name (`runtime::alloc`) and an entry that
 the stub or the linker defines its own symbol (`rt.entry`, `g.heap`); the linker resolves `rtSymbol(x)` by that text as
 it does any call. The two calling conventions are one by construction: a `callruntime` and a `call` of a Maxon function
-are both selected by one helper, `Selector.callWith` (`self/backend/isel.maxon`), which passes the words by the internal
-convention, and the callee returns in `r8`. So a runtime function takes only words (an integer, a `bool`, a `String` as
+both pass their arguments through `Selector.callForm` (`self/backend/isel.maxon`) by the internal convention, a
+`callruntime` all of them as words (`Selector.callWords`), and the callee returns a word in `r8`. So a runtime function
+takes only words (an integer, a `bool`, a `String` as
 its box address), takes none `mutates`, is not generic and throws nothing, since a function that throws returns its
 error in `r10` too. `minimaxon check runtime` holds the runtime to the table: each
 mapped function exists with exactly that signature (`E3004` when it is missing, `E3005` when it differs) and links as
@@ -1911,7 +1936,10 @@ The compiler has no floats of its own, so `self/ast/floats.maxon` computes on th
 arithmetic: a value is a ratio of big integers times a power of two, rounded once, ties to even. It reads literals, folds
 constants, runs the interpreter's float operations and writes the text; `runtime/floats.maxon` writes the text natively by
 the same algorithm, maxon's: the exact decimal of the double rounded to 1, 2, ... significant digits, the first that lies
-between the midpoints to its neighbours. Natively a float is in an xmm register, computed with SSE2 (and SSE4.1's`n`roundsd`) on any of `xmm0` to `xmm15`; it is a word like any other in memory, in a call's arguments and result, and to`nthe integer operations that read its bits (negation, `abs`), which `movq` moves it to (see "The machine IR").
+between the midpoints to its neighbours. Natively a float is in an xmm register, computed with SSE2 (and SSE4.1's
+`roundsd`) on any of `xmm0` to `xmm15`, and passed to and returned from a call in one (see "Floats across calls"); it is
+a word like any other in memory, and to the integer operations that read its bits (negation, `abs`), which `movq` moves
+it to (see "The machine IR").
 
 ### Errors of the program
 

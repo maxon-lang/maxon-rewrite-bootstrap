@@ -1,0 +1,38 @@
+// Calls that pass and return floats: a small function of two floats called in a loop, directly and through a function
+// value, so the cost of moving a float into and out of a call shows.
+typealias Real = float(f64.min to f64.max)
+
+typealias Blend = function(Real, Real) returns Real
+
+let rounds = 20000000 as Count
+
+function mix(a Real, b Real) returns Real
+	return a * 0.75 + b * 0.25
+end 'mix'
+
+function direct() returns Real
+	var x = 1.0 as Real
+	var y = 0.5 as Real
+	for _ in 0 upto rounds 'each'
+		x = mix(x, b: y)
+		y = mix(y + 1.0, b: x)
+	end 'each'
+	return x + y
+end 'direct'
+
+function through(f Blend) returns Real
+	var x = 1.0 as Real
+	var y = 0.5 as Real
+	for _ in 0 upto rounds 'each'
+		x = f(x, y)
+		y = f(y + 1.0, x)
+	end 'each'
+	return x + y
+end 'through'
+
+function main() returns ExitCode
+	print("{direct()} {through(mix)}\n")
+	return 0
+end 'main'
+
+//> 17142858.330842674 17142858.330842674

@@ -12,6 +12,9 @@ export typealias Index = int(-1 to 2147483647)
 // Word is a 64-bit number an instruction holds.
 export typealias Word = int(i64.min to i64.max)
 
+// FloatMask is which of a call's arguments are floats, a bit for each by its place among them, the first in bit 0.
+export typealias FloatMask = bits(64)
+
 // noReg is the destination of a call whose value nothing reads.
 export let noReg = -1 as Reg
 
@@ -597,6 +600,9 @@ export let flagThrows = 8 as Byte
 // flagProven is on a CallRuntime of an entry that reads or addresses an element at an index that the checker or a
 // check before it has proved inside the collection: its expansion is the access alone, with no bounds check.
 export let flagProven = 16 as Byte
+
+// flagFloatResult is on a call whose result is a float, which native code returns in an xmm register.
+export let flagFloatResult = 32 as Byte
 
 export let effectReads = 1 as Count
 
@@ -1261,7 +1267,7 @@ export function newAlloc(dst Reg, bytes Count) returns Instr
 end 'newAlloc'
 
 // Call applies Callee to Args.
-export function newCall(dst Reg, callee Index, argsStart Reg, argsCount Reg, errReg Reg) returns Instr
+export function newCall(dst Reg, callee Index, argsStart Reg, argsCount Reg, errReg Reg, floatResult bool) returns Instr
 	var r = Instr.make(Opcode.opCall)
 	r.dst = dst
 	r.c = callee
@@ -1271,6 +1277,9 @@ export function newCall(dst Reg, callee Index, argsStart Reg, argsCount Reg, err
 		r.flags = r.flags or flagThrows
 		r.imm = errReg as Word
 	end 'errReg'
+	if floatResult 'floatResult'
+		r.flags = r.flags or flagFloatResult
+	end 'floatResult'
 	return r
 end 'newCall'
 
@@ -1320,11 +1329,14 @@ end 'newFuncValue'
 
 // CallValue calls the closure that is the first of Args with all of Args: the code it holds takes the closure
 // first, to read what it captured, and a named function's code ignores it.
-export function newCallValue(dst Reg, argsStart Reg, argsCount Reg) returns Instr
+export function newCallValue(dst Reg, argsStart Reg, argsCount Reg, floatResult bool) returns Instr
 	var r = Instr.make(Opcode.opCallValue)
 	r.dst = dst
 	r.a = argsStart
 	r.b = argsCount
+	if floatResult 'floatResult'
+		r.flags = r.flags or flagFloatResult
+	end 'floatResult'
 	return r
 end 'newCallValue'
 
@@ -1352,7 +1364,7 @@ end 'newFrameBox'
 
 // CallWitness calls the method in place Slot of the table of the interface value that is the first of Args, with
 // the value the box holds, given as Recv says, and the rest of Args.
-export function newCallWitness(dst Reg, recv ReceiverConv, slot Count, argsStart Reg, argsCount Reg, errReg Reg) returns Instr
+export function newCallWitness(dst Reg, recv ReceiverConv, slot Count, argsStart Reg, argsCount Reg, errReg Reg, floatResult bool) returns Instr
 	var r = Instr.make(Opcode.opCallWitness)
 	r.dst = dst
 	r.sub = receiverConvCode(recv)
@@ -1363,6 +1375,9 @@ export function newCallWitness(dst Reg, recv ReceiverConv, slot Count, argsStart
 		r.flags = r.flags or flagThrows
 		r.imm = errReg as Word
 	end 'errReg'
+	if floatResult 'floatResult'
+		r.flags = r.flags or flagFloatResult
+	end 'floatResult'
 	return r
 end 'newCallWitness'
 
@@ -1883,6 +1898,10 @@ export function callErrReg(x Instr) returns table.Option with Reg
 	return table.Option.some(try x.imm as Reg otherwise panic("ir: call errReg is out of range"))
 end 'callErrReg'
 
+export function callFloatResult(x Instr) returns bool
+	return (x.flags and flagFloatResult) != 0
+end 'callFloatResult'
+
 export function callRuntimeSymbol(x Instr) returns Rt
 	return rtOf(try x.imm as Count otherwise panic("ir: callRuntime symbol is out of range"))
 end 'callRuntimeSymbol'
@@ -1964,6 +1983,10 @@ export function callValueArgsCount(x Instr) returns Count
 	return try x.b as Count otherwise panic("ir: callValue args is out of range")
 end 'callValueArgsCount'
 
+export function callValueFloatResult(x Instr) returns bool
+	return (x.flags and flagFloatResult) != 0
+end 'callValueFloatResult'
+
 export function boxTable(f IrFunction, x Instr) returns WitnessTable
 	return f.tableAt(x.c)
 end 'boxTable'
@@ -2012,6 +2035,10 @@ export function callWitnessErrReg(x Instr) returns table.Option with Reg
 	end 'absent'
 	return table.Option.some(try x.imm as Reg otherwise panic("ir: callWitness errReg is out of range"))
 end 'callWitnessErrReg'
+
+export function callWitnessFloatResult(x Instr) returns bool
+	return (x.flags and flagFloatResult) != 0
+end 'callWitnessFloatResult'
 
 export function isTypeSrc(x Instr) returns Reg
 	return x.a
@@ -4281,6 +4308,12 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		if callHasErrReg(x) 'errReg'
 			text = "{text} error %{callErrReg(x).unwrap()}"
 		end 'errReg'
+		if callFloats(f, x: x) != 0 'floats'
+			text = "{text} floats {floatsText(callFloats(f, x: x))}"
+		end 'floats'
+		if callFloatResult(x) 'floatResult'
+			text = "{text} returns float"
+		end 'floatResult'
 		return text
 	end 'opCall'
 	if x.op == Opcode.opCallRuntime 'opCallRuntime'
@@ -4303,7 +4336,14 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		return "{resultText(x.dst)}funcvalue {funcSymbol(p, tt: tt, reads: reads, ft: ft, funcReads: funcReads, fid: funcValueCallee(f, x: x))}"
 	end 'opFuncValue'
 	if x.op == Opcode.opCallValue 'opCallValue'
-		return "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
+		var text = "{resultText(x.dst)}callvalue({f.regsText(callValueArgsStart(x), count: callValueArgsCount(x))})"
+		if callFloats(f, x: x) != 0 'floats'
+			text = "{text} floats {floatsText(callFloats(f, x: x))}"
+		end 'floats'
+		if callValueFloatResult(x) 'floatResult'
+			text = "{text} returns float"
+		end 'floatResult'
+		return text
 	end 'opCallValue'
 	if x.op == Opcode.opBox 'opBox'
 		return "{resultText(x.dst)}box {boxTable(f, x: x).symbol}, %{boxValue(x)}"
@@ -4316,6 +4356,12 @@ export function instrText(p ast.Project, tt ast.TypeSlot, reads ast.TypeTable, f
 		if callWitnessHasErrReg(x) 'errReg'
 			text = "{text} error %{callWitnessErrReg(x).unwrap()}"
 		end 'errReg'
+		if callFloats(f, x: x) != 0 'floats'
+			text = "{text} floats {floatsText(callFloats(f, x: x))}"
+		end 'floats'
+		if callWitnessFloatResult(x) 'floatResult'
+			text = "{text} returns float"
+		end 'floatResult'
 		return text
 	end 'opCallWitness'
 	if x.op == Opcode.opIsType 'opIsType'

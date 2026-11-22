@@ -7,9 +7,11 @@
 // edge's arguments are those registers, and the code of a block may name a register that a block written later defines.
 // IR block b is machine block b, and the blocks that the prologue and a helper's branches need are made after them.
 //
-// Calls use the internal convention of the target table (regs_x64_gen.maxon): the first arguments in its registers and
-// the rest pushed right to left, so that the first of them is nearest the return address, which the caller pops; the
-// result in its result register, and the error of a function that throws beside it in its error register. A function
+// Calls use the internal convention of the target table (regs_x64_gen.maxon): the first words in its registers and the
+// first floats in its float registers, each class counted apart, and the rest pushed right to left, so that the first of
+// them is nearest the return address, which the caller pops (placeArgs); the result in its result register, a float's
+// in its float result register, and the error of a function that throws beside it in its error register. Which
+// arguments and results are floats is the call's float signature and the function's (ir/convention.maxon). A function
 // copies its parameters out of the argument registers first. A call of a function value passes the closure last, so
 // that the code of a named function, which takes the same arguments but the closure, never reaches it.
 
@@ -66,17 +68,26 @@ export type Selector
 	// defs is the instruction that defines each register of the function being selected.
 	var defs as DefAtList
 	var args as MRegList
-	// callArgs are the arguments of the call being selected, and params the registers the function's parameters were
-	// copied to out of the argument registers, noMReg for one passed on the stack.
+	// callArgs are the arguments of the call being selected, in the order the convention passes them, and callFloats
+	// which of them are floats; places is where the convention puts them (placeArgs).
 	var callArgs as MRegList
+	var callFloats as Array with bool
+	var places as CountList
+	// params are the registers the function's parameters were copied to out of the argument registers, noMReg for one
+	// passed on the stack, and paramPlaces where the convention passes each; paramFloats are which of them are floats, in
+	// the order the convention passes them.
 	var params as MRegList
+	var paramPlaces as CountList
+	var paramFloats as Array with bool
 	// closureBody is whether the function being selected is the body of a closure, whose first parameter, the closure,
 	// the convention passes last.
 	var closureBody as bool
 	// calleeSymbols are the symbols of the callees of the function being selected, by function.
 	var calleeSymbols as CalleeSymbols
-	// canThrow is whether the function being selected returns an error beside its value.
+	// canThrow is whether the function being selected returns an error beside its value, and floatResult whether its
+	// value is a float.
 	var canThrow as bool
+	var floatResult as bool
 	// fnSymbol is the link name of the function being selected, which the bodies of its closures are named after.
 	var fnSymbol as String
 	// tables are the tables of interface values that the unit has, and due the ones the function being selected names
@@ -105,13 +116,14 @@ export type Selector
 	var classes as ClassChoice
 
 	static function new(verifies bool) returns Selector
-		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), params: MRegList.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new()}
+		return Selector{u: CodeUnit.new(), mir: MirFunction.new("", canThrow: false), defs: DefAtList.create(0), args: MRegList.create(0), callArgs: MRegList.create(0), callFloats: Array.create(0), places: CountList.create(0), params: MRegList.create(0), paramPlaces: CountList.create(0), paramFloats: Array.create(0), closureBody: false, calleeSymbols: CalleeSymbols.new(), canThrow: false, floatResult: false, fnSymbol: "", tables: TableSet.new(), due: ir.WitnessTableList.create(0), typeNames: TableSet.new(), typeSymbols: CalleeSymbols.new(), datums: TableSet.new(), readCount: CountList.create(0), reads: ir.RegList.create(0), irBlock: 0, irAt: 0, dead: DeadCode.new(), layout: BlockLayout.new(), allocator: Allocator.new(verifies), classes: ClassChoice.new()}
 	end 'new'
 
 	// prepare names what the function's instructions ask for by handle: the symbols of its callees, and the drop and copy
 	// routines of its types, which are asked for in the order the code does.
 	function prepare(mutates self, p ast.Project, mutates ms ast.ModuleState, f ir.IrFunction)
 		canThrow = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: f.decl).errTy != ast.noType
+		floatResult = f.floatResult
 		calleeSymbols = CalleeSymbols.new()
 		for i in 0 upto f.callees.count() 'callees'
 			calleeSymbols.insert(f.callees[i] as Count, value: ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: f.callees[i]))
@@ -374,39 +386,59 @@ export type Selector
 		self.target(X64Form.pushReg, a: v, b: noMReg, c: noMReg, aux: 0, imm: 0)
 	end 'push'
 
-	// addArgs adds the arguments args[start] on, count of them, to the call being selected.
-	function addArgs(mutates self, f ir.IrFunction, start Count, count Count)
+	// addArg adds an argument to the call being selected, a float or a word.
+	function addArg(mutates self, v MReg, float bool)
+		callArgs.push(v)
+		callFloats.push(float)
+	end 'addArg'
+
+	// addArgs adds the arguments args[start] on, count of them, to the call being selected, the floats among them as the
+	// mask floats says from its place first on.
+	function addArgs(mutates self, f ir.IrFunction, start Count, count Count, floats ir.FloatMask, first Count)
 		for i in 0 upto count 'args'
-			callArgs.push(argAt(f, start: start, index: i))
+			self.addArg(argAt(f, start: start, index: i), float: ir.isFloatAt(floats, place: try first + i otherwise panic("backend: an argument past the pool")))
 		end 'args'
 	end 'addArgs'
 
-	// passArgs puts the arguments of the call being selected where the internal convention has the callee read them:
-	// those past its registers pushed right to left, then the others copied into its registers, so that no value is
-	// pushed out of one. It is how many are in registers.
-	function passArgs(mutates self) returns Count
-		let count = callArgs.count()
-		let inRegisters = argsInRegisters(ConventionKind.internal, count: count)
-		var i = count
-		while i > inRegisters 'stack'
+	// addWords adds the arguments args[start] on, count of them, to the call being selected, as words.
+	function addWords(mutates self, f ir.IrFunction, start Count, count Count)
+		self.addArgs(f, start: start, count: count, floats: 0 as ir.FloatMask, first: 0)
+	end 'addWords'
+
+	// passArgs puts the arguments of the call being selected where the internal convention has the callee read them
+	// (placeArgs): those on the stack pushed right to left, then the others copied into their registers, so that no value
+	// is pushed out of one. It is the registers they are in, and stacked how many are on the stack.
+	function passArgs(mutates self, sets stacked Count) returns RegMask
+		stacked = placeArgs(callFloats, places: places)
+		var i = callArgs.count()
+		while i > 0 'stack'
 			i = prevCount(i)
-			let v = callArgs[i]
-			self.push(v)
+			if isStackPlace(places[i]) 'pushed'
+				let v = callArgs[i]
+				self.push(v)
+			end 'pushed'
 		end 'stack'
-		for i in 0 upto inRegisters 'registers'
-			let v = callArgs[i]
-			self.copy(physReg(argRegister(ConventionKind.internal, index: i)), src: v)
+		var argRegs = 0 as RegMask
+		for k in 0 upto callArgs.count() 'registers'
+			let place = places[k]
+			if not isStackPlace(place) 'register'
+				let v = callArgs[k]
+				self.copy(placeRegister(place), src: v)
+				argRegs = argRegs or regBit(physicalNumber(placeRegister(place)))
+			end 'register'
 		end 'registers'
-		return inRegisters
+		return argRegs
 	end 'passArgs'
 
 	// call emits a call of the internal convention with the arguments of the call being selected, and takes those on the
 	// stack off it.
 	function callForm(mutates self, form X64Form, code MReg, refers Referent)
-		let inRegisters = self.passArgs()
-		mir.emit(newCall(form, a: code, ref: refers.ref, aux: refers.aux, inRegisters: inRegisters))
-		self.popWords(try callArgs.count() - inRegisters otherwise panic("backend: more arguments in registers than a call has"))
+		var stacked as Count
+		let argRegs = self.passArgs(stacked)
+		mir.emit(newCall(form, a: code, ref: refers.ref, aux: refers.aux, argRegs: argRegs))
+		self.popWords(stacked)
 		callArgs.clear()
+		callFloats.clear()
 	end 'callForm'
 
 	function callSymbol(mutates self, symbol String)
@@ -435,9 +467,11 @@ export type Selector
 		end 'kept'
 	end 'takeFrom'
 
-	// takeResult puts what a call returned in dst, if the IR keeps it.
-	function takeResult(mutates self, dst ir.Reg)
-		self.takeFrom(dst, r: resultRegister(ConventionKind.internal))
+	// takeResult puts what a call returned in dst, if the IR keeps it: a float from the convention's float result register.
+	function takeResult(mutates self, dst ir.Reg, float bool)
+		if dst != ir.noReg 'kept'
+			self.copy(vregOf(dst), src: physOfNumber(internalResult(float)))
+		end 'kept'
 	end 'takeResult'
 
 	function takeError(mutates self, err table.Option with ir.Reg)
@@ -447,41 +481,50 @@ export type Selector
 		end 'throws'
 	end 'takeError'
 
-	// callWith calls a symbol with the arguments args[start] on, count of them, and takes its result into dst.
-	function callWith(mutates self, f ir.IrFunction, symbol String, start Count, count Count, dst ir.Reg)
-		self.addArgs(f, start: start, count: count)
+	// callWords calls a symbol with the words args[start] on, count of them, and takes the word it returns into dst: a
+	// runtime entry, which takes and returns only words (README, "The runtime").
+	function callWords(mutates self, f ir.IrFunction, symbol String, start Count, count Count, dst ir.Reg)
+		self.addWords(f, start: start, count: count)
 		self.callSymbol(symbol)
-		self.takeResult(dst)
-	end 'callWith'
+		self.takeResult(dst, float: false)
+	end 'callWords'
 
 	// callRoutine calls the drop or copy routine of a type with one value. The routine is generated once for the program,
 	// after every module, from the list each unit keeps of the ones it asked for.
 	function callRoutine(mutates self, kind RoutineKind, ty ast.TypeID, value MReg)
-		callArgs.push(value)
+		self.addArg(value, float: false)
 		self.callSymbol(u.needed.lookup(kind, ty: ty))
 	end 'callRoutine'
 
 	// allocInto allocates a box of a number of bytes into dst.
 	function allocInto(mutates self, dst MReg, bytes Count)
 		let size = self.constant(try bytes as FullRangeInt otherwise panic("backend: a box past memory"))
-		callArgs.push(size)
+		self.addArg(size, float: false)
 		self.callSymbol(ir.rtSymbol(ir.Rt.rtAlloc))
 		self.copy(dst, src: physReg(resultRegister(ConventionKind.internal)))
 	end 'allocInto'
 
 	// takeParams copies the parameters of f that the internal convention passes in registers out of them, before
-	// anything else can write one.
+	// anything else can write one: each a float or a word as f's float signature says, which every call of it says too.
 	function takeParams(mutates self, f ir.IrFunction)
+		paramFloats.clear()
+		for at in 0 upto f.paramCount 'order'
+			let k = paramAtPosition(at, count: f.paramCount, closure: closureBody)
+			paramFloats.push(ir.isFloatAt(f.floatParams, place: k))
+		end 'order'
+		_ = placeArgs(paramFloats, places: places)
 		params.clear()
+		paramPlaces.clear()
 		for k in 0 upto f.paramCount 'params'
-			let at = paramPosition(k, count: f.paramCount, closure: closureBody)
-			if at < argRegisterCount(ConventionKind.internal) 'register'
-				let v = self.newTemp()
-				self.copy(v, src: physReg(argRegister(ConventionKind.internal, index: at)))
-				params.push(v)
-			end 'register' else 'stack'
+			let place = places[paramPosition(k, count: f.paramCount, closure: closureBody)]
+			paramPlaces.push(place)
+			if isStackPlace(place) 'stack'
 				params.push(noMReg)
-			end 'stack'
+			end 'stack' else 'register'
+				let v = self.newTempOf(classOfNumber(physicalNumber(placeRegister(place))))
+				self.copy(v, src: placeRegister(place))
+				params.push(v)
+			end 'register'
 		end 'params'
 	end 'takeParams'
 
@@ -758,24 +801,27 @@ function emitCallImport(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	for i in 0 upto inRegisters 'registers'
 		sel.copy(physReg(argRegister(ConventionKind.host, index: i)), src: argAt(fn, start: start, index: i))
 	end 'registers'
-	sel.emit(newCall(X64Form.callRip, a: noMReg, ref: MRef.importSlot, aux: imm32Of(importIndex(ir.callImportName(fn, x: ins))), inRegisters: inRegisters))
+	sel.emit(newCall(X64Form.callRip, a: noMReg, ref: MRef.importSlot, aux: imm32Of(importIndex(ir.callImportName(fn, x: ins))), argRegs: wordArgRegs(ConventionKind.host, count: inRegisters)))
 	sel.target(X64Form.movRegReg, a: sp, b: saved, c: noMReg, aux: 0, imm: 0)
 	sel.takeFrom(ins.dst, r: resultRegister(ConventionKind.host))
 end 'emitCallImport'
 
-// emitCallCode calls the code at the address that is the first of the arguments with the rest.
+// emitCallCode calls the code at the address that is the first of the arguments with the rest, words: the run of a
+// behaviour's record, which takes a word.
 function emitCallCode(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let start = ir.callCodeArgsStart(ins)
 	let count = ir.callCodeArgsCount(ins)
 	let words = try count - 1 otherwise panic("backend: a call of code with no address")
-	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: words)
+	sel.addWords(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: words)
 	sel.callRegister(argAt(fn, start: start, index: 0))
-	sel.takeResult(ins.dst)
+	sel.takeResult(ins.dst, float: false)
 end 'emitCallCode'
 
 function emitCall(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let symbol = sel.calleeSymbol(ir.callCallee(fn, x: ins))
-	sel.callWith(fn, symbol: symbol, start: ir.callArgsStart(ins), count: ir.callArgsCount(ins), dst: ins.dst)
+	sel.addArgs(fn, start: ir.callArgsStart(ins), count: ir.callArgsCount(ins), floats: ir.callFloats(fn, x: ins), first: 0)
+	sel.callSymbol(symbol)
+	sel.takeResult(ins.dst, float: ir.callReturnsFloat(ins))
 	sel.takeError(ir.callErrReg(ins))
 end 'emitCall'
 
@@ -786,10 +832,10 @@ function emitCallValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let count = ir.callValueArgsCount(ins)
 	let closure = argAt(fn, start: start, index: 0)
 	let code = sel.load(closure, disp: imm32Of(closureCodeOffset))
-	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a call of a function value with no closure"))
-	sel.callArgs.push(closure)
+	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a call of a function value with no closure"), floats: ir.callFloats(fn, x: ins), first: 1)
+	sel.addArg(closure, float: false)
 	sel.callRegister(code)
-	sel.takeResult(ins.dst)
+	sel.takeResult(ins.dst, float: ir.callReturnsFloat(ins))
 end 'emitCallValue'
 
 // emitCallWitness calls the entry of a method in the table of an interface value, which jumps to the method, with the
@@ -802,13 +848,13 @@ function emitCallWitness(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	let value = sel.load(iface, disp: imm32Of(ifaceValueOffset))
 	let table = sel.load(iface, disp: imm32Of(ifaceTableOffset))
 	let entry = sel.addImm(table, imm: imm32Of(try (tableFirstMethod + ir.callWitnessSlot(ins)) * tableEntryBytes otherwise panic("backend: a table past memory")))
-	sel.callArgs.push(value)
-	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a witness call with no interface value"))
+	sel.addArg(value, float: ir.isFloatAt(ir.callFloats(fn, x: ins), place: 0))
+	sel.addArgs(fn, start: try start + 1 otherwise panic("backend: an argument past the pool"), count: try count - 1 otherwise panic("backend: a witness call with no interface value"), floats: ir.callFloats(fn, x: ins), first: 1)
 	sel.callRegister(entry)
-	sel.takeResult(ins.dst)
+	sel.takeResult(ins.dst, float: ir.callReturnsFloat(ins))
 	sel.takeError(ir.callWitnessErrReg(ins))
 	if ir.callWitnessRecv(ins) == ir.ReceiverConv.receiverMoved 'consumed'
-		sel.callArgs.push(iface)
+		sel.addArg(iface, float: false)
 		sel.callSymbol(ir.rtSymbol(ir.Rt.rtFree))
 	end 'consumed'
 end 'emitCallWitness'
@@ -865,7 +911,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	end 'cown'
 	let reads = symbol == ir.Rt.rtArrayElem or symbol == ir.Rt.rtBytesGet or symbol == ir.Rt.rtStrByteAt
 	if not ir.writtenInPlace(symbol) or (reads and ins.dst == ir.noReg) 'call'
-		sel.callWith(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
+		sel.callWords(fn, symbol: ir.rtSymbol(symbol), start: start, count: ir.callRuntimeArgsCount(ins), dst: ins.dst)
 		return
 	end 'call'
 	if not reads and ins.dst != ir.noReg 'result'
@@ -909,7 +955,7 @@ function emitCallRuntime(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		panic("backend: {ir.rtSymbol(symbol)} is not written in place")
 	end 'unknown'
 	sel.mir.writeBlock(slow)
-	sel.addArgs(fn, start: start, count: ir.callRuntimeArgsCount(ins))
+	sel.addWords(fn, start: start, count: ir.callRuntimeArgsCount(ins))
 	sel.callSymbol(ir.rtSymbol(symbol))
 	if keeps 'gives'
 		let result = sel.newTemp()
@@ -949,10 +995,10 @@ function emitCownNew(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		some(r) gives sel.address(sel.calleeSymbol(r))
 		none gives sel.constant(0)
 	end 'routine'
-	sel.callArgs.push(argAt(fn, start: ir.callRuntimeArgsStart(ins), index: 0))
-	sel.callArgs.push(routine)
+	sel.addArg(argAt(fn, start: ir.callRuntimeArgsStart(ins), index: 0), float: false)
+	sel.addArg(routine, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownNew))
-	sel.takeResult(ins.dst)
+	sel.takeResult(ins.dst, float: false)
 end 'emitCownNew'
 
 // emitClosure makes the box of a closure: a count of 1, the code of its body, the routine that drops what it owns, and
@@ -1014,7 +1060,7 @@ function emitWhen(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	for i in 0 upto words 'words'
 		sel.store(record, disp: imm32Of(try start + i * wordBytes otherwise panic("backend: a behaviour past memory")), src: argAt(fn, start: first, index: i))
 	end 'words'
-	sel.callArgs.push(record)
+	sel.addArg(record, float: false)
 	sel.callSymbol(ir.rtSymbol(ir.Rt.rtCownAcquire))
 end 'emitWhen'
 
@@ -1039,7 +1085,7 @@ end 'emitDropAt'
 
 function emitCopyValue(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 	sel.callRoutine(RoutineKind.copyRoutine, ty: ir.copyTy(fn, x: ins), value: vregOf(ir.copySrc(ins)))
-	sel.takeResult(ins.dst)
+	sel.takeResult(ins.dst, float: false)
 end 'emitCopyValue'
 
 // emitSwitch compares the value with each case in turn, a block each.
@@ -1067,8 +1113,9 @@ function emitSwitch(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	sel.referring(X64Form.jmpRel32, a: noMReg, refers: fallback)
 end 'emitSwitch'
 
+// emitRet returns a value in the convention's register for it, a float's or a word's.
 function emitRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
-	sel.copy(physReg(x64InternalResult), src: vregOf(ir.retValue(ins)))
+	sel.copy(physOfNumber(internalResult(sel.floatResult)), src: vregOf(ir.retValue(ins)))
 	if sel.canThrow 'clear'
 		let err = physReg(x64InternalError)
 		sel.target(X64Form.xorRegReg, a: err, b: err, c: err, aux: 0, imm: 0)
@@ -1076,10 +1123,12 @@ function emitRet(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	sel.leave()
 end 'emitRet'
 
+// emitThrow returns an error, with the result register cleared, which the return reads all the same.
 function emitThrow(mutates sel Selector, fn ir.IrFunction, ins ir.Term)
 	sel.copy(physReg(x64InternalError), src: vregOf(ir.throwErr(ins)))
-	let result = physReg(x64InternalResult)
-	sel.target(X64Form.xorRegReg, a: result, b: result, c: result, aux: 0, imm: 0)
+	let result = physOfNumber(internalResult(sel.floatResult))
+	let clear = X64Form.xorpsRegReg if sel.floatResult else X64Form.xorRegReg
+	sel.target(clear, a: result, b: result, c: result, aux: 0, imm: 0)
 	sel.leave()
 end 'emitThrow'
 
@@ -1098,11 +1147,22 @@ function paramPosition(k Count, count Count, closure bool) returns Count
 	return try k - 1 otherwise panic("backend: a parameter below 0")
 end 'paramPosition'
 
-// paramDisp is where the argument at a position past the internal convention's registers sits above the frame pointer:
-// they are pushed right to left, so the first is nearest.
-function paramDisp(position Count) returns Imm32
-	let after = try position - argRegisterCount(ConventionKind.internal) otherwise panic("backend: a parameter in a register read from the frame")
-	return imm32Of(try paramBase + wordBytes * after otherwise panic("backend: a parameter past memory"))
+// paramAtPosition is the parameter that the internal convention passes at a position, which paramPosition gives.
+function paramAtPosition(position Count, count Count, closure bool) returns Count
+	if not closure 'named'
+		return position
+	end 'named'
+	let last = try count - 1 otherwise panic("backend: a closure's body with no parameters")
+	if position == last 'closure'
+		return 0
+	end 'closure'
+	return try position + 1 otherwise panic("backend: a parameter past the count")
+end 'paramAtPosition'
+
+// paramDisp is where an argument on the stack sits above the frame pointer, by its place among those there: they are
+// pushed right to left, so the first is nearest.
+function paramDisp(place Count) returns Imm32
+	return imm32Of(try paramBase + wordBytes * stackSlotOf(place) otherwise panic("backend: a parameter past memory"))
 end 'paramDisp'
 
 // emitLoadParam reads a parameter: one the internal convention passes in a register from where the prologue copied it,
@@ -1115,9 +1175,8 @@ function emitLoadParam(mutates sel Selector, fn ir.IrFunction, ins ir.Instr)
 		sel.copy(result, src: v)
 		return
 	end 'register'
-	let at = paramPosition(k, count: fn.paramCount, closure: sel.closureBody)
 	let load = X64Form.movsdRegBaseDisp if sel.inXmm(ins.dst) else X64Form.loadRegBaseDisp
-	sel.target(load, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(at), imm: 0)
+	sel.target(load, a: result, b: physReg(rbp), c: noMReg, aux: paramDisp(sel.paramPlaces[k]), imm: 0)
 end 'emitLoadParam'
 
 // selectFunction writes the code of one function into the unit: its machine IR, by the rules and the helpers, then
@@ -1129,6 +1188,7 @@ function selectFunction(mutates sel Selector, p ast.Project, mutates ms ast.Modu
 	sel.fnSymbol = symbol.clone()
 	sel.closureBody = closure
 	sel.mir = MirFunction.new(symbol, canThrow: sel.canThrow)
+	sel.mir.floatResult = sel.floatResult
 	sel.classes.choose(f, fn: sel.mir)
 	sel.mir.fixedSlots = try f.slots.count() + f.frameBoxes * ifaceBoxWords otherwise panic("backend: a frame past memory")
 	for _ in 0 upto f.blocks.count() 'blocks'

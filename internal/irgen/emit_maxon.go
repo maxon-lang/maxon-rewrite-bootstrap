@@ -48,6 +48,9 @@ func maxonGetter(o op, x operand) string { return lowerFirst(o.Name) + x.Name }
 
 func maxonHas(o op, x operand) string { return lowerFirst(o.Name) + "Has" + x.Name }
 
+// floatsReader is the function of self/ir that reads a call's float signature out of its function's float pool.
+const floatsReader = "callFloats"
+
 // maxonFieldType is the Maxon type of a field of a record.
 var maxonFieldType = map[field]string{
 	fDst: "Reg", fA: "Reg", fB: "Reg", fC: "Index", fImm: "Word", fSub: "Byte", fFlags: "Byte",
@@ -162,6 +165,7 @@ func emitMaxonTypes(w *writer) {
 	w.p("// BlockID is a basic block, an index into the blocks of its function, or noBlock.\nexport typealias BlockID = int(-1 to 2147483647)\n\n")
 	w.p("// Index is a small field of a record: an index into a pool or a count of one.\nexport typealias Index = int(-1 to 2147483647)\n\n")
 	w.p("// Word is a 64-bit number an instruction holds.\nexport typealias Word = int(i64.min to i64.max)\n\n")
+	w.p("// FloatMask is which of a call's arguments are floats, a bit for each by its place among them, the first in bit 0.\nexport typealias FloatMask = bits(64)\n\n")
 	w.p("// noReg is the destination of a call whose value nothing reads.\nexport let noReg = -1 as Reg\n\n")
 	w.p("// noBlock is the failure block of an operation that cannot fail.\nexport let noBlock = -1 as BlockID\n\n")
 	w.p("// noRoutine is the routine of a runtime call that stores none.\nexport let noRoutine = -1 as Index\n\n")
@@ -262,6 +266,9 @@ func maxonParams(x operand) []string {
 		return []string{n + "First Index", n + "Count Index"}
 	case kText, kType, kCallee, kRoutine, kTable:
 		return []string{n + " Index"}
+	case kFloats:
+		// The builder puts it in the function's float pool, which no record holds.
+		return nil
 	}
 	return []string{n + " " + maxonType(x)}
 }
@@ -296,6 +303,7 @@ func maxonSets(w *writer, o op, x operand) {
 		}
 	case kErrorReg:
 		w.p("\tif %s != noReg '%s'\n\t\tr.flags = r.flags or %s\n\t\tr.%s = %s as Word\n\tend '%s'\n", n, n, maxonFlag(x.Flag), x.Field, n, n)
+	case kFloats:
 	default:
 		fail("operand %s has no Maxon constructor", x.Name)
 	}
@@ -363,6 +371,10 @@ func emitMaxonGetters(w *writer) {
 				}
 				w.p("// %sCount is how many %s a%s %s has.\nexport function %sCount(%s %s) returns Count\n\treturn %s\nend '%sCount'\n\n",
 					g, lowerFirst(x.Name), article(o.Name), o.Name, g, v, rec, toCount(count, what), g)
+				continue
+			}
+			if x.Kind == kFloats {
+				// One reader for every call reads the float pool (floatsReader).
 				continue
 			}
 			g := maxonGetter(o, x)
@@ -510,6 +522,9 @@ func maxonPrintOp(w *writer, o op) {
 		}
 		x := operandOf(o, p.operand)
 		switch {
+		case x.Kind == kFloats:
+			flush()
+			w.p("\t\tif %s(f, %s: %s) != 0 '%s'\n\t\t\ttext = \"{text}%s{floatsText(%s(f, %s: %s))}\"\n\t\tend '%s'\n", floatsReader, v, v, lowerFirst(x.Name), x.Text, floatsReader, v, v, lowerFirst(x.Name))
 		case x.Kind == kFlag:
 			flush()
 			w.p("\t\tif %s(%s) '%s'\n\t\t\ttext = \"{text}%s\"\n\t\tend '%s'\n", maxonGetter(o, x), v, lowerFirst(x.Name), x.Text, lowerFirst(x.Name))
@@ -699,7 +714,8 @@ func emitMaxonRelocations(w *writer) {
 					present(fmt.Sprintf("\t\t%s = relocatedBlock(at.blocks, b: %s as BlockID) as Index\n", fld, fld))
 				case kErrorReg:
 					present(fmt.Sprintf("\t\t%s = renamedReg(at.names, r: %s) as Word\n", fld, maxonRead(o, x)))
-				case kMoreRegs, kMoreEdgeArgs, kInt, kWord, kSymbol, kEnum, kFlag:
+				// The float pool moves with the arguments' pool (relocationInto).
+				case kMoreRegs, kMoreEdgeArgs, kInt, kWord, kSymbol, kEnum, kFlag, kFloats:
 				default:
 					fail("operand %s of %s has no relocation", x.Name, o.Name)
 				}

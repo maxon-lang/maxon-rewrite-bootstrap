@@ -284,7 +284,7 @@ end 'accRead'
 function mirCallDouble(mutates fn MirFunction, value MReg) returns MReg
 	mirCopyIn(fn, dst: x64InternalArg(0), src: value)
 	let callee = fn.addSymbol(mirDoubleSymbol)
-	fn.emit(newCall(X64Form.callRel32, a: noMReg, ref: MRef.symbol, aux: callee, inRegisters: 1))
+	fn.emit(newCall(X64Form.callRel32, a: noMReg, ref: MRef.symbol, aux: callee, argRegs: backend.regMaskOf(backend.x64InternalArg(0))))
 	return mirCopyOut(fn, src: x64InternalResult)
 end 'mirCallDouble'
 

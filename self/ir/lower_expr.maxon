@@ -565,23 +565,40 @@ end 'lowerCall'
 // emitCallOf emits the call that a call site makes with args, the receiver first: of the function target, or through the
 // table of the interface value that is the receiver, when iface is its interface; err is noReg for a call that cannot
 // fail.
-function emitCallOf(mutates l Lowerer, p ast.Project, ms ast.ModuleState, c CallSite, iface ast.TypeID, dst Reg, target ast.FuncID, args RegList, err Reg)
+function emitCallOf(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite, iface ast.TypeID, dst Reg, target ast.FuncID, args RegList, err Reg)
 	if iface != ast.noType 'witness'
 		let slot = ast.requirementSlot(ms.types, reads: p.types, iface: iface, sig: c.info.method)
 		var rest = RegList.create(0)
 		for i in 1 upto args.count() 'rest'
 			rest.push(args[i])
 		end 'rest'
-		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err)
+		let sig = requirementSignature(l, p: p, ms: ms, c: c)
+		let instr = l.b.callWitness(dst, conv: receiverConv(c.info.selfConv), slot: slot, recv: args[0], args: rest, err: err, sig: sig)
 		emit(l, i: instr)
 		return
 	end 'witness'
 	if err == noReg 'plain'
-		emitCall(l, dst: dst, target: target, args: args)
+		emitCall(l, p: p, ms: ms, dst: dst, target: target, args: args)
 		return
 	end 'plain'
-	emitThrowingCall(l, dst: dst, target: target, args: args, err: err)
+	emitThrowingCall(l, p: p, ms: ms, dst: dst, target: target, args: args, err: err)
 end 'emitCallOf'
+
+// requirementSignature is the float signature of a call through the table of an interface value: the value the box holds
+// first, never a float, since no float meets an interface, then the requirement's parameters as the call sees them, the
+// types of the interface value bound, which the declaration of every method that meets the requirement has.
+function requirementSignature(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, c CallSite) returns FloatSignature
+	var args = 0 as FloatMask
+	for i in 0 upto c.info.paramSpecs.count() 'params'
+		let t = applyType(l, p: p, ms: ms, t: c.info.paramSpecs[i].ty)
+		if passesFloat(p, ms: ms, conv: c.info.paramSpecs[i].conv, t: t) 'float'
+			args = args or floatBit(try i + 1 otherwise panic("lower: too many parameters"))
+		end 'float'
+	end 'params'
+	let lends = ast.funcEntry(ms.funcs, funcReads: p.funcs, f: c.info.method).result == ast.ResultConv.resultBorrowed
+	let result = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: c.node))
+	return FloatSignature.make(args, result: not lends and ast.isFloatType(ms.types, reads: p.types, t: result))
+end 'requirementSignature'
 
 function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, node ast.NodeID) returns Reg
 	let c = callSite(l, p: p, node: node)
@@ -607,7 +624,8 @@ function visitCallExpr(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSt
 		pushOrderedArgs(l, p: p, ms: ms, c: c)
 		let dst = callResult(l, p: p, ms: ms, node: node)
 		let args = argsSince(l, base: base)
-		let instr = l.b.callValueInstr(dst, target: closure, args: args)
+		let fnTy = applyType(l, p: p, ms: ms, t: exprType(p, module: l.module, node: ast.callExprCallee(p.modules[l.mi].tree, id: node)))
+		let instr = l.b.callValueInstr(dst, target: closure, args: args, sig: valueSignature(p, ms: ms, t: fnTy))
 		emit(l, i: instr)
 		popArgs(l, n: base)
 		writeBack(l, p: p, ms: ms, mark: places)
