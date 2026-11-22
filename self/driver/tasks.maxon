@@ -17,9 +17,10 @@ type Compile
 	var options as Options
 	var output as String
 	var base as frozen with ast.Project
+	var cache as CacheSetup
 
-	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project) returns Compile
-		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base}
+	static function make(goal Goal, first Count, modules Count, begun Count, makesProgram bool, consumes options Options, consumes output String, consumes base frozen with ast.Project, consumes cache CacheSetup) returns Compile
+		return Compile{goal: goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options, output: output, base: base, cache: cache}
 	end 'make'
 
 	// slotOf is the place among the modules the compile compiles of module m.
@@ -58,10 +59,21 @@ type ModuleWork
 	// of the inlined one.
 	var fallbacks as ir.Fallbacks
 	var unit as backend.CodeUnit
+	// reach is how far the module's stages run, which the order decides.
+	var reach as Reach
+	// digests are what the module's key and summary are made from, and key and found its key in the cache and the entry the
+	// order found under it, which its emit links in place of the unit it would make.
+	var digests as ModuleDigests
+	var key as table.Digest
+	var found as table.Option with CachedEntry
+	// speculated is whether the order took the module's summary to be the one it made the last time (CacheSetup.speculates),
+	// and mispredicted whether its lower then made another.
+	var speculated as bool
+	var mispredicted as bool
 
 	static function make(consumes home ast.ModuleHome) returns ModuleWork
 		let module = home.module
-		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), fallbacks: ir.Fallbacks.none(), unit: backend.CodeUnit.new()}
+		return ModuleWork{home: home, checkState: check.ModuleState.make(check.Checker.make(module, typing: ast.Typing.new(module)), entryRole: check.EntryRole.none), checked: check.ModuleChecked.none(), checkEnded: false, lowered: ir.IrFunctionList.create(0), kept: ir.IrFunctionList.create(0), code: freeze(ir.IrFunctionList.create(0)), leaves: freeze(opt.Leaves.empty()), fallbacks: ir.Fallbacks.none(), unit: backend.CodeUnit.new(), reach: Reach.whole, digests: ModuleDigests.none(), key: table.Digest.none(), found: FoundEntry.none, speculated: false, mispredicted: false}
 	end 'make'
 
 	// startCheck starts the module's check as the order decided it (start).
@@ -70,32 +82,76 @@ type ModuleWork
 		home.setShapeReads(exchange(held.reads, value: ast.SlotList.create(0)))
 		let typing = home.startTyping()
 		checkState = check.startModule(home.module, typing: typing, role: held.role)
+		reach = held.reach
+		key = held.key
+		found = exchange(held.found, value: FoundEntry.none)
+		if found.isSome() 'found'
+			digests.summary = foundSummary(found)
+		end 'found'
+		speculated = held.speculated
+		if speculated 'speculated'
+			digests.summary = held.summary.clone()
+		end 'speculated'
 	end 'startCheck'
 
-	// endCheck ends the module's check, whose last stage ran with p, and gives its typing.
-	function endCheck(mutates self, p ast.Project) returns ast.Typing
+	// endCheck ends the module's check, whose last stage ran with p, and gives its typing; a compile of tests keeps the
+	// module's tests.
+	function endCheck(mutates self, p ast.Project, keepsTests bool) returns ast.Typing
 		var typing as ast.Typing
-		checked = check.endModule(checkState, p: p, typing: typing)
+		checked = check.endModule(checkState, p: p, keepsTests: keepsTests, typing: typing)
 		checkEnded = true
 		return typing
 	end 'endCheck'
 
 	// product is what the module's stages made, up to the first segments, which a task that waits on the last of them reads.
 	function product(segments Count) returns frozen with Product
-		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry))
+		return freeze(Product.make(freeze(ast.publish(home, segments: segments)), code: share(code), leaves: share(leaves), entry: checked.entry, tests: checked.tests.clone(), digests: digests.clone(), mispredicted: mispredicted))
 	end 'product'
 end 'ModuleWork'
 
+// Reach is how far the stages of a module run: every one; none after the constants, for a module whose unit the cache holds
+// that no module the compile checks reaches, whose emit links that unit; or none after the resolve, for a module that a
+// compile of tests compiles no test of and that none of the modules it tests names.
+enum Reach
+	whole
+	loaded
+	resolved
+end 'Reach'
+
+// runs is whether a module whose stages reach as far as reach runs its stage. A module that is loaded ends its check where its
+// constants end (endUnchecked).
+function runs(reach Reach, stage Stage) returns bool
+	return match reach 'r'
+		whole gives true
+		loaded gives stage.ordinal <= Stage.constants.ordinal or stage == Stage.emit
+		resolved gives stage.ordinal <= Stage.resolve.ordinal
+	end 'r'
+end 'runs'
+
 // CheckStart is what the order decides about the check of one module: the slots whose shapes its stages read besides its own
-// and sharedSlot, and what its declare does about the program's entry function.
+// and sharedSlot, what its declare does about the program's entry function, how far its stages run, and its key in the cache
+// and the entry found under it.
 type CheckStart
 	var reads as ast.SlotList
 	var role as check.EntryRole
+	var reach as Reach
+	var key as table.Digest
+	var found as table.Option with CachedEntry
+	var speculated as bool
+	var summary as table.Digest
 
-	static function make(consumes reads ast.SlotList, role check.EntryRole) returns CheckStart
-		return CheckStart{reads: reads, role: role}
+	static function make(consumes reads ast.SlotList, role check.EntryRole, reach Reach) returns CheckStart
+		return CheckStart{reads: reads, role: role, reach: reach, key: table.Digest.none(), found: FoundEntry.none, speculated: false, summary: table.Digest.none()}
 	end 'make'
 end 'CheckStart'
+
+// foundSummary is the summary that the entry the order found holds.
+function foundSummary(found table.Option with CachedEntry) returns table.Digest
+	return match found 'f'
+		some(entry) gives entry.summary.clone()
+		none panic("driver: the summary of an entry that was not found")
+	end 'f'
+end 'foundSummary'
 
 // Product is what the stages of one module that ended made, which a task that waited on the last of them shares: the model's
 // (ast.ModuleProducts), the functions its lower made and their leaves, once it ended, and the program's entry function, if
@@ -105,9 +161,13 @@ type Product
 	var code as frozen with ir.IrFunctionList
 	var leaves as frozen with opt.Leaves
 	var entry as ast.FuncID
+	// tests are the module's tests in a compile of tests, once its check ended.
+	var tests as ast.FuncIDList
+	var digests as ModuleDigests
+	var mispredicted as bool
 
-	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID) returns Product
-		return Product{model: model, code: code, leaves: leaves, entry: entry}
+	static function make(consumes model frozen with ast.ModuleProducts, consumes code frozen with ir.IrFunctionList, consumes leaves frozen with opt.Leaves, entry ast.FuncID, consumes tests ast.FuncIDList, consumes digests ModuleDigests, mispredicted bool) returns Product
+		return Product{model: model, code: code, leaves: leaves, entry: entry, tests: tests, digests: digests, mispredicted: mispredicted}
 	end 'make'
 
 	function segments() returns Count
@@ -228,10 +288,25 @@ function entryOf(known Known) returns ast.FuncID
 	return ast.noFunc
 end 'entryOf'
 
+// testsOf are the tests of a compile of tests as the products known hold them, in module order.
+function testsOf(known Known) returns ast.FuncIDList
+	var tests = ast.FuncIDList.create(0)
+	for k in 0 upto known.count() 'modules'
+		tests.append(known[k].tests)
+	end 'modules'
+	return tests
+end 'testsOf'
+
 // moduleTask runs the task of stage of module m on the module's work, which knows known of the other modules, and gives the
 // product of the module's stages up to it, which the tasks that wait on it read. memory holds the files that the parse reads
 // from memory rather than disk.
 function moduleTask(c Compile, mutates work ModuleWork, stage Stage, m Count, known Known, memory project.SourceFiles, mutates timing TaskTiming, mutates errs diag.ErrorList) returns frozen with Product
+	if not runs(work.reach, stage: stage) 'beyond'
+		if work.reach == Reach.loaded and stage == Stage.bodies 'ends'
+			return endLoadedCheck(c, work: work, known: known)
+		end 'ends'
+		return share(known[c.slotOf(m)])
+	end 'beyond'
 	var inputs = inputsOf(c, known: known)
 	inputs.reader = "the {stage} of module {m} ({work.home.path()})"
 	match stage 's'
@@ -259,8 +334,25 @@ function parseTask(c Compile, mutates work ModuleWork, known Known, inputs ast.I
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.parse, lent: ast.Lent.source, known: known, inputs: inputs, view: view)
 	project.parseModule(ms, p: view, memory: memory, errs: errs)
+	if c.cache.enabled() 'digests'
+		work.digests.source = sourceDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
+		work.digests.shown = publicDigest(ms.source.path, text: ms.parsed.tree.text, files: ms.parsed.files)
+	end 'digests'
 	return giveTask(work, ms: ms, stage: Stage.parse)
 end 'parseTask'
+
+// endLoadedCheck ends the check of a module whose unit the cache holds where its constants ended: what the link reads of its
+// check, the entry function and the tests, is what its declare found.
+function endLoadedCheck(c Compile, mutates work ModuleWork, known Known) returns frozen with Product
+	let module = work.home.module
+	var inputs = inputsOf(c, known: known)
+	var view as ast.Project
+	let unit = lendTask(c, work: work, stage: Stage.bodies, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
+	work.checkState.unit = unit
+	_ = work.endCheck(view, keepsTests: c.options.runsTests)
+	let ended = exchange(work.checkState.unit, value: ast.ModuleState.idle(module))
+	return giveTask(work, ms: ended, stage: Stage.bodies)
+end 'endLoadedCheck'
 
 // resolveTask resolves the module, whose tree and resolution it is lent.
 function resolveTask(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates errs diag.ErrorList) returns frozen with Product
@@ -311,7 +403,7 @@ function checkTask(c Compile, mutates work ModuleWork, stage Stage, known Known,
 		link then panic("driver: the link is a stage of the project")
 	end 's'
 	if stage == Stage.verify 'typed'
-		let typing = work.endCheck(view)
+		let typing = work.endCheck(view, keepsTests: c.options.runsTests)
 		work.home.setTyping(freeze(typing))
 	end 'typed'
 	let ended = exchange(work.checkState.unit, value: ast.ModuleState.idle(module))
@@ -351,6 +443,19 @@ function lowerModule(c Compile, mutates work ModuleWork, m Count, known Known, i
 			var optimizer = opt.Optimizer.new()
 			opt.optimizeModule(optimizer, fns: lowered)
 			inlineModule(c, work: work, p: view, m: m, known: known, fns: lowered, optimizer: optimizer, timing: timing)
+			if c.cache.enabled() 'summary'
+				let summary = summaryOf(c, p: view, m: m, own: work.digests, leaves: leafDigest(view, ms: ms, fns: lowered, leaves: work.leaves), summaries: summariesOf(known))
+				if (work.found.isSome() or work.speculated) and not summary.equals(work.digests.summary) 'differs'
+					if not c.cache.speculates 'fault'
+						panic("driver: module {m} ({work.home.path()}) makes another summary than the build cache's entry under its key holds, so its key leaves out something its summary reads")
+					end 'fault'
+					work.mispredicted = true
+				end 'differs'
+				if not work.found.isSome() 'kept'
+					writeSpeculation(c.cache.dir, key: speculationKey(c, p: view, m: m, own: work.digests, summaries: summariesOf(known)), summary: summary)
+				end 'kept'
+				work.digests.summary = summary
+			end 'summary'
 		end 'optimize'
 		work.code = freeze(lowered)
 	end 'compiled'
@@ -386,11 +491,35 @@ function inlineModule(c Compile, mutates work ModuleWork, p ast.Project, m Count
 	timing.inlined = try timing.inlined + (optimizer.inliner.sites - before) otherwise panic("driver: more calls inlined than memory")
 end 'inlineModule'
 
-// emitModule compiles the module's code to its unit.
+// emitModule compiles the module's code to its unit, which carries the routines it asks for, or links the unit that the cache
+// holds under the module's key: the one the order found, or, for a module whose key the order could not know, the one found
+// now that every module it names has its summary. A unit made without an error is kept under its key; one made where the
+// compile verifies the cache is held to the entry found.
 function emitModule(c Compile, mutates work ModuleWork, known Known, inputs ast.Inputs, mutates timing TaskTiming, mutates errs diag.ErrorList) returns frozen with Product
+	let m = ast.modIndex(work.home.module)
+	if c.cache.enabled() and work.found.isSome() and not c.cache.verifies 'kept'
+		work.unit = unitOf(work.found, dir: c.cache.dir, key: work.key)
+		return share(known[c.slotOf(m)])
+	end 'kept'
 	var view as ast.Project
 	var ms = lendTask(c, work: work, stage: Stage.emit, lent: ast.Lent.tables, known: known, inputs: inputs, view: view)
+	if c.cache.enabled() and not work.found.isSome() 'probe'
+		work.key = keyOf(c, p: view, m: m, own: work.digests, summaries: summariesOf(known))
+		work.found = readEntry(c.cache.dir, key: work.key)
+		if work.found.isSome() and not c.cache.verifies 'hit'
+			work.unit = unitOf(work.found, dir: c.cache.dir, key: work.key)
+			return giveTask(work, ms: ms, stage: Stage.emit)
+		end 'hit'
+	end 'probe'
 	work.unit = backend.emitModule(view, ms: ms, fns: work.code, fallbacks: work.fallbacks, verifies: c.options.verifyIr, clock: timing.emit, errs: errs)
+	backend.carryRoutines(view, ms: ms, u: work.unit)
+	if c.cache.enabled() and errs.count() == 0 'keep'
+		if work.found.isSome() 'verify'
+			holdToEntry(work.found, unit: work.unit, path: work.home.path())
+		end 'verify' else 'write'
+			writeEntry(c.cache.dir, key: work.key, summary: work.digests.summary, unit: work.unit)
+		end 'write'
+	end 'keep'
 	return giveTask(work, ms: ms, stage: Stage.emit)
 end 'emitModule'
 
@@ -416,23 +545,68 @@ function orderTask(c Compile, known Known, mutates errs diag.ErrorList) returns 
 	let graph = project.newGraph(view)
 	match project.checkAcyclic(graph, p: view) 'cycle'
 		some(cycleError) then errs.push(cycleError.clone())
-		none then return table.Option.some(orderedOf(c, view: view, graph: graph))
+		none then return table.Option.some(orderedOf(c, view: view, graph: graph, known: known))
 	end 'cycle'
 	return table.Option.none
 end 'orderTask'
 
 // orderedOf is what the order decides of the modules of view, whose graph has no cycle.
-function orderedOf(c Compile, view ast.Project, graph project.Graph) returns Ordered
+function orderedOf(c Compile, view ast.Project, graph project.Graph, known Known) returns Ordered
 	let order = scheduled(c, p: view, order: modulesFrom(project.topoOrder(graph), first: c.first))
 	let plan = check.planEntry(view, order: order, makesProgram: c.makesProgram)
 	var starts as Array with CheckStart
 	starts = Array.create(0)
+	var plans = planModules(c, p: view, order: order, known: known, reached: reachedModules(c, p: view))
 	for slot in 0 upto c.modules 'modules'
 		let m = c.moduleOf(slot)
-		starts.push(CheckStart.make(ast.moduleReads(view, m: m, first: c.first), role: check.entryRoleOf(plan, p: view, modIdx: m)))
+		var start = CheckStart.make(ast.moduleReads(view, m: m, first: c.first), role: check.entryRoleOf(plan, p: view, modIdx: m), reach: plans[slot].reach)
+		start.key = plans[slot].key.clone()
+		start.found = exchange(plans[slot].found, value: FoundEntry.none)
+		start.speculated = plans[slot].speculated
+		start.summary = plans[slot].summary.clone()
+		starts.push(start)
 	end 'modules'
 	return Ordered.make(order, deps: moduleDeps(view), plan: plan, starts: starts)
 end 'orderedOf'
+
+// reachedModules is, by module of p, whether the compile compiles it past its resolve: every module, or, in a compile of
+// tests, the modules that hold tests (a file of tests) and those they name, directly or through others.
+function reachedModules(c Compile, p ast.Project) returns Placed
+	var reached = Placed.create(0)
+	for m in 0 upto p.modules.count() 'modules'
+		reached.push(not c.options.runsTests or holdsTests(p.modules[m]))
+	end 'modules'
+	if not c.options.runsTests 'whole'
+		return reached
+	end 'whole'
+	var pending = TaskIDs.create(0)
+	for m in 0 upto p.modules.count() 'tested'
+		if reached[m] 'holds'
+			pending.push(m)
+		end 'holds'
+	end 'tested'
+	while pending.count() > 0 'closure'
+		let m = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		for j in 0 upto p.resolutions[m].deps.count() 'deps'
+			let d = ast.modIndex(p.resolutions[m].deps[j].module)
+			if not reached[d] 'new'
+				reached[d] = true
+				pending.push(d)
+			end 'new'
+		end 'deps'
+	end 'closure'
+	return reached
+end 'reachedModules'
+
+// holdsTests is whether a module has a file of tests among its files, which only a compile of tests reads.
+function holdsTests(m ast.Module) returns bool
+	for i in 0 upto m.filePaths.count() 'files'
+		if project.endsWithMaxtest(m.filePaths[i]) 'test'
+			return true
+		end 'test'
+	end 'files'
+	return false
+end 'holdsTests'
 
 // moduleDeps are the modules each module of p names, by module.
 function moduleDeps(p ast.Project) returns ModuleDeps
@@ -576,7 +750,7 @@ end 'holdProgram'
 
 // linkUnits links the modules' units with the ready ones into the executable at the compile's output. It reads the project
 // whole, which holds the modules' homes.
-function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, ready frozen with backend.UnitList, entry ast.FuncID)
+function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, ready frozen with backend.UnitList, entry ast.FuncID, tests ast.FuncIDList)
 	if c.goal != Goal.executable 'goal'
 		panic("driver: a compile whose goal is {c.goal} links no executable")
 	end 'goal'
@@ -585,7 +759,7 @@ function linkUnits(c Compile, mutates p ast.Project, consumes units backend.Unit
 	if c.options.emitMap 'emitMap'
 		symbolMap = "{c.output}{mapExtension}"
 	end 'emitMap'
-	try backend.compileProgram(p, modules: units, ready: ready, entry: entry, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
+	try backend.compileProgram(p, modules: units, ready: ready, entry: entry, tests: tests, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
 end 'linkUnits'
 
 typealias ErrorLists = Array with diag.ErrorList

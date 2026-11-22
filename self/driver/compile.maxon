@@ -27,11 +27,22 @@ function buildPath(path String, output String, options Options) returns ExitCode
 	end 'broken'
 	let first = p.modules.count()
 	match consumes project.discoverProjectInto(p, rootPath: path, errs: errs) 'found'
-		some(memory) then startCompile(p, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
+		some(memory) then return startDiscovered(p, memory: memory, first: first, output: output, options: options, ready: ready, errs: errs)
 		none then return report(errs)
 	end 'found'
-	return compiledByBehaviours
 end 'buildPath'
+
+// startDiscovered starts the compile of the modules of p that buildPath discovered, from first on, as behaviours; a compile of
+// tests first reads the files of tests of the modules it tests, and makes no program, whose main it does not look for.
+function startDiscovered(consumes p ast.Project, consumes memory project.SourceFiles, first Count, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList) returns ExitCode
+	var held = p
+	if options.runsTests and project.addTestFiles(held, first: first, under: options.testsUnder) == 0 'noTests'
+		printError("test: no module under {options.testsUnder} has a file of tests (.maxtest)\n")
+		return diagnosticsExitCode
+	end 'noTests'
+	startCompile(held, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "" and not options.runsTests, output: output, options: options, ready: ready, errs: errs)
+	return compiledByBehaviours
+end 'startDiscovered'
 
 // compiledByBehaviours is the code a process whose compile runs as behaviours gives when main returns, which the last of them
 // replaces.
@@ -172,6 +183,9 @@ function prepareRuntime(mutates p ast.Project, options Options, mutates errs dia
 	project.discoverRuntime(p)
 	var runtimeOptions = Options.new()
 	runtimeOptions.timings = options.timings
+	runtimeOptions.cacheDir = options.cacheDir.clone()
+	runtimeOptions.compiler = options.compiler.clone()
+	runtimeOptions.verifiesCache = options.verifiesCache
 	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)

@@ -1,30 +1,27 @@
-// The matcher of generic.rules (opt.rewriteInstr) on instructions built by hand: each rewrites to a register, to an
-// instruction after the instructions it needs, or stays.
-
 function expectRewrittenToReg(mutates f ir.IrFunction, defs ir.Defs, at Count, want ir.Reg, label String)
-	var out = opt.Rewrite.new()
-	if not opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
+	var out = Rewrite.new()
+	if not rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
 		panic("{label}: no rule rewrites it")
 	end 'none'
-	if out.kind != opt.RewriteKind.rewriteToReg or out.reg != want 'differs'
+	if out.kind != RewriteKind.rewriteToReg or out.reg != want 'differs'
 		panic("{label}: it is not rewritten to %{want}")
 	end 'differs'
 end 'expectRewrittenToReg'
 
 function expectKept(mutates f ir.IrFunction, defs ir.Defs, at Count, label String)
-	var out = opt.Rewrite.new()
-	if opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'some'
+	var out = Rewrite.new()
+	if rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'some'
 		panic("{label}: a rule rewrites it")
 	end 'some'
 end 'expectKept'
 
 // expectRewrittenToInstr runs the rules on the instruction at and gives what they rewrite it to.
-function expectRewrittenToInstr(mutates f ir.IrFunction, defs ir.Defs, at Count, label String) returns opt.Rewrite
-	var out = opt.Rewrite.new()
-	if not opt.rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
+function expectRewrittenToInstr(mutates f ir.IrFunction, defs ir.Defs, at Count, label String) returns Rewrite
+	var out = Rewrite.new()
+	if not rewriteInstr(f, at: at, defs: defs, out: out, raises: true) 'none'
 		panic("{label}: no rule rewrites it")
 	end 'none'
-	if out.kind != opt.RewriteKind.rewriteToInstr 'differs'
+	if out.kind != RewriteKind.rewriteToInstr 'differs'
 		panic("{label}: it is not rewritten to an instruction")
 	end 'differs'
 	return out
@@ -46,7 +43,7 @@ function emitNeg(mutates f ir.IrFunction, src ir.Reg, fail ir.BlockID) returns C
 	return emitTo(f, x: ir.newNeg(dst, src: src, fail: fail))
 end 'emitNeg'
 
-function testRewrite()
+test 'rewrite'
 	var f = ir.IrFunction.new(0 as ast.FuncID, name: "rules", paramCount: 2)
 	let x = f.newReg(ir.IrKind.kindScalar)
 	_ = emitTo(f, x: ir.newLoadParam(x, param: 0))
@@ -92,4 +89,4 @@ function testRewrite()
 	if cleared.instr.op != ir.Opcode.opConst or ir.constValue(cleared.instr) != 0 or cleared.pre.count() != 0 'zero'
 		panic("x xor x: it is not rewritten to const 0")
 	end 'zero'
-end 'testRewrite'
+end 'rewrite'

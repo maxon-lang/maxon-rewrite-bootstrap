@@ -1,7 +1,3 @@
-// The programs here are written as IR, because the checker refuses every one that breaks a rule, and the interpreter has to
-// catch it: each breaks a rule that the interpreter has to catch, which is what makes it trustworthy on the programs the
-// checker accepts. The others show how behaviours are scheduled.
-
 typealias ConvList = Array with ast.Convention
 
 let seedsToTry = 30 as Count
@@ -162,28 +158,28 @@ function convs2(a ast.Convention, b ast.Convention) returns ConvList
 end 'convs2'
 
 // runWith executes main with the other functions available, under the schedule of a seed.
-function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, seed ir.Word) returns interp.Outcome
+function runWith(p ast.Project, main ir.IrFunction, others ir.IrFunctionList, seed ir.Word) returns Outcome
 	var fns = ir.IrFunctionList.create(0)
 	fns.push(main.clone())
 	for i in 0 upto others.count() 'others'
 		fns.push(others[i].clone())
 	end 'others'
-	var modules = interp.ModuleFunctions.create(0)
+	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	return interp.run(p, modules: modules, entry: main.decl, stepLimit: interp.defaultStepLimit, seed: seed, wantFrees: false)
+	return run(p, modules: modules, entry: main.decl, stepLimit: defaultStepLimit, seed: seed, wantFrees: false)
 end 'runWith'
 
-function runMain(p ast.Project, main ir.IrFunction) returns interp.Outcome
+function runMain(p ast.Project, main ir.IrFunction) returns Outcome
 	return runWith(p, main: main, others: ir.IrFunctionList.create(0), seed: 0)
 end 'runMain'
 
-function runAlone(p ast.Project, main ir.IrFunction, other ir.IrFunction) returns interp.Outcome
+function runAlone(p ast.Project, main ir.IrFunction, other ir.IrFunction) returns Outcome
 	var others = ir.IrFunctionList.create(0)
 	others.push(other.clone())
 	return runWith(p, main: main, others: others, seed: 0)
 end 'runAlone'
 
-function runSeed(p ast.Project, main ir.IrFunction, seed ir.Word) returns interp.Outcome
+function runSeed(p ast.Project, main ir.IrFunction, seed ir.Word) returns Outcome
 	return runWith(p, main: main, others: ir.IrFunctionList.create(0), seed: seed)
 end 'runSeed'
 
@@ -210,7 +206,7 @@ function contains(text String, fragment String) returns bool
 	return false
 end 'contains'
 
-function expectViolation(label String, out interp.Outcome, kind String, fragments ast.StringList)
+function expectViolation(label String, out Outcome, kind String, fragments ast.StringList)
 	if out.violations.count() == 0 'none'
 		panic("{label}: no violation; wanted {kind}")
 	end 'none'
@@ -242,13 +238,13 @@ function says(a String, b String, c String, d String) returns ast.StringList
 	return out
 end 'says'
 
-function expectClean(label String, out interp.Outcome, exit ir.Word)
+function expectClean(label String, out Outcome, exit ir.Word)
 	if out.violations.count() != 0 or out.exitCode != exit 'unclean'
 		panic("{label}: exit {out.exitCode}, {out.violations.count()} violations, {out.stdout}")
 	end 'unclean'
 end 'expectClean'
 
-function testACleanProgramHasNoViolation()
+test 'a clean program has no violation'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -257,9 +253,9 @@ function testACleanProgramHasNoViolation()
 	b.dropSlot(s)
 	let seven = b.konst(7)
 	expectClean("clean", out: runMain(p, main: b.ret(seven)), exit: 7)
-end 'testACleanProgramHasNoViolation'
+end 'a clean program has no violation'
 
-function testUseAfterFree()
+test 'use after free'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -268,9 +264,9 @@ function testUseAfterFree()
 	b.emit(ir.newLoadField(d, obj: box, offset: 0))
 	let zero = b.konst(0)
 	expectViolation("use after free", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("function main", b: "block b0", c: "instruction #2", d: "freed at main b0 #1"))
-end 'testUseAfterFree'
+end 'use after free'
 
-function testDoubleFree()
+test 'double free'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -278,9 +274,9 @@ function testDoubleFree()
 	b.drop(box)
 	let zero = b.konst(0)
 	expectViolation("double free", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("instruction #2", b: "", c: "", d: ""))
-end 'testDoubleFree'
+end 'double free'
 
-function testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice()
+test 'freeing an owner frees what it owns once and never twice'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let outer = b.alloc(1)
@@ -290,17 +286,17 @@ function testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice()
 	b.drop(inner)
 	let zero = b.konst(0)
 	expectViolation("owner", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("", b: "", c: "", d: ""))
-end 'testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice'
+end 'freeing an owner frees what it owns once and never twice'
 
-function testLeakAtTheEndOfTheProgram()
+test 'leak at the end of the program'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	_ = b.alloc(1)
 	let zero = b.konst(0)
 	expectViolation("leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("still live at the end of the program", b: "made in main b0 #0", c: "", d: ""))
-end 'testLeakAtTheEndOfTheProgram'
+end 'leak at the end of the program'
 
-function testASlotThatStillOwnsWhenTheFunctionReturns()
+test 'a slot that still owns when the function returns'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -308,9 +304,9 @@ function testASlotThatStillOwnsWhenTheFunctionReturns()
 	b.store(s, v: boxs)
 	let zero = b.konst(0)
 	expectViolation("slot", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("slot s0 still owns", b: "", c: "", d: ""))
-end 'testASlotThatStillOwnsWhenTheFunctionReturns'
+end 'a slot that still owns when the function returns'
 
-function testUsingAMovedValueThroughItsOldOwner()
+test 'using a moved value through its old owner'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -322,9 +318,9 @@ function testUsingAMovedValueThroughItsOldOwner()
 	_ = b.load(s)
 	let zero = b.konst(0)
 	expectViolation("moved", out: runMain(p, main: b.ret(zero)), kind: "use of a moved value", fragments: says("moved out or never assigned", b: "", c: "", d: ""))
-end 'testUsingAMovedValueThroughItsOldOwner'
+end 'using a moved value through its old owner'
 
-function testAValueWithTwoOwners()
+test 'a value with two owners'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -334,9 +330,9 @@ function testAValueWithTwoOwners()
 	b.store(u, v: box)
 	let zero = b.konst(0)
 	expectViolation("two owners", out: runMain(p, main: b.ret(zero)), kind: "ownership", fragments: says("still owns it", b: "must be moved first", c: "", d: ""))
-end 'testAValueWithTwoOwners'
+end 'a value with two owners'
 
-function testOverwritingAnOwnedValueWithoutDroppingIt()
+test 'overwriting an owned value without dropping it'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -346,19 +342,19 @@ function testOverwritingAnOwnedValueWithoutDroppingIt()
 	b.store(s, v: second)
 	let zero = b.konst(0)
 	expectViolation("overwrite", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("lost without being dropped", b: "", c: "", d: ""))
-end 'testOverwritingAnOwnedValueWithoutDroppingIt'
+end 'overwriting an owned value without dropping it'
 
-function testReturningAValueThatAnotherOwnerHolds()
+test 'returning a value that another owner holds'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
 	let box = b.alloc(1)
 	b.store(s, v: box)
 	expectViolation("return", out: runMain(p, main: b.ret(box)), kind: "ownership", fragments: says("still owns", b: "", c: "", d: ""))
-end 'testReturningAValueThatAnotherOwnerHolds'
+end 'returning a value that another owner holds'
 
 // Two arguments reach the same record, and one of them is passed mutable: the callee would reach one place through two names.
-function testOverlappingArgumentsAtACall()
+test 'overlapping arguments at a call'
 	var p = irProject()
 	var callee = Fn.new(p, name: "touch", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
 	let calleeZero = callee.konst(0)
@@ -373,9 +369,9 @@ function testOverlappingArgumentsAtACall()
 	b.dropSlot(s)
 	let zero = b.konst(0)
 	expectViolation("overlap", out: runAlone(p, main: b.ret(zero), other: calleeFn), kind: "exclusivity", fragments: says("arguments 0 and 1 of the call to touch", b: "", c: "", d: ""))
-end 'testOverlappingArgumentsAtACall'
+end 'overlapping arguments at a call'
 
-function testDisjointArgumentsAtACallAreFine()
+test 'disjoint arguments at a call are fine'
 	var p = irProject()
 	var callee = Fn.new(p, name: "touch", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
 	let calleeZero = callee.konst(0)
@@ -394,11 +390,11 @@ function testDisjointArgumentsAtACallAreFine()
 	b.dropSlot(u)
 	let zero = b.konst(0)
 	expectClean("disjoint", out: runAlone(p, main: b.ret(zero), other: calleeFn), exit: 0)
-end 'testDisjointArgumentsAtACallAreFine'
+end 'disjoint arguments at a call are fine'
 
 // A borrow is taken when its argument is evaluated and used when the call runs. Changing what it borrows in between leaves it
 // pointing at what moved.
-function testChangingWhatAnArgumentBorrowsBeforeTheCallRuns()
+test 'changing what an argument borrows before the call runs'
 	var p = irProject()
 	var callee = Fn.new(p, name: "look", convs: convs2(ast.Convention.convLet, b: ast.Convention.convLet))
 	let calleeZero = callee.konst(0)
@@ -415,9 +411,9 @@ function testChangingWhatAnArgumentBorrowsBeforeTheCallRuns()
 	b.dropSlot(s)
 	let zero = b.konst(0)
 	expectViolation("borrow", out: runAlone(p, main: b.ret(zero), other: calleeFn), kind: "exclusivity", fragments: says("still waiting to use", b: "", c: "", d: ""))
-end 'testChangingWhatAnArgumentBorrowsBeforeTheCallRuns'
+end 'changing what an argument borrows before the call runs'
 
-function testAnAddressIsStaleOnceTheArrayChanges()
+test 'an address is stale once the array changes'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let s = b.slot(ir.IrKind.kindManaged)
@@ -435,9 +431,9 @@ function testAnAddressIsStaleOnceTheArrayChanges()
 	b.emit(ir.newLoadAt(loaded, addr: element))
 	let zero = b.konst(0)
 	expectViolation("stale", out: runMain(p, main: b.ret(zero)), kind: "stale borrow", fragments: says("before the structure changed", b: "", c: "", d: ""))
-end 'testAnAddressIsStaleOnceTheArrayChanges'
+end 'an address is stale once the array changes'
 
-function testAnArrayThatIsDroppedFreesItsElements()
+test 'an array that is dropped frees its elements'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
@@ -449,9 +445,9 @@ function testAnArrayThatIsDroppedFreesItsElements()
 	b.emit(ir.newLoadField(d, obj: e, offset: 0))
 	let zero = b.konst(0)
 	expectViolation("array drop", out: runMain(p, main: b.ret(zero)), kind: "use after free", fragments: says("", b: "", c: "", d: ""))
-end 'testAnArrayThatIsDroppedFreesItsElements'
+end 'an array that is dropped frees its elements'
 
-function testAMovedElementIsOwnedByTheCaller()
+test 'a moved element is owned by the caller'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let a = b.runtime(ir.Rt.rtArrayNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
@@ -464,11 +460,11 @@ function testAMovedElementIsOwnedByTheCaller()
 	// The element is the caller's now and leaks unless dropped.
 	let zero = b.konst(0)
 	expectViolation("moved element", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("", b: "", c: "", d: ""))
-end 'testAMovedElementIsOwnedByTheCaller'
+end 'a moved element is owned by the caller'
 
 // A slot that held an element and was reused for a new one does not answer to the old handle: the handle carries the slot's
 // generation.
-function testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle()
+test 'a pool slot that is reused does not answer to the old handle'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
@@ -497,9 +493,9 @@ function testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle()
 	b.emit(ir.newBin(answer, op: ir.BinOp.binAdd, left: sum, right: live, unsigned: false, fail: ir.noBlock))
 	b.dropSlot(held)
 	expectClean("pool", out: runMain(p, main: b.ret(answer)), exit: 1)
-end 'testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle'
+end 'a pool slot that is reused does not answer to the old handle'
 
-function testAStaleHandleTrapsLikeTheCompiledProgram()
+test 'a stale handle traps like the compiled program'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let pool = b.runtime(ir.Rt.rtPoolNew, kind: ir.IrKind.kindManaged, args: ir.RegList.create(0))
@@ -515,9 +511,9 @@ function testAStaleHandleTrapsLikeTheCompiledProgram()
 	if out.violations.count() != 0 or out.exitCode != 1 or not contains(out.stderr, fragment: "panic: handle names no element") 'wrong'
 		panic("stale handle: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
 	end 'wrong'
-end 'testAStaleHandleTrapsLikeTheCompiledProgram'
+end 'a stale handle traps like the compiled program'
 
-function testACheckedAddThatOverflowsGoesToItsFailureBlock()
+test 'a checked add that overflows goes to its failure block'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let failed = b.b.newBlock()
@@ -529,7 +525,7 @@ function testACheckedAddThatOverflowsGoesToItsFailureBlock()
 	b.cur = failed
 	let seven = b.konst(7)
 	expectClean("overflow", out: runMain(p, main: b.ret(seven)), exit: 7)
-end 'testACheckedAddThatOverflowsGoesToItsFailureBlock'
+end 'a checked add that overflows goes to its failure block'
 
 // writer is a behaviour on one cown that writes a word to standard output.
 function writer(mutates p ast.Project, name String, word String) returns ir.IrFunction
@@ -543,7 +539,7 @@ function seedOfTest(seed Count) returns ir.Word
 	return try seed as ir.Word otherwise panic("a seed past a word")
 end 'seedOfTest'
 
-function testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept()
+test 'a behaviour runs after main has returned and mains exit code is kept'
 	var p = irProject()
 	let body = writer(p, name: "body", word: "ran;")
 	for seed in 0 upto seedsToTry 'seeds'
@@ -557,10 +553,10 @@ function testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept()
 			panic("seed {seed}: exit {out.exitCode}, {out.violations.count()} violations, {out.stdout}, {out.behaviours} behaviours")
 		end 'wrong'
 	end 'seeds'
-end 'testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept'
+end 'a behaviour runs after main has returned and mains exit code is kept'
 
 // Behaviours on one cown run in the order they were scheduled, whatever the interleaving.
-function testBehavioursOnOneCownRunInTheOrderTheyWereScheduled()
+test 'behaviours on one cown run in the order they were scheduled'
 	var p = irProject()
 	let first = writer(p, name: "first", word: "1")
 	let second = writer(p, name: "second", word: "2")
@@ -578,10 +574,10 @@ function testBehavioursOnOneCownRunInTheOrderTheyWereScheduled()
 			panic("seed {seed}: {out.violations.count()} violations, {out.stdout}")
 		end 'wrong'
 	end 'seeds'
-end 'testBehavioursOnOneCownRunInTheOrderTheyWereScheduled'
+end 'behaviours on one cown run in the order they were scheduled'
 
 // Behaviours on disjoint cowns have no order, so the seeds between them find both.
-function testBehavioursOnDisjointCownsRunInEitherOrder()
+test 'behaviours on disjoint cowns run in either order'
 	var p = irProject()
 	let left = writer(p, name: "left", word: "L")
 	let right = writer(p, name: "right", word: "R")
@@ -611,10 +607,10 @@ function testBehavioursOnDisjointCownsRunInEitherOrder()
 	if leftFirst == 0 or rightFirst == 0 'one'
 		panic("the schedules gave LR {leftFirst} times and RL {rightFirst} times, wanted both orders")
 	end 'one'
-end 'testBehavioursOnDisjointCownsRunInEitherOrder'
+end 'behaviours on disjoint cowns run in either order'
 
 // A behaviour that names two cowns waits for both, so it runs after the earlier behaviours on either one.
-function testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither()
+test 'a behaviour on two cowns waits for earlier ones on either'
 	var p = irProject()
 	let onA = writer(p, name: "onA", word: "A")
 	let onB = writer(p, name: "onB", word: "B")
@@ -638,7 +634,7 @@ function testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither()
 			panic("seed {seed}: {out.violations.count()} violations, {out.stdout}")
 		end 'wrong'
 	end 'seeds'
-end 'testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither'
+end 'a behaviour on two cowns waits for earlier ones on either'
 
 function twoCownMain(mutates p ast.Project, left ir.IrFunction, right ir.IrFunction) returns ir.IrFunction
 	var b = Fn.new(p, name: "main", convs: convs0())
@@ -652,7 +648,7 @@ function twoCownMain(mutates p ast.Project, left ir.IrFunction, right ir.IrFunct
 	return b.ret(zero)
 end 'twoCownMain'
 
-function testTheSameSeedGivesTheSameSchedule()
+test 'the same seed gives the same schedule'
 	var p = irProject()
 	let left = writer(p, name: "left", word: "L")
 	let right = writer(p, name: "right", word: "R")
@@ -665,9 +661,9 @@ function testTheSameSeedGivesTheSameSchedule()
 			panic("seed {seed} gave {first.stdout} and {second.stdout}")
 		end 'differs'
 	end 'seeds'
-end 'testTheSameSeedGivesTheSameSchedule'
+end 'the same seed gives the same schedule'
 
-function testABehaviourThatNamesOneCownTwiceTraps()
+test 'a behaviour that names one cown twice traps'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convMutates))
 	let bodyZero = body.konst(0)
@@ -680,11 +676,11 @@ function testABehaviourThatNamesOneCownTwiceTraps()
 	if out.exitCode != 1 or out.violations.count() != 0 or not contains(out.stderr, fragment: "names the same cown twice") 'wrong'
 		panic("same cown twice: exit {out.exitCode}, {out.violations.count()} violations, {out.stderr}")
 	end 'wrong'
-end 'testABehaviourThatNamesOneCownTwiceTraps'
+end 'a behaviour that names one cown twice traps'
 
 // A behaviour that was handed a value which its scheduler still owns shares it: that is the data race that the capture rules of
 // the checker rule out.
-function testACapturedValueThatTheSchedulerStillOwns()
+test 'a captured value that the scheduler still owns'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
 	let bodyZero = body.konst(0)
@@ -698,11 +694,11 @@ function testACapturedValueThatTheSchedulerStillOwns()
 	b.schedule(bodyFn, cowns: regs1(c), captures: regs1(captured))
 	let zero = b.konst(0)
 	expectViolation("captured", out: runSeed(p, main: b.ret(zero), seed: 0), kind: "data race", fragments: says("captures", b: "still owns", c: "", d: ""))
-end 'testACapturedValueThatTheSchedulerStillOwns'
+end 'a captured value that the scheduler still owns'
 
 // A value that was in flight when the behaviour was scheduled and then became main's belongs to main: the behaviour that reads
 // it, whenever it runs after that, races with main.
-function testAThreadReadingWhatAnotherThreadOwns()
+test 'a thread reading what another thread owns'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convLet))
 	let box = body.param(1, kind: ir.IrKind.kindManaged)
@@ -734,9 +730,9 @@ function testAThreadReadingWhatAnotherThreadOwns()
 	if raced == 0 'none'
 		panic("no schedule of the program showed the race")
 	end 'none'
-end 'testAThreadReadingWhatAnotherThreadOwns'
+end 'a thread reading what another thread owns'
 
-function testChangingAValueThatIsPartOfAFrozenValue()
+test 'changing a value that is part of a frozen value'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -746,9 +742,9 @@ function testChangingAValueThatIsPartOfAFrozenValue()
 	b.emit(ir.newStoreField(inner, offset: 0, src: nine))
 	let zero = b.konst(0)
 	expectViolation("frozen change", out: runMain(p, main: b.ret(zero)), kind: "change to a frozen value", fragments: says("part of a frozen value", b: "", c: "", d: ""))
-end 'testChangingAValueThatIsPartOfAFrozenValue'
+end 'changing a value that is part of a frozen value'
 
-function testReadingAFrozenValueIsFine()
+test 'reading a frozen value is fine'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -759,10 +755,10 @@ function testReadingAFrozenValueIsFine()
 	b.drop(frozen)
 	let zero = b.konst(0)
 	expectClean("frozen read", out: runMain(p, main: b.ret(zero)), exit: 0)
-end 'testReadingAFrozenValueIsFine'
+end 'reading a frozen value is fine'
 
 // One count for a frozen value, however many objects it holds: the value is freed with its last owner.
-function testAFrozenValueIsFreedWithItsLastOwner()
+test 'a frozen value is freed with its last owner'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let outer = b.alloc(1)
@@ -775,18 +771,18 @@ function testAFrozenValueIsFreedWithItsLastOwner()
 	let zero = b.konst(0)
 	var fns = ir.IrFunctionList.create(0)
 	fns.push(b.ret(zero))
-	var modules = interp.ModuleFunctions.create(0)
+	var modules = ModuleFunctions.create(0)
 	modules.push(fns)
-	let out = interp.run(p, modules: modules, entry: modules[0][0].decl, stepLimit: interp.defaultStepLimit, seed: 0, wantFrees: true)
+	let out = run(p, modules: modules, entry: modules[0][0].decl, stepLimit: defaultStepLimit, seed: 0, wantFrees: true)
 	if out.violations.count() != 0 'violated'
 		panic("{out.violations[0]}")
 	end 'violated'
 	if out.frees.count() != 3 or out.frees[0] != "frozen value" or out.frees[1] != "record" or out.frees[2] != "record" 'order'
 		panic("freed {out.frees.count()} values, the first {out.frees[0]}")
 	end 'order'
-end 'testAFrozenValueIsFreedWithItsLastOwner'
+end 'a frozen value is freed with its last owner'
 
-function testAFrozenValueIsStillThereWhileAnOwnerHoldsIt()
+test 'a frozen value is still there while an owner holds it'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -799,9 +795,9 @@ function testAFrozenValueIsStillThereWhileAnOwnerHoldsIt()
 	b.drop(other)
 	let zero = b.konst(0)
 	expectClean("frozen held", out: runMain(p, main: b.ret(zero)), exit: 0)
-end 'testAFrozenValueIsStillThereWhileAnOwnerHoldsIt'
+end 'a frozen value is still there while an owner holds it'
 
-function testADroppedFrozenValueThatAPlaceStillHolds()
+test 'a dropped frozen value that a place still holds'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -811,26 +807,26 @@ function testADroppedFrozenValueThatAPlaceStillHolds()
 	b.drop(frozen)
 	let zero = b.konst(0)
 	expectViolation("frozen held by a place", out: runMain(p, main: b.ret(zero)), kind: "reference count", fragments: says("still referenced", b: "", c: "", d: ""))
-end 'testADroppedFrozenValueThatAPlaceStillHolds'
+end 'a dropped frozen value that a place still holds'
 
-function testAFrozenValueThatNoOneDropsLeaks()
+test 'a frozen value that no one drops leaks'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
 	_ = b.runtime(ir.Rt.rtFrozenFreeze, kind: ir.IrKind.kindManaged, args: regs1(box))
 	let zero = b.konst(0)
 	expectViolation("frozen leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("frozen value", b: "", c: "", d: ""))
-end 'testAFrozenValueThatNoOneDropsLeaks'
+end 'a frozen value that no one drops leaks'
 
-function testACownThatNoOneDropsLeaks()
+test 'a cown that no one drops leaks'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	_ = b.cown(1)
 	let zero = b.konst(0)
 	expectViolation("cown leak", out: runMain(p, main: b.ret(zero)), kind: "leak", fragments: says("cown", b: "", c: "", d: ""))
-end 'testACownThatNoOneDropsLeaks'
+end 'a cown that no one drops leaks'
 
-function testDroppingAFrozenValueOnceTooOften()
+test 'dropping a frozen value once too often'
 	var p = irProject()
 	var b = Fn.new(p, name: "main", convs: convs0())
 	let box = b.alloc(1)
@@ -839,11 +835,11 @@ function testDroppingAFrozenValueOnceTooOften()
 	b.drop(frozen)
 	let zero = b.konst(0)
 	expectViolation("frozen twice", out: runMain(p, main: b.ret(zero)), kind: "double free", fragments: says("", b: "", c: "", d: ""))
-end 'testDroppingAFrozenValueOnceTooOften'
+end 'dropping a frozen value once too often'
 
 // A cown is freed when its last reference is dropped and no behaviour holds it: a behaviour that is still waiting keeps it, and
 // the value it owns, alive.
-function testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped()
+test 'a behaviour keeps its cown alive after every reference is dropped'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs1(ast.Convention.convMutates))
 	let addr = body.param(0, kind: ir.IrKind.kindScalar)
@@ -864,10 +860,10 @@ function testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped()
 			panic("seed {seed}: {out.violations[0]}")
 		end 'violated'
 	end 'seeds'
-end 'testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped'
+end 'a behaviour keeps its cown alive after every reference is dropped'
 
 // A behaviour owns what it captures, and frees it when it ends.
-function testACapturedValueIsFreedByTheBehaviour()
+test 'a captured value is freed by the behaviour'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convConsumes))
 	let slot = body.slot(ir.IrKind.kindManaged)
@@ -888,9 +884,9 @@ function testACapturedValueIsFreedByTheBehaviour()
 			panic("seed {seed}: {out.violations[0]}")
 		end 'violated'
 	end 'seeds'
-end 'testACapturedValueIsFreedByTheBehaviour'
+end 'a captured value is freed by the behaviour'
 
-function testACapturedValueThatTheBehaviourNeverFrees()
+test 'a captured value that the behaviour never frees'
 	var p = irProject()
 	var body = Fn.new(p, name: "body", convs: convs2(ast.Convention.convMutates, b: ast.Convention.convConsumes))
 	let slot = body.slot(ir.IrKind.kindManaged)
@@ -905,45 +901,4 @@ function testACapturedValueThatTheBehaviourNeverFrees()
 	b.drop(c)
 	let zero = b.konst(0)
 	expectViolation("never freed", out: runSeed(p, main: b.ret(zero), seed: 0), kind: "leak", fragments: says("slot s0 still owns", b: "", c: "", d: ""))
-end 'testACapturedValueThatTheBehaviourNeverFrees'
-
-function testInterp()
-	testACleanProgramHasNoViolation()
-	testUseAfterFree()
-	testDoubleFree()
-	testFreeingAnOwnerFreesWhatItOwnsOnceAndNeverTwice()
-	testLeakAtTheEndOfTheProgram()
-	testASlotThatStillOwnsWhenTheFunctionReturns()
-	testUsingAMovedValueThroughItsOldOwner()
-	testAValueWithTwoOwners()
-	testOverwritingAnOwnedValueWithoutDroppingIt()
-	testReturningAValueThatAnotherOwnerHolds()
-	testOverlappingArgumentsAtACall()
-	testDisjointArgumentsAtACallAreFine()
-	testChangingWhatAnArgumentBorrowsBeforeTheCallRuns()
-	testAnAddressIsStaleOnceTheArrayChanges()
-	testAnArrayThatIsDroppedFreesItsElements()
-	testAMovedElementIsOwnedByTheCaller()
-	testAPoolSlotThatIsReusedDoesNotAnswerToTheOldHandle()
-	testAStaleHandleTrapsLikeTheCompiledProgram()
-	testACheckedAddThatOverflowsGoesToItsFailureBlock()
-	testABehaviourRunsAfterMainHasReturnedAndMainsExitCodeIsKept()
-	testBehavioursOnOneCownRunInTheOrderTheyWereScheduled()
-	testBehavioursOnDisjointCownsRunInEitherOrder()
-	testABehaviourOnTwoCownsWaitsForEarlierOnesOnEither()
-	testTheSameSeedGivesTheSameSchedule()
-	testABehaviourThatNamesOneCownTwiceTraps()
-	testACapturedValueThatTheSchedulerStillOwns()
-	testAThreadReadingWhatAnotherThreadOwns()
-	testChangingAValueThatIsPartOfAFrozenValue()
-	testReadingAFrozenValueIsFine()
-	testAFrozenValueIsFreedWithItsLastOwner()
-	testAFrozenValueIsStillThereWhileAnOwnerHoldsIt()
-	testADroppedFrozenValueThatAPlaceStillHolds()
-	testAFrozenValueThatNoOneDropsLeaks()
-	testACownThatNoOneDropsLeaks()
-	testDroppingAFrozenValueOnceTooOften()
-	testABehaviourKeepsItsCownAliveAfterEveryReferenceIsDropped()
-	testACapturedValueIsFreedByTheBehaviour()
-	testACapturedValueThatTheBehaviourNeverFrees()
-end 'testInterp'
+end 'a captured value that the behaviour never frees'

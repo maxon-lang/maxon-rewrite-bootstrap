@@ -1,0 +1,277 @@
+// Digests and the bytes of a file a program writes and reads back: what a build cache names its entries by and stores them
+// as.
+
+// Word64 is a bit pattern of 64 bits, whose arithmetic wraps.
+export typealias Word64 = bits(64)
+
+// The constants of xxHash64's round (prime1 to prime5) and of MurmurHash3's finish (fmix1, fmix2).
+let prime1 = 0x9E3779B185EBCA87 as Word64
+
+let prime2 = 0xC2B2AE3D27D4EB4F as Word64
+
+let prime3 = 0x165667B19E3779F9 as Word64
+
+let prime4 = 0x85EBCA77C2B2AE63 as Word64
+
+let prime5 = 0x27D4EB2F165667C5 as Word64
+
+let fmix1 = 0xFF51AFD7ED558CCD as Word64
+
+let fmix2 = 0xC4CEB9FE1A85EC53 as Word64
+
+let bitsPerByte = 8 as Word64
+
+let bytesPerWord = 8 as Count
+
+let lowByte = 255 as Word64
+
+let hexDigits = "0123456789abcdef"
+
+// Digest is 128 bits that stand for some bytes. Two lanes of 64 read the same words, each with xxHash64's round under its
+// own constants and rotation, and each is finished by MurmurHash3's fmix64 with the length: for inputs that nobody made to
+// collide, the chance that two of n differ under one digest is about n * n / 2^129, which is no chance at all for a cache's
+// entries, so a digest is taken as the bytes it stands for.
+export type Digest
+	export var hi as Word64
+	export var lo as Word64
+
+	export static function make(hi Word64, lo Word64) returns Digest
+		return Digest{hi: hi, lo: lo}
+	end 'make'
+
+	export static function none() returns Digest
+		return Digest{hi: 0 as Word64, lo: 0 as Word64}
+	end 'none'
+
+	export function equals(other Digest) returns bool
+		return hi == other.hi and lo == other.lo
+	end 'equals'
+
+	// hex is the digest as 32 hexadecimal digits, which names a file.
+	export function hex() returns String
+		var out = ByteArray.create(0)
+		appendHex(out, word: hi)
+		appendHex(out, word: lo)
+		return String.from(out)
+	end 'hex'
+end 'Digest'
+
+function appendHex(mutates out ByteArray, word Word64)
+	var shift = 60 as Word64
+	for _ in 0 upto 16 'digits'
+		out.push(hexDigits.byteAt(((word shr shift) and 15) as Count))
+		shift = shift - 4
+	end 'digits'
+end 'appendHex'
+
+function rotateLeft(x Word64, by Word64) returns Word64
+	return (x shl by) or (x shr (64 - by))
+end 'rotateLeft'
+
+function finish64(x Word64) returns Word64
+	var h = x xor (x shr 33)
+	h = h * fmix1
+	h = h xor (h shr 33)
+	h = h * fmix2
+	return h xor (h shr 33)
+end 'finish64'
+
+// Hasher makes the digest of what is added to it, in order: bytes, texts and counts, each text after its length, so that
+// two sequences of texts that join into the same bytes have different digests.
+export type Hasher
+	var a as Word64
+	var b as Word64
+	var word as Word64
+	var shift as Word64
+	var length as Word64
+
+	export static function new() returns Hasher
+		return Hasher{a: prime1 + prime2, b: prime3 xor prime5, word: 0 as Word64, shift: 0 as Word64, length: 0 as Word64}
+	end 'new'
+
+	function take(mutates self)
+		a = rotateLeft(a + word * prime2, by: 31) * prime1
+		b = rotateLeft(b + word * prime4, by: 27) * prime3
+		word = 0 as Word64
+		shift = 0 as Word64
+	end 'take'
+
+	export function addByte(mutates self, byte Byte)
+		word = word or ((byte as Word64) shl shift)
+		shift = shift + bitsPerByte
+		length = length + 1
+		if shift == 64 'full'
+			self.take()
+		end 'full'
+	end 'addByte'
+
+	// addCount adds a count as its eight bytes, the low first.
+	export function addCount(mutates self, n Count)
+		var rest = n as Word64
+		for _ in 0 upto bytesPerWord 'bytes'
+			self.addByte((rest and lowByte) as Byte)
+			rest = rest shr bitsPerByte
+		end 'bytes'
+	end 'addCount'
+
+	export function addBool(mutates self, value bool)
+		if value 'true'
+			self.addByte(1)
+		end 'true' else 'false'
+			self.addByte(0)
+		end 'false'
+	end 'addBool'
+
+	// addText adds a text as its length and its bytes.
+	export function addText(mutates self, text String)
+		self.addRange(text, begin: 0, finish: text.byteLength())
+	end 'addText'
+
+	// addRange adds the bytes of text from begin up to finish, after their count.
+	export function addRange(mutates self, text String, begin Count, finish Count)
+		self.addCount(try finish - begin otherwise panic("table: a range of bytes that ends before it begins"))
+		for i in begin upto finish 'bytes'
+			self.addByte(text.byteAt(i))
+		end 'bytes'
+	end 'addRange'
+
+	// addBytes adds bytes as their count and themselves, as addText adds a text of the same bytes.
+	export function addBytes(mutates self, bytes ByteArray)
+		self.addCount(bytes.count())
+		for i in 0 upto bytes.count() 'bytes'
+			self.addByte(bytes[i])
+		end 'bytes'
+	end 'addBytes'
+
+	export function addDigest(mutates self, d Digest)
+		self.addCount(d.hi as Count)
+		self.addCount(d.lo as Count)
+	end 'addDigest'
+
+	export function digest() returns Digest
+		var held = Hasher{a: a, b: b, word: word, shift: shift, length: length}
+		if held.shift != 0 'partial'
+			held.take()
+		end 'partial'
+		return Digest.make(finish64(held.a xor (length * prime5)), lo: finish64(held.b + length * prime1))
+	end 'digest'
+end 'Hasher'
+
+// ByteWriter lays out counts, texts and bytes in a file's bytes, each count as eight bytes with the low first and each text and
+// run of bytes after its count.
+export type ByteWriter
+	export var bytes as ByteArray
+
+	export static function new() returns ByteWriter
+		return ByteWriter{bytes: ByteArray.create(0)}
+	end 'new'
+
+	export function count(mutates self, n Count)
+		var rest = n as Word64
+		for _ in 0 upto bytesPerWord 'bytes'
+			bytes.push((rest and lowByte) as Byte)
+			rest = rest shr bitsPerByte
+		end 'bytes'
+	end 'count'
+
+	export function flag(mutates self, value bool)
+		if value 'true'
+			bytes.push(1)
+		end 'true' else 'false'
+			bytes.push(0)
+		end 'false'
+	end 'flag'
+
+	export function text(mutates self, value String)
+		self.count(value.byteLength())
+		bytes.append(value.toByteArray())
+	end 'text'
+
+	export function run(mutates self, value ByteArray)
+		self.count(value.count())
+		bytes.append(value)
+	end 'run'
+
+	export function digest(mutates self, d Digest)
+		self.count(d.hi as Count)
+		self.count(d.lo as Count)
+	end 'digest'
+end 'ByteWriter'
+
+// ByteReader reads back what a ByteWriter laid out, from a file's bytes read as a text. A read past the end, or a run longer
+// than what is left, gives nothing and makes the reader broken, which a reader of a damaged or cut file checks at its end.
+export type ByteReader
+	var source as String
+	var at as Count
+	export var broken as bool
+
+	export static function of(consumes source String) returns ByteReader
+		return ByteReader{source: source, at: 0, broken: false}
+	end 'of'
+
+	function left() returns Count
+		return try source.byteLength() - at otherwise 0
+	end 'left'
+
+	export function atEnd() returns bool
+		return at == source.byteLength()
+	end 'atEnd'
+
+	export function count(mutates self) returns Count
+		if broken or self.left() < bytesPerWord 'short'
+			broken = true
+			return 0
+		end 'short'
+		var value = 0 as Word64
+		var shift = 0 as Word64
+		for i in 0 upto bytesPerWord 'bytes'
+			value = value or ((source.byteAt(try at + i otherwise panic("table: a read past memory")) as Word64) shl shift)
+			shift = shift + bitsPerByte
+		end 'bytes'
+		at = try at + bytesPerWord otherwise panic("table: a read past memory")
+		return value as Count
+	end 'count'
+
+	// items reads the count of a list's records, each of which takes a byte at least, so that a count larger than what is left
+	// is damage: it makes the reader broken and gives none.
+	export function items(mutates self) returns Count
+		let n = self.count()
+		if n > self.left() 'damaged'
+			broken = true
+			return 0
+		end 'damaged'
+		return n
+	end 'items'
+
+	export function flag(mutates self) returns bool
+		if broken or self.left() < 1 'short'
+			broken = true
+			return false
+		end 'short'
+		let value = source.byteAt(at)
+		at = try at + 1 otherwise panic("table: a read past memory")
+		return value != 0
+	end 'flag'
+
+	export function text(mutates self) returns String
+		let n = self.count()
+		if broken or self.left() < n 'short'
+			broken = true
+			return ""
+		end 'short'
+		let finish = try at + n otherwise panic("table: a read past memory")
+		let value = source.sliceBytes(at, endPos: finish)
+		at = finish
+		return value
+	end 'text'
+
+	export function run(mutates self) returns ByteArray
+		return self.text().toByteArray()
+	end 'run'
+
+	export function digest(mutates self) returns Digest
+		let hi = self.count() as Word64
+		let lo = self.count() as Word64
+		return Digest.make(hi, lo: lo)
+	end 'digest'
+end 'ByteReader'

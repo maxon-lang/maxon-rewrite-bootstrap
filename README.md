@@ -40,7 +40,8 @@ generator.
 | `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
 | `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--executables=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
 | `minimaxon test <specs-dir\|file.md> [--verbose] [--require-passed\|--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
-| `minimaxon selftest` | run the compiler's own tests (`self/*_test.maxon`) |
+| `minimaxon test <module dir>` | run the tests of the modules under the directory: the `test` declarations of their files of tests (`.maxtest`), compiled with the modules they name and the runtime into one executable whose entry calls each, which is then run (see "Tests") |
+| `minimaxon selftest` | run the compiler's own tests: `test self`, from the root of the repository |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
 | `minimaxon rename [--prelude=f,...] [--rules=file] <rule>... <program>...` | rename a built-in type or rewrite the calls of a built-in method by the declaration the checker resolved, never by text: `Array.append=push`, `Array.insert=insert({at}, value: {item})`, `Array.pop.unwrap=try {call} otherwise panic("empty")`, and a free function's whole call: `readFile().unwrap=try File.readText({path}) otherwise panic("unread")` (the rules are in `self/driver/rename.maxon`) |
@@ -50,9 +51,10 @@ generator.
 | `go run ./cmd/convert [--specs] [--write] [--check] [--out=DIR] [<path>...]` | convert existing Maxon `.maxon` source files to minimaxon syntax and layout, marking unsupported constructs with `// TODO` comments and warnings on stderr; `--check` writes nothing and prints each kind of warning with its count and files, most frequent first (run `minimaxon qualify` after converting a project of several modules); `--specs` converts maxon's spec files, which is how `specs/` is made. It lays out what it converts with the compiler's `fmt`: `minimaxon.exe` in the root of the repository, or the compiler the environment variable `MINIMAXON` names |
 | `go run ./cmd/sample [-interval D] [-top N] [-callers N] [-focus TEXT,...] [-o FILE] <exe> [arg...]` | profile an executable that `build --emit-map` made: runs it, samples its main thread's instruction pointer and its `rbp` frames (1 ms by default), and prints the functions by self and by total samples, with the callers of the top ones and of those whose symbol contains a `-focus` text, and the wall time; code outside the image (a Windows DLL) is charged to the function that called it, found by scanning the stack, and exits with the program's code |
 
-The compiler has no build cache and no `cache` command, and no `--trace=`, `--jobs=`, `--no-cache` or
-`--with=` (parallel compilation and the build cache are planned: see "The modules phase" and "Build cache (planned)"): it says
-so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
+`build` and `test <module dir>` keep each module's code in the build cache and link the code of a module whose key did not
+change from it (see "Build cache"); `--no-cache` compiles without it, and `--verify-cache` (development only) compiles every module
+and stops with an internal error at the first whose code or summary differs from the entry the cache holds under its key. The
+compiler has no `cache` command and no `--trace=`, `--jobs=` or `--with=`: it says so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
 runner (the corpus and the specs) build their executables in the temporary directory under names that hold the process id
 (and, for the runners, the test's number in the run), so two tests and two compilers running at once never write the same
 file. A runner deletes each test's
@@ -118,7 +120,14 @@ first step that fails. That the compiler reproduces itself (the seed builds C1, 
 byte-identical to C2) is checked where the seed is renewed, `.\seed.ps1`, which then runs the same `suites.ps1` on C2.
 
 There are three kinds of test. **Corpus tests** run whole programs through `minimaxon test`. **The compiler's own
-tests** (`self/*_test.maxon`, run by `minimaxon selftest`) test its parts on programs and IR built by hand. **Go tests**
+tests** belong to the modules they test, so a change to one module is tested by compiling that module, the modules it names
+and the runtime, never the whole compiler (`test self/table` compiles `table` and the runtime). A module's tests may use only
+what the module may name; a test that needs a module above its own is a layering fault, kept in the lowest module that may name
+all it needs: the tests of the IR verifier on hand-built IR (`self/interp/verify.maxtest`) and of SSA construction and the fold
+pass (`self/interp/ssa.maxtest`, `fold.maxtest`) run their IR on the interpreter and through the backend, so they are
+`interp`'s; the declare's and the bodies' tests (`self/driver/declare.maxtest`, `bodies.maxtest`) and the chain of 200000
+terms (`self/driver/codegen.maxtest`) compile source through the front end, so they are the driver's, as are its timings.
+Helpers that tests of several modules use are each module's own copy. The tests (`test` declarations in each module's `.maxtest` files, run by `minimaxon test self/<module>` or all of them by `minimaxon selftest`) test the compiler's parts on programs and IR built by hand. **Go tests**
 test the generators (each regenerates its outputs and fails if the checked-in ones differ; `internal/x64gen` proves the
 instruction table against the bytes in its `testdata`) and `cmd/convert`.
 
@@ -273,7 +282,7 @@ layering cannot erode:
 | Module | Holds | Imports |
 |---|---|---|
 | `diag` | `CompileError` (a code, a message and a place: a `Site`, a module handle and an offset, until the error is located, then file, line and column), `ErrorList`, `sortErrors`, the error codes (generated from `codes.tsv`) and the message functions (from `messages.tsv`) | — |
-| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides | — |
+| `table` | `StringMap` and `IntMap` (open addressing) and `Option`, which nothing built in provides; `Digest`, `Hasher`, `ByteWriter` and `ByteReader` (`digest.maxon`), which the build cache names its entries by and stores them with | — |
 | `ast` | the program model: `Tree`, a module's nodes as flat `Record`s, the generated node kinds, accessors and declaration structs, `Module` and `Project`, the project's `TypeTable` and `FuncTable` of per-module slots and the accessors every read of an entry goes through (`typeEntry`, `funcEntry`), the `ModuleState` a module's task writes, which holds its module's slots (`state.maxon`), the built-in types and functions (generated), `Resolution` and `Typing`, the per-module tables the phases fill in (see "The AST"), link names, locating an error, `I128` | `diag`, `table` |
 | `syntax` | the grammar (`Maxon.g4`), the generated tokens and parser, the lexer loop, the layout rules, the formatter (the parser in a mode that writes the layout instead of checking it) and the edits that rename a keyword | `ast`, `diag`, `table` |
 | `project` | loading a project: discovery, finding the runtime's source (see "The runtime"), reading and parsing each module, the declaration tables, the module graph and its import-cycle check | `ast`, `diag`, `syntax`, `table` |
@@ -284,10 +293,9 @@ layering cannot erode:
 | `backend` | the x64 encoder (generated), the assembler and code unit, instruction selection (`isel.maxon`: the module's functions into machine IR by the rules of `internal/rulegen/x64.rules`, generated into `lower_x64_gen.maxon`, and the helpers they call, in `isel.maxon` and `rules.maxon`), the machine IR (`mir.maxon`), x64's register file, conventions and instruction constraints (`regs_x64.maxon`, over the target table's `regs_x64_gen.maxon`), liveness, register pressure and spilling with the E5001 test (`liveness.maxon`, `pressure.maxon`, `spill.maxon`), block parameters in memory (`params_memory.maxon`), colouring, SSA destruction and the colouring's checker (`regalloc.maxon`, `ssa_destruction.maxon`, `colour_check.maxon`) and the machine IR's encoder (`encode.maxon`), the drop and copy routine of each type, the entry stub, the linker and the PE writer | `ast`, `diag`, `ir`, `table` |
 | `interp` | the tracking interpreter: runs the IR of a whole program with the primitives written in Maxon and a simulated scheduler of behaviours, and reports a violation of the memory model | `ast`, `ir`, `table` |
 | `fuzz` | the random program generator the `fuzz` command runs | `table` |
-| `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
+| `driver` | the commands (`driver.maxon` is the command line); `compile.maxon` runs the pipeline as the task graph of `graph.maxon`; `cache.maxon` is the build cache, `unittests.maxon` the compile of a module's tests; the corpus and spec runners, `interp`, `fuzz`, `fmt`, `rewrite`, `qualify`, `rename` and `update_positions` | all of the above |
 
-`main.maxon`, in the root module, runs `driver.run`, and holds the `selftest` command with the compiler's own tests
-(`self/*_test.maxon`). The generators are Go, in `internal/`, and `cmd/convert` and `cmd/sample` are standalone tools (see
+`main.maxon`, in the root module, runs `driver.run`. Each module's tests are its own, in its `.maxtest` files (see "Tests"). The generators are Go, in `internal/`, and `cmd/convert` and `cmd/sample` are standalone tools (see
 "Use"); nothing in `self/` depends on them. A module exports only what another module uses.
 
 ### Generated code
@@ -401,7 +409,7 @@ the immediate types, the helpers the encoders share and one encoder per form, ch
 ByteArray` first. `go test ./internal/x64gen/...` also encodes every form with registers `rax` to `r15`, displacements from none
 to 32 bits, bases of `rsp`, `rbp`, `r12` and `r13`, immediates at the limits of each kind and every condition code, with a
 reference encoder in the test, and compares the bytes with `internal/x64gen/x64table/testdata/assembler.golden`; `selftest` runs the
-generated Maxon on a set of those encodings (in `self/main.maxon`) and compares them with the same bytes. A form added after
+generated Maxon on a set of those encodings (in `self/backend/pe.maxtest`) and compares them with the same bytes. A form added after
 that assembler was removed (the indexed and atomic forms, a word load and store at a base plus an index, `or` and `xor`
 with an immediate, the three-address `imul` with an
 immediate, the shifts by a constant, `cmp` of a register with memory, the 32-bit zeroing `xor`, `leave`) is compared with
@@ -485,7 +493,7 @@ function per operation that has rules, which tries them in the order of the file
 returns at the first thing that does not match. It reads the operands in place through the generated getters and the
 defining instruction of a register from `defs` (the `ir.Defs` of the function's `ir.Flow`), allocates nothing until a rule fires, and leaves the result
 in a reused `opt.Rewrite`; the fold pass (`opt.Fold`) applies it to each instruction it visits. `selftest` runs it on instructions built by
-hand (`self/opt_test.maxon`).
+hand (`self/opt/opt.maxtest`).
 
 It writes `self/backend/lower_x64_gen.maxon` from `x64.rules`: `selectInstr(sel, fn, ins)` and `selectTerm(sel, fn, ins)`
 dispatch on the opcode to `select<Op>`, which tries the operation's rules in the order of the file and ends in a panic
@@ -518,7 +526,7 @@ runs the stages that can report an error.
 | verify | `check` | `moduleVerify`: binds the recorded cross-module calls (`verifyCalls`) and checks every type argument against its parameter's bounds (`E3017`); then, for a module that found no error in this stage, the range analysis, which decides how each operator and cast can fail and requires a `try` around what can (`E3057`, `E3059`; see "Checked arithmetic"), and the ownership pass: moves, conventions, borrows, exclusivity, initialisation, frozen values and what a behaviour takes (`E3102`, `E3900` to `E3904`, `E3197`, `E2013`) |
 | lower | `ir` | after the check of every module has ended (`endCheck`, which waits on every verify, each of which made its module's typing its product), `lowerModule` for each module in order: it first finds the instances of generic functions that the module needs (`findInstances`: it starts from the calls recorded by its functions that are not generic, and follows each instance's recorded calls, whichever module declares the generic, with the type arguments bound, until no new instance turns up; `E3906` if the type arguments grow without end), then lowers the module's functions that are not generic, in source order, and the instances, in the order found. A `check` only finds the instances. A place that needs something the backend cannot run yet is noted as a refusal, and the driver reports the first of each function (`E9900`) before the backend, in a task of the project that first holds the runtime to the functions the compiler calls (`checkRuntimeFunctions`) and writes `--emit-ir` |
 | optimize | `opt` | for a native build, in the task that lowers the module, right after it: `opt.optimizeModule` puts each function in SSA form and folds it (see "The IR"), then `opt.findLeaves` finds the module's leaves and `opt.inlineModule` replaces the calls of leaves, its own and those of the modules it names, by copies of their bodies and folds again what got one (see "Leaf inlining"), then rotates the loops of each function, moves what does not change out of them and merges what is computed twice (see "The passes after inlining"); `--emit-ir` and `--verify-ir` see the result. A test keeps the IR as lowered for the interpreter (`Options.keepsLowered`), which tracks borrows by the loads of slots and reports a drop of a register that holds nothing |
-| emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` then makes the drop and copy routine of every type the units asked for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in waves, ordered by where the modules first ask for them |
+| emit | `backend` | `emitModule`: IR to x64, one code unit per module, in module order, calls between units symbolic; an instance that several modules need is emitted by each, and the link keeps one. The emit then makes in the unit the drop and copy routine of every type its code asks for, and of every type those reach (a record's fields, a union's payloads, an array's elements), in the order they are first asked for (`backend.carryRoutines`), so a unit asks the link for nothing and holds no handle, which is what lets the build cache keep it; a routine that several units make is kept once, as an instance is. In the link (`linkProgram`) the entry stub and the runtime's unit come first; `emitTypeRoutines` makes there, in waves, only what units made without the driver ask for (the backend's own tests) |
 | link | `backend` | `link` keeps only the sections of code and the pieces of data that the entry reaches through symbol and data references (every function is compiled; what nothing calls is dropped here), lays the units out in order, patches the references and `writePeImage` writes the executable. A symbol is its link name (see "Link names"); the one symbol that may be defined more than once is an instance of a generic function, and the table keeps the first unit's definition, so the copies are never reached and drop out like any dead section. Any other symbol defined twice is an internal error |
 
 **Errors.** Each task's errors are kept with its stage, and the compile reports those of the earliest stage that has any, from
@@ -820,44 +828,59 @@ meet: a function's name has `::` before any space, and a routine's starts with `
 the name of a type with `type ` and a constant's with `const ` or `raw `. The text of a function in
 the IR (`--emit-ir`) and in a message is its plain symbol (`ir.funcSymbol`).
 
-## Build cache (planned)
+## Build cache
 
-Not implemented: every compile redoes every module, and there is no cache directory, `cache` command or `--no-cache` flag (they
-are refused, see "Use"). The design is a per-module cache, as Go's build has, for a later phase (Phase 4 of the plan). The
-decisions to keep:
+`build` and `test <module dir>` keep each module's code unit on disk under a key that holds everything the unit is made from
+(`self/driver/cache.maxon`), so that a module whose key did not change is linked from what an earlier compile made. The cache is
+the directory `MINIMAXON_CACHE` names, or `%LOCALAPPDATA%\minimaxon\cache` when it names none, and none at all when it is `off` or
+the command line says `--no-cache`; one directory serves every project, since a key names what made its entry. `check`, `run`,
+the test runners and a compile with `--emit-ir` or `--verify-ir`, which need every module's IR, use none.
 
-- **An entry is a module's code unit**, the output of its emit: the code, the data, the references and definitions to link, the
-  sections and pieces the link keeps or drops whole, and the drop and copy routines it asks for, each by link name. A module with
-  an error or a refusal has no entry, so a diagnostic is always made, and made the same way, by the compile that reports it. The
-  front (parse to constants) always runs for every module, so every error it can report is reported as without a cache; check
-  and emit are where a hit saves its work. The executable is byte for byte the one a build with no cache makes.
-- **The key** is a SHA-256 of: the compiler (the hash of its executable), the flags that change what a module compiles to
-  (`--count-allocations`; not `--emit-ir`), the module's link path, a digest of its source, and **the export summaries of the
-  modules it depends on**, in module order. Handles, the directory a project is in and the schedule are not in a key.
-- **The export summary** is the one place that says what a module shows to the others, written with link names and no handle:
-  every type declaration whole (a signature that mentions a type lets a module that cannot name it read its layout), each
-  function and constant other modules can use with its signature or type, and the source of what another module lowers in its own
-  unit: a generic's body, a constant's expression, a field's default. A summary is transitive: it folds in the summaries of the
-  modules it depends on, because a signature mentions their types and a generic's check results are made from what its module
-  reaches. So an edit to a private function body of a module with no generic changes no summary and misses only that module.
-- **Inlined bodies.** Leaf inlining copies into a module's unit the optimized IR of leaves of the modules it names, so a
-  module's key must also hold, for each module it names, a digest of the IR of that module's leaves (the bodies `findLeaves`
-  admits, which is all a caller can copy), in module order; an edit to a leaf's body then misses every module that names
-  its module, as an edit to a generic's body does. The export summary is the natural place for it, beside the generics.
-- **What a hit skips.** A hit does not emit. Its check runs only if a module that is not a hit reaches it and its summary says
-  that module reads its check results (it has a generic, an exported constant or a field's default); a miss reaches the whole
-  closure of the modules it depends on, since it can instantiate a generic that a signature of a module it names leads to.
-  Errors stay as without a cache because a module has an entry only if its check and emit found nothing, and the key holds
-  everything its check reads outside its own text.
-- **Storage** is a directory of files named by key, each written whole to a file of its own and renamed over its name, with the
-  layout version and a checksum, so a damaged or half-written entry is a miss; entries unused for days are trimmed, as Go's build
-  cache does.
+- **Digests.** `table.Hasher` makes a 128-bit `table.Digest`: two lanes of 64 bits read the same words, each with xxHash64's
+  round under its own constants and rotation, and each is finished by MurmurHash3's fmix64 with the length. For inputs nobody
+  made to collide, two of n entries share a digest with a chance of about n² / 2^129, so a digest is taken for what it stands for.
+- **A module's digests** are made by its parse (`ModuleDigests`): its *source*, its path and each file's name and bytes; and its
+  *shown text*, the same without its comment lines and without the body of each function, method or test that no other module
+  copies (`publicDigest`): one that has no `uses` and stands in no `uses` type, no `interface` and no `extension`. The layout is
+  part of the language, so a header is one line and its body the lines below it to the `end` at the header's indentation.
+- **The summary** of a module, made by its lower, is the digest of its shown text, of the IR of its leaves (`opt.findLeaves`; the
+  IR printer's text, which names functions and types by link name) and of the summaries of the modules it names: what another
+  module copies of it, its declarations, layouts, constants, generic and extension bodies and the leaves it inlines, and,
+  folded in, what those depend on. Editing any other body changes the module's key and not its summary.
+- **The key** of a module (`keyOf`) is the digest of the compile's base (the digest of the compiler's own executable, the target,
+  `--count-allocations`, and for a program the runtime's source), the module's path, its source and the summary of each module it
+  names. Handles, the project's directory, the schedule and the number of workers are in no key.
+- **An entry** (`<key>.entry`) holds a magic text, the layout's version, the key, the module's summary, the digest of the unit's
+  bytes and the unit (`backend.writeUnit`: its code, fixups, data, pieces, pointers, symbols and sections, each array written
+  straight). A unit carries its drop and copy routines (`backend.carryRoutines`), so it holds no handle and nothing is relocated
+  when it is read back (`backend.readUnit`). Entries are written to a file of their own and renamed over their name, so a reader
+  never meets half of one; a file that is no whole entry of this layout under its key is no entry, and one whose unit's bytes
+  differ from their digest stops the compile, naming the file to delete. Nothing trims the directory yet.
+- **The order decides** (`planModules`), in the modules' order: a module is *settled* when every module it names is and the
+  cache holds an entry under its key, whose summary it then has. A module that is not settled, and every module it names,
+  directly or not, run their check and lower, since it may instantiate a generic or inline a leaf of any of them; a settled
+  module that none of them names runs nothing after its constants (`Reach.loaded`: its check ends where its constants did, which
+  gives the entry function and the tests), and its emit links the entry's unit. Any other module's emit computes its key once
+  the modules it names have their summaries, and links the entry if there is one, or emits and writes one. A module whose stages
+  found an error never gets one, and every stage that can report an error, before the bodies, always runs.
+- **Speculation.** A module whose source changed has no entry, so the modules that name it could not know their keys before its
+  lower. The order takes for its summary the one it made the last time its shown text and the summaries of the modules it names
+  were what they are (`speculationKey`, a `<key>.summary` file each lower writes), so they find their entries at once; if its
+  lower then makes another summary (the IR of a leaf changed), the compile is done again without speculating (`finishCompile`),
+  and its output is that second compile's.
+- **Correctness.** A unit is a function of its key, and the link lays the units out in module order whatever made them, so a
+  cached build's executable and diagnostics are byte for byte an uncached build's, at any number of workers and with
+  `--reverse-modules`. `--verify-cache` checks every module and holds the unit and the summary it makes to the entry under its key,
+  an internal error naming the module where they differ.
 
-A language server needs more of the same: to keep a module's products when it did not change (its tree and tables are indexed by
-`NodeID`, which depends only on the module's own text, so only the `ModuleID`s in them need renumbering when modules are added
-or removed), to cache a failing module's diagnostics under the same key, and to use the export summary to tell whether a module's
-dependents have to be looked at again.
-
+What an edit costs (`build self`, best of three, 16 cores): with an empty cache 1.9 s; nothing changed 0.38 s (the front of every
+module and the runtime, and the link); a body edited in `diag`, which every module names, 0.39 s; a body in `check` 1.35 s, as
+`check`'s check and lower need those of `ast`, `diag` and `table` again; an export added to `diag` 1.83 s, everything. `test
+self/ir` takes 1.1 s with an empty cache and 0.34 s warm. What is not cached yet is a module's checked state and lowered IR: with
+them, a module that an unsettled one names would load its check and lower instead of running them, so an edit in a middle module
+would cost its own module and no more. A language server needs the same: a module's products kept while it does not change (its
+tables are indexed by `NodeID`, which depends only on its text), its diagnostics under its key, and its summary to tell whether
+the modules that name it have to be looked at again.
 ## The IR
 
 The checker works on the AST, which mirrors what the author wrote. Everything after it works on the IR in `self/ir`, which is
@@ -1003,7 +1026,7 @@ what a later pass such as reference counting or an optimization changes.
   one function to the next. `opt.Analysis` adds the dominator tree, the dominance frontiers, the loop nesting depth of each
   segment (natural loops from the retreating edges, each of which must go to a segment that dominates its source: lowering
   makes no irreducible flow, having no goto) and how often each register is read. `selftest` runs the verifier on IR built by hand
-  (`self/verify_test.maxon`), and `--verify-ir` on everything a build lowers, before SSA construction and after the fold pass. The interpreter and the backend read every
+  (`self/interp/verify.maxtest`), and `--verify-ir` on everything a build lowers, before SSA construction and after the fold pass. The interpreter and the backend read every
   argument of an edge before they set a parameter: colouring copies an edge's arguments to the target's parameters as one
   parallel copy.
 - What an analysis asks of every operation is generated from the IR table: the registers it reads (`instrReads`, `termReads`,
@@ -1384,7 +1407,7 @@ output and exit code are its own, a violation exits with 4 and a program that ou
   standard output and the same exit code. A trap is not a violation. A violation, a trap and a timeout end the run through a
   `Halt` that every function of the run throws.
 - **How the tests use it.** `minimaxon test` runs every program under it, under 20 schedules when the program schedules
-  behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp_test.maxon` tests it on
+  behaviours, and requires the same stdout and exit code as the directives and no violation. `self/interp/interp.maxtest` tests it on
   IR that is written to break each rule (and to schedule behaviours: their order, their interleaving, the counts). `minimaxon fuzz` (`self/fuzz`) writes random well-formed programs over records, unions,
   strings, the four conventions, calls with overlapping and disjoint arguments, match bindings, loops, generics with bounds,
   arrays, maps, lists and pools with handles, a borrowed place held while a later operand of the same expression changes or
@@ -1480,7 +1503,7 @@ form's operand that lives on) is one `lea`.
 
 The first half of the register allocator (`liveness.maxon`, `pressure.maxon`, `spill.maxon`) brings every instruction of a
 function under the registers free there, which the second half, colouring in dominance order, needs. Every function a
-native build compiles goes through it; `selftest` also runs it on hand-built functions (`self/spill_test.maxon`), which
+native build compiles goes through it; `selftest` also runs it on hand-built functions (`self/backend/spill.maxtest`), which
 colouring then finishes and which run.
 
 - **Blocks** (`prepareBlocks`): the block laid out first, selection's prologue, becomes block 0, the graph's entry; the
@@ -1549,7 +1572,7 @@ colouring then finishes and which run.
 The second half (`regalloc.maxon`, `ssa_destruction.maxon`) gives every virtual register of a spilled function one physical
 register and takes the function out of SSA form; `Allocator.allocate` runs both halves, `colourFunction` after
 `spillFunction`, on every function a native build compiles. `selftest` also runs it on the kernels of
-`self/colour_test.maxon` and on every function of the machine IR's and spilling's tests, each held to the checker and run.
+`self/backend/colour.maxtest` and on every function of the machine IR's and spilling's tests, each held to the checker and run.
 
 - **What a value may not be in** (`survey`, one walk back through each block): the registers written by an instruction it
   is live across (a call's caller-saved ones, from the convention table; a division's rax and rdx) and the physical
@@ -1746,9 +1769,9 @@ as a word (`collectionReserve`, `collectionExtend`, `collectionOpenGap`, `collec
 descriptor, and only a thin typed wrapper is per type.
 
 **Compiled once.** The runtime reads no build option, so one compiled runtime serves every program a compiler builds in a
-run: the test runner does it once (`SharedRuntime`). With the build cache (see "Build cache (planned)") its units would be kept
-under a key of the compiler's own hash and the hash of every file of `runtime/`, so an edit to `runtime/` rebuilds the runtime
-and nothing else.
+run: the test runner does it once (`SharedRuntime`). A `build` keeps its unit in the build cache (see "Build cache") under a key
+of the compiler's digest and the runtime's source, and a program's modules hold the runtime's source in their keys too, so an
+edit to `runtime/` rebuilds everything.
 
 ## The subset
 
@@ -3148,8 +3171,15 @@ a call that throws needs no `try` in a test body (a closure written in it is an 
 an error of any type. No program is made of a test: lowering leaves it out. `build`, `run` and `check` read the `.maxon` files
 of a directory only, so a `.maxtest` file is no part of a build, and `fmt` lays out `.maxtest` files as it does `.maxon` ones;
 a project held in memory, as a spec test's files, names its files itself and its `.maxtest` files are checked with the rest.
-There is no `maxon test` runner in minimaxon: `test` runs the corpus (see "Tests"), since running a test needs the library's
-`Expect` and `TestFailure`, which are not ported.
+`minimaxon test <dir>`, where the directory is a module (it holds source) and it or a module under it holds a file of tests, is
+a compile of tests (`Options.runsTests`, `self/driver/unittests.maxon`): the project is the one around the directory (its root
+is where the walk up stops finding source, `project.projectRootOf`), the modules under the directory are read with their files
+of tests (`project.addTestFiles`), and only they and the modules they name, directly or not, are compiled past the resolve
+(`Reach`, which the order decides); each of those modules keeps its tests through lowering (`check.endModule`), no `main` is
+looked for, and the link makes an entry that calls every test in module and source order and exits with 0
+(`backend.EntryCalls`). The runner runs the executable and prints `ok: N tests of <dir>`, or what the test that panicked
+printed and a `FAIL` line. A test fails by a panic: the library's `Expect` and `TestFailure` are not ported, so a body that
+throws needs a `try`, as any other function's does, to be lowered.
 
 `@heap` before a `let` or a `var` (`@heap let p = Point.create(1)`) asks for the binding's record on the heap; every record
 is a box here already, so it changes nothing in a program. It is held to Maxon's rules: another word after the `@` is
@@ -3504,7 +3534,7 @@ A typical change touches one file per stage. `.claude/skills/write-self` has the
    fails until `internal/rulegen/x64.rules` selects it, and the interpreter (`self/interp`) fails to build until it handles it. A new built-in is a row of
    `internal/builtingen/table.go`, and the dispatch names the function for it in the checker, the lowerer and the interpreter.
 6. **Tests:** a `tests/run/` program for the behaviour (it runs natively and under the interpreter), a `tests/errors/` program
-   for each diagnostic, and a test in `self/*_test.maxon` only when a part needs one. A new construct that the memory model's
+   for each diagnostic, and a test in the module's `.maxtest` files only when a part needs one. A new construct that the memory model's
    rules cover also goes into the program generator (`self/fuzz`).
 
 A rule that is only a diagnostic, such as a new ownership or sharing check, usually needs steps 3 or 4 and a test, and nothing

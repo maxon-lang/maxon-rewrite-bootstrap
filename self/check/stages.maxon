@@ -50,9 +50,11 @@ export type ModuleChecked
 	export var functions as ast.FuncIDList
 	export var callers as ast.FuncIDList
 	export var entry as ast.FuncID
+	// tests are the module's tests, in order, in a compile of tests, which lowers them with the functions.
+	export var tests as ast.FuncIDList
 
 	export static function make(consumes functions ast.FuncIDList, consumes callers ast.FuncIDList, entry ast.FuncID) returns ModuleChecked
-		return ModuleChecked{functions: functions, callers: callers, entry: entry}
+		return ModuleChecked{functions: functions, callers: callers, entry: entry, tests: ast.FuncIDList.create(0)}
 	end 'make'
 
 	export static function none() returns ModuleChecked
@@ -129,17 +131,41 @@ end 'withoutTests'
 
 // endModule ends the check of a module, whose state its last stage holds: it gives the module's typing, which the stages
 // after the check read of its bodies, and what the generate stage needs of its check.
-export function endModule(mutates state ModuleState, p ast.Project, sets typing ast.Typing) returns ModuleChecked
+export function endModule(mutates state ModuleState, p ast.Project, keepsTests bool, sets typing ast.Typing) returns ModuleChecked
 	let modID = state.checker.modID
 	typing = exchange(state.checker.typing, value: ast.Typing.new(modID))
-	let functions = withoutTests(p, ms: state.unit, functions: exchange(state.functions, value: ast.FuncIDList.create(0)))
-	let callers = withoutTests(p, ms: state.unit, functions: exchange(state.checker.callers, value: ast.FuncIDList.create(0)))
-	var entry = ast.noFunc
-	if state.entryRole == EntryRole.entry 'entry'
-		entry = state.entry
-	end 'entry'
-	return ModuleChecked.make(functions, callers: callers, entry: entry)
+	var functions = exchange(state.functions, value: ast.FuncIDList.create(0))
+	var callers = exchange(state.checker.callers, value: ast.FuncIDList.create(0))
+	var tests = ast.FuncIDList.create(0)
+	if keepsTests 'tests'
+		tests = testsAmong(p, ms: state.unit, functions: functions)
+	end 'tests' else 'program'
+		functions = withoutTests(p, ms: state.unit, functions: functions)
+		callers = withoutTests(p, ms: state.unit, functions: callers)
+	end 'program'
+	var checked = ModuleChecked.make(functions, callers: callers, entry: entryOf(state))
+	checked.tests = tests
+	return checked
 end 'endModule'
+
+// entryOf is the program's entry function where the module's declare found it, and none elsewhere.
+export function entryOf(state ModuleState) returns ast.FuncID
+	if state.entryRole == EntryRole.entry 'entry'
+		return state.entry
+	end 'entry'
+	return ast.noFunc
+end 'entryOf'
+
+// testsAmong is the tests among functions, in order: a compile of tests lowers them and its executable runs them.
+function testsAmong(p ast.Project, ms ast.ModuleState, functions ast.FuncIDList) returns ast.FuncIDList
+	var tests = ast.FuncIDList.create(0)
+	for i in 0 upto functions.count() 'each'
+		if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: functions[i]).isTest 'test'
+			tests.push(functions[i])
+		end 'test'
+	end 'each'
+	return tests
+end 'testsAmong'
 
 // moduleAliases declares the bounds of the type parameters of the module's types, then its typealiases of instances.
 export function moduleAliases(mutates state ModuleState, p ast.Project, mutates errs diag.ErrorList)

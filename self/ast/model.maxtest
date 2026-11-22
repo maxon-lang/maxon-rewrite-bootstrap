@@ -1,0 +1,49 @@
+function assertEqStr(got String, expected String, label String)
+	if got != expected 'neq'
+		panic("{label}: expected '{expected}', got '{got}'")
+	end 'neq'
+end 'assertEqStr'
+
+test 'i 128'
+	let a = I128.fromInt(-42 as FullRangeInt)
+	let b = I128.fromInt(100 as FullRangeInt)
+	let sum = a.add(b)
+	assertEqStr(sum.toString(), expected: "58", label: "i128.add")
+	let diff = a.sub(b)
+	assertEqStr(diff.toString(), expected: "-142", label: "i128.sub")
+	assertEqStr(a.neg().toString(), expected: "42", label: "i128.neg")
+	if not a.lt(b) or b.le(a) or not sum.eq(I128.fromInt(58 as FullRangeInt)) 'cmp'
+		panic("i128 compare failed")
+	end 'cmp'
+	let big = mulWide(I128.fromCount(10000000000 as Count), b: I128.fromCount(10000000000 as Count))
+	assertEqStr(big.toString(), expected: "100000000000000000000", label: "i128.mulWide")
+	let q = quoTrunc(big.neg(), b: I128.fromInt(10000000000 as FullRangeInt))
+	assertEqStr(q.toString(), expected: "-10000000000", label: "i128.quoTrunc")
+	assertEqStr(I128.i64Min().toString(), expected: "-9223372036854775808", label: "i128.i64Min")
+	assertEqStr(I128.u64Max().toString(), expected: "18446744073709551615", label: "i128.u64Max")
+end 'i 128'
+
+test 'ast model'
+	var proj = Project.new("self")
+	if proj.stdlib.decls.count() < 20 'std'
+		panic("expected >= 20 stdlib decls")
+	end 'std'
+	var args = TypeIDList.create(0)
+	args.push(proj.builtins.countTy)
+	var ms = lendProject(proj)
+	let arrCount = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.arrayOrigin, args: args)
+	assertEqStr(typeName(ms.types, reads: proj.types, t: arrCount), expected: "Array with Count", label: "arrCount")
+	var nested = TypeIDList.create(0)
+	nested.push(arrCount)
+	let listArrCount = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.listOrigin, args: nested)
+	assertEqStr(typeName(ms.types, reads: proj.types, t: listArrCount), expected: "List with (Array with Count)", label: "listArrCount")
+	let listArrCount2 = instantiateType(ms.types, reads: proj.types, origin: proj.builtins.listOrigin, args: nested)
+	if listArrCount != listArrCount2 'intern'
+		panic("type interning failed")
+	end 'intern'
+	let fid = typeEntry(ms.types, reads: proj.types, t: proj.builtins.arrayOrigin).findMethod("push").unwrap()
+	let instFid = instantiateFunc(ms.funcs, funcReads: proj.funcs, tt: ms.types, reads: proj.types, origin: fid, args: args, witnesses: WitnessList.create(0))
+	giveBack(proj, ms: ms)
+	let ln = funcLinkName(proj, fid: instFid)
+	assertEqStr(ln, expected: "(stdlib::Array with Count=int(0 to 18446744073709551615)).push", label: "funcLinkName")
+end 'ast model'

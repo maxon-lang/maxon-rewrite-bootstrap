@@ -1,0 +1,251 @@
+function assertEqStr(got String, expected String, label String)
+	if got != expected 'neq'
+		panic("{label}: expected '{expected}', got '{got}'")
+	end 'neq'
+end 'assertEqStr'
+
+function hexDigit(c Byte) returns Count
+	let value = c as Count
+	if value >= 65 'upper'
+		return try value - 55 otherwise panic("not a hex digit")
+	end 'upper'
+	return try value - 48 otherwise panic("not a hex digit")
+end 'hexDigit'
+
+// emitHex appends the bytes that a string of hex digit pairs spells, so that machine code reads as its encoding.
+function emitHex(mutates code ByteArray, hex String)
+	var i = 0 as Count
+	while i < hex.byteLength() 'pairs'
+		let c = hex.byteAt(i)
+		if c != 32 'digit'
+			let hi = hexDigit(c)
+			let lo = hexDigit(hex.byteAt(try i + 1 otherwise panic("odd hex digits")))
+			code.push(try hi * 16 + lo as Byte otherwise panic("not a byte"))
+			i = try i + 2 otherwise panic("hex too long")
+		end 'digit' else 'space'
+			i = try i + 1 otherwise panic("hex too long")
+		end 'space'
+	end 'pairs'
+end 'emitHex'
+
+// emitU32 appends a 32-bit little-endian value, the immediate of an instruction.
+function emitU32(mutates code ByteArray, v Count)
+	var rest = v
+	for _ in 0 upto 4 'bytes'
+		code.push(try (rest and 255) as Byte otherwise panic("not a byte"))
+		rest = rest shr 8
+	end 'bytes'
+end 'emitU32'
+
+// emitRel32 appends the displacement from the end of the instruction being written to an address.
+function emitRel32(mutates code ByteArray, target Count, textRva Count)
+	let next = try textRva + code.count() + 4 otherwise panic("code past the address space")
+	emitU32(code, v: try target - next otherwise panic("a target before the instruction"))
+end 'emitRel32'
+
+// peExitProgram is ExitProcess(42):
+//   sub rsp, 40; mov ecx, 42; call [ExitProcess]
+function peExitProgram(image PeImage) returns ByteArray
+	var code = ByteArray.create(0)
+	emitHex(code, hex: "48 83 EC 28 B9 2A 00 00 00 FF 15")
+	emitRel32(code, target: importSlotRva(image, index: 0), textRva: image.textRva)
+	return code
+end 'peExitProgram'
+
+// peHelloProgram writes the string at the start of the data section to standard output, then ExitProcess(7):
+//   sub rsp, 56; mov ecx, -11; call [GetStdHandle]; mov rcx, rax; lea rdx, [rip+msg]; mov r8d, len
+//   lea r9, [rsp+48]; mov qword [rsp+32], 0; call [WriteFile]; mov ecx, 7; call [ExitProcess]
+function peHelloProgram(image PeImage, messageLength Count) returns ByteArray
+	var code = ByteArray.create(0)
+	emitHex(code, hex: "48 83 EC 38 B9 F5 FF FF FF FF 15")
+	emitRel32(code, target: importSlotRva(image, index: 1), textRva: image.textRva)
+	emitHex(code, hex: "48 89 C1 48 8D 15")
+	emitRel32(code, target: image.dataRva, textRva: image.textRva)
+	emitHex(code, hex: "41 B8")
+	emitU32(code, v: messageLength)
+	emitHex(code, hex: "4C 8D 4C 24 30 48 C7 44 24 20 00 00 00 00 FF 15")
+	emitRel32(code, target: importSlotRva(image, index: 2), textRva: image.textRva)
+	emitHex(code, hex: "B9 07 00 00 00 FF 15")
+	emitRel32(code, target: importSlotRva(image, index: 0), textRva: image.textRva)
+	return code
+end 'peHelloProgram'
+
+function peTempPath(name String) returns FilePath
+	let dir = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+	return try FilePath.from("{dir}\\{name}") otherwise panic("not a path")
+end 'peTempPath'
+
+// runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
+function runPeImage(image PeImage, name String, expectedCode ExitCode, expectedOutput String)
+	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
+	assertEqStr(out.stdout, expected: expectedOutput, label: name)
+end 'runPeImage'
+
+// runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
+function runPeImageOutput(image PeImage, name String, expectedCode ExitCode) returns CollectedOutput
+	let path = peTempPath(name)
+	try writePeImage(image, path: path) otherwise panic("cannot write {name}")
+	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
+	try File.delete(path) otherwise panic("cannot delete {name}")
+	if out.exitCode() != expectedCode 'code'
+		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
+	end 'code'
+	return out
+end 'runPeImageOutput'
+
+test 'pe'
+	let message = "hello from a PE written by self\n"
+	var kernel = NameList.create(0)
+	kernel.push("ExitProcess")
+	kernel.push("GetStdHandle")
+	kernel.push("WriteFile")
+	// The sections' addresses depend on their sizes only by whole pages, and the programs are far smaller than one, so
+	// a layout made for one byte of code is the layout the programs are made for.
+	let probe = buildPeImage(1, dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	let exitCode = peExitProgram(probe)
+	var exitImage = buildPeImage(exitCode.count(), dataSize: 0, dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	placeCode(exitImage, at: 0, bytes: exitCode)
+	runPeImage(exitImage, name: "minimaxon_pe_exit.exe", expectedCode: 42, expectedOutput: "")
+	let helloCode = peHelloProgram(probe, messageLength: message.byteLength())
+	var helloImage = buildPeImage(helloCode.count(), dataSize: message.byteLength(), dll: "kernel32.dll", imports: kernel, entryOffset: 0, relocated: CountList.create(0))
+	placeCode(helloImage, at: 0, bytes: helloCode)
+	placeData(helloImage, at: 0, bytes: message.toByteArray())
+	runPeImage(helloImage, name: "minimaxon_pe_hello.exe", expectedCode: 7, expectedOutput: message)
+end 'pe'
+
+function hexOf(code ByteArray) returns String
+	let digits = "0123456789abcdef"
+	var out = ByteArray.create(0)
+	for i in 0 upto code.count() 'each'
+		let b = code[i]
+		out.push(digits.byteAt(b / 16))
+		out.push(digits.byteAt(b mod 16))
+	end 'each'
+	return String.from(out)
+end 'hexOf'
+
+function expectEncoded(code ByteArray, expected String, label String)
+	let got = hexOf(code)
+	if got != expected 'mismatch'
+		panic("{label}: expected {expected}, got {got}")
+	end 'mismatch'
+end 'expectEncoded'
+
+// The bytes are those the Go compiler's assembler wrote for the same instructions, which internal/x64gen keeps and checks.
+test 'x 64 encoder'
+	let rax = X64Register.rax
+	let rcx = X64Register.rcx
+	let rbx = X64Register.rbx
+	let rsp = X64Register.rsp
+	let rbp = X64Register.rbp
+	let rsi = X64Register.rsi
+	let r8 = X64Register.r8
+	let r9 = X64Register.r9
+	let r10 = X64Register.r10
+	let r11 = X64Register.r11
+	let r12 = X64Register.r12
+	let r13 = X64Register.r13
+	let r14 = X64Register.r14
+	let r15 = X64Register.r15
+	var c = ByteArray.create(0)
+	encodeMovRegReg(c, dest: rax, src: rcx)
+	expectEncoded(c, expected: "4889c8", label: "movRegReg")
+	c = ByteArray.create(0)
+	encodeMovRegReg(c, dest: r9, src: r12)
+	expectEncoded(c, expected: "4d89e1", label: "movRegReg")
+	c = ByteArray.create(0)
+	encodeAddRegReg(c, dest: rbx, src: r15)
+	expectEncoded(c, expected: "4c01fb", label: "addRegReg")
+	c = ByteArray.create(0)
+	encodeLoadRegBaseDisp(c, dest: rax, base: rsp, disp: 8)
+	expectEncoded(c, expected: "488b442408", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	encodeLoadRegBaseDisp(c, dest: rax, base: rbp, disp: 0)
+	expectEncoded(c, expected: "488b4500", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	encodeLoadRegBaseDisp(c, dest: r13, base: r13, disp: -129)
+	expectEncoded(c, expected: "4d8bad7fffffff", label: "loadRegBaseDisp")
+	c = ByteArray.create(0)
+	encodeStoreBaseDispReg(c, base: r12, disp: 256, src: rax)
+	expectEncoded(c, expected: "4989842400010000", label: "storeBaseDispReg")
+	c = ByteArray.create(0)
+	encodeStoreBaseDispReg8(c, base: rax, disp: 0, src: rcx)
+	expectEncoded(c, expected: "8808", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	encodeStoreBaseDispReg8(c, base: rax, disp: 0, src: rsi)
+	expectEncoded(c, expected: "408830", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	encodeStoreBaseDispReg8(c, base: r8, disp: 0, src: r12)
+	expectEncoded(c, expected: "458820", label: "storeBaseDispReg8")
+	c = ByteArray.create(0)
+	encodeMovRegImm(c, dest: rax, imm: 5)
+	expectEncoded(c, expected: "b805000000", label: "movRegImm")
+	c = ByteArray.create(0)
+	encodeMovRegImm(c, dest: rax, imm: -1)
+	expectEncoded(c, expected: "48c7c0ffffffff", label: "movRegImm")
+	c = ByteArray.create(0)
+	encodeMovRegImm(c, dest: r10, imm: 1099511627776)
+	expectEncoded(c, expected: "49ba0000000000010000", label: "movRegImm")
+	c = ByteArray.create(0)
+	encodeMovRegImm(c, dest: rax, imm: -9223372036854775808)
+	expectEncoded(c, expected: "48b80000000000000080", label: "movRegImm")
+	c = ByteArray.create(0)
+	encodeAddRegImm(c, dest: rsp, imm: -16)
+	expectEncoded(c, expected: "4883c4f0", label: "addRegImm")
+	c = ByteArray.create(0)
+	encodeSubRegImm(c, dest: rsp, imm: 4096)
+	expectEncoded(c, expected: "4881ec00100000", label: "subRegImm")
+	c = ByteArray.create(0)
+	encodeCmpRegImm(c, dest: r8, imm: 127)
+	expectEncoded(c, expected: "4983f87f", label: "cmpRegImm")
+	c = ByteArray.create(0)
+	encodePushReg(c, reg: r14)
+	expectEncoded(c, expected: "4156", label: "pushReg")
+	c = ByteArray.create(0)
+	encodePopReg(c, reg: rbx)
+	expectEncoded(c, expected: "5b", label: "popReg")
+	c = ByteArray.create(0)
+	encodeSetccRax(c, cond: X64CondCode.less)
+	expectEncoded(c, expected: "0f9cc0480fb6c0", label: "setccRax")
+	c = ByteArray.create(0)
+	encodeCqo(c)
+	expectEncoded(c, expected: "4899", label: "cqo")
+	c = ByteArray.create(0)
+	encodeRepStosq(c)
+	expectEncoded(c, expected: "f348ab", label: "repStosq")
+	c = ByteArray.create(0)
+	encodeLeaRegRip(c, dest: r11, disp: 0)
+	expectEncoded(c, expected: "4c8d1d00000000", label: "leaRegRip")
+	c = ByteArray.create(0)
+	encodeCallRip(c, disp: 0)
+	expectEncoded(c, expected: "ff1500000000", label: "callRip")
+	c = ByteArray.create(0)
+	encodeJmpRel32(c, rel: 0)
+	patchRel32(c, at: lastField32(c), target: 0)
+	expectEncoded(c, expected: "e9fbffffff", label: "jmpRel32 backward")
+	c = ByteArray.create(0)
+	encodeJmpRel32(c, rel: 0)
+	let forward = lastField32(c)
+	for i in 0 upto 10 'pad'
+		c.push(0)
+	end 'pad'
+	patchRel32(c, at: forward, target: c.count())
+	expectEncoded(c, expected: "e90a00000000000000000000000000", label: "jmpRel32 forward")
+	// The atomic forms and the read of the thread's context came after the assembler, so their bytes are the Intel
+	// manual's, which internal/x64gen's literal rows also hold.
+	c = ByteArray.create(0)
+	encodeLockXaddBaseDispReg(c, base: r12, disp: 8, src: r9)
+	expectEncoded(c, expected: "f04d0fc14c2408", label: "lockXaddBaseDispReg")
+	c = ByteArray.create(0)
+	encodeXchgBaseDispReg(c, base: r13, disp: 0, src: X64Register.rdx)
+	expectEncoded(c, expected: "49875500", label: "xchgBaseDispReg")
+	c = ByteArray.create(0)
+	encodeLockCmpxchgBaseDispReg(c, base: rcx, disp: 0, src: X64Register.rdx)
+	expectEncoded(c, expected: "f0480fb111", label: "lockCmpxchgBaseDispReg")
+	c = ByteArray.create(0)
+	encodePause(c)
+	expectEncoded(c, expected: "f390", label: "pause")
+	c = ByteArray.create(0)
+	encodeLoadRegGsBaseDisp(c, dest: rax, base: rcx, disp: tebTlsSlotsOffset)
+	expectEncoded(c, expected: "65488b8180140000", label: "loadRegGsBaseDisp")
+end 'x 64 encoder'

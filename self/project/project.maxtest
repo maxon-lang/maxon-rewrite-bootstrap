@@ -1,0 +1,23 @@
+test 'project'
+	var errs = diag.ErrorList.create(0)
+	let optProj = loadProject("self", errs: errs)
+	var p as ast.Project
+	match consumes optProj 'pr'
+		some(pv) then p = pv
+		none then panic("loadProject(\"self\") returned none")
+	end 'pr'
+	if errs.count() > 0 'hasErr'
+		panic("loadProject(\"self\") reported {errs[0].format()}")
+	end 'hasErr'
+	if p.modules.count() < 6 'mods'
+		panic("expected >= 6 modules in self, got {p.modules.count()}")
+	end 'mods'
+	if not p.byPath.has("") or not p.byPath.has("ast") or not p.byPath.has("project") or not p.byPath.has("syntax") 'paths'
+		panic("expected root, ast, project, syntax modules in p.byPath")
+	end 'paths'
+	let g = newGraph(p)
+	match checkAcyclic(g, p: p) 'cyc'
+		some(ce) then panic("unexpected cycle: {ce.format()}")
+		none then _ = 0
+	end 'cyc'
+end 'project'

@@ -391,7 +391,7 @@ end 'CorpusOptions'
 // such program N times. --executables lets at most N test executables run at once. The last three flags are for the spec
 // files: one leaves out the tests that the list of the tests that pass has, one fails the run when one of them does not
 // pass, and one writes the list.
-function testCommand(rest CommandNames) returns ExitCode
+function testCommand(rest CommandNames, given Options) returns ExitCode
 	var verbose = false
 	var record = false
 	var skipPassed = false
@@ -445,6 +445,9 @@ function testCommand(rest CommandNames) returns ExitCode
 		printError("test: {recordPassedFlag}, {skipPassedFlag} and {requirePassedFlag} are for the spec files: name the specs directory\n")
 		return usageExitCode
 	end 'listFlags'
+	if hasPath and project.holdsModuleTests(path) 'modules'
+		return moduleTests(path, options: given)
+	end 'modules'
 	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'
 		if corpusFlags 'corpusFlags'

@@ -1,7 +1,3 @@
-// The backend's test: IR functions built by hand go through codegen, the entry stub, the routines, the linker and the PE
-// writer, and the executables are run. The runtime is Maxon source that comes later, so the few entries these programs call
-// are assembled here, the way a unit that the build cache holds is.
-
 type FnBuilder
 	var f as ir.IrFunction
 	var blockStart as Count
@@ -165,16 +161,16 @@ function addPairType(mutates p ast.Project) returns ast.TypeID
 end 'addPairType'
 
 // asmPrologue and asmEpilogue frame a function of the test runtime that calls Windows, which wants the stack aligned.
-function asmPrologue(mutates u backend.CodeUnit)
-	u.asm.push(backend.rbp)
-	u.asm.mov(backend.rbp, src: backend.rsp)
-	u.asm.andImm(backend.rsp, imm: -16)
-	u.asm.subImm(backend.rsp, imm: 48)
+function asmPrologue(mutates u CodeUnit)
+	u.asm.push(rbp)
+	u.asm.mov(rbp, src: rsp)
+	u.asm.andImm(rsp, imm: -16)
+	u.asm.subImm(rsp, imm: 48)
 end 'asmPrologue'
 
-function asmEpilogue(mutates u backend.CodeUnit)
-	u.asm.mov(backend.rsp, src: backend.rbp)
-	u.asm.pop(backend.rbp)
+function asmEpilogue(mutates u CodeUnit)
+	u.asm.mov(rsp, src: rbp)
+	u.asm.pop(rbp)
 	u.asm.ret()
 end 'asmEpilogue'
 
@@ -183,10 +179,10 @@ end 'asmEpilogue'
 let testLiveSymbol = "test.live"
 
 // countLive adds to the number of live boxes, keeping every register but rcx.
-function asmCountLive(mutates u backend.CodeUnit, delta backend.Imm32)
-	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
-	u.asm.addImm(backend.rcx, imm: delta)
-	u.asm.storeSymbol(testLiveSymbol, src: backend.rcx)
+function asmCountLive(mutates u CodeUnit, delta Imm32)
+	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
+	u.asm.addImm(rcx, imm: delta)
+	u.asm.storeSymbol(testLiveSymbol, src: rcx)
 end 'asmCountLive'
 
 // testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
@@ -199,45 +195,45 @@ let testPanicExitCode = 1
 // internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
 // itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
 // no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
-function runtimeUnit(count bool) returns backend.CodeUnit
-	let result = backend.x64InternalResult
-	var u = backend.CodeUnit.new()
-	u.defineData(testLiveSymbol, size: backend.wordBytes)
+function runtimeUnit(count bool) returns CodeUnit
+	let result = x64InternalResult
+	var u = CodeUnit.new()
+	u.defineData(testLiveSymbol, size: wordBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
 	asmPrologue(u)
-	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
-	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
-	u.asm.movImm(backend.rdx, imm: 8)
-	u.asm.callImport(backend.impHeapAlloc)
+	u.asm.mov(r8, src: x64InternalArg(0))
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.movImm(rdx, imm: 8)
+	u.asm.callImport(impHeapAlloc)
 	if count 'allocCount'
 		asmCountLive(u, delta: 1)
 	end 'allocCount'
-	u.asm.mov(result, src: backend.rax)
+	u.asm.mov(result, src: rax)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
 	asmPrologue(u)
 	let freed = u.asm.newLabel()
-	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
-	u.asm.test(backend.r8, right: backend.r8)
-	u.asm.jcc(backend.X64CondCode.equal, label: freed)
+	u.asm.mov(r8, src: x64InternalArg(0))
+	u.asm.test(r8, right: r8)
+	u.asm.jcc(X64CondCode.equal, label: freed)
 	if count 'freeCount'
 		asmCountLive(u, delta: -1)
 	end 'freeCount'
-	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
-	u.asm.bitXor(backend.rdx, src: backend.rdx)
-	u.asm.callImport(backend.impHeapFree)
+	u.asm.loadSymbol(rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.bitXor(rdx, src: rdx)
+	u.asm.callImport(impHeapFree)
 	u.asm.bind(freed)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
 	asmPrologue(u)
-	u.asm.mov(backend.r10, src: backend.x64InternalArg(1))
-	u.asm.mov(backend.rcx, src: backend.x64InternalArg(0))
-	u.asm.load(backend.r8, base: backend.r10, disp: 0)
-	u.asm.lea(backend.rdx, base: backend.r10, disp: 8)
-	u.asm.lea(backend.r9, base: backend.rsp, disp: 40)
-	u.asm.bitXor(backend.rax, src: backend.rax)
-	u.asm.store(backend.rsp, disp: 32, src: backend.rax)
-	u.asm.callImport(backend.impWriteFile)
+	u.asm.mov(r10, src: x64InternalArg(1))
+	u.asm.mov(rcx, src: x64InternalArg(0))
+	u.asm.load(r8, base: r10, disp: 0)
+	u.asm.lea(rdx, base: r10, disp: 8)
+	u.asm.lea(r9, base: rsp, disp: 40)
+	u.asm.bitXor(rax, src: rax)
+	u.asm.store(rsp, disp: 32, src: rax)
+	u.asm.callImport(impWriteFile)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
 	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
@@ -245,34 +241,34 @@ function runtimeUnit(count bool) returns backend.CodeUnit
 	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
 	asmPrologue(u)
 	let clean = u.asm.newLabel()
-	u.asm.mov(result, src: backend.x64InternalArg(0))
-	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
-	u.asm.test(backend.rcx, right: backend.rcx)
-	u.asm.jcc(backend.X64CondCode.equal, label: clean)
-	u.asm.movImm(backend.rcx, imm: testLeakExitCode)
-	u.asm.callImport(backend.impExitProcess)
+	u.asm.mov(result, src: x64InternalArg(0))
+	u.asm.loadSymbol(rcx, symbol: testLiveSymbol)
+	u.asm.test(rcx, right: rcx)
+	u.asm.jcc(X64CondCode.equal, label: clean)
+	u.asm.movImm(rcx, imm: testLeakExitCode)
+	u.asm.callImport(impExitProcess)
 	u.asm.bind(clean)
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtSchedDrain))
 	asmPrologue(u)
-	u.asm.mov(result, src: backend.x64InternalArg(0))
+	u.asm.mov(result, src: x64InternalArg(0))
 	asmEpilogue(u)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
 	u.asm.ret()
 	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
 	asmPrologue(u)
-	u.asm.movImm(backend.rcx, imm: testPanicExitCode)
-	u.asm.callImport(backend.impExitProcess)
+	u.asm.movImm(rcx, imm: testPanicExitCode)
+	u.asm.callImport(impExitProcess)
 	return u
 end 'runtimeUnit'
 
 // runIr links the functions with the entry stub and the test runtime, and runs the executable.
 function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, count bool, name String, expectedCode ExitCode, expectedOutput String)
-	var modules = backend.FunctionLists.create(0)
+	var modules = FunctionLists.create(0)
 	modules.push(fns.clone())
-	var ready = backend.UnitList.create(0)
+	var ready = UnitList.create(0)
 	ready.push(runtimeUnit(count))
-	let linked = backend.buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
+	let linked = buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(count), mapsSymbols: false)
 	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
 end 'runIr'
 
@@ -291,11 +287,11 @@ let faultPanicPrefix = "panic: stack overflow at rip=0x"
 function testStackOverflow(mutates p ast.Project)
 	let id = addFunction(p, name: "main", errTy: ast.noType)
 	let name = "minimaxon_cg_overflow.exe"
-	var modules = backend.FunctionLists.create(0)
+	var modules = FunctionLists.create(0)
 	modules.push(oneFunction(overflowMain(id)))
-	var ready = backend.UnitList.create(0)
+	var ready = UnitList.create(0)
 	ready.push(runtimeUnit(false))
-	let linked = backend.buildProgram(p, modules: modules, ready: freeze(ready), entry: id, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
+	let linked = buildProgram(p, modules: modules, ready: freeze(ready), entry: id, options: RuntimeOptions.make(false), mapsSymbols: false)
 	let out = runPeImageOutput(linked.image, name: name, expectedCode: testPanicExitCode)
 	var shown = out.stderr.byteLength()
 	if shown > faultPanicPrefix.byteLength() 'longer'
@@ -303,24 +299,6 @@ function testStackOverflow(mutates p ast.Project)
 	end 'longer'
 	assertEqStr(out.stderr.sliceBytes(0, endPos: shown), expected: faultPanicPrefix, label: name)
 end 'testStackOverflow'
-
-// longChainTerms is a number of terms whose left-leaning tree no recursion over it could hold: the stack would need
-// about 5 KB for each.
-let longChainTerms = 200000 as Count
-
-// testLongChain compiles a main that returns the sum of a long chain of terms, which every pass must walk with a loop.
-function testLongChain()
-	var text = ByteArray.create(0)
-	text.append("function main() returns ExitCode\n\tlet a = 1\n\tlet n = a".toByteArray())
-	for i in 1 upto longChainTerms 'terms'
-		text.append(" + a".toByteArray())
-	end 'terms'
-	text.append("\n\treturn 0 if n == {longChainTerms} else 1\nend 'main'\n".toByteArray())
-	let errs = driver.lowerSource("long-chain.maxon", text: String.from(text))
-	if errs.count() > 0 'failed'
-		panic("a chain of {longChainTerms} terms was refused: {errs[0].format()}")
-	end 'failed'
-end 'testLongChain'
 
 // arithmeticMain returns 42 by way of every operator, a check, a guard and a branch; it returns 1 when one of them is wrong.
 function arithmeticMain(decl ast.FuncID) returns ir.IrFunction
@@ -676,7 +654,7 @@ function oneFunction(consumes f ir.IrFunction) returns ir.IrFunctionList
 	return list
 end 'oneFunction'
 
-function testCodegen()
+test 'codegen'
 	var p = ast.Project.new("self")
 	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
 	let mainId = addFunction(p, name: "main", errTy: ast.noType)
@@ -700,5 +678,4 @@ function testCodegen()
 	let rawId = addFunction(p, name: "main", errTy: ast.noType)
 	runIr(p, fns: oneFunction(rawMain(rawId)), entry: rawId, count: false, name: "minimaxon_cg_raw.exe", expectedCode: 42, expectedOutput: "raw\n")
 	testStackOverflow(p)
-	testLongChain()
-end 'testCodegen'
+end 'codegen'

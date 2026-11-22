@@ -1,0 +1,603 @@
+// The build cache: a module's code unit, kept on disk under a key that holds everything the unit is made from, so that a
+// compile whose module has the same key links the kept unit and runs none of the module's stages after its constants.
+//
+// key(M)     = digest(base, M's path, M's source: every file's name and bytes, and the summary of each module M names)
+// summary(M) = digest(M's public text, the IR of M's leaves, and the summary of each module M names)
+//
+// base is the compiler (the digest of its executable), the target, the options that change what a module compiles to and,
+// for a program, the runtime's source. A module's public text is its source with the body of each function that no other
+// module copies left out (publicDigest): what another module reads of M is its declarations, its constants, its generics'
+// and extensions' bodies and the IR of its leaves, which a caller inlines, so an edit of any other body changes M's key and
+// no summary, and the modules that name M keep their keys. A module whose stages found an error never gets an entry.
+
+// cacheVariable names the environment variable that names the cache's directory, or turns the cache off.
+let cacheVariable = "MINIMAXON_CACHE"
+
+let cacheOff = "off"
+
+// defaultCacheFolder is where the cache is under the user's local application data when cacheVariable names none: one
+// cache for every project, as its keys name what made each entry.
+let defaultCacheFolder = "minimaxon\\cache"
+
+let localDataVariable = "LOCALAPPDATA"
+
+// entryMagic and entryFormat begin every entry, so that a file of another kind or of an earlier layout is no entry.
+let entryMagic = "minimaxon build cache entry"
+
+let entryFormat = 1 as Count
+
+let entryExtension = ".entry"
+
+let temporaryExtension = ".tmp"
+
+// cacheDirectory is the directory of the build cache, made if it is not there, or nothing when the environment turns the
+// cache off.
+function cacheDirectory() returns String
+	let named = try Process.environmentVariable(cacheVariable) otherwise ""
+	if named == cacheOff 'off'
+		return ""
+	end 'off'
+	var dir = named.clone()
+	if dir == "" 'default'
+		let local = try Process.environmentVariable(localDataVariable) otherwise ""
+		if local == "" 'nowhere'
+			return ""
+		end 'nowhere'
+		dir = project.joinPath(local, name: defaultCacheFolder)
+	end 'default'
+	if not makeDirectories(dir) 'unmade'
+		return ""
+	end 'unmade'
+	return dir
+end 'cacheDirectory'
+
+// makeDirectories makes dir and the directories above it that are not there, and is whether dir is there then.
+function makeDirectories(dir String) returns bool
+	if project.isDirectoryPath(dir) 'there'
+		return true
+	end 'there'
+	let above = project.parentDir(dir)
+	if above != dir and above != "." and not makeDirectories(above) 'aboveUnmade'
+		return false
+	end 'aboveUnmade'
+	let path = try FilePath.from(dir) otherwise return false
+	_ = Directory.create(path)
+	return project.isDirectoryPath(dir)
+end 'makeDirectories'
+
+// compilerIdentity is the digest of the compiler's own executable, which every key holds, so that a compiler never reads what
+// another made.
+function compilerIdentity() returns table.Digest
+	let exe = try Process.executablePath() otherwise panic("driver: the compiler's own path is unavailable")
+	let bytes = try File.readText(exe) otherwise panic("driver: the compiler cannot read its own executable")
+	var h = table.Hasher.new()
+	h.addText(bytes)
+	return h.digest()
+end 'compilerIdentity'
+
+// CacheSetup is how a compile uses the cache: its directory (none when the compile uses no cache), the digest of what every
+// key of the compile holds, and whether the compile compiles every module and holds what it makes to the entries it finds
+// (--verify-cache), rather than linking them.
+type CacheSetup
+	var dir as String
+	var base as table.Digest
+	var verifies as bool
+	// speculates takes the summary that a module whose source changed made the last time its shown text and the summaries of
+	// the modules it names were what they are (speculationKey) for the one it will make, so that the modules that name it find
+	// their entries before it is lowered; a compile whose module then makes another is done again without (finishCompile).
+	var speculates as bool
+
+	static function off() returns CacheSetup
+		return CacheSetup{dir: "", base: table.Digest.none(), verifies: false, speculates: false}
+	end 'off'
+
+	static function make(consumes dir String, consumes base table.Digest, verifies bool, speculates bool) returns CacheSetup
+		return CacheSetup{dir: dir, base: base, verifies: verifies, speculates: speculates}
+	end 'make'
+
+	function enabled() returns bool
+		return dir != ""
+	end 'enabled'
+end 'CacheSetup'
+
+// cacheSetupOf is how a compile of the modules of p from first on, with options, uses the cache. A compile that writes the IR or
+// verifies it needs every module's, so it uses none.
+function cacheSetupOf(p ast.Project, first Count, options Options) returns CacheSetup
+	if options.cacheDir == "" or options.emitIr or options.verifyIr 'off'
+		return CacheSetup.off()
+	end 'off'
+	var h = table.Hasher.new()
+	h.addText(entryMagic)
+	h.addCount(entryFormat)
+	h.addDigest(options.compiler)
+	h.addText(p.target.os)
+	h.addText(p.target.arch)
+	h.addBool(options.countAllocations)
+	if first > 0 and p.modules[0].isRuntime 'program'
+		h.addDigest(sourceDigest(p.modules[0].path, text: p.modules[0].tree.text, files: p.modules[0].files))
+	end 'program'
+	return CacheSetup.make(options.cacheDir.clone(), base: h.digest(), verifies: options.verifiesCache, speculates: options.speculates and not options.verifiesCache)
+end 'cacheSetupOf'
+
+// ModuleDigests are what a module's key and summary are made from: its source and its public text, which its parse makes, and
+// its summary, which its lower makes or the entry it was compiled from holds.
+type ModuleDigests
+	var source as table.Digest
+	var shown as table.Digest
+	var summary as table.Digest
+
+	static function none() returns ModuleDigests
+		return ModuleDigests{source: table.Digest.none(), shown: table.Digest.none(), summary: table.Digest.none()}
+	end 'none'
+end 'ModuleDigests'
+
+// sourceDigest is the digest of a module's source: its path, and each file's name and bytes, in order.
+function sourceDigest(path String, text String, files ast.FileSpanList) returns table.Digest
+	var h = table.Hasher.new()
+	h.addText(path)
+	for i in 0 upto files.count() 'files'
+		h.addText(project.lastComponent(files[i].path))
+		h.addRange(text, begin: files[i].start as Count, finish: files[i].endOff as Count)
+	end 'files'
+	return h.digest()
+end 'sourceDigest'
+
+// publicDigest is the digest of a module's public text: its source without its comment lines and without the body of each
+// function, method or test that another module never copies: one that uses no type parameter and stands in no type that does,
+// in no interface and in no extension. The layout is part of the language, so a function's header is one line and its body the
+// lines below it up to the `end` at the header's indentation.
+function publicDigest(path String, text String, files ast.FileSpanList) returns table.Digest
+	var h = table.Hasher.new()
+	h.addText(path)
+	for i in 0 upto files.count() 'files'
+		h.addText(project.lastComponent(files[i].path))
+		addPublicText(h, text: text, begin: files[i].start as Count, finish: files[i].endOff as Count)
+	end 'files'
+	return h.digest()
+end 'publicDigest'
+
+// Indents are the indentations of the types, interfaces and extensions a line stands in.
+typealias Indents = Array with Count
+
+function addPublicText(mutates h table.Hasher, text String, begin Count, finish Count)
+	var scopes = Indents.create(0)
+	var copied = Placed.create(0)
+	var at = begin
+	while at < finish 'lines'
+		let lineEnd = endOfLine(text, at: at, finish: finish)
+		let tabs = indentOf(text, at: at, lineEnd: lineEnd)
+		let start = try at + tabs otherwise panic("driver: a line past memory")
+		var next = lineEnd
+		next = try lineEnd + 1 otherwise panic("driver: a line past memory")
+		if start < lineEnd and not startsWith(text, at: start, prefix: "//") 'code'
+			h.addRange(text, begin: at, finish: lineEnd)
+			let content = afterModifiers(text, at: start, lineEnd: lineEnd)
+			if scopes.count() > 0 and tabs == scopes[ir.pred(scopes.count())] and startsWith(text, at: start, prefix: "end '") 'close'
+				_ = try scopes.pop() otherwise panic("driver: no scope to close")
+				_ = try copied.pop() otherwise panic("driver: no scope to close")
+			end 'close' else if opensScope(text, at: content) 'open'
+				scopes.push(tabs)
+				copied.push(startsWith(text, at: content, prefix: "interface ") or startsWith(text, at: content, prefix: "extension ") or usesTypeParameters(text, at: content, lineEnd: lineEnd))
+			end 'open' else if isFunctionHeader(text, at: content) and not inCopiedScope(copied) and not usesTypeParameters(text, at: content, lineEnd: lineEnd) 'function'
+				next = bodyEnd(text, after: next, finish: finish, tabs: tabs)
+			end 'function'
+		end 'code'
+		at = next
+	end 'lines'
+end 'addPublicText'
+
+function inCopiedScope(copied Placed) returns bool
+	for i in 0 upto copied.count() 'scopes'
+		if copied[i] 'copied'
+			return true
+		end 'copied'
+	end 'scopes'
+	return false
+end 'inCopiedScope'
+
+// bodyEnd is where the line of the end of a function whose header is indented tabs and whose body starts at after begins: the
+// first line below it that is indented no deeper. A header with no lines below it deeper has no body, and nothing is left out.
+function bodyEnd(text String, after Count, finish Count, tabs Count) returns Count
+	var at = after
+	while at < finish 'lines'
+		let lineEnd = endOfLine(text, at: at, finish: finish)
+		let indent = indentOf(text, at: at, lineEnd: lineEnd)
+		let start = try at + indent otherwise panic("driver: a line past memory")
+		if start < lineEnd and not startsWith(text, at: start, prefix: "//") and indent <= tabs 'shallow'
+			if indent == tabs and startsWith(text, at: start, prefix: "end '") and at > after 'end'
+				return at
+			end 'end'
+			return after
+		end 'shallow'
+		at = try lineEnd + 1 otherwise panic("driver: a line past memory")
+	end 'lines'
+	return after
+end 'bodyEnd'
+
+function endOfLine(text String, at Count, finish Count) returns Count
+	var i = at
+	while i < finish and text.byteAt(i) != newlineByte 'scan'
+		i = try i + 1 otherwise panic("driver: a line past memory")
+	end 'scan'
+	return i
+end 'endOfLine'
+
+function indentOf(text String, at Count, lineEnd Count) returns Count
+	var i = at
+	while i < lineEnd and text.byteAt(i) == tabByte 'tabs'
+		i = try i + 1 otherwise panic("driver: a line past memory")
+	end 'tabs'
+	return try i - at otherwise panic("driver: a line that ends before it starts")
+end 'indentOf'
+
+function startsWith(text String, at Count, prefix String) returns bool
+	let n = prefix.byteLength()
+	let left = try text.byteLength() - at otherwise 0
+	if left < n 'short'
+		return false
+	end 'short'
+	for i in 0 upto n 'bytes'
+		if text.byteAt(try at + i otherwise panic("driver: a line past memory")) != prefix.byteAt(i) 'differs'
+			return false
+		end 'differs'
+	end 'bytes'
+	return true
+end 'startsWith'
+
+// afterModifiers is where a declaration's keyword starts on a line that starts at at: after `export`, `public` and `static`.
+function afterModifiers(text String, at Count, lineEnd Count) returns Count
+	var i = at
+	var more = true
+	while more 'modifiers'
+		more = false
+		if startsWith(text, at: i, prefix: "export ") 'export'
+			i = try i + 7 otherwise panic("driver: a line past memory")
+			more = true
+		end 'export' else if startsWith(text, at: i, prefix: "public ") 'public'
+			i = try i + 7 otherwise panic("driver: a line past memory")
+			more = true
+		end 'public' else if startsWith(text, at: i, prefix: "static ") 'static'
+			i = try i + 7 otherwise panic("driver: a line past memory")
+			more = true
+		end 'static'
+	end 'modifiers'
+	return i
+end 'afterModifiers'
+
+function opensScope(text String, at Count) returns bool
+	return startsWith(text, at: at, prefix: "type ") or startsWith(text, at: at, prefix: "union ") or startsWith(text, at: at, prefix: "enum ") or startsWith(text, at: at, prefix: "interface ") or startsWith(text, at: at, prefix: "extension ")
+end 'opensScope'
+
+function isFunctionHeader(text String, at Count) returns bool
+	return startsWith(text, at: at, prefix: "function ") or startsWith(text, at: at, prefix: "test '")
+end 'isFunctionHeader'
+
+// usesTypeParameters is whether the declaration on the line from at to lineEnd declares type parameters.
+function usesTypeParameters(text String, at Count, lineEnd Count) returns bool
+	var i = at
+	while i < lineEnd 'scan'
+		if startsWith(text, at: i, prefix: " uses ") 'uses'
+			return true
+		end 'uses'
+		i = try i + 1 otherwise panic("driver: a line past memory")
+	end 'scan'
+	return false
+end 'usesTypeParameters'
+
+// leafDigest is the digest of the IR of the leaves among fns, a module's functions as its lower ended, which a module that
+// names it copies into its own code: the IR's text names functions and types by their link names, never by a handle.
+function leafDigest(p ast.Project, ms ast.ModuleState, fns ir.IrFunctionList, leaves opt.Leaves) returns table.Digest
+	var h = table.Hasher.new()
+	for i in 0 upto fns.count() 'functions'
+		if leaves.holds(fns[i].decl) 'leaf'
+			h.addText(ir.irText(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, f: fns[i]))
+		end 'leaf'
+	end 'functions'
+	return h.digest()
+end 'leafDigest'
+
+// Summaries are the summaries of the modules a compile compiles, by their place among them.
+typealias Summaries = Array with table.Digest
+
+// summariesOf are the summaries that known holds.
+function summariesOf(known Known) returns Summaries
+	var summaries = Summaries.create(0)
+	for k in 0 upto known.count() 'modules'
+		summaries.push(known[k].digests.summary.clone())
+	end 'modules'
+	return summaries
+end 'summariesOf'
+
+// summaryOf is the summary of module m of p, whose digests are own, from its leaves' digest and the summaries of the modules it
+// names that the compile compiles.
+function summaryOf(c Compile, p ast.Project, m Count, own ModuleDigests, leaves table.Digest, summaries Summaries) returns table.Digest
+	var h = table.Hasher.new()
+	h.addText("summary")
+	h.addDigest(own.shown)
+	h.addDigest(leaves)
+	addNamedSummaries(h, c: c, p: p, m: m, summaries: summaries)
+	return h.digest()
+end 'summaryOf'
+
+// keyOf is the key of module m of p, whose digests are own, from the summaries of the modules it names.
+function keyOf(c Compile, p ast.Project, m Count, own ModuleDigests, summaries Summaries) returns table.Digest
+	var h = table.Hasher.new()
+	h.addDigest(c.cache.base)
+	h.addText(p.modules[m].path)
+	h.addDigest(own.source)
+	addNamedSummaries(h, c: c, p: p, m: m, summaries: summaries)
+	return h.digest()
+end 'keyOf'
+
+function addNamedSummaries(mutates h table.Hasher, c Compile, p ast.Project, m Count, summaries Summaries)
+	for j in 0 upto p.resolutions[m].deps.count() 'deps'
+		let d = ast.modIndex(p.resolutions[m].deps[j].module)
+		if d >= c.first and d != m 'compiled'
+			h.addText(p.modules[d].path)
+			h.addDigest(summaries[c.slotOf(d)])
+		end 'compiled'
+	end 'deps'
+end 'addNamedSummaries'
+
+// CachedEntry is an entry of the cache as a compile found it: the summary of the module it was made for and its unit's bytes,
+// with their digest.
+// FoundEntry is the entry found under a module's key, or none.
+typealias FoundEntry = table.Option with CachedEntry
+
+type CachedEntry
+	var summary as table.Digest
+	var check as table.Digest
+	var payload as String
+
+	static function make(consumes summary table.Digest, consumes check table.Digest, consumes payload String) returns CachedEntry
+		return CachedEntry{summary: summary, check: check, payload: payload}
+	end 'make'
+end 'CachedEntry'
+
+function entryPath(dir String, key table.Digest) returns String
+	return project.joinPath(dir, name: "{key.hex()}{entryExtension}")
+end 'entryPath'
+
+// readEntry is the entry of the cache at dir under key, or nothing when there is none, or a file there that is no whole entry
+// of this layout under that key, which is then no entry.
+function readEntry(dir String, key table.Digest) returns table.Option with CachedEntry
+	let path = try FilePath.from(entryPath(dir, key: key)) otherwise return table.Option.none
+	let text = try File.readText(path) otherwise return table.Option.none
+	var r = table.ByteReader.of(text)
+	let magic = r.text()
+	let format = r.count()
+	let found = r.digest()
+	let summary = r.digest()
+	let check = r.digest()
+	let payload = r.text()
+	if r.broken or not r.atEnd() or magic != entryMagic or format != entryFormat or not found.equals(key) 'none'
+		return table.Option.none
+	end 'none'
+	return table.Option.some(CachedEntry.make(summary, check: check, payload: payload))
+end 'readEntry'
+
+// writeEntry keeps unit, of a module whose summary is summary, in the cache at dir under key: written whole to a file of its
+// own and renamed over the entry's name, so that no reader meets half of it. An entry that another compile wrote first is
+// the same bytes, and is kept.
+function writeEntry(dir String, key table.Digest, summary table.Digest, unit backend.CodeUnit)
+	var body = table.ByteWriter.new()
+	backend.writeUnit(unit, w: body)
+	var check = table.Hasher.new()
+	check.addBytes(body.bytes)
+	var w = table.ByteWriter.new()
+	w.text(entryMagic)
+	w.count(entryFormat)
+	w.digest(key)
+	w.digest(summary)
+	w.digest(check.digest())
+	w.run(body.bytes)
+	writeWhole(entryPath(dir, key: key), bytes: w.bytes)
+end 'writeEntry'
+
+// unitOf is the unit that the entry found under key holds.
+function unitOf(found table.Option with CachedEntry, dir String, key table.Digest) returns backend.CodeUnit
+	return match found 'f'
+		some(entry) gives unitIn(entry, dir: dir, key: key)
+		none panic("driver: the unit of an entry that was not found")
+	end 'f'
+end 'unitOf'
+
+// unitIn is the unit that entry, found under key, holds; an entry whose bytes are not those it was written with is damage of
+// the cache that no compile can go on from, as the module's stages that would make its unit did not run.
+function unitIn(entry CachedEntry, dir String, key table.Digest) returns backend.CodeUnit
+	var check = table.Hasher.new()
+	check.addText(entry.payload)
+	var r = table.ByteReader.of(entry.payload.clone())
+	let unit = backend.readUnit(r)
+	if not check.digest().equals(entry.check) or r.broken or not r.atEnd() 'damaged'
+		panic("driver: the build cache's entry {entryPath(dir, key: key)} is damaged; delete it")
+	end 'damaged'
+	return unit
+end 'unitIn'
+
+// holdToEntry holds unit, which the emit of the module at path made where the compile verifies the cache, to the unit of the
+// entry found under its key: a difference is a fault of the key, which leaves out something the unit is made from.
+function holdToEntry(found table.Option with CachedEntry, unit backend.CodeUnit, path String)
+	var body = table.ByteWriter.new()
+	backend.writeUnit(unit, w: body)
+	let made = String.from(body.bytes)
+	let kept = match found 'f'
+		some(entry) gives entry.payload.clone()
+		none panic("driver: a unit is held to an entry that was not found")
+	end 'f'
+	if made != kept 'differs'
+		panic("driver: module {path} compiles to another unit than the build cache's entry under its key, so its key leaves out something its unit is made from")
+	end 'differs'
+end 'holdToEntry'
+
+// CachePlan is what the order decides for one module from the cache: its key and the entry under it, where it could know
+// them, and how far its stages run.
+type CachePlan
+	var key as table.Digest
+	var found as table.Option with CachedEntry
+	var reach as Reach
+	// speculated is the summary the module is taken to make, where its key finds no entry and speculationKey a summary.
+	var speculated as bool
+	var summary as table.Digest
+
+	static function make(reach Reach) returns CachePlan
+		return CachePlan{key: table.Digest.none(), found: FoundEntry.none, reach: reach, speculated: false, summary: table.Digest.none()}
+	end 'make'
+end 'CachePlan'
+
+// planModules is, by place among the modules the compile compiles, what the order decides from the cache, in order, the
+// modules of p sorted each after the modules it names, of which reached are compiled past their resolve. A module is settled
+// when every module it names is and the cache holds an entry under its key, whose summary it then has. A module that is not
+// settled, and every module it names, directly or not, are checked and lowered, since it may instantiate a generic or inline
+// a leaf of any of them; a settled module that none of them reaches runs nothing after its constants, and its emit links the
+// entry's unit (Reach.loaded). A compile that verifies the cache checks and lowers every module.
+function planModules(c Compile, p ast.Project, order check.ModuleOrder, known Known, reached Placed) returns Array with CachePlan
+	var plans as Array with CachePlan
+	plans = Array.create(0)
+	for slot in 0 upto c.modules 'modules'
+		var reach = Reach.whole
+		if not reached[c.moduleOf(slot)] 'unreached'
+			reach = Reach.resolved
+		end 'unreached'
+		plans.push(CachePlan.make(reach))
+	end 'modules'
+	if not c.cache.enabled() 'off'
+		return plans
+	end 'off'
+	var summaries = Summaries.create(0)
+	var settled = Placed.create(0)
+	for _ in 0 upto c.modules 'none'
+		summaries.push(table.Digest.none())
+		settled.push(false)
+	end 'none'
+	for i in 0 upto order.count() 'probe'
+		let m = ast.modIndex(order[i])
+		let slot = c.slotOf(m)
+		if reached[m] and namedSettled(c, p: p, m: m, settled: settled, plans: plans) 'named'
+			let key = keyOf(c, p: p, m: m, own: known[slot].digests, summaries: summaries)
+			plans[slot].key = key.clone()
+			plans[slot].found = readEntry(c.cache.dir, key: key)
+			if plans[slot].found.isSome() 'hit'
+				settled[slot] = true
+				summaries[slot] = foundSummary(plans[slot].found)
+			end 'hit' else if c.cache.speculates 'speculate'
+				match readSpeculation(c.cache.dir, key: speculationKey(c, p: p, m: m, own: known[slot].digests, summaries: summaries)) 'last'
+					some(summary) then speculate(plans[slot], summaries: summaries, slot: slot, summary: summary)
+					none then _ = 0
+				end 'last'
+			end 'speculate'
+		end 'named'
+	end 'probe'
+	var checked = Placed.create(0)
+	var pending = TaskIDs.create(0)
+	for slot in 0 upto c.modules 'unsettled'
+		let unsettled = reached[c.moduleOf(slot)] and not settled[slot]
+		checked.push(unsettled or c.cache.verifies)
+		if unsettled 'pending'
+			pending.push(c.moduleOf(slot))
+		end 'pending'
+	end 'unsettled'
+	while pending.count() > 0 'closure'
+		let m = try pending.pop() otherwise panic("driver: the pending modules ran out")
+		for j in 0 upto p.resolutions[m].deps.count() 'deps'
+			let d = ast.modIndex(p.resolutions[m].deps[j].module)
+			if d >= c.first and not checked[c.slotOf(d)] 'new'
+				checked[c.slotOf(d)] = true
+				pending.push(d)
+			end 'new'
+		end 'deps'
+	end 'closure'
+	for slot in 0 upto c.modules 'loaded'
+		if settled[slot] and not checked[slot] 'loaded'
+			plans[slot].reach = Reach.loaded
+		end 'loaded'
+	end 'loaded'
+	return plans
+end 'planModules'
+
+// namedSettled is whether every module that module m of p names, and the compile compiles, is settled, or is taken to make the
+// summary it made the last time.
+function namedSettled(c Compile, p ast.Project, m Count, settled Placed, plans Array with CachePlan) returns bool
+	for j in 0 upto p.resolutions[m].deps.count() 'deps'
+		let d = ast.modIndex(p.resolutions[m].deps[j].module)
+		if d >= c.first and d != m and not settled[c.slotOf(d)] and not plans[c.slotOf(d)].speculated 'open'
+			return false
+		end 'open'
+	end 'deps'
+	return true
+end 'namedSettled'
+
+// withCache is options with the build cache that the environment names, unless the command line turned it off or the compile
+// writes or verifies the IR, which needs every module's.
+function withCache(options Options) returns Options
+	var cached = options.clone()
+	if not options.usesCache or options.emitIr or options.verifyIr 'off'
+		return cached
+	end 'off'
+	cached.cacheDir = cacheDirectory()
+	if cached.cacheDir != "" 'on'
+		cached.compiler = compilerIdentity()
+		cached.speculates = true
+	end 'on'
+	return cached
+end 'withCache'
+
+// speculate takes summary, which a module made the last time its shown text and the summaries of the modules it names were what
+// they are, for the summary the module at slot will make.
+function speculate(mutates plan CachePlan, mutates summaries Summaries, slot Count, summary table.Digest)
+	plan.speculated = true
+	plan.summary = summary.clone()
+	summaries[slot] = summary.clone()
+end 'speculate'
+
+// speculationKey is what names the summary that module m of p, whose digests are own, made the last time its shown text and the
+// summaries of the modules it names were what they are: its summary differs from it only where the IR of a leaf did.
+function speculationKey(c Compile, p ast.Project, m Count, own ModuleDigests, summaries Summaries) returns table.Digest
+	var h = table.Hasher.new()
+	h.addDigest(c.cache.base)
+	h.addText("speculation")
+	h.addText(p.modules[m].path)
+	h.addDigest(own.shown)
+	addNamedSummaries(h, c: c, p: p, m: m, summaries: summaries)
+	return h.digest()
+end 'speculationKey'
+
+let speculationExtension = ".summary"
+
+function speculationPath(dir String, key table.Digest) returns String
+	return project.joinPath(dir, name: "{key.hex()}{speculationExtension}")
+end 'speculationPath'
+
+// readSpeculation is the summary kept under key, or nothing.
+function readSpeculation(dir String, key table.Digest) returns table.Option with table.Digest
+	let path = try FilePath.from(speculationPath(dir, key: key)) otherwise return table.Option.none
+	let text = try File.readText(path) otherwise return table.Option.none
+	var r = table.ByteReader.of(text)
+	let magic = r.text()
+	let found = r.digest()
+	let summary = r.digest()
+	if r.broken or not r.atEnd() or magic != entryMagic or not found.equals(key) 'none'
+		return table.Option.none
+	end 'none'
+	return table.Option.some(summary)
+end 'readSpeculation'
+
+// writeSpeculation keeps the summary a module made under key, written whole and renamed over its name.
+function writeSpeculation(dir String, key table.Digest, summary table.Digest)
+	var w = table.ByteWriter.new()
+	w.text(entryMagic)
+	w.digest(key)
+	w.digest(summary)
+	writeWhole(speculationPath(dir, key: key), bytes: w.bytes)
+end 'writeSpeculation'
+
+// writeWhole writes bytes to a file of its own beside path and renames it over path, so that no reader meets half of it; a
+// file that another compile wrote there first holds the same bytes, and is kept.
+function writeWhole(path String, bytes ByteArray)
+	let temporary = "{path}.{Process.id()}{temporaryExtension}"
+	let temporaryPath = try FilePath.from(temporary) otherwise return
+	let finalPath = try FilePath.from(path) otherwise return
+	try File.writeBinary(temporaryPath.clone(), content: bytes) otherwise return
+	try File.rename(temporaryPath.clone(), to: finalPath) otherwise ignore
+	try File.delete(temporaryPath) otherwise ignore
+end 'writeWhole'

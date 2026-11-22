@@ -1,0 +1,164 @@
+type FnBuilder
+	var f as IrFunction
+	var blockStart as Count
+
+	static function new(decl ast.FuncID, consumes name String, paramCount Count) returns FnBuilder
+		return FnBuilder{f: IrFunction.new(decl, name: name, paramCount: paramCount), blockStart: 0 as Count}
+	end 'new'
+
+	function reg(mutates self) returns Reg
+		let index = try f.regs.count() as Reg otherwise panic("too many registers")
+		f.regs.push(IrKind.kindScalar)
+		return index
+	end 'reg'
+
+	function slot(mutates self, kind IrKind) returns Count
+		let index = f.slots.count()
+		f.slots.push(kind)
+		return index
+	end 'slot'
+
+	function emit(mutates self, consumes instr Instr)
+		f.instrs.push(instr)
+	end 'emit'
+
+	function constant(mutates self, value Word) returns Reg
+		let dst = self.reg()
+		self.emit(newConst(dst, value: value))
+		return dst
+	end 'constant'
+
+	function bin(mutates self, op BinOp, left Reg, right Reg, unsigned bool, fail BlockID) returns Reg
+		let dst = self.reg()
+		self.emit(newBin(dst, op: op, left: left, right: right, unsigned: unsigned, fail: fail))
+		return dst
+	end 'bin'
+
+	function add(mutates self, left Reg, right Reg) returns Reg
+		return self.bin(BinOp.binAdd, left: left, right: right, unsigned: false, fail: noBlock)
+	end 'add'
+
+	function cmp(mutates self, op CmpOp, left Reg, right Reg, unsigned bool) returns Reg
+		let dst = self.reg()
+		self.emit(newCmp(dst, op: op, left: left, right: right, unsigned: unsigned))
+		return dst
+	end 'cmp'
+
+	function str(mutates self, text String) returns Reg
+		let dst = self.reg()
+		let at = try f.strings.count() as Index otherwise panic("too many strings")
+		f.strings.push(text.clone())
+		self.emit(newStr(dst, text: at))
+		return dst
+	end 'str'
+
+	function typeIndex(mutates self, ty ast.TypeID) returns Index
+		let at = try f.types.count() as Index otherwise panic("too many types")
+		f.types.push(ty)
+		return at
+	end 'typeIndex'
+
+	function calleeIndex(mutates self, callee ast.FuncID) returns Index
+		let at = try f.callees.count() as Index otherwise panic("too many callees")
+		f.callees.push(callee)
+		return at
+	end 'calleeIndex'
+
+	// pushArgs adds the registers to the pool of arguments and gives where they start.
+	function pushArgs(mutates self, args RegList) returns Reg
+		let start = try f.args.count() as Reg otherwise panic("too many arguments")
+		for i in 0 upto args.count() 'each'
+			f.args.push(args[i])
+		end 'each'
+		return start
+	end 'pushArgs'
+
+	function call(mutates self, callee ast.FuncID, args RegList, errReg Reg) returns Reg
+		let dst = self.reg()
+		let count = try args.count() as Reg otherwise panic("too many arguments")
+		let start = self.pushArgs(args)
+		let calleeAt = self.calleeIndex(callee)
+		self.emit(newCall(dst, callee: calleeAt, argsStart: start, argsCount: count, errReg: errReg))
+		return dst
+	end 'call'
+
+	function alloc(mutates self, bytes Count) returns Reg
+		let dst = self.reg()
+		self.emit(newAlloc(dst, bytes: bytes))
+		return dst
+	end 'alloc'
+
+	function storeWord(mutates self, obj Reg, offset Count, src Reg)
+		self.emit(newStoreField(obj, offset: offset, src: src))
+	end 'storeWord'
+
+	function loadWord(mutates self, obj Reg, offset Count) returns Reg
+		let dst = self.reg()
+		self.emit(newLoadField(dst, obj: obj, offset: offset))
+		return dst
+	end 'loadWord'
+
+	function copyOf(mutates self, src Reg, ty ast.TypeID) returns Reg
+		let dst = self.reg()
+		let at = self.typeIndex(ty)
+		self.emit(newCopy(dst, src: src, ty: at))
+		return dst
+	end 'copyOf'
+
+	function drop(mutates self, src Reg, ty ast.TypeID)
+		let at = self.typeIndex(ty)
+		self.emit(newDrop(src, ty: at))
+	end 'drop'
+
+	// finish ends the block that the instructions since the last one make.
+	function finish(mutates self, consumes term Term)
+		let endAt = f.instrs.count()
+		f.blocks.push(Block.make(blockStart, endAt: endAt, params: 0, paramCount: 0, term: term))
+		blockStart = endAt
+	end 'finish'
+end 'FnBuilder'
+
+function block(index Count) returns BlockID
+	return try index as BlockID otherwise panic("too many blocks")
+end 'block'
+
+typealias ConvList = Array with ast.Convention
+
+function interpFunction(mutates p ast.Project, name String, convs ConvList) returns ast.FuncID
+	var tree = thaw(p.modules[0].tree)
+	let node = tree.alloc(ast.NodeKind.funcDecl, start: 0 as diag.U32)
+	p.modules[0].tree = freeze(tree)
+	var entry = ast.FuncEntry.make(name.clone(), visibility: "export", module: 0 as diag.ModuleID, nodeID: node)
+	for i in 0 upto convs.count() 'params'
+		entry.params.push(ast.ParamSpec.make("p{i}", ty: p.builtins.countTy, conv: convs[i]))
+		entry.paramTypes.push(p.builtins.countTy)
+	end 'params'
+	return ast.makeFunc(p, module: 0 as diag.ModuleID, f: entry)
+end 'interpFunction'
+
+function convs0() returns ConvList
+	return ConvList.create(0)
+end 'convs0'
+
+// contains is whether text has fragment in it.
+function contains(text String, fragment String) returns bool
+	let n = text.byteLength()
+	let m = fragment.byteLength()
+	if m > n 'longer'
+		return false
+	end 'longer'
+	let last = try n - m otherwise 0 as Count
+	for start in 0 upto try last + 1 otherwise last 'starts'
+		var same = true
+		for i in 0 upto m 'bytes'
+			if text.byteAt(try start + i otherwise 0 as Count) != fragment.byteAt(i) 'differs'
+				same = false
+				break 'bytes'
+			end 'differs'
+		end 'bytes'
+		if same 'found'
+			return true
+		end 'found'
+	end 'starts'
+	return false
+end 'contains'

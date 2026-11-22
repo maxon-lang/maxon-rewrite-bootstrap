@@ -1,0 +1,312 @@
+function mirGpr(mutates fn MirFunction) returns MReg
+	return fn.newVReg(RegClass.gpr)
+end 'mirGpr'
+
+function mirPhys(r X64Register) returns MReg
+	return physReg(r)
+end 'mirPhys'
+
+// mirOp writes a form with its register operands in machine order and an immediate.
+function mirOp(mutates fn MirFunction, form X64Form, a MReg, b MReg, c MReg, imm FullRangeInt)
+	fn.emit(newTarget(form, a: a, b: b, c: c, aux: 0, imm: imm))
+end 'mirOp'
+
+// mirDef is a new register that a form defines from the uses b and c.
+function mirDef(mutates fn MirFunction, form X64Form, b MReg, c MReg, imm FullRangeInt) returns MReg
+	let d = mirGpr(fn)
+	mirOp(fn, form: form, a: d, b: b, c: c, imm: imm)
+	return d
+end 'mirDef'
+
+function mirConst(mutates fn MirFunction, value FullRangeInt) returns MReg
+	return mirDef(fn, form: chooseMovRegImm(value), b: noMReg, c: noMReg, imm: value)
+end 'mirConst'
+
+function mirAdd(mutates fn MirFunction, left MReg, right MReg) returns MReg
+	return mirDef(fn, form: X64Form.addRegReg, b: left, c: right, imm: 0)
+end 'mirAdd'
+
+function mirAddImm(mutates fn MirFunction, left MReg, imm Imm32) returns MReg
+	return mirDef(fn, form: chooseAddRegImm(imm), b: left, c: noMReg, imm: imm as FullRangeInt)
+end 'mirAddImm'
+
+function mirCopyOut(mutates fn MirFunction, src X64Register) returns MReg
+	let d = mirGpr(fn)
+	fn.emit(newCopy(d, src: mirPhys(src)))
+	return d
+end 'mirCopyOut'
+
+function mirCopyIn(mutates fn MirFunction, dst X64Register, src MReg)
+	fn.emit(newCopy(mirPhys(dst), src: src))
+end 'mirCopyIn'
+
+// mirReturn returns a value in the internal convention's result register.
+function mirReturn(mutates fn MirFunction, value MReg)
+	mirCopyIn(fn, dst: x64InternalResult, src: value)
+	fn.emit(newFrameTeardown())
+	mirOp(fn, form: X64Form.ret, a: noMReg, b: noMReg, c: noMReg, imm: 0)
+end 'mirReturn'
+
+function mirJump(mutates fn MirFunction, target MBlockID, args MRegList)
+	let edge = fn.addEdge(target, args: args)
+	fn.emit(newReferring(X64Form.jmpRel32, a: noMReg, ref: MRef.edge, aux: edge))
+end 'mirJump'
+
+function mirBranch(mutates fn MirFunction, cond X64CondCode, target MBlockID, args MRegList)
+	let edge = fn.addEdge(target, args: args)
+	fn.emit(newConditional(X64Form.jccRel32, cond: cond, a: noMReg, ref: MRef.edge, aux: edge))
+end 'mirBranch'
+
+function mirArgs2(a MReg, b MReg) returns MRegList
+	var list = MRegList.create(0)
+	list.push(a)
+	list.push(b)
+	return list
+end 'mirArgs2'
+
+function mirArgs4(a MReg, b MReg, c MReg, d MReg) returns MRegList
+	var list = mirArgs2(a, b: b)
+	list.push(c)
+	list.push(d)
+	return list
+end 'mirArgs4'
+
+// mirArithmetic returns 42 by way of a two-address multiply, immediates of both sizes, a copy and xor and or.
+function mirArithmetic(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let seven = mirConst(fn, value: 7)
+	let six = mirConst(fn, value: 6)
+	let product = mirDef(fn, form: X64Form.imulRegReg, b: seven, c: six, imm: 0)
+	let less = mirDef(fn, form: chooseSubRegImm(1000), b: product, c: noMReg, imm: 1000)
+	let copied = mirGpr(fn)
+	fn.emit(newCopy(copied, src: less))
+	let back = mirAddImm(fn, left: copied, imm: 1000)
+	let zero = mirDef(fn, form: X64Form.xorRegReg, b: back, c: back, imm: 0)
+	let result = mirDef(fn, form: X64Form.orRegReg, b: back, c: zero, imm: 0)
+	mirReturn(fn, value: result)
+	fn.endBlock()
+	return fn
+end 'mirArithmetic'
+
+// mirLoop sums 0 to 8 in a loop whose header has four parameters, two of which swap on every iteration, and leaves it
+// along a conditional edge with arguments: 36 plus the 100 that nine swaps leave in the fourth, 136.
+function mirLoop(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	let header = 1 as MBlockID
+	let body = 2 as MBlockID
+	let exit = 3 as MBlockID
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let zero = mirConst(fn, value: 0)
+	let hundred = mirConst(fn, value: 100)
+	mirJump(fn, target: header, args: mirArgs4(zero, b: zero, c: hundred, d: zero))
+	_ = fn.startBlock()
+	let i = fn.addParam(RegClass.gpr)
+	let s = fn.addParam(RegClass.gpr)
+	let p = fn.addParam(RegClass.gpr)
+	let q = fn.addParam(RegClass.gpr)
+	fn.emit(newTarget(chooseCmpRegImm(9), a: i, b: noMReg, c: noMReg, aux: 0, imm: 9))
+	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: mirArgs2(s, b: q))
+	mirJump(fn, target: body, args: MRegList.create(0))
+	_ = fn.startBlock()
+	let sum = mirAdd(fn, left: s, right: i)
+	let next = mirAddImm(fn, left: i, imm: 1)
+	mirJump(fn, target: header, args: mirArgs4(next, b: sum, c: q, d: p))
+	_ = fn.startBlock()
+	let r = fn.addParam(RegClass.gpr)
+	let t = fn.addParam(RegClass.gpr)
+	let returned = mirAdd(fn, left: r, right: t)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirLoop'
+
+let mirDoubleSymbol = "mir.double"
+
+// mirDouble gives twice its one argument, which the internal convention passes in its first argument register.
+function mirDouble() returns MirFunction
+	var fn = MirFunction.new(mirDoubleSymbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let x = mirCopyOut(fn, src: x64InternalArg(0))
+	let returned = mirAdd(fn, left: x, right: x)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirDouble'
+
+// mirCalling calls mirDouble with 21 and keeps the 21 across the call: 42 + 21 - 21.
+function mirCalling(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let v = mirConst(fn, value: 21)
+	let doubled = mirCallDouble(fn, value: v)
+	let total = mirAdd(fn, left: doubled, right: v)
+	let returned = mirDef(fn, form: chooseSubRegImm(21), b: total, c: noMReg, imm: 21)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirCalling'
+
+// mirDivision divides 100 by 7 with the dividend fixed in rdx:rax and gives 14 * 3 + 2.
+function mirDivision(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let dividend = mirConst(fn, value: 100)
+	let divisor = mirConst(fn, value: 7)
+	mirCopyIn(fn, dst: X64Register.rax, src: dividend)
+	mirOp(fn, form: X64Form.cqo, a: noMReg, b: noMReg, c: noMReg, imm: 0)
+	mirOp(fn, form: X64Form.idivReg, a: divisor, b: noMReg, c: noMReg, imm: 0)
+	let quotient = mirCopyOut(fn, src: X64Register.rax)
+	let remainder = mirCopyOut(fn, src: X64Register.rdx)
+	let three = mirConst(fn, value: 3)
+	let product = mirDef(fn, form: X64Form.imulRegReg, b: quotient, c: three, imm: 0)
+	let returned = mirAdd(fn, left: product, right: remainder)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirDivision'
+
+// mirShift shifts 5 left by a count fixed in rcx, then the result right by 1: 40 + 20.
+function mirShift(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let five = mirConst(fn, value: 5)
+	let three = mirConst(fn, value: 3)
+	mirCopyIn(fn, dst: X64Register.rcx, src: three)
+	let left = mirDef(fn, form: X64Form.shlRegCl, b: five, c: noMReg, imm: 0)
+	let one = mirConst(fn, value: 1)
+	mirCopyIn(fn, dst: X64Register.rcx, src: one)
+	let right = mirDef(fn, form: X64Form.shrRegCl, b: left, c: noMReg, imm: 0)
+	let returned = mirAdd(fn, left: left, right: right)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirShift'
+
+// mirConditional compares 3 with 5, keeps the flag as a byte, and branches on it: 41 + 1 where 3 < 5, else 1.
+function mirConditional(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	let less = 1 as MBlockID
+	let other = 2 as MBlockID
+	_ = fn.startBlock()
+	fn.emit(newFrameSetup())
+	let a = mirConst(fn, value: 3)
+	let b = mirConst(fn, value: 5)
+	mirOp(fn, form: X64Form.cmpRegReg, a: a, b: b, c: noMReg, imm: 0)
+	let flag = mirGpr(fn)
+	fn.emit(newConditional(X64Form.setccReg, cond: X64CondCode.less, a: flag, ref: MRef.none, aux: 0))
+	let bit = mirDef(fn, form: X64Form.movzxRegReg8, b: flag, c: noMReg, imm: 0)
+	mirBranch(fn, cond: X64CondCode.less, target: less, args: MRegList.create(0))
+	mirJump(fn, target: other, args: MRegList.create(0))
+	_ = fn.startBlock()
+	let fortyOne = mirConst(fn, value: 41)
+	let sum = mirAdd(fn, left: fortyOne, right: bit)
+	mirReturn(fn, value: sum)
+	_ = fn.startBlock()
+	let returned = mirConst(fn, value: 1)
+	mirReturn(fn, value: returned)
+	fn.endBlock()
+	return fn
+end 'mirConditional'
+
+// runMir allocates the functions by spilling and colouring (allocateColoured) and runs them.
+function runMir(mutates p ast.Project, consumes fns MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	runAllocated(p, fns: fns, entry: entry, name: name, expectedCode: expectedCode, spilled: false)
+end 'runMir'
+
+// runSpilledMir is runMir for functions spilling has spilled already, which colouring takes up as they are.
+function runSpilledMir(mutates p ast.Project, consumes fns MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	runAllocated(p, fns: fns, entry: entry, name: name, expectedCode: expectedCode, spilled: true)
+end 'runSpilledMir'
+
+function runAllocated(mutates p ast.Project, consumes fns MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode, spilled bool)
+	var all = fns
+	for i in 0 upto all.count() 'each'
+		allocateColoured(all[i], spilled: spilled)
+	end 'each'
+	linkAndRun(p, fns: all, entry: entry, name: name, expectedCode: expectedCode)
+end 'runAllocated'
+
+// linkAndRun encodes allocated functions into one unit, links it with the entry stub and the test runtime, and runs
+// the executable.
+function linkAndRun(mutates p ast.Project, fns MirFunctionList, entry ast.FuncID, name String, expectedCode ExitCode)
+	var u = CodeUnit.new()
+	var lay = BlockLayout.new()
+	for i in 0 upto fns.count() 'each'
+		encodeMachineFunction(u, fn: fns[i], instance: false, lay: lay)
+	end 'each'
+	u.asm.endLabels()
+	var units = UnitList.create(0)
+	units.push(u)
+	var ready = UnitList.create(0)
+	ready.push(runtimeUnit(false))
+	let linked = linkProgram(p, modules: units, ready: freeze(ready), entry: entry, options: RuntimeOptions.make(false), mapsSymbols: false)
+	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
+end 'linkAndRun'
+
+function oneMir(consumes fn MirFunction) returns MirFunctionList
+	var list = MirFunctionList.create(0)
+	list.push(fn)
+	return list
+end 'oneMir'
+
+// testMachineForms checks the allocation columns of every form: a reuse names a use, and every fixed register is an
+// allocatable one of its class, neither both a result and a clobber, nor a call's, which its convention says.
+function testMachineForms()
+	let file = allocatable(RegClass.gpr) or allocatable(RegClass.xmm)
+	for i in 0 upto x64FormCount 'forms'
+		let form = x64FormOf(i)
+		if form.rawValue != i 'number'
+			panic("x64 form {i} has the number {form.rawValue}")
+		end 'number'
+		let n = machineOperandCount(form)
+		if n > 3 'operands'
+			panic("x64 form {i} has {n} register operands")
+		end 'operands'
+		if reusesOperand(form) and (not definesOperand(form) or n < 2) 'reuse'
+			panic("x64 form {i} reuses an operand it does not have")
+		end 'reuse'
+		let fixed = fixedUses(form) or fixedDefs(form) or clobbers(form)
+		if (fixed and not file) != 0 'allocatable'
+			panic("x64 form {i} fixes a register no value can be given")
+		end 'allocatable'
+		for r in 0 upto x64RegisterFileSize 'registers'
+			let number = try r as RegNum otherwise panic("a register past a mask")
+			if maskHas(fixed, number: number) and not maskHas(allocatable(classOfNumber(number)), number: number) 'class'
+				panic("x64 form {i} fixes register {r} outside its class")
+			end 'class'
+		end 'registers'
+		if (fixedDefs(form) and clobbers(form)) != 0 'both'
+			panic("x64 form {i} both gives a result in a register and clobbers it")
+		end 'both'
+		if isCall(form) and clobbers(form) != 0 'call'
+			panic("x64 form {i} is a call with clobbers of its own")
+		end 'call'
+	end 'forms'
+end 'testMachineForms'
+
+test 'machine ir'
+	testMachineForms()
+	var p = ast.Project.new("self")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
+	let arithmetic = addFunction(p, name: "main", errTy: ast.noType)
+	runMir(p, fns: oneMir(mirArithmetic(ast.funcLinkName(p, fid: arithmetic))), entry: arithmetic, name: "minimaxon_mir_arithmetic.exe", expectedCode: 42)
+	let loop = addFunction(p, name: "main", errTy: ast.noType)
+	runMir(p, fns: oneMir(mirLoop(ast.funcLinkName(p, fid: loop))), entry: loop, name: "minimaxon_mir_loop.exe", expectedCode: 136)
+	let calling = addFunction(p, name: "main", errTy: ast.noType)
+	var calls = oneMir(mirCalling(ast.funcLinkName(p, fid: calling)))
+	calls.push(mirDouble())
+	runMir(p, fns: calls, entry: calling, name: "minimaxon_mir_calls.exe", expectedCode: 42)
+	let division = addFunction(p, name: "main", errTy: ast.noType)
+	runMir(p, fns: oneMir(mirDivision(ast.funcLinkName(p, fid: division))), entry: division, name: "minimaxon_mir_division.exe", expectedCode: 44)
+	let shift = addFunction(p, name: "main", errTy: ast.noType)
+	runMir(p, fns: oneMir(mirShift(ast.funcLinkName(p, fid: shift))), entry: shift, name: "minimaxon_mir_shift.exe", expectedCode: 60)
+	let conditional = addFunction(p, name: "main", errTy: ast.noType)
+	runMir(p, fns: oneMir(mirConditional(ast.funcLinkName(p, fid: conditional))), entry: conditional, name: "minimaxon_mir_conditional.exe", expectedCode: 42)
+end 'machine ir'

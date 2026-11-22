@@ -1,0 +1,17 @@
+// longChainTerms is a number of terms whose left-leaning tree no recursion over it could hold: the stack would need
+// about 5 KB for each.
+let longChainTerms = 200000 as Count
+
+// testLongChain compiles a main that returns the sum of a long chain of terms, which every pass must walk with a loop.
+test 'long chain'
+	var text = ByteArray.create(0)
+	text.append("function main() returns ExitCode\n\tlet a = 1\n\tlet n = a".toByteArray())
+	for i in 1 upto longChainTerms 'terms'
+		text.append(" + a".toByteArray())
+	end 'terms'
+	text.append("\n\treturn 0 if n == {longChainTerms} else 1\nend 'main'\n".toByteArray())
+	let errs = lowerSource("long-chain.maxon", text: String.from(text))
+	if errs.count() > 0 'failed'
+		panic("a chain of {longChainTerms} terms was refused: {errs[0].format()}")
+	end 'failed'
+end 'long chain'

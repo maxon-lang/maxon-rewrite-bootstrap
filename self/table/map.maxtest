@@ -1,0 +1,33 @@
+typealias StrToCount = StringMap with Count
+
+typealias CountToStr = IntMap with String
+
+test 'tables'
+	var sm = StrToCount.new()
+	for i in 0 upto 100 'fillStr'
+		let k = "key_{i}"
+		sm.insert(k, value: i as Count)
+	end 'fillStr'
+	if sm.count() != 100 'cnt1'
+		panic("StringMap count expected 100, got {sm.count()}")
+	end 'cnt1'
+	sm.insert("key_42", value: 999 as Count)
+	if sm.get("key_42").unwrap() != 999 'ovr'
+		panic("StringMap overwrite failed")
+	end 'ovr'
+	let removed = sm.remove("key_10")
+	if removed.unwrap() != 10 or sm.has("key_10") or sm.count() != 99 'rem'
+		panic("StringMap remove failed")
+	end 'rem'
+	var im = CountToStr.new()
+	for i in 0 upto 100 'fillInt'
+		im.insert(i as Count, value: "val_{i}")
+	end 'fillInt'
+	if im.count() != 100 or im.get(77 as Count).unwrap() != "val_77" 'intGet'
+		panic("IntMap get failed")
+	end 'intGet'
+	let r2 = im.remove(77 as Count)
+	if r2.unwrap() != "val_77" or im.has(77 as Count) or im.count() != 99 'intRem'
+		panic("IntMap remove failed")
+	end 'intRem'
+end 'tables'

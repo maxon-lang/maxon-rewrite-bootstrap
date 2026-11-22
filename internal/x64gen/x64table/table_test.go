@@ -527,7 +527,7 @@ var assembled = map[string]bool{
 	"LeaRegRip": true, "LoadRegRip": true, "StoreRipReg": true, "CallRip": true,
 }
 
-// selfChecks are encodings that self/main.maxon checks the generated Maxon against, so that the Maxon is proved through
+// selfChecks are encodings that self/backend/pe.maxtest checks the generated Maxon against, so that the Maxon is proved through
 // these bytes against what the assembler wrote.
 var selfChecks = []string{
 	"movRegReg rax, rcx",
@@ -558,9 +558,9 @@ var selfChecks = []string{
 	"jmpRel32 patched past ten bytes",
 }
 
-// The golden encodings in self/main.maxon are these, written as the expected hex of each call.
+// The golden encodings in self/backend/pe.maxtest are these, written as the expected hex of each call.
 func TestGoldenBytesAreInTheSelfTest(t *testing.T) {
-	source, err := os.ReadFile("../../../self/main.maxon")
+	source, err := os.ReadFile("../../../self/backend/pe.maxtest")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -571,7 +571,7 @@ func TestGoldenBytesAreInTheSelfTest(t *testing.T) {
 			t.Fatalf("%s holds nothing for %s", goldenFile, selfKey(call))
 		}
 		if !strings.Contains(string(source), `"`+hex.EncodeToString(want)+`"`) {
-			t.Errorf("self/main.maxon has no check for %s, %x", call, want)
+			t.Errorf("self/backend/pe.maxtest has no check for %s, %x", call, want)
 		}
 	}
 }

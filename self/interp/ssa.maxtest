@@ -1,6 +1,3 @@
-// SSA construction (opt.Ssa) on functions built by hand with slots, as lowering makes them: each is interpreted as built,
-// then constructed, printed, verified, interpreted again and compiled and run.
-
 // ssaRun requires the function to run to exit as built, and, once in SSA form, to print as want, to keep the verifier's
 // rules and to run to exit both interpreted and compiled, with no box left live when count is set; construction is to have
 // promoted, kept, placed and removed as many slots, parameters and drops as counts says.
@@ -22,9 +19,9 @@ function ssaRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.S
 	runIr(p, fns: oneFunction(g.clone()), entry: g.decl, count: count, name: "minimaxon_ssa_{label}.exe", expectedCode: exit, expectedOutput: "")
 end 'ssaRun'
 
-function slotOf(mutates b BpFn) returns Count
+function slotOfHere(mutates b BpFn) returns Count
 	return b.b.f.newSlot(ir.IrKind.kindScalar)
-end 'slotOf'
+end 'slotOfHere'
 
 function storeTo(mutates b BpFn, block ir.BlockID, slot Count, v ir.Reg)
 	b.b.emit(block, i: ir.newStoreSlot(slot, src: v, borrow: false))
@@ -37,14 +34,14 @@ function loadFrom(mutates b BpFn, block ir.BlockID, slot Count) returns ir.Reg
 end 'loadFrom'
 
 // A diamond that stores the slot on both arms joins the two values in a parameter.
-function testASlotStoredOnBothArmsBecomesAParameter()
+test 'a slot stored on both arms becomes a parameter'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
 	let left = b.block()
 	let right = b.block()
 	let join = b.block()
-	let s = slotOf(b)
+	let s = slotOfHere(b)
 	let yes = b.konst(entry, value: 1)
 	b.b.terminate(entry, t: ir.newBranch(yes, ifTrue: left, ifFalse: right))
 	let forty = b.konst(left, value: 40)
@@ -74,17 +71,17 @@ function testASlotStoredOnBothArmsBecomesAParameter()
 	want.push("  ret %5")
 	want.push("")
 	ssaRun("diamond", p: p, f: b.b.finish(), want: want, exit: 42, count: false, counts: "promoted 1 kept 0 params 1 drops removed 0")
-end 'testASlotStoredOnBothArmsBecomesAParameter'
+end 'a slot stored on both arms becomes a parameter'
 
 // A loop counter in a slot becomes a parameter of the loop's header, which the entry and the back edge pass.
-function testALoopCounterBecomesAParameterOfTheHeader()
+test 'a loop counter becomes a parameter of the header'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
 	let exit = b.block()
-	let i = slotOf(b)
+	let i = slotOfHere(b)
 	let zero = b.konst(entry, value: 0)
 	storeTo(b, block: entry, slot: i, v: zero)
 	b.b.terminate(entry, t: ir.newJump(header))
@@ -116,19 +113,19 @@ function testALoopCounterBecomesAParameterOfTheHeader()
 	want.push("  ret %8")
 	want.push("")
 	ssaRun("counter", p: p, f: b.b.finish(), want: want, exit: 10, count: false, counts: "promoted 1 kept 0 params 1 drops removed 0")
-end 'testALoopCounterBecomesAParameterOfTheHeader'
+end 'a loop counter becomes a parameter of the header'
 
 // A sum that a loop adds to and the exit reads, beside its counter: each slot is a parameter of the header, and the exit
 // reads the header's.
-function testASlotAssignedInALoopIsReadAfterIt()
+test 'a slot assigned in a loop is read after it'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
 	let header = b.block()
 	let body = b.block()
 	let exit = b.block()
-	let i = slotOf(b)
-	let sum = slotOf(b)
+	let i = slotOfHere(b)
+	let sum = slotOfHere(b)
 	let zero = b.konst(entry, value: 0)
 	storeTo(b, block: entry, slot: i, v: zero)
 	storeTo(b, block: entry, slot: sum, v: zero)
@@ -165,16 +162,16 @@ function testASlotAssignedInALoopIsReadAfterIt()
 	want.push("  ret %11")
 	want.push("")
 	ssaRun("sum", p: p, f: b.b.finish(), want: want, exit: 45, count: false, counts: "promoted 2 kept 0 params 2 drops removed 0")
-end 'testASlotAssignedInALoopIsReadAfterIt'
+end 'a slot assigned in a loop is read after it'
 
 // A slot whose address is taken stays in the frame, renumbered from 0, and one beside it that is only loaded and stored
 // does not.
-function testASlotWhoseAddressIsTakenStays()
+test 'a slot whose address is taken stays'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
-	let plain = slotOf(b)
-	let held = slotOf(b)
+	let plain = slotOfHere(b)
+	let held = slotOfHere(b)
 	let five = b.konst(entry, value: 5)
 	storeTo(b, block: entry, slot: plain, v: five)
 	let cell = b.b.f.newReg(ir.IrKind.kindScalar)
@@ -197,11 +194,11 @@ function testASlotWhoseAddressIsTakenStays()
 	want.push("  ret %5")
 	want.push("")
 	ssaRun("address", p: p, f: b.b.finish(), want: want, exit: 30, count: false, counts: "promoted 1 kept 1 params 0 drops removed 0")
-end 'testASlotWhoseAddressIsTakenStays'
+end 'a slot whose address is taken stays'
 
 // A box moved out of its slot and dropped there: the slot is known to be empty at its dropslot, which goes, and only the
 // drop of the moved value is left.
-function testTheDropOfAMovedOutSlotGoes()
+test 'the drop of a moved out slot goes'
 	var p = irProject()
 	var b = BpFn.new(p)
 	var cellEntry = ast.TypeEntry.make(ast.TypeKind.record, name: "Cell")
@@ -229,16 +226,16 @@ function testTheDropOfAMovedOutSlotGoes()
 	want.push("  ret %2")
 	want.push("")
 	ssaRun("moved", p: p, f: b.b.finish(), want: want, exit: 3, count: true, counts: "promoted 1 kept 0 params 0 drops removed 1")
-end 'testTheDropOfAMovedOutSlotGoes'
+end 'the drop of a moved out slot goes'
 
 // An entry block that is a loop's header, which a back edge enters, cannot take the slot's parameter: construction gives
 // the function a new entry that jumps to it, and the slot is 0 there before its first store.
-function testAnEntryThatIsALoopHeaderIsSplit()
+test 'an entry that is a loop header is split'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
 	let exit = b.block()
-	let i = slotOf(b)
+	let i = slotOfHere(b)
 	let now = loadFrom(b, block: entry, slot: i)
 	let one = b.konst(entry, value: 1)
 	let next = b.bin(entry, op: ir.BinOp.binAdd, left: now, right: one, fail: ir.noBlock)
@@ -263,13 +260,4 @@ function testAnEntryThatIsALoopHeaderIsSplit()
 	want.push("  branch %4, b2(%2), b1")
 	want.push("")
 	ssaRun("entryLoop", p: p, f: b.b.finish(), want: want, exit: 5, count: false, counts: "promoted 1 kept 0 params 1 drops removed 0")
-end 'testAnEntryThatIsALoopHeaderIsSplit'
-
-function testSsa()
-	testASlotStoredOnBothArmsBecomesAParameter()
-	testALoopCounterBecomesAParameterOfTheHeader()
-	testASlotAssignedInALoopIsReadAfterIt()
-	testASlotWhoseAddressIsTakenStays()
-	testTheDropOfAMovedOutSlotGoes()
-	testAnEntryThatIsALoopHeaderIsSplit()
-end 'testSsa'
+end 'an entry that is a loop header is split'

@@ -231,6 +231,20 @@ export function emitTypeRoutines(p ast.Project, mutates ms ast.ModuleState, unit
 	return made
 end 'emitTypeRoutines'
 
+// carryRoutines makes, in the unit u of a module, the drop and copy routine of every type its code asks for, and of every type
+// those reach, and leaves it asking for none: a unit is then all the link needs of its module, so a unit that a build cache
+// kept links as the one its emit made, whatever the compile it links in knows of the module's types. Every unit that asks for
+// a routine defines it, and the link keeps one, as it does of an instance.
+export function carryRoutines(p ast.Project, mutates ms ast.ModuleState, mutates u CodeUnit)
+	var i = 0 as Count
+	while i < u.needed.list.count() 'routines'
+		let routine = u.needed.list[i].clone()
+		emitRoutine(u, p: p, ms: ms, routine: routine)
+		i = try i + 1 otherwise panic("backend: more routines than memory")
+	end 'routines'
+	u.needed = RoutineSet.new()
+end 'carryRoutines'
+
 function emitRoutines(p ast.Project, mutates ms ast.ModuleState, routines TypeRoutineList) returns CodeUnit
 	var u = CodeUnit.new()
 	for i in 0 upto routines.count() 'each'
@@ -297,7 +311,7 @@ end 'allocate'
 // emitRoutine emits the code of one routine.
 function emitRoutine(mutates u CodeUnit, p ast.Project, mutates ms ast.ModuleState, routine TypeRoutine)
 	u.beginSection()
-	u.defineCode(routine.symbol)
+	u.defineFunction(routine.symbol, instance: true)
 	if routine.kind == RoutineKind.dropRoutine 'drop'
 		emitDrop(u, p: p, ms: ms, ty: routine.ty)
 	end 'drop' else 'copy'

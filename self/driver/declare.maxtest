@@ -1,7 +1,7 @@
 // declareProject runs the stages up to the constants over every module, each after the modules it names, and gives the
 // entry function.
 function declareProject(mutates p ast.Project, mutates errs diag.ErrorList) returns ast.FuncID
-	return driver.declareFront(p, errs: errs).entry
+	return declareFront(p, errs: errs).entry
 end 'declareProject'
 
 function loadParsed(path String, mutates errs diag.ErrorList) returns ast.Project
@@ -41,7 +41,7 @@ function expectDeclareError(path String, code String, line Count, col Count)
 	end 'where'
 end 'expectDeclareError'
 
-function testDeclare()
+test 'declare'
 	expectDeclared("self")
 	expectDeclared("tests/run/constant-depends-through-match.maxon")
 	expectDeclared("tests/modules/constants")
@@ -64,4 +64,4 @@ function testDeclare()
 	expectDeclareError("tests/errors/implements-copyable.maxon", code: "E3921", line: 1, col: 24)
 	expectDeclareError("tests/errors/main-returns-nothing.maxon", code: "E3002", line: 1, col: 10)
 	expectDeclareError("tests/errors/throws-from-main.maxon", code: "E3054", line: 1, col: 41)
-end 'testDeclare'
+end 'declare'

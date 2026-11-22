@@ -1,0 +1,24 @@
+test 'resolve'
+	var errs = diag.ErrorList.create(0)
+	var p = match consumes project.loadProject("self", errs: errs) 'pr'
+		some(pv) gives pv
+		none panic("loadProject(\"self\") returned none")
+	end 'pr'
+	if errs.count() > 0 'pe'
+		panic("load error: {errs[0].format()}")
+	end 'pe'
+	resolveProject(p, errs: errs)
+	if errs.count() > 0 're'
+		ast.locateAllErrors(p.modules, errs: errs)
+		panic("resolve error on self: {errs[0].format()}")
+	end 're'
+	let g = project.newGraph(p)
+	match project.checkAcyclic(g, p: p) 'cyc'
+		some(ce) then panic("unexpected module cycle: {ce.format()}")
+		none then _ = 0
+	end 'cyc'
+	let order = project.topoOrder(g)
+	if order.count() != p.modules.count() 'ord'
+		panic("expected topoOrder count {p.modules.count()}, got {order.count()}")
+	end 'ord'
+end 'resolve'

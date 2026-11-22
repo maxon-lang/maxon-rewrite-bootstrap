@@ -1,0 +1,197 @@
+function regs1(a ir.Reg) returns ir.RegList
+	var list = ir.RegList.create(0)
+	list.push(a)
+	return list
+end 'regs1'
+
+function regs2(a ir.Reg, b ir.Reg) returns ir.RegList
+	var list = ir.RegList.create(0)
+	list.push(a)
+	list.push(b)
+	return list
+end 'regs2'
+
+function block(index Count) returns ir.BlockID
+	return try index as ir.BlockID otherwise panic("too many blocks")
+end 'block'
+
+// allocRootType adds a type that the root module declares, as a link name needs every declared type to be in a module.
+function allocRootType(mutates p ast.Project, consumes entry ast.TypeEntry) returns ast.TypeID
+	var declared = entry
+	declared.hasDecl = true
+	declared.decl = ast.DeclRef.make(p.rootModule, ordinal: 0 as ast.DeclOrdinal)
+	let module = p.rootModule
+	return ast.makeType(p, module: module, e: declared)
+end 'allocRootType'
+
+// asmPrologue and asmEpilogue frame a function of the test runtime that calls Windows, which wants the stack aligned.
+function asmPrologue(mutates u backend.CodeUnit)
+	u.asm.push(backend.rbp)
+	u.asm.mov(backend.rbp, src: backend.rsp)
+	u.asm.andImm(backend.rsp, imm: -16)
+	u.asm.subImm(backend.rsp, imm: 48)
+end 'asmPrologue'
+
+function asmEpilogue(mutates u backend.CodeUnit)
+	u.asm.mov(backend.rsp, src: backend.rbp)
+	u.asm.pop(backend.rbp)
+	u.asm.ret()
+end 'asmEpilogue'
+
+// testLiveSymbol is the word in which the test's runtime counts its live boxes, as the real one counts them in each
+// thread's context.
+let testLiveSymbol = "test.live"
+
+// countLive adds to the number of live boxes, keeping every register but rcx.
+function asmCountLive(mutates u backend.CodeUnit, delta backend.Imm32)
+	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
+	u.asm.addImm(backend.rcx, imm: delta)
+	u.asm.storeSymbol(testLiveSymbol, src: backend.rcx)
+end 'asmCountLive'
+
+// testLeakExitCode is the runtime's exit code for a leak (runtime/output.maxon).
+let testLeakExitCode = 99
+
+// testPanicExitCode is the runtime's exit code for a panic, which a fault ends as.
+let testPanicExitCode = 1
+
+// runtimeUnit is the entries of the runtime that the test programs and the entry stub call, written in assembly by the
+// internal convention (the first two arguments in rcx and rdx, the result in r8): alloc, free, write, a stand-in for
+// itoa, checkLeaks, which exits with the runtime's leak code and writes no report, schedDrain and workerMain, which have
+// no behaviour to run, and panic, which exits with the panic code and writes nothing. They call Windows by Win64.
+function runtimeUnit(count bool) returns backend.CodeUnit
+	let result = backend.x64InternalResult
+	var u = backend.CodeUnit.new()
+	u.defineData(testLiveSymbol, size: backend.wordBytes)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtAlloc))
+	asmPrologue(u)
+	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
+	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.movImm(backend.rdx, imm: 8)
+	u.asm.callImport(backend.impHeapAlloc)
+	if count 'allocCount'
+		asmCountLive(u, delta: 1)
+	end 'allocCount'
+	u.asm.mov(result, src: backend.rax)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtFree))
+	asmPrologue(u)
+	let freed = u.asm.newLabel()
+	u.asm.mov(backend.r8, src: backend.x64InternalArg(0))
+	u.asm.test(backend.r8, right: backend.r8)
+	u.asm.jcc(backend.X64CondCode.equal, label: freed)
+	if count 'freeCount'
+		asmCountLive(u, delta: -1)
+	end 'freeCount'
+	u.asm.loadSymbol(backend.rcx, symbol: ir.rtSymbol(ir.Rt.rtHeap))
+	u.asm.bitXor(backend.rdx, src: backend.rdx)
+	u.asm.callImport(backend.impHeapFree)
+	u.asm.bind(freed)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtWrite))
+	asmPrologue(u)
+	u.asm.mov(backend.r10, src: backend.x64InternalArg(1))
+	u.asm.mov(backend.rcx, src: backend.x64InternalArg(0))
+	u.asm.load(backend.r8, base: backend.r10, disp: 0)
+	u.asm.lea(backend.rdx, base: backend.r10, disp: 8)
+	u.asm.lea(backend.r9, base: backend.rsp, disp: 40)
+	u.asm.bitXor(backend.rax, src: backend.rax)
+	u.asm.store(backend.rsp, disp: 32, src: backend.rax)
+	u.asm.callImport(backend.impWriteFile)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtItoa))
+	u.asm.leaData(result, dataOffset: u.data.textOffset("?"))
+	u.asm.ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtCheckLeaks))
+	asmPrologue(u)
+	let clean = u.asm.newLabel()
+	u.asm.mov(result, src: backend.x64InternalArg(0))
+	u.asm.loadSymbol(backend.rcx, symbol: testLiveSymbol)
+	u.asm.test(backend.rcx, right: backend.rcx)
+	u.asm.jcc(backend.X64CondCode.equal, label: clean)
+	u.asm.movImm(backend.rcx, imm: testLeakExitCode)
+	u.asm.callImport(backend.impExitProcess)
+	u.asm.bind(clean)
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtSchedDrain))
+	asmPrologue(u)
+	u.asm.mov(result, src: backend.x64InternalArg(0))
+	asmEpilogue(u)
+	u.defineCode(ir.rtSymbol(ir.Rt.rtWorkerMain))
+	u.asm.ret()
+	u.defineCode(ir.rtSymbol(ir.Rt.rtPanic))
+	asmPrologue(u)
+	u.asm.movImm(backend.rcx, imm: testPanicExitCode)
+	u.asm.callImport(backend.impExitProcess)
+	return u
+end 'runtimeUnit'
+
+// runIr links the functions with the entry stub and the test runtime, and runs the executable.
+function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, count bool, name String, expectedCode ExitCode, expectedOutput String)
+	var modules = backend.FunctionLists.create(0)
+	modules.push(fns.clone())
+	var ready = backend.UnitList.create(0)
+	ready.push(runtimeUnit(count))
+	let linked = backend.buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
+	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
+end 'runIr'
+
+function oneFunction(consumes f ir.IrFunction) returns ir.IrFunctionList
+	var list = ir.IrFunctionList.create(0)
+	list.push(f)
+	return list
+end 'oneFunction'
+
+function linesText(lines ast.StringList) returns String
+	var b = ByteArray.create(0)
+	for i in 0 upto lines.count() 'each'
+		b.append(lines[i].toByteArray())
+		b.push(10 as Byte)
+	end 'each'
+	return String.from(b)
+end 'linesText'
+
+function expectIr(label String, got String, want ast.StringList)
+	let text = linesText(want)
+	if got != text 'differs'
+		panic("{label}: the IR is\n{got}but it should be\n{text}")
+	end 'differs'
+end 'expectIr'
+
+// irProject is a project of one module that has a function with a body of one statement's worth of nodes, which the
+// functions of the tests are declared in.
+function irProject() returns ast.Project
+	var p = ast.Project.new("")
+	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
+	p.rootModule = 0 as diag.ModuleID
+	return p
+end 'irProject'
+
+function assertEqStr(got String, expected String, label String)
+	if got != expected 'neq'
+		panic("{label}: expected '{expected}', got '{got}'")
+	end 'neq'
+end 'assertEqStr'
+
+function peTempPath(name String) returns FilePath
+	let dir = try Process.environmentVariable("TEMP") otherwise panic("TEMP is not set")
+	return try FilePath.from("{dir}\\{name}") otherwise panic("not a path")
+end 'peTempPath'
+
+// runPeImage writes the image to a file, runs it and gives what it printed and its exit code.
+function runPeImage(image backend.PeImage, name String, expectedCode ExitCode, expectedOutput String)
+	let out = runPeImageOutput(image, name: name, expectedCode: expectedCode)
+	assertEqStr(out.stdout, expected: expectedOutput, label: name)
+end 'runPeImage'
+
+// runPeImageOutput writes the image, runs it and checks its exit code, and gives what it wrote.
+function runPeImageOutput(image backend.PeImage, name String, expectedCode ExitCode) returns CollectedOutput
+	let path = peTempPath(name)
+	try backend.writePeImage(image, path: path) otherwise panic("cannot write {name}")
+	let out = try Subprocess.run(Executable.path(peTempPath(name)), arguments: Array.create(0)) otherwise panic("cannot run {name}")
+	try File.delete(path) otherwise panic("cannot delete {name}")
+	if out.exitCode() != expectedCode 'code'
+		panic("{name}: expected exit code {expectedCode}, got {out.exitCode()}")
+	end 'code'
+	return out
+end 'runPeImageOutput'

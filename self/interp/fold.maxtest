@@ -1,7 +1,3 @@
-// The fold pass (opt.Fold) on functions in SSA form built by hand: each runs to its exit interpreted as built, is folded,
-// prints as it should, keeps the verifier's rules and runs to the same exit interpreted and compiled. The checks are the
-// ones that matter most: a constant that fails its check takes the failure edge, and a check that may fire stays.
-
 let i64Max = 9223372036854775807 as ir.Word
 
 function foldRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.StringList, exit ExitCode)
@@ -19,7 +15,7 @@ function foldRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.
 end 'foldRun'
 
 // Constants fold through arithmetic and a comparison into the branch, which becomes a jump, and the arm it never takes goes.
-function testConstantsFoldIntoTheBranch()
+test 'constants fold into the branch'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -43,11 +39,11 @@ function testConstantsFoldIntoTheBranch()
 	want.push("  ret %2")
 	want.push("")
 	foldRun("branch", p: p, f: b.b.finish(), want: want, exit: 42)
-end 'testConstantsFoldIntoTheBranch'
+end 'constants fold into the branch'
 
 // A checked addition whose constants overflow is the jump to its failure block, which is then where the function goes;
 // nothing after the addition is left.
-function testAnOverflowingConstantAdditionTakesItsFailure()
+test 'an overflowing constant addition takes its failure'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -67,11 +63,11 @@ function testAnOverflowingConstantAdditionTakesItsFailure()
 	want.push("  ret %3")
 	want.push("")
 	foldRun("overflow", p: p, f: b.b.finish(), want: want, exit: 7)
-end 'testAnOverflowingConstantAdditionTakesItsFailure'
+end 'an overflowing constant addition takes its failure'
 
 // The guard of a divisor that is the constant 0 fails, so the function goes to its failure block there; the division after
 // it, which has no meaning on 0, is never folded and goes with the rest of the block.
-function testADivisionByAZeroConstantTakesItsFailure()
+test 'a division by a zero constant takes its failure'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -92,10 +88,10 @@ function testADivisionByAZeroConstantTakesItsFailure()
 	want.push("  ret %3")
 	want.push("")
 	foldRun("divisionByZero", p: p, f: b.b.finish(), want: want, exit: 3)
-end 'testADivisionByAZeroConstantTakesItsFailure'
+end 'a division by a zero constant takes its failure'
 
 // Constants that pass their checks fold: a guard that holds goes, and so does the check of an addition that fits.
-function testChecksThatConstantsPassGo()
+test 'checks that constants pass go'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -115,10 +111,10 @@ function testChecksThatConstantsPassGo()
 	want.push("  ret %3")
 	want.push("")
 	foldRun("checksPass", p: p, f: b.b.finish(), want: want, exit: 12)
-end 'testChecksThatConstantsPassGo'
+end 'checks that constants pass go'
 
 // A checked addition of a value the pass cannot know keeps its check, which fires on the seventh trip of the loop.
-function testACheckThatMayFireStays()
+test 'a check that may fire stays'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -164,10 +160,10 @@ function testACheckThatMayFireStays()
 	want.push("  ret %8")
 	want.push("")
 	foldRun("mayFire", p: p, f: b.b.finish(), want: want, exit: 9)
-end 'testACheckThatMayFireStays'
+end 'a check that may fire stays'
 
 // A parameter that both edges into its block pass the same value is that value, and one that nothing reads goes.
-function testTrivialAndDeadParametersGo()
+test 'trivial and dead parameters go'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -228,10 +224,10 @@ function testTrivialAndDeadParametersGo()
 	want.push("  ret %3")
 	want.push("")
 	foldRun("params", p: p, f: b.b.finish(), want: want, exit: 5)
-end 'testTrivialAndDeadParametersGo'
+end 'trivial and dead parameters go'
 
 // A switch on a constant is a jump to the case it equals.
-function testASwitchOnAConstantIsAJump()
+test 'a switch on a constant is a jump'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -262,14 +258,4 @@ function testASwitchOnAConstantIsAJump()
 	want.push("  ret %2")
 	want.push("")
 	foldRun("switch", p: p, f: b.b.finish(), want: want, exit: 20)
-end 'testASwitchOnAConstantIsAJump'
-
-function testFold()
-	testConstantsFoldIntoTheBranch()
-	testAnOverflowingConstantAdditionTakesItsFailure()
-	testADivisionByAZeroConstantTakesItsFailure()
-	testChecksThatConstantsPassGo()
-	testACheckThatMayFireStays()
-	testTrivialAndDeadParametersGo()
-	testASwitchOnAConstantIsAJump()
-end 'testFold'
+end 'a switch on a constant is a jump'

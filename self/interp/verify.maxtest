@@ -1,7 +1,3 @@
-// Block parameters and the IR verifier, on IR built by hand, since lowering makes no block parameters: each program is
-// printed, verified, run by the interpreter and compiled and run, and for each rule of the verifier there is IR that
-// breaks it.
-
 // BpFn builds the function main of a project with ir.Builder.
 type BpFn
 	var b as ir.Builder
@@ -59,19 +55,8 @@ function bpRun(label String, mutates p ast.Project, f ir.IrFunction, want ast.St
 	runIr(p, fns: oneFunction(f.clone()), entry: f.decl, count: false, name: "minimaxon_bp_{label}.exe", expectedCode: exit, expectedOutput: "")
 end 'bpRun'
 
-// bpRefused requires the verifier to refuse the function, first for the reason fragment names.
-function bpRefused(label String, p ast.Project, f ir.IrFunction, fragment String)
-	let problems = ir.verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
-	if problems.count() == 0 'accepted'
-		panic("{label}: the verifier accepts IR that breaks its rule")
-	end 'accepted'
-	if not contains(problems[0], fragment: fragment) 'other'
-		panic("{label}: the verifier says\n{problems[0]}\nand not '{fragment}'")
-	end 'other'
-end 'bpRefused'
-
 // A loop whose counter is a parameter of its header, set by the entry and by the back edge.
-function testALoopCarriesItsCounterInAParameter()
+test 'a loop carries its counter in a parameter'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -107,10 +92,10 @@ function testALoopCarriesItsCounterInAParameter()
 	want.push("  ret %2")
 	want.push("")
 	bpRun("loop", p: p, f: b.b.finish(), want: want, exit: 10)
-end 'testALoopCarriesItsCounterInAParameter'
+end 'a loop carries its counter in a parameter'
 
 // A diamond whose arms each pass their value to a parameter of the join.
-function testADiamondJoinsItsArmsInAParameter()
+test 'a diamond joins its arms in a parameter'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -146,12 +131,12 @@ function testADiamondJoinsItsArmsInAParameter()
 	want.push("  ret %5")
 	want.push("")
 	bpRun("diamond", p: p, f: b.b.finish(), want: want, exit: 42)
-end 'testADiamondJoinsItsArmsInAParameter'
+end 'a diamond joins its arms in a parameter'
 
 // A loop that swaps two parameters on its back edge, a branch's false edge: every argument is read before a parameter is
 // set, so the swap does not see its own writes. Three swaps of (3, 5) leave (5, 3), which gives 53; copying one after
 // the other would give 55.
-function testAnEdgeSetsItsParametersAllAtOnce()
+test 'an edge sets its parameters all at once'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -203,10 +188,10 @@ function testAnEdgeSetsItsParametersAllAtOnce()
 	want.push("  ret %12")
 	want.push("")
 	bpRun("swap", p: p, f: b.b.finish(), want: want, exit: 53)
-end 'testAnEdgeSetsItsParametersAllAtOnce'
+end 'an edge sets its parameters all at once'
 
 // A switch whose cases pass different values to one block.
-function testASwitchCasePassesArguments()
+test 'a switch case passes arguments'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -248,119 +233,11 @@ function testASwitchCasePassesArguments()
 	want.push("  ret %4")
 	want.push("")
 	bpRun("switch", p: p, f: b.b.finish(), want: want, exit: 12)
-end 'testASwitchCasePassesArguments'
-
-function testARegisterDefinedTwiceIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let r = b.konst(entry, value: 1)
-	b.b.emit(entry, i: ir.newConst(r, value: 2))
-	b.b.terminate(entry, t: ir.newRet(r))
-	bpRefused("twice", p: p, f: b.b.finish(), fragment: "%0 is defined in b0 and again in b0")
-end 'testARegisterDefinedTwiceIsRefused'
-
-function testAnUndefinedRegisterIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let r = b.b.f.newReg(ir.IrKind.kindScalar)
-	b.b.terminate(entry, t: ir.newRet(r))
-	bpRefused("nowhere", p: p, f: b.b.finish(), fragment: "%0 is used in b0 and defined nowhere")
-end 'testAnUndefinedRegisterIsRefused'
-
-function testAUseBeforeItsDefinitionIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let early = b.b.f.newReg(ir.IrKind.kindScalar)
-	let sum = b.bin(entry, op: ir.BinOp.binAdd, left: early, right: early, fail: ir.noBlock)
-	b.b.emit(entry, i: ir.newConst(early, value: 1))
-	b.b.terminate(entry, t: ir.newRet(sum))
-	bpRefused("early", p: p, f: b.b.finish(), fragment: "%0 is used in b0 before its definition")
-end 'testAUseBeforeItsDefinitionIsRefused'
-
-function testAUseThatItsDefinitionDoesNotDominateIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let left = b.block()
-	let right = b.block()
-	let join = b.block()
-	let yes = b.konst(entry, value: 1)
-	b.b.terminate(entry, t: ir.newBranch(yes, ifTrue: left, ifFalse: right))
-	let only = b.konst(left, value: 40)
-	b.b.terminate(left, t: ir.newJump(join))
-	b.b.terminate(right, t: ir.newJump(join))
-	b.b.terminate(join, t: ir.newRet(only))
-	bpRefused("undominated", p: p, f: b.b.finish(), fragment: "%1 is used in b3, which its definition in b1 does not dominate")
-end 'testAUseThatItsDefinitionDoesNotDominateIsRefused'
-
-// The result of an instruction that can fail is not defined where its failure goes.
-function testAFailedResultIsNotDefinedInTheFailureBlock()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let failed = b.block()
-	let one = b.konst(entry, value: 1)
-	let sum = b.bin(entry, op: ir.BinOp.binAdd, left: one, right: one, fail: failed)
-	b.b.terminate(entry, t: ir.newRet(sum))
-	b.b.terminate(failed, t: ir.newRet(sum))
-	bpRefused("failed", p: p, f: b.b.finish(), fragment: "%1 is used in b1, which its definition in b0 does not dominate")
-end 'testAFailedResultIsNotDefinedInTheFailureBlock'
-
-function testAnEdgeThatPassesTooFewArgumentsIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let target = b.block()
-	b.b.terminate(entry, t: ir.newJump(target))
-	let got = b.param(target)
-	b.b.terminate(target, t: ir.newRet(got))
-	bpRefused("arity", p: p, f: b.b.finish(), fragment: "b0 passes 0 arguments to b1, which has 1 parameters")
-end 'testAnEdgeThatPassesTooFewArgumentsIsRefused'
-
-function testAnArgumentOfAnotherKindIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let target = b.block()
-	let managed = b.b.f.newReg(ir.IrKind.kindManaged)
-	b.b.emit(entry, i: ir.newConst(managed, value: 0))
-	let entryTerm = b.b.jumpWith(target, args: bpRegs(managed))
-	b.b.terminate(entry, t: entryTerm)
-	let got = b.param(target)
-	b.b.terminate(target, t: ir.newRet(got))
-	bpRefused("kind", p: p, f: b.b.finish(), fragment: "b0 passes the managed %0 to the scalar parameter %1 of b1")
-end 'testAnArgumentOfAnotherKindIsRefused'
-
-function testAnEntryWithParametersIsRefused()
-	var p = irProject()
-	var b = BpFn.new(p)
-	let entry = b.block()
-	let got = b.param(entry)
-	b.b.terminate(entry, t: ir.newRet(got))
-	bpRefused("entry", p: p, f: b.b.finish(), fragment: "the entry b0 has parameters")
-end 'testAnEntryWithParametersIsRefused'
-
-// Two checks that fail to one block, laid out by hand since the builder gives each failure a block of its own: the block
-// an instruction's failure goes to has that edge as its only one in.
-function testASharedFailureBlockIsRefused()
-	var p = irProject()
-	let decl = interpFunction(p, name: "main", convs: convs0())
-	var b = FnBuilder.new(decl, name: "", paramCount: 0)
-	let one = b.constant(1)
-	let two = b.bin(ir.BinOp.binAdd, left: one, right: one, unsigned: false, fail: block(1))
-	let four = b.bin(ir.BinOp.binAdd, left: two, right: two, unsigned: false, fail: block(1))
-	b.finish(ir.newRet(four))
-	let zero = b.constant(0)
-	b.finish(ir.newRet(zero))
-	bpRefused("shared", p: p, f: b.f, fragment: "b1, where an instruction of b0 fails to, has 2 edges in")
-end 'testASharedFailureBlockIsRefused'
+end 'a switch case passes arguments'
 
 // The same checks made by the builder: each failure gets a block of its own that jumps to the one they shared, and the
 // program still fails to it.
-function testTheBuilderGivesEachFailureABlockOfItsOwn()
+test 'the builder gives each failure a block of its own'
 	var p = irProject()
 	var b = BpFn.new(p)
 	let entry = b.block()
@@ -389,21 +266,4 @@ function testTheBuilderGivesEachFailureABlockOfItsOwn()
 	want.push("  jump b1")
 	want.push("")
 	bpRun("split", p: p, f: b.b.finish(), want: want, exit: 7)
-end 'testTheBuilderGivesEachFailureABlockOfItsOwn'
-
-function testVerify()
-	testALoopCarriesItsCounterInAParameter()
-	testADiamondJoinsItsArmsInAParameter()
-	testAnEdgeSetsItsParametersAllAtOnce()
-	testASwitchCasePassesArguments()
-	testARegisterDefinedTwiceIsRefused()
-	testAnUndefinedRegisterIsRefused()
-	testAUseBeforeItsDefinitionIsRefused()
-	testAUseThatItsDefinitionDoesNotDominateIsRefused()
-	testAFailedResultIsNotDefinedInTheFailureBlock()
-	testAnEdgeThatPassesTooFewArgumentsIsRefused()
-	testAnArgumentOfAnotherKindIsRefused()
-	testAnEntryWithParametersIsRefused()
-	testASharedFailureBlockIsRefused()
-	testTheBuilderGivesEachFailureABlockOfItsOwn()
-end 'testVerify'
+end 'the builder gives each failure a block of its own'

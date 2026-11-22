@@ -90,7 +90,8 @@ export function joinPath(dir String, name String) returns String
 	return "{clean}\\{name}"
 end 'joinPath'
 
-function parentDir(path String) returns String
+// parentDir is the directory a path is in: the path up to its last separator, or '.' for a path that has none.
+export function parentDir(path String) returns String
 	var i = path.byteLength()
 	while i > 0 'back'
 		let prev = try i - 1 otherwise 0 as Count
@@ -918,6 +919,79 @@ export function discoverRuntime(mutates p ast.Project)
 	let mid = ast.addModule(p, m: m)
 	p.rootModule = mid
 end 'discoverRuntime'
+
+// holdsSource is whether the directory dir holds a file of source, which makes it a module of a project.
+function holdsSource(dir String) returns bool
+	var files = ast.StringList.create(0)
+	var projectFiles = ast.StringList.create(0)
+	var dirs = ast.StringList.create(0)
+	_ = listDirectory(dir, memory: SourceFiles.create(0), files: files, projectFiles: projectFiles, dirs: dirs)
+	return files.count() > 0
+end 'holdsSource'
+
+// testFilesIn are the files of tests that the directory dir holds, in order.
+function testFilesIn(dir String) returns ast.StringList
+	var found = ast.StringList.create(0)
+	let dirPath = try FilePath.from(dir) otherwise return found
+	let listed = try Directory.list(dirPath) otherwise FilePathList.create(0)
+	for i in 0 upto listed.count() 'each'
+		let name = lastComponent(listed[i].toString())
+		if endsWithMaxtest(name) 'test'
+			found.push(joinPath(dir, name: name))
+		end 'test'
+	end 'each'
+	sortStrings(found)
+	return found
+end 'testFilesIn'
+
+// holdsModuleTests is whether the directory at path is a module (it holds source) of which it or a module under it holds a
+// file of tests: what `test` runs the tests of, where a directory of the corpus holds programs and no file of tests.
+export function holdsModuleTests(path String) returns bool
+	return isDirectoryPath(path) and holdsSource(path) and testsBelow(path)
+end 'holdsModuleTests'
+
+function testsBelow(dir String) returns bool
+	if testFilesIn(dir).count() > 0 'here'
+		return true
+	end 'here'
+	var files = ast.StringList.create(0)
+	var projectFiles = ast.StringList.create(0)
+	var dirs = ast.StringList.create(0)
+	_ = listDirectory(dir, memory: SourceFiles.create(0), files: files, projectFiles: projectFiles, dirs: dirs)
+	for i in 0 upto dirs.count() 'below'
+		if testsBelow(joinPath(dir, name: dirs[i])) 'found'
+			return true
+		end 'found'
+	end 'below'
+	return false
+end 'testsBelow'
+
+// projectRootOf is the root of the project that the module at dir is part of: the directory above which no directory holds
+// source, as the modules of a project are the directories under its root that do.
+export function projectRootOf(dir String) returns String
+	var root = dir.clone()
+	var above = parentDir(root)
+	while above != root and above != "." and holdsSource(above) 'up'
+		root = above
+		above = parentDir(root)
+	end 'up'
+	return root
+end 'projectRootOf'
+
+// addTestFiles adds to each module of p from first on whose directory is under (or is under) its files of tests, after its
+// source files, which a compile of tests reads; it gives how many it added.
+export function addTestFiles(mutates p ast.Project, first Count, under String) returns Count
+	var added = 0 as Count
+	for m in first upto p.modules.count() 'modules'
+		let dir = p.modules[m].dir.clone()
+		if sameText(dir, b: under) or belowDirectory(dir, dir: under) 'tested'
+			let tests = testFilesIn(dir)
+			p.modules[m].filePaths.append(tests)
+			added = try added + tests.count() otherwise panic("project: more files of tests than memory")
+		end 'tested'
+	end 'modules'
+	return added
+end 'addTestFiles'
 
 function failMissingInput(rootPath String, mutates errs diag.ErrorList) returns bool
 	diag.pushLocatedError(errs, code: diag.errUnexpectedToken, message: "no such file or directory", file: rootPath.clone(), line: 1 as Count, col: 1 as Count)

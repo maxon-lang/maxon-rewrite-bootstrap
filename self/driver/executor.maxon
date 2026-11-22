@@ -368,7 +368,7 @@ function runProject(ctx frozen with Context, mutates station ProjectStation, tas
 		var payload = Payload.none
 		if stage == Stage.order 'start'
 			let slot = next.compile.slotOf(next.graph.tasks[d].module)
-			payload = Payload.start(exchange(starts[slot], value: CheckStart.make(ast.SlotList.create(0), role: check.EntryRole.none)))
+			payload = Payload.start(exchange(starts[slot], value: CheckStart.make(ast.SlotList.create(0), role: check.EntryRole.none, reach: Reach.whole)))
 		end 'start' else if stage == Stage.program 'home'
 			payload = Payload.home(station.giveOut(next.compile.idOf(next.compile.slotOf(next.graph.tasks[d].module))))
 		end 'home'
@@ -416,9 +416,21 @@ function projectTask(ctx frozen with Context, mutates station ProjectStation, st
 		lower then panic("driver: the lower is a stage of a module")
 		program then holdProgram(ctx.compile, p: station.p, known: known, errs: errs)
 		emit then panic("driver: the emit is a stage of a module")
-		link then linkUnits(ctx.compile, p: station.p, units: exchange(station.units, value: backend.UnitList.create(0)), ready: station.ready, entry: entryOf(known))
+		link then linkUnits(ctx.compile, p: station.p, units: exchange(station.units, value: backend.UnitList.create(0)), ready: station.ready, entry: entryOf(known), tests: testsOf(known))
 	end 's'
 end 'projectTask'
+
+// mispredicted is whether a module whose summary the compile took from before its lower made another, so that the units the
+// compile linked of the modules that name it may not be those their keys name: the compile is then done again, taking no
+// summary before it is made.
+function mispredicted(known Known) returns bool
+	for k in 0 upto known.count() 'modules'
+		if known[k].mispredicted 'differs'
+			return true
+		end 'differs'
+	end 'modules'
+	return false
+end 'mispredicted'
 
 // finishCompile ends the compile in its last task, a task of the project, before which every task reported: it keeps the
 // errors of the earliest phase that has any, in task order, places them, prints them and sets the code the process exits
@@ -430,6 +442,12 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 			panic("driver: the compile ends before task {t} reported")
 		end 'unreported'
 	end 'reported'
+	if mispredicted(known) 'again'
+		var again = ctx.compile.options.clone()
+		again.speculates = false
+		_ = buildPath(station.p.root, output: ctx.compile.output, options: again)
+		return
+	end 'again'
 	if station.homes == 0 'products'
 		for slot in 0 upto known.count() 'modules'
 			ast.placeProducts(station.p, products: known[slot].model)
@@ -442,5 +460,10 @@ function finishCompile(ctx frozen with Context, mutates station ProjectStation, 
 		reportTimings(station.timings, p: station.p, goal: ctx.compile.goal, first: ctx.compile.first)
 	end 'report'
 	ast.locateAllErrors(station.p.modules, errs: station.errs)
-	Process.setExitCode(report(station.errs))
+	let code = report(station.errs)
+	if code == 0 and ctx.compile.options.runsTests 'tests'
+		Process.setExitCode(runTestExecutable(ctx.compile.output, tests: testsOf(known).count(), under: ctx.compile.options.testsUnder))
+		return
+	end 'tests'
+	Process.setExitCode(code)
 end 'finishCompile'

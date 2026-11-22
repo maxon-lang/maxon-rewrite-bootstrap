@@ -8,7 +8,7 @@ end 'loadProjectAt'
 function expectChecked(path String)
 	var errs = diag.ErrorList.create(0)
 	var p = loadProjectAt(path, errs: errs)
-	_ = driver.frontEnd(p, makesProgram: false, errs: errs)
+	_ = frontEnd(p, makesProgram: false, errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 		panic("{path}: unexpected error {errs[0].format()}")
@@ -18,7 +18,7 @@ end 'expectChecked'
 function expectCheckError(path String, code String, line Count, col Count)
 	var errs = diag.ErrorList.create(0)
 	var p = loadProjectAt(path, errs: errs)
-	_ = driver.frontEnd(p, makesProgram: false, errs: errs)
+	_ = frontEnd(p, makesProgram: false, errs: errs)
 	ast.locateAllErrors(p.modules, errs: errs)
 	if errs.count() == 0 'none'
 		panic("{path}: expected {code}, got none")
@@ -28,7 +28,7 @@ function expectCheckError(path String, code String, line Count, col Count)
 	end 'where'
 end 'expectCheckError'
 
-function testBodies()
+test 'bodies'
 	expectChecked("tests/run/generics.maxon")
 	expectChecked("tests/run/lru-cache.maxon")
 	expectChecked("tests/run/handle-stack.maxon")
@@ -42,7 +42,7 @@ function testBodies()
 	expectCheckError("tests/errors/clone-of-a-noncopyable-type.maxon", code: "E3918", line: 11, col: 12)
 	expectCheckError("tests/errors/generic-bound-not-met-in-a-body.maxon", code: "E3017", line: 52, col: 9)
 	expectCheckError("tests/errors/generic-bound-is-not-an-interface.maxon", code: "E3907", line: 51, col: 59)
-end 'testBodies'
+end 'bodies'
 
 // loadTestFiles is the project of the files, which are given as a path and its text, held in memory in one directory.
 function loadTestFiles(files project.SourceFiles, mutates errs diag.ErrorList) returns ast.Project
@@ -51,13 +51,13 @@ function loadTestFiles(files project.SourceFiles, mutates errs diag.ErrorList) r
 	return p
 end 'loadTestFiles'
 
-function testFilesOfTests()
+test 'files of tests'
 	var files = project.SourceFiles.create(0)
 	files.push(project.SourceFile.make(project.joinPath("<project>", name: "main.maxon"), text: "function main() returns ExitCode\n\treturn 0\nend 'main'\n"))
 	files.push(project.SourceFile.make(project.joinPath("<project>", name: "suite.maxtest"), text: "enum ApiError implements Error\n\tnotFound\nend 'ApiError'\n\nfunction lookup() throws ApiError\n\tthrow ApiError.notFound\nend 'lookup'\n\ntest 'a call that throws needs no try'\n\tlookup()\nend 'a call that throws needs no try'\n\ntest 'a bare try takes any error'\n\ttry lookup()\nend 'a bare try takes any error'\n"))
 	var errs = diag.ErrorList.create(0)
 	var p = loadTestFiles(files, errs: errs)
-	let checked = driver.frontEnd(p, makesProgram: false, errs: errs)
+	let checked = frontEnd(p, makesProgram: false, errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 		panic("test files: unexpected error {errs[0].format()}")
@@ -74,7 +74,7 @@ function testFilesOfTests()
 	clash.push(project.SourceFile.make(project.joinPath("<project>", name: "suite.maxtest"), text: "test 'adds two'\n\tlet x = 1\nend 'adds two'\n\ntest 'adds-two'\n\tlet y = 1\nend 'adds-two'\n"))
 	var clashErrs = diag.ErrorList.create(0)
 	var q = loadTestFiles(clash, errs: clashErrs)
-	_ = driver.frontEnd(q, makesProgram: false, errs: clashErrs)
+	_ = frontEnd(q, makesProgram: false, errs: clashErrs)
 	ast.locateAllErrors(q.modules, errs: clashErrs)
 	if clashErrs.count() == 0 or clashErrs[0].code != "E3107" 'clash'
 		panic("two tests that compile to one symbol are not refused")
@@ -87,4 +87,4 @@ function testFilesOfTests()
 	if outsideErrs.count() == 0 or outsideErrs[0].code != "E2058" 'outside'
 		panic("a test outside a file of tests is not refused")
 	end 'outside'
-end 'testFilesOfTests'
+end 'files of tests'

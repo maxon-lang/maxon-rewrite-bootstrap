@@ -26,21 +26,39 @@ end 'buildProgram'
 // cache has, and any that are not made from IR), the modules, and the routines. The ready units are frozen and only read, so
 // that many programs, at once, can be linked with the same ones.
 export function linkProgram(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entry ast.FuncID, options RuntimeOptions, mapsSymbols bool) returns Linked
+	var entries = ast.FuncIDList.create(0)
+	entries.push(entry)
+	return linkCalling(p, modules: modules, ready: ready, entries: entries, exitsWithResult: true, options: options, mapsSymbols: mapsSymbols)
+end 'linkProgram'
+
+// linkCalling is linkProgram for an entry that calls entries in order: main, whose result is the exit code, or the tests of
+// an executable of tests, after which it exits with 0.
+function linkCalling(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entries ast.FuncIDList, exitsWithResult bool, options RuntimeOptions, mapsSymbols bool) returns Linked
 	var ms = ast.lendProject(p)
+	var symbols = ast.StringList.create(0)
+	for i in 0 upto entries.count() 'entries'
+		symbols.push(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: entries[i]))
+	end 'entries'
 	var stub = UnitList.create(0)
-	stub.push(emitRuntime(ast.funcLinkNameIn(p, tt: ms.types, reads: p.types, ft: ms.funcs, funcReads: p.funcs, fid: entry), options: options))
+	stub.push(emitRuntime(EntryCalls.make(symbols, exitsWithResult: exitsWithResult), options: options))
 	var units = LinkUnits.make(share(ready), own: stub)
 	units.add(modules)
 	let routines = emitTypeRoutines(p, ms: ms, units: units)
 	ast.giveBack(p, ms: ms)
 	units.add(routines)
 	return link(units, entry: ir.rtSymbol(ir.Rt.rtEntry), mapsSymbols: mapsSymbols)
-end 'linkProgram'
+end 'linkCalling'
 
 // compileProgram writes the executable that linkProgram makes of the modules' units to out, and the map of its code's symbols
-// to symbolMap when that is not empty.
-export function compileProgram(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entry ast.FuncID, options RuntimeOptions, out FilePath, symbolMap String) throws FileWriteError
-	let linked = linkProgram(p, modules: modules, ready: ready, entry: entry, options: options, mapsSymbols: symbolMap != "")
+// to symbolMap when that is not empty. An executable of tests has no main: its entry calls tests, in order, and exits with 0
+// when none panicked.
+export function compileProgram(mutates p ast.Project, consumes modules UnitList, ready frozen with UnitList, entry ast.FuncID, tests ast.FuncIDList, options RuntimeOptions, out FilePath, symbolMap String) throws FileWriteError
+	var entries = tests.clone()
+	let runsTests = tests.count() > 0
+	if not runsTests 'main'
+		entries.push(entry)
+	end 'main'
+	let linked = linkCalling(p, modules: modules, ready: ready, entries: entries, exitsWithResult: not runsTests, options: options, mapsSymbols: symbolMap != "")
 	try writePeImage(linked.image, path: out)
 	if symbolMap != "" 'map'
 		let mapPath = try FilePath.from(symbolMap) otherwise panic("backend: the symbol map {symbolMap} is not a path")

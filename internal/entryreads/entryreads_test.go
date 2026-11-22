@@ -148,7 +148,7 @@ func walkSelf(t *testing.T, visit func(rel, src string)) {
 		if d.IsDir() && path == filepath.Join(root, "ast") {
 			return filepath.SkipDir
 		}
-		if d.IsDir() || !strings.HasSuffix(path, ".maxon") {
+		if d.IsDir() || !(strings.HasSuffix(path, ".maxon") || strings.HasSuffix(path, ".maxtest")) {
 			return nil
 		}
 		data, err := os.ReadFile(path)
@@ -177,7 +177,7 @@ func TestNoHandleIsAnIndexOutsideAst(t *testing.T) {
 
 func TestEntriesAreWrittenOnlyUpToDeclare(t *testing.T) {
 	walkSelf(t, func(rel, src string) {
-		if entryWriters[rel] || strings.HasSuffix(rel, "_test.maxon") {
+		if entryWriters[rel] || strings.HasSuffix(rel, ".maxtest") {
 			return
 		}
 		for _, w := range writeSites(src) {

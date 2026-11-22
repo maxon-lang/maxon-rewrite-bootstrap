@@ -1,0 +1,163 @@
+// BpFn builds the function main of a project with Builder.
+type BpFn
+	var b as Builder
+	var decl as ast.FuncID
+
+	static function new(mutates p ast.Project) returns BpFn
+		let decl = interpFunction(p, name: "main", convs: convs0())
+		var b = Builder.new()
+		b.start(decl, name: "", paramCount: 0 as Count)
+		return BpFn{b: b, decl: decl}
+	end 'new'
+
+	function block(mutates self) returns BlockID
+		return b.newBlock()
+	end 'block'
+
+	function param(mutates self, block BlockID) returns Reg
+		return b.blockParam(block, kind: IrKind.kindScalar)
+	end 'param'
+
+	function konst(mutates self, block BlockID, value Word) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newConst(r, value: value))
+		return r
+	end 'konst'
+
+	function bin(mutates self, block BlockID, op BinOp, left Reg, right Reg, fail BlockID) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newBin(r, op: op, left: left, right: right, unsigned: false, fail: fail))
+		return r
+	end 'bin'
+
+	function cmp(mutates self, block BlockID, op CmpOp, left Reg, right Reg) returns Reg
+		let r = b.f.newReg(IrKind.kindScalar)
+		b.emit(block, i: newCmp(r, op: op, left: left, right: right, unsigned: false))
+		return r
+	end 'cmp'
+end 'BpFn'
+
+function bpRegs(a Reg) returns RegList
+	var list = RegList.create(0)
+	list.push(a)
+	return list
+end 'bpRegs'
+
+// bpRefused requires the verifier to refuse the function, first for the reason fragment names.
+function bpRefused(label String, p ast.Project, f IrFunction, fragment String)
+	let problems = verifyIr(p, tt: ast.TypeSlot.none(), reads: p.types, ft: ast.FuncSlot.none(), funcReads: p.funcs, f: f)
+	if problems.count() == 0 'accepted'
+		panic("{label}: the verifier accepts IR that breaks its rule")
+	end 'accepted'
+	if not contains(problems[0], fragment: fragment) 'other'
+		panic("{label}: the verifier says\n{problems[0]}\nand not '{fragment}'")
+	end 'other'
+end 'bpRefused'
+
+test 'a register defined twice is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let r = b.konst(entry, value: 1)
+	b.b.emit(entry, i: newConst(r, value: 2))
+	b.b.terminate(entry, t: newRet(r))
+	bpRefused("twice", p: p, f: b.b.finish(), fragment: "%0 is defined in b0 and again in b0")
+end 'a register defined twice is refused'
+
+test 'an undefined register is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let r = b.b.f.newReg(IrKind.kindScalar)
+	b.b.terminate(entry, t: newRet(r))
+	bpRefused("nowhere", p: p, f: b.b.finish(), fragment: "%0 is used in b0 and defined nowhere")
+end 'an undefined register is refused'
+
+test 'a use before its definition is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let early = b.b.f.newReg(IrKind.kindScalar)
+	let sum = b.bin(entry, op: BinOp.binAdd, left: early, right: early, fail: noBlock)
+	b.b.emit(entry, i: newConst(early, value: 1))
+	b.b.terminate(entry, t: newRet(sum))
+	bpRefused("early", p: p, f: b.b.finish(), fragment: "%0 is used in b0 before its definition")
+end 'a use before its definition is refused'
+
+test 'a use that its definition does not dominate is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let left = b.block()
+	let right = b.block()
+	let join = b.block()
+	let yes = b.konst(entry, value: 1)
+	b.b.terminate(entry, t: newBranch(yes, ifTrue: left, ifFalse: right))
+	let only = b.konst(left, value: 40)
+	b.b.terminate(left, t: newJump(join))
+	b.b.terminate(right, t: newJump(join))
+	b.b.terminate(join, t: newRet(only))
+	bpRefused("undominated", p: p, f: b.b.finish(), fragment: "%1 is used in b3, which its definition in b1 does not dominate")
+end 'a use that its definition does not dominate is refused'
+
+// The result of an instruction that can fail is not defined where its failure goes.
+test 'a failed result is not defined in the failure block'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let failed = b.block()
+	let one = b.konst(entry, value: 1)
+	let sum = b.bin(entry, op: BinOp.binAdd, left: one, right: one, fail: failed)
+	b.b.terminate(entry, t: newRet(sum))
+	b.b.terminate(failed, t: newRet(sum))
+	bpRefused("failed", p: p, f: b.b.finish(), fragment: "%1 is used in b1, which its definition in b0 does not dominate")
+end 'a failed result is not defined in the failure block'
+
+test 'an edge that passes too few arguments is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let target = b.block()
+	b.b.terminate(entry, t: newJump(target))
+	let got = b.param(target)
+	b.b.terminate(target, t: newRet(got))
+	bpRefused("arity", p: p, f: b.b.finish(), fragment: "b0 passes 0 arguments to b1, which has 1 parameters")
+end 'an edge that passes too few arguments is refused'
+
+test 'an argument of another kind is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let target = b.block()
+	let managed = b.b.f.newReg(IrKind.kindManaged)
+	b.b.emit(entry, i: newConst(managed, value: 0))
+	let entryTerm = b.b.jumpWith(target, args: bpRegs(managed))
+	b.b.terminate(entry, t: entryTerm)
+	let got = b.param(target)
+	b.b.terminate(target, t: newRet(got))
+	bpRefused("kind", p: p, f: b.b.finish(), fragment: "b0 passes the managed %0 to the scalar parameter %1 of b1")
+end 'an argument of another kind is refused'
+
+test 'an entry with parameters is refused'
+	var p = irProject()
+	var b = BpFn.new(p)
+	let entry = b.block()
+	let got = b.param(entry)
+	b.b.terminate(entry, t: newRet(got))
+	bpRefused("entry", p: p, f: b.b.finish(), fragment: "the entry b0 has parameters")
+end 'an entry with parameters is refused'
+
+// Two checks that fail to one block, laid out by hand since the builder gives each failure a block of its own: the block
+// an instruction's failure goes to has that edge as its only one in.
+test 'a shared failure block is refused'
+	var p = irProject()
+	let decl = interpFunction(p, name: "main", convs: convs0())
+	var b = FnBuilder.new(decl, name: "", paramCount: 0)
+	let one = b.constant(1)
+	let two = b.bin(BinOp.binAdd, left: one, right: one, unsigned: false, fail: block(1))
+	let four = b.bin(BinOp.binAdd, left: two, right: two, unsigned: false, fail: block(1))
+	b.finish(newRet(four))
+	let zero = b.constant(0)
+	b.finish(newRet(zero))
+	bpRefused("shared", p: p, f: b.f, fragment: "b1, where an instruction of b0 fails to, has 2 edges in")
+end 'a shared failure block is refused'

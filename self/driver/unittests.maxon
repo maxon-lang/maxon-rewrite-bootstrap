@@ -1,0 +1,39 @@
+// The tests of a project's modules: `test 'name'` declarations in each module's files of tests (`.maxtest`), which only a
+// compile of tests reads. A compile of tests compiles the modules under a directory with their tests, the modules they name
+// and the runtime, links an executable whose entry calls every test in module and source order, and runs it.
+
+// selfDirectory is the compiler's own project, from the root of the repository, which selftest tests.
+let selfDirectory = "self"
+
+// moduleTests compiles and runs the tests of the modules under the directory at path, in the project around it, with what the
+// command line gave.
+function moduleTests(path String, options Options) returns ExitCode
+	let dir = project.absolutePath(path)
+	var tests = withCache(options)
+	tests.runsTests = true
+	tests.testsUnder = dir.clone()
+	return buildPath(project.projectRootOf(dir), output: testExecutable(dir), options: tests)
+end 'moduleTests'
+
+// testExecutable is where a compile of the tests under dir writes its executable: in the temporary directory, named after
+// the process and the directory, so that two compilers running at once never write the same file.
+function testExecutable(dir String) returns String
+	let temp = try Process.environmentVariable("TEMP") otherwise panic("driver: TEMP is not set")
+	return "{temp}\\minimaxon-test-{Process.id()}-{project.lastComponent(dir)}{executableExtension}"
+end 'testExecutable'
+
+// runTestExecutable runs the executable of tests at path, which a compile of the tests under dir made, passes on what it
+// wrote, and gives its exit code: 0 when every one of its tests ran without a panic.
+function runTestExecutable(path String, tests Count, under String) returns ExitCode
+	let exe = try FilePath.from(path) otherwise panic("driver: the executable of tests has no path")
+	let out = try Subprocess.run(Executable.path(exe.clone()), arguments: CommandNames.create(0)) otherwise panic("driver: cannot run {path}")
+	print(out.stdout)
+	printError(out.stderr)
+	try File.delete(exe) otherwise panic("driver: cannot delete {path}")
+	if out.exitCode() != 0 'failed'
+		printError("FAIL: the tests of {under} (exit code {out.exitCode()})\n")
+		return out.exitCode()
+	end 'failed'
+	print("ok: {tests} tests of {under}\n")
+	return 0
+end 'runTestExecutable'

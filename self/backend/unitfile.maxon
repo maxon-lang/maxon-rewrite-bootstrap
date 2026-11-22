@@ -1,0 +1,99 @@
+// A code unit as bytes, which a build cache keeps: the arrays the link reads, each written straight, and nothing that only
+// the unit's making reads (its labels, which are bound, and the offsets of the strings and words it put in its data once).
+// A unit that carries its routines (carryRoutines) asks for none, so it holds no handle and means the same in any compile.
+
+// writeUnit lays out u, which asks for no routine, in w.
+export function writeUnit(u CodeUnit, mutates w table.ByteWriter)
+	if u.needed.list.count() > 0 'asks'
+		panic("backend: a unit that asks for routines is kept, which another compile could not make")
+	end 'asks'
+	w.run(u.asm.code)
+	w.count(u.asm.dataFixups.count())
+	for i in 0 upto u.asm.dataFixups.count() 'data'
+		w.count(u.asm.dataFixups[i].pos)
+		w.count(u.asm.dataFixups[i].dataOffset)
+	end 'data'
+	w.count(u.asm.importFixups.count())
+	for i in 0 upto u.asm.importFixups.count() 'imports'
+		w.count(u.asm.importFixups[i].pos)
+		w.count(u.asm.importFixups[i].index)
+	end 'imports'
+	w.count(u.asm.symbolFixups.count())
+	for i in 0 upto u.asm.symbolFixups.count() 'symbols'
+		w.count(u.asm.symbolFixups[i].pos)
+		w.text(u.asm.symbolFixups[i].symbol)
+	end 'symbols'
+	w.run(u.data.bytes)
+	w.count(u.data.pieces.count())
+	for i in 0 upto u.data.pieces.count() 'pieces'
+		w.count(u.data.pieces[i])
+	end 'pieces'
+	w.count(u.data.pointers.count())
+	for i in 0 upto u.data.pointers.count() 'pointers'
+		w.count(u.data.pointers[i].pos)
+		w.count(u.data.pointers[i].target)
+	end 'pointers'
+	writeSymbols(w, defs: u.codeSymbols)
+	writeSymbols(w, defs: u.dataSymbols)
+	w.count(u.sections.count())
+	for i in 0 upto u.sections.count() 'sections'
+		w.count(u.sections[i].code)
+		w.count(u.sections[i].symbolFixups)
+		w.count(u.sections[i].dataFixups)
+		w.count(u.sections[i].importFixups)
+	end 'sections'
+end 'writeUnit'
+
+function writeSymbols(mutates w table.ByteWriter, defs SymbolDefList)
+	w.count(defs.count())
+	for i in 0 upto defs.count() 'defs'
+		w.text(defs[i].symbol)
+		w.count(defs[i].offset)
+		w.flag(defs[i].instance)
+	end 'defs'
+end 'writeSymbols'
+
+// readUnit reads back a unit that writeUnit laid out; r is broken if what it reads is not one.
+export function readUnit(mutates r table.ByteReader) returns CodeUnit
+	var u = CodeUnit.new()
+	u.asm.code = r.run()
+	for _ in 0 upto r.items() 'data'
+		let pos = r.count()
+		u.asm.dataFixups.push(DataFixup.make(pos, dataOffset: r.count()))
+	end 'data'
+	for _ in 0 upto r.items() 'imports'
+		let pos = r.count()
+		u.asm.importFixups.push(ImportFixup.make(pos, index: r.count()))
+	end 'imports'
+	for _ in 0 upto r.items() 'symbols'
+		let pos = r.count()
+		u.asm.symbolFixups.push(SymbolFixup.make(pos, symbol: r.text()))
+	end 'symbols'
+	u.data.bytes = r.run()
+	for _ in 0 upto r.items() 'pieces'
+		u.data.pieces.push(r.count())
+	end 'pieces'
+	for _ in 0 upto r.items() 'pointers'
+		let pos = r.count()
+		u.data.pointers.push(DataPointer.make(pos, target: r.count()))
+	end 'pointers'
+	u.codeSymbols = readSymbols(r)
+	u.dataSymbols = readSymbols(r)
+	for _ in 0 upto r.items() 'sections'
+		let code = r.count()
+		let symbols = r.count()
+		let data = r.count()
+		u.sections.push(CodeSection.make(code, symbolFixups: symbols, dataFixups: data, importFixups: r.count()))
+	end 'sections'
+	return u
+end 'readUnit'
+
+function readSymbols(mutates r table.ByteReader) returns SymbolDefList
+	var defs = SymbolDefList.create(0)
+	for _ in 0 upto r.items() 'defs'
+		let symbol = r.text()
+		let offset = r.count()
+		defs.push(SymbolDef.make(symbol, offset: offset, instance: r.flag()))
+	end 'defs'
+	return defs
+end 'readSymbols'

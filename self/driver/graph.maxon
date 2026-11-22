@@ -366,7 +366,7 @@ function compileOf(mutates p ast.Project, from Stage, first Count, goal Goal, ma
 		panic("driver: a compile starts at parse or resolve, not at {from}")
 	end 'from'
 	let modules = try p.modules.count() - first otherwise panic("driver: a compile from past the modules")
-	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)))
+	return Compile.make(goal, first: first, modules: modules, begun: begun, makesProgram: makesProgram, options: options.clone(), output: output.clone(), base: freeze(ast.baseOf(p, first: first)), cache: cacheSetupOf(p, first: first, options: options))
 end 'compileOf'
 
 // startGraph adds the tasks of the compile c up to the order, from the stage from: those that every compile has, before it
@@ -545,7 +545,7 @@ function startChecks(mutates run Run, consumes ordered Ordered)
 	var held = ordered
 	run.entryPlan = held.plan.clone()
 	for slot in 0 upto run.work.count() 'modules'
-		let start = exchange(held.starts[slot], value: CheckStart.make(ast.SlotList.create(0), role: check.EntryRole.none))
+		let start = exchange(held.starts[slot], value: CheckStart.make(ast.SlotList.create(0), role: check.EntryRole.none, reach: Reach.whole))
 		run.work[slot].startCheck(start)
 	end 'modules'
 	run.checksStarted = true
@@ -573,7 +573,7 @@ function linkTask(mutates run Run, mutates p ast.Project, known Known, ready fro
 		run.made = units
 		return
 	end 'units'
-	linkUnits(run.compile, p: p, units: units, ready: ready, entry: entryOf(known))
+	linkUnits(run.compile, p: p, units: units, ready: ready, entry: entryOf(known), tests: testsOf(known))
 end 'linkTask'
 
 // endCheck takes in, in module order, what each module's check made, which the generate stage reads.
@@ -595,7 +595,7 @@ function endUnchecked(mutates run Run, mutates p ast.Project)
 	end 'none'
 	for slot in 0 upto run.work.count() 'modules'
 		if not run.work[slot].checkEnded 'unended'
-			let typing = run.work[slot].endCheck(p)
+			let typing = run.work[slot].endCheck(p, keepsTests: run.compile.options.runsTests)
 			p.typings[run.compile.moduleOf(slot)] = freeze(typing)
 		end 'unended'
 	end 'modules'

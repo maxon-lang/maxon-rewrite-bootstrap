@@ -1,8 +1,3 @@
-// Spilling's tests: functions written by hand in machine IR, each a shape of the allocator study in miniature, go through
-// backend.spillFunction; the result is held to verifyPressure (every instruction fits its free registers, and no spill
-// code stands in a loop that neither defines nor reads its value) and to the number of stores and reloads it may have,
-// on the hot path and in all; then colouring finishes it and it runs, which shows the values came through.
-
 typealias WordList = Array with FullRangeInt
 
 // spillIterations is how many times the loops of these tests run.
@@ -12,18 +7,18 @@ let spillIterations = 10
 let exitMask = 255
 
 // mirValue is a register holding n that is not a constant: the sum of a constant and 0, so spilling must store it.
-function mirValue(mutates fn backend.MirFunction, n FullRangeInt) returns backend.MReg
+function mirValue(mutates fn MirFunction, n FullRangeInt) returns MReg
 	let c = mirConst(fn, value: n)
 	return mirAddImm(fn, left: c, imm: 0)
 end 'mirValue'
 
-function mirSar(mutates fn backend.MirFunction, src backend.MReg) returns backend.MReg
-	return mirDef(fn, form: backend.X64Form.sarRegImm8, b: src, c: backend.noMReg, imm: 1)
+function mirSar(mutates fn MirFunction, src MReg) returns MReg
+	return mirDef(fn, form: X64Form.sarRegImm8, b: src, c: noMReg, imm: 1)
 end 'mirSar'
 
 // mirReturnMasked returns the low byte of a value.
-function mirReturnMasked(mutates fn backend.MirFunction, value backend.MReg)
-	let masked = mirDef(fn, form: backend.chooseAndRegImm(exitMask), b: value, c: backend.noMReg, imm: exitMask)
+function mirReturnMasked(mutates fn MirFunction, value MReg)
+	let masked = mirDef(fn, form: chooseAndRegImm(exitMask), b: value, c: noMReg, imm: exitMask)
 	mirReturn(fn, value: masked)
 end 'mirReturnMasked'
 
@@ -37,18 +32,18 @@ function wrapAdd(a FullRangeInt, b FullRangeInt) returns FullRangeInt
 end 'wrapAdd'
 
 // spillOf spills a function and requires it to fit and to have no refusal.
-function spillOf(label String, mutates fn backend.MirFunction) returns backend.SpillResult
-	return spillUnder(label, fn: fn, convs: backend.Conventions.make())
+function spillOf(label String, mutates fn MirFunction) returns SpillResult
+	return spillUnder(label, fn: fn, convs: Conventions.make())
 end 'spillOf'
 
 // spillUnder is spillOf under the conventions convs.
-function spillUnder(label String, mutates fn backend.MirFunction, convs backend.Conventions) returns backend.SpillResult
-	var s = backend.Spiller.under(convs.clone())
-	let result = backend.spillFunction(fn, s: s)
+function spillUnder(label String, mutates fn MirFunction, convs Conventions) returns SpillResult
+	var s = Spiller.under(convs.clone())
+	let result = spillFunction(fn, s: s)
 	if result.refusals.count() > 0 'refused'
-		panic("{label}: refused with E5001: {backend.pressureRefusalMessage(result.refusals[0], place: label, target: "x64")}")
+		panic("{label}: refused with E5001: {pressureRefusalMessage(result.refusals[0], place: label, target: "x64")}")
 	end 'refused'
-	let problems = backend.verifyPressureUnder(fn, convs: convs)
+	let problems = verifyPressureUnder(fn, convs: convs)
 	if problems.count() > 0 'problems'
 		panic("{label}: {problems[0]}")
 	end 'problems'
@@ -62,8 +57,8 @@ function expectCount(label String, what String, got Count, want Count)
 end 'expectCount'
 
 // expectSpillCode requires a spilled function's spills and reloads, in all and on the hot path, and its restores.
-function expectSpillCode(label String, fn backend.MirFunction, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count)
-	let counts = backend.spillCodeCounts(fn)
+function expectSpillCode(label String, fn MirFunction, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count)
+	let counts = spillCodeCounts(fn)
 	expectCount(label, what: "spills", got: counts.spills, want: spills)
 	expectCount(label, what: "reloads", got: counts.reloads, want: reloads)
 	expectCount(label, what: "spills on the hot path", got: counts.hotSpills, want: hotSpills)
@@ -133,46 +128,46 @@ end 'loopExpected'
 let coldUseValue = 5
 
 // mirShapedLoop builds the loop of a shape.
-function mirShapedLoop(symbol String, shape LoopShape) returns backend.MirFunction
-	var fn = backend.MirFunction.new(symbol, canThrow: false)
-	let header = 1 as backend.MBlockID
-	let body = 2 as backend.MBlockID
-	let exit = 3 as backend.MBlockID
-	let cold = 4 as backend.MBlockID
-	let rejoin = 5 as backend.MBlockID
+function mirShapedLoop(symbol String, shape LoopShape) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	let header = 1 as MBlockID
+	let body = 2 as MBlockID
+	let exit = 3 as MBlockID
+	let cold = 4 as MBlockID
+	let rejoin = 5 as MBlockID
 	let registers = try shape.accs - shape.memory otherwise panic("more accumulators in memory than there are")
 	fn.spillSlots = shape.memory
 	_ = fn.startBlock()
-	fn.emit(backend.newFrameSetup())
-	var idle = backend.MRegList.create(0)
+	fn.emit(newFrameSetup())
+	var idle = MRegList.create(0)
 	for j in 0 upto shape.idle 'idle'
 		idle.push(mirValue(fn, n: idleStart(j)))
 	end 'idle'
-	var coldValue = backend.noMReg
+	var coldValue = noMReg
 	if shape.coldUse 'coldValue'
 		coldValue = mirValue(fn, n: coldUseValue)
 	end 'coldValue'
 	let bound = mirValue(fn, n: spillIterations as FullRangeInt)
-	var args = backend.MRegList.create(0)
+	var args = MRegList.create(0)
 	args.push(mirConst(fn, value: 0))
 	for j in 0 upto shape.accs 'start'
 		let v = mirValue(fn, n: accStart(j))
 		if j < registers 'register'
 			args.push(v)
 		end 'register' else 'memory'
-			fn.emit(backend.newSpill(v, slot: try (j - registers) as backend.SpillSlot otherwise panic("a slot below 0")))
+			fn.emit(newSpill(v, slot: try (j - registers) as SpillSlot otherwise panic("a slot below 0")))
 		end 'memory'
 	end 'start'
 	mirJump(fn, target: header, args: args)
 	_ = fn.startBlock()
-	let i = fn.addParam(backend.RegClass.gpr)
-	var acc = backend.MRegList.create(0)
+	let i = fn.addParam(RegClass.gpr)
+	var acc = MRegList.create(0)
 	for j in 0 upto registers 'params'
-		acc.push(fn.addParam(backend.RegClass.gpr))
+		acc.push(fn.addParam(RegClass.gpr))
 	end 'params'
-	mirOp(fn, form: backend.X64Form.cmpRegReg, a: i, b: bound, c: backend.noMReg, imm: 0)
-	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
-	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	mirOp(fn, form: X64Form.cmpRegReg, a: i, b: bound, c: noMReg, imm: 0)
+	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	var current = acc.clone()
 	for j in 0 upto shape.accs 'update'
@@ -184,12 +179,12 @@ function mirShapedLoop(symbol String, shape LoopShape) returns backend.MirFuncti
 		if j < registers 'register'
 			current[j] = sum
 		end 'register' else 'memory'
-			fn.emit(backend.newSpill(sum, slot: try (j - registers) as backend.SpillSlot otherwise panic("a slot below 0")))
+			fn.emit(newSpill(sum, slot: try (j - registers) as SpillSlot otherwise panic("a slot below 0")))
 		end 'memory'
 	end 'update'
 	let step = mirAddImm(fn, left: i, imm: 1)
 	if shape.call or shape.coldUse 'branches'
-		var through = backend.MRegList.create(0)
+		var through = MRegList.create(0)
 		through.push(step)
 		for j in 0 upto registers 'through'
 			through.push(current[j])
@@ -200,13 +195,13 @@ function mirShapedLoop(symbol String, shape LoopShape) returns backend.MirFuncti
 			through[1] = current[0]
 			mirJump(fn, target: header, args: through)
 		end 'hotCall' else 'cold'
-			let bit = mirDef(fn, form: backend.chooseAndRegImm(coldEvery), b: i, c: backend.noMReg, imm: coldEvery as FullRangeInt)
-			mirOp(fn, form: backend.chooseCmpRegImm(0), a: bit, b: backend.noMReg, c: backend.noMReg, imm: 0)
-			mirBranch(fn, cond: backend.X64CondCode.notEqual, target: cold, args: backend.MRegList.create(0))
+			let bit = mirDef(fn, form: chooseAndRegImm(coldEvery), b: i, c: noMReg, imm: coldEvery as FullRangeInt)
+			mirOp(fn, form: chooseCmpRegImm(0), a: bit, b: noMReg, c: noMReg, imm: 0)
+			mirBranch(fn, cond: X64CondCode.notEqual, target: cold, args: MRegList.create(0))
 			mirJump(fn, target: header, args: through)
 		end 'cold'
 	end 'branches' else 'plain'
-		var back = backend.MRegList.create(0)
+		var back = MRegList.create(0)
 		back.push(step)
 		for j in 0 upto registers 'back'
 			back.push(current[j])
@@ -228,18 +223,18 @@ function mirShapedLoop(symbol String, shape LoopShape) returns backend.MirFuncti
 	mirReturnMasked(fn, value: total)
 	if (shape.call and shape.coldCall) or shape.coldUse 'coldBlock'
 		_ = fn.startBlock()
-		fn.blocks[cold as Count].likelihood = backend.Likelihood.cold
+		fn.blocks[cold as Count].likelihood = Likelihood.cold
 		var extra = mirConst(fn, value: 0)
 		if shape.call 'call'
 			extra = mirCallDouble(fn, value: i)
 		end 'call'
 		if shape.coldUse 'use'
 			let junk = mirAdd(fn, left: coldValue, right: coldValue)
-			let none = mirDef(fn, form: backend.chooseAndRegImm(0), b: junk, c: backend.noMReg, imm: 0)
+			let none = mirDef(fn, form: chooseAndRegImm(0), b: junk, c: noMReg, imm: 0)
 			extra = mirAdd(fn, left: extra, right: none)
 		end 'use'
 		let first = mirAdd(fn, left: current[0], right: extra)
-		var through = backend.MRegList.create(0)
+		var through = MRegList.create(0)
 		through.push(step)
 		through.push(first)
 		for j in 1 upto registers 'through'
@@ -247,9 +242,9 @@ function mirShapedLoop(symbol String, shape LoopShape) returns backend.MirFuncti
 		end 'through'
 		mirJump(fn, target: rejoin, args: through)
 		_ = fn.startBlock()
-		var params = backend.MRegList.create(0)
+		var params = MRegList.create(0)
 		for j in 0 upto nextOf(registers) 'params'
-			params.push(fn.addParam(backend.RegClass.gpr))
+			params.push(fn.addParam(RegClass.gpr))
 		end 'params'
 		mirJump(fn, target: header, args: params)
 	end 'coldBlock'
@@ -275,31 +270,31 @@ function nextOf(n Count) returns Count
 end 'nextOf'
 
 // accRead is the current value of accumulator j: its register, or a reload of its slot.
-function accRead(mutates fn backend.MirFunction, current backend.MRegList, j Count, registers Count) returns backend.MReg
+function accRead(mutates fn MirFunction, current MRegList, j Count, registers Count) returns MReg
 	if j < registers 'register'
 		return current[j]
 	end 'register'
 	let v = mirGpr(fn)
-	fn.emit(backend.newReload(v, slot: try (j - registers) as backend.SpillSlot otherwise panic("a slot below 0")))
+	fn.emit(newReload(v, slot: try (j - registers) as SpillSlot otherwise panic("a slot below 0")))
 	return v
 end 'accRead'
 
 // mirCallDouble calls mir.double on a value, which the internal convention passes in its first argument register, and
 // gives its result.
-function mirCallDouble(mutates fn backend.MirFunction, value backend.MReg) returns backend.MReg
-	mirCopyIn(fn, dst: backend.x64InternalArg(0), src: value)
+function mirCallDouble(mutates fn MirFunction, value MReg) returns MReg
+	mirCopyIn(fn, dst: x64InternalArg(0), src: value)
 	let callee = fn.addSymbol(mirDoubleSymbol)
-	fn.emit(backend.newCall(backend.X64Form.callRel32, a: backend.noMReg, ref: backend.MRef.symbol, aux: callee, inRegisters: 1))
-	return mirCopyOut(fn, src: backend.x64InternalResult)
+	fn.emit(newCall(X64Form.callRel32, a: noMReg, ref: MRef.symbol, aux: callee, inRegisters: 1))
+	return mirCopyOut(fn, src: x64InternalResult)
 end 'mirCallDouble'
 
 // runSpilledLoop spills a shape's loop, holds it to its spill code, and runs it.
-function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count) returns backend.SpillResult
+function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, spills Count, reloads Count, hotSpills Count, hotReloads Count, restores Count) returns SpillResult
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
 	var fn = mirShapedLoop(ast.funcLinkName(p, fid: entry), shape: shape)
-	var convs = backend.Conventions.make()
+	var convs = Conventions.make()
 	if shape.keepsNothing 'nothing'
-		convs = backend.Conventions.keeping(0)
+		convs = Conventions.keeping(0)
 	end 'nothing'
 	let result = spillUnder(label, fn: fn, convs: convs)
 	expectSpillCode(label, fn: fn, spills: spills, reloads: reloads, hotSpills: hotSpills, hotReloads: hotReloads, restores: restores)
@@ -312,10 +307,10 @@ function runSpilledLoop(mutates p ast.Project, label String, shape LoopShape, sp
 end 'runSpilledLoop'
 
 // refusalOf spills a shape's loop and gives its refusal, which it requires there to be.
-function refusalOfShape(label String, shape LoopShape) returns backend.PressureRefusal
+function refusalOfShape(label String, shape LoopShape) returns PressureRefusal
 	var fn = mirShapedLoop("refused", shape: shape)
-	var s = backend.Spiller.new()
-	let result = backend.spillFunction(fn, s: s)
+	var s = Spiller.new()
+	let result = spillFunction(fn, s: s)
 	if result.refusals.count() != 1 'one'
 		panic("{label}: {result.refusals.count()} refusals, not one")
 	end 'one'
@@ -380,7 +375,7 @@ function testSpillRefusal(mutates p ast.Project)
 	expectCount("press", what: "registers available", got: r.available, want: x64Pool)
 	expectCount("press", what: "values the lower bound asks for", got: r.bound, want: 5)
 	expectCount("press", what: "values that must go", got: r.needed, want: 6)
-	let text = backend.pressureRefusalMessage(r, place: "press.maxon:3", target: "x64")
+	let text = pressureRefusalMessage(r, place: "press.maxon:3", target: "x64")
 	let want = "the loop at press.maxon:3 needs 5 more register(s) than are available: 19 values must be held in general-purpose registers at once inside this loop, but x64 has only 14; remove 6 of them from the loop, for example by holding them in an array that the loop indexes"
 	if text != want 'message'
 		panic("press: the message is '{text}'")
@@ -403,16 +398,16 @@ let outerIterations = 3
 
 // mirNested is two loops: the inner one updates the accumulators and reads the outer counter; the outer one carries a
 // value w that only it reads, after the inner loop, idle across the inner loop's peak.
-function mirNested(symbol String) returns backend.MirFunction
-	var fn = backend.MirFunction.new(symbol, canThrow: false)
-	let outer = 1 as backend.MBlockID
-	let inner = 2 as backend.MBlockID
-	let body = 3 as backend.MBlockID
-	let latch = 4 as backend.MBlockID
-	let exit = 5 as backend.MBlockID
+function mirNested(symbol String) returns MirFunction
+	var fn = MirFunction.new(symbol, canThrow: false)
+	let outer = 1 as MBlockID
+	let inner = 2 as MBlockID
+	let body = 3 as MBlockID
+	let latch = 4 as MBlockID
+	let exit = 5 as MBlockID
 	_ = fn.startBlock()
-	fn.emit(backend.newFrameSetup())
-	var args = backend.MRegList.create(0)
+	fn.emit(newFrameSetup())
+	var args = MRegList.create(0)
 	args.push(mirConst(fn, value: 0))
 	args.push(mirValue(fn, n: 1))
 	for j in 0 upto nestedAccs 'start'
@@ -420,29 +415,29 @@ function mirNested(symbol String) returns backend.MirFunction
 	end 'start'
 	mirJump(fn, target: outer, args: args)
 	_ = fn.startBlock()
-	let j = fn.addParam(backend.RegClass.gpr)
-	let w = fn.addParam(backend.RegClass.gpr)
-	var outerAcc = backend.MRegList.create(0)
+	let j = fn.addParam(RegClass.gpr)
+	let w = fn.addParam(RegClass.gpr)
+	var outerAcc = MRegList.create(0)
 	for k in 0 upto nestedAccs 'outerParams'
-		outerAcc.push(fn.addParam(backend.RegClass.gpr))
+		outerAcc.push(fn.addParam(RegClass.gpr))
 	end 'outerParams'
-	fn.emit(backend.newTarget(backend.chooseCmpRegImm(outerIterations), a: j, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: outerIterations as FullRangeInt))
-	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: exit, args: backend.MRegList.create(0))
-	var into = backend.MRegList.create(0)
+	fn.emit(newTarget(chooseCmpRegImm(outerIterations), a: j, b: noMReg, c: noMReg, aux: 0, imm: outerIterations as FullRangeInt))
+	mirBranch(fn, cond: X64CondCode.greaterEqual, target: exit, args: MRegList.create(0))
+	var into = MRegList.create(0)
 	into.push(mirConst(fn, value: 0))
 	for k in 0 upto nestedAccs 'into'
 		into.push(outerAcc[k])
 	end 'into'
 	mirJump(fn, target: inner, args: into)
 	_ = fn.startBlock()
-	let i = fn.addParam(backend.RegClass.gpr)
-	var acc = backend.MRegList.create(0)
+	let i = fn.addParam(RegClass.gpr)
+	var acc = MRegList.create(0)
 	for k in 0 upto nestedAccs 'innerParams'
-		acc.push(fn.addParam(backend.RegClass.gpr))
+		acc.push(fn.addParam(RegClass.gpr))
 	end 'innerParams'
-	fn.emit(backend.newTarget(backend.chooseCmpRegImm(spillIterations), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: spillIterations as FullRangeInt))
-	mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: latch, args: backend.MRegList.create(0))
-	mirJump(fn, target: body, args: backend.MRegList.create(0))
+	fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
+	mirBranch(fn, cond: X64CondCode.greaterEqual, target: latch, args: MRegList.create(0))
+	mirJump(fn, target: body, args: MRegList.create(0))
 	_ = fn.startBlock()
 	var current = acc.clone()
 	for k in 0 upto nestedAccs 'update'
@@ -450,7 +445,7 @@ function mirNested(symbol String) returns backend.MirFunction
 		current[k] = mirAdd(fn, left: current[k], right: half)
 	end 'update'
 	current[0] = mirAdd(fn, left: current[0], right: j)
-	var back = backend.MRegList.create(0)
+	var back = MRegList.create(0)
 	back.push(mirAddImm(fn, left: i, imm: 1))
 	for k in 0 upto nestedAccs 'back'
 		back.push(current[k])
@@ -458,7 +453,7 @@ function mirNested(symbol String) returns backend.MirFunction
 	mirJump(fn, target: inner, args: back)
 	_ = fn.startBlock()
 	let nextW = mirAdd(fn, left: w, right: j)
-	var round = backend.MRegList.create(0)
+	var round = MRegList.create(0)
 	round.push(mirAddImm(fn, left: j, imm: 1))
 	round.push(nextW)
 	for k in 0 upto nestedAccs 'round'
@@ -514,15 +509,15 @@ function testSpillStraightLine(mutates p ast.Project)
 	// x1 to x24, each x(k) + k, then their sum from x24 down: at its peak 24 values are live, so the ten read last are
 	// spilled by farthest next use, each stored once and reloaded once.
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
-	var fn = backend.MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
+	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
 	_ = fn.startBlock()
-	fn.emit(backend.newFrameSetup())
-	var xs = backend.MRegList.create(0)
+	fn.emit(newFrameSetup())
+	var xs = MRegList.create(0)
 	xs.push(mirValue(fn, n: 1))
 	var expected = 1 as FullRangeInt
 	var x = 1 as FullRangeInt
 	for k in 1 upto straightValues 'values'
-		xs.push(mirAddImm(fn, left: xs[k - 1], imm: try k as backend.Imm32 otherwise panic("a step past 32 bits")))
+		xs.push(mirAddImm(fn, left: xs[k - 1], imm: try k as Imm32 otherwise panic("a step past 32 bits")))
 		x = wrapAdd(x, b: k as FullRangeInt)
 		expected = wrapAdd(expected, b: x)
 	end 'values'
@@ -549,10 +544,10 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	// Thirteen values live across a division by a register: rax and rdx hold the dividend and the result, and two of
 	// the values are spilled.
 	let entry = addFunction(p, name: "main", errTy: ast.noType)
-	var fn = backend.MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
+	var fn = MirFunction.new(ast.funcLinkName(p, fid: entry), canThrow: false)
 	_ = fn.startBlock()
-	fn.emit(backend.newFrameSetup())
-	var live = backend.MRegList.create(0)
+	fn.emit(newFrameSetup())
+	var live = MRegList.create(0)
 	var expected = 0 as FullRangeInt
 	for k in 0 upto fixedLive 'values'
 		live.push(mirValue(fn, n: idleStart(k)))
@@ -560,11 +555,11 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	end 'values'
 	let dividend = mirValue(fn, n: 100)
 	let divisor = mirValue(fn, n: 7)
-	mirCopyIn(fn, dst: backend.X64Register.rax, src: dividend)
-	mirOp(fn, form: backend.X64Form.cqo, a: backend.noMReg, b: backend.noMReg, c: backend.noMReg, imm: 0)
-	mirOp(fn, form: backend.X64Form.idivReg, a: divisor, b: backend.noMReg, c: backend.noMReg, imm: 0)
-	let quotient = mirCopyOut(fn, src: backend.X64Register.rax)
-	let remainder = mirCopyOut(fn, src: backend.X64Register.rdx)
+	mirCopyIn(fn, dst: X64Register.rax, src: dividend)
+	mirOp(fn, form: X64Form.cqo, a: noMReg, b: noMReg, c: noMReg, imm: 0)
+	mirOp(fn, form: X64Form.idivReg, a: divisor, b: noMReg, c: noMReg, imm: 0)
+	let quotient = mirCopyOut(fn, src: X64Register.rax)
+	let remainder = mirCopyOut(fn, src: X64Register.rdx)
 	var total = mirAdd(fn, left: quotient, right: remainder)
 	for k in 0 upto fixedLive 'sum'
 		total = mirAdd(fn, left: total, right: live[k])
@@ -576,17 +571,17 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	runSpilledMir(p, fns: oneMir(fn), entry: entry, name: "minimaxon_spill_division.exe", expectedCode: exitOf(wrapAdd(expected, b: 16)))
 	// The same with a shift by a count in rcx.
 	let shiftEntry = addFunction(p, name: "main", errTy: ast.noType)
-	var shift = backend.MirFunction.new(ast.funcLinkName(p, fid: shiftEntry), canThrow: false)
+	var shift = MirFunction.new(ast.funcLinkName(p, fid: shiftEntry), canThrow: false)
 	_ = shift.startBlock()
-	shift.emit(backend.newFrameSetup())
-	var held = backend.MRegList.create(0)
+	shift.emit(newFrameSetup())
+	var held = MRegList.create(0)
 	for k in 0 upto fixedLive 'values'
 		held.push(mirValue(shift, n: idleStart(k)))
 	end 'values'
 	let five = mirValue(shift, n: 5)
 	let count = mirValue(shift, n: 3)
-	mirCopyIn(shift, dst: backend.X64Register.rcx, src: count)
-	let shifted = mirDef(shift, form: backend.X64Form.shlRegCl, b: five, c: backend.noMReg, imm: 0)
+	mirCopyIn(shift, dst: X64Register.rcx, src: count)
+	let shifted = mirDef(shift, form: X64Form.shlRegCl, b: five, c: noMReg, imm: 0)
 	var sum = shifted
 	for k in 0 upto fixedLive 'sum'
 		sum = mirAdd(shift, left: sum, right: held[k])
@@ -598,7 +593,7 @@ function testSpillFixedRegisters(mutates p ast.Project)
 	runSpilledMir(p, fns: oneMir(shift), entry: shiftEntry, name: "minimaxon_spill_shift.exe", expectedCode: exitOf(wrapAdd(expected, b: 40)))
 end 'testSpillFixedRegisters'
 
-function testSpilling()
+test 'spilling'
 	var p = ast.Project.new("self")
 	_ = ast.addModule(p, m: ast.Module.new(0 as diag.ModuleID, path: "", text: "", files: ast.FileSpanList.create(0)))
 	testSpillFits(p)
@@ -610,7 +605,7 @@ function testSpilling()
 	testSpillStraightLine(p)
 	testSpillFixedRegisters(p)
 	testSpillScale()
-end 'testSpilling'
+end 'spilling'
 
 // scaleSegments is how many segments the synthetic function of the scale test has, and scaleAccs and scaleStraight
 // how many accumulators its loops carry and how many values its straight-line code holds at once.
@@ -626,35 +621,35 @@ let scaleBlocks = 5
 
 // mirScale is a synthetic function of many segments, each a loop that fits, straight-line code over its pool, and a
 // cold call, which the scale test spills to see that the work stays near linear.
-function mirScale(segments Count, straight Count) returns backend.MirFunction
-	var fn = backend.MirFunction.new("scale", canThrow: false)
+function mirScale(segments Count, straight Count) returns MirFunction
+	var fn = MirFunction.new("scale", canThrow: false)
 	_ = fn.startBlock()
-	fn.emit(backend.newFrameSetup())
+	fn.emit(newFrameSetup())
 	var carry = mirValue(fn, n: 1)
 	for seg in 0 upto segments 'segments'
 		let base = try 1 + seg * scaleBlocks otherwise panic("a block past memory")
-		let header = try base as backend.MBlockID otherwise panic("a block past a branch")
-		let body = try (base + 1) as backend.MBlockID otherwise panic("a block past a branch")
-		let after = try (base + 2) as backend.MBlockID otherwise panic("a block past a branch")
-		let cold = try (base + 3) as backend.MBlockID otherwise panic("a block past a branch")
-		let join = try (base + 4) as backend.MBlockID otherwise panic("a block past a branch")
-		var args = backend.MRegList.create(0)
+		let header = try base as MBlockID otherwise panic("a block past a branch")
+		let body = try (base + 1) as MBlockID otherwise panic("a block past a branch")
+		let after = try (base + 2) as MBlockID otherwise panic("a block past a branch")
+		let cold = try (base + 3) as MBlockID otherwise panic("a block past a branch")
+		let join = try (base + 4) as MBlockID otherwise panic("a block past a branch")
+		var args = MRegList.create(0)
 		args.push(mirConst(fn, value: 0))
 		for j in 0 upto scaleAccs 'start'
-			args.push(mirAddImm(fn, left: carry, imm: try j as backend.Imm32 otherwise panic("a step past 32 bits")))
+			args.push(mirAddImm(fn, left: carry, imm: try j as Imm32 otherwise panic("a step past 32 bits")))
 		end 'start'
 		mirJump(fn, target: header, args: args)
 		_ = fn.startBlock()
-		let i = fn.addParam(backend.RegClass.gpr)
-		var acc = backend.MRegList.create(0)
+		let i = fn.addParam(RegClass.gpr)
+		var acc = MRegList.create(0)
 		for j in 0 upto scaleAccs 'params'
-			acc.push(fn.addParam(backend.RegClass.gpr))
+			acc.push(fn.addParam(RegClass.gpr))
 		end 'params'
-		fn.emit(backend.newTarget(backend.chooseCmpRegImm(spillIterations), a: i, b: backend.noMReg, c: backend.noMReg, aux: 0, imm: spillIterations as FullRangeInt))
-		mirBranch(fn, cond: backend.X64CondCode.greaterEqual, target: after, args: backend.MRegList.create(0))
-		mirJump(fn, target: body, args: backend.MRegList.create(0))
+		fn.emit(newTarget(chooseCmpRegImm(spillIterations), a: i, b: noMReg, c: noMReg, aux: 0, imm: spillIterations as FullRangeInt))
+		mirBranch(fn, cond: X64CondCode.greaterEqual, target: after, args: MRegList.create(0))
+		mirJump(fn, target: body, args: MRegList.create(0))
 		_ = fn.startBlock()
-		var back = backend.MRegList.create(0)
+		var back = MRegList.create(0)
 		back.push(mirAddImm(fn, left: i, imm: 1))
 		for j in 0 upto scaleAccs 'update'
 			let half = mirSar(fn, src: acc[nextAcc(j, accs: scaleAccs)])
@@ -666,10 +661,10 @@ function mirScale(segments Count, straight Count) returns backend.MirFunction
 		for j in 1 upto scaleAccs 'sum'
 			sum = mirAdd(fn, left: sum, right: acc[j])
 		end 'sum'
-		var xs = backend.MRegList.create(0)
+		var xs = MRegList.create(0)
 		xs.push(sum)
 		for k in 1 upto straight 'values'
-			xs.push(mirAddImm(fn, left: xs[k - 1], imm: try k as backend.Imm32 otherwise panic("a step past 32 bits")))
+			xs.push(mirAddImm(fn, left: xs[k - 1], imm: try k as Imm32 otherwise panic("a step past 32 bits")))
 		end 'values'
 		let last = try straight - 1 otherwise panic("no straight-line values")
 		var total = xs[last]
@@ -678,18 +673,18 @@ function mirScale(segments Count, straight Count) returns backend.MirFunction
 			k = k - 1
 			total = mirAdd(fn, left: total, right: xs[k])
 		end 'fold'
-		mirOp(fn, form: backend.chooseCmpRegImm(0), a: total, b: backend.noMReg, c: backend.noMReg, imm: 0)
-		mirBranch(fn, cond: backend.X64CondCode.equal, target: cold, args: backend.MRegList.create(0))
-		var through = backend.MRegList.create(0)
+		mirOp(fn, form: chooseCmpRegImm(0), a: total, b: noMReg, c: noMReg, imm: 0)
+		mirBranch(fn, cond: X64CondCode.equal, target: cold, args: MRegList.create(0))
+		var through = MRegList.create(0)
 		through.push(total)
 		mirJump(fn, target: join, args: through)
 		_ = fn.startBlock()
-		fn.blocks[cold as Count].likelihood = backend.Likelihood.cold
-		var called = backend.MRegList.create(0)
+		fn.blocks[cold as Count].likelihood = Likelihood.cold
+		var called = MRegList.create(0)
 		called.push(mirCallDouble(fn, value: total))
 		mirJump(fn, target: join, args: called)
 		_ = fn.startBlock()
-		carry = fn.addParam(backend.RegClass.gpr)
+		carry = fn.addParam(RegClass.gpr)
 	end 'segments'
 	mirReturnMasked(fn, value: carry)
 	fn.endBlock()
@@ -698,8 +693,8 @@ end 'mirScale'
 
 function testSpillScale()
 	var fn = mirScale(scaleSegments, straight: scaleStraight)
-	var s = backend.Spiller.new()
-	let result = backend.spillFunction(fn, s: s)
+	var s = Spiller.new()
+	let result = spillFunction(fn, s: s)
 	if result.refusals.count() > 0 'refused'
 		panic("scale: refused")
 	end 'refused'
@@ -709,7 +704,7 @@ function testSpillScale()
 	expectCount("scale", what: "stores", got: result.stores, want: scaleSegments * over)
 	expectCount("scale", what: "reloads", got: result.reloads, want: scaleSegments * over)
 	expectCount("scale", what: "rounds", got: result.rounds, want: 2)
-	let problems = backend.verifyPressure(fn)
+	let problems = verifyPressure(fn)
 	if problems.count() > 0 'problems'
 		panic("scale: {problems[0]}")
 	end 'problems'

@@ -1,0 +1,20 @@
+test 'shape clash'
+	var p = Project.new("self")
+	var counts = TypeIDList.create(0)
+	counts.push(p.builtins.countTy)
+	var ms = lendProject(p)
+	let arrayOfCount = instantiateType(ms.types, reads: p.types, origin: p.builtins.arrayOrigin, args: counts)
+	var strings = TypeIDList.create(0)
+	strings.push(p.builtins.stringTy)
+	let word = instanceWord(ms.types, reads: p.types, origin: p.builtins.arrayOrigin, args: counts)
+	match consumes instanceUnder(ms.types, reads: p.types, word: word, origin: p.builtins.arrayOrigin, args: counts) 'own'
+		same(id, _) then assertEqStr("{id}", expected: "{arrayOfCount}", label: "shapes: the instance under its own word")
+		absent then panic("shapes: an interned instance is not found under its word")
+		clash(message) then panic("shapes: an instance clashes with itself: {message}")
+	end 'own'
+	match consumes instanceUnder(ms.types, reads: p.types, word: word, origin: p.builtins.arrayOrigin, args: strings) 'forced'
+		clash(message) then assertEqStr(message, expected: "internal error: the types 'Array with Count' and 'Array with String' have one structural hash, {word}", label: "shapes: a clash")
+		same(_, _) then panic("shapes: two instances under one word are taken for one type")
+		absent then panic("shapes: a word that holds a type is found empty")
+	end 'forced'
+end 'shape clash'

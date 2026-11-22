@@ -37,10 +37,21 @@ export type RuntimeOptions
 	end 'make'
 end 'RuntimeOptions'
 
+// EntryCalls are the functions the entry calls, in order, by symbol: a program's main, whose result is the exit code, or the
+// tests of an executable of tests, after which the entry exits with 0.
+type EntryCalls
+	var symbols as ast.StringList
+	var exitsWithResult as bool
+
+	static function make(consumes symbols ast.StringList, exitsWithResult bool) returns EntryCalls
+		return EntryCalls{symbols: symbols, exitsWithResult: exitsWithResult}
+	end 'make'
+end 'EntryCalls'
+
 // emitRuntime is the unit with the entry point and the globals the runtime's source reads: the process heap and the
 // standard handles, which the entry sets, and the count of live boxes, which the runtime keeps in every executable so
-// that it is the same code whatever the options. mainSymbol is the symbol of the function the entry calls.
-export function emitRuntime(mainSymbol String, options RuntimeOptions) returns CodeUnit
+// that it is the same code whatever the options. calls are the functions the entry calls.
+function emitRuntime(calls EntryCalls, options RuntimeOptions) returns CodeUnit
 	var u = CodeUnit.new()
 	u.defineData(ir.rtSymbol(ir.Rt.rtHeap), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtStdout), size: wordBytes)
@@ -49,7 +60,7 @@ export function emitRuntime(mainSymbol String, options RuntimeOptions) returns C
 	u.defineData(ir.rtSymbol(ir.Rt.rtTlsOffset), size: wordBytes)
 	u.defineData(ir.rtSymbol(ir.Rt.rtMainContext), size: contextBytes)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtEntry))
-	emitEntry(u, mainSymbol: mainSymbol, count: options.countAllocations)
+	emitEntry(u, calls: calls, count: options.countAllocations)
 	u.defineCode(ir.rtSymbol(ir.Rt.rtThreadStart))
 	emitThreadStart(u)
 	u.defineCode(faultSymbol)
@@ -67,10 +78,10 @@ function callRuntime(mutates u CodeUnit, entry ir.Rt, arg X64Register)
 end 'callRuntime'
 
 // emitEntry writes the executable's entry point: it sets up the heap, the standard handles and the main thread's
-// context, calls main, has the runtime's schedDrain run the behaviours that are left, and exits with what main returns.
-// In an executable that counts its allocations, the runtime's checkLeaks sees the exit code first, and exits with a
-// leak report in its place when a box is still live.
-function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
+// context, calls main (or each test), has the runtime's schedDrain run the behaviours that are left, and exits with what
+// main returns (0 after the tests). In an executable that counts its allocations, the runtime's checkLeaks sees the exit
+// code first, and exits with a leak report in its place when a box is still live.
+function emitEntry(mutates u CodeUnit, calls EntryCalls, count bool)
 	u.asm.subImm(rsp, imm: windowsShadowSize)
 	u.asm.callImport(impGetProcessHeap)
 	u.asm.storeSymbol(ir.rtSymbol(ir.Rt.rtHeap), src: rax)
@@ -83,7 +94,12 @@ function emitEntry(mutates u CodeUnit, mainSymbol String, count bool)
 	emitFaultHandlerSetup(u)
 	let pastTheTeb = u.asm.newLabel()
 	emitTlsSetup(u, pastTheTeb: pastTheTeb)
-	u.asm.callSymbol(mainSymbol)
+	for i in 0 upto calls.symbols.count() 'calls'
+		u.asm.callSymbol(calls.symbols[i])
+	end 'calls'
+	if not calls.exitsWithResult 'passed'
+		u.asm.movImm(resultWord(), imm: 0)
+	end 'passed'
 	callRuntime(u, entry: ir.Rt.rtSchedDrain, arg: resultWord())
 	if count 'leaks'
 		callRuntime(u, entry: ir.Rt.rtCheckLeaks, arg: resultWord())
