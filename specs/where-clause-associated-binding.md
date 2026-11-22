@@ -78,12 +78,12 @@ end 'IntCur'
 type Wrap uses S, E where S implements Cursor with E
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
-	function pair() returns (S, E)
-		return (self.s, self.s.current())
+	function pair() returns (S, E) where S implements Copyable
+		return (self.s.clone(), self.s.current())
 	end 'pair'
 end 'Wrap'
 
@@ -142,8 +142,8 @@ end 'TextCur'
 type Wrap uses S, E where S implements Cursor with E
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function only() returns E
@@ -196,8 +196,8 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -262,8 +262,8 @@ end 'Twig'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -492,8 +492,8 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -504,8 +504,8 @@ end 'Box'
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function twice() returns Integer
@@ -561,8 +561,8 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -573,8 +573,8 @@ end 'Box'
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function twice() returns Integer
@@ -591,11 +591,11 @@ type Outer uses E where E implements Sized
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(consumes e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns Integer
+	function tally() returns Integer where E implements Droppable and Copyable
 		return try Inner.create(BoxE.create(self.e)).tag() + self.e.size() otherwise panic("out of range")
 	end 'tally'
 end 'Outer'
@@ -641,8 +641,8 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -653,8 +653,8 @@ end 'Box'
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function twice() returns Integer
@@ -671,11 +671,11 @@ type Outer uses E where E implements Sized
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(consumes e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	function tally() returns Integer
+	function tally() returns Integer where E implements Droppable and Copyable
 		return try Inner.create(BoxE.create(self.e)).twice() + self.e.size() otherwise panic("out of range")
 	end 'tally'
 end 'Outer'
@@ -779,8 +779,8 @@ end 'Leaf'
 type Box uses T implements Sized where T implements Sized
 	var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
 	function size() returns Integer
@@ -791,8 +791,8 @@ end 'Box'
 type Holder uses S where S implements Sized
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function twice() returns Integer
@@ -809,11 +809,11 @@ type Outer uses E where E implements Sized
 	typealias Inner = Holder with BoxE
 	var e as E
 
-	static function create(consumes e E) returns Self
-		return Self{e: e}
+	static function create(e E) returns Self where E implements Copyable
+		return Self{e: e.clone()}
 	end 'create'
 
-	static function tally(consumes b BoxE) returns Integer
+	static function tally(b BoxE) returns Integer where E implements Droppable and Copyable
 		return Inner.create(b).twice()
 	end 'tally'
 end 'Outer'

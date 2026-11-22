@@ -383,8 +383,8 @@ construction, which is a wrong COST driven by a name's spelling.
 type Box uses T
 	export var value as T
 
-	static function create(consumes from T) returns Self
-		return Self{value: from}
+	static function create(from T) returns Self where T implements Copyable
+		return Self{value: from.clone()}
 	end 'create'
 end 'Box'
 

@@ -66,7 +66,7 @@ type Holder
 	end 'make'
 end 'Holder'
 
-// expect-error: E3922 at 72:14
+// expect-error: E3922 at 72:15
 function main() returns ExitCode
 	let t = Txn.begin(1)
 	let note = t.note

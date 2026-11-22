@@ -1209,12 +1209,12 @@ heap. It exits 7, with no leak.
 type Box uses T
 	export let v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function pack() returns Integer
-		let t = (self.v, 1)
+	function pack() returns Integer where T implements Copyable
+		let t = (self.v.clone(), 1)
 		return t.1
 	end 'pack'
 end 'Box'
@@ -1961,12 +1961,12 @@ live without being constructed.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -2933,7 +2933,6 @@ end 'main'
 ```
 
 <!-- test: an-iterator-pair-keeps-the-elements-unsigned-alias -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 The element of a `withIterator` pair over an unsigned alias keeps its alias.
 ```maxon
 typealias Wide = int(0 to u64.max)
@@ -2942,8 +2941,7 @@ typealias WideArray = Array with Wide
 
 function top(values WideArray) returns Wide
 	var best = 0 as Wide
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, item) in values.withIterator() 'each'
+	for (_, item) in values.enumerated() 'each'
 		if item > best 'bigger'
 			best = item
 		end 'bigger'
@@ -2952,7 +2950,7 @@ function top(values WideArray) returns Wide
 end 'top'
 
 function main() returns ExitCode
-	let values = WideArray.create(0)
+	var values = WideArray.create(0)
 	values.push(5)
 	values.push(18446744073709551615)
 	values.push(9223372036854775808)

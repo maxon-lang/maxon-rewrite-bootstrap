@@ -10,4 +10,4 @@ function main() returns ExitCode
 	return Shape.circle.r
 end 'main'
 
-// expect-error: E3036 at 10:14
+// expect-error: E3036 at 10:15

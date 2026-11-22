@@ -131,8 +131,8 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function takeOne(mutates self) returns Element
@@ -266,12 +266,12 @@ missed reference a poison fault and a doubled one a leak.
 type Holder uses Element
 	export var value as Element
 
-	static function create(consumes v Element) returns Self
-		return Self{value: v}
+	static function create(v Element) returns Self where Element implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns Element
-		return self.value
+	function get() returns Element where Element implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Holder'
 

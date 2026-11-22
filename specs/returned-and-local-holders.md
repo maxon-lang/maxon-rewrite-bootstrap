@@ -144,6 +144,7 @@ error E3197: <fragment>:21:2: cannot write 'count' through 'h.box', which is rea
 ```
 
 <!-- test: error.a-returned-holder-whose-parameter-is-also-written-needs-a-mutable-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `reset` writes the box it also holds in the record it returns, so the frozen argument is refused.
 

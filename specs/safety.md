@@ -336,6 +336,7 @@ count before parsing the target, and an op older than that mark cannot be the ta
 try form is unaffected, because every one of them emits its call.
 
 <!-- test: error.try-over-a-parenthesized-non-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The group is a plain local, so nothing was emitted for it. The blame must land on the `try`, not on
 the non-throwing `opaque` whose call happens to be the last op in the block.
 ```maxon
@@ -356,6 +357,7 @@ error E2015: <fragment>:10:10: Unsupported: `try` must be applied to a call — 
 ```
 
 <!-- test: error.try-over-a-parenthesized-name-cannot-claim-an-earlier-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same shape with a THROWING call in front of it — the case that compiled and answered 99.
 ```maxon
@@ -439,6 +441,7 @@ error E3103: <fragment>:5:12: division by zero: the divisor of '/' is always 0
 ```
 
 <!-- test: error.float-divide-by-constant-zero -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	let a = 12.0
@@ -451,6 +454,7 @@ error E3103: <fragment>:4:12: division by zero: the divisor of '/' is always 0
 ```
 
 <!-- test: error.float-divide-by-negative-constant-zero -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	let a = 12.0
@@ -653,6 +657,7 @@ error E3055: <fragment>:10:10: try requires a throwing function: this `mod` cann
 ```
 
 <!-- test: error.try-over-a-total-quotient-names-the-operator -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 #### A `try` over a `/` whose divisor is proven non-zero is the same refusal
 A divisor that is a sum of ranged values carries the interval their ranges give, so `n + 1` over

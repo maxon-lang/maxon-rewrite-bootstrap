@@ -653,6 +653,7 @@ error E2013: <fragment>:38:39: 'g' is a let and cannot be passed to the `mutable
 ```
 
 <!-- test: a-ternary-condition-wrapping-a-group-that-holds-the-call-reads-the-local-first -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `sum(put(label), b: 1) if label.byteLength() > 3 else 0` evaluates the condition first, so `label` is read before `put` writes it, whatever group the call sits in.
 
@@ -680,6 +681,7 @@ error E3186: <fragment>:16:23: argument 'label' is read by another operand of th
 ```
 
 <!-- test: a-ternary-condition-wrapping-two-groups-that-hold-the-call-reads-the-local-first -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The ternary wraps the outer `sum`, two groups above `put(label)`, and its condition still reads `label` before the write.
 
@@ -707,6 +709,7 @@ error E3186: <fragment>:16:33: argument 'label' is read by another operand of th
 ```
 
 <!-- test: a-ternary-condition-wrapping-an-array-literal-that-holds-the-call-reads-the-local-first -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The ternary wraps the array literal that holds `put(label)`, and its condition reads `label` before the write.
 

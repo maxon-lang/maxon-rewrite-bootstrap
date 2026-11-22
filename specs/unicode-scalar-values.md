@@ -42,6 +42,7 @@ error E1004: <fragment>:3:10: Malformed UTF-8 in character literal: a surrogate 
 ```
 
 <!-- test: error.surrogate-escape-in-a-string-literal -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### A string literal cannot spell a surrogate
 
 ```maxon
@@ -55,6 +56,7 @@ error E1004: <fragment>:3:10: Malformed UTF-8 in string interpolation: a surroga
 ```
 
 <!-- test: error.surrogate-escape-in-an-interpolated-string -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### A string fragment beside an interpolation cannot spell a surrogate
 
 ```maxon

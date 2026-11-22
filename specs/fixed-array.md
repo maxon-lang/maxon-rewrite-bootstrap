@@ -1096,6 +1096,7 @@ end 'main'
 ```
 
 <!-- test: error.a-write-through-a-let-fixed-array-literal-is-refused-off-the-declaration -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -2407,7 +2408,6 @@ end 'main'
 ```
 
 <!-- test: with-iterator-walks-a-managed-fixed-array -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
 
@@ -2422,12 +2422,11 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let names = Names.create(launder(3), value: label(1))
+	var names = Names.create(launder(3), value: label(1))
 	try names.set(2, value: label(3)) otherwise panic("set")
 	var joined = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, name) in names.withIterator() 'each'
-		joined.append("{iter.index()}={name} ")
+	for (iter, name) in names.enumerated() 'each'
+		joined.append("{iter}={name} ")
 	end 'each'
 	print("{joined}\n")
 	return 0
@@ -2787,11 +2786,11 @@ type Ring uses Element
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
-	static function create(seed Element) returns Self
-		return Self{slots: Slots.create(value: seed)}
+	static function create(seed Element) returns Self where Element implements Copyable
+		return Self{slots: Slots.create(value: seed.clone())}
 	end 'create'
 
-	function first() returns Element
+	function first() returns Element where Element implements Copyable
 		return slots.get(0)
 	end 'first'
 end 'Ring'
@@ -2827,11 +2826,11 @@ type Ring uses Element
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
-	static function create(seed Element) returns Self
-		return Self{slots: Slots.create(value: seed)}
+	static function create(seed Element) returns Self where Element implements Copyable
+		return Self{slots: Slots.create(value: seed.clone())}
 	end 'create'
 
-	function at(index ElementIndex) returns Element
+	function at(index ElementIndex) returns Element where Element implements Copyable
 		var found = slots.get(0)
 		for i in 0 upto 3 'each'
 			if i == index 'wanted'
@@ -2864,15 +2863,15 @@ type Ring uses Element
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
-	static function create(seed Element) returns Self
-		return Self{slots: Slots.create(value: seed)}
+	static function create(seed Element) returns Self where Element implements Copyable
+		return Self{slots: Slots.create(value: seed.clone())}
 	end 'create'
 
-	function replaceSecond(value Element)
-		slots.set(1, value: value)
+	function replaceSecond(mutates self, value Element) where Element implements Droppable and Copyable
+		slots.set(1, value: value.clone())
 	end 'replaceSecond'
 
-	function at(index ElementIndex) returns Element
+	function at(index ElementIndex) returns Element where Element implements Copyable
 		return try slots.get(index) otherwise panic("at")
 	end 'at'
 end 'Ring'
@@ -2880,7 +2879,7 @@ end 'Ring'
 typealias NameRing = Ring with String
 
 function main() returns ExitCode
-	let r = NameRing.create("abc{1}")
+	var r = NameRing.create("abc{1}")
 	r.replaceSecond("xyz{2}")
 	print("{r.at(0)} {r.at(1)} {r.at(2)}\n")
 	return 0
@@ -2902,19 +2901,19 @@ type Ring uses Element
 	typealias Slots = FixedArray with 3 Element
 	var slots as Slots
 
-	static function create(seed Element) returns Self
-		return Self{slots: Slots.create(value: seed)}
+	static function create(seed Element) returns Self where Element implements Copyable
+		return Self{slots: Slots.create(value: seed.clone())}
 	end 'create'
 
-	function put(index ElementIndex, value Element)
-		try slots.set(index, value: value) otherwise panic("put")
+	function put(mutates self, index ElementIndex, value Element) where Element implements Droppable and Copyable
+		try slots.set(index, value: value.clone()) otherwise panic("put")
 	end 'put'
 
-	function reset(value Element)
+	function reset(mutates self, value Element) where Element implements Copyable
 		slots.refill(value)
 	end 'reset'
 
-	function at(index ElementIndex) returns Element
+	function at(index ElementIndex) returns Element where Element implements Copyable
 		return try slots.get(index) otherwise panic("at")
 	end 'at'
 end 'Ring'
@@ -2926,7 +2925,7 @@ function label(n Int) returns String
 end 'label'
 
 function main() returns ExitCode
-	let ring = NameRing.create(label(1))
+	var ring = NameRing.create(label(1))
 	ring.put(1, value: label(2))
 	ring.put(2, value: label(3))
 	let before = ring.at(0)
@@ -4688,6 +4687,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-index-of-a-constant-length-create -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The array is a `FixedArray with 4 Int`, so slot 0 is proven and the `try` is E3055, exactly as on a `Vec4`.
 ```maxon
@@ -4997,8 +4997,8 @@ end 'FixedArray'
 type Probe uses Item where Item implements Measured
 	var item as Item
 
-	static function create(consumes item Item) returns Self
-		return Self{item: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function measured() returns Count

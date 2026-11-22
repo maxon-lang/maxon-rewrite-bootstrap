@@ -242,16 +242,16 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.stored
+	function fresh() returns Item where Item implements Copyable
+		return self.stored.clone()
 	end 'fresh'
 
-	function ifAssignOwned(consumes fallback Item, flag bool) returns Item
-		var chosen = fallback
+	function ifAssignOwned(fallback Item, flag bool) returns Item where Item implements Copyable
+		var chosen = fallback.clone()
 		if flag 'taken'
 			chosen = self.fresh()
 		end 'taken'
@@ -309,18 +309,18 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.stored
+	function fresh() returns Item where Item implements Copyable
+		return self.stored.clone()
 	end 'fresh'
 
-	function bornOwnedThenIf(consumes fallback Item, flag bool) returns Item
+	function bornOwnedThenIf(fallback Item, flag bool) returns Item where Item implements Droppable and Copyable
 		var chosen = self.fresh()
 		if flag 'taken'
-			chosen = fallback
+			chosen = fallback.clone()
 		end 'taken'
 		return chosen
 	end 'bornOwnedThenIf'
@@ -369,7 +369,7 @@ type Pebble
 	export let n as Count
 
 	static function create(name String, n Count) returns Pebble
-		return Pebble{name: name, n: n}
+		return Pebble{name: name.clone(), n: n}
 	end 'create'
 end 'Pebble'
 
@@ -381,10 +381,10 @@ type Bag uses Item
 		return Self{items: ItemArray.create(0)}
 	end 'create'
 
-	function addThenSwap(item Item, other Item) returns Item
-		var kept = item
-		items.push(item)
-		kept = other
+	function addThenSwap(mutates self, item Item, other Item) returns Item where Item implements Copyable
+		var kept = item.clone()
+		items.push(item.clone())
+		kept = other.clone()
 		return kept
 	end 'addThenSwap'
 
@@ -392,7 +392,7 @@ type Bag uses Item
 		return items.count()
 	end 'size'
 
-	function first() returns Item
+	function first() returns Item where Item implements Copyable
 		return try items.get(0) otherwise panic("empty")
 	end 'first'
 end 'Bag'
@@ -404,14 +404,14 @@ typealias PebbleBag = Bag with Pebble
 typealias TallyBag = Bag with Count
 
 function main() returns ExitCode
-	let texts = TextBag.create()
+	var texts = TextBag.create()
 	let s = texts.addThenSwap("item {40 + 2} long enough for a heap record", other: "other {40 + 2} long enough for a heap record")
 	print("{s} {texts.size()} {texts.first()}\n")
-	let pebbles = PebbleBag.create()
+	var pebbles = PebbleBag.create()
 	let p = pebbles.addThenSwap(Pebble.create("item {40 + 2} long enough for a heap record", n: 1), other: Pebble.create("other {40 + 2} long enough for a heap record", n: 2))
 	let q = pebbles.first()
 	print("{p.name} {p.n} {pebbles.size()} {q.name} {q.n}\n")
-	let tallies = TallyBag.create()
+	var tallies = TallyBag.create()
 	let c = tallies.addThenSwap(11, other: 22)
 	print("{c} {tallies.size()} {tallies.first()}\n")
 	return 0
@@ -444,12 +444,12 @@ type Holder uses Item
 	var held as Item
 	var echoed as Item
 
-	static function create(consumes item Item, consumes other Item, swap bool) returns Self
-		var copy = item
+	static function create(item Item, other Item, swap bool) returns Self where Item implements Copyable
+		var copy = item.clone()
 		if swap 'maybeSwap'
-			copy = other
+			copy = other.clone()
 		end 'maybeSwap'
-		return Self{held: item, echoed: copy}
+		return Self{held: item.clone(), echoed: copy}
 	end 'create'
 end 'Holder'
 
@@ -546,14 +546,14 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function pick(consumes v Item, which Count) returns Item
+	function pick(v Item, which Count) returns Item where Item implements Droppable and Copyable
 		let chosen = match which 'arm'
-			0 gives Self.create(v).stored
-			default gives self.stored
+			0 gives Self.create(v).stored.clone()
+			default gives self.stored.clone()
 		end 'arm'
 		return chosen
 	end 'pick'
@@ -609,8 +609,8 @@ end 'Pebble'
 type Cell uses T
 	var value as T
 
-	static function create(consumes value T) returns Self
-		return Self{value: value}
+	static function create(value T) returns Self where T implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 end 'Cell'
 
@@ -618,14 +618,14 @@ type Box uses Item
 	typealias ItemCell = Cell with Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function pick(consumes v Item, which Count) returns Item
+	function pick(v Item, which Count) returns Item where Item implements Droppable and Copyable
 		let chosen = match which 'arm'
-			0 gives ItemCell.create(v).value
-			default gives self.stored
+			0 gives ItemCell.create(v).value.clone()
+			default gives self.stored.clone()
 		end 'arm'
 		return chosen
 	end 'pick'
@@ -681,12 +681,12 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function pick(consumes v Item, which Count) returns Item
-		let chosen = Self.create(v).stored if which == 0 else self.stored
+	function pick(v Item, which Count) returns Item where Item implements Droppable and Copyable
+		let chosen = Self.create(v).stored.clone() if which == 0 else self.stored.clone()
 		return chosen
 	end 'pick'
 end 'Box'
@@ -741,17 +741,17 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.stored
+	function fresh() returns Item where Item implements Copyable
+		return self.stored.clone()
 	end 'fresh'
 
-	function pick(consumes v Item, which Count) returns Item
+	function pick(v Item, which Count) returns Item where Item implements Copyable
 		let chosen = match which 'arm'
-			0 gives v
+			0 gives v.clone()
 			default gives self.fresh()
 		end 'arm'
 		return chosen
@@ -808,15 +808,15 @@ end 'Pebble'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function pick(consumes v Item, consumes w Item, which Count) returns Item
+	function pick(v Item, w Item, which Count) returns Item where Item implements Copyable
 		let chosen = match which 'arm'
-			0 gives v
-			1 gives self.stored
-			default gives w
+			0 gives v.clone()
+			1 gives self.stored.clone()
+			default gives w.clone()
 		end 'arm'
 		return chosen
 	end 'pick'
@@ -973,9 +973,9 @@ type Slot uses Item
 		return Self{}
 	end 'create'
 
-	function rebind(mutates self, consumes first Item, consumes second Item) returns Count
-		var held = first
-		held = second
+	function rebind(mutates self, first Item, second Item) returns Count where Item implements Copyable
+		var held = first.clone()
+		held = second.clone()
 		_ = held
 		self.swaps = try self.swaps + 1 otherwise panic("out of range")
 		return self.swaps
@@ -1081,22 +1081,22 @@ end 'Pebble'
 type Chooser uses Item
 	var spare as Item
 
-	static function create(consumes spare Item) returns Self
-		return Self{spare: spare}
+	static function create(spare Item) returns Self where Item implements Copyable
+		return Self{spare: spare.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.spare
+	function fresh() returns Item where Item implements Copyable
+		return self.spare.clone()
 	end 'fresh'
 
-	function choose(consumes first Item, consumes other Item, rounds Count) returns Item
-		var chosen = first
+	function choose(first Item, other Item, rounds Count) returns Item where Item implements Copyable
+		var chosen = first.clone()
 		var trip = 0 as Count
 		while trip < rounds 'trips'
 			if trip mod 2 == 0 'even'
 				chosen = self.fresh()
 			end 'even' else 'odd'
-				chosen = other
+				chosen = other.clone()
 			end 'odd'
 			trip = trip + 1
 		end 'trips'
@@ -1188,16 +1188,16 @@ end 'Ticker'
 type Box uses Item
 	var stored as Item
 
-	static function create(consumes stored Item) returns Self
-		return Self{stored: stored}
+	static function create(stored Item) returns Self where Item implements Copyable
+		return Self{stored: stored.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.stored
+	function fresh() returns Item where Item implements Copyable
+		return self.stored.clone()
 	end 'fresh'
 
-	function pick(consumes fallback Item, n Count) returns Item
-		var chosen = fallback
+	function pick(fallback Item, n Count) returns Item where Item implements Copyable
+		var chosen = fallback.clone()
 		for _ in Ticker.create(n) 'trip'
 			chosen = self.fresh()
 		end 'trip'
@@ -1265,20 +1265,20 @@ end 'check'
 type Chooser uses Item
 	var spare as Item
 
-	static function create(consumes spare Item) returns Self
-		return Self{spare: spare}
+	static function create(spare Item) returns Self where Item implements Copyable
+		return Self{spare: spare.clone()}
 	end 'create'
 
-	function fresh() returns Item
-		return self.spare
+	function fresh() returns Item where Item implements Copyable
+		return self.spare.clone()
 	end 'fresh'
 
-	function attempt(consumes first Item, consumes other Item, step Count) returns Item
-		var chosen = first
+	function attempt(first Item, other Item, step Count) returns Item where Item implements Copyable
+		var chosen = first.clone()
 		try 'work'
 			chosen = self.fresh()
 			check(step)
-			chosen = other
+			chosen = other.clone()
 		end 'work' otherwise (e) 'handler'
 			match e 'kind'
 				refused then print("refused\n")

@@ -16,6 +16,7 @@ const (
 	skipColumns      = 4
 	expectKind       = "expect"
 	runKind          = "run"
+	firstKind        = "first"
 	codeListColumns  = 3
 	testKind         = "test"
 	testColumns      = 4
@@ -89,6 +90,11 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 			if s.reported, err = skipCodes(cols[1], known, nil, at); err != nil {
 				return nil, err
 			}
+		case cols[0] == firstKind && len(cols) == codeListColumns:
+			s = skipRow{kind: firstKind, reason: cols[2]}
+			if s.reported, err = skipCodes(cols[1], known, nil, at); err != nil {
+				return nil, err
+			}
 		case cols[0] == testKind && len(cols) == testColumns:
 			s = skipRow{kind: testKind, file: cols[1], test: cols[2], reason: cols[3]}
 			key := s.file + "\t" + s.test
@@ -102,7 +108,7 @@ func parseSkips(src string, codes []row) ([]skipRow, error) {
 			}
 			named[key] = true
 		default:
-			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s or %s row of %d, or an %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, testKind, skipColumns, expectKind, runKind, codeListColumns)
+			return nil, fmt.Errorf("%s: want a %s row of %d tab-separated columns, a %s or %s row of %d, or an %s, %s or %s row of %d", at, maxonOnlyKind, maxonOnlyColumns, skipKind, testKind, skipColumns, expectKind, runKind, firstKind, codeListColumns)
 		}
 		if s.reason == "" || strings.ContainsAny(s.reason, reasonForbidden) {
 			return nil, fmt.Errorf("%s: the reason is empty or holds a quote, a backslash or a brace, which Go and Maxon do not escape alike", at)
@@ -153,6 +159,10 @@ func emitMaxonSkips(rows []skipRow) string {
 		case runKind:
 			for _, p := range r.reported {
 				fmt.Fprintf(&b, "\tskips.push(CodeSkip.refusing(%s, line: %s))\n", skipExpr(p), line)
+			}
+		case firstKind:
+			for _, p := range r.reported {
+				fmt.Fprintf(&b, "\tskips.push(CodeSkip.reportingFirst(%s, line: %s))\n", skipExpr(p), line)
 			}
 		case testKind:
 			fmt.Fprintf(&b, "\tskips.push(CodeSkip.naming(%q, test: %q, line: %s))\n", r.file, r.test, line)

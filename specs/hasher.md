@@ -400,7 +400,6 @@ not all equal: true
 ```
 
 <!-- test: each-tier-is-its-own-hash -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `MAXON_HASH_TIER` forces the tier, so every tier is exercised on every host. The parent draws one seed and
@@ -500,11 +499,9 @@ function main() returns ExitCode
 		end 'runs'
 	end 'eachTier'
 	var distinct = true
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (outer, one) in digests.withIterator() 'eachOne'
-		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-		for (inner, other) in digests.withIterator() 'eachOther'
-			if outer.index() < inner.index() and one == other 'same'
+	for (outer, one) in digests.enumerated() 'eachOne'
+		for (inner, other) in digests.enumerated() 'eachOther'
+			if outer < inner and one == other 'same'
 				distinct = false
 			end 'same'
 		end 'eachOther'
@@ -1045,7 +1042,6 @@ a-bc=true
 ```
 
 <!-- test: a-folded-word-never-forgets-the-state -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 <!-- unsupported-targets: wasm32-wasi -->
 `KeyedHasher.combined(state, value)` is a digest of both, on every tier: no word folded into a state may erase it. The
@@ -1066,11 +1062,9 @@ typealias TierList = Array with String
 let StateCount = 64 as Count
 
 function allDistinct(digests DigestList) returns bool
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (outer, one) in digests.withIterator() 'eachOne'
-		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-		for (inner, other) in digests.withIterator() 'eachOther'
-			if outer.index() < inner.index() and one == other 'same'
+	for (outer, one) in digests.enumerated() 'eachOne'
+		for (inner, other) in digests.enumerated() 'eachOther'
+			if outer < inner and one == other 'same'
 				return false
 			end 'same'
 		end 'eachOther'
@@ -1088,13 +1082,12 @@ function child() returns ExitCode
 		states.push(KeyedHasher.empty(HashSeed.random()))
 	end 'eachState'
 	print("states distinct={allDistinct(states)}\n")
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, word) in words().withIterator() 'eachWord'
+	for (iter, word) in words().enumerated() 'eachWord'
 		let folded = DigestList.create(0)
 		for state in states 'eachState'
 			folded.push(KeyedHasher.combined(state, value: word))
 		end 'eachState'
-		print("w={iter.index()} distinct={allDistinct(folded)}\n")
+		print("w={iter} distinct={allDistinct(folded)}\n")
 	end 'eachWord'
 	let atOneState = DigestList.create(0)
 	let oneSeed = HashSeed.random()
@@ -1788,7 +1781,7 @@ no draw keys the process fold: true
 
 <!-- test: concurrent-pinned-draws-never-repeat-an-index -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 <!-- procs: 4 -->
 <!-- env: MAXON_HASH_SEED=0123456789abcdef -->
@@ -1856,7 +1849,7 @@ function main() returns ExitCode
 	for reply in replies 'collect'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let text = await reply
-		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+		// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 		for line in text.split("\n") 'eachLine'
 			if line != "" 'aDraw'
 				spelled = spelled and line.count() == SpelledSeedLength

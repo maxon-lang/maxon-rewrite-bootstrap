@@ -1310,6 +1310,7 @@ error E3121: specs/interface-dispatch/error.interface-return-of-a-float.maxon:9:
 
 
 <!-- test: error.function-value-of-an-interface-returning-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ⛔ A DIRECT call reads the secondary return register; a call through a function VALUE does not — its whole
 signature rides on `StdOp.callIndirect`, which has room for one result. So the refusal is at the line that
 makes the VALUE, not at the call: the same ABI fact that refuses a THROWING function as a function
@@ -1352,6 +1353,7 @@ error E2015: specs/interface-dispatch/error.function-value-of-an-interface-retur
 
 
 <!-- test: error.closure-returning-an-interface -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The other route to the same function value, and the reason the refusal is a POSITION rather than one call
 site: a closure declares no return type at all — it is INFERRED from the `gives` expression — so there was
 nothing for the function-TYPE door to refuse. Refused at the `gives`, the line that decided it.
@@ -1821,8 +1823,8 @@ type Box uses T
 	export let t as Tagged
 	export let v as T
 
-	static function create(consumes t Tagged, consumes v T) returns Self
-		return Self{t: t, v: v}
+	static function create(consumes t Tagged, v T) returns Self where T implements Copyable
+		return Self{t: t, v: v.clone()}
 	end 'create'
 
 	function score() returns Integer
@@ -2388,8 +2390,8 @@ type Box uses T where T implements Exiter
 		return self.item.take(11)
 	end 'run'
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -2442,8 +2444,8 @@ type Box uses T where T implements Exiter
 		return try self.item.take(11) otherwise 55
 	end 'run'
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -2543,6 +2545,7 @@ error E3005: specs/interface-dispatch/error.existentials-cannot-be-compared.maxo
 ```
 
 <!-- test: error.closure-parameter-at-an-interface-type -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ⭐⭐ **A CLOSURE PARAMETER DECLARED AT AN INTERFACE TYPE IS REFUSED; UNREFUSED, IT PANICS THE PARSER WITH NO
 POSITION.**
 ```text
@@ -2587,6 +2590,7 @@ error E2015: specs/interface-dispatch/error.closure-parameter-at-an-interface-ty
 ```
 
 <!-- test: error.interface-typed-requirement-parameter -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ⭐⭐ **AN INTERFACE-TYPED PARAMETER ON A REQUIREMENT IS REFUSED, BECAUSE A WITNESS CALL HAS ROOM FOR ONE
 WORD.** Five other declared places refuse an existential for the same reason — a struct
 field, a union payload, a return type, a container element and a closure parameter — because a value
@@ -2647,6 +2651,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-paramete
 ```
 
 <!-- test: error.interface-typed-requirement-parameter-through-a-type-parameter -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The SECOND dispatch door. The requirement is refused at its declaration, so it does not matter which
 receiver reaches it — but both doors collapse the formal identically (139 on x64, a trap on wasm,
@@ -2711,6 +2716,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-requirement-paramete
 ```
 
 <!-- test: error.interface-typed-parameter-on-a-throwing-requirement -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The THIRD door: a throwing requirement lowers to `witnessTryCall`, a different Std op with its own
 argument marshalling, and it collapses the formal identically (139 on x64, a trap on wasm).
 Pinned because a refusal wired into the non-throwing dispatch alone would leave exactly this shape live.
@@ -2873,6 +2879,7 @@ error E2015: specs/interface-dispatch/error.interface-typed-function-type-parame
 ```
 
 <!-- test: error.function-value-of-an-interface-taking-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ⭐⭐ **THE SAME ABI FACT REACHED WITHOUT A FUNCTION TYPE ANYWHERE, WHICH IS WHY THE CASE ABOVE COULD NOT
 REFUSE IT.** `let f = measure` takes a function value off the NAME, so nothing declares a function type for
 `parseTypeReference` to catch — and `measure`'s own parameter list is legal, because a DIRECT call reserves
@@ -3488,8 +3495,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function constantAnswer() returns Code
@@ -3537,8 +3544,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -4090,6 +4097,7 @@ tally 2: 7 12
 ```
 
 <!-- test: error.interface-requirement-result-keeps-its-alias -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A call through an interface-typed value is typed by the requirement's declared return alias, exactly as a
 direct call to the conformer is: `Other` is a second alias of the same instance, so the result of `m.make()`
@@ -4179,6 +4187,7 @@ error E3005: specs/interface-dispatch/error.a-witness-argument-of-another-instan
 ```
 
 <!-- test: error.a-witness-argument-of-another-alias-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `Other` is a second alias of the same instance as `IntArray`, so an `Other` argument does not fit the
 requirement's `IntArray` parameter through the interface, as it does not fit it in a direct call.

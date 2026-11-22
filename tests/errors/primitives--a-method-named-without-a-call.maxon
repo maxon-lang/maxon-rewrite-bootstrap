@@ -86,7 +86,7 @@ function total(x T) uses T returns Count where T implements Shape
 	return x.area()
 end 'total'
 
-// expect-error: E9000 at 94:11
+// expect-error: E9000 at 94:12
 typealias CountArray = Array with Count
 
 function main() returns ExitCode

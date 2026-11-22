@@ -454,8 +454,8 @@ typealias Wide = int(0 to 100)
 
 typealias Narrow = int(0 to 10) implements Wide
 
-function pick(mutates slot T, consumes other T, first bool) uses T returns T
-	return slot if first else other
+function pick(mutates slot T, other T, first bool) uses T returns T where T implements Copyable
+	return slot.clone() if first else other.clone()
 end 'pick'
 
 function main() returns ExitCode

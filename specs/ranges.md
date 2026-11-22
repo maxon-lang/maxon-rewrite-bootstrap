@@ -332,13 +332,12 @@ end 'main'
 ```
 
 <!-- test: ranges.with-iterator -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: minimaxon does not parse the converted source: Expected ')' but got 'upto' -->
 `(start upto end).withIterator()` exposes the underlying iterator inside the loop.
 ```maxon
 function main() returns ExitCode
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, v) in (10 upto 13).withIterator() 'loop'
-		print("{iter.index()}:{v}\n")
+	for (iter, v) in (10 upto 13).enumerated() 'loop'
+		print("{iter}:{v}\n")
 	end 'loop'
 	return 0
 end 'main'

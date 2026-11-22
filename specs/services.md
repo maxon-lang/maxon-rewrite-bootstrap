@@ -17619,7 +17619,6 @@ error E3200: <fragment>:31:27: 'items' is iterated by an enclosing `for`, which 
 
 <!-- test: error.an-isolated-local-the-loop-iterates-with-an-iterator-is-not-sent-inside-the-loop -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
@@ -17657,11 +17656,10 @@ function main() returns ExitCode
 		items.push("first padded out long enough to heap allocate {1}")
 		items.push("second padded out long enough to heap allocate {2}")
 	end 'fill'
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (it, x) in items.withIterator() 'each'
+	for (it, x) in items.enumerated() 'each'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		let r = try await h.add(items) otherwise 0
-		print("{r} {x} {it.index()}\n")
+		print("{r} {x} {it}\n")
 		break
 	end 'each'
 	return 0
@@ -17913,7 +17911,6 @@ end 'main'
 
 <!-- test: services.an-array-of-handles-walks-with-its-iterator -->
 <!-- skip: 'await' is not supported in minimaxon; use cown/when concurrency -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: spawn services are not supported in minimaxon; use cown/when concurrency -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -17940,7 +17937,6 @@ function main() returns ExitCode
 		workers.push(spawn Worker.create())
 	end 'spawnThem'
 	var sum = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
 	for (_, w) in try workers.withIterator() otherwise panic("an array always yields an iterator") 'walk'
 		// TODO: 'await' is not supported in minimaxon; use cown/when concurrency
 		sum = sum + (try await w.add(1) otherwise 0)

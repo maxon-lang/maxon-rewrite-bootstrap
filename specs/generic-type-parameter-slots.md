@@ -29,7 +29,7 @@ typealias Integer = int(i64.min to i64.max)
 typealias UnaryOp = function(Integer) returns Integer
 
 function double(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'double'
 
 type Holder uses Element
@@ -40,11 +40,11 @@ type Holder uses Element
 		return Self{}
 	end 'create'
 
-	function add(item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'add'
 
-	function first() returns Element throws ArrayError
+	function first() returns Element throws ArrayError where Element implements Copyable
 		return try items.get(0)
 	end 'first'
 end 'Holder'
@@ -52,10 +52,10 @@ end 'Holder'
 typealias FHolder = Holder with UnaryOp
 
 function main() returns ExitCode
-	let h = FHolder.create()
+	var h = FHolder.create()
 	h.add(double)
 	let f = try h.first() otherwise panic("Holder.first: one element was added")
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

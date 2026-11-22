@@ -630,7 +630,7 @@ end 'main'
 ```
 
 <!-- test: error.a-mutates-captures-closure-over-a-with-iterator-pair-is-refused-for-a-frozen-array -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- skip: modify blocks are not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -660,8 +660,8 @@ end 'runIt'
 
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (it, _) in boxes.withIterator() 'each'
+	for (it, _) in boxes.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		let g = function() gives bumpBox(it.current())
 		total = total + runIt(g)
 	end 'each'
@@ -736,7 +736,7 @@ error E3207: <fragment>:38:20: 'bumpFirst' writes 'boxes' (it calls the closure 
 ```
 
 <!-- test: a-mutates-captures-closure-writes-through-a-with-iterator-pair-over-a-mutable-array -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 The array handed to `bumpAll` is mutable, so the closure's write through the iterator the loop binds is allowed and the caller sees both writes.
 
 ```maxon
@@ -763,8 +763,8 @@ end 'runIt'
 
 function bumpAll(boxes BoxArray) returns Count
 	var total = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (it, _) in boxes.withIterator() 'each'
+	for (it, _) in boxes.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		let g = function() gives bumpBox(it.current())
 		total = total + runIt(g)
 	end 'each'

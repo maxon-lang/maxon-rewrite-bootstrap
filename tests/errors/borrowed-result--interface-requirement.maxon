@@ -21,4 +21,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E9000 at 17:2
+// expect-error: E9000 at 17:11

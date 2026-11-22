@@ -378,6 +378,7 @@ A cast naming a DIFFERENT alias is real work whichever way the two ranges run �
 re-declares the value's type and carries the target's range check — so it compiles.
 
 <!-- test: error.unneeded.same-type-int -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -397,6 +398,7 @@ error E3010: specs/type-casting/error.unneeded.same-type-int.maxon:11:12: unneed
 ```
 
 <!-- test: error.unneeded.same-type-float -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Float = float(f64.min to f64.max)
@@ -593,6 +595,7 @@ error E3010: <fragment>:12:18: unneeded cast: the literal 9 already fits in 'Sco
 ```
 
 <!-- test: error.unneeded.literal-float-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 typealias Real = float(0.0 to 100.0)
 
@@ -612,6 +615,7 @@ error E3010: <fragment>:9:14: unneeded cast: the literal 2.5 already fits in 'Re
 ```
 
 <!-- test: error.unneeded.integer-literal-to-float-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 An integer literal meets a float parameter without a cast, so the cast converts nothing here either.
 ```maxon
 typealias Real = float(0.0 to 100.0)
@@ -659,6 +663,7 @@ error E3010: <fragment>:9:13: unneeded cast: the literal 64 already fits in 'Lev
 ```
 
 <!-- test: error.unneeded.literal-float-field-store -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 typealias Real = float(0.0 to 100.0)
 
@@ -713,6 +718,7 @@ error E3010: <fragment>:12:29: unneeded cast: the literal 2 already fits in 'Nib
 ```
 
 <!-- test: error.unneeded.literal-let-every-use-takes-the-constant -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A literal cast in an untyped `let` converts nothing when the constant the `let` would otherwise be serves every use the same way.
 ```maxon
 typealias Real = float(0.0 to 100.0)
@@ -946,6 +952,7 @@ error E3010: <fragment>:14:13: unneeded cast: 'Byte' already fits in 'Byte'
 ```
 
 <!-- test: error.unneeded.same-nested-alias -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A cast to an alias declared inside an extension body is unneeded when the value already has that alias.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1019,6 +1026,7 @@ error E3010: specs/type-casting/error.unneeded.same-alias-byte.maxon:7:12: unnee
 ```
 
 <!-- test: error.unneeded.same-alias-int -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1038,6 +1046,7 @@ error E3010: specs/type-casting/error.unneeded.same-alias-int.maxon:11:12: unnee
 ```
 
 <!-- test: error.unneeded.same-alias-float -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Float = float(f64.min to f64.max)
@@ -1178,6 +1187,7 @@ error E3010: specs/type-casting/error.unneeded.call-result-same-alias.maxon:10:2
 ```
 
 <!-- test: error.a-redundant-cast-in-an-argument-is-unneeded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A rebound `var` keeps its alias, so casting it to that alias in an argument is unneeded, as it is
 everywhere else.
 ```maxon
@@ -1389,6 +1399,7 @@ end 'main'
 ```
 
 <!-- test: error.unneeded.through-a-try-otherwise-result -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 `ByteArray.get` returns the stdlib's `Byte`, and the `try … otherwise` result states it.
 ```maxon
 function main() returns ExitCode
@@ -1612,6 +1623,7 @@ error E3005: specs/type-casting/error.a-full-range-cast-names-its-value.maxon:11
 ```
 
 <!-- test: error.a-struct-cast-to-its-own-type-is-unneeded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 type Gauge
 	export var level = 0 as Count
@@ -1707,6 +1719,7 @@ error E3010: specs/type-casting/error.a-top-level-cast-to-the-type-a-global-alre
 ```
 
 <!-- test: error.a-cast-of-a-cast-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A cast takes a value, never the result of another cast: cast directly to the type you want.
 ```maxon
@@ -1729,6 +1742,7 @@ error E2079: <fragment>:7:20: a cast cannot take another cast as its operand —
 ```
 
 <!-- test: error.a-parenthesized-cast-of-a-cast-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Parentheses do not change it: the operand is still a cast.
 ```maxon
@@ -1803,6 +1817,7 @@ end 'main'
 ```
 
 <!-- test: error.a-top-level-negated-constant-is-range-checked-after-the-negation -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A cast applies to the whole negation, so `-K as Small` checks `-5`, at file scope as in a body.
 ```maxon

@@ -470,13 +470,13 @@ type Bag uses T
 	export var first as T
 	export var second as T
 
-	static function create(first T, second T) returns Self
-		return Self{first: first, second: second}
+	static function create(first T, second T) returns Self where T implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function later() returns T
-		let items = Items from [self.first, self.second]
-		return try items.get(1) otherwise self.first
+	function later() returns T where T implements Copyable
+		let items = Items from [self.first.clone(), self.second.clone()]
+		return try items.get(1) otherwise self.first.clone()
 	end 'later'
 end 'Bag'
 

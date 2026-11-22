@@ -574,8 +574,8 @@ type Bag uses Element
 		return Self{}
 	end 'create'
 
-	function add(mutates self, consumes item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
@@ -618,9 +618,9 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(mutates self, consumes key Key, consumes value Value)
-		keys.push(key)
-		values.push(value)
+	function add(mutates self, key Key, value Value) where Key implements Copyable, Value implements Copyable
+		keys.push(key.clone())
+		values.push(value.clone())
 		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
@@ -665,15 +665,15 @@ type Basket uses Element
 		return Self{}
 	end 'create'
 
-	static function of(consumes first Element, consumes second Element) returns Self
+	static function of(first Element, second Element) returns Self where Element implements Copyable
 		var result = Self{}
 		result.add(first)
 		result.add(second)
 		return result
 	end 'of'
 
-	function add(mutates self, consumes item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 		seen = try seen + 1 otherwise panic("out of range")
 	end 'add'
 
@@ -715,9 +715,9 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(mutates self, consumes key Key, consumes value Value)
-		keys.push(key)
-		values.push(value)
+	function add(mutates self, key Key, value Value) where Key implements Copyable, Value implements Copyable
+		keys.push(key.clone())
+		values.push(value.clone())
 	end 'add'
 
 	function size() returns Count
@@ -758,9 +758,9 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(mutates self, consumes key Key, consumes value Value)
-		keys.push(key)
-		values.push(value)
+	function add(mutates self, key Key, value Value) where Key implements Copyable, Value implements Copyable
+		keys.push(key.clone())
+		values.push(value.clone())
 	end 'add'
 
 	function size() returns Count
@@ -800,9 +800,9 @@ type Pairs uses Key, Value
 		return Self{}
 	end 'create'
 
-	function add(mutates self, consumes key Key, consumes value Value)
-		keys.push(key)
-		values.push(value)
+	function add(mutates self, key Key, value Value) where Key implements Copyable, Value implements Copyable
+		keys.push(key.clone())
+		values.push(value.clone())
 	end 'add'
 
 	function size() returns Count
@@ -824,6 +824,7 @@ end 'main'
 ```
 
 <!-- test: error.a-redundant-cast-on-an-inferable-field-default-is-unneeded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A member-head default already gives the field its type, so a cast to that same type is unneeded.
 ```maxon
 type Gauge

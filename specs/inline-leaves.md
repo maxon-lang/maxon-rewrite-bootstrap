@@ -467,8 +467,8 @@ type Box uses T
 	export var value as T
 	export var weight as Integer
 
-	static function create(consumes v T, weight Integer) returns Self
-		return Self{value: v, weight: weight}
+	static function create(v T, weight Integer) returns Self where T implements Copyable
+		return Self{value: v.clone(), weight: weight}
 	end 'create'
 
 	function weightOf() returns Integer

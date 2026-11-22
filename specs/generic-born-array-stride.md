@@ -70,7 +70,7 @@ type Bag uses Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function cloned() returns Self
+	function cloned() returns Self where Element implements Copyable
 		return Self{items: items.clone()}
 	end 'cloned'
 
@@ -259,7 +259,7 @@ type Bag uses Element
 		return try items.remove(i) otherwise panic("Bag.removeAt: index out of range")
 	end 'removeAt'
 
-	function cloned() returns Self
+	function cloned() returns Self where Element implements Copyable
 		return Self{items: items.clone()}
 	end 'cloned'
 
@@ -919,7 +919,7 @@ type Bag uses Element
 		return try items.get(i) otherwise panic("Bag.at: index out of range")
 	end 'at'
 
-	function cloned() returns Self
+	function cloned() returns Self where Element implements Copyable
 		return Self{items: items.clone()}
 	end 'cloned'
 

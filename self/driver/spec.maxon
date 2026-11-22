@@ -659,27 +659,38 @@ function withoutPositions(text String) returns String
 	return String.from(out)
 end 'withoutPositions'
 
-// withoutSyntaxMessages is the diagnostics with the message of each syntax error taken out after its place: the parser words
-// a syntax error by the tokens its grammar expects there, not as maxon does (README, "Where it differs from Maxon"), so
-// only the code and the place of one are maxon's.
-function withoutSyntaxMessages(text String) returns String
-	let prefix = "{errorLinePrefix}{diag.errExpectedToken}: "
+// diagnosticPlaces is the diagnostics as the runner compares them: each error's code and the place in the fragment that it
+// names, one line each, without its message, its notes or the lines that continue it. minimaxon words its diagnostics
+// differently from maxon (README, "Where it differs from Maxon"), so only what the program decides, which error and where,
+// is maxon's. An error that names no place in the fragment is its code alone.
+function diagnosticPlaces(text String) returns String
 	let lines = splitLines(text)
 	var out = ast.StringList.create(0)
 	for i in 0 upto lines.count() 'lines'
 		let line = lines[i].clone()
-		if not hasPrefix(line, prefix: prefix) 'other'
-			out.push(line)
+		let codeEnd = offsetBy(errorLinePrefix.byteLength(), by: diagnosticCodeWidth)
+		if not hasPrefix(line, prefix: errorLinePrefix) or line.byteLength() < codeEnd 'notError'
 			continue 'lines'
-		end 'other'
-		var at = prefix.byteLength()
+		end 'notError'
+		let head = line.sliceBytes(0, endPos: codeEnd)
+		let placeStart = offsetBy(codeEnd, by: placeEnd.byteLength())
+		if not matchesAt(line, at: codeEnd, needle: placeEnd) 'unplaced'
+			out.push(head)
+			continue 'lines'
+		end 'unplaced'
+		var at = placeStart
 		while at < line.byteLength() and not matchesAt(line, at: at, needle: placeEnd) 'place'
 			at = offsetBy(at, by: 1)
 		end 'place'
-		out.push(line.sliceBytes(0, endPos: at))
+		let place = line.sliceBytes(placeStart, endPos: at)
+		if place.contains(fragmentToken) 'placed'
+			out.push("{head}{placeEnd}{place}")
+		end 'placed' else 'elsewhere'
+			out.push(head)
+		end 'elsewhere'
 	end 'lines'
 	return joinLines(out)
-end 'withoutSyntaxMessages'
+end 'diagnosticPlaces'
 
 // placeEnd ends the place of a diagnostic, before its message.
 let placeEnd = ": "
@@ -1101,8 +1112,8 @@ function checkSpecTest(test SpecTest, text String, stem String, errs diag.ErrorL
 	return table.Option.none
 end 'checkSpecTest'
 
-// checkSpecError is whether the diagnostics are what the maxoncstderr block says, as text, with the positions left out when
-// the conversion moved them.
+// checkSpecError is whether the diagnostics are what the maxoncstderr block says, by code and place (diagnosticPlaces),
+// with the positions left out when the conversion moved them.
 function checkSpecError(test SpecTest, expected String, stem String, errs diag.ErrorList, sections SourceSections) returns TestResult
 	if errs.count() == 0 'compiled'
 		return TestResult.failed("compiled, but expected {oneLine(trimSpace(expected), limit: detailLimit)}")
@@ -1117,13 +1128,29 @@ function checkSpecError(test SpecTest, expected String, stem String, errs diag.E
 		actual = withoutPositions(actual)
 		wanted = withoutPositions(wanted)
 	end 'moved'
-	actual = withoutSyntaxMessages(actual)
-	wanted = withoutSyntaxMessages(wanted)
-	if actual == wanted 'same'
+	actual = diagnosticPlaces(actual)
+	wanted = diagnosticPlaces(wanted)
+	if placesAgree(wanted, actual: actual) 'same'
 		return TestResult.passed()
 	end 'same'
 	return TestResult.failed("wrong compile error: {firstDifference(wanted, actual: actual)}")
 end 'checkSpecError'
+
+// placesAgree is whether the diagnostics, as diagnosticPlaces gives them, are the ones expected, one for one: the same
+// code at the same place, or at any place where maxon named none.
+function placesAgree(wanted String, actual String) returns bool
+	let want = splitLines(wanted)
+	let got = splitLines(actual)
+	if want.count() != got.count() 'count'
+		return false
+	end 'count'
+	for i in 0 upto want.count() 'each'
+		if want[i] != got[i] and not hasPrefix(got[i], prefix: "{want[i]}{placeEnd}") 'differs'
+			return false
+		end 'differs'
+	end 'each'
+	return true
+end 'placesAgree'
 
 function joinLines(lines ast.StringList) returns String
 	var out = ByteArray.create(0)

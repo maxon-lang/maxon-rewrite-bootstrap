@@ -480,6 +480,7 @@ visited 2
 ```
 
 <!-- test: a-static-generic-body-takes-a-borrowed-element-loop-through-the-call-sites-descriptor -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 A `static function` that does not return `Self` has no instance, so the layout descriptor it takes a reference
 through arrives from its call. The loop reads a borrowed element and the `clear` drops the source; the element holds
 its own reference, so the `push` stores a live record and the push extends the loop by nothing.

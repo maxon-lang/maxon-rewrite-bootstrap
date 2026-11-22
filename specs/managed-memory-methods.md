@@ -4317,12 +4317,12 @@ served to this one.
 type Cell uses U
 	export var slot as U
 
-	static function make(consumes slot U) returns Self
-		return Self{slot: slot}
+	static function make(slot U) returns Self where U implements Copyable
+		return Self{slot: slot.clone()}
 	end 'make'
 
-	function get() returns U
-		return slot
+	function get() returns U where U implements Copyable
+		return slot.clone()
 	end 'get'
 end 'Cell'
 
@@ -4496,12 +4496,12 @@ And its positive half, so the two-hop refusal is a roster boundary rather than a
 type Cell uses U
 	export var slot as U
 
-	static function make(consumes slot U) returns Self
-		return Self{slot: slot}
+	static function make(slot U) returns Self where U implements Copyable
+		return Self{slot: slot.clone()}
 	end 'make'
 
-	function get() returns U
-		return slot
+	function get() returns U where U implements Copyable
+		return slot.clone()
 	end 'get'
 end 'Cell'
 
@@ -4509,12 +4509,12 @@ type Holder uses T
 	export typealias TCell = Cell with T
 	export var cell as TCell
 
-	static function make(consumes cell TCell) returns Self
-		return Self{cell: cell}
+	static function make(cell TCell) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'make'
 
-	function inner() returns TCell
-		return cell
+	function inner() returns TCell where T implements Copyable
+		return cell.clone()
 	end 'inner'
 end 'Holder'
 

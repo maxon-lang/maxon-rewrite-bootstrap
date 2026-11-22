@@ -3150,8 +3150,8 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(consumes v T) returns Self
-		return Self{item: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{item: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3204,8 +3204,8 @@ end 'S0'
 type Box uses T
 	export var item as T
 
-	static function create(consumes v T) returns Self
-		return Self{item: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{item: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -5084,8 +5084,8 @@ type Keeper uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function keep(mutates self, consumes item T, mutates world World)
-		let kept = item
+	function keep(mutates self, item T, mutates world World) where T implements Copyable
+		let kept = item.clone()
 		self.items.push(kept)
 		world.artifact.layout.detail.size = 8
 	end 'keep'
@@ -5125,8 +5125,8 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes v T)
-		self.items.push(v)
+	function push(mutates self, v T) where T implements Copyable
+		self.items.push(v.clone())
 	end 'push'
 
 	function pop(mutates self) returns T
@@ -5134,9 +5134,9 @@ type Stack uses T
 		return v
 	end 'pop'
 
-	function popThenPush(mutates self, consumes extra T) returns T
+	function popThenPush(mutates self, extra T) returns T where T implements Copyable
 		let v = try self.items.pop() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'popThenPush'
 end 'Stack'
@@ -5174,8 +5174,8 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes v T)
-		self.items.push(v)
+	function push(mutates self, v T) where T implements Copyable
+		self.items.push(v.clone())
 	end 'push'
 
 	function pop(mutates self) returns T
@@ -5183,9 +5183,9 @@ type Stack uses T
 		return v
 	end 'pop'
 
-	function popThenPush(mutates self, consumes extra T) returns T
+	function popThenPush(mutates self, extra T) returns T where T implements Copyable
 		let v = try self.items.pop() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'popThenPush'
 end 'Stack'
@@ -5234,13 +5234,13 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes v T)
-		self.items.push(v)
+	function push(mutates self, v T) where T implements Copyable
+		self.items.push(v.clone())
 	end 'push'
 
-	function popThenPush(mutates self, consumes extra T) returns T
+	function popThenPush(mutates self, extra T) returns T where T implements Copyable
 		let v = try self.items.pop() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'popThenPush'
 end 'Stack'
@@ -5336,13 +5336,13 @@ type Stack uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function push(v T)
-		self.items.push(v)
+	function push(mutates self, v T) where T implements Copyable
+		self.items.push(v.clone())
 	end 'push'
 
-	function peekThenPush(extra T) returns T
+	function peekThenPush(mutates self, extra T) returns T where T implements Copyable
 		let v = try self.items.last() otherwise panic("empty")
-		self.items.push(extra)
+		self.items.push(extra.clone())
 		return v
 	end 'peekThenPush'
 end 'Stack'
@@ -5350,7 +5350,7 @@ end 'Stack'
 typealias CountStack = Stack with Count
 
 function main() returns ExitCode
-	let s = CountStack.create()
+	var s = CountStack.create()
 	s.push(7)
 	let a = s.peekThenPush(9)
 	print("{a}\n")

@@ -77,6 +77,7 @@ exactly one thing: the NAME.
 ## Tests
 
 <!-- test: runtime-chunk-name -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.
@@ -110,6 +111,7 @@ error E4015: <fragment>:5:10: declaration of 'mrt_runtime_init' collides with a 
 ```
 
 <!-- test: entry-stub-name -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 <!-- unsupported-targets: wasm32-wasi -->
 wasm32-wasi lays no chunk under this name (its `run` entry has no name key and it has no hand-assembled chunks), so there is no collision to refuse and the program compiles.

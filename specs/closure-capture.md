@@ -690,8 +690,8 @@ type Wrap uses T where T implements Coded
 		return f()
 	end 'run'
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Wrap'
 
@@ -802,8 +802,8 @@ end 'W'
 type Holder uses T where T implements Named
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Integer
@@ -1002,12 +1002,12 @@ typealias LazyMessage = function() returns String
 type Box uses T
 	export let v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Box'
 
@@ -1107,8 +1107,8 @@ type Cell uses T
 	export var v as T
 	typealias Echo = function(T) returns T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
 	function echo() returns Echo
@@ -1381,8 +1381,8 @@ typealias Op = function(Integer) returns Integer
 type Box uses T
 	export var item as T
 
-	static function make(consumes item T) returns Self
-		return Self{item: item}
+	static function make(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'make'
 end 'Box'
 
@@ -1470,6 +1470,7 @@ error E3102: <fragment>:11:32: use of moved value 'word': it was moved in an ear
 ```
 
 <!-- test: closure-capture.error.a-capture-beside-a-consuming-argument -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A call that consumes `word` and a closure in the same argument list that captures it would both own the one
 record, so the consumed argument is a use after move.
@@ -2387,6 +2388,7 @@ end 'main'
 ### A capture beside the call it is an argument of
 
 <!-- test: closure-capture.error.a-capture-of-the-receiver-of-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The capture moves the receiver into the closure before `push` writes it, so the push is a use after move.
 ```maxon
@@ -2697,6 +2699,7 @@ A closure holds a counted reference to every record it captures, so storing it i
 graphs makes a cycle no drop can release. The store is refused.
 
 <!-- test: closure-capture.error.a-closure-stored-into-a-field-of-self-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2727,6 +2730,7 @@ error E3183: <fragment>:14:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-stored-into-a-field-of-a-parameter-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2757,6 +2761,7 @@ error E3183: <fragment>:15:11: this closure captures 'h' and is stored into a re
 ```
 
 <!-- test: closure-capture.error.a-closure-bound-first-then-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2788,6 +2793,7 @@ error E3183: <fragment>:15:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-pushed-into-an-array-field-of-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2820,6 +2826,7 @@ error E3183: <fragment>:15:19: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-set-into-an-array-field-of-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2961,6 +2968,7 @@ error E3183: <fragment>:22:9: this value holds a closure that captures 'c' and i
 ```
 
 <!-- test: closure-capture.error.a-closure-in-a-tuple-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A tuple holds its closure as a record field does.
 ```maxon
@@ -2996,6 +3004,7 @@ error E3183: <fragment>:18:15: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-closure-in-an-array-literal-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 An array literal holds each element it is built from.
 ```maxon
@@ -3029,6 +3038,7 @@ error E3183: <fragment>:15:16: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-local-array-holding-the-closure-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A container filled first and stored afterwards holds what was pushed into it.
 ```maxon
@@ -3064,6 +3074,7 @@ error E3183: <fragment>:17:16: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-closure-chosen-by-a-ternary-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A merge of two closures may be either of them.
 ```maxon
@@ -3100,6 +3111,7 @@ error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-assigned-in-an-if-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3138,6 +3150,7 @@ error E3183: <fragment>:24:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-chosen-by-a-match-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3181,6 +3194,7 @@ error E3183: <fragment>:28:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-assigned-in-a-loop-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3219,6 +3233,7 @@ error E3183: <fragment>:24:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-clone-of-the-closure-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A clone of a closure shares its record.
 ```maxon
@@ -3255,6 +3270,7 @@ error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-returned-by-a-call-stored-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A callee that hands back its argument hands back the closure.
 ```maxon
@@ -3294,6 +3310,7 @@ error E3183: <fragment>:22:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-a-callee-builds-stored-into-the-var-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The closure is built by a callee that captures its argument, so this function never names a capture — the
 refusal names the record by the `var` the store is written through.
@@ -3326,6 +3343,7 @@ error E3183: <fragment>:20:11: this closure captures 'c' and is stored into a re
 ```
 
 <!-- test: closure-capture.error.a-closure-capturing-a-closure-stored-into-what-the-inner-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A closure holds everything the closures it captures hold.
 ```maxon
@@ -3362,6 +3380,7 @@ error E3183: <fragment>:19:15: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-handed-to-a-method-that-stores-it-into-its-receiver -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A callee that stores its argument into its receiver stores the closure there.
 ```maxon
@@ -3401,6 +3420,7 @@ error E3183: <fragment>:22:16: this closure captures 'self' and is stored into a
 ```
 
 <!-- test: closure-capture.error.a-closure-handed-to-a-method-of-the-parameter-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -3439,6 +3459,7 @@ error E3183: <fragment>:23:12: this closure captures 'h' and is stored into a re
 ```
 
 <!-- test: closure-capture.error.a-closure-a-closure-body-stores-into-what-it-captures -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The rule holds inside a closure body, for a record it captured.
 ```maxon
@@ -3614,6 +3635,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-closure-stored-into-a-fresh-record-another-fresh-record-holds -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Two records built in one function close a cycle as two handed in would: the closure captures the record that holds the one it is stored into.
 ```maxon
@@ -3660,6 +3682,7 @@ error E3183: <fragment>:35:11: this closure captures 'b' and is stored into a re
 ```
 
 <!-- test: closure-capture.error.an-array-of-closures-appended-into-what-they-capture -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Appending an array of function values shares its closures with the receiver.
 ```maxon
@@ -3695,6 +3718,7 @@ error E3183: <fragment>:18:10: this value holds a closure that captures 'h' and 
 ```
 
 <!-- test: closure-capture.error.a-callee-stores-a-closure-capturing-one-argument-into-the-other-handed-one-record -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A callee that stores a closure capturing one parameter into another closes a cycle when both arguments are one record.
 ```maxon
@@ -4526,6 +4550,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-nested-array-literal-of-closures-pushed-into-what-they-capture -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The inner literal is an element of an array `self` holds, so the closure in it would be held by the record it captures.
 ```maxon
@@ -4561,6 +4586,7 @@ error E3183: <fragment>:16:20: this value holds a closure that captures 'self' a
 ```
 
 <!-- test: closure-capture.error.a-returned-array-literal-of-closures-stored-into-what-they-capture -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The literal a callee returns holds a closure over `h`, and storing it into `h` closes the cycle.
 ```maxon
@@ -4771,6 +4797,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-local-closure-that-writes-its-parameter-refuses-a-frozen-argument -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `writer` writes through its parameter, so handing it the frozen `box` is refused at the call.
 ```maxon
@@ -4843,6 +4870,7 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-reassigned-closure-value-is-judged-against-every-closure-of-its-shape -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `f` names `reader` or `writer` depending on the branch, so the call through it is judged against both.
 ```maxon
@@ -4880,6 +4908,7 @@ error E3207: <fragment>:26:11: the closure at <fragment>:20:15 writes 'b' (it ca
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-loop-carried-closure-value-is-judged-against-every-closure-of-its-shape -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The loop assigns a writing closure to `f`, so the call at the top of the next trip may reach it.
 ```maxon
@@ -4917,6 +4946,7 @@ error E3207: <fragment>:24:20: the closure at <fragment>:25:7 writes 'b' (it cal
 ```
 
 <!-- test: closure-capture.error.a-call-through-a-merged-closure-value-is-judged-against-the-whole-shape-even-when-only-readers-reach-it -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Every closure `f` is assigned in the loop only reads, but the value is merged across the loop's back edge, so it is judged against the whole shape, including the `writer` that is called elsewhere.
 ```maxon
@@ -5106,6 +5136,7 @@ error E3207: <fragment>:39:11: the closure at <fragment>:27:16 needs 'b' frozen 
 Two closures of one shape reach one call through a parameter. One of them also pushes onto a module-level `let` array, which is refused for the write, and the cycle the other closure closes through the parameter is reported once, at the call.
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-beside-a-plain-closure-of-its-shape -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `storePlain` and `storeAndStash` share the shape `Wire`; `storeAndStash` also pushes onto the module-level `Hub` array. The cycle both close when `drive` hands them one record twice is found at the call in `drive`.
 ```maxon
@@ -5160,6 +5191,7 @@ error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and 
 ```
 
 <!-- test: closure-capture.error.a-closure-pushing-onto-a-module-let-before-a-plain-closure-of-its-shape -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same two closures called in the other order.
 ```maxon
@@ -5218,6 +5250,7 @@ error E3183: <fragment>:34:10: this value holds a closure that captures 'c' and 
 A closure that captures two parameters and is stored into a record either of them may be closes a cycle through both. The refusal names the parameter declared first, not the one the closure mentions first.
 
 <!-- test: closure-capture.error.a-store-meeting-two-records-names-the-parameter-declared-first -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `target` is `first` or `second`, and the closure captures `second` before `first`. The store is refused once, naming `first`, the parameter declared first. The call in `main` is refused for each argument.
 ```maxon

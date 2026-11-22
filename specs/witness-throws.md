@@ -69,8 +69,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code throws DigestError
@@ -123,8 +123,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code throws DigestError
@@ -178,8 +178,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code throws DigestError
@@ -234,8 +234,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -288,8 +288,8 @@ end 'Point'
 type Box uses T where T implements Namer
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemNameLength() returns Count throws NameError
@@ -345,8 +345,8 @@ end 'Point'
 type Box uses T where T implements Checked
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemCheck() returns Code

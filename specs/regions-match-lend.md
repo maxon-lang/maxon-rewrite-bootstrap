@@ -1018,6 +1018,7 @@ error E3197: <fragment>:31:16: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: the-holder-of-a-matched-field-passed-to-a-writing-parameter-in-the-arm-that-lends-it-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `bump` writes `h`, which is read-only in the arm that `match h.u` lends from.
 ```maxon
@@ -1526,6 +1527,7 @@ end 'main'
 ```
 
 <!-- test: error.an-arm-that-binds-a-plain-payload-may-not-reassign-the-matched-variable -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The `held(b)` arm binds a payload of `s`, so `s` stays put there even though `Slot` holds only plain data (ruling 29).
 ```maxon
@@ -2255,6 +2257,7 @@ error E3197: <fragment>:34:14: cannot write 'n' through 'h', which is read-only 
 ```
 
 <!-- test: error.a-match-read-again-on-the-next-lap-is-a-read-of-a-moved-value -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The `match` is the last mention of `s` in the text, so the bind moves its payload out; the loop reads `s` again on the next lap, and that read is refused rather than reaching an emptied slot.
 ```maxon

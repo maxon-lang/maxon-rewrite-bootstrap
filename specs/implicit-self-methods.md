@@ -365,8 +365,8 @@ typealias Integer = int(i64.min to i64.max)
 type Sizer uses T
 	export var dummy as T
 
-	static function create(consumes dummy T) returns Self
-		return Self{dummy: dummy}
+	static function create(dummy T) returns Self where T implements Copyable
+		return Self{dummy: dummy.clone()}
 	end 'create'
 
 	function typeSize() returns Integer

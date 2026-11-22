@@ -463,6 +463,11 @@ end 'f'
 			in:   "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t\t2 or\n\t\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",
 			want: "function f(x Count) returns Count\n\tmatch x 'm'\n\t\t1 or\n\t\t2 or\n\t\t3 then return 1\n\t\tdefault then return 0\n\tend 'm'\nend 'f'\n",
 		},
+		{
+			name: "withIterator becomes enumerated, and the iterator's index() the index it binds",
+			in:   "function f(xs Row)\n\tfor (iter, x) in xs.withIterator() 'each'\n\t\tfor (iter, y) in xs.withIterator() 'inner'\n\t\t\tprint(\"{iter.index()} {y}\")\n\t\tend 'inner'\n\t\tprint(\"{iter.index()} {x}\")\n\tend 'each'\nend 'f'\n",
+			want: "function f(xs Row)\n\tfor (iter, x) in xs.enumerated() 'each'\n\t\tfor (iter, y) in xs.enumerated() 'inner'\n\t\t\tprint(\"{iter} {y}\")\n\t\tend 'inner'\n\t\tprint(\"{iter} {x}\")\n\tend 'each'\nend 'f'\n",
+		},
 	}
 
 	for _, tc := range cases {
@@ -571,6 +576,11 @@ func TestConvertUnsupportedConstructsEmitTodosAndWarnings(t *testing.T) {
 			name:     "int.fromString",
 			in:       "function f() returns Count\n\treturn try int.fromString(\"5\") otherwise 0\nend 'f'\n",
 			wantTodo: "'int.fromString' is not supported",
+		},
+		{
+			name:     "withIterator's iterator used for more than its index",
+			in:       "function f(xs Row)\n\tfor (iter, x) in xs.withIterator() 'each'\n\t\tprint(\"{iter.current()}\")\n\tend 'each'\nend 'f'\n",
+			wantTodo: "a use of withIterator()'s iterator other than its index()",
 		},
 		{
 			name:     "reserved word collision",

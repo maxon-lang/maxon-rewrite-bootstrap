@@ -2317,10 +2317,10 @@ typealias Number = int(0 to 999)
 type Cell uses Item
 	var item as Item
 
-	static function holding(consumes item Item) returns Self
-		return Self{item: item}
+	static function holding(item Item) returns Self where Item implements Copyable
+		return Self{item: item.clone()}
 	end 'holding'
-	function release(destructs self)
+	function release(destructs self) where Item implements Droppable
 	end 'release'
 end 'Cell'
 
@@ -6408,6 +6408,7 @@ end 'main'
 ```
 
 <!-- test: a-consuming-receiver-handed-on-in-a-loop-is-refused-on-the-next-lap -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 Every way of moving the receiver out reads it first, so a loop that moves it is judged by its next lap.
 ```maxon

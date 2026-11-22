@@ -286,7 +286,7 @@ error E3005: specs/character-ownership/print-takes-a-string-not-a-character.maxo
 
 <!-- test: character-parameter-and-equality -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### A `Character` is nameable as a declared type
 
 ```maxon
@@ -296,7 +296,7 @@ end 'isTarget'
 
 function main() returns ExitCode
 	var hits = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "héllo wörld" 'each'
 		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'ö') 'match'
@@ -421,7 +421,7 @@ t=300
 
 <!-- test: promoting-a-character-keeps-its-type -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### A `var` Character stays a Character
 
 A `var`'s managed initializer is promoted to an owned copy at its declaration, and the copy is built
@@ -432,7 +432,7 @@ next line legal; typed `String`, `found` would make the assignment E3005.
 function main() returns ExitCode
 	// TODO: character literals are not supported in minimaxon
 	var found = 'é'
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "ab中" 'each'
 		found = c
 	end 'each'
@@ -449,7 +449,7 @@ end 'main'
 
 <!-- test: character-literal-adopts-the-character-type -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### A character literal in a Character-expecting position IS a Character
 
 Every character literal IS a `Character`, so no position has to ask for one: `c == 'a'` inside
@@ -464,7 +464,7 @@ end 'firstAscii'
 
 function main() returns ExitCode
 	var n = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "banana" 'scan'
 		// TODO: character literals are not supported in minimaxon
 		if c == 'a' 'hit'
@@ -472,7 +472,7 @@ function main() returns ExitCode
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "banana" 'scan2'
 		// TODO: character literals are not supported in minimaxon
 		if c != 'a' 'miss'
@@ -480,7 +480,7 @@ function main() returns ExitCode
 		end 'miss'
 	end 'scan2'
 	var w = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "héllö théré" 'scan3'
 		// TODO: character literals are not supported in minimaxon
 		if 'é' == c 'lhs'
@@ -537,7 +537,7 @@ end 'main'
 
 <!-- test: character-literal-at-a-call-argument -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### Character literal at a call argument
 
 ```maxon
@@ -547,7 +547,7 @@ end 'isTarget'
 
 function main() returns ExitCode
 	var hits = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "banana" 'each'
 		// TODO: character literals are not supported in minimaxon
 		if isTarget(c, target: 'a') 'match'
@@ -780,7 +780,7 @@ error E2015: specs/character-ownership/an-array-literal-element-is-not-a-charact
 
 <!-- test: a-single-byte-literal-adopts-on-the-left-too -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### The LEFT operand's literal is judged against the RIGHT one
 
 A one-word transposition — the left operand asking its own tag instead of the other side's — leaves every
@@ -790,7 +790,7 @@ left operand compared with itself would answer about nothing.
 ```maxon
 function main() returns ExitCode
 	var n = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "banana" 'scan'
 		// TODO: character literals are not supported in minimaxon
 		if 'a' == c 'hit'
@@ -798,7 +798,7 @@ function main() returns ExitCode
 		end 'hit'
 	end 'scan'
 	var m = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for c in "banana" 'scan2'
 		// TODO: character literals are not supported in minimaxon
 		if 'a' != c 'miss'

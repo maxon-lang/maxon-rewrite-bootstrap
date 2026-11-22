@@ -525,8 +525,8 @@ end 'K'
 type Box uses T where T implements Keyed
 	let item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function label() returns String

@@ -114,6 +114,7 @@ error E3219: specs/unused-file-private-declaration/error.a-function-that-only-na
 ```
 
 <!-- test: error.declarations-that-only-name-each-other-are-all-unused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 let UnusedLimit = 7
 

@@ -149,7 +149,6 @@ end 'main'
 ```
 
 <!-- test: log10.powers-of-ten-are-exact -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ⭐⭐ **EVERY EXACTLY-REPRESENTABLE POWER OF TEN, NOT A SAMPLE OF THEM.** `1e0` through `1e22` are the
 powers of ten a double holds exactly (`10^23` is not), so for each one there is exactly one right answer
 and it is an integer. They are written as literals rather than computed, so no `pow` rounding can stand
@@ -161,20 +160,19 @@ function main() returns ExitCode
 	if powers.count() != 23 'everyPower'
 		return 4
 	end 'everyPower'
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, power) in powers.withIterator() 'eachPower'
-		let k = iter.index() as FullRangeFloat
+	for (iter, power) in powers.enumerated() 'eachPower'
+		let k = iter as FullRangeFloat
 		let answer = Math.log10(power)
 		if answer > k 'above'
-			print("log10(1e{iter.index()}) = {answer}\n")
+			print("log10(1e{iter}) = {answer}\n")
 			return 1
 		end 'above'
 		if answer < k 'below'
-			print("log10(1e{iter.index()}) = {answer}\n")
+			print("log10(1e{iter}) = {answer}\n")
 			return 2
 		end 'below'
 		if answer != k 'unordered'
-			print("log10(1e{iter.index()}) = {answer}\n")
+			print("log10(1e{iter}) = {answer}\n")
 			return 3
 		end 'unordered'
 	end 'eachPower'

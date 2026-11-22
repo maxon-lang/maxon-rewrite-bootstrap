@@ -1,4 +1,4 @@
-// expect-error: E9000 at 6:11
+// expect-error: E9000 at 6:12
 typealias CountArray = Array with Count
 
 function main() returns ExitCode

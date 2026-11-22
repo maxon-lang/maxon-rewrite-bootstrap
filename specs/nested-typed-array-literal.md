@@ -293,6 +293,7 @@ error E3005: <fragment>:8:24: argument type mismatch for 'value': expected 'Ints
 ```
 
 <!-- test: nested-typed-array-literal.error.a-value-of-another-brand -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 Two aliases over one instance are two brands, and a literal element is judged exactly as `push` judges it: a `B` does not fit an `Array with A`.
 ```maxon
@@ -316,6 +317,7 @@ error E3005: <fragment>:10:24: argument type mismatch for 'value': expected 'A',
 ```
 
 <!-- test: nested-typed-array-literal.error.push-refuses-the-same-brand -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The `push` spelling of the same store is refused in the same words.
 ```maxon
@@ -340,6 +342,7 @@ error E3005: <fragment>:11:7: argument type mismatch for 'value': expected 'A', 
 ```
 
 <!-- test: nested-typed-array-literal.error.an-outer-literal-of-another-brand-at-a-declared-slot -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 An outer literal with no head takes the declared slot's instance, so its elements are judged against the slot's brand.
 ```maxon

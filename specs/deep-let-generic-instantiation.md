@@ -225,12 +225,12 @@ typealias StringBox = Box with String
 type Box uses Item
 	let kept as Item
 
-	static function create(consumes item Item) returns Self
-		return Self{kept: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{kept: item.clone()}
 	end 'create'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 
@@ -265,12 +265,12 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(consumes item Item) returns Self
-		return Self{kept: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{kept: item.clone()}
 	end 'create'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 
@@ -298,20 +298,20 @@ type Box uses Item
 	typealias ItemArray = Array with Item
 	let kept as Item
 
-	static function first(items ItemArray) returns Self
+	static function first(items ItemArray) returns Self where Item implements Copyable
 		return Self{kept: try items.get(0) otherwise panic("empty")}
 	end 'first'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 
 function main() returns ExitCode
-	let items = StringArray.create(0)
+	var items = StringArray.create(0)
 	items.push("abc")
 	let box = StringBox.first(items)
-	return box.peek().byteLength() as ExitCode
+	return try box.peek().byteLength() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -341,20 +341,20 @@ type Box uses Item
 	typealias ItemArray = Array with Item
 	let kept as Item
 
-	static function first(items ItemArray) returns Self
+	static function first(items ItemArray) returns Self where Item implements Copyable
 		return Self{kept: try items.get(0) otherwise panic("empty")}
 	end 'first'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 
 function main() returns ExitCode
-	let items = CounterArray.create(0)
+	var items = CounterArray.create(0)
 	items.push(Counter.create(1))
 	let box = CounterBox.first(items)
-	return box.peek().n as ExitCode
+	return try box.peek().n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -372,13 +372,13 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(consumes one Item, consumes two Item) returns Self
-		return Self{first: one, second: two}
+	static function create(one Item, two Item) returns Self where Item implements Copyable
+		return Self{first: one.clone(), second: two.clone()}
 	end 'create'
 
-	function mirror(mutates self, consumes extra Item) returns Item
-		self.second = self.first
-		return extra
+	function mirror(mutates self, extra Item) returns Item where Item implements Droppable and Copyable
+		self.second = self.first.clone()
+		return extra.clone()
 	end 'mirror'
 end 'Pair'
 
@@ -413,13 +413,13 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(consumes one Item, consumes two Item) returns Self
-		return Self{first: one, second: two}
+	static function create(one Item, two Item) returns Self where Item implements Copyable
+		return Self{first: one.clone(), second: two.clone()}
 	end 'create'
 
-	function mirror(mutates self, consumes extra Item) returns Item
-		self.second = self.first
-		return extra
+	function mirror(mutates self, extra Item) returns Item where Item implements Droppable and Copyable
+		self.second = self.first.clone()
+		return extra.clone()
 	end 'mirror'
 end 'Pair'
 
@@ -443,12 +443,12 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(consumes one Item, consumes two Item) returns Self
-		return Self{first: one, second: two}
+	static function create(one Item, two Item) returns Self where Item implements Copyable
+		return Self{first: one.clone(), second: two.clone()}
 	end 'create'
 
-	function mirror(mutates self)
-		self.second = self.first
+	function mirror(mutates self) where Item implements Droppable and Copyable
+		self.second = self.first.clone()
 	end 'mirror'
 end 'Pair'
 
@@ -483,12 +483,12 @@ type Pair uses Item
 	let first as Item
 	var second as Item
 
-	static function create(consumes one Item, consumes two Item) returns Self
-		return Self{first: one, second: two}
+	static function create(one Item, two Item) returns Self where Item implements Copyable
+		return Self{first: one.clone(), second: two.clone()}
 	end 'create'
 
-	function mirror(mutates self)
-		self.second = self.first
+	function mirror(mutates self) where Item implements Droppable and Copyable
+		self.second = self.first.clone()
 	end 'mirror'
 end 'Pair'
 
@@ -780,12 +780,12 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(consumes item Item) returns Self
-		return Self{kept: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{kept: item.clone()}
 	end 'create'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 
@@ -896,12 +896,12 @@ end 'Counter'
 type Box uses Item
 	let kept as Item
 
-	static function create(consumes item Item) returns Self
-		return Self{kept: item}
+	static function create(item Item) returns Self where Item implements Copyable
+		return Self{kept: item.clone()}
 	end 'create'
 
-	function peek() returns Item
-		return self.kept
+	function peek() returns Item where Item implements Copyable
+		return self.kept.clone()
 	end 'peek'
 end 'Box'
 

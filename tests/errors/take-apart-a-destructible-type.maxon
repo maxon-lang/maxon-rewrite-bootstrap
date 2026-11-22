@@ -20,4 +20,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3922 at 18:14
+// expect-error: E3922 at 18:15

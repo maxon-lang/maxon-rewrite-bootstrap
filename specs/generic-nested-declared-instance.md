@@ -104,8 +104,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -117,7 +117,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -163,7 +163,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var n as Int
 
-	static function make() returns Self
+	static function make() returns Self where Element implements Droppable
 		let i = EChain.create()
 		return Self{n: try i.count() + 5 otherwise panic("out of range")}
 	end 'make'
@@ -203,8 +203,8 @@ type Inner uses T
 		return Self{items: TArray.create(0)}
 	end 'create'
 
-	function add(mutates self, consumes v T)
-		items.push(v)
+	function add(mutates self, v T) where T implements Copyable
+		items.push(v.clone())
 	end 'add'
 
 	function count() returns Int
@@ -220,7 +220,7 @@ type Bag uses Element
 		return Self{chain: EChain.create()}
 	end 'create'
 
-	function add(mutates self, consumes v Element)
+	function add(mutates self, v Element) where Element implements Copyable
 		chain.add(v)
 	end 'add'
 
@@ -257,8 +257,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -270,7 +270,7 @@ type Bag uses Element
 	export typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -374,8 +374,8 @@ typealias Small = int(0 to 255)
 type Slot uses V
 	export var v as V
 
-	static function create(consumes first V) returns Self
-		return Self{v: first}
+	static function create(first V) returns Self where V implements Copyable
+		return Self{v: first.clone()}
 	end 'create'
 
 	function slotSize() returns Count
@@ -388,8 +388,8 @@ type Wrapper uses T, U
 	var tag as T
 	var inner as Inner
 
-	static function create(consumes t T, consumes u U) returns Self
-		return Self{tag: t, inner: Inner.create(u)}
+	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
+		return Self{tag: t.clone(), inner: Inner.create(u)}
 	end 'create'
 
 	function ownSize() returns Count
@@ -424,8 +424,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -437,7 +437,7 @@ type Middle uses U
 	typealias EChain = Inner with U
 	export var chain as EChain
 
-	static function create(consumes x U) returns Self
+	static function create(x U) returns Self where U implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 end 'Middle'
@@ -446,7 +446,7 @@ type Bag uses Element
 	typealias EMiddle = Middle with Element
 	var middle as EMiddle
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{middle: EMiddle.create(x)}
 	end 'create'
 
@@ -478,8 +478,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -491,7 +491,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -524,8 +524,8 @@ typealias Int = int(i64.min to i64.max)
 type Pair uses A
 	var w as A
 
-	static function create(consumes x A) returns Self
-		return Self{w: x}
+	static function create(x A) returns Self where A implements Copyable
+		return Self{w: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -536,8 +536,8 @@ end 'Pair'
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -550,7 +550,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var inner as EPair
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{inner: EPair.create(x)}
 	end 'create'
 
@@ -581,8 +581,8 @@ type Bag uses Element
 	export typealias Items = Array with Element
 	var current as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{current: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{current: first.clone()}
 	end 'create'
 
 	function probe(xs Items) returns bool
@@ -590,8 +590,8 @@ type Bag uses Element
 		return g(xs)
 	end 'probe'
 
-	function value() returns Element
-		return self.current
+	function value() returns Element where Element implements Copyable
+		return self.current.clone()
 	end 'value'
 end 'Bag'
 
@@ -625,8 +625,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -638,7 +638,7 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
@@ -671,8 +671,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -801,8 +801,8 @@ end 'Plain'
 type Pair uses A
 	var w as A
 
-	static function create(consumes x A) returns Self
-		return Self{w: x}
+	static function create(x A) returns Self where A implements Copyable
+		return Self{w: x.clone()}
 	end 'create'
 
 	function plain() returns Plain
@@ -818,12 +818,12 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(consumes x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{p: P.create(x)}
 	end 'create'
 
-	function peer() returns P
-		return p
+	function peer() returns P where T implements Copyable
+		return p.clone()
 	end 'peer'
 end 'Inner'
 
@@ -831,11 +831,11 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
-	function probe() returns Int
+	function probe() returns Int where Element implements Droppable and Copyable
 		let c = chain.peer().plain()
 		return c.slotSize()
 	end 'probe'
@@ -863,8 +863,8 @@ typealias Int = int(i64.min to i64.max)
 type Pair uses A
 	var w as A
 
-	static function create(consumes x A) returns Self
-		return Self{w: x}
+	static function create(x A) returns Self where A implements Copyable
+		return Self{w: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -876,12 +876,12 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(consumes x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{p: P.create(x)}
 	end 'create'
 
-	function peer() returns P
-		return p
+	function peer() returns P where T implements Copyable
+		return p.clone()
 	end 'peer'
 
 	function slotSize() returns Int
@@ -893,11 +893,11 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
-	function probe() returns Int
+	function probe() returns Int where Element implements Droppable and Copyable
 		let c = chain.peer()
 		return c.slotSize()
 	end 'probe'
@@ -923,8 +923,8 @@ typealias Int = int(i64.min to i64.max)
 type Pair uses A
 	var w as A
 
-	static function create(consumes x A) returns Self
-		return Self{w: x}
+	static function create(x A) returns Self where A implements Copyable
+		return Self{w: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -936,12 +936,12 @@ type Inner uses T
 	typealias P = Pair with T
 	var p as P
 
-	static function create(consumes x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{p: P.create(x)}
 	end 'create'
 
-	function peer() returns P
-		return p
+	function peer() returns P where T implements Copyable
+		return p.clone()
 	end 'peer'
 
 	function slotSize() returns Int
@@ -953,7 +953,7 @@ type Middle uses U
 	typealias EChain = Inner with U
 	export var b as EChain
 
-	static function create(consumes x U) returns Self
+	static function create(x U) returns Self where U implements Copyable
 		return Self{b: EChain.create(x)}
 	end 'create'
 end 'Middle'
@@ -962,11 +962,11 @@ type Bag uses Element
 	typealias EMiddle = Middle with Element
 	var a as EMiddle
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{a: EMiddle.create(x)}
 	end 'create'
 
-	function probe() returns Int
+	function probe() returns Int where Element implements Droppable and Copyable
 		let c = self.a.b.peer()
 		return c.slotSize()
 	end 'probe'
@@ -1047,8 +1047,8 @@ typealias Int = int(i64.min to i64.max)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -1060,12 +1060,12 @@ type Bag uses Element
 	typealias EChain = Inner with Element
 	export var chain as EChain
 
-	static function create(consumes x Element) returns Self
+	static function create(x Element) returns Self where Element implements Copyable
 		return Self{chain: EChain.create(x)}
 	end 'create'
 
-	function probe(other Self) returns Int
-		let peer = other.chain
+	function probe(other Self) returns Int where Element implements Copyable
+		let peer = other.chain.clone()
 		return peer.slotSize()
 	end 'probe'
 end 'Bag'
@@ -1091,8 +1091,8 @@ typealias Int = int(i64.min to i64.max)
 type Pair uses A
 	var w as A
 
-	static function create(consumes x A) returns Self
-		return Self{w: x}
+	static function create(x A) returns Self where A implements Copyable
+		return Self{w: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int
@@ -1103,8 +1103,8 @@ end 'Pair'
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function slotSize() returns Int

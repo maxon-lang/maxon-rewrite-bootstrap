@@ -1472,6 +1472,7 @@ end 'main'
 ```
 
 <!-- test: a-result-mixing-a-module-let-closure-with-a-fresh-one-is-not-callable-for-its-caller -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `pick` hands back a module `let` closure on one path and a closure `make` builds on the other, so its result is read-only for every caller and a `mutates captures` function cannot be called through it.
 

@@ -57,8 +57,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -109,8 +109,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -175,8 +175,8 @@ end 'Point'
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function combined() returns Code
@@ -227,8 +227,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function inner() returns Code
@@ -286,8 +286,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -339,8 +339,8 @@ end 'Point'
 type Box uses T where T implements Scaled
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function fromInt() returns Real
@@ -397,8 +397,8 @@ end 'Point'
 type Box uses T where T implements Mixed
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Real
@@ -451,8 +451,8 @@ end 'Point'
 type Box uses T where T implements Adder
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Code
@@ -500,8 +500,8 @@ end 'Point'
 type Box uses T where T implements Mixer
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Code
@@ -601,8 +601,8 @@ end 'Point'
 type Box uses T where T implements Adder
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -667,8 +667,8 @@ end 'Widget'
 type Box uses T where T implements Coded
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function show() returns ExitCode
@@ -1207,8 +1207,8 @@ end 'Pusher'
 type Box uses T where T implements Grower
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(mutates dest IntArray)
@@ -1258,8 +1258,8 @@ end 'Pusher'
 type Box uses T where T implements Grower
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(mutates dest IntArray)
@@ -1309,8 +1309,8 @@ end 'Summer'
 type Box uses T where T implements Reader
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(src IntArray) returns Integer
@@ -1356,8 +1356,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -1411,8 +1411,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -1471,8 +1471,8 @@ end 'Builder'
 type Box uses T where T implements Maker
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function first() returns Integer
@@ -1492,6 +1492,7 @@ end 'main'
 ```
 
 <!-- test: where-clauses.error.witness-return-keeps-the-requirements-alias -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A requirement's declared return alias is the type of the call's result, through a `where T is Maker`
 type parameter exactly as through a direct call: `Other` is a second alias of the same instance, so the
@@ -1670,8 +1671,8 @@ end 'Adder'
 type Box uses T where T implements Summer
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(xs IntArray) returns Integer
@@ -1800,8 +1801,8 @@ end 'Widget'
 type Box uses T where T implements Derived
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function callInherited() returns Code
@@ -1862,8 +1863,8 @@ end 'Widget'
 type Box uses T where T implements Derived
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function zeroArg() returns Code
@@ -1949,8 +1950,8 @@ end 'Widget'
 type Box uses T where T implements Both
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function digits() returns Code
@@ -2026,8 +2027,8 @@ end 'Widget'
 type Box uses T where T implements Left and Right
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Code
@@ -2382,8 +2383,8 @@ end 'Widget'
 type Box uses T where T implements Origin
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Code
@@ -2705,8 +2706,8 @@ end 'Wrapper'
 type Holder uses T where T implements Valuable
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Holder'
 
@@ -2759,8 +2760,8 @@ end 'Person'
 type Registry uses T where T implements HasName and HasAge
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Registry'
 
@@ -3889,17 +3890,17 @@ type Box uses T
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function copyCount() returns Val
-		let local = items
+	function copyCount() returns Val where T implements Copyable
+		let local = items.clone()
 		let c = try local.slice(0, endIndex: local.count()) otherwise return 0
-		return c.count()
+		return try c.count() as Val otherwise panic("out of range")
 	end 'copyCount'
 
-	static function countOf(held Self) returns Val
+	static function countOf(held Self) returns Val where T implements Copyable
 		return held.copyCount()
 	end 'countOf'
 end 'Box'
@@ -3909,7 +3910,7 @@ typealias ValBox = Box with Val
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let items = ValArray.create(0)
+	var items = ValArray.create(0)
 	items.push(4)
 	print("{ValBox.countOf(ValBox.create(items))}\n")
 	return 0
@@ -3932,21 +3933,21 @@ type Box uses T
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function copyCount() returns Val
-		let local = items
+	function copyCount() returns Val where T implements Copyable
+		let local = items.clone()
 		let c = try local.slice(0, endIndex: local.count()) otherwise return 0
-		return c.count()
+		return try c.count() as Val otherwise panic("out of range")
 	end 'copyCount'
 
-	function viaSibling() returns Val
+	function viaSibling() returns Val where T implements Copyable
 		return self.copyCount()
 	end 'viaSibling'
 
-	static function countOf(held Self) returns Val
+	static function countOf(held Self) returns Val where T implements Copyable
 		return held.viaSibling()
 	end 'countOf'
 end 'Box'
@@ -3956,7 +3957,7 @@ typealias ValBox = Box with Val
 typealias ValArray = Array with Val
 
 function main() returns ExitCode
-	let items = ValArray.create(0)
+	var items = ValArray.create(0)
 	items.push(4)
 	print("{ValBox.countOf(ValBox.create(items))}\n")
 	return 0
@@ -4097,8 +4098,8 @@ end 'Point'
 type Box uses T where T implements sub.Digest
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns ExitCode

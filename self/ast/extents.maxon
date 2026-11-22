@@ -481,3 +481,94 @@ export function outermostArithmetic(t Tree, e NodeID) returns NodeID
 	end 'climb'
 	return at
 end 'outermostArithmetic'
+
+// BoundForm is how a bound on a type parameter is written into the header of a function: a where clause of its own, a
+// constraint after the others of the where clause, or one more bound of the parameter's own constraint.
+export enum BoundForm
+	newClause
+	newConstraint
+	moreBounds
+end 'BoundForm'
+
+// BoundPlace is where a bound on a type parameter is written into the header of a function, and in what form.
+export type BoundPlace
+	export var at as Count
+	export var form as BoundForm
+
+	export static function make(at Count, form BoundForm) returns BoundPlace
+		return BoundPlace{at: at, form: form}
+	end 'make'
+end 'BoundPlace'
+
+let whereWord = "where"
+
+let commaByte = 44 as Byte
+
+// boundPlace is where a bound on the type parameter param goes in the header of the function that starts at at, which the
+// layout keeps on one line: after the last bound of param's constraint, after the last constraint of the where clause, or
+// at the end of the header when there is no where clause. A header that ends in a comment, after which nothing can be
+// written, has none.
+export function boundPlace(text String, at Count, param String) returns table.Option with BoundPlace
+	let finish = lineEnd(text, at: at)
+	var clause = finish
+	var depth = 0 as Count
+	var i = at
+	while i < finish 'header'
+		let c = text.byteAt(i)
+		let next = tokenEnd(text, at: i)
+		if c == slashByte and next == finish and stepOn(i) < finish and text.byteAt(stepOn(i)) == slashByte 'comment'
+			return table.Option.none
+		end 'comment'
+		if isOpening(c) 'open'
+			depth = stepOn(depth)
+		end 'open' else if isClosing(c) 'close'
+			depth = try depth - 1 otherwise 0 as Count
+		end 'close' else if depth == 0 and text.sliceBytes(i, endPos: next) == whereWord 'where'
+			clause = i
+			break 'header'
+		end 'where'
+		i = next
+	end 'header'
+	if clause == finish 'noClause'
+		return table.Option.some(BoundPlace.make(spaceBefore(text, at: finish, from: at), form: BoundForm.newClause))
+	end 'noClause'
+	var part = skipSpace(text, at: wordEnd(text, at: clause))
+	while part < finish 'constraints'
+		let partEnd = constraintEnd(text, at: part, finish: finish)
+		if text.sliceBytes(part, endPos: wordEnd(text, at: part)) == param 'own'
+			return table.Option.some(BoundPlace.make(spaceBefore(text, at: partEnd, from: part), form: BoundForm.moreBounds))
+		end 'own'
+		if partEnd == finish 'last'
+			break 'constraints'
+		end 'last'
+		part = skipSpace(text, at: stepOn(partEnd))
+	end 'constraints'
+	return table.Option.some(BoundPlace.make(spaceBefore(text, at: finish, from: at), form: BoundForm.newConstraint))
+end 'boundPlace'
+
+// constraintEnd is the comma that ends the constraint of a where clause that starts at at, or finish, the end of the header.
+function constraintEnd(text String, at Count, finish Count) returns Count
+	var depth = 0 as Count
+	var i = at
+	while i < finish 'tokens'
+		let c = text.byteAt(i)
+		if isOpening(c) 'open'
+			depth = stepOn(depth)
+		end 'open' else if isClosing(c) 'close'
+			depth = try depth - 1 otherwise 0 as Count
+		end 'close' else if depth == 0 and c == commaByte 'comma'
+			return i
+		end 'comma'
+		i = tokenEnd(text, at: i)
+	end 'tokens'
+	return finish
+end 'constraintEnd'
+
+// spaceBefore is where the white space before at starts, going back no further than from.
+function spaceBefore(text String, at Count, from Count) returns Count
+	var i = at
+	while i > from and isSpaceByte(text.byteAt(stepBack(i))) 'back'
+		i = stepBack(i)
+	end 'back'
+	return i
+end 'spaceBefore'

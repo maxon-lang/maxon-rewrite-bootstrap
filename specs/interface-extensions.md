@@ -819,19 +819,16 @@ The extension bodies walk an iterator instance over the collection's own paramet
 
 <!-- test: iterable-extension-methods-run-on-a-map-and-a-set -->
 <!-- skip: 'Set' is not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 function main() returns ExitCode
 	let m = ["a": 1, "b": 2]
 	// TODO: 'Set' is not supported in minimaxon
 	let s = Set from [1, 2]
 	var total = 0 as Count
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, p) in m.withIterator() 'eachPair'
+	for (_, p) in m.enumerated() 'eachPair'
 		total = total + p.1
 	end 'eachPair'
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, x) in s.withIterator() 'eachElement'
+	for (_, x) in s.enumerated() 'eachElement'
 		total = total + x
 	end 'eachElement'
 	let pairs = m.map(function(p) gives p)

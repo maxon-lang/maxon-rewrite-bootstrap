@@ -1,0 +1,16 @@
+// A value of a type parameter that a generic body stores is copied, once the parameter is bounded Copyable, as maxon copies it.
+type Box uses T
+	var item as T
+
+	static function make(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
+	end 'make'
+end 'Box'
+
+typealias Text = Box with String
+
+function main() returns ExitCode
+	let b = Text.make("x")
+	print("{b.item}\n")
+	return 0
+end 'main'

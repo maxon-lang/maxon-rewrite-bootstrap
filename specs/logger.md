@@ -588,7 +588,6 @@ collected 2: INFO fromWorker
 ```
 
 <!-- test: an-error-logged-before-the-program-exits-is-written -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then returns a failing exit code. The program's exit lets the
 handler write what was handed to it, so all four lines reach the child's stderr and the child's exit code is
@@ -618,14 +617,13 @@ function main() returns ExitCode
 	end 'wrongExit'
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, suffix) in expected.withIterator() 'eachExpected'
-		let line = try lines.get(iter.index()) otherwise 'short'
+	for (iter, suffix) in expected.enumerated() 'eachExpected'
+		let line = try lines.get(iter) otherwise 'short'
 			print("stderr ended early: {run.stderr}")
 			return 1
 		end 'short'
 		if not line.startsWith("time=") or not line.endsWith(suffix) 'mismatch'
-			print("line {iter.index()} was: {line}\n")
+			print("line {iter} was: {line}\n")
 			return 1
 		end 'mismatch'
 	end 'eachExpected'
@@ -641,7 +639,6 @@ ok
 ```
 
 <!-- test: an-error-logged-before-a-panic-is-written -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 The child logs three records, then `Log.error`, then panics. The panic first lets the handler write what was
 handed to it, and the handler's mailbox is FIFO, so all four lines precede the panic on the child's stderr.
@@ -667,14 +664,13 @@ function main() returns ExitCode
 	let run = try Subprocess.runConfiguration(config) otherwise return 3
 	let expected = [" level=INFO msg=one", " level=INFO msg=two", " level=INFO msg=three", " level=ERROR msg=boom"]
 	let lines = run.stderr.split("\n")
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, suffix) in expected.withIterator() 'eachExpected'
-		let line = try lines.get(iter.index()) otherwise 'short'
+	for (iter, suffix) in expected.enumerated() 'eachExpected'
+		let line = try lines.get(iter) otherwise 'short'
 			print("stderr ended early: {run.stderr}")
 			return 1
 		end 'short'
 		if not line.startsWith("time=") or not line.endsWith(suffix) 'mismatch'
-			print("line {iter.index()} was: {line}\n")
+			print("line {iter} was: {line}\n")
 			return 1
 		end 'mismatch'
 	end 'eachExpected'

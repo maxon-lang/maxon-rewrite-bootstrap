@@ -3804,21 +3804,21 @@ tuple keeps the original.
 type Box uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	function store(mutates self, consumes replacement T) returns bool
-		self.item = replacement
+	function store(mutates self, replacement T) returns bool where T implements Droppable and Copyable
+		self.item = replacement.clone()
 		return true
 	end 'store'
 
-	function snapshot(mutates self, consumes replacement T) returns (T, bool)
-		return (self.item, self.store(replacement))
+	function snapshot(mutates self, replacement T) returns (T, bool) where T implements Copyable
+		return (self.item.clone(), self.store(replacement))
 	end 'snapshot'
 
-	function current() returns T
-		return self.item
+	function current() returns T where T implements Copyable
+		return self.item.clone()
 	end 'current'
 end 'Box'
 

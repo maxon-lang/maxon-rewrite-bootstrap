@@ -1502,7 +1502,7 @@ function resolveInterfaceDecl(mutates r Resolver, p ast.Project, ms ast.ModuleSt
 	resolveInterfaceList(r, p: p, s: ifs, interfaces: ifd.parents, position: "in its extends clause", errs: errs)
 	r.expandsMembers = true
 	for i in 0 upto ifd.methods.count() 'sigs'
-		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.startOf(ifd.methods[i].id))
+		let s = Surface.make(tier, noun: "function", name: "{ifd.name}.{ifd.methods[i].name}", at: r.tree.reportStartOf(ifd.methods[i].id))
 		signature(r, p: p, s: s, params: ifd.methods[i].params, returnsRef: ifd.methods[i].returnsRef, throwsRef: ifd.methods[i].throwsRef, errs: errs)
 		refuseParamDefaults(r, params: ifd.methods[i].params, noun: "interface requirement", errs: errs)
 	end 'sigs'

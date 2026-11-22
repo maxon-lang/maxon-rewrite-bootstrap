@@ -90,6 +90,7 @@ end 'main'
 ```
 
 <!-- test: unary-double-negate-float -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	let f = 42.0

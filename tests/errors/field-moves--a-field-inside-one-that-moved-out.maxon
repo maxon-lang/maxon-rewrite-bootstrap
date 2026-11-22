@@ -66,7 +66,7 @@ type Holder
 	end 'make'
 end 'Holder'
 
-// expect-error: E3102 at 73:19
+// expect-error: E3102 at 73:20
 function main() returns ExitCode
 	let w = Wrapper.make(Pair.make("a", right: "b"), tag: "t")
 	let pair = w.pair

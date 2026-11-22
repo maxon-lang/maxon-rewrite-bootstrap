@@ -2631,7 +2631,6 @@ errline len=4 [119 0 120 121]
 ```
 
 <!-- test: subprocess-an-argument-holding-a-nul-is-refused-before-the-spawn -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 An argument holding a NUL cannot reach a child intact on any OS, so the spawn is refused as `spawnFailed`
 before anything starts, and the child never runs. The child is this case's own executable, which prints
@@ -2640,9 +2639,8 @@ every argument it was given, so a spawn that went ahead shows exactly how the ar
 function runChild()
 	let args = CommandLine.args()
 	var line = "child ran"
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, arg) in args.withIterator() 'each'
-		if iter.index() > 0 'afterProgram'
+	for (iter, arg) in args.enumerated() 'each'
+		if iter > 0 'afterProgram'
 			line = "{line} [{arg}]"
 		end 'afterProgram'
 	end 'each'
@@ -2655,7 +2653,7 @@ function main() returns ExitCode
 		return 0
 	end 'childMode'
 	let exe = Executable.path(try Process.executablePath() otherwise return 2)
-	let argv = StringArray.create(0)
+	var argv = StringArray.create(0)
 	argv.push("child")
 	argv.push("a\0b")
 	argv.push("after")
@@ -2845,7 +2843,6 @@ prefix holds x
 
 <!-- test: subprocess-stdin-bytes-holding-a-nul-reach-the-child-whole -->
 <!-- skip: 'merge' region expressions are not supported in minimaxon -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- unsupported-targets: wasm32-wasi -->
 A stdin payload is bytes, and a zero byte is one of them: every door that feeds a child's stdin delivers a
 payload holding a NUL whole, never cut at the NUL. The child is this case's own executable, which reads its
@@ -2859,9 +2856,8 @@ function readAllStdin() returns String
 	// TODO: 'merge' region expressions are not supported in minimaxon
 	let received = merge read
 	var line = "{received.count()} bytes ["
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in received.withIterator() 'each'
-		if iter.index() > 0 'separator'
+	for (iter, value) in received.enumerated() 'each'
+		if iter > 0 'separator'
 			line = "{line} "
 		end 'separator'
 		line = "{line}{value}"

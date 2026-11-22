@@ -27,4 +27,4 @@ function main() returns ExitCode
 	return 0
 end 'main'
 
-// expect-error: E3186 at 26:19
+// expect-error: E3186 at 26:20

@@ -308,12 +308,12 @@ typealias Integer = int(0 to u32.max)
 type Box uses T
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.item
+	function get() returns T where T implements Copyable
+		return self.item.clone()
 	end 'get'
 end 'Box'
 

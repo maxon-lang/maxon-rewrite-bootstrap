@@ -264,12 +264,12 @@ type Bag uses Element
 		return Self{chain: EChain.create()}
 	end 'create'
 
-	function add(mutates self, consumes v Element)
-		self.chain.append(v)
+	function add(mutates self, v Element) where Element implements Copyable
+		self.chain.append(v.clone())
 	end 'add'
 
 	// Nothing else in this body needs a layout descriptor, so the move-out has to ask for one itself.
-	function drainOne(mutates self) throws ArrayError
+	function drainOne(mutates self) throws ArrayError where Element implements Droppable
 		_ = try self.chain.removeFirst()
 	end 'drainOne'
 
@@ -313,8 +313,8 @@ type Bag uses Element
 		return Self{chain: EChain.create(), spare: EChain.create()}
 	end 'create'
 
-	function add(mutates self, consumes v Element)
-		self.chain.append(v)
+	function add(mutates self, v Element) where Element implements Copyable
+		self.chain.append(v.clone())
 	end 'add'
 
 	function shift(mutates self) throws ArrayError

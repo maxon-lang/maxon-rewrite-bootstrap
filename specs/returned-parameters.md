@@ -654,8 +654,8 @@ type Pass uses Element
 		return Self{marker: 1}
 	end 'create'
 
-	function through(consumes item Element) returns Element
-		return item
+	function through(item Element) returns Element where Element implements Copyable
+		return item.clone()
 	end 'through'
 end 'Pass'
 

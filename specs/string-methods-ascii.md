@@ -356,7 +356,7 @@ HeLLoHELLO
 ```
 
 <!-- test: byte-methods-on-a-top-level-managed-binding -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view -->
 ### A module-scope `let` String is a receiver like any other
 ```maxon
 let Greeting = "Hello, World"
@@ -371,7 +371,7 @@ function main() returns ExitCode
 	if Greeting.startsWith("Hello") 'a'
 		print("ok\n")
 	end 'a'
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
+	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view
 	for p in Greeting.split(", ") 'loop'
 		print("[{p}]")
 	end 'loop'

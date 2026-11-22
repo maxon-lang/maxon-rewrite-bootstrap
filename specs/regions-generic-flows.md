@@ -966,8 +966,8 @@ end 'Job'
 type Holder uses T
 	var held as T
 
-	static function wrap(consumes item T) returns Self
-		return Self{held: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{held: item.clone()}
 	end 'wrap'
 
 	function number() returns Tally

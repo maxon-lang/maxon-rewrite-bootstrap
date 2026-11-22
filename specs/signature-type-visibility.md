@@ -627,12 +627,12 @@ export typealias Tally = int(0 to 100)
 export type Box uses T
 	export var item as T
 
-	export static function create(consumes item T) returns Self
-		return Self{item: item}
+	export static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	export function get() returns T
-		return self.item
+	export function get() returns T where T implements Copyable
+		return self.item.clone()
 	end 'get'
 end 'Box'
 
@@ -664,12 +664,12 @@ end 'Item'
 export type Bag uses Item
 	export var held as Item
 
-	export static function create(consumes held Item) returns Self
-		return Self{held: held}
+	export static function create(held Item) returns Self where Item implements Copyable
+		return Self{held: held.clone()}
 	end 'create'
 
-	export function first() returns Item
-		return self.held
+	export function first() returns Item where Item implements Copyable
+		return self.held.clone()
 	end 'first'
 end 'Bag'
 
@@ -2427,8 +2427,8 @@ export type Box uses T where T implements Marker
 		return self.item.code()
 	end 'run'
 
-	export static function create(consumes item T) returns Self
-		return Self{item: item}
+	export static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -2738,8 +2738,8 @@ export interface Marker
 	function code() returns ExitCode
 end 'Marker'
 
-export function bigger(consumes a T, consumes b T) uses T returns T where T implements Marker
-	return a if a.code() > b.code() else b
+export function bigger(a T, b T) uses T returns T where T implements Marker and Copyable
+	return a.clone() if a.code() > b.code() else b.clone()
 end 'bigger'
 
 // --- file: app/main.maxon

@@ -84,6 +84,7 @@ The variable name `_` is a special discard identifier. It does not create a bind
 ## Tests
 
 <!-- test: pure-function-discarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -102,6 +103,7 @@ error E3064: specs/discarded-results/pure-function-discarded.maxon:10:2: result 
 ```
 
 <!-- test: pure-function-let-discard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -196,6 +198,7 @@ end 'main'
 ```
 
 <!-- test: impure-function-discarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 
@@ -217,6 +220,7 @@ error E3065: specs/discarded-results/impure-function-discarded.maxon:12:2: resul
 ```
 
 <!-- test: impure-method-statement-discarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A method that writes `self` is IMPURE, so its result may not fall off a statement: E3065, the same
 cure as a free function.
 
@@ -258,6 +262,7 @@ correctly from one that does not. `impure-function-discarded` is the plain call,
 `impure-static-member-statement-discarded` below is the static call.
 
 <!-- test: impure-field-chain-statement-discarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -293,6 +298,7 @@ error E3065: specs/discarded-results/impure-field-chain-statement-discarded.maxo
 ```
 
 <!-- test: impure-static-member-statement-discarded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ⭐⭐ **A STATIC CALLED ON A LINE OF ITS OWN.** `Clock.tick()` is a statement, not
 `E2015: Unsupported: identifier statement` — the compiler lowers the same shape one line up in expression
@@ -551,6 +557,7 @@ error E3064: specs/discarded-results/math-intrinsic-discarded.maxon:3:2: result 
 ```
 
 <!-- test: transitive-impure -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -574,6 +581,7 @@ error E3065: specs/discarded-results/transitive-impure.maxon:15:2: result of 'co
 ```
 
 <!-- test: try-pure-let-discard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -1015,6 +1023,7 @@ end 'main'
 ```
 
 <!-- test: error.pure-throwing-call-statement-in-a-test-body -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A bare call to a pure throwing function, written as a statement in a `test` body, takes the test's implied
 handler and still discards the value it produced. The discard is refused exactly as it is outside a test.
 ```maxon
@@ -1046,6 +1055,7 @@ error E3064: specs/discarded-results/error.pure-throwing-call-statement-in-a-tes
 ```
 
 <!-- test: try-pure-propagating-discard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The propagating twin of `try-pure-let-discard`: `_ = try parseNum("abc")` with no `otherwise`, inside a
 function that throws the same error, still discards a pure result.
 ```maxon
@@ -1078,6 +1088,7 @@ error E3064: specs/discarded-results/try-pure-propagating-discard.maxon:17:2: re
 ```
 
 <!-- test: try-block-pure-discard -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The try-block twin: a pure throwing call routed to a block-form `try`'s handler and discarded with `_ =`.
 ```maxon
@@ -1111,6 +1122,7 @@ error E3064: specs/discarded-results/try-block-pure-discard.maxon:18:3: result o
 ```
 
 <!-- test: error.try-otherwise-return-underscore-discard-of-a-pure-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1145,6 +1157,7 @@ error E3064: specs/discarded-results/error.try-otherwise-return-underscore-disca
 ```
 
 <!-- test: error.try-otherwise-return-underscore-discard-of-a-pure-method -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1196,6 +1209,7 @@ error E3064: specs/discarded-results/error.try-otherwise-return-underscore-disca
 ```
 
 <!-- test: error.try-otherwise-panic-underscore-discard-of-a-pure-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A pure throwing function whose result is discarded is refused in every form the discard can take. A
 fallback that leaves the function (`otherwise return`, `otherwise panic(…)`) hands the value back from a
 block the failing arm never rejoins, but the call was still made for nothing but its result.
@@ -1342,6 +1356,7 @@ error E3064: specs/discarded-results/error.lowering-a-string-is-pure.maxon:7:2: 
 ```
 
 <!-- test: error.a-builder-writing-only-its-own-array-is-pure -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A function that fills an array it created and returns it has no effect beyond its result.
 ```maxon
@@ -1367,6 +1382,7 @@ error E3064: specs/discarded-results/error.a-builder-writing-only-its-own-array-
 ```
 
 <!-- test: error.a-method-writing-its-receiver-is-pure-when-the-receiver-is-the-callers-own -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A method that writes its receiver is an effect to a caller that was handed the receiver, and none to a caller that created it.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -1861,7 +1877,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-is-pure -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The iterator a `withIterator()` loop walks is created by the loop, so moving it is not an effect of the function.
 ```maxon
@@ -1874,10 +1890,9 @@ enum SearchError implements Error
 end 'SearchError'
 
 function positionOf(values IntArray, wanted Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
 		if value == wanted 'hit'
-			return iter.index() as Integer
+			return iter as Integer
 		end 'hit'
 	end 'each'
 	throw SearchError.absent
@@ -1902,28 +1917,26 @@ error E3064: specs/discarded-results/error.a-search-through-a-with-iterator-loop
 ```
 
 <!-- test: a-with-iterator-loop-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 A loop body that pushes into an array it was handed is an effect, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
 typealias IntArray = Array with Integer
 
-function copyInto(values IntArray, target IntArray) returns Integer
+function copyInto(values IntArray, mutates target IntArray) returns Integer
 	var copied = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
-		target.push(value + (iter.index() as Integer))
-		copied = copied + 1
+	for (iter, value) in values.enumerated() 'each'
+		target.push(try value + (iter as Integer) otherwise panic("out of range"))
+		copied = try copied + 1 otherwise panic("out of range")
 	end 'each'
 	return copied
 end 'copyInto'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(4)
 	values.push(5)
-	let target = IntArray.create(0)
+	var target = IntArray.create(0)
 	_ = copyInto(values, target: target)
 	if target.count() != 2 'wrong'
 		return 1
@@ -1936,7 +1949,6 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
@@ -1944,16 +1956,15 @@ typealias IntArray = Array with Integer
 
 function show(values IntArray) returns Integer
 	var shown = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
-		print("{iter.index()}={value}\n")
-		shown = shown + 1
+	for (iter, value) in values.enumerated() 'each'
+		print("{iter}={value}\n")
+		shown = try shown + 1 otherwise panic("out of range")
 	end 'each'
 	return shown
 end 'show'
 
 function main() returns ExitCode
-	let values = IntArray.create(0)
+	var values = IntArray.create(0)
 	values.push(7)
 	_ = show(values)
 	return 0
@@ -1967,7 +1978,6 @@ end 'main'
 ```
 
 <!-- test: error.a-with-iterator-search-stays-pure-beside-an-iterator-that-moves-records-between-its-fields -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- positions: moved -->
 Another iterator type in the program that moves a record between its own fields does not make a search over an array effectful.
 ```maxon
@@ -2006,10 +2016,9 @@ enum SearchError implements Error
 end 'SearchError'
 
 function positionOf(values IntArray, wanted Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
 		if value == wanted 'hit'
-			return iter.index() as Integer
+			return iter as Integer
 		end 'hit'
 	end 'each'
 	throw SearchError.absent
@@ -2034,7 +2043,7 @@ error E3064: specs/discarded-results/error.a-with-iterator-search-stays-pure-bes
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-list-is-pure -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `List`, discarded, is refused.
 ```maxon
@@ -2047,9 +2056,9 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntList, floor Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
 		if value > floor 'hit'
+			// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 			return iter.current()
 		end 'hit'
 	end 'each'
@@ -2110,7 +2119,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-li
 ```
 
 <!-- test: a-with-iterator-loop-over-a-list-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2119,8 +2128,8 @@ typealias IntList = List with Integer
 
 function show(values IntList) returns Integer
 	var shown = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
 	end 'each'
@@ -2142,7 +2151,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-list-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2153,8 +2162,8 @@ typealias IntArray = Array with Integer
 
 function copyInto(values IntList, target IntArray) returns Integer
 	var copied = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		target.push(value + iter.current())
 		copied = copied + 1
 	end 'each'
@@ -2178,7 +2187,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-fixed-array-is-pure -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `FixedArray`, discarded, is refused.
 ```maxon
@@ -2191,9 +2200,9 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntVector, floor Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
 		if value > floor 'hit'
+			// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 			return iter.current()
 		end 'hit'
 	end 'each'
@@ -2256,7 +2265,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-fi
 ```
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2265,8 +2274,8 @@ typealias IntVector = FixedArray with 3 Integer
 
 function show(values IntVector) returns Integer
 	var shown = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
 	end 'each'
@@ -2292,7 +2301,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-fixed-array-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2303,8 +2312,8 @@ typealias IntArray = Array with Integer
 
 function copyInto(values IntVector, target IntArray) returns Integer
 	var copied = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		target.push(value + iter.current())
 		copied = copied + 1
 	end 'each'
@@ -2329,7 +2338,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-set-is-pure -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- positions: moved -->
 A pure search through `withIterator()` over a `Set`, discarded, is refused.
 ```maxon
@@ -2342,9 +2351,9 @@ enum SearchError implements Error
 end 'SearchError'
 
 function firstAbove(values IntSet, floor Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
 		if value > floor 'hit'
+			// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 			return iter.current()
 		end 'hit'
 	end 'each'
@@ -2405,7 +2414,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-se
 ```
 
 <!-- test: a-with-iterator-loop-over-a-set-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2414,8 +2423,8 @@ typealias IntSet = Set with Integer
 
 function show(values IntSet) returns Integer
 	var shown = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		print("{iter.current()}={value}\n")
 		shown = shown + 1
 	end 'each'
@@ -2437,7 +2446,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-set-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that pushes into an array it was handed is an effect, whatever the container.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2448,8 +2457,8 @@ typealias IntArray = Array with Integer
 
 function copyInto(values IntSet, target IntArray) returns Integer
 	var copied = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in values.withIterator() 'each'
+	for (iter, value) in values.enumerated() 'each'
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		target.push(value + iter.current())
 		copied = copied + 1
 	end 'each'
@@ -2473,7 +2482,7 @@ end 'main'
 ```
 
 <!-- test: error.a-search-through-a-with-iterator-loop-over-a-map-is-pure -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 <!-- positions: moved -->
 A pure search through the entries `withIterator()` yields over a `Map`, discarded, is refused.
 ```maxon
@@ -2486,10 +2495,10 @@ enum SearchError implements Error
 end 'SearchError'
 
 function keyOf(table IntMap, wanted Integer) returns Integer throws SearchError
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, entry) in table.withIterator() 'each'
+	for (iter, entry) in table.enumerated() 'each'
 		let (key, value) = entry
 		if value == wanted 'hit'
+			// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 			return key + iter.current().0
 		end 'hit'
 	end 'each'
@@ -2550,7 +2559,7 @@ error E3064: specs/discarded-results/error.a-search-through-a-for-loop-over-a-ma
 ```
 
 <!-- test: a-with-iterator-loop-over-a-map-whose-body-prints-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that prints is an effect of the function, whatever the iterator does.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2559,9 +2568,9 @@ typealias IntMap = Map with (Integer, Integer)
 
 function show(table IntMap) returns Integer
 	var shown = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, entry) in table.withIterator() 'each'
+	for (iter, entry) in table.enumerated() 'each'
 		let (key, value) = entry
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		print("{key}={value}/{iter.current().0}\n")
 		shown = shown + 1
 	end 'each'
@@ -2583,7 +2592,7 @@ end 'main'
 ```
 
 <!-- test: a-with-iterator-loop-over-a-map-whose-body-writes-an-argument-keeps-its-result-droppable -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
+<!-- skip: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone -->
 A loop body that inserts into a map it was handed is an effect, whatever the container.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -2592,9 +2601,9 @@ typealias IntMap = Map with (Integer, Integer)
 
 function copyInto(table IntMap, target IntMap) returns Integer
 	var copied = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, entry) in table.withIterator() 'each'
+	for (iter, entry) in table.enumerated() 'each'
 		let (key, value) = entry
+		// TODO: a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone
 		target.upsert(key, value: value + iter.current().0)
 		copied = copied + 1
 	end 'each'
@@ -2618,6 +2627,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-holding-a-cursor-over-an-argument-takes-a-write-to-the-cursor-for-free -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A write to a cursor the function made is its own, even when the cursor reads an argument.
 ```maxon
@@ -2777,6 +2787,7 @@ end 'main'
 ```
 
 <!-- test: error.a-record-no-call-handed-a-foreign-record-takes-a-write-through-it-for-free -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same program with the argument only read: what is stored below the record is made by the function.
 ```maxon
@@ -3265,7 +3276,7 @@ type Shelf uses T
 		return Self{items: IntArray.create(0), flagged: false}
 	end 'create'
 
-	function adopt(mutates self, fresh IntArray, scratchy bool)
+	function adopt(mutates self, fresh IntArray, scratchy bool) where T implements Droppable
 		if scratchy 'scratch'
 			let scratch = TArray.create(0)
 			if scratch.isEmpty() 'empty'
@@ -3275,7 +3286,7 @@ type Shelf uses T
 		self.items = fresh.clone()
 	end 'adopt'
 
-	static function filled(fresh IntArray) returns Self
+	static function filled(fresh IntArray) returns Self where T implements Droppable
 		var made = Self.create()
 		made.adopt(fresh, scratchy: false)
 		return made
@@ -3796,6 +3807,7 @@ error E3065: <fragment>:20:3: result of 'relay' is not used (use '_ = expr' to d
 ```
 
 <!-- test: error.a-function-that-advances-its-own-local-through-a-by-reference-argument-is-pure -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `firstWordEnd` hands its own local `var at` to a `mutable` parameter and writes nothing it was given, so it is pure and dropping its result is E3064.
 ```maxon

@@ -50,8 +50,8 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -114,8 +114,8 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -182,8 +182,8 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(x Wide)
@@ -244,8 +244,8 @@ end 'Forwarder'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -300,8 +300,8 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run() throws BumpError
@@ -390,8 +390,8 @@ type Holder uses T where T implements Bumper
 	export var item as T
 	export var level as Wide
 
-	static function create(consumes item T) returns Self
-		return Self{item: item, level: 3}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone(), level: 3}
 	end 'create'
 
 	function run(mutates self, helper T)
@@ -491,8 +491,8 @@ end 'Settler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -542,8 +542,8 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -625,8 +625,8 @@ end 'Reader'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -677,8 +677,8 @@ end 'Doubler'
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(mutates n Wide)
@@ -736,8 +736,8 @@ end 'Doubler'
 type Holder uses T where T implements Derived
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()
@@ -1041,8 +1041,8 @@ end 'Bumper'
 type Box uses T
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -1057,8 +1057,8 @@ typealias WideBox = Box with Wide
 type Holder uses T where T implements Bumper
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run()

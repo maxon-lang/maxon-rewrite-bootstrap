@@ -67,14 +67,14 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function takeFirstOf(other Items)
+	function takeFirstOf(mutates self, other Items) where Element implements Copyable
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.takeFirstOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'
 		items.push(borrowed)
 	end 'takeFirstOf'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -82,15 +82,15 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
-	let source = Strs.create(0)
+	var b = StrBag.create()
+	var source = Strs.create(0)
 	source.push("a borrowed string long enough to force a heap allocation")
 	b.takeFirstOf(source)
 	let stored = try b.at(0) otherwise return 1
 	let original = try source.get(0) otherwise return 1
 	print("{stored}\n")
 	print("{original}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -124,7 +124,7 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function copyFrom(other Items)
+	function copyFrom(mutates self, other Items) where Element implements Copyable
 		let n = other.count()
 		for i in 0 upto n 'copy'
 			let value = try other.get(i) otherwise 'getErr'
@@ -134,7 +134,7 @@ type Bag uses Element
 		end 'copy'
 	end 'copyFrom'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -142,8 +142,8 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
-	let source = Strs.create(0)
+	var b = StrBag.create()
+	var source = Strs.create(0)
 	source.push("the first copied string, long enough to force a heap allocation")
 	source.push("the second copied string, long enough to force a heap allocation")
 	source.push("the third copied string, long enough to force a heap allocation")
@@ -152,7 +152,7 @@ function main() returns ExitCode
 	let last = try b.at(2) otherwise return 1
 	print("{first}\n")
 	print("{last}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -187,7 +187,7 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillFrom(other Items, times Idx)
+	function fillFrom(mutates self, other Items, times Idx) where Element implements Copyable
 		var n = 0 as Idx
 		while n < times 'fill'
 			let value = try other.get(0) otherwise 'getErr'
@@ -198,7 +198,7 @@ type Bag uses Element
 		end 'fill'
 	end 'fillFrom'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -206,8 +206,8 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
-	let source = Strs.create(0)
+	var b = StrBag.create()
+	var source = Strs.create(0)
 	source.push("a repeated borrowed string long enough to force a heap allocation")
 	b.fillFrom(source, times: 100)
 	let middle = try b.at(50) otherwise return 1
@@ -244,8 +244,8 @@ type Bag uses Element
 
 	// The scratch container never leaves this frame: it takes a reference at the store and releases it
 	// at the method's exit, so the count it reports is the only thing that survives.
-	function scratchCountOf(other Items) returns Idx
-		let scratch = Items.create(0)
+	function scratchCountOf(other Items) returns Idx where Element implements Copyable
+		var scratch = Items.create(0)
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.scratchCountOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'
@@ -258,12 +258,12 @@ typealias StrBag = Bag with String
 
 function main() returns ExitCode
 	let b = StrBag.create()
-	let source = Strs.create(0)
+	var source = Strs.create(0)
 	source.push("a scratch-stored string long enough to force a heap allocation")
 	let n = b.scratchCountOf(source)
 	let survivor = try source.get(0) otherwise return 1
 	print("{survivor}\n")
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -287,19 +287,19 @@ type Bag uses Element
 	export var items as Items
 	export var saved as Element
 
-	static function of(value Element) returns Self
-		return Self{items: Items.create(0), saved: value}
+	static function of(value Element) returns Self where Element implements Copyable
+		return Self{items: Items.create(0), saved: value.clone()}
 	end 'of'
 
 	function count() returns Idx
 		return items.count()
 	end 'count'
 
-	function keepSaved()
-		items.push(saved)
+	function keepSaved(mutates self) where Element implements Copyable
+		items.push(saved.clone())
 	end 'keepSaved'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -307,12 +307,12 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.of("a saved field string long enough to force a heap allocation")
+	var b = StrBag.of("a saved field string long enough to force a heap allocation")
 	b.keepSaved()
 	b.keepSaved()
 	let stored = try b.at(1) otherwise return 1
 	print("{stored}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -348,7 +348,7 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function copyFrom(other Items)
+	function copyFrom(mutates self, other Items) where Element implements Copyable
 		let n = other.count()
 		for i in 0 upto n 'copy'
 			let value = try other.get(i) otherwise 'getErr'
@@ -358,7 +358,7 @@ type Bag uses Element
 		end 'copy'
 	end 'copyFrom'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -366,8 +366,8 @@ end 'Bag'
 typealias NumBag = Bag with Num
 
 function main() returns ExitCode
-	let b = NumBag.create()
-	let source = Nums.create(0)
+	var b = NumBag.create()
+	var source = Nums.create(0)
 	source.push(4 as Num)
 	source.push(7 as Num)
 	b.copyFrom(source)
@@ -402,14 +402,14 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function takeFirstOf(other Items)
+	function takeFirstOf(mutates self, other Items) where Element implements Copyable
 		let borrowed = try other.get(0) otherwise 'getErr'
 			panic("Bag.takeFirstOf: get(0) OOB — the caller passed a non-empty container")
 		end 'getErr'
 		items.push(borrowed)
 	end 'takeFirstOf'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -417,8 +417,8 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function filled() returns StrBag
-	let b = StrBag.create()
-	let source = Strs.create(0)
+	var b = StrBag.create()
+	var source = Strs.create(0)
 	source.push("an outliving string long enough to force a heap allocation")
 	b.takeFirstOf(source)
 	return b
@@ -428,7 +428,7 @@ function main() returns ExitCode
 	let b = filled()
 	let stored = try b.at(0) otherwise return 1
 	print("{stored}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

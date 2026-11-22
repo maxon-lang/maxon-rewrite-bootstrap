@@ -60,8 +60,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -112,8 +112,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -165,8 +165,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -214,8 +214,8 @@ end 'Point'
 type Box uses T
 	export var item as T
 
-	static function create(consumes v T) returns Self
-		return Self{item: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{item: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -256,8 +256,8 @@ end 'Point'
 type Box uses T
 	export var item as T
 
-	static function create(consumes v T) returns Self
-		return Self{item: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{item: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -288,8 +288,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function create(consumes v T) returns Self
-		return Self{item: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{item: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -328,12 +328,12 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -371,15 +371,15 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 
-	function keep(mutates self)
+	function keep(mutates self) where Element implements Droppable and Copyable
 		self.replace(self.saved)
 	end 'keep'
 end 'Box'
@@ -425,18 +425,18 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	static function rebuilt(consumes first Element, consumes second Element) returns Self
+	static function rebuilt(first Element, second Element) returns Self where Element implements Droppable and Copyable
 		var built = Self.create(first)
-		built.saved = second
+		built.saved = second.clone()
 		return built
 	end 'rebuilt'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -480,12 +480,12 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -533,13 +533,13 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function rotate(mutates self, mutates other Self)
-		let held = other.saved
-		other.saved = self.saved
+	function rotate(mutates self, mutates other Self) where Element implements Copyable
+		let held = other.saved.clone()
+		other.saved = self.saved.clone()
 		self.saved = held
 	end 'rotate'
 end 'Box'
@@ -567,13 +567,13 @@ The same rotation over a managed `String` instantiation.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function rotate(mutates self, mutates other Self)
-		let held = other.saved
-		other.saved = self.saved
+	function rotate(mutates self, mutates other Self) where Element implements Copyable
+		let held = other.saved.clone()
+		other.saved = self.saved.clone()
 		self.saved = held
 	end 'rotate'
 end 'Box'
@@ -611,13 +611,13 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function swapWith(mutates self, mutates other Self)
-		let held = self.saved
-		self.saved = other.saved
+	function swapWith(mutates self, mutates other Self) where Element implements Copyable
+		let held = self.saved.clone()
+		self.saved = other.saved.clone()
 		other.saved = held
 	end 'swapWith'
 end 'Box'
@@ -770,12 +770,12 @@ end 'Point'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		saved = next.clone()
 	end 'replace'
 end 'Box'
 

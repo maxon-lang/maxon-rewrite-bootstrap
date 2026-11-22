@@ -390,6 +390,11 @@ let createIteratorMethod = "createIterator"
 // value its current() returns.
 function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, mutates errs diag.ErrorList)
 	let source = ast.forStmtFrom(ms.tree(), id: s)
+	let receiver = enumeratedReceiver(ms.tree(), source: source)
+	if receiver != 0 'enumerated'
+		checkEnumerated(c, p: p, ms: ms, s: s, receiver: receiver, errs: errs)
+		return
+	end 'enumerated'
 	let typed = checkExpr(c, p: p, ms: ms, e: source, errs: errs)
 	if typed == ast.noType 'badSource'
 		return
@@ -413,6 +418,75 @@ function checkForEach(mutates c Checker, p ast.Project, mutates ms ast.ModuleSta
 	end 'notIterable'
 	checkForBody(c, p: p, ms: ms, s: s, varType: elem, borrows: false, errs: errs)
 end 'checkForEach'
+
+// enumeratedMethod is the call that a for walks an array through with the index of each element, `for (i, x) in
+// xs.enumerated()`, where maxon's loop is `for (iter, x) in xs.withIterator()` and asks the iterator for `iter.index()`
+// (README, "Where it differs from Maxon").
+let enumeratedMethod = "enumerated"
+
+// enumeratedReceiver is the collection of a for whose source is the call `xs.enumerated()`, or 0 when it is no such call.
+function enumeratedReceiver(tree ast.Tree, source ast.NodeID) returns ast.NodeID
+	if tree.kindOf(source) != ast.NodeKind.callExpr or tree.listLen(ast.callExprArgsRef(tree, id: source)) != 0 'notCall'
+		return 0 as ast.NodeID
+	end 'notCall'
+	let callee = ast.callExprCallee(tree, id: source)
+	if tree.kindOf(callee) != ast.NodeKind.memberExpr or ast.memberExprName(tree, id: callee) != enumeratedMethod 'notEnumerated'
+		return 0 as ast.NodeID
+	end 'notEnumerated'
+	return ast.memberExprObj(tree, id: callee)
+end 'enumeratedReceiver'
+
+// checkEnumerated types `for (i, x) in xs.enumerated()`: the for over the elements of the array xs, which also binds each
+// one's index to the first name. The loop walks xs itself from here on, and the lowering gives the index it counts to the
+// variable recorded for the loop, so no pair is made. Only an array's elements have an index: a map's entries and the
+// elements a cursor gives have none.
+function checkEnumerated(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID, receiver ast.NodeID, mutates errs diag.ErrorList)
+	let source = ast.forStmtFrom(ms.tree(), id: s)
+	let typed = checkExpr(c, p: p, ms: ms, e: receiver, errs: errs)
+	if typed == ast.noType 'badSource'
+		return
+	end 'badSource'
+	let t = ast.contentType(ms.types, reads: p.types, t: typed)
+	if not requireNotCown(c, p: p, ms: ms, off: offsetOf(c, p: p, ms: ms, node: receiver), t: t, use: "a 'for' over its elements", errs: errs) 'cown'
+		return
+	end 'cown'
+	if kindOfType(p, ms: ms, t: t) != ast.TypeKind.builtinArray 'notArray'
+		failAt(c, p: p, ms: ms, node: source, code: diag.errUnsupportedFeature, msg: "Unsupported: `{enumeratedMethod}()` of a `{nameOfType(p, ms: ms, t: t)}` value — only the elements of an `Array` or a `FixedArray` have an index for `for (i, x) in xs.{enumeratedMethod}()` to bind; walk a map's entries with `for (key, value) in m`, and count the elements of anything else in a variable", errs: errs)
+		return
+	end 'notArray'
+	let namesRef = ast.forStmtVarsRef(ms.tree(), id: s)
+	if ms.tree().listLen(namesRef) != 2 'notPair'
+		failAt(c, p: p, ms: ms, node: s, code: diag.errUnsupportedFeature, msg: "Unsupported: a `for` over `{enumeratedMethod}()` names the index and the element, `for (i, x) in xs.{enumeratedMethod}()`, with `_` for the one the body does not use", errs: errs)
+		return
+	end 'notPair'
+	ast.setForStmtFrom(ms.ownTree, id: s, value: receiver)
+	let elem = typeElemType(p, ms: ms, ownerTy: t)
+	enterForBody(c, p: p, ms: ms, s: s)
+	let indexAt = ms.tree().listAt(namesRef, index: 0) as ast.NodeID
+	let indexName = ast.bindNameName(ms.tree(), id: indexAt)
+	if indexName != "_" 'index'
+		let index = declareLocal(c, p: p, ms: ms, name: indexName, t: p.builtins.elementIndexTy, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: indexAt), errs: errs)
+		if index == ast.noLocal 'failed'
+			leaveForBody(c)
+			return
+		end 'failed'
+		c.typing.indexes.insert(s as Count, value: index)
+	end 'index'
+	let elementAt = ms.tree().listAt(namesRef, index: 1) as ast.NodeID
+	let elementName = ast.bindNameName(ms.tree(), id: elementAt)
+	var element = ast.noLocal
+	if elementName == "_" 'unnamed'
+		element = declareHidden(c, name: elementName, t: elem, definedAt: s)
+	end 'unnamed' else 'named'
+		element = declareLocal(c, p: p, ms: ms, name: elementName, t: elem, isVar: false, definedAt: s, off: offsetOf(c, p: p, ms: ms, node: elementAt), errs: errs)
+	end 'named'
+	if element != ast.noLocal 'declared'
+		c.typing.locals[element as Count].projected = ast.isManagedType(ms.types, reads: p.types, t: elem)
+		c.typing.nodeLocals.insert(s as Count, value: element)
+		checkStmts(c, p: p, ms: ms, body: ast.forStmtBodyRef(ms.tree(), id: s), errs: errs)
+	end 'declared'
+	leaveForBody(c)
+end 'checkEnumerated'
 
 // checkIteration finds how a for walks a value of type t through the iteration protocol, records it for the node, and
 // gives the type of the elements: none, with an error, when t declares no protocol a loop can walk. A type that is a

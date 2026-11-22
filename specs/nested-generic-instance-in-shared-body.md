@@ -27,8 +27,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -36,8 +36,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -54,11 +54,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
@@ -96,8 +96,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -105,8 +105,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -123,11 +123,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
@@ -166,8 +166,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -175,8 +175,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -193,11 +193,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellA.create(self.left))
 		g.bump(1)
 		return g.total()
@@ -227,8 +227,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -236,8 +236,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -255,11 +255,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
@@ -297,8 +297,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -306,8 +306,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -325,11 +325,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
@@ -368,8 +368,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -377,8 +377,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -396,11 +396,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = Nested.create(CellCell.create(CellA.create(self.left)))
 		g.bump(1)
 		return g.total()
@@ -430,8 +430,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -439,8 +439,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -457,15 +457,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -503,8 +503,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -512,8 +512,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -530,15 +530,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -577,8 +577,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -586,8 +586,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -604,15 +604,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -642,8 +642,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -651,8 +651,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -670,15 +670,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -716,8 +716,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -725,8 +725,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -744,15 +744,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -791,8 +791,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -800,8 +800,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -819,15 +819,15 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 
-	function run() returns Tally
+	function run() returns Tally where A implements Droppable and Copyable
 		var g = self.build()
 		g.bump(1)
 		return g.total()
@@ -857,8 +857,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -866,8 +866,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -884,7 +884,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
@@ -925,8 +925,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -934,8 +934,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -952,7 +952,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
@@ -994,8 +994,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1003,8 +1003,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1021,7 +1021,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellA.create(left))}
 	end 'create'
 
@@ -1054,8 +1054,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1063,8 +1063,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1082,7 +1082,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
@@ -1123,8 +1123,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1132,8 +1132,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1151,7 +1151,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
@@ -1193,8 +1193,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1202,8 +1202,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1221,7 +1221,7 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
+	static function create(left A) returns Self where A implements Droppable and Copyable
 		return Self{slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
@@ -1254,8 +1254,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1263,8 +1263,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1282,11 +1282,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellA.create(left))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1324,8 +1324,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1333,8 +1333,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1352,11 +1352,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellA.create(left))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1395,8 +1395,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1404,8 +1404,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1423,11 +1423,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellA.create(left))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellA.create(left))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellA.create(self.left))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1457,8 +1457,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1466,8 +1466,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1486,11 +1486,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1528,8 +1528,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1537,8 +1537,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1557,11 +1557,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1600,8 +1600,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1609,8 +1609,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1629,11 +1629,11 @@ type Wrap uses A
 	var left as A
 	var slot as Nested
 
-	static function create(consumes left A) returns Self
-		return Self{left: left, slot: Nested.create(CellCell.create(CellA.create(left)))}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone(), slot: Nested.create(CellCell.create(CellA.create(left)))}
 	end 'create'
 
-	function run(mutates self) returns Tally
+	function run(mutates self) returns Tally where A implements Droppable and Copyable
 		self.slot = Nested.create(CellCell.create(CellA.create(self.left)))
 		self.slot.bump(1)
 		return self.slot.total()
@@ -1663,8 +1663,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1672,8 +1672,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1690,11 +1690,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 end 'Wrap'
@@ -1732,8 +1732,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1741,8 +1741,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1759,11 +1759,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 end 'Wrap'
@@ -1802,8 +1802,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1811,8 +1811,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1829,11 +1829,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellA
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellA.create(self.left))
 	end 'build'
 end 'Wrap'
@@ -1863,8 +1863,8 @@ typealias Tally = int(0 to u64.max)
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1872,8 +1872,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1891,11 +1891,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 end 'Wrap'
@@ -1933,8 +1933,8 @@ end 'Pad'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -1942,8 +1942,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -1961,11 +1961,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 end 'Wrap'
@@ -2004,8 +2004,8 @@ end 'names'
 type Cell uses V
 	var item as V
 
-	static function create(consumes item V) returns Self
-		return Self{item: item}
+	static function create(item V) returns Self where V implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Cell'
 
@@ -2013,8 +2013,8 @@ type Gen uses T
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function bump(mutates self, by Tally)
@@ -2032,11 +2032,11 @@ type Wrap uses A
 	typealias Nested = Gen with CellCell
 	var left as A
 
-	static function create(consumes left A) returns Self
-		return Self{left: left}
+	static function create(left A) returns Self where A implements Copyable
+		return Self{left: left.clone()}
 	end 'create'
 
-	function build() returns Nested
+	function build() returns Nested where A implements Droppable and Copyable
 		return Nested.create(CellCell.create(CellA.create(self.left)))
 	end 'build'
 end 'Wrap'

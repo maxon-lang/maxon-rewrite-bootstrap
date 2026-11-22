@@ -33,14 +33,16 @@ export type PendingBound
 	export var argTy as ast.TypeID
 	export var ifaceTy as ast.TypeID
 	export var withinFn as ast.FuncID
+	// inFn is the function whose body gives the type arguments, where the fix of an argument that lacks a bound writes it.
+	export var inFn as ast.FuncID
 	export var hasMethod as bool
 	export var methodFn as ast.FuncID
 	// receiverTy is, for a bound that the 'where' of a conditional extension gives, the type of the value the method is
 	// called on; none for any other bound.
 	export var receiverTy as ast.TypeID
 
-	export static function make(modID diag.ModuleID, off diag.U32, paramTy ast.TypeID, argTy ast.TypeID, ifaceTy ast.TypeID, withinFn ast.FuncID, hasMethod bool, methodFn ast.FuncID) returns PendingBound
-		return PendingBound{modID: modID, off: off, paramTy: paramTy, argTy: argTy, ifaceTy: ifaceTy, withinFn: withinFn, hasMethod: hasMethod, methodFn: methodFn, receiverTy: ast.noType}
+	export static function make(modID diag.ModuleID, off diag.U32, paramTy ast.TypeID, argTy ast.TypeID, ifaceTy ast.TypeID, withinFn ast.FuncID, inFn ast.FuncID, hasMethod bool, methodFn ast.FuncID) returns PendingBound
+		return PendingBound{modID: modID, off: off, paramTy: paramTy, argTy: argTy, ifaceTy: ifaceTy, withinFn: withinFn, inFn: inFn, hasMethod: hasMethod, methodFn: methodFn, receiverTy: ast.noType}
 	end 'make'
 end 'PendingBound'
 
@@ -965,6 +967,37 @@ export function lackFixText(tt ast.TypeSlot, reads ast.TypeTable, info LackInfo,
 	return ""
 end 'lackFixText'
 
+// lackBoundFix is the change that lackFixText names when a value lacks the capability only because a type parameter is not
+// known to have it: the bound on that parameter, written in the header of fn, the function whose body needs it. A closure
+// has no header of its own, and any other lack names another change.
+export function lackBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, info LackInfo, capName String) returns diag.Fix
+	let n = info.steps.count()
+	if n == 0 'nothing'
+		return diag.Fix.none()
+	end 'nothing'
+	let last = info.steps[try n - 1 otherwise panic("a lack with no step")].clone()
+	if last.reason != LackReason.lackUnbounded 'otherChange'
+		return diag.Fix.none()
+	end 'otherChange'
+	return paramBoundFix(p, ms: ms, fn: fn, param: last.owner, bound: capName)
+end 'lackBoundFix'
+
+// copyableName is the capability that an interface value lacks.
+let copyableName = "Copyable"
+
+// paramBoundFix writes the bound on the type parameter param in the header of fn, the function whose body needs it. A
+// method of an extension of an interface gets no Copyable bound: its parameters are the interface's associated types, which
+// a conformer may bind to an interface value, which cannot be copied, and the bound would refuse that conformer instead.
+export function paramBoundFix(p ast.Project, ms ast.ModuleState, fn ast.FuncID, param ast.TypeID, bound String) returns diag.Fix
+	if fn == ast.noFunc or ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).isClosure 'noHeader'
+		return diag.Fix.none()
+	end 'noHeader'
+	if bound == copyableName and ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).extendedIface != ast.noType 'associated'
+		return diag.Fix.none()
+	end 'associated'
+	return boundFix(ms.tree(), decl: ast.funcEntry(ms.funcs, funcReads: p.funcs, f: fn).nodeID, param: ast.typeName(ms.types, reads: p.types, t: param), bound: bound)
+end 'paramBoundFix'
+
 export function copyAdviceText(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, t ast.TypeID, ifCopyable String, otherwiseText String) returns String
 	let l = lacksCap(c, p: p, ms: ms, wantCopy: true, t: t)
 	if not l.missing 'cp'
@@ -978,6 +1011,10 @@ export function copyAdviceText(mutates c Checker, p ast.Project, mutates ms ast.
 		ow = "move the whole value instead of copying it"
 	end 'def'
 	let why = lackWhyText(ms.types, reads: p.types, info: l, capName: "Copyable")
+	let last = l.steps[try l.steps.count() - 1 otherwise panic("a lack with no step")].reason
+	if last == LackReason.lackUnbounded 'bound'
+		return "'{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be copied ({why}); {lackFixText(ms.types, reads: p.types, info: l, capName: "Copyable")}, then {ifCopyable}, or {ow}"
+	end 'bound'
 	return "'{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be copied ({why}), so {ow}"
 end 'copyAdviceText'
 
@@ -989,12 +1026,12 @@ export function queueBounds(mutates c Checker, p ast.Project, mutates ms ast.Mod
 		let bCount = ast.typeEntry(ms.types, reads: p.types, t: pid).bounds.count()
 		let stdB = ast.typeEntry(ms.types, reads: p.types, t: pid).boundIface
 		if stdB != ast.noType 'hasStd'
-			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: stdB, withinFn: c.boundedFn, inFn: c.rootFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'hasStd'
 		for bi in 0 upto bCount 'eachB'
 			let declared = ast.typeEntry(ms.types, reads: p.types, t: pid).bounds[bi].ifaceTy
 			let iface = ast.substituteType(ms.types, reads: p.types, t: declared, params: params, args: args)
-			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: false, methodFn: ast.noFunc))
+			c.pendingBounds.push(PendingBound.make(c.modID, off: off, paramTy: pid, argTy: args[i], ifaceTy: iface, withinFn: c.boundedFn, inFn: c.rootFn, hasMethod: false, methodFn: ast.noFunc))
 		end 'eachB'
 	end 'each'
 end 'queueBounds'
@@ -1011,7 +1048,7 @@ export function queueMethodBounds(mutates c Checker, p ast.Project, mutates ms a
 		let iface = ast.substituteType(ms.types, reads: p.types, t: declared, params: generics, args: args)
 		for gi in 0 upto generics.count() 'findG'
 			if generics[gi] == pTy and gi < args.count() 'hit'
-				var bound = PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, hasMethod: true, methodFn: method)
+				var bound = PendingBound.make(c.modID, off: off, paramTy: pTy, argTy: args[gi], ifaceTy: iface, withinFn: c.boundedFn, inFn: c.rootFn, hasMethod: true, methodFn: method)
 				if bi < ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).conditionalBounds 'conditional'
 					bound.receiverTy = receiverOf(p, ms: ms, method: method, args: args)
 				end 'conditional'

@@ -646,7 +646,7 @@ function requireDroppable(mutates o Ownership, p ast.Project, mutates ms ast.Mod
 	if l.missing 'lacking'
 		let why = lackWhyText(ms.types, reads: p.types, info: l, capName: "Droppable")
 		let fix = lackFixText(ms.types, reads: p.types, info: l, capName: "Droppable")
-		fail(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on")
+		failFixed(o, p: p, site: site, code: diag.errNotDroppable, msg: "{d.text()}, but '{ast.typeName(ms.types, reads: p.types, t: t)}' cannot be dropped ({why}); {fix}, or end it with one of its destructors or move it on", fix: lackBoundFix(p, ms: ms, fn: o.fn, info: l, capName: "Droppable"))
 	end 'lacking'
 end 'requireDroppable'
 
@@ -777,10 +777,11 @@ function canCopy(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState,
 	return not lacksCap(o.c, p: p, ms: ms, wantCopy: true, t: t).missing
 end 'canCopy'
 
-// cloneFixIf is the fix that copies the place e, when its type can be copied.
+// cloneFixIf is the fix that copies the place e, when its type can be copied, or else the bound that would let it be.
 function cloneFixIf(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID) returns diag.Fix
-	if not canCopy(o, p: p, ms: ms, t: t) 'noCopy'
-		return diag.Fix.none()
+	let lacking = lacksCap(o.c, p: p, ms: ms, wantCopy: true, t: t)
+	if lacking.missing 'noCopy'
+		return lackBoundFix(p, ms: ms, fn: o.fn, info: lacking, capName: "Copyable")
 	end 'noCopy'
 	return cloneFix(ms.tree(), e: e)
 end 'cloneFixIf'

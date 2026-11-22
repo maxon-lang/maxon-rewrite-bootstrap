@@ -66,7 +66,7 @@ type Holder
 	end 'make'
 end 'Holder'
 
-// expect-error: E3919 at 73:12
+// expect-error: E3919 at 73:13
 function main() returns ExitCode
 	let h = Holder.make(Txn.begin(1), label: "h")
 	if h.label == "h" 'f'

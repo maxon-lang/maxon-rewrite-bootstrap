@@ -41,8 +41,8 @@ type GenericModule uses Op
 		return Self{ops: OpArray.create(0), items: ItemArray.create(0)}
 	end 'create'
 
-	function pushOp(mutates self, consumes op Op)
-		self.ops.push(op)
+	function pushOp(mutates self, op Op) where Op implements Copyable
+		self.ops.push(op.clone())
 	end 'pushOp'
 
 	function pushItem(mutates self, item Item)
@@ -108,8 +108,8 @@ type GenericModule uses Op
 		return Self{ops: OpArray.create(0), items: ItemArray.create(0)}
 	end 'create'
 
-	function pushOp(mutates self, consumes op Op)
-		self.ops.push(op)
+	function pushOp(mutates self, op Op) where Op implements Copyable
+		self.ops.push(op.clone())
 	end 'pushOp'
 
 	function opCount() returns Count

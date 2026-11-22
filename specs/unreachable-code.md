@@ -61,6 +61,7 @@ error E3071: <fragment>:4:2: unreachable code after 'return'
 ```
 
 <!-- test: break-then-if-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The same defect through `break`. Without the refusal this program prints `105` and returns 0;
 the `break` never happens.
 ```maxon

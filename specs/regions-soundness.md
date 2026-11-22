@@ -621,6 +621,7 @@ error E3207: <fragment>:21:14: 'take' takes `immutable` 'item'; 'pick(p)' is rea
 ```
 
 <!-- test: a-closure-that-writes-a-captured-call-result-pins-the-parameter-it-may-hand-back -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `step` writes `r`, which `pick` may take from `p`, so `relay` needs `p` writable and the frozen argument is refused.
 
@@ -6590,7 +6591,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-reached-by-an-iterator-over-an-isolated-array-field-cannot-leave-into-outside-data -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: parameter capability 'isolated' is not supported in minimaxon -->
 <!-- skip: region capability 'isolated' is not supported in minimaxon -->
 <!-- positions: moved -->
@@ -6627,8 +6627,7 @@ function keepByIterator(bin Bin, keep BlobArray)
 end 'keepByIterator'
 
 function keepByPairs(bin Bin, keep BlobArray)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, blob) in bin.blobs.withIterator() 'each'
+	for (_, blob) in bin.blobs.enumerated() 'each'
 		keep.push(blob)
 	end 'each'
 end 'keepByPairs'

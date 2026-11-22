@@ -868,7 +868,7 @@ function copyCall(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, 
 	if lacking.missing 'noCopy'
 		let why = lackWhyText(ms.types, reads: p.types, info: lacking, capName: "Copyable")
 		let fix = lackFixText(ms.types, reads: p.types, info: lacking, capName: "Copyable")
-		failAt(c, p: p, ms: ms, node: call, code: diag.errNotCopyable, msg: "a value of '{nameOfType(p, ms: ms, t: t)}' cannot be copied: {why}; {fix}, or move the value instead of copying it", errs: errs)
+		checkFailFixed(c.modID, off: offsetOf(c, p: p, ms: ms, node: call), code: diag.errNotCopyable, msg: "a value of '{nameOfType(p, ms: ms, t: t)}' cannot be copied: {why}; {fix}, or move the value instead of copying it", fix: lackBoundFix(p, ms: ms, fn: c.rootFn, info: lacking, capName: "Copyable"), errs: errs)
 		return ast.noType
 	end 'noCopy'
 	var info = ast.CallInfo.make(ast.CallKind.callCopy, fn: ast.noFunc, receiverTy: t)

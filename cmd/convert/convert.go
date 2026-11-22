@@ -65,6 +65,7 @@ func Convert(file, src string) Result {
 
 	joinEndOtherwise(lines)
 	rewriteDestructors(lines)
+	rewriteWithIterator(lines, addWarn)
 	transformLines(lines, addWarn)
 
 	candidate := renderFallbackLayout(lines)
@@ -1248,7 +1249,7 @@ func transformStmtAndExpr(line *sourceLine, warn func(*sourceLine, string)) {
 			}
 		case "for":
 			if !hasRangeKeyword(toks) && !iteratesSupported(toks) {
-				warn(line, "for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view")
+				warn(line, "for loops over the characters of a string, its grapheme clusters, pieces or lines are not supported in minimaxon; loop over an array or a view")
 			}
 		case "let", "var":
 			if len(toks) > 1 && toks[1].kind == tokIdent && isKeywordName(toks[1].text) {
@@ -1631,12 +1632,144 @@ func hasToken(toks []token, text string) bool {
 
 // unsupportedIterations are the members whose result a for loop cannot walk in minimaxon, which iterates arrays, the
 // entries of a map, an enum's cases and names, cursors, and the views of a string's bytes, code points and UTF-16 units:
-// a string's characters, grapheme clusters and pieces, the pairs with their iterators, maxon's cursors and the cases of a
+// a string's characters, grapheme clusters and pieces, maxon's cursors and the cases of a
 // union. A name is a member only after a dot, and a method only when called, so a variable or a field of that name is
 // left to the checker.
 var unsupportedIterations = map[string]bool{
-	"graphemes": true, "characters": true, "split": true, "lines": true, "withIterator": true,
+	"graphemes": true, "characters": true, "split": true, "lines": true,
 	"cursor": true, "createIterator": true, unionCasesMember: true,
+}
+
+// maxon's pair loop is `for (iter, x) in xs.withIterator()`, whose iterator the body asks for its index(); minimaxon's is
+// `for (i, x) in xs.enumerated()`, which binds the index itself (README, "Where it differs from Maxon").
+const (
+	withIteratorMethod  = "withIterator"
+	enumeratedMethod    = "enumerated"
+	iteratorIndexMethod = "index"
+)
+
+// iteratorUseMessage is the warning for a use of withIterator()'s iterator that is not its index(), which has no
+// equivalent: the loop binds the index and nothing else.
+const iteratorUseMessage = "a use of withIterator()'s iterator other than its index() is not supported in minimaxon: enumerated() binds the index alone"
+
+// rewriteWithIterator turns each `for (iter, x) in xs.withIterator()` into `for (iter, x) in xs.enumerated()` and each
+// `iter.index()` in its body into `iter`, the index that the loop now binds under the iterator's name. Any other use of the
+// iterator is left as it is and warned of. A loop's body is the lines indented deeper than its `for`.
+func rewriteWithIterator(lines []sourceLine, warn func(*sourceLine, string)) {
+	type openLoop struct {
+		indent   string
+		iterator string
+	}
+	var open []openLoop
+	for i := range lines {
+		line := &lines[i]
+		if line.removed || len(line.code) == 0 {
+			continue
+		}
+		for len(open) > 0 && len(open[len(open)-1].indent) >= len(line.indent) {
+			open = open[:len(open)-1]
+		}
+		for k, loop := range open {
+			if !slices.ContainsFunc(open[k+1:], func(inner openLoop) bool { return inner.iterator == loop.iterator }) {
+				line.code = rewriteIteratorUses(line, loop.iterator, warn)
+			}
+		}
+		call := withIteratorCall(line.code)
+		if call < 0 {
+			continue
+		}
+		line.code[call].text = enumeratedMethod
+		if iterator := line.code[2].text; iterator != "_" {
+			open = append(open, openLoop{indent: line.indent, iterator: iterator})
+		}
+	}
+}
+
+// withIteratorCall is the index of the `withIterator` of a `for (iter, x) in xs.withIterator() 'label'` line, or -1 when
+// the line is no such loop.
+func withIteratorCall(toks []token) int {
+	n := len(toks)
+	if n < 9 || toks[0].text != "for" || toks[1].text != "(" || toks[2].kind != tokIdent || toks[3].text != "," || toks[n-1].kind != tokLabel {
+		return -1
+	}
+	call := n - 4
+	if toks[call-1].text != "." || toks[call].text != withIteratorMethod || toks[call+1].text != "(" || toks[call+2].text != ")" {
+		return -1
+	}
+	return call
+}
+
+// rewriteIteratorUses is the line with each `iterator.index()` made `iterator`, warning of any other use of the name. The
+// names a `for` binds, before its `in`, are no use of it.
+func rewriteIteratorUses(line *sourceLine, iterator string, warn func(*sourceLine, string)) []token {
+	toks := line.code
+	from := 0
+	if toks[0].text == "for" {
+		from = findToken(toks, 0, "in")
+		if from < 0 {
+			from = len(toks)
+		}
+	}
+	out := slices.Clone(toks[:from])
+	for k := from; k < len(toks); k++ {
+		t := toks[k]
+		if t.kind == tokString {
+			text, other := rewriteIteratorInString(t.text, iterator)
+			if other {
+				warn(line, iteratorUseMessage)
+			}
+			t.text = text
+			out = append(out, t)
+			continue
+		}
+		if t.kind != tokIdent || t.text != iterator || (k > 0 && toks[k-1].text == ".") {
+			out = append(out, t)
+			continue
+		}
+		if k+4 < len(toks) && toks[k+1].text == "." && toks[k+2].text == iteratorIndexMethod && toks[k+3].text == "(" && toks[k+4].text == ")" {
+			out = append(out, t)
+			k += 4
+			continue
+		}
+		warn(line, iteratorUseMessage)
+		out = append(out, t)
+	}
+	return out
+}
+
+// rewriteIteratorInString is rewriteIteratorUses for the interpolations of a string literal, which the lexer keeps in the
+// string's one token: each `iterator.index()` in braces becomes `iterator`, and other is whether the name is used there
+// otherwise.
+func rewriteIteratorInString(text, iterator string) (string, bool) {
+	indexCall := "." + iteratorIndexMethod + "()"
+	var b strings.Builder
+	depth := 0
+	other := false
+	for i := 0; i < len(text); i++ {
+		c := text[i]
+		switch {
+		case c == '\\' && depth == 0 && i+1 < len(text):
+			b.WriteByte(c)
+			b.WriteByte(text[i+1])
+			i++
+			continue
+		case c == '{':
+			depth++
+		case c == '}' && depth > 0:
+			depth--
+		case depth > 0 && strings.HasPrefix(text[i:], iterator) && (i == 0 || !isIdentPart(text[i-1]) && text[i-1] != '.') && (i+len(iterator) == len(text) || !isIdentPart(text[i+len(iterator)])):
+			b.WriteString(iterator)
+			i += len(iterator) - 1
+			if strings.HasPrefix(text[i+1:], indexCall) {
+				i += len(indexCall)
+			} else {
+				other = true
+			}
+			continue
+		}
+		b.WriteByte(c)
+	}
+	return b.String(), other
 }
 
 // unionCasesMember is the one unsupported member that is a property, which a loop writes without a call.

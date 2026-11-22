@@ -411,11 +411,11 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function store(v Element)
-		items.push(v)
+	function store(mutates self, v Element) where Element implements Copyable
+		items.push(v.clone())
 	end 'store'
 
-	function fill(n Idx, v Element)
+	function fill(mutates self, n Idx, v Element) where Element implements Copyable
 		var i = 0 as Idx
 		while i < n 'innerFill'
 			store(v)
@@ -423,7 +423,7 @@ type Bag uses Element
 		end 'innerFill'
 	end 'fill'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 
@@ -435,14 +435,14 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	let s = "a filled string long enough to force a heap allocation"
 	b.fill(3, v: s)
 	let first = try b.at(0) otherwise return 1
 	let last = try b.at(2) otherwise return 1
 	print("{first}\n")
 	print("{last}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -471,11 +471,11 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function store(mutates self, consumes v Element)
-		items.push(v)
+	function store(mutates self, v Element) where Element implements Copyable
+		items.push(v.clone())
 	end 'store'
 
-	function fill(mutates self, n Idx, consumes v Element)
+	function fill(mutates self, n Idx, v Element) where Element implements Copyable
 		var i = 0 as Idx
 		while i < n 'innerFill'
 			store(v)
@@ -528,18 +528,18 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillTo(newLength Idx, value Element, seed Element)
+	function fillTo(mutates self, newLength Idx, value Element, seed Element) where Element implements Copyable
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value) otherwise 'setErr'
+			try items.set(n, value: value.clone()) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -547,14 +547,14 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	let s = "a filled string long enough to force a heap allocation"
 	b.fillTo(3, value: s, seed: "a seed string long enough to force a heap allocation")
 	let first = try b.at(0) otherwise return 1
 	let last = try b.at(2) otherwise return 1
 	print("{first}\n")
 	print("{last}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -582,11 +582,11 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillTo(newLength Idx, value Element, seed Element)
+	function fillTo(mutates self, newLength Idx, value Element, seed Element) where Element implements Copyable
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value) otherwise 'setErr'
+			try items.set(n, value: value.clone()) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
 			n = n + 1
@@ -597,11 +597,11 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	let s = "an unstored string long enough to force a heap allocation"
 	b.fillTo(0, value: s, seed: "a seed string long enough to force a heap allocation")
 	print("{s}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -628,18 +628,18 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillTo(newLength Idx, value Element, seed Element)
+	function fillTo(mutates self, newLength Idx, value Element, seed Element) where Element implements Copyable
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value) otherwise 'setErr'
+			try items.set(n, value: value.clone()) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
 			n = n + 1
 		end 'fill'
 	end 'fillTo'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -647,11 +647,11 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	b.fillTo(100, value: "a repeated string long enough to force a heap allocation", seed: "a seed string long enough to force a heap allocation")
 	let middle = try b.at(50) otherwise return 1
 	print("{middle}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -678,26 +678,26 @@ type Bag uses Element
 		return items.count()
 	end 'count'
 
-	function fillTo(newLength Idx, value Element, seed Element) returns Element
+	function fillTo(mutates self, newLength Idx, value Element, seed Element) returns Element where Element implements Copyable
 		items.growFilled(newLength, value: seed)
 		var n = 0 as Idx
 		while n < newLength 'fill'
-			try items.set(n, value: value) otherwise 'setErr'
+			try items.set(n, value: value.clone()) otherwise 'setErr'
 				panic("Bag.fillTo: set OOB — the length was just grown to newLength")
 			end 'setErr'
 			n = n + 1
 		end 'fill'
-		return value
+		return value.clone()
 	end 'fillTo'
 end 'Bag'
 
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
+	var b = StrBag.create()
 	let echoed = b.fillTo(2, value: "a re-read string long enough to force a heap allocation", seed: "a seed string long enough to force a heap allocation")
 	print("{echoed}\n")
-	return b.count() as ExitCode
+	return try b.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -722,7 +722,7 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function copyFrom(other Items, upTo Idx, seed Element)
+	function copyFrom(mutates self, other Items, upTo Idx, seed Element) where Element implements Copyable
 		items.growFilled(upTo, value: seed)
 		var n = 0 as Idx
 		while n < upTo 'copy'
@@ -736,7 +736,7 @@ type Bag uses Element
 		end 'copy'
 	end 'copyFrom'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -744,8 +744,8 @@ end 'Bag'
 typealias StrBag = Bag with String
 
 function main() returns ExitCode
-	let b = StrBag.create()
-	let source = Strs.create(0)
+	var b = StrBag.create()
+	var source = Strs.create(0)
 	source.push("a source string long enough to force a heap allocation")
 	source.push("a second source string, also long enough to force a heap allocation")
 	b.copyFrom(source, upTo: 2, seed: "a seed string long enough to force a heap allocation")

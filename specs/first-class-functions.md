@@ -584,8 +584,8 @@ typealias Integer = int(i64.min to i64.max)
 type Holder uses Element
 	export var value as Element
 
-	static function create(consumes v Element) returns Self
-		return Self{value: v}
+	static function create(v Element) returns Self where Element implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Holder'
 
@@ -649,8 +649,8 @@ type Cell uses T
 	export var v as T
 	typealias Pick = function(Self) returns T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
 	function through(p Pick) returns T
@@ -689,8 +689,8 @@ end 'Shade'
 type Holder uses Element
 	export var value as Element
 
-	static function create(consumes v Element) returns Self
-		return Self{value: v}
+	static function create(v Element) returns Self where Element implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Holder'
 
@@ -841,8 +841,8 @@ typealias Integer = int(i64.min to i64.max)
 type Holder uses Element
 	export var value as Element
 
-	static function create(consumes v Element) returns Self
-		return Self{value: v}
+	static function create(v Element) returns Self where Element implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Holder'
 
@@ -3499,8 +3499,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function make(consumes item T) returns Self
-		return Self{item: item}
+	static function make(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'make'
 end 'Box'
 
@@ -3522,8 +3522,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function make(consumes item T) returns Self
-		return Self{item: item}
+	static function make(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'make'
 end 'Box'
 
@@ -6464,8 +6464,8 @@ type Cell uses T
 	export var v as T
 	typealias Pick = function(Self) returns T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
 	function through(p Pick) returns T
@@ -6495,8 +6495,8 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, consumes pick Pick) returns Self
-		return Self{v: v, pick: pick}
+	static function make(v T, consumes pick Pick) returns Self where T implements Copyable
+		return Self{v: v.clone(), pick: pick}
 	end 'make'
 end 'Cell'
 
@@ -6528,8 +6528,8 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(Self) returns T
 
-	static function make(consumes v T, consumes pick Pick) returns Self
-		return Self{v: v, pick: pick}
+	static function make(v T, consumes pick Pick) returns Self where T implements Copyable
+		return Self{v: v.clone(), pick: pick}
 	end 'make'
 end 'Cell'
 
@@ -6560,8 +6560,8 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, consumes pick Pick) returns Self
-		return Self{v: v, pick: pick}
+	static function make(v T, consumes pick Pick) returns Self where T implements Copyable
+		return Self{v: v.clone(), pick: pick}
 	end 'make'
 end 'Cell'
 
@@ -6597,8 +6597,8 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, consumes pick Pick) returns Self
-		return Self{v: v, pick: pick}
+	static function make(v T, consumes pick Pick) returns Self where T implements Copyable
+		return Self{v: v.clone(), pick: pick}
 	end 'make'
 
 	function getter() returns Pick
@@ -6636,8 +6636,8 @@ type Cell uses T
 	export var pick as Pick
 	typealias Pick = function(T) returns T
 
-	static function make(consumes v T, consumes pick Pick) returns Self
-		return Self{v: v, pick: pick}
+	static function make(v T, consumes pick Pick) returns Self where T implements Copyable
+		return Self{v: v.clone(), pick: pick}
 	end 'make'
 end 'Cell'
 

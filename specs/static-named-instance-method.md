@@ -112,12 +112,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 

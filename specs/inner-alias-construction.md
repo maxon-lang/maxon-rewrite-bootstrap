@@ -440,8 +440,8 @@ typealias ExitCode = int(0 to 125)
 type Pair uses T
 	export var a as T
 
-	static function create(consumes a T) returns Self
-		return Self{a: a}
+	static function create(a T) returns Self where T implements Copyable
+		return Self{a: a.clone()}
 	end 'create'
 end 'Pair'
 
@@ -475,12 +475,12 @@ typealias ExitCode = int(0 to 125)
 type Holder uses Held
 	let value as Held
 
-	static function create(consumes value Held) returns Self
-		return Self{value: value}
+	static function create(value Held) returns Self where Held implements Copyable
+		return Self{value: value.clone()}
 	end 'create'
 
-	function get() returns Held
-		return value
+	function get() returns Held where Held implements Copyable
+		return value.clone()
 	end 'get'
 end 'Holder'
 
@@ -488,11 +488,11 @@ type Wrap uses Item
 	export typealias ItemHolder = Holder with Item
 	var seed as Item
 
-	static function create(consumes seed Item) returns Self
-		return Self{seed: seed}
+	static function create(seed Item) returns Self where Item implements Copyable
+		return Self{seed: seed.clone()}
 	end 'create'
 
-	function boxed() returns ItemHolder
+	function boxed() returns ItemHolder where Item implements Copyable
 		return ItemHolder.create(seed)
 	end 'boxed'
 end 'Wrap'
@@ -627,12 +627,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var t as T
 
-	static function create(consumes t T) returns Self
-		return Self{t: t}
+	static function create(t T) returns Self where T implements Copyable
+		return Self{t: t.clone()}
 	end 'create'
 
-	function wrapAgain(consumes u T) returns Self
-		return Self{t: u}
+	function wrapAgain(u T) returns Self where T implements Copyable
+		return Self{t: u.clone()}
 	end 'wrapAgain'
 end 'Box'
 
@@ -684,8 +684,8 @@ typealias ExitCode = int(0 to 125)
 type Pair uses T
 	export var a as T
 
-	static function create(consumes a T) returns Self
-		return Self{a: a}
+	static function create(a T) returns Self where T implements Copyable
+		return Self{a: a.clone()}
 	end 'create'
 end 'Pair'
 

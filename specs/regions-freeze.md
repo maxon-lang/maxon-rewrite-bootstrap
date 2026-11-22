@@ -1368,7 +1368,7 @@ end 'Cell'
 type Froze uses T
 	typealias TCell = Cell with T
 
-	static function run(x T) returns TCell
+	static function run(x T) returns TCell where T implements Copyable
 		return TCell.create(x).clone()
 	end 'run'
 end 'Froze'
@@ -2166,7 +2166,7 @@ end 'Node'
 type Run uses T
 	typealias TNode = Node with T
 
-	static function copy(n TNode) returns TNode
+	static function copy(n TNode) returns TNode where T implements Copyable
 		return n.clone()
 	end 'copy'
 
@@ -2199,8 +2199,8 @@ type Node uses T
 	export let item as T
 	export let kids as TNodes
 
-	static function create(item T, kids TNodes) returns Self
-		return Self{item: item, kids: kids}
+	static function create(item T, kids TNodes) returns Self where T implements Copyable
+		return Self{item: item.clone(), kids: kids.clone()}
 	end 'create'
 end 'Node'
 
@@ -2208,17 +2208,17 @@ type Run uses T
 	typealias TNode = Node with T
 	typealias TNodes = Array with TNode
 
-	static function leaf(item T) returns TNode
+	static function leaf(item T) returns TNode where T implements Droppable and Copyable
 		return TNode.create(item, kids: TNodes.create(0))
 	end 'leaf'
 
-	static function tree(root T, child T) returns TNode
-		let kids = TNodes.create(0)
+	static function tree(root T, child T) returns TNode where T implements Droppable and Copyable
+		var kids = TNodes.create(0)
 		kids.push(TNode.create(child, kids: TNodes.create(0)))
 		return TNode.create(root, kids: kids)
 	end 'tree'
 
-	static function copy(n TNode) returns TNode
+	static function copy(n TNode) returns TNode where T implements Copyable
 		return n.clone()
 	end 'copy'
 end 'Run'

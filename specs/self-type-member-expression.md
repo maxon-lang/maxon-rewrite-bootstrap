@@ -259,11 +259,11 @@ typealias Num = int(0 to 1000)
 type Box uses T
 	export var v as T
 
-	static function make(consumes x T) returns Self
-		return Self{v: x}
+	static function make(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'make'
 
-	static function twice(consumes x T) returns Self
+	static function twice(x T) returns Self where T implements Copyable
 		return Self.make(x)
 	end 'twice'
 end 'Box'
@@ -659,12 +659,12 @@ typealias Num = int(0 to 1000)
 type Holder uses T
 	export var v as T
 
-	static function make(consumes x T) returns Self
-		return Self{v: x}
+	static function make(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'make'
 
-	function twin() returns T
-		return Self.make(self.v).v
+	function twin() returns T where T implements Droppable and Copyable
+		return Self.make(self.v).v.clone()
 	end 'twin'
 end 'Holder'
 

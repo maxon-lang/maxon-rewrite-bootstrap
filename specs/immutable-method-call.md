@@ -391,6 +391,7 @@ end 'main'
 ```
 
 <!-- test: error.push-through-a-field-chain-off-a-static-let -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 A chain through a `static let` reaches immutable image data: `Facts.shared.counts` is a chain, so
 the receiver of the push is the field's own record rather than the binding. The push would write a page mapped

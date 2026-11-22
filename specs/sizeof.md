@@ -19,8 +19,8 @@ typealias Integer = int(i64.min to i64.max)
 type Sizer uses T
 	export var dummy as T
 
-	static function create(consumes dummy T) returns Self
-		return Self{dummy: dummy}
+	static function create(dummy T) returns Self where T implements Copyable
+		return Self{dummy: dummy.clone()}
 	end 'create'
 
 	function typeSize() returns Integer
@@ -55,8 +55,8 @@ end 'Pair'
 type Sizer uses T
 	export var dummy as T
 
-	static function create(consumes dummy T) returns Self
-		return Self{dummy: dummy}
+	static function create(dummy T) returns Self where T implements Copyable
+		return Self{dummy: dummy.clone()}
 	end 'create'
 
 	function typeSize() returns Integer
@@ -103,8 +103,8 @@ typealias Integer = int(i64.min to i64.max)
 type Sizer uses T
 	export var dummy as T
 
-	static function create(consumes dummy T) returns Self
-		return Self{dummy: dummy}
+	static function create(dummy T) returns Self where T implements Copyable
+		return Self{dummy: dummy.clone()}
 	end 'create'
 
 	function directSize() returns Integer
@@ -143,8 +143,8 @@ end 'Pair'
 type Sizer uses T
 	export var dummy as T
 
-	static function create(consumes dummy T) returns Self
-		return Self{dummy: dummy}
+	static function create(dummy T) returns Self where T implements Copyable
+		return Self{dummy: dummy.clone()}
 	end 'create'
 
 	function level0() returns Integer
@@ -429,16 +429,16 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function sized(consumes v T, n Int) returns Self
+	static function sized(v T, n Int) returns Self where T implements Copyable
 		let f = function() gives try (sizeof(T) as Int) + n otherwise panic("out of range")
 		if f() != 9 'theSizeOfAnIntegerPlusOne'
 			panic("the closure read the wrong size")
 		end 'theSizeOfAnIntegerPlusOne'
-		return Self{v: v}
+		return Self{v: v.clone()}
 	end 'sized'
 end 'Cell'
 
@@ -484,8 +484,8 @@ type Holder uses T, U
 	var tag as T
 	var held as U
 
-	static function create(consumes t T, consumes u U) returns Self
-		return Self{tag: t, held: u}
+	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
+		return Self{tag: t.clone(), held: u.clone()}
 	end 'create'
 
 	function sizeOfFirst() returns Count
@@ -528,8 +528,8 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(consumes a A, consumes b B) returns Self
-		return Self{a: a, b: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function sizes() returns Count
@@ -541,7 +541,7 @@ type Holder uses T, U
 	typealias Straight = Probe with (T, U)
 	var straight as Straight
 
-	static function create(consumes t T, consumes u U) returns Self
+	static function create(t T, u U) returns Self where T implements Copyable, U implements Copyable
 		return Self{straight: Straight.create(t, b: u)}
 	end 'create'
 
@@ -583,8 +583,8 @@ type Probe uses A, B
 	var a as A
 	var b as B
 
-	static function create(consumes a A, consumes b B) returns Self
-		return Self{a: a, b: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function sizes() returns Count
@@ -596,7 +596,7 @@ type Holder uses T, U
 	typealias Swapped = Probe with (U, T)
 	var swapped as Swapped
 
-	static function create(consumes t T, consumes u U) returns Self
+	static function create(t T, u U) returns Self where U implements Copyable, T implements Copyable
 		return Self{swapped: Swapped.create(u, b: t)}
 	end 'create'
 
@@ -638,8 +638,8 @@ typealias Small = int(0 to 65535)
 type Inner uses T
 	var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
 	function size() returns Count
@@ -651,15 +651,15 @@ type Outer uses T
 	typealias Held = Inner with T
 	var held as Held
 
-	static function create(consumes x T) returns Self
+	static function create(x T) returns Self where T implements Copyable
 		return Self{held: Held.create(x)}
 	end 'create'
 
-	function make() returns Held
-		return held
+	function make() returns Held where T implements Copyable
+		return held.clone()
 	end 'make'
 
-	function probe() returns Count
+	function probe() returns Count where T implements Droppable and Copyable
 		return self.make().size()
 	end 'probe'
 end 'Outer'

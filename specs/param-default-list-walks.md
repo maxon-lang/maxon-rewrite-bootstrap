@@ -75,8 +75,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var item as T
 
-	static function create(_ Integer, consumes item T) returns Self
-		return Self{item: item}
+	static function create(_ Integer, item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 

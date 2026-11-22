@@ -23,7 +23,7 @@ function fill(sets out String, from String)
 	out = from.clone()
 end 'fill'
 
-// expect-error: E3901 at 28:25
+// expect-error: E3901 at 28:26
 function main() returns ExitCode
 	let s = Label.make("a").text
 	print(s)

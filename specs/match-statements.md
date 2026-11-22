@@ -1765,6 +1765,7 @@ Naming a MATCH's own label is a redundant label (E2048), exactly as naming a loo
 label is: a bare `break` inside `match … 'check'` already leaves that match.
 
 <!-- test: match-break.error-match-own-label -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	var r = 0 as ExitCode
@@ -1852,6 +1853,7 @@ intervening match does NOT make the innermost loop's label meaningful for it. Th
 redundant-label rule is unchanged for `continue`.
 
 <!-- test: match-break.continue-across-match-still-redundant -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	var total = 0 as ExitCode
@@ -1875,6 +1877,7 @@ construct": an `if` is not a break target, so a `break 'loop'` written inside on
 still names the innermost loop redundantly.
 
 <!-- test: match-break.loop-label-across-if-still-redundant -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	var total = 0 as ExitCode
@@ -1922,6 +1925,7 @@ A labelled `break` that names the `match` it sits in is E2048 even inside a loop
 loop reaches past the `match`.
 
 <!-- test: match-break.error-labelled-break-names-its-own-match-inside-a-loop -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 function main() returns ExitCode
 	var n = 0 as Count

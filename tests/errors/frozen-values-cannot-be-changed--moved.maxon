@@ -43,7 +43,7 @@ function keep(consumes d Doc)
 	let kept = d
 end 'keep'
 
-// expect-error: E3901 at 49:11
+// expect-error: E3901 at 49:12
 function main() returns ExitCode
 	let d = freeze(Doc.make("a"))
 	let t = d.title

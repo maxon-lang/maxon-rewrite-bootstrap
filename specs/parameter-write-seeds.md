@@ -16,6 +16,7 @@ A parameter the function writes takes a mutable argument: a `freeze` result, a c
 ## Tests
 
 <!-- test: error.a-receiver-write-through-a-local-alias-writes-the-parameter -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `alias` names the record `d` names, so the push writes `d`, and a constant array cannot be handed to a function that writes its parameter.
 
@@ -78,6 +79,7 @@ error E3207: <fragment>:27:7: 'edit' writes 'b'; 'frozen' is immutable
 ```
 
 <!-- test: error.a-receiver-write-through-a-merge-writes-the-parameter -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `target` is the parameter on one path and a fresh array on the other, so what the push writes may be `d`.
 

@@ -834,6 +834,7 @@ end 'main'
 ```
 
 <!-- test: let-record-of-a-let-global-through-a-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A `static let` never moves, and its record is image data, so a write through a value derived from it is refused.
 

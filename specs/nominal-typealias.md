@@ -329,7 +329,6 @@ end 'main'
 ```
 
 <!-- test: error.an-element-index-is-not-a-count -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- positions: moved -->
 A position is an `ElementIndex`, and an `ElementIndex` is not a `Count`.
 ```maxon
@@ -344,9 +343,8 @@ end 'takesCount'
 function main() returns ExitCode
 	var arr = NarrowArray.create(0)
 	arr.push(4)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (position, _) in arr.withIterator() 'eachElement'
-		print("{takesCount(position.index())}\n")
+	for (position, _) in arr.enumerated() 'eachElement'
+		print("{takesCount(position)}\n")
 	end 'eachElement'
 	return 0
 end 'main'
@@ -794,6 +792,7 @@ Stack trace:
 ```
 
 <!-- test: error.a-mixed-expression-no-operand-of-which-fits-the-field -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Small = int(0 to 10)
@@ -2126,6 +2125,7 @@ error E3005: <fragment>:12:10: argument type mismatch for 'w': expected 'Wide', 
 ```
 
 <!-- test: error.negation-carries-a-signed-alias -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `-d` over a SIGNED alias is that alias.
 ```maxon

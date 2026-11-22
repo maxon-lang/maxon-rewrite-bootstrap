@@ -1512,9 +1512,9 @@ A variable of the alias the generic function's parameter names takes every value
 ```maxon
 typealias Wide = int(0 to 100)
 
-function bumpWide(mutates n Wide, consumes tag T) uses T returns T
+function bumpWide(mutates n Wide, tag T) uses T returns T where T implements Copyable
 	n = 50
-	return tag
+	return tag.clone()
 end 'bumpWide'
 
 function main() returns ExitCode

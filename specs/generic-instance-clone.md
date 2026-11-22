@@ -33,8 +33,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(consumes x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -76,8 +76,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(consumes x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -136,8 +136,8 @@ type Box uses T
 	export var v as T
 	export var tag as Integer
 
-	static function create(x T, tag Integer) returns Self
-		return Self{v: x, tag: tag}
+	static function create(x T, tag Integer) returns Self where T implements Copyable
+		return Self{v: x.clone(), tag: tag}
 	end 'create'
 end 'Box'
 
@@ -150,11 +150,11 @@ type Bag uses Element
 		return Self{items: EBoxArray.create(0)}
 	end 'create'
 
-	function add(x Element, tag Integer)
+	function add(mutates self, x Element, tag Integer) where Element implements Copyable
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 end 'Bag'
@@ -162,14 +162,14 @@ end 'Bag'
 typealias IntBag = Bag with Integer
 
 function main() returns ExitCode
-	let b = IntBag.create()
+	var b = IntBag.create()
 	b.add(91, tag: 4)
 	let c = b.copy()
 	if c.count() != 1 'badCount'
 		return 91
 	end 'badCount'
 	let e = try c.get(0) otherwise return 92
-	return e.tag
+	return try e.tag as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -308,7 +308,7 @@ type Bag uses Element
 		rows.push(r)
 	end 'addRow'
 
-	function copyRows() returns Outer
+	function copyRows() returns Outer where Element implements Copyable
 		return rows.clone()
 	end 'copyRows'
 
@@ -430,7 +430,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 end 'Bag'
@@ -479,7 +479,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 end 'Bag'

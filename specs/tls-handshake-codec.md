@@ -49,7 +49,6 @@ in the case and compared byte for byte. Every one of the 115 canra vectors has a
 ## Tests
 
 <!-- test: tls-handshake-codec.decode-rfc8448 -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the 20 handshake messages printed in RFC 8448. A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -86,9 +85,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -298,7 +296,6 @@ decode-rfc8448-4-client-client-hello-psk {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-openssl-and-generated -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the messages OpenSSL 3.0.13 produced, the reference client's and server's messages and the short messages built by hand (29 vectors). A line prints the message as the canra JSON object.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -335,9 +332,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -565,7 +561,6 @@ decode-unknown-extension-in-client-hello {"msg_type":1,"legacy_version":771,"ran
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-1 -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the first 29 malformed messages, each a single defect in an otherwise valid message. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -602,9 +597,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -825,7 +819,6 @@ decode-err-029 decodeError 50
 ```
 
 <!-- test: tls-handshake-codec.decode-errors-2 -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `TlsHandshakeCodec.decode` of the remaining 29 malformed messages. A line prints the `TlsCodecError` and the alert code point it names.
 ```maxon
 function digit(symbol Byte) returns Byte
@@ -862,9 +855,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)

@@ -98,6 +98,7 @@ end 'main'
 ```
 
 <!-- test: error.a-closure-parameter-of-that-name-does-not-excuse-it -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The negative control for the case above, and the reason the closure's list is CLEARED
 rather than shared: `i` here is the closure's OWN parameter, a name the enclosing

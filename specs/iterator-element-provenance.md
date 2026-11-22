@@ -26,7 +26,6 @@ never reassigned, and what it holds can be written.
 ## Tests
 
 <!-- test: a-for-with-iterator-over-a-let-array-writes-its-elements -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `frozen` is the `let` that took `items` over. The element `c` is a record `frozen` holds, and the write reaches it.
 
 ```maxon
@@ -43,15 +42,14 @@ end 'Counter'
 typealias Plain = Array with Counter
 
 function main() returns ExitCode
-	let items = Plain.create(0)
+	var items = Plain.create(0)
 	items.push(Counter.create(4))
-	let frozen = items
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, c) in frozen.withIterator() 'each'
+	var frozen = items
+	for (_, c) in frozen.enumerated() 'each'
 		c.n = 99
 	end 'each'
 	let first = try frozen.get(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -59,7 +57,6 @@ end 'main'
 ```
 
 <!-- test: a-for-with-iterator-over-a-let-built-by-a-call-writes-its-elements -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 The same with a `let` bound to a call result instead of one moved out of a `var`.
 
 ```maxon
@@ -76,19 +73,18 @@ end 'Counter'
 typealias Plain = Array with Counter
 
 function build() returns Plain
-	let items = Plain.create(0)
+	var items = Plain.create(0)
 	items.push(Counter.create(4))
 	return items
 end 'build'
 
 function main() returns ExitCode
-	let frozen = build()
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, c) in frozen.withIterator() 'each'
+	var frozen = build()
+	for (_, c) in frozen.enumerated() 'each'
 		c.n = 99
 	end 'each'
 	let first = try frozen.get(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -96,7 +92,6 @@ end 'main'
 ```
 
 <!-- test: a-for-with-iterator-over-a-let-parameters-field-writes-through-the-call -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 `bumpAll` writes the elements of the array its parameter holds. Handing it a `let` is accepted: the `let` is never reassigned.
 
 ```maxon
@@ -116,24 +111,23 @@ type Bag
 	export var items as Plain
 
 	static function create(items Plain) returns Self
-		return Self{items: items}
+		return Self{items: items.clone()}
 	end 'create'
 end 'Bag'
 
-function bumpAll(bag Bag)
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, c) in bag.items.withIterator() 'each'
+function bumpAll(mutates bag Bag)
+	for (_, c) in bag.items.enumerated() 'each'
 		c.n = 99
 	end 'each'
 end 'bumpAll'
 
 function main() returns ExitCode
-	let items = Plain.create(0)
+	var items = Plain.create(0)
 	items.push(Counter.create(4))
-	let bag = Bag.create(items)
+	var bag = Bag.create(items)
 	bumpAll(bag)
 	let first = try bag.items.get(0) otherwise return 1
-	return first.n as ExitCode
+	return try first.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -236,7 +230,6 @@ end 'main'
 ```
 
 <!-- test: a-var-array-hands-out-writable-elements-through-a-for-and-a-cursor -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 Over a `var` array the same two routes write: the `for` variable and the cursor's element both are the array's own
 records.
 
@@ -257,8 +250,7 @@ function main() returns ExitCode
 	let items = Plain.create(0)
 	items.push(Counter.create(4))
 	items.push(Counter.create(5))
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, c) in items.withIterator() 'each'
+	for (_, c) in items.enumerated() 'each'
 		c.n = c.n + 10
 	end 'each'
 	let it = try items.createIterator() otherwise return 2
@@ -277,7 +269,6 @@ end 'main'
 ```
 
 <!-- test: a-let-array-is-read-and-a-var-cursor-over-it-moves -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 A `var` cursor over a `let` array advances, and every element it yields is read: bound to a `let`, summed, passed to
 a function that only reads. Nothing writes an element, so the program is accepted.
 
@@ -304,8 +295,7 @@ function main() returns ExitCode
 	items.push(Counter.create(5))
 	let frozen = items
 	var total = 0 as Integer
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, c) in frozen.withIterator() 'each'
+	for (_, c) in frozen.enumerated() 'each'
 		total = total + read(c)
 	end 'each'
 	let it = try frozen.createIterator() otherwise return 2

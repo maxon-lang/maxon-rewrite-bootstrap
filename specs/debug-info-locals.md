@@ -163,8 +163,8 @@ typealias Tick = int(0 to 1000)
 type Accum uses T
 	export var seed as T
 
-	static function create(consumes seed T) returns Self
-		return Self{seed: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{seed: seed.clone()}
 	end 'create'
 
 	function fold(bump Tick) returns Tick

@@ -47,6 +47,7 @@ the same type and to local `var`/`let` bindings inside interface methods.
 ## Tests
 
 <!-- test: single-unused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -64,6 +65,7 @@ error E3012: specs/unused-parameters/single-unused.maxon:5:25: unused variable: 
 ```
 
 <!-- test: multiple-unused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -141,6 +143,7 @@ error E2053: specs/unused-parameters/void-function-unused.maxon:10:15: the secon
 ```
 
 <!-- test: method-on-non-conforming-type-still-errors -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)

@@ -662,9 +662,9 @@ end 'main'
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 
-function pick(times Integer = 1, consumes item T) uses T returns T
+function pick(times Integer = 1, item T) uses T returns T where T implements Copyable
 	print("times={times}\n")
-	return item
+	return item.clone()
 end 'pick'
 
 function main() returns ExitCode
@@ -691,8 +691,8 @@ type Crate uses T
 	export let size as Integer
 	export var item as T
 
-	static function create(size Integer = 1, consumes item T) returns Self
-		return Self{size: size, item: item}
+	static function create(size Integer = 1, item T) returns Self where T implements Copyable
+		return Self{size: size, item: item.clone()}
 	end 'create'
 end 'Crate'
 

@@ -566,7 +566,6 @@ error E3197: specs/readonly-element-types/error.a-for-value-over-an-immutable-ma
 ```
 
 <!-- test: error.an-element-an-iterator-pair-yields-is-not-written -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- skip: type argument capability 'immutable' is not supported in minimaxon -->
 <!-- positions: moved -->
 The element of a `withIterator()` pair is read out of the same array.
@@ -588,8 +587,7 @@ typealias Roster = Array with immutable Counter
 function main() returns ExitCode
 	var roster = Roster.create(0)
 	roster.push(freeze(Counter.create(1)))
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (_, item) in roster.withIterator() 'each'
+	for (_, item) in roster.enumerated() 'each'
 		item.n = 7
 	end 'each'
 	return roster.count() as ExitCode

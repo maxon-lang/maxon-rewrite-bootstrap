@@ -77,12 +77,12 @@ file can name: the argument resolves from the instantiating file, so the program
 export type Box uses T
 	export var value as T
 
-	export static function create(consumes v T) returns Self
-		return Self{value: v}
+	export static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	export function get() returns T
-		return self.value
+	export function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 // --- file: main.maxon
@@ -106,12 +106,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -137,8 +137,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -163,8 +163,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -191,16 +191,16 @@ type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	static function create(consumes a A, consumes b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 
-	function firstVal() returns A
-		return self.first
+	function firstVal() returns A where A implements Copyable
+		return self.first.clone()
 	end 'firstVal'
 
-	function secondVal() returns B
-		return self.second
+	function secondVal() returns B where B implements Copyable
+		return self.second.clone()
 	end 'secondVal'
 end 'Pair'
 
@@ -239,8 +239,8 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -326,8 +326,8 @@ error E2015: <fragment>:8:610: Unsupported: a type-argument list with more than 
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -363,8 +363,8 @@ end 'Holder'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -392,12 +392,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -452,8 +452,8 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -480,8 +480,8 @@ end 'main'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -540,8 +540,8 @@ type Tagged uses T
 	export var value as T
 	export var tag as String
 
-	static function create(consumes v T, tag String) returns Self
-		return Self{value: v, tag: tag.clone()}
+	static function create(v T, tag String) returns Self where T implements Copyable
+		return Self{value: v.clone(), tag: tag.clone()}
 	end 'create'
 end 'Tagged'
 
@@ -569,8 +569,8 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(consumes v T) returns Self
-		return Self{a: v, b: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{a: v.clone(), b: v.clone()}
 	end 'create'
 end 'DPair'
 
@@ -619,12 +619,12 @@ with no drop, exercised on all targets.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -651,12 +651,12 @@ and the new value transfers in. Old `"alpha"` is freed exactly once — leak-fre
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -681,8 +681,8 @@ Leak-free under `__mm_free` poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 end 'Box'
 
@@ -707,12 +707,12 @@ poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -749,12 +749,12 @@ end 'Holder'
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -779,12 +779,12 @@ Leak-free under `__mm_free` poisoning.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -792,7 +792,7 @@ type Outer uses T
 	typealias Inner = Box with T
 	export var inner as Inner
 
-	static function create(consumes first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first)}
 	end 'create'
 end 'Outer'
@@ -825,16 +825,16 @@ type OddRingA uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'OddRingA'
@@ -844,16 +844,16 @@ type OddRingB uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'OddRingB'
@@ -863,16 +863,16 @@ type OddRingC uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'OddRingC'
@@ -916,16 +916,16 @@ type ScalarRingA uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'ScalarRingA'
@@ -935,16 +935,16 @@ type ScalarRingB uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'ScalarRingB'
@@ -954,16 +954,16 @@ type ScalarRingC uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'ScalarRingC'
@@ -1007,16 +1007,16 @@ type EvenRingA uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'EvenRingA'
@@ -1026,16 +1026,16 @@ type EvenRingB uses A, B
 	var first as A
 	var second as B
 
-	static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes a A, consumes b B)
-		self.first = a
-		self.second = b
+	function replace(mutates self, a A, b B) where A implements Droppable and Copyable, B implements Droppable and Copyable
+		self.first = a.clone()
+		self.second = b.clone()
 	end 'replace'
 
-	function turn() returns Next
+	function turn() returns Next where B implements Copyable, A implements Copyable
 		return Next.create(self.second, second: self.first)
 	end 'turn'
 end 'EvenRingB'
@@ -1076,12 +1076,12 @@ type CutOuterA uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterA'
@@ -1090,15 +1090,15 @@ type CutInnerA uses Q
 	typealias Up = CutOuterA with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerA'
@@ -1135,15 +1135,15 @@ type CutInnerB uses Q
 	typealias Up = CutOuterB with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerB'
@@ -1153,12 +1153,12 @@ type CutOuterB uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterB'
@@ -1199,12 +1199,12 @@ type CutOuterC uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterC'
@@ -1213,15 +1213,15 @@ type CutInnerC uses Q
 	typealias Up = CutOuterC with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerC'
@@ -1258,15 +1258,15 @@ type CutInnerD uses Q
 	typealias Up = CutOuterD with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerD'
@@ -1276,12 +1276,12 @@ type CutOuterD uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterD'
@@ -1313,12 +1313,12 @@ type CutOuterE uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterE'
@@ -1327,15 +1327,15 @@ type CutInnerE uses Q
 	typealias Up = CutOuterE with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerE'
@@ -1393,12 +1393,12 @@ type CutOuterF uses P
 	var last as P
 	var below as Down
 
-	static function create(consumes item P, consumes spare P) returns Self
-		return Self{last: spare, below: Down.create(item)}
+	static function create(item P, spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone(), below: Down.create(item)}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P)
-		self.last = spare
+	function push(mutates self, next P, spare P) where P implements Droppable and Copyable
+		self.last = spare.clone()
 		self.below.replace(next)
 	end 'push'
 end 'CutOuterF'
@@ -1407,15 +1407,15 @@ type CutInnerF uses Q
 	typealias Up = CutOuterF with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function lift(consumes spare Q) returns Up
+	function lift(spare Q) returns Up where Q implements Copyable
 		return Up.create(self.held, spare: spare)
 	end 'lift'
 end 'CutInnerF'
@@ -1443,12 +1443,12 @@ type CutOuterW uses P
 	typealias Down = CutInnerW with P
 	var last as P
 
-	static function create(consumes spare P) returns Self
-		return Self{last: spare}
+	static function create(spare P) returns Self where P implements Copyable
+		return Self{last: spare.clone()}
 	end 'create'
 
-	function push(mutates self, consumes next P, consumes spare P, consumes extra P) returns P
-		self.last = spare
+	function push(mutates self, next P, spare P, extra P) returns P where P implements Droppable and Copyable
+		self.last = spare.clone()
 		var d = Down.create(next)
 		d.replace(extra)
 		return d.take()
@@ -1459,19 +1459,19 @@ type CutInnerW uses Q
 	typealias Up = CutOuterW with Q
 	var held as Q
 
-	static function create(consumes item Q) returns Self
-		return Self{held: item}
+	static function create(item Q) returns Self where Q implements Copyable
+		return Self{held: item.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Q)
-		self.held = next
+	function replace(mutates self, next Q) where Q implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 
-	function take() returns Q
-		return self.held
+	function take() returns Q where Q implements Copyable
+		return self.held.clone()
 	end 'take'
 
-	function lift() returns Up
+	function lift() returns Up where Q implements Copyable
 		return Up.create(self.held)
 	end 'lift'
 end 'CutInnerW'
@@ -1942,8 +1942,8 @@ end 'Leaf'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -1980,8 +1980,8 @@ end 'Leaf'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2017,8 +2017,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2054,8 +2054,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2092,8 +2092,8 @@ end 'S0'
 type Box uses T
 	var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2139,8 +2139,8 @@ end 'S0'
 type Box uses T
 	var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2171,8 +2171,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2229,8 +2229,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2282,12 +2282,12 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function swap(mutates self, consumes v T)
-		self.value = v
+	function swap(mutates self, v T) where T implements Droppable and Copyable
+		self.value = v.clone()
 	end 'swap'
 end 'Box'
 
@@ -2322,12 +2322,12 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function swap(mutates self, consumes v T)
-		self.value = v
+	function swap(mutates self, v T) where T implements Droppable and Copyable
+		self.value = v.clone()
 	end 'swap'
 end 'Box'
 
@@ -2365,8 +2365,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2407,8 +2407,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2454,8 +2454,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2488,8 +2488,8 @@ end 'S0'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -2517,13 +2517,13 @@ typealias Tally = int(0 to u64.max)
 type Wrap uses T
 	export let held as T
 
-	static function create(consumes held T) returns Self
-		return Self{held: held}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone()}
 	end 'create'
 end 'Wrap'
 
-function same(consumes x T) uses T returns T
-	return x
+function same(x T) uses T returns T where T implements Copyable
+	return x.clone()
 end 'same'
 
 function main() returns ExitCode
@@ -2584,13 +2584,13 @@ typealias Tally = int(0 to u64.max)
 type Wrap uses T
 	export let held as T
 
-	static function create(consumes held T) returns Self
-		return Self{held: held}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone()}
 	end 'create'
 end 'Wrap'
 
-function same(consumes x T) uses T returns T
-	return x
+function same(x T) uses T returns T where T implements Copyable
+	return x.clone()
 end 'same'
 
 function main() returns ExitCode
@@ -2648,11 +2648,11 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(consumes item T, extra Whole) returns Self throws StartError
+	static function create(item T, extra Whole) returns Self throws StartError where T implements Copyable
 		if extra < 0 'negative'
 			throw StartError.refused
 		end 'negative'
-		return Self{item: item, extra: extra}
+		return Self{item: item.clone(), extra: extra}
 	end 'create'
 end 'Box'
 
@@ -2726,8 +2726,8 @@ end 'StartError'
 type Holder uses T
 	var item as T
 
-	static function wrap(consumes item T) returns Self
-		return Self{item: item}
+	static function wrap(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'wrap'
 
 	function held() returns Whole
@@ -2739,7 +2739,7 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(consumes item T, extra Whole) returns Self throws StartError
+	static function create(item T, extra Whole) returns Self throws StartError where T implements Droppable and Copyable
 		if extra < 0 'negative'
 			let holder = Holder.wrap(item)
 			if holder.held() > 0 'held'
@@ -2747,7 +2747,7 @@ type Box uses T
 			end 'held'
 			throw StartError.refused
 		end 'negative'
-		return Self{item: item, extra: extra}
+		return Self{item: item.clone(), extra: extra}
 	end 'create'
 end 'Box'
 
@@ -3036,8 +3036,8 @@ export type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	export static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	export static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 end 'Pair'
 
@@ -3091,8 +3091,8 @@ export type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	export static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	export static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 end 'Pair'
 
@@ -3100,8 +3100,8 @@ end 'Pair'
 export type Pair uses A
 	export var only as A
 
-	export static function create(consumes only A) returns Self
-		return Self{only: only}
+	export static function create(only A) returns Self where A implements Copyable
+		return Self{only: only.clone()}
 	end 'create'
 end 'Pair'
 
@@ -3522,12 +3522,12 @@ builtin `Array`.
 type Sizer uses T
 	export var v as T
 
-	static function create(consumes x T) returns Self
-		return Self{v: x}
+	static function create(x T) returns Self where T implements Copyable
+		return Self{v: x.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Sizer'
 
@@ -3564,8 +3564,8 @@ end 'Leaf'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3604,12 +3604,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -3694,8 +3694,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3794,8 +3794,8 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3865,16 +3865,16 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
 type Holder uses U
 	export var item as U
 
-	static function hold(consumes v U) returns Self
-		return Self{item: v}
+	static function hold(v U) returns Self where U implements Copyable
+		return Self{item: v.clone()}
 	end 'hold'
 end 'Holder'
 
@@ -3916,8 +3916,8 @@ end 'Label'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -3950,16 +3950,16 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
 type Holder uses U
 	export var item as U
 
-	static function hold(consumes v U) returns Self
-		return Self{item: v}
+	static function hold(v U) returns Self where U implements Copyable
+		return Self{item: v.clone()}
 	end 'hold'
 end 'Holder'
 
@@ -4002,8 +4002,8 @@ end 'Label'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4133,8 +4133,8 @@ typealias Num = int(0 to 1000)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4214,8 +4214,8 @@ end 'Label'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4266,8 +4266,8 @@ end 'Label'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4342,8 +4342,8 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4392,8 +4392,8 @@ end 'Point'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4430,8 +4430,8 @@ end 'Leaf'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 end 'Box'
 
@@ -4533,8 +4533,8 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(consumes v T) returns T
-		return v
+	function echo(v T) returns T where T implements Copyable
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4578,8 +4578,8 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(consumes v T) returns T
-		return v
+	function echo(v T) returns T where T implements Copyable
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4672,8 +4672,8 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(consumes v T) returns T
-		return v
+	function echo(v T) returns T where T implements Copyable
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4717,15 +4717,15 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 
-	function relay() returns T
+	function relay() returns T where T implements Copyable
 		return self.get()
 	end 'relay'
 end 'Box'
@@ -4764,12 +4764,12 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -4809,12 +4809,12 @@ end 'Shape'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -4866,8 +4866,8 @@ type Box uses T
 		return Self{tag: 0}
 	end 'create'
 
-	function echo(consumes v T) returns T
-		return v
+	function echo(v T) returns T where T implements Copyable
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4917,11 +4917,11 @@ type Box uses T
 		return Self{tag: t}
 	end 'create'
 
-	function echo(consumes v T) returns T throws Boom
+	function echo(v T) returns T throws Boom where T implements Copyable
 		if self.tag > 0 'blows'
 			throw Boom.bad
 		end 'blows'
-		return v
+		return v.clone()
 	end 'echo'
 end 'Box'
 
@@ -4984,15 +4984,15 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function fetch(strict bool) returns T throws Boom
+	function fetch(strict bool) returns T throws Boom where T implements Copyable
 		if strict 'strict'
 			throw Boom.bad
 		end 'strict'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -5027,15 +5027,15 @@ end 'Boom'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function fetch(strict bool) returns T throws Boom
+	function fetch(strict bool) returns T throws Boom where T implements Copyable
 		if strict 'strict'
 			throw Boom.bad
 		end 'strict'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -5071,15 +5071,15 @@ end 'Boom'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function fetch(strict bool) returns T throws Boom
+	function fetch(strict bool) returns T throws Boom where T implements Copyable
 		if strict 'strict'
 			throw Boom.bad
 		end 'strict'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -5123,15 +5123,15 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function fetch(strict bool) returns T throws Boom
+	function fetch(strict bool) returns T throws Boom where T implements Copyable
 		if strict 'strict'
 			throw Boom.bad
 		end 'strict'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -5178,12 +5178,12 @@ end 'Alpha'
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -5240,15 +5240,15 @@ type Box uses T
 	export var value as T
 	export var fail as bool
 
-	static function create(consumes v T, f bool) returns Self
-		return Self{value: v, fail: f}
+	static function create(v T, f bool) returns Self where T implements Copyable
+		return Self{value: v.clone(), fail: f}
 	end 'create'
 
-	function fetch() returns T throws Boom
+	function fetch() returns T throws Boom where T implements Copyable
 		if self.fail 'boom'
 			throw Boom.bad
 		end 'boom'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -5303,15 +5303,15 @@ type Box uses T
 	export var value as T
 	export var fail as bool
 
-	static function create(consumes v T, f bool) returns Self
-		return Self{value: v, fail: f}
+	static function create(v T, f bool) returns Self where T implements Copyable
+		return Self{value: v.clone(), fail: f}
 	end 'create'
 
-	function fetch() returns T throws Boom
+	function fetch() returns T throws Boom where T implements Copyable
 		if self.fail 'boom'
 			throw Boom.bad
 		end 'boom'
-		return self.value
+		return self.value.clone()
 	end 'fetch'
 end 'Box'
 
@@ -6240,7 +6240,7 @@ typealias Octet = int(0 to 255)
 type Bag uses T
 	export typealias Items = Array with T
 
-	static function first(items Items) returns T
+	static function first(items Items) returns T where T implements Copyable
 		return try items.get(0) otherwise panic("empty")
 	end 'first'
 end 'Bag'
@@ -6536,8 +6536,8 @@ type Box uses T
 	var item as T
 	var extra as Whole
 
-	static function create(consumes item T, extra Whole) returns Self throws StartError
-		let built = Self{item: item, extra: extra}
+	static function create(item T, extra Whole) returns Self throws StartError where T implements Copyable
+		let built = Self{item: item.clone(), extra: extra}
 		if built.extra < 0 'negative'
 			throw StartError.refused
 		end 'negative'

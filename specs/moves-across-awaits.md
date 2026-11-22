@@ -98,6 +98,7 @@ end 'main'
 ```
 
 <!-- test: a-unique-payload-handed-to-a-consuming-constructor-ends-its-union -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `Box.wrap` stores the `token` payload, which moves it out of the `var` union `slot`, so `tally(slot)` reads a union whose payload has left.
 

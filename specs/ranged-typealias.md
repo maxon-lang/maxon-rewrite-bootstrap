@@ -2667,12 +2667,12 @@ typealias Percent = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes seed T) returns Self
-		return Self{v: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{v: seed.clone()}
 	end 'create'
 
-	function put(mutates self, consumes value T)
-		self.v = value
+	function put(mutates self, value T) where T implements Droppable and Copyable
+		self.v = value.clone()
 	end 'put'
 end 'Box'
 
@@ -2706,12 +2706,12 @@ typealias FullInt = int(i64.min to i64.max)
 type Box uses T
 	export var v as T
 
-	static function create(consumes seed T) returns Self
-		return Self{v: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{v: seed.clone()}
 	end 'create'
 
-	function put(mutates self, consumes value T)
-		self.v = value
+	function put(mutates self, value T) where T implements Droppable and Copyable
+		self.v = value.clone()
 	end 'put'
 end 'Box'
 
@@ -2737,12 +2737,12 @@ site must not fire on a type argument that carries no numeric domain.
 type Box uses T
 	export var v as T
 
-	static function create(consumes seed T) returns Self
-		return Self{v: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{v: seed.clone()}
 	end 'create'
 
-	function put(mutates self, consumes value T)
-		self.v = value
+	function put(mutates self, value T) where T implements Droppable and Copyable
+		self.v = value.clone()
 	end 'put'
 end 'Box'
 

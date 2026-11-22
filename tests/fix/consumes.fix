@@ -1,16 +1,22 @@
 // A parameter of a type that cannot be copied, stored whole, is taken with consumes.
-type Box uses T
-	var item as T
+type Token is noncopyable
+	export var id as Count
 
-	static function make(item T) returns Self
+	static function make(id Count) returns Self
+		return Self{id: id}
+	end 'make'
+end 'Token'
+
+type Box
+	var item as Token
+
+	static function make(item Token) returns Self
 		return Self{item: item}
 	end 'make'
 end 'Box'
 
-typealias Text = Box with String
-
 function main() returns ExitCode
-	let b = Text.make("x")
-	print("{b.item}\n")
+	let b = Box.make(Token.make(7))
+	print("{b.item.id}\n")
 	return 0
 end 'main'

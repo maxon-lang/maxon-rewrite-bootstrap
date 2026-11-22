@@ -246,12 +246,12 @@ UNSUBSTITUTED `Cell with Holder.T` — the trivial box drop, and a stranded stri
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function get() returns T
-		return self.v
+	function get() returns T where T implements Copyable
+		return self.v.clone()
 	end 'get'
 end 'Cell'
 
@@ -259,11 +259,11 @@ type Holder uses T
 	export typealias Inner = Cell with T
 	export var cell as Inner
 
-	static function create(consumes cell Inner) returns Self
-		return Self{cell: cell}
+	static function create(cell Inner) returns Self where T implements Copyable
+		return Self{cell: cell.clone()}
 	end 'create'
 
-	function value() returns T
+	function value() returns T where T implements Copyable
 		return self.cell.get()
 	end 'value'
 end 'Holder'
@@ -1046,12 +1046,12 @@ released with it — exit 0 rather than 101.
 type Box uses Element
 	export var saved as Element
 
-	static function create(consumes first Element) returns Self
-		return Self{saved: first}
+	static function create(first Element) returns Self where Element implements Copyable
+		return Self{saved: first.clone()}
 	end 'create'
 
-	function replace(mutates self, consumes next Element)
-		self.saved = next
+	function replace(mutates self, next Element) where Element implements Droppable and Copyable
+		self.saved = next.clone()
 	end 'replace'
 end 'Box'
 
@@ -1059,7 +1059,7 @@ type Outer uses T
 	typealias Inner = Box with T
 	export var inner as Inner
 
-	static function create(consumes first T) returns Self
+	static function create(first T) returns Self where T implements Copyable
 		return Self{inner: Inner.create(first)}
 	end 'create'
 end 'Outer'
@@ -1260,16 +1260,16 @@ type Walker uses T
 	var items as TArr
 	var at = 0 as Count
 
-	static function create(items TArr) returns Self
-		return Self{items: items}
+	static function create(items TArr) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function current() returns T
+	function current() returns T where T implements Copyable
 		return try items.get(at) otherwise panic("oob")
 	end 'current'
 
-	function advance() throws IterationError
-		at = at + 1
+	function advance(mutates self) throws IterationError
+		at = try at + 1 otherwise panic("out of range")
 		if at >= items.count() 'done'
 			throw IterationError.exhausted
 		end 'done'
@@ -1281,15 +1281,15 @@ typealias IntArray = Array with Integer
 typealias IntWalker = Walker with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(3)
 	a.push(4)
-	let w = IntWalker.create(a)
+	var w = IntWalker.create(a)
 	var total = 0 as Integer
 	for x in w 'walk'
-		total = total + x
+		total = try total + x otherwise panic("out of range")
 	end 'walk'
-	return total as ExitCode
+	return try total as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1329,11 +1329,11 @@ type Holder uses T
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function pair() returns Pair
+	function pair() returns Pair where T implements Copyable
 		let a = try items.get(0) otherwise panic("oob")
 		let b = try items.get(1) otherwise panic("oob")
 		return (a, b)
@@ -1343,12 +1343,12 @@ end 'Holder'
 typealias IntHolder = Holder with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(11)
 	a.push(31)
 	let h = IntHolder.create(a)
 	let (x, y) = h.pair()
-	return x + y
+	return try x + y otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1370,11 +1370,11 @@ type Labeller uses T
 	export typealias Items = Array with T
 	var items as Items
 
-	static function create(items Items) returns Self
-		return Self{items: items}
+	static function create(items Items) returns Self where T implements Copyable
+		return Self{items: items.clone()}
 	end 'create'
 
-	function tagged() returns Tagged
+	function tagged() returns Tagged where T implements Copyable
 		let v = try items.get(0) otherwise panic("oob")
 		return ("ab{items.count()}", v)
 	end 'tagged'
@@ -1383,11 +1383,11 @@ end 'Labeller'
 typealias IntLabeller = Labeller with Integer
 
 function main() returns ExitCode
-	let a = IntArray.create(0)
+	var a = IntArray.create(0)
 	a.push(39)
 	let l = IntLabeller.create(a)
 	let (name, v) = l.tagged()
-	return v + (name.count() as Integer)
+	return try v + (name.count() as Integer) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode

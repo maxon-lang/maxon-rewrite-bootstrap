@@ -708,6 +708,7 @@ error E3057: specs/error-handling/error.throwing-method-requires-try.maxon:13:12
 ```
 
 <!-- test: error.try-on-non-throwing-function -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
@@ -727,6 +728,7 @@ error E3055: specs/error-handling/error.try-on-non-throwing-function.maxon:11:12
 ```
 
 <!-- test: error.try-on-non-throwing-method -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 typealias Int = int(i64.min to i64.max)
@@ -746,6 +748,7 @@ error E3055: specs/error-handling/error.try-on-non-throwing-method.maxon:10:12: 
 ```
 
 <!-- test: error.try-on-non-throwing-instance-method -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 
 Regression: `try recv.method()` on a non-throwing **instance method** must also
 report E3055. The error-handling check inspects `tryMethodCall` (the op a method

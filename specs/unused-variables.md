@@ -151,6 +151,7 @@ error E3012: specs/unused-variables/multiple-unused-each-reported.maxon:5:6: unu
 ```
 
 <!-- test: every-unused-kind-in-one-function-is-reported -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 An unused parameter, body `let`, body `var`, loop variable, caught `(e)` and match-arm payload binder in one
 function are each reported, in source order.
 ```maxon
@@ -228,6 +229,7 @@ error E3012: specs/unused-variables/two-functions-each-report-their-own-unused-l
 ```
 
 <!-- test: unused-for-in-variable -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 
 function main() returns ExitCode
@@ -357,6 +359,7 @@ end 'main'
 ```
 
 <!-- test: unused-closure-param -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 

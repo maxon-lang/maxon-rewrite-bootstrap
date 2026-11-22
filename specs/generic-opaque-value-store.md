@@ -45,8 +45,8 @@ type Cell
 		return Self{n: n}
 	end 'create'
 
-	function bump(by Integer)
-		n = n + by
+	function bump(mutates self, by Integer)
+		n = try n + by otherwise panic("out of range")
 	end 'bump'
 end 'Cell'
 
@@ -59,11 +59,11 @@ type Holder uses Element
 		return Self{}
 	end 'create'
 
-	function add(item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'add'
 
-	function entryAt(i Index) returns Entry
+	function entryAt(i Index) returns Entry where Element implements Copyable
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
 		return (v, 1)
 	end 'entryAt'
@@ -72,12 +72,12 @@ end 'Holder'
 typealias CellHolder = Holder with Cell
 
 function main() returns ExitCode
-	let h = CellHolder.create()
+	var h = CellHolder.create()
 	h.add(Cell.create(40))
-	let e = h.entryAt(0)
+	var e = h.entryAt(0)
 	e.0.bump(2)
 	let again = h.entryAt(0)
-	return again.0.n
+	return try again.0.n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -363,8 +363,8 @@ type Box
 		return Self{n: n, names: NameArray.create(0)}
 	end 'create'
 
-	function bump()
-		self.n = self.n + 1
+	function bump(mutates self)
+		self.n = try self.n + 1 otherwise panic("out of range")
 		self.names.push("x{self.n}")
 	end 'bump'
 end 'Box'
@@ -379,16 +379,16 @@ type Columns uses X, Y
 		return Self{xs: XArray.create(0), ys: YArray.create(0)}
 	end 'create'
 
-	function add(x X, y Y)
-		self.xs.push(x)
-		self.ys.push(y)
+	function add(mutates self, x X, y Y) where X implements Copyable, Y implements Copyable
+		self.xs.push(x.clone())
+		self.ys.push(y.clone())
 	end 'add'
 
-	function snapshot() returns Self
+	function snapshot() returns Self where X implements Copyable, Y implements Copyable
 		return Self{xs: self.xs.clone(), ys: self.ys.clone()}
 	end 'snapshot'
 
-	function yAt(i Index) returns Y
+	function yAt(i Index) returns Y where Y implements Copyable
 		return try self.ys.get(i) otherwise panic("yAt")
 	end 'yAt'
 end 'Columns'
@@ -401,15 +401,15 @@ type Holder uses T
 		return Self{mixed: Mixed.create()}
 	end 'create'
 
-	function put(t T)
+	function put(mutates self, t T) where T implements Copyable
 		self.mixed.add("k", y: t)
 	end 'put'
 
-	function original() returns T
+	function original() returns T where T implements Copyable
 		return self.mixed.yAt(0)
 	end 'original'
 
-	function copied() returns T
+	function copied() returns T where T implements Copyable
 		return self.mixed.snapshot().yAt(0)
 	end 'copied'
 end 'Holder'
@@ -419,14 +419,14 @@ typealias BoxHolder = Holder with Box
 typealias BoxColumns = Columns with (String, Box)
 
 function main() returns ExitCode
-	let concrete = BoxColumns.create()
+	var concrete = BoxColumns.create()
 	concrete.add("k", y: Box.create(1))
-	let concreteCopy = concrete.snapshot().yAt(0)
+	var concreteCopy = concrete.snapshot().yAt(0)
 	concreteCopy.bump()
 	print("concrete {concrete.yAt(0).n}\n")
-	let h = BoxHolder.create()
+	var h = BoxHolder.create()
 	h.put(Box.create(1))
-	let c = h.copied()
+	var c = h.copied()
 	c.bump()
 	print("generic {h.original().n}\n")
 	return 0
@@ -690,6 +690,7 @@ end 'main'
 ```
 
 <!-- test: error.a-generic-type-reaching-itself-through-a-growing-argument-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A generic type whose methods reach an instance of itself with a strictly growing type argument has no finite set of instances, and is refused.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -793,7 +794,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 end 'Bag'
@@ -911,7 +912,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 
@@ -974,7 +975,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 
@@ -1045,7 +1046,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 
@@ -1112,11 +1113,11 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(key String, value Value)
-		self.pairs.push((key, value))
+	function put(mutates self, key String, value Value) where Value implements Copyable
+		self.pairs.push((key.clone(), value.clone()))
 	end 'put'
 
-	function snapshot() returns Pairs
+	function snapshot() returns Pairs where Value implements Copyable
 		return self.pairs.clone()
 	end 'snapshot'
 
@@ -1128,14 +1129,14 @@ end 'Holder'
 typealias BoxHolder = Holder with Box
 
 function main() returns ExitCode
-	let h = BoxHolder.create()
+	var h = BoxHolder.create()
 	h.put("x", value: Box.create(5))
 	h.put("y", value: Box.create(6))
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		total = total + pair.1.n
+		total = try total + pair.1.n otherwise panic("out of range")
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
 	return 0
@@ -1174,11 +1175,11 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(key String, value Value)
-		self.pairs.push((key, value))
+	function put(mutates self, key String, value Value) where Value implements Copyable
+		self.pairs.push((key.clone(), value.clone()))
 	end 'put'
 
-	function snapshot() returns Pairs
+	function snapshot() returns Pairs where Value implements Copyable
 		return self.apply(function() gives self.pairs.clone())
 	end 'snapshot'
 
@@ -1190,14 +1191,14 @@ end 'Holder'
 typealias BoxHolder = Holder with Box
 
 function main() returns ExitCode
-	let h = BoxHolder.create()
+	var h = BoxHolder.create()
 	h.put("x", value: Box.create(5))
 	h.put("y", value: Box.create(6))
 	let snap = h.snapshot()
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		total = total + pair.1.n
+		total = try total + pair.1.n otherwise panic("out of range")
 	end 'eachPair'
 	print("{total} {snap.count()}\n")
 	return 0
@@ -1236,12 +1237,12 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(mutates self, key String, consumes value Value)
-		self.pairs.push((key.clone(), value))
+	function put(mutates self, key String, value Value) where Value implements Copyable
+		self.pairs.push((key.clone(), value.clone()))
 	end 'put'
 
-	function snapshot() returns Pairs
-		return self.pairs
+	function snapshot() returns Pairs where Value implements Copyable
+		return self.pairs.clone()
 	end 'snapshot'
 
 	function apply(copier Copier) returns Pairs
@@ -1299,7 +1300,7 @@ type Bag uses Element
 		self.items.push(EBox.create(x, tag: tag))
 	end 'add'
 
-	function copy() returns EBoxArray
+	function copy() returns EBoxArray where Element implements Copyable
 		return self.items.clone()
 	end 'copy'
 
@@ -1343,8 +1344,8 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function marker() returns Int
@@ -1356,7 +1357,7 @@ type Cell uses T
 		return try f() as Int otherwise panic("out of range")
 	end 'firstOf'
 
-	static function keep(v T) returns Int
+	static function keep(v T) returns Int where T implements Droppable
 		let f = function(x T) gives Self{v: x}
 		let c = f(v)
 		return c.marker()
@@ -1386,13 +1387,13 @@ A static that does not return `Self` copies its type-parameter parameter into a 
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	static function adopt(consumes v T, other Self) returns T
-		var held = v
-		held = other.v
+	static function adopt(v T, other Self) returns T where T implements Copyable
+		var held = v.clone()
+		held = other.v.clone()
 		return held
 	end 'adopt'
 end 'Cell'
@@ -1419,16 +1420,16 @@ A static that does not return `Self` rebinds a local holding a type-parameter va
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function fetch() returns T
-		return self.v
+	function fetch() returns T where T implements Copyable
+		return self.v.clone()
 	end 'fetch'
 
-	static function viaLocal(other Self) returns T
-		var x = other.v
+	static function viaLocal(other Self) returns T where T implements Copyable
+		var x = other.v.clone()
 		x = other.fetch()
 		return x
 	end 'viaLocal'
@@ -1455,15 +1456,15 @@ A static that does not return `Self` stores what an instance method of one insta
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function fetch() returns T
-		return self.v
+	function fetch() returns T where T implements Copyable
+		return self.v.clone()
 	end 'fetch'
 
-	static function poke(mutates into Self, mutates donor Self)
+	static function poke(mutates into Self, mutates donor Self) where T implements Droppable and Copyable
 		donor.v = into.fetch()
 	end 'poke'
 end 'Cell'
@@ -1502,16 +1503,16 @@ end 'Entry'
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function fetch() returns T
-		return self.v
+	function fetch() returns T where T implements Copyable
+		return self.v.clone()
 	end 'fetch'
 
-	static function viaLocal(other Self) returns T
-		var x = other.v
+	static function viaLocal(other Self) returns T where T implements Copyable
+		var x = other.v.clone()
 		x = other.fetch()
 		return x
 	end 'viaLocal'
@@ -1545,8 +1546,8 @@ end 'bump'
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
 	static function width(seed Count) returns Count
@@ -1579,8 +1580,8 @@ function bump(mutates dest Count)
 	dest = try dest + 1 otherwise panic("out of range")
 end 'bump'
 
-function bumpAny(consumes dest T) uses T returns T
-	return dest
+function bumpAny(dest T) uses T returns T where T implements Copyable
+	return dest.clone()
 end 'bumpAny'
 
 function main() returns ExitCode
@@ -1607,12 +1608,12 @@ typealias Int = int(i64.min to i64.max)
 type Cell uses T
 	var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return v
+	function get() returns T where T implements Copyable
+		return v.clone()
 	end 'get'
 end 'Cell'
 
@@ -1621,11 +1622,11 @@ type Holder uses T
 	typealias Pair = (Inner, Int)
 	var one as Inner
 
-	static function create(consumes v T) returns Self
+	static function create(v T) returns Self where T implements Copyable
 		return Self{one: Inner.create(v)}
 	end 'create'
 
-	static function peek(h Self) returns Int
+	static function peek(h Self) returns Int where T implements Droppable and Copyable
 		let f = function() gives h.one.get()
 		_ = f()
 		return 1
@@ -1673,11 +1674,11 @@ type Holder uses Value
 		return Self{pairs: Pairs.create(0)}
 	end 'create'
 
-	function put(key String, value Value)
-		self.pairs.push((key, value))
+	function put(mutates self, key String, value Value) where Value implements Copyable
+		self.pairs.push((key.clone(), value.clone()))
 	end 'put'
 
-	function snapshot() returns Pairs
+	function snapshot() returns Pairs where Value implements Copyable
 		return self.apply(function() gives self.pairs.clone())
 	end 'snapshot'
 
@@ -1685,16 +1686,16 @@ type Holder uses Value
 		return copier()
 	end 'apply'
 
-	static function countOf(ps Pairs) returns Count
+	static function countOf(ps Pairs) returns Count where Value implements Copyable
 		let f = function() gives ps.clone().count()
-		return f()
+		return try f() as Count otherwise panic("out of range")
 	end 'countOf'
 end 'Holder'
 
 typealias BoxHolder = Holder with Box
 
 function main() returns ExitCode
-	let h = BoxHolder.create()
+	var h = BoxHolder.create()
 	h.put("x", value: Box.create(5))
 	h.put("y", value: Box.create(6))
 	let snap = h.snapshot()
@@ -1702,7 +1703,7 @@ function main() returns ExitCode
 	h.put("z", value: Box.create(7))
 	var total = 0 as Count
 	for pair in snap 'eachPair'
-		total = total + pair.1.n
+		total = try total + pair.1.n otherwise panic("out of range")
 	end 'eachPair'
 	print("{total} {snap.count()} {k}\n")
 	return 0
@@ -2403,8 +2404,8 @@ error E3006: <fragment>:14:10: duplicate definition of 'twice' — already decla
 Two directories each declare an unmarked generic function `twice`; each directory is its own scope, so each call reaches its own directory's function.
 ```maxon
 // --- file: left/left.maxon
-function twice(consumes a T) uses T returns T
-	return a
+function twice(a T) uses T returns T where T implements Copyable
+	return a.clone()
 end 'twice'
 
 export function fromLeft() returns String
@@ -2412,8 +2413,8 @@ export function fromLeft() returns String
 end 'fromLeft'
 
 // --- file: right/right.maxon
-function twice(consumes b T) uses T returns T
-	return b
+function twice(b T) uses T returns T where T implements Copyable
+	return b.clone()
 end 'twice'
 
 export function fromRight() returns String
@@ -2589,148 +2590,148 @@ Deciding what a record literal's field holds costs one visit per local, however 
 type Cell uses T
 	export var v as T
 
-	static function chain(consumes v T, flag bool) returns Self
-		var a0 = v
-		a0 = v
-		var a1 = v
+	static function chain(v T, flag bool) returns Self where T implements Copyable
+		var a0 = v.clone()
+		a0 = v.clone()
+		var a1 = v.clone()
 		if flag 'x1'
 			a1 = a0
 		end 'x1' else 'y1'
 			a1 = a0
 		end 'y1'
-		var a2 = v
+		var a2 = v.clone()
 		if flag 'x2'
 			a2 = a1
 		end 'x2' else 'y2'
 			a2 = a1
 		end 'y2'
-		var a3 = v
+		var a3 = v.clone()
 		if flag 'x3'
 			a3 = a2
 		end 'x3' else 'y3'
 			a3 = a2
 		end 'y3'
-		var a4 = v
+		var a4 = v.clone()
 		if flag 'x4'
 			a4 = a3
 		end 'x4' else 'y4'
 			a4 = a3
 		end 'y4'
-		var a5 = v
+		var a5 = v.clone()
 		if flag 'x5'
 			a5 = a4
 		end 'x5' else 'y5'
 			a5 = a4
 		end 'y5'
-		var a6 = v
+		var a6 = v.clone()
 		if flag 'x6'
 			a6 = a5
 		end 'x6' else 'y6'
 			a6 = a5
 		end 'y6'
-		var a7 = v
+		var a7 = v.clone()
 		if flag 'x7'
 			a7 = a6
 		end 'x7' else 'y7'
 			a7 = a6
 		end 'y7'
-		var a8 = v
+		var a8 = v.clone()
 		if flag 'x8'
 			a8 = a7
 		end 'x8' else 'y8'
 			a8 = a7
 		end 'y8'
-		var a9 = v
+		var a9 = v.clone()
 		if flag 'x9'
 			a9 = a8
 		end 'x9' else 'y9'
 			a9 = a8
 		end 'y9'
-		var a10 = v
+		var a10 = v.clone()
 		if flag 'x10'
 			a10 = a9
 		end 'x10' else 'y10'
 			a10 = a9
 		end 'y10'
-		var a11 = v
+		var a11 = v.clone()
 		if flag 'x11'
 			a11 = a10
 		end 'x11' else 'y11'
 			a11 = a10
 		end 'y11'
-		var a12 = v
+		var a12 = v.clone()
 		if flag 'x12'
 			a12 = a11
 		end 'x12' else 'y12'
 			a12 = a11
 		end 'y12'
-		var a13 = v
+		var a13 = v.clone()
 		if flag 'x13'
 			a13 = a12
 		end 'x13' else 'y13'
 			a13 = a12
 		end 'y13'
-		var a14 = v
+		var a14 = v.clone()
 		if flag 'x14'
 			a14 = a13
 		end 'x14' else 'y14'
 			a14 = a13
 		end 'y14'
-		var a15 = v
+		var a15 = v.clone()
 		if flag 'x15'
 			a15 = a14
 		end 'x15' else 'y15'
 			a15 = a14
 		end 'y15'
-		var a16 = v
+		var a16 = v.clone()
 		if flag 'x16'
 			a16 = a15
 		end 'x16' else 'y16'
 			a16 = a15
 		end 'y16'
-		var a17 = v
+		var a17 = v.clone()
 		if flag 'x17'
 			a17 = a16
 		end 'x17' else 'y17'
 			a17 = a16
 		end 'y17'
-		var a18 = v
+		var a18 = v.clone()
 		if flag 'x18'
 			a18 = a17
 		end 'x18' else 'y18'
 			a18 = a17
 		end 'y18'
-		var a19 = v
+		var a19 = v.clone()
 		if flag 'x19'
 			a19 = a18
 		end 'x19' else 'y19'
 			a19 = a18
 		end 'y19'
-		var a20 = v
+		var a20 = v.clone()
 		if flag 'x20'
 			a20 = a19
 		end 'x20' else 'y20'
 			a20 = a19
 		end 'y20'
-		var a21 = v
+		var a21 = v.clone()
 		if flag 'x21'
 			a21 = a20
 		end 'x21' else 'y21'
 			a21 = a20
 		end 'y21'
-		var a22 = v
+		var a22 = v.clone()
 		if flag 'x22'
 			a22 = a21
 		end 'x22' else 'y22'
 			a22 = a21
 		end 'y22'
-		var a23 = v
+		var a23 = v.clone()
 		if flag 'x23'
 			a23 = a22
 		end 'x23' else 'y23'
 			a23 = a22
 		end 'y23'
-		var a24 = v
+		var a24 = v.clone()
 		if flag 'x24'
 			a24 = a23
 		end 'x24' else 'y24'
@@ -2816,11 +2817,11 @@ type Holder uses Element
 		return Self{}
 	end 'create'
 
-	function add(item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'add'
 
-	function entryAt(i Index) returns Entry
+	function entryAt(i Index) returns Entry where Element implements Copyable
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
 		return (v, 1)
 	end 'entryAt'
@@ -2829,7 +2830,7 @@ end 'Holder'
 typealias StringHolder = Holder with String
 
 function pluck() returns (String, Integer)
-	let h = StringHolder.create()
+	var h = StringHolder.create()
 	h.add("the source is gone")
 	return h.entryAt(0)
 end 'pluck'
@@ -2865,11 +2866,11 @@ type Holder uses Element
 		return Self{}
 	end 'create'
 
-	function add(item Element)
-		items.push(item)
+	function add(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'add'
 
-	function entryAt(i Index) returns Entry
+	function entryAt(i Index) returns Entry where Element implements Copyable
 		let v = try items.get(i) otherwise panic("Holder.entryAt: out of range")
 		return (v, 1)
 	end 'entryAt'
@@ -2878,7 +2879,7 @@ end 'Holder'
 typealias SmallHolder = Holder with SmallInt
 
 function main() returns ExitCode
-	let h = SmallHolder.create()
+	var h = SmallHolder.create()
 	h.add(40)
 	h.add(2)
 	let a = h.entryAt(0)
@@ -2909,8 +2910,8 @@ type Pack uses T
 		return Self{n: 40}
 	end 'create'
 
-	function tag(consumes t T) returns Integer
-		let pair = (t, n)
+	function tag(t T) returns Integer where T implements Copyable
+		let pair = (t.clone(), n)
 		return pair.1
 	end 'tag'
 end 'Pack'
@@ -2985,6 +2986,7 @@ The refusal is the same container-element rule as `Box with Named`, and it holds
 NOTHING for an interface argument the parser already refused.
 
 <!-- test: error.an-interface-array-element-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 interface Named
 	function label() returns String
@@ -4154,7 +4156,7 @@ interface Source uses Item
 end 'Source'
 
 extension Source
-	function pick(consumes other Item, preferOther bool) returns Item
+	function pick(consumes other Item, preferOther bool) returns Item where Item implements Droppable
 		if preferOther 'theArgument'
 			return other
 		end 'theArgument'
@@ -5861,11 +5863,11 @@ mapped 3
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 
-	function touch() returns ExitCode
+	function touch() returns ExitCode where T implements Droppable
 		let e = function(x T) gives x
 		_ = e(self.v)
 		return 7
@@ -5894,11 +5896,11 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(consumes a T, consumes b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
-	static function twice(consumes v T) returns Self
+	static function twice(v T) returns Self where T implements Copyable
 		return create(v, b: v)
 	end 'twice'
 end 'DPair'
@@ -5936,11 +5938,11 @@ type DPair uses T
 	export var a as T
 	export var b as T
 
-	static function create(consumes a T, consumes b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
-	static function twice(consumes v T) returns Self
+	static function twice(v T) returns Self where T implements Copyable
 		return create(v, b: v)
 	end 'twice'
 end 'DPair'
@@ -6005,8 +6007,8 @@ type Registry uses Value
 		return Self{entries: ValueMap.create()}
 	end 'create'
 
-	function put(key String, item Value)
-		self.entries.upsert(key, value: item)
+	function put(mutates self, key String, item Value) where Value implements Droppable and Copyable
+		self.entries.upsert(key.clone(), value: item.clone())
 	end 'put'
 
 	function count() returns Count
@@ -6017,7 +6019,7 @@ end 'Registry'
 typealias StringRegistry = Registry with String
 
 function main() returns ExitCode
-	let registry = StringRegistry.create()
+	var registry = StringRegistry.create()
 	registry.put("a", item: "hello {1 + 1}")
 	registry.put("b", item: "world {2 + 2}")
 	registry.put("a", item: "again {3 + 3}")
@@ -6037,8 +6039,8 @@ A field typed as an instance over the type parameter (`Cell`), written through `
 type Cell uses T
 	export var v as T
 
-	static function make(consumes v T) returns Self
-		return Self{v: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'make'
 end 'Cell'
 
@@ -6046,8 +6048,8 @@ type Slot uses T
 	export typealias C = Cell with T
 	export var c as C
 
-	static function create(consumes c C) returns Self
-		return Self{c: c}
+	static function create(c C) returns Self where T implements Copyable
+		return Self{c: c.clone()}
 	end 'create'
 end 'Slot'
 
@@ -6056,12 +6058,12 @@ type Wrapper uses T
 	export typealias WrapperCell = Cell with T
 	var inner as Inner
 
-	static function create(consumes c WrapperCell) returns Self
+	static function create(c WrapperCell) returns Self where T implements Copyable
 		return Self{inner: Inner.create(c)}
 	end 'create'
 
-	function put(mutates self, consumes next WrapperCell)
-		self.inner.c = next
+	function put(mutates self, next WrapperCell) where T implements Droppable and Copyable
+		self.inner.c = next.clone()
 	end 'put'
 end 'Wrapper'
 
@@ -7033,19 +7035,19 @@ Inside `Holder`'s own body the base names the enclosing instance, so `Holder.mak
 type Holder uses T
 	var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	static function make() returns T
 		panic("nothing to make")
 	end 'make'
 
-	static function orMake(flag bool, consumes v T) returns T
+	static function orMake(flag bool, v T) returns T where T implements Copyable
 		if flag 'wantsOne'
 			return Holder.make()
 		end 'wantsOne'
-		return v
+		return v.clone()
 	end 'orMake'
 end 'Holder'
 
@@ -7105,13 +7107,13 @@ An argument that is an instance of the static's own base fixes nothing about the
 type Holder uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function keep(other StrHolder, consumes fallback T) returns T
+	static function keep(other StrHolder, fallback T) returns T where T implements Copyable
 		print("{other.v}\n")
-		return fallback
+		return fallback.clone()
 	end 'keep'
 end 'Holder'
 
@@ -7176,8 +7178,8 @@ A static with no result, called through an instance alias, types nothing and lea
 type Holder uses T
 	var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	static function note(n Count)
@@ -7313,9 +7315,9 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(consumes x T) returns Count
-		var copy = x
-		copy = x
+	static function keep(x T) returns Count where T implements Copyable
+		var copy = x.clone()
+		copy = x.clone()
 		let pair = Self{v: copy}
 		return pair.touch()
 	end 'keep'
@@ -7345,8 +7347,8 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(consumes x T) returns Count
-		let pair = Self{v: x}
+	static function keep(x T) returns Count where T implements Copyable
+		let pair = Self{v: x.clone()}
 		return pair.touch()
 	end 'keep'
 end 'Box'
@@ -7375,9 +7377,9 @@ type Box uses T
 		return 1
 	end 'touch'
 
-	static function keep(consumes x T) returns Count
-		var copy = x
-		copy = x
+	static function keep(x T) returns Count where T implements Copyable
+		var copy = x.clone()
+		copy = x.clone()
 		let pair = Self{v: copy}
 		return pair.touch()
 	end 'keep'
@@ -7748,7 +7750,7 @@ type Pair uses A, B
 		return Self{firsts: AArray.create(0), seconds: BArray.create(0)}
 	end 'create'
 
-	function depth(n Integer) returns Integer
+	function depth(n Integer) returns Integer where B implements Droppable, A implements Droppable
 		if n == 0 'done'
 			return 0
 		end 'done'
@@ -7799,7 +7801,7 @@ type Fix uses X, Y
 		return Self{xs: XArray.create(0), ys: YArray.create(0)}
 	end 'create'
 
-	function depth(n Integer) returns Integer
+	function depth(n Integer) returns Integer where X implements Droppable
 		if n == 0 'done'
 			return 0
 		end 'done'

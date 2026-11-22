@@ -152,8 +152,8 @@ typealias CellArray = Array with Cell
 type Chain uses T
 	export var seed as T
 
-	static function create(consumes seed T) returns Self
-		return Self{seed: seed}
+	static function create(seed T) returns Self where T implements Copyable
+		return Self{seed: seed.clone()}
 	end 'create'
 
 	function churn(d Num) returns Num

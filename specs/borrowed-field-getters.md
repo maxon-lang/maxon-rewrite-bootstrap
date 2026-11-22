@@ -431,16 +431,16 @@ end 'Note'
 type Shelf uses Item
 	var held as Item
 
-	static function create(consumes held Item) returns Self
-		return Self{held: held}
+	static function create(held Item) returns Self where Item implements Copyable
+		return Self{held: held.clone()}
 	end 'create'
 
-	function holding() returns Item
-		return self.held
+	function holding() returns Item where Item implements Copyable
+		return self.held.clone()
 	end 'holding'
 
-	function replace(mutates self, consumes next Item)
-		self.held = next
+	function replace(mutates self, next Item) where Item implements Droppable and Copyable
+		self.held = next.clone()
 	end 'replace'
 end 'Shelf'
 

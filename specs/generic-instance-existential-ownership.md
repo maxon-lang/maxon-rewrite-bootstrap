@@ -37,8 +37,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -53,7 +53,7 @@ end 'Gen'
 typealias StringGen = Gen with String
 
 function widen(label String) returns Sink
-	return StringGen.create(label.clone())
+	return StringGen.create(label)
 end 'widen'
 
 function main() returns ExitCode
@@ -92,8 +92,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -141,8 +141,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -190,8 +190,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -253,8 +253,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -310,8 +310,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -367,8 +367,8 @@ type Gen uses T implements Sink
 	var held as T
 	var seen as Tally
 
-	static function create(consumes held T) returns Self
-		return Self{held: held, seen: 0}
+	static function create(held T) returns Self where T implements Copyable
+		return Self{held: held.clone(), seen: 0}
 	end 'create'
 
 	function take(mutates self, by Tally)
@@ -386,7 +386,7 @@ type Shelf
 	var sink as Sink
 
 	static function create(label String) returns Self
-		return Self{sink: StringGen.create(label.clone())}
+		return Self{sink: StringGen.create(label)}
 	end 'create'
 
 	function poke(mutates self) returns Tally

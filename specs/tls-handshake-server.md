@@ -52,7 +52,6 @@ authentication.
 ## Tests
 
 <!-- test: tls-handshake-server.replay-openssl-transcripts -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Four transcripts the client of OpenSSL 3.0.13 sent to the canra reference server replay byte for byte: every record the server sends is the record the vector lists, ServerHello, change_cipher_spec, the protected flight, the application data and close_notify included. They are a default handshake (OpenSSL offers X25519 and compatibility mode), a HelloRetryRequest to secp256r1, an Ed25519 server key, and a handshake where the server required, and verified, OpenSSL's P-256 client certificate.
 ```maxon
@@ -94,9 +93,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -209,7 +207,6 @@ server13-openssl-mtls-ecdsa-p256 {"state":"connected","version":772,"cipher_suit
 ```
 
 <!-- test: tls-handshake-server.handshakes-by-server-key -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 The canra reference client's handshakes with each server key type: the default (ECDSA P-256, compatibility mode, ALPN), RSA-PSS with no compatibility mode, ECDSA P-384 and Ed25519. The server signs the CertificateVerify with the first of its own schemes that the client offered and the key fits.
 ```maxon
@@ -251,9 +248,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -366,7 +362,6 @@ server13-ed25519 {"state":"connected","version":772,"cipher_suite":4867,"group":
 ```
 
 <!-- test: tls-handshake-server.negotiated-handshakes -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes that negotiate: a HelloRetryRequest to secp256r1, a client that sends a P-256 share the server prefers less than X25519 and gets P-256 without a retry, a KeyUpdate that asks the server to update its own keys, a client without server_name, and a ClientHello alone, which gets the server's whole first flight and leaves the handshake open.
 ```maxon
@@ -408,9 +403,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -532,7 +526,6 @@ server13-hello-only {"state":"handshaking","version":772,"cipher_suite":4867,"gr
 ```
 
 <!-- test: tls-handshake-server.client-authentication -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A server that asks for a client certificate: it requires, and verifies with the clientAuth purpose and no host name, an ECDSA P-256 or an RSA-PSS client certificate; with `request` it continues when the client has none (the peer is not authenticated); its CertificateRequest carries certificate_authorities when configured.
 ```maxon
@@ -574,9 +567,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -689,7 +681,6 @@ server13-mtls-certificate-authorities {"state":"connected","version":772,"cipher
 ```
 
 <!-- test: tls-handshake-server.negotiation-errors -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A ClientHello the server refuses, each with the alert the server sends, in the contract's negotiation order: no common suite, signature_algorithms, key_share or supported_groups missing, a key share for a group the client does not list, no common group, no common signature scheme, no common ALPN protocol, no common version and a compression method.
 ```maxon
@@ -731,9 +722,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -900,7 +890,6 @@ server13-err-no-application-protocol noApplicationProtocol
 ```
 
 <!-- test: tls-handshake-server.hello-retry-request-errors -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A second ClientHello the server refuses after its HelloRetryRequest: one whose key_share is not the one share for the selected group.
 ```maxon
@@ -942,9 +931,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1030,7 +1018,6 @@ server13-err-second-client-hello-group illegalParameter
 ```
 
 <!-- test: tls-handshake-server.record-and-order-errors -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Records and messages the server refuses: a change_cipher_spec before the ClientHello, a duplicate extension, a client Certificate nobody asked for, a tampered record and a Finished that does not verify.
 ```maxon
@@ -1072,9 +1059,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1196,7 +1182,6 @@ server13-err-client-finished decryptError
 ```
 
 <!-- test: tls-handshake-server.client-authentication-errors -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A client the server refuses when it asks for a certificate: none at all under `require` (CertificateRequired, also when no scheme in common leaves the client without a signature), a chain from an unknown CA, one for the wrong purpose, an expired one, a CertificateVerify that does not verify and one whose scheme the request did not list.
 ```maxon
@@ -1238,9 +1223,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1380,7 +1364,6 @@ server13-err-client-scheme-not-offered illegalParameter
 ```
 
 <!-- test: tls-handshake-server.client-alerts-before-the-finished -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 An alert the client sends after the server flight, in place of its Finished, is read under the client handshake keys: a fatal alert protected under them is `alertReceived`, so is a close_notify, a user_canceled is ignored and the server keeps waiting, and an alert in plaintext is `unexpectedMessage`, its outer content type not being application_data.
 ```maxon
@@ -1422,9 +1405,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1537,7 +1519,6 @@ server13-alert-plaintext-after-the-keys unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.message-length-limits -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A handshake message is refused, with InternalError, as soon as its 4-byte header announces more than 65536 bytes, or more than 262144 for a Certificate: a ClientHello header one byte over the cap, a client Certificate header one byte over, and a KeyUpdate header one byte over after the handshake. A ClientHello header exactly at the cap is not refused: the server waits for the rest.
 ```maxon
@@ -1579,9 +1560,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1694,7 +1674,6 @@ server13-err-post-handshake-message-too-long internalError
 ```
 
 <!-- test: tls-handshake-server.no-record-inside-a-handshake-message -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Application data while a partial KeyUpdate is buffered is UnexpectedMessage.
 ```maxon
@@ -1736,9 +1715,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1824,7 +1802,6 @@ server13-err-application-data-inside-a-handshake-message unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.useless-records -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Seventeen change_cipher_spec records in a row after the ClientHello are UnexpectedMessage.
 ```maxon
@@ -1866,9 +1843,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -1954,7 +1930,6 @@ server13-err-too-many-change-cipher-specs unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.reference-signatures-and-preferences -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Handshakes made with the canra reference client and checked by the canra reference server, for the server's choices the canra vectors do not reach: RSA-PSS with SHA-384 and SHA-512 (the salt is the first digest-length bytes of the configured salt), the first of the server's schemes the client offered and the key fits, the server's own suite order, a sent share preferred over a retry that its own group order would prefer, the server's own ALPN order, and no ALPN when either side has none.
 ```maxon
@@ -1996,9 +1971,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -2147,7 +2121,6 @@ reference13-no-alpn-when-the-server-has-none {"state":"connected","version":772,
 ```
 
 <!-- test: tls-handshake-server.reference-hello-and-record-shapes -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 More handshakes made with the canra reference client: a HelloRetryRequest with no compatibility mode (no change_cipher_spec at all), a KeyUpdate that asks for no reply, an ignored user_canceled alert, records after close_notify (ignored unread), the server's application data written in fragments of 16384 bytes with an empty write between, a certificate chain long enough to split the server flight over records, and a ClientHello split over two records.
 ```maxon
@@ -2189,9 +2162,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -2331,7 +2303,6 @@ reference13-client-hello-split-over-two-records {"state":"connected","version":7
 ```
 
 <!-- test: tls-handshake-server.reference-client-authentication -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 More client authentication made with the canra reference client: an Ed25519 client certificate under `require`, a P-256 one under `request`, and an RSA-PSS one after a HelloRetryRequest.
 ```maxon
@@ -2373,9 +2344,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -2479,7 +2449,6 @@ reference13-mtls-hello-retry-request {"state":"connected","version":772,"cipher_
 ```
 
 <!-- test: tls-handshake-server.reference-hello-refusals -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 ClientHellos and first records the server refuses, made with the canra reference client: an RSA key offered only RSA PKCS #1 schemes (never used in TLS 1.3), a key no offered scheme fits, a ClientHello that shares its record with another message, a first message that is not a ClientHello, an empty handshake record, a ClientHello cut short, an alert, a change_cipher_spec whose body is not 1 or that comes after the handshake, a client that offers only TLS 1.2 or an old legacy version, and invalid X25519 and P-256 key shares.
 ```maxon
@@ -2521,9 +2490,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -2726,7 +2694,6 @@ reference13-err-p256-share-not-on-the-curve illegalParameter
 ```
 
 <!-- test: tls-handshake-server.reference-second-client-hello-refusals -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A second ClientHello the server refuses after its HelloRetryRequest: one without the suite it chose, without TLS 1.3 in supported_versions, with two key shares or none, and one that is not a ClientHello.
 ```maxon
@@ -2768,9 +2735,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -2892,7 +2858,6 @@ reference13-err-second-client-hello-is-not-a-client-hello unexpectedMessage
 ```
 
 <!-- test: tls-handshake-server.reference-handshake-refusals -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Records the server refuses between its flight and the client's Finished, made with the canra reference client: a Finished of the wrong length or value, one that shares its record with a KeyUpdate, application data, a KeyUpdate, close_notify and fatal alerts before the Finished.
 ```maxon
@@ -2934,9 +2899,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -3085,7 +3049,6 @@ reference13-err-alert-of-three-bytes decodeError
 ```
 
 <!-- test: tls-handshake-server.reference-post-handshake-refusals -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Records the server refuses after the handshake, made with the canra reference client: a NewSessionTicket (a client never sends one), a KeyUpdate with a value above 1, a KeyUpdate that shares its record with another message, and a fatal alert.
 ```maxon
@@ -3127,9 +3090,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -3242,7 +3204,6 @@ reference13-err-fatal-alert-after-the-handshake alertReceived
 ```
 
 <!-- test: tls-handshake-server.reference-client-authentication-refusals -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Client authentication the server refuses, made with the canra reference client: a Certificate with a non-empty context or an entry extension, a Finished or a CertificateVerify where the Certificate belongs, a CertificateVerify after an empty Certificate, a Certificate that is not a certificate, a CertificateVerify whose scheme the key does not fit, and a chain from an unknown CA whatever certificate_authorities the request lists.
 ```maxon
@@ -3284,9 +3245,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -3435,7 +3395,6 @@ reference13-err-certificate-authorities-do-not-change-the-verdict unknownCa
 ```
 
 <!-- test: tls-handshake-server.reference-useless-records -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 Sixteen change_cipher_spec records in a row after the ClientHello are dropped: the server answers with its flight and waits for the client's Finished.
 ```maxon
@@ -3477,9 +3436,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)
@@ -3565,7 +3523,6 @@ reference13-change-cipher-specs-at-the-limit {"state":"handshaking","version":77
 ```
 
 <!-- test: tls-handshake-server.a-failure-sends-its-alert-and-stops-the-server -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib/helpers/tls -->
 A defect before any key exists sends the contract's fatal alert in a plaintext record (`15 03 03 00 02 02 <description>`) and stops the server: the same record again throws the same error and queues nothing. A fatal alert from the client, or a close_notify before the handshake completes, is `alertReceived` and sends nothing. `write` and `close` before the client's Finished have verified are refused, although the server's whole flight is already sent.
 ```maxon
@@ -3603,9 +3560,8 @@ typealias TextArray = Array with String
 
 function joined(items TextArray) returns String
 	var text = ""
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, item) in items.withIterator() 'eachItem'
-		if iter.index() > 0 'separator'
+	for (iter, item) in items.enumerated() 'eachItem'
+		if iter > 0 'separator'
 			text.append(",")
 		end 'separator'
 		text.append(item)

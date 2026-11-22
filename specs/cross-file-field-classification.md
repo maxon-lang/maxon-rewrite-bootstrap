@@ -673,8 +673,8 @@ and the generic type in the other.
 type Holder uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Holder'
 
@@ -700,8 +700,8 @@ on the interning order: its answer is the same at 0–7 padding aliases in the r
 type Holder uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Holder'
 

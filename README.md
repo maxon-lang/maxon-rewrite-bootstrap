@@ -69,7 +69,7 @@ the rest, with line endings made LF. A test whose conversion warned, or whose so
 `<!-- skip: kind -->` line per kind of warning after its test marker; the runner skips and counts it, and every other test
 runs. `--check` over the specs, and the summary at the end of a conversion, give the tests converted cleanly and skipped and
 the kinds by tests blocked, most blocking first. Then `fix specs` applies the fixes that minimaxon's language differences
-name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
+name (a `try`, a cast, `.clone()`, `consumes`, `mutates`, `mutates self`, `var`, the bound `where T implements Copyable` or `Droppable` that a generic body needs, written in the function's header, the module written before a bare name that means one declaration of another module, as `qualify` writes it) to every test that runs a program; a test
 that expects maxon's run-time trap where the fix adds a `try` gets a `<!-- skip: language difference: ... -->` line
 instead, and so does a test that expects a compile error which minimaxon reports first under another code for a known reason
 (the pairs of `self/driver/skips.tsv`, generated into `codeSkipTable`: ownership refused by another rule, the syntax error, operand
@@ -80,7 +80,9 @@ name (its `test` rows), whose program minimaxon runs to another answer by a lang
 IEEE's). A test that expects a compile error and is first refused under another code by a fixable language difference
 (arithmetic that needs a `try`, an integer cast, a clone, `mutates`, `var`, a bare name of another module) gets the fixes of the errors that are not the
 expected one, round by round, until the first error is the expected one, and a `<!-- positions: moved -->` line, since the
-fixes move text; if that is never reached it is left as it was. A test whose program changes the collection that its `for`
+fixes move text; if that is never reached, it is skipped when the code left after the fixes and the expected one are a
+pair of the table, or when the code it was first refused under is one of the table's `first` rows (`E3057`: arithmetic
+that needs a proof is asked for before what maxon reports), and otherwise left as it was. A test whose program changes the collection that its `for`
 walks gets `<!-- skip: language difference: a loop holds the collection it walks -->`. `specs.ps1` runs both and then the new tests (see "Tests"); `specs/README.md` has the command, and the directory is
 never edited by hand, except that the runner writes `specs/passed.txt` (see "Tests").
 
@@ -220,7 +222,7 @@ compiled as one more file of the runtime's module (`compileRuntimeTest`), so it 
 that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
 failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes when a test starts, so a crash of the compiler, which ends the run, names the tests that were under way; those lines fall between the others as the timing does.
 
-`minimaxon test <specs-dir|file.md> [--verbose] [--skip-passed] [--record-passed]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process, as behaviours, as the corpus runs. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once, from an executable of its own in the temporary directory. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line when it starts and its result in order, so a crash names the tests under way) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. `specs/passed.txt` lists the tests that have passed (one `file.md: test name` per line, sorted). `--require-passed` runs every test and fails the run when a listed one does not pass, printing `LOST file.md: test: what` for it (a failure, or `skipped: reason`) in place of its `FAIL` line, the count of them at the end, and `NEW file.md: test` for a test that passes and is not listed. `--skip-passed` leaves out, without compiling them, the listed tests (skipped under the reason `passed before (specs/passed.txt)`), runs the others, and prints `NEW` lines too; it cannot be given with `--require-passed`. A missing list is an error for both. `--record-passed` writes the list, and starts it when there is none: the tests that passed in the run, and the listed tests that the run left out, failed or skipped for a reason of the runner, so a regression stays listed and goes on failing the gate; a listed test that the conversion now skips (a `<!-- skip: -->` line, which a language change or the conversion put there) is dropped, with a `DROPPED file.md: test: reason` line. `check.ps1` runs `--require-passed`, and `specs.ps1` ends with a full run that records. `test specs` alone reads and writes nothing. The compiled program inherits the runner's standard input.
+`minimaxon test <specs-dir|file.md> [--verbose] [--skip-passed] [--record-passed]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process, as behaviours, as the corpus runs. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once, from an executable of its own in the temporary directory. A compile-error test compares the errors one for one by code and place, after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's): the messages, the notes and the lines that continue a message are left out (see "Where it differs from Maxon"), an error that maxon reports at no place matches its code at any place, and the line and column are compared only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line when it starts and its result in order, so a crash names the tests under way) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. `specs/passed.txt` lists the tests that have passed (one `file.md: test name` per line, sorted). `--require-passed` runs every test and fails the run when a listed one does not pass, printing `LOST file.md: test: what` for it (a failure, or `skipped: reason`) in place of its `FAIL` line, the count of them at the end, and `NEW file.md: test` for a test that passes and is not listed. `--skip-passed` leaves out, without compiling them, the listed tests (skipped under the reason `passed before (specs/passed.txt)`), runs the others, and prints `NEW` lines too; it cannot be given with `--require-passed`. A missing list is an error for both. `--record-passed` writes the list, and starts it when there is none: the tests that passed in the run, and the listed tests that the run left out, failed or skipped for a reason of the runner, so a regression stays listed and goes on failing the gate; a listed test that the conversion now skips (a `<!-- skip: -->` line, which a language change or the conversion put there) is dropped, with a `DROPPED file.md: test: reason` line. `check.ps1` runs `--require-passed`, and `specs.ps1` ends with a full run that records. `test specs` alone reads and writes nothing. The compiled program inherits the runner's standard input.
 
 `tests/bench/` holds the benchmarks: a counted loop, nested loops over an array, string building, records and unions, and a
 recursive function, each deterministic and ending in the checksum it prints (its `//>` line). The corpus runner leaves
@@ -808,6 +810,7 @@ indexed by `NodeID` (`NodeTypes`, `noType` where nothing was recorded); the fact
 | `patterns`, `arms` | a match pattern, a match arm | the case and a `LocalID` for each binding; the kind of arm |
 | `whens` | a `when` | the function the body became, the cowns and what it captures |
 | `iterations` | a `for` over a type with the iteration protocol | the calls of `createIterator()`, `current()` and `advance()`, and the cursor's type |
+| `indexes` | a `for (i, x) in xs.enumerated()` | the `LocalID` of `i`, which the lowering stores each pass's index in |
 | `nodeLocals`, `locals` | a `let`, a `for`, a `try` | the `LocalID`, and the `LocalEntry` it indexes (name, type, `var` or parameter, convention, its slot in the function's IR) |
 | `jumps` | a `break`, a `continue` | the `NodeID` of the loop or match |
 | `consumed` | an expression | set by the ownership pass where the value changes owner; lowering reads it and nothing else |
@@ -1946,7 +1949,7 @@ edit to `runtime/` rebuilds everything.
   union, `Array`, `Map`, `List`, `String`, `bool` or `int` from outside its body.
 - `let`, `var` (with a value, or `var x as T` without one), assignment to a variable, a field or an element,
   `_ = call()`, `if`/`else if`/`else`, `if let x = try call()` and `if try call()` with an `else`, `while`, `for i in a to|upto b`, `for x in xs` over an array or a type with
-  maxon's iteration protocol, `for (k, v) in m` over a map and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
+  maxon's iteration protocol, `for (i, x) in xs.enumerated()` over an array with its indexes, `for (k, v) in m` over a map and `for c in E.allCases` (see "Primitives"), `match` as a statement or expression
   (case, literal, range and string patterns, `or` alternatives, `default`, `panic` arms, `default throws E`, and `stmt and fallthrough`), `break`/`continue`
   with labels, `return`, `when` (a behaviour, see "Immutable values, cowns and behaviours"), and a `try` block with or
   without a handler (see "Checked arithmetic").
@@ -2528,7 +2531,9 @@ end 'wrap'
   it, passing it to a `consumes` parameter, returning it or storing it moves it (`E3102` after); a `let` or `mutates`
   parameter of type `T`, a payload of one and a field of a generic type are borrowed when their owner is (`E3900`); `clone()` of a
   `Copyable` one keeps it. A `T` that is only bounded by interfaces cannot be dropped either: where one dies, the
-  declaration says `where T implements Droppable` (`E3919`). So a generic container gives its element out with `.clone()` where `T` is `Copyable`, or takes it out of a primitive with `remove` or `pop`
+  declaration says `where T implements Droppable` (`E3919`). Maxon copies and drops a `T` without a bound; here each of
+  these diagnostics names the bound it needs, and `minimaxon fix` writes it in the `where` of the function whose body
+  needs it, a method's own for a parameter of its type (`E3900`, `E3918`, `E3919`, `E3017`). So a generic container gives its element out with `.clone()` where `T` is `Copyable`, or takes it out of a primitive with `remove` or `pop`
   (see "Primitives"), or moves the field out of an owned value.
 - **Copyable and Droppable.** Two built-in interfaces in the stdlib, with no methods, name capabilities of a type; a
   bound is written like any other (`where T implements Copyable and Droppable`). See "Capabilities and destructors".
@@ -2970,6 +2975,11 @@ keeps its place and no value is dropped. Nothing built in returns an `Option`, a
   (`E2013`), and its fields are as writable as the element's: `x.n = 3` needs a mutable `a`, through `var` fields.
   While the body runs, a place the loop walks is held as a match subject is: changing or moving it is `E3186`, and
   `for x in a.clone()` is the fix. The lowering is a loop over the indexes, reading the element in place.
+  `for (i, x) in a.enumerated()` walks it the same way and also binds each element's index, an `ElementIndex`, to `i`
+  (`_` for the one the body does not use): the loop is the one over `a` with the index it counts given to `i`, so no
+  pair and no iterator is made. `enumerated()` is a form of the `for` and not a method: it names the elements of an
+  `Array` or a `FixedArray`, the only collections whose elements have an index, and over anything else, or with one name,
+  it is `E2015`.
   A type walks with maxon's iteration protocol, found on its concrete type: a cursor declares `current()`, which gives
   the element and cannot fail, and `advance(mutates self) throws IterationError`, which fails past the last one; a
   collection declares `createIterator()`, which returns a cursor and may throw `IterationError` where it is empty. A
@@ -3404,7 +3414,11 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   lent, not copied, and the map is held while the body runs, so a body that changes it is `E3186` where maxon re-reads it. `E.allCases`
   and `E.allCaseNames` are a new array each time they are read, since an array has one owner, and `Shape.unionCases` is not
   supported. Not supported, and skipped by the converter: a loop over the characters of a `String` (there is no `Character`),
-  over its grapheme clusters, `split()` or `lines()`, and over `withIterator()`.
+  over its grapheme clusters, `split()` or `lines()`. maxon's `for (iter, x) in xs.withIterator()`, whose iterator the
+  body asks for `iter.index()`, is `for (i, x) in xs.enumerated()` here, as in Hylo and Swift: the loop binds the index
+  itself and there is no iterator object, so an array is walked with its indexes at the cost of the plain loop. The
+  converter rewrites the one form into the other, `iter.index()` into the name; a test whose body uses the iterator for
+  anything else is skipped.
 - Match arms name the case of an enum or a union by its bare name; a qualified `Color.red` is `E3075`, once for the match as
   maxon does (maxon's `Type.case` arms of a handler over the combined error of several errors are not supported, see
   "Errors of the program"). A bare `int` or `float` is the full range of its kind only on the right of a `typealias`
@@ -3450,7 +3464,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   in two registers). Destructuring a managed element out of a borrowed tuple, which Maxon shares, is `E3900` and takes
   `.clone()`, and so does naming it in a `for (a, b) in xs` over a collection of them. A tuple of bare numbers has the ranges of
   its numbers (`(int(1 to 1), int(2 to 2))`, for the messages that name it), not `(int, int)`, and two tuple literals of
-  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), `withIterator()`, a loop over
+  different numbers are two types. Not supported: a cast between tuple types (`E3009`, `E3226`), a loop over
   a `Map` that names the `(key, value)` pair by one variable (see "Primitives"), the spelling `t._0` of an element that
   some of Maxon's specs use, a tuple of a type parameter read by field in a generic body, a one-element target list `(x) = e`,
   and the `E3064` lint on a tuple assignment of nothing but `_`.
@@ -3537,8 +3551,7 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   traps on a miss, where only `get` and `set` throw, as maxon's do; `Pool`, `Handle` and the list's handle API (`prepend`
   and `append` return a `Handle`, `first` and `last` return one, `remove(h)`, `next`, `prev`, `moveToFront`) stand where
   maxon has pointers and indexes; `filled`, `Map.replace` and `dropEmpty` are minimaxon's own; only an array, a `Map`'s
-  entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List`, a range value and
-  `withIterator()` are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
+  entries and the views of a `String` are walked by `for x in` (a `String` itself, a `List` and a range value are not), and the loop holds the array or the map, so a body that pushes to it or reassigns it is
   refused (`E3186`) where maxon re-reads the live count; the
   iteration protocol is found on the concrete type, never through an interface; there is no `sort`, `contains`, `cursor` or `hash` yet, `reserve` does nothing, since a capacity is no part of an array's value here (there is no `capacity()`), and `clear`, `truncate`, `resize`, `slice`, `first` and `last` are maxon's; the indexes and counts they take are `ElementIndex`; `create(n)` refuses an enum element, whose
   zero here is its first case rather than its case of raw value 0, and takes no `zeroed:`; and `String` has the byte operations `byteLength`, `byteAt`, `sliceBytes`, `toByteArray`, the static `String.from(bytes)`, and maxon's text methods (see "Text").
@@ -3607,12 +3620,13 @@ the checker reports where Maxon's parser does, as it needs the type of the value
   name (`E3012`), a `var` that is never reassigned (`E3077`), a label naming the innermost block (`E2048`),
   an unneeded cast (`E3010`, so a cast to the type a value has is accepted), self-assignment or `_ =` on a non-call (`E3067`), a one-value range pattern
   (`E2027`), all bindings discarded (`E3081`), and the lint rules (`E3064`, `E3065`, `E3092`, `E3219`).
-- A diagnostic with a maxon code has maxon's text and position, except where the language differs. The text keeps
+- A diagnostic with a maxon code has maxon's code and position, except where the language differs; its text is
+  minimaxon's own, and the spec runner compares a diagnostic by its code, line and column alone. The text keeps
   minimaxon's own words where it names a keyword or a form that maxon spells otherwise (`mutates` for `mutable`, so a
   `let` passed to a `mutates` parameter and an assignment to a parameter say `mutates`; `default panic(...)` of an enum
   match, which has no `throws` form; `create(n)` of an element with no zero, which has no `zeroed:`; an overlapping
   argument as one name reached through two, `E3186`). A syntax error is the parser's generic message, not maxon's
-  expectation of the token, so the spec runner compares an `E2010` by its code and place alone. A type is named structurally, so a generic instance written through a typealias is named
+  expectation of the token. A type is named structurally, so a generic instance written through a typealias is named
   `Array with Byte` where maxon names it `Bytes`, and an index is a `Count` where maxon's is an `ElementIndex`.
 
 ## Changing the language

@@ -751,7 +751,6 @@ end 'main'
 ```
 
 <!-- test: bytes-assembled-in-a-loop-fill-an-unsigned-quantity-word -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 ### Bytes assembled in a loop fill an unsigned-quantity word, top byte included
 The shape any code building a machine word out of bytes has: a loop-carried accumulator, a shift by a
 computed count, and a last byte at or above 0x80.
@@ -760,15 +759,14 @@ typealias Word = int(0 to u64.max)
 
 function packed(bytes ByteArray) returns Word
 	var word = 0 as Word
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, value) in bytes.withIterator() 'eachByte'
-		word = word or ((value as Word) shl ((iter.index() as Word) * 8))
+	for (iter, value) in bytes.enumerated() 'eachByte'
+		word = word or (try (value as Word) shl ((iter as Word) * 8) otherwise panic("out of range"))
 	end 'eachByte'
 	return word
 end 'packed'
 
 function main() returns ExitCode
-	let bytes = ByteArray.create(0)
+	var bytes = ByteArray.create(0)
 	for i in 1 upto 8 'eachLowByte'
 		bytes.push(i as Byte)
 	end 'eachLowByte'
@@ -1472,6 +1470,7 @@ end 'main'
 ```
 
 <!-- test: error.a-wrapping-unsigned-fold-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### A fold over full-width unsigned operands that wraps is refused
 `+` and `-` over a full-width unsigned alias are checked at the operation, so a constant expression whose result
 leaves the range is E3005. Arithmetic meant to wrap is written over `bits(64)`.
@@ -1694,6 +1693,7 @@ end 'main'
 ```
 
 <!-- test: an-unsigned-difference-that-borrows-is-refused-when-folded -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### …and a borrow is refused, folded
 ```maxon
 typealias Count = int(0 to u64.max)

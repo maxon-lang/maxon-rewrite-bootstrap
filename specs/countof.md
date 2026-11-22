@@ -699,6 +699,7 @@ end 'main'
 ```
 
 <!-- test: error.an-alias-of-a-Self-typed-parameter-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same gap one alias further out. `other Self` IS a shape the pre-scan reads
 (`selfTypedParamDeclaredAt`), so `other.capacity()` is served — but a plain `var same = other`

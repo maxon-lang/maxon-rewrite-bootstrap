@@ -481,7 +481,8 @@ function visitForStmt(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 end 'visitForStmt'
 
 // visitForEach lowers a for over an array to a loop over its indexes. The array is read once, and the ownership pass keeps
-// the body from changing it. Each element is lent to the variable, as a subscript lends it.
+// the body from changing it. Each element is lent to the variable, as a subscript lends it, and a loop over `enumerated()`
+// also gives the index to its variable.
 function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleState, s ast.NodeID)
 	let source = ast.forStmtFrom(p.modules[l.mi].tree, id: s)
 	let box = arrayOf(l, p: p, ms: ms, site: siteOf(l, p: p, node: s), t: exprType(p, module: l.module, node: source))
@@ -508,6 +509,11 @@ function visitForEach(mutates l Lowerer, p ast.Project, mutates ms ast.ModuleSta
 	let elem = arrayLoad(l, p: p, ms: ms, box: box, arr: arr, index: i)
 	let lent = regKind(l, v: elem) == IrKind.kindManaged
 	emit(l, i: newStoreSlot(slotOf(sym), src: elem, borrow: lent))
+	let indexLocal = indexLocalOf(p, module: l.module, node: s)
+	if indexLocal != ast.noLocal 'enumerated'
+		let position = load(l, slot: index)
+		emit(l, i: newStoreSlot(slotOf(localEntry(p, module: l.fnModule, id: indexLocal)), src: position, borrow: false))
+	end 'enumerated'
 	pushJumps(l, node: s, brk: exit, cont: cont)
 	lowerBlock(l, p: p, ms: ms, ref: ast.forStmtBodyRef(p.modules[l.mi].tree, id: s))
 	goTo(l, target: cont)

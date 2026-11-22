@@ -89,8 +89,8 @@ typealias Idx = int(0 to u64.max)
 type Box uses T
 	export var slot as T
 
-	static function make(consumes v T) returns Self
-		return Self{slot: v}
+	static function make(v T) returns Self where T implements Copyable
+		return Self{slot: v.clone()}
 	end 'make'
 
 	function tag() returns Idx
@@ -567,8 +567,8 @@ end 'Tag'
 type Container uses Element
 	var item as Element
 
-	static function create(consumes item Element) returns Self
-		return Self{item: item}
+	static function create(item Element) returns Self where Element implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Container'
 
@@ -615,7 +615,7 @@ interface HasItems uses Element
 end 'HasItems'
 
 extension HasItems where Element implements Sizer
-	function currentSize() returns ExitCode
+	function currentSize() returns ExitCode where Element implements Droppable
 		return self.current().size()
 	end 'currentSize'
 end 'HasItems'

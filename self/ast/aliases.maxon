@@ -105,6 +105,8 @@ export function declareRangeAlias(mutates ms ModuleState, p Project, ref DeclRef
 		return
 	end 'instance'
 	let off = ms.parsed.tree.startOf(ad.id)
+	// A fault of the range is reported at the range, where maxon points.
+	let rangeOff = ms.parsed.tree.aliasTypeStart(ad.id)
 	if isGenericOwned(ms.parsed, name: ad.name) 'perInstance'
 		diag.pushSiteError(errs, code: diag.errUnsupportedFeature, message: perInstanceRangeRefusal(ad.name), module: ref.module, offset: off)
 		return
@@ -118,7 +120,7 @@ export function declareRangeAlias(mutates ms ModuleState, p Project, ref DeclRef
 		return
 	end 'float'
 	if ad.number != "" 'otherNumber'
-		diag.pushSiteError(errs, code: diag.errUnknownType, message: "'{ad.number}' is no number type to take a range of; write int(low to high) or float(low to high)", module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errUnknownType, message: "'{ad.number}' is no number type to take a range of; write int(low to high) or float(low to high)", module: ref.module, offset: rangeOff)
 		return
 	end 'otherNumber'
 	var lo as I128
@@ -135,11 +137,11 @@ export function declareRangeAlias(mutates ms ModuleState, p Project, ref DeclRef
 		hi = hi.sub(I128.one())
 	end 'exclusive'
 	if lo.gt(hi) 'empty'
-		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.emptyIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.emptyIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: rangeOff)
 		return
 	end 'empty'
 	if lo.isNeg() and hi.gt(I128.i64Max()) 'unrepresentable'
-		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.unrepresentableIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: diag.unrepresentableIntegerRange(lo.toString(), high: hi.toString()), module: ref.module, offset: rangeOff)
 		return
 	end 'unrepresentable'
 	var e = TypeEntry.make(TypeKind.intRange, name: ad.name.clone())
@@ -203,9 +205,10 @@ end 'declareBitsAlias'
 // declareFloatAlias gives a typealias of a float range its type, whose bounds are doubles: a float or an integer
 // literal, or the limit of f64 or f32.
 function declareFloatAlias(mutates ms ModuleState, p Project, ref DeclRef, ad AliasDecl, mutates errs diag.ErrorList)
-	let off = ms.parsed.tree.startOf(ad.id)
+	// A fault of the range is reported at the range, where maxon points.
+	let rangeOff = ms.parsed.tree.aliasTypeStart(ad.id)
 	if not ad.inclusive 'exclusive'
-		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "a float range includes its upper bound: write 'to' in place of 'upto'", module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "a float range includes its upper bound: write 'to' in place of 'upto'", module: ref.module, offset: rangeOff)
 		return
 	end 'exclusive'
 	var lo = 0 as Count
@@ -219,7 +222,7 @@ function declareFloatAlias(mutates ms ModuleState, p Project, ref DeclRef, ad Al
 		none then return
 	end 'high'
 	if floatCompare(lo, b: hi) == FloatOrder.greater 'empty'
-		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "the range float({floatDiagnosticText(lo)} to {floatDiagnosticText(hi)}) is empty: its lower bound is above its upper bound", module: ref.module, offset: off)
+		diag.pushSiteError(errs, code: diag.errTypeMismatch, message: "the range float({floatDiagnosticText(lo)} to {floatDiagnosticText(hi)}) is empty: its lower bound is above its upper bound", module: ref.module, offset: rangeOff)
 		return
 	end 'empty'
 	var e = TypeEntry.make(TypeKind.floatRange, name: ad.name.clone())

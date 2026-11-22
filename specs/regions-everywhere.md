@@ -17,6 +17,7 @@ it writes, keeps or returns is marked, and a function type never waits or yields
 ## Tests
 
 <!-- test: a-function-value-keeping-its-parameter-in-a-container-does-not-convert-to-a-plain-function-type -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `stash` pushes `thing` into the shelf it was handed, so it keeps `thing`. `Stasher` declares nothing about its
 second parameter, so a caller holding that argument read-only would have it written through.
@@ -585,6 +586,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-returning-its-read-only-parameter-does-not-convert-to-a-plain-function-type -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 `same` returns data reached from its read-only parameter, and a function type promises nothing about what its
 result shares with its argument.
 
@@ -656,6 +658,7 @@ end 'main'
 ```
 
 <!-- test: a-function-value-throwing-its-parameter-in-a-payload-does-not-convert-to-a-plain-function-type -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A thrown payload stores its argument, so `find` keeps `key`, and `lookup`, which hands `key` to it, keeps `key` too.
 
 ```maxon

@@ -1,0 +1,54 @@
+typealias Int = int(i64.min to i64.max)
+
+typealias Words = Array with String
+
+typealias Ints = Array with Int
+
+typealias Vec3 = FixedArray with 3 Int
+
+function main() returns ExitCode
+	var words = Words.create(0)
+	words.push("ada")
+	words.push("alan")
+	words.push("grace")
+	for (i, word) in words.enumerated() 'each'
+		print("{i} {word}\n")
+	end 'each'
+	var numbers = Ints.create(0)
+	numbers.push(10)
+	numbers.push(20)
+	numbers.push(30)
+	numbers.push(40)
+	var sum = 0 as Count
+	for (i, _) in numbers.enumerated() 'indexes'
+		sum = try sum + (i as Count) otherwise panic("overflow")
+	end 'indexes'
+	print("{sum}\n")
+	for (i, n) in numbers.enumerated() 'skip'
+		if i == 0 'first'
+			continue 'skip'
+		end 'first'
+		if n > 30 'last'
+			break 'skip'
+		end 'last'
+		print("{i}: {n}\n")
+	end 'skip'
+	var v = Vec3.create()
+	v.set(1, value: 7)
+	for (i, x) in v.enumerated() 'fixed'
+		for (j, word) in words.enumerated() 'inner'
+			if i == j and x > 0 'match'
+				print("{word} {x}\n")
+			end 'match'
+		end 'inner'
+	end 'fixed'
+	return 0
+end 'main'
+
+//> 0 ada
+//> 1 alan
+//> 2 grace
+//> 6
+//> 1: 20
+//> 2: 30
+//> alan 7

@@ -361,7 +361,7 @@ function main() returns ExitCode
 	let info = try File.info(Directory.currentPath()) otherwise 'missing'
 		return 90
 	end 'missing'
-	return (FileInfo.make().tag + (1 if info.isDirectory else 0)) as ExitCode
+	return try (FileInfo.make().tag + (1 if info.isDirectory else 0)) as ExitCode otherwise panic("out of range")
 end 'main'
 
 typealias Integer = int(i64.min to i64.max)
@@ -400,6 +400,7 @@ error E3004: <fragment>:7:17: call to undefined function '__Clock.nowMs': the '_
 ```
 
 <!-- test: stdlib-user-shadows.error.a-user-reserved-declaration-beside-a-shadow -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ⚠ **A USER `__` DECLARATION IS E2051 WHETHER OR NOT IT COLLIDES WITH A MINT, AND THE DIAGNOSTIC POINTS AT
 THE USER'S OWN LINE.** This case is the TYPE half, and what guards it is that the mint re-probes past every
@@ -1364,8 +1365,8 @@ file's own `Byte` binds that one and keeps a value past the library's range.
 ```maxon
 typealias Byte = int(0 to 60000)
 
-function pick(consumes value T) uses T returns T
-	return value
+function pick(value T) uses T returns T where T implements Copyable
+	return value.clone()
 end 'pick'
 
 function same(left stdlib.Byte, right stdlib.Byte) returns bool

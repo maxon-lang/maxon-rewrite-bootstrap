@@ -293,7 +293,7 @@ export function verifyBounds(mutates c Checker, p ast.Project, mutates ms ast.Mo
 		if bounds[i].receiverTy != ast.noType 'conditional'
 			requireCondition(c, p: p, ms: ms, bound: bounds[i], errs: errs)
 		end 'conditional' else 'bound'
-			requireConforms(c, p: p, ms: ms, off: bounds[i].off, arg: bounds[i].argTy, iface: bounds[i].ifaceTy, param: bounds[i].paramTy, errs: errs)
+			requireConforms(c, p: p, ms: ms, off: bounds[i].off, arg: bounds[i].argTy, iface: bounds[i].ifaceTy, param: bounds[i].paramTy, inFn: bounds[i].inFn, errs: errs)
 		end 'bound'
 		failedSame = failedSince(errs, mark: mark)
 	end 'each'
@@ -304,7 +304,7 @@ end 'verifyBounds'
 // is how maxon words it.
 function requireCondition(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, bound PendingBound, mutates errs diag.ErrorList)
 	var refused = diag.ErrorList.create(0)
-	requireConforms(c, p: p, ms: ms, off: bound.off, arg: bound.argTy, iface: bound.ifaceTy, param: bound.paramTy, errs: refused)
+	requireConforms(c, p: p, ms: ms, off: bound.off, arg: bound.argTy, iface: bound.ifaceTy, param: bound.paramTy, inFn: bound.inFn, errs: refused)
 	if refused.count() == 0 'met'
 		return
 	end 'met'
@@ -338,8 +338,8 @@ function sameArgument(a PendingBound, b PendingBound) returns bool
 	return a.off == b.off and a.paramTy == b.paramTy and a.argTy == b.argTy and a.hasMethod == b.hasMethod and a.methodFn == b.methodFn
 end 'sameArgument'
 
-// requireConforms checks one type argument against one bound of its parameter.
-function requireConforms(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, mutates errs diag.ErrorList)
+// requireConforms checks one type argument against one bound of its parameter, which the body of inFn gives.
+function requireConforms(mutates c Checker, p ast.Project, mutates ms ast.ModuleState, off diag.U32, arg ast.TypeID, iface ast.TypeID, param ast.TypeID, inFn ast.FuncID, mutates errs diag.ErrorList)
 	let argName = nameOfType(p, ms: ms, t: arg)
 	let paramName = nameOfType(p, ms: ms, t: param)
 	let ifaceName = ast.typeEntry(ms.types, reads: p.types, t: iface).name.clone()
@@ -348,7 +348,7 @@ function requireConforms(mutates c Checker, p ast.Project, mutates ms ast.Module
 		if lacking.missing 'lacks'
 			let why = lackWhyText(ms.types, reads: p.types, info: lacking, capName: ifaceName)
 			let fix = lackFixText(ms.types, reads: p.types, info: lacking, capName: ifaceName)
-			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type argument '{argName}' for '{paramName}' must be {ifaceName}, but {why}: {fix}", errs: errs)
+			checkFailFixed(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type argument '{argName}' for '{paramName}' must be {ifaceName}, but {why}: {fix}", fix: lackBoundFix(p, ms: ms, fn: inFn, info: lacking, capName: ifaceName), errs: errs)
 		end 'lacks'
 		return
 	end 'structural'
@@ -362,7 +362,7 @@ function requireConforms(mutates c Checker, p ast.Project, mutates ms ast.Module
 	end 'interfaceValue'
 	if typeHasKind(p, ms: ms, t: arg, kind: ast.TypeKind.typeParam) 'parameter'
 		if not boundsExtend(p, ms: ms, bounds: boundsOfParam(p, ms: ms, boundedFn: c.boundedFn, paramTy: arg), iface: iface) 'unbounded'
-			checkFail(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type parameter '{argName}' is not known to be {ifaceName}, which the type argument for '{paramName}' must be: add the bound, '{argName} implements {ifaceName}'", errs: errs)
+			checkFailFixed(c.modID, off: off, code: diag.errBoundNotMet, msg: "the type parameter '{argName}' is not known to be {ifaceName}, which the type argument for '{paramName}' must be: add the bound, '{argName} implements {ifaceName}'", fix: paramBoundFix(p, ms: ms, fn: inFn, param: arg, bound: ifaceName), errs: errs)
 		end 'unbounded'
 		return
 	end 'parameter'

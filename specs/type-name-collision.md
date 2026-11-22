@@ -404,8 +404,8 @@ type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	static function create(consumes a A, consumes b B) returns Self
-		return Self{first: a, second: b}
+	static function create(a A, b B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: a.clone(), second: b.clone()}
 	end 'create'
 end 'Pair'
 
@@ -897,12 +897,12 @@ directory-local case, the same as two ranged aliases, and it is legal.
 export type Box uses T
 	export var value as T
 
-	export static function create(consumes v T) returns Self
-		return Self{value: v}
+	export static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	export function get() returns T
-		return self.value
+	export function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -1147,8 +1147,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1204,8 +1204,8 @@ end 'Holder'
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1319,12 +1319,12 @@ typealias Integer = int(i64.min to i64.max)
 type Box uses T
 	export var value as T
 
-	static function create(consumes v T) returns Self
-		return Self{value: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	function get() returns T
-		return self.value
+	function get() returns T where T implements Copyable
+		return self.value.clone()
 	end 'get'
 end 'Box'
 
@@ -1604,8 +1604,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1816,8 +1816,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1868,8 +1868,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1941,8 +1941,8 @@ end 'Held'
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -1983,8 +1983,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -2028,8 +2028,8 @@ typealias Num = int(0 to 100)
 type Box uses T
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function tag() returns Num
@@ -2136,8 +2136,8 @@ end 'A'
 type HoldC uses T where T implements C
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function go() returns Integer
@@ -2148,8 +2148,8 @@ end 'HoldC'
 type HoldB uses T where T implements B_C
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function go() returns Integer
@@ -2217,8 +2217,8 @@ end 'A_B'
 type HoldB uses T where T implements B_C
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function go() returns Integer
@@ -2229,8 +2229,8 @@ end 'HoldB'
 type HoldC uses T where T implements C
 	export var v as T
 
-	static function create(consumes v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
 	function go() returns Integer
@@ -2313,8 +2313,8 @@ end 'A'
 type HoldD uses T where T implements D
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -2325,8 +2325,8 @@ end 'HoldD'
 type HoldCD uses T where T implements C_D
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -2337,8 +2337,8 @@ end 'HoldCD'
 type HoldBCD uses T where T implements B_C_D
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -2417,8 +2417,8 @@ end 'A_B'
 type HoldB uses T where T implements B
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -2429,8 +2429,8 @@ end 'HoldB'
 type HoldBC uses T where T implements B_C
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small
@@ -2441,8 +2441,8 @@ end 'HoldBC'
 type HoldC uses T where T implements C
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function go() returns Small

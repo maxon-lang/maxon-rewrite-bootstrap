@@ -1252,8 +1252,8 @@ b 3
 `alpha/` exports a generic `pick` and `beta/` a non-generic one, and each qualifier reaches its own.
 ```maxon
 // --- file: alpha/a.maxon
-export function pick(consumes a T) uses T returns T
-	return a
+export function pick(a T) uses T returns T where T implements Copyable
+	return a.clone()
 end 'pick'
 
 // --- file: beta/b.maxon
@@ -1288,8 +1288,8 @@ export function pick(n Reps) returns Reps
 end 'pick'
 
 // --- file: beta/b.maxon
-export function pick(consumes a T) uses T returns T
-	return a
+export function pick(a T) uses T returns T where T implements Copyable
+	return a.clone()
 end 'pick'
 
 // --- file: main.maxon

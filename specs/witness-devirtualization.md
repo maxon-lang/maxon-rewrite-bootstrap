@@ -69,8 +69,8 @@ end 'Triangle'
 type Box uses T where T implements Shape
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function doubled() returns Integer
@@ -141,8 +141,8 @@ end 'Odd'
 type Guard uses T where T implements Verifier
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function check() returns Code throws VerifyError
@@ -179,23 +179,23 @@ typealias Tally = int(0 to 1000000)
 type Slot uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
+	static function choose(item T, fallback T, useItem bool) returns Self where T implements Copyable
 		if useItem 'chosen'
-			return Self{item: item}
+			return Self{item: item.clone()}
 		end 'chosen'
-		return Self{item: fallback}
+		return Self{item: fallback.clone()}
 	end 'choose'
 
-	function replace(mutates self, consumes next T)
-		self.item = next
+	function replace(mutates self, next T) where T implements Droppable and Copyable
+		self.item = next.clone()
 	end 'replace'
 
-	function peek() returns T
-		return self.item
+	function peek() returns T where T implements Copyable
+		return self.item.clone()
 	end 'peek'
 end 'Slot'
 
@@ -234,23 +234,23 @@ typealias Tally = int(0 to 1000000)
 type Slot uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
+	static function choose(item T, fallback T, useItem bool) returns Self where T implements Copyable
 		if useItem 'chosen'
-			return Self{item: item}
+			return Self{item: item.clone()}
 		end 'chosen'
-		return Self{item: fallback}
+		return Self{item: fallback.clone()}
 	end 'choose'
 
-	function replace(mutates self, consumes next T)
-		self.item = next
+	function replace(mutates self, next T) where T implements Droppable and Copyable
+		self.item = next.clone()
 	end 'replace'
 
-	function peek() returns T
-		return self.item
+	function peek() returns T where T implements Copyable
+		return self.item.clone()
 	end 'peek'
 end 'Slot'
 
@@ -296,23 +296,23 @@ end 'Label'
 type Slot uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
-	static function choose(consumes item T, consumes fallback T, useItem bool) returns Self
+	static function choose(item T, fallback T, useItem bool) returns Self where T implements Copyable
 		if useItem 'chosen'
-			return Self{item: item}
+			return Self{item: item.clone()}
 		end 'chosen'
-		return Self{item: fallback}
+		return Self{item: fallback.clone()}
 	end 'choose'
 
-	function replace(mutates self, consumes next T)
-		self.item = next
+	function replace(mutates self, next T) where T implements Droppable and Copyable
+		self.item = next.clone()
 	end 'replace'
 
-	function peek() returns T
-		return self.item
+	function peek() returns T where T implements Copyable
+		return self.item.clone()
 	end 'peek'
 end 'Slot'
 

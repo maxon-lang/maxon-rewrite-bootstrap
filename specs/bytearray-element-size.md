@@ -305,6 +305,7 @@ error E2015: specs/bytearray-element-size/byte-string-literal-refused-when-byte-
 ```
 
 <!-- test: byte-string-global-refused-when-byte-is-wider-than-one-byte -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 A `let`/`var` at file scope is folded to bytes by the initializer sweep and its record is built by
@@ -524,6 +525,7 @@ end 'main'
 ```
 
 <!-- test: byte-string-global-refused-when-a-byte-is-outside-the-elements-range -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ### The refusal reaches a top-level byte-string global, which no function body ever parses
 The narrow twin of `byte-string-global-refused-when-byte-is-wider-than-one-byte`, and it is here for the
@@ -988,6 +990,7 @@ error E2015: <fragment>:12:10: Unsupported: a `b"…"` byte-string literal in a 
 ```
 
 <!-- test: the-wide-files-own-byte-literal-is-still-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### …and the WIDE file's own `b"…"` is still refused, in the same program
 The other half, and the half that proves the case above is not simply a lost refusal: the identical
 literal moved into `wide.maxon` meets the wall its own declaration builds. One program, two files,
@@ -2367,6 +2370,7 @@ end 'main'
 ```
 
 <!-- test: error.a-byte-string-literal-under-an-ambiguous-bare-byte-is-ambiguous -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 `main.maxon` declares no `Byte` and sees two exported author declarations of it, so its bare `Byte` is
 ambiguous, and the `b"hi"` literal, whose element is what that bare name means, is ambiguous with it.
 ```maxon

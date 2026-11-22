@@ -13,6 +13,9 @@
 #           whatever minimaxon reports, and also when it compiles the program, because the rule behind the code differs
 #   run     `run`, the codes minimaxon reports and the reason: a test that runs a program is skipped when, after the fixes,
 #           the first diagnostic left is one of them, because minimaxon refuses by that rule what maxon runs
+#   first   `first`, the codes minimaxon reports and the reason: a test that expects a compile error is skipped when the
+#           first code minimaxon reports is one of them, and the fixes do not make the expected code the first, because
+#           minimaxon refuses by that rule, first, the program that maxon refuses for another reason
 #   test    `test`, the name of a spec file, the name of one of its tests, and the reason: a test that minimaxon compiles
 #           and runs to another answer than maxon's, because a language change (README, "Where it differs from Maxon") gives
 #           the program another meaning
@@ -25,5 +28,6 @@ skip	E3207,E3214	ErrMoveOutOfBorrow,ErrAssignToImmutable	language difference: ow
 skip	ErrUnexpectedToken	ErrExpectedToken	differing error code: syntax error
 skip	ErrExpressionError	ErrTypeMismatch	differing error code: operand types
 expect	ErrModuleLetCallsFunction	language difference: a constant may call a literal factory, and E3220 names what it may call
+first	ErrUncheckedFailure	language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports
 run	ErrClosureBorrow	language difference: a closure that borrows what it captures does not escape
 test	fold-constants.md	a-float-division-by-a-constant-zero-is-not-folded	language difference: a float division by 0 is IEEE's, infinity or NaN, where maxon's throws divisionByZero

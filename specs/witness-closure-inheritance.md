@@ -64,8 +64,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -116,8 +116,8 @@ end 'Point'
 type Box uses T
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Box'
 
@@ -243,8 +243,8 @@ end 'Times2'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -298,8 +298,8 @@ type Box uses T where T implements Digest
 	export typealias TFn = function(T) returns Code
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	static function applyStatic(f TFn, z T) returns Code
@@ -354,8 +354,8 @@ end 'Tag'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -414,8 +414,8 @@ end 'Point'
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function both() returns Code
@@ -473,8 +473,8 @@ end 'Point'
 type Box uses T where T implements Digest and Tagged
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function both(bias Code) returns Code
@@ -524,8 +524,8 @@ type Pair uses T where T implements Digest
 	export var a as T
 	export var b as T
 
-	static function create(consumes a T, consumes b T) returns Self
-		return Self{a: a, b: b}
+	static function create(a T, b T) returns Self where T implements Copyable
+		return Self{a: a.clone(), b: b.clone()}
 	end 'create'
 
 	function sum() returns Code

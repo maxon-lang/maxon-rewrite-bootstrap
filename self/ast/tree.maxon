@@ -100,9 +100,12 @@ let endKeywordToLabelName = 5 as diag.U32
 // asKeywordToType is how many bytes the type of a cast lies after its 'as': 'as' and a space.
 let asKeywordToType = 3 as diag.U32
 
+// aliasEqualsWidth is the width of the `=` between a typealias's name and its type.
+let aliasEqualsWidth = 1 as Count
+
 // isDeclarationKind is whether a node declares a name that a diagnostic about it points at.
 function isDeclarationKind(kind NodeKind) returns bool
-	return kind == NodeKind.funcDecl or kind == NodeKind.constDecl or kind == NodeKind.typeDecl or kind == NodeKind.fieldDecl or kind == NodeKind.enumDecl or kind == NodeKind.unionDecl or kind == NodeKind.aliasDecl or kind == NodeKind.interfaceDecl or kind == NodeKind.extensionDecl
+	return kind == NodeKind.funcDecl or kind == NodeKind.funcSig or kind == NodeKind.constDecl or kind == NodeKind.typeDecl or kind == NodeKind.fieldDecl or kind == NodeKind.enumDecl or kind == NodeKind.unionDecl or kind == NodeKind.aliasDecl or kind == NodeKind.interfaceDecl or kind == NodeKind.extensionDecl
 end 'isDeclarationKind'
 
 // Tree holds a module's flat AST records, list words, escaped strings, and source text.
@@ -195,12 +198,15 @@ export type Tree
 		return records[id as Count].start
 	end 'startOf'
 
-	// reportStartOf is where a diagnostic about a node points, as maxon places it: a call at the name it calls, a
-	// declaration at its name, and any other node at its start.
+	// reportStartOf is where a diagnostic about a node points, as maxon places it: a call at the name it calls, a member at
+	// its name, a declaration at its name, and any other node at its start.
 	export function reportStartOf(id NodeID) returns diag.U32
 		if isDeclarationKind(records[id as Count].kind) 'declaration'
 			return self.declNameStart(id)
 		end 'declaration'
+		if records[id as Count].kind == NodeKind.memberExpr 'memberName'
+			return self.memberNameStart(id)
+		end 'memberName'
 		if records[id as Count].kind != NodeKind.callExpr 'plain'
 			return records[id as Count].start
 		end 'plain'
@@ -232,6 +238,14 @@ export type Tree
 		end 'leaders'
 		return try at as diag.U32 otherwise panic("a declaration starts past the end of its module")
 	end 'declNameStart'
+
+	// aliasTypeStart is where the type that a typealias names starts, after its name and the `=`: a fault of that type is
+	// reported there, as maxon does.
+	export function aliasTypeStart(id NodeID) returns diag.U32
+		let afterName = skipSpace(text, at: wordEnd(text, at: self.declNameStart(id) as Count))
+		let afterEquals = try afterName + aliasEqualsWidth otherwise panic("a typealias ends past the end of its module")
+		return try skipSpace(text, at: afterEquals) as diag.U32 otherwise panic("a typealias starts past the end of its module")
+	end 'aliasTypeStart'
 
 	// memberNameStart is where the name of a member expression starts.
 	export function memberNameStart(id NodeID) returns diag.U32

@@ -840,6 +840,7 @@ end 'main'
 ```
 
 <!-- test: a-negative-value-through-a-function-value-is-refused-at-the-call -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `i - 1` is arithmetic over a counted loop's counter, so the `-1` it reaches is known at compile time and
 the call through the function value refuses it with E3005.

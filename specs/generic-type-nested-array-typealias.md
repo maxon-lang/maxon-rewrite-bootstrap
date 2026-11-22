@@ -36,8 +36,8 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 end 'Container'
 
@@ -78,8 +78,8 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 end 'Container'
 
@@ -116,11 +116,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function store(mutates self, consumes item Element)
-		self.items.push(item)
+	function store(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'store'
 
-	function add(mutates self, consumes item Element)
+	function add(mutates self, item Element) where Element implements Copyable
 		self.store(item)
 	end 'add'
 end 'Container'
@@ -154,15 +154,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function c(mutates self, consumes item Element)
-		self.items.push(item)
+	function c(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'c'
 
-	function b(mutates self, consumes item Element)
+	function b(mutates self, item Element) where Element implements Copyable
 		self.c(item)
 	end 'b'
 
-	function a(mutates self, consumes item Element)
+	function a(mutates self, item Element) where Element implements Copyable
 		self.b(item)
 	end 'a'
 end 'Container'
@@ -203,11 +203,11 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function store(mutates self, consumes item Element)
-		self.items.push(item)
+	function store(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'store'
 
-	function add(mutates self, consumes item Element)
+	function add(mutates self, item Element) where Element implements Copyable
 		self.store(item)
 	end 'add'
 end 'Container'
@@ -289,9 +289,9 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(mutates self, consumes item Element, flag bool)
+	function pushIf(mutates self, item Element, flag bool) where Element implements Copyable
 		if flag 'maybe'
-			self.items.push(item)
+			self.items.push(item.clone())
 		end 'maybe'
 	end 'pushIf'
 end 'Container'
@@ -325,9 +325,9 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(mutates self, consumes item Element, flag bool)
+	function pushIf(mutates self, item Element, flag bool) where Element implements Copyable
 		if flag 'maybe'
-			self.items.push(item)
+			self.items.push(item.clone())
 		end 'maybe'
 	end 'pushIf'
 end 'Container'
@@ -365,9 +365,9 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function pushIf(mutates self, consumes item Element, flag bool)
+	function pushIf(mutates self, item Element, flag bool) where Element implements Copyable
 		if flag 'maybe'
-			self.items.push(item)
+			self.items.push(item.clone())
 		end 'maybe'
 	end 'pushIf'
 end 'Container'
@@ -406,11 +406,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function drainOne(mutates self)
+	function drainOne(mutates self) where Element implements Droppable
 		_ = try self.items.pop() otherwise return
 	end 'drainOne'
 end 'Container'
@@ -454,12 +454,12 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function drainViaLocal()
-		var arr = self.items
+	function drainViaLocal() where Element implements Droppable and Copyable
+		var arr = self.items.clone()
 		_ = try arr.pop() otherwise return
 	end 'drainViaLocal'
 end 'Container'
@@ -505,11 +505,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function peekCount() returns Count
+	function peekCount() returns Count where Element implements Copyable
 		try self.items.get(0) otherwise return 0
 		return self.items.count()
 	end 'peekCount'
@@ -518,7 +518,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("a string long enough to force a heap allocation")
 	let c = sc.peekCount()
 	if c == 1 'stillThere'
@@ -549,13 +549,13 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	// Both ends are BOUND and read: an end borrow is a pure read, so discarding one is E3064
 	// (`discarded-results.md`), and binding it exercises the same take-and-release this case exists for.
-	function peekEnds() returns Element throws ArrayError
+	function peekEnds() returns Element throws ArrayError where Element implements Copyable
 		let front = try self.items.first()
 		let back = try self.items.last()
 		if self.items.count() == 1 'oneElement'
@@ -568,7 +568,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("only element long enough to force a heap allocation")
 	let seen = try sc.peekEnds() otherwise return 1
 	return 0 if seen.byteLength() > 0 else 2
@@ -604,11 +604,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function peekEnds() returns Element throws ArrayError
+	function peekEnds() returns Element throws ArrayError where Element implements Copyable
 		let front = try self.items.first()
 		let back = try self.items.last()
 		return front if self.items.count() == 2 else back
@@ -618,11 +618,11 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let pair = StringContainer.create()
+	var pair = StringContainer.create()
 	pair.push("front element, long enough to force a heap allocation")
 	pair.push("back element, also long enough to force a heap allocation")
 	let fromBorrowedArm = try pair.peekEnds() otherwise return 1
-	let trio = StringContainer.create()
+	var trio = StringContainer.create()
 	trio.push("front element, long enough to force a heap allocation")
 	trio.push("middle element, long enough to force a heap allocation")
 	trio.push("back element, also long enough to force a heap allocation")
@@ -658,11 +658,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function dropAt(mutates self)
+	function dropAt(mutates self) where Element implements Droppable
 		_ = try self.items.remove(0) otherwise return
 	end 'dropAt'
 end 'Container'
@@ -711,11 +711,11 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function drainOne(mutates self)
+	function drainOne(mutates self) where Element implements Droppable
 		_ = try self.items.pop() otherwise return
 	end 'drainOne'
 end 'Container'
@@ -800,15 +800,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function drainOne()
+	function drainOne(mutates self) where Element implements Droppable
 		_ = try self.items.pop() otherwise return
 	end 'drainOne'
 
-	function peek()
+	function peek() where Element implements Copyable
 		try self.items.get(0) otherwise return
 	end 'peek'
 end 'Container'
@@ -816,7 +816,7 @@ end 'Container'
 typealias IntContainer = Container with SmallInt
 
 function main() returns ExitCode
-	let ic = IntContainer.create()
+	var ic = IntContainer.create()
 	ic.push(7)
 	ic.push(9)
 	ic.drainOne()
@@ -896,8 +896,8 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function takeOne(mutates self) returns Element
@@ -948,15 +948,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function duplicate() returns Self
+	function duplicate() returns Self where Element implements Copyable
 		return Self{items: self.items.clone()}
 	end 'duplicate'
 end 'Container'
@@ -964,7 +964,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function makeDuplicate() returns StringContainer
-	let a = StringContainer.create()
+	var a = StringContainer.create()
 	a.push("alpha string long enough to force a heap allocation")
 	a.push("beta string long enough to force a heap allocation")
 	return a.duplicate()
@@ -1004,15 +1004,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function duplicate() returns Self
+	function duplicate() returns Self where Element implements Copyable
 		return Self{items: self.items.clone()}
 	end 'duplicate'
 end 'Container'
@@ -1020,7 +1020,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let a = StringContainer.create()
+	var a = StringContainer.create()
 	a.push("alpha string long enough to force a heap allocation")
 	a.push("beta string long enough to force a heap allocation")
 	let b = a.duplicate()
@@ -1059,15 +1059,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function sliceFirst() returns Self
+	function sliceFirst() returns Self where Element implements Copyable
 		let s = try self.items.slice(0, endIndex: 1) otherwise panic("in bounds")
 		return Self{items: s}
 	end 'sliceFirst'
@@ -1076,7 +1076,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function buildSliced() returns StringContainer
-	let a = StringContainer.create()
+	var a = StringContainer.create()
 	a.push("slice one long enough to force a heap allocation")
 	a.push("slice two long enough to force a heap allocation")
 	return a.sliceFirst()
@@ -1118,19 +1118,19 @@ type Container uses Element
 		return Self{items: ElementArray.create(0), extra: ElementArray.create(0)}
 	end 'create'
 
-	function pushItem(item Element)
-		self.items.push(item)
+	function pushItem(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'pushItem'
 
-	function pushExtra(item Element)
-		self.extra.push(item)
+	function pushExtra(mutates self, item Element) where Element implements Copyable
+		self.extra.push(item.clone())
 	end 'pushExtra'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function mergeExtra()
+	function mergeExtra(mutates self) where Element implements Copyable
 		self.items.append(self.extra)
 	end 'mergeExtra'
 end 'Container'
@@ -1138,7 +1138,7 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function buildAppended() returns StringContainer
-	let dest = StringContainer.create()
+	var dest = StringContainer.create()
 	dest.pushItem("dest string long enough to force a heap allocation")
 	dest.pushExtra("extra one long enough to force a heap allocation")
 	dest.pushExtra("extra two long enough to force a heap allocation")
@@ -1176,7 +1176,7 @@ type Item
 	export var name as String
 
 	static function create(name String) returns Self
-		return Self{name: name}
+		return Self{name: name.clone()}
 	end 'create'
 end 'Item'
 
@@ -1188,15 +1188,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function duplicate() returns Self
+	function duplicate() returns Self where Element implements Copyable
 		return Self{items: self.items.clone()}
 	end 'duplicate'
 end 'Container'
@@ -1204,7 +1204,7 @@ end 'Container'
 typealias ItemContainer = Container with Item
 
 function makeDuplicate() returns ItemContainer
-	let a = ItemContainer.create()
+	var a = ItemContainer.create()
 	a.push(Item.create("first item name long enough to force a heap allocation"))
 	a.push(Item.create("second item name long enough to force a heap allocation"))
 	return a.duplicate()
@@ -1246,15 +1246,15 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function count() returns Count
 		return self.items.count()
 	end 'count'
 
-	function duplicate() returns Self
+	function duplicate() returns Self where Element implements Copyable
 		return Self{items: self.items.clone()}
 	end 'duplicate'
 end 'Container'
@@ -1262,7 +1262,7 @@ end 'Container'
 typealias IntContainer = Container with SmallInt
 
 function makeDuplicate() returns IntContainer
-	let a = IntContainer.create()
+	var a = IntContainer.create()
 	a.push(10)
 	a.push(20)
 	return a.duplicate()
@@ -1313,26 +1313,26 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function duplicate() returns Self
+	function duplicate() returns Self where Element implements Copyable
 		return Self{items: self.items.clone()}
 	end 'duplicate'
 
 	function count() returns Idx
-		return self.items.count()
+		return try self.items.count() as Idx otherwise panic("out of range")
 	end 'count'
 end 'Container'
 
 typealias NestedContainer = Container with StringArray
 
 function makeDuplicate() returns NestedContainer
-	let sa = StringArray.create(0)
+	var sa = StringArray.create(0)
 	sa.push("a string long enough to force a heap allocation")
 	sa.push("a second string, also long enough to allocate")
-	let nc = NestedContainer.create()
+	var nc = NestedContainer.create()
 	nc.push(sa)
 	return nc.duplicate()
 // nc, its inner array and both String records are freed when this function returns
@@ -1456,8 +1456,8 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 end 'Container'
 
@@ -1500,8 +1500,8 @@ type Container uses Element
 		return items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'push'
 end 'Container'
 
@@ -1547,8 +1547,8 @@ type Container uses Element
 		return items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'push'
 end 'Container'
 
@@ -1589,9 +1589,9 @@ type Holder uses Element
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function of(consumes first Element) returns Self
+	static function of(first Element) returns Self where Element implements Copyable
 		var xs = ElementArray.create(0)
-		xs.push(first)
+		xs.push(first.clone())
 		return Self{items: xs}
 	end 'of'
 
@@ -1630,9 +1630,9 @@ type Holder uses Element
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function of(consumes first Element) returns Self
+	static function of(first Element) returns Self where Element implements Copyable
 		var xs = ElementArray.create(0)
-		xs.push(first)
+		xs.push(first.clone())
 		return Self{items: xs}
 	end 'of'
 
@@ -1683,8 +1683,8 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
 	function rotate(mutates self)
@@ -1739,15 +1739,15 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function duplicateFirst()
+	function duplicateFirst(mutates self) where Element implements Copyable
 		self.items.push(try self.items.get(0) otherwise panic("empty container"))
 	end 'duplicateFirst'
 
-	function at(i Count) returns Element throws ArrayError
+	function at(i Count) returns Element throws ArrayError where Element implements Copyable
 		return try self.items.get(i)
 	end 'at'
 end 'Container'
@@ -1755,12 +1755,12 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("a string long enough to force a heap allocation")
 	sc.duplicateFirst()
 	let copy = try sc.at(1) otherwise return 1
 	print("{copy}\n")
-	return sc.count() as ExitCode
+	return try sc.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1792,9 +1792,9 @@ type Container uses Element
 		return Self{items: ElementArray.create(0)}
 	end 'create'
 
-	function addMaybe(mutates self, consumes item Element, flag bool)
+	function addMaybe(mutates self, item Element, flag bool) where Element implements Copyable
 		if flag 'maybe'
-			items.push(item)
+			items.push(item.clone())
 		end 'maybe'
 	end 'addMaybe'
 
@@ -1838,10 +1838,10 @@ type Holder uses Element
 	typealias ElementArray = Array with Element
 	export var items as ElementArray
 
-	static function ofMaybe(consumes first Element, flag bool) returns Self
+	static function ofMaybe(first Element, flag bool) returns Self where Element implements Copyable
 		var xs = ElementArray.create(0)
 		if flag 'maybe'
-			xs.push(first)
+			xs.push(first.clone())
 		end 'maybe'
 		return Self{items: xs}
 	end 'ofMaybe'
@@ -1902,17 +1902,17 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 
-	function copyInto(dst ElementArray)
+	function copyInto(mutates dst ElementArray) where Element implements Copyable
 		for e in self.items 'each'
-			dst.push(e)
+			dst.push(e.clone())
 		end 'each'
 	end 'copyInto'
 
-	function at(i Count) returns Element throws ArrayError
+	function at(i Count) returns Element throws ArrayError where Element implements Copyable
 		return try self.items.get(i)
 	end 'at'
 end 'Container'
@@ -1920,16 +1920,16 @@ end 'Container'
 typealias StringContainer = Container with String
 
 function main() returns ExitCode
-	let sc = StringContainer.create()
+	var sc = StringContainer.create()
 	sc.push("a string long enough to force a heap allocation")
 	sc.push("a second string, also long enough to force a heap allocation")
-	let dst = StringContainer.create()
+	var dst = StringContainer.create()
 	sc.copyInto(dst.items)
 	let copied = try dst.at(1) otherwise return 1
 	let original = try sc.at(1) otherwise return 1
 	print("{copied}\n")
 	print("{original}\n")
-	return dst.count() as ExitCode
+	return try dst.count() as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -1973,9 +1973,9 @@ type Sink uses S
 
 	// `Container.add` DISCARDS this result — the shape under test — so the method must have an effect, or
 	// the discard is E3064 (`discarded-results.md`).
-	function push(mutates self, consumes x S) returns S
+	function push(mutates self, x S) returns S where S implements Copyable
 		self.n = try self.n + 1 otherwise panic("out of range")
-		return x
+		return x.clone()
 	end 'push'
 end 'Sink'
 
@@ -1987,7 +1987,7 @@ type Container uses Element
 		return Self{sink: ElementSink.create()}
 	end 'create'
 
-	function add(mutates self, consumes item Element)
+	function add(mutates self, item Element) where Element implements Droppable and Copyable
 		_ = self.sink.push(item)
 	end 'add'
 end 'Container'
@@ -2048,8 +2048,8 @@ type Container uses Element
 end 'Container'
 
 extension Container
-	function stash(mutates self, consumes item Element)
-		items.push(item)
+	function stash(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'stash'
 end 'Container'
 
@@ -2097,14 +2097,14 @@ type Holder uses Element
 	export var items as ElementArray
 	export var single as Element
 
-	static function fill(mutates xs ElementArray, consumes first Element)
-		xs.push(first)
+	static function fill(mutates xs ElementArray, first Element) where Element implements Copyable
+		xs.push(first.clone())
 	end 'fill'
 
-	static function of(consumes first Element, consumes single Element) returns Self
+	static function of(first Element, single Element) returns Self where Element implements Copyable
 		var xs = ElementArray.create(0)
 		fill(xs, first: first)
-		return Self{items: xs, single: single}
+		return Self{items: xs, single: single.clone()}
 	end 'of'
 
 	function count() returns Count
@@ -2147,10 +2147,10 @@ type Holder uses Element
 	export var items as ElementArray
 	export var single as Element
 
-	static function of(consumes first Element, consumes single Element) returns Self
+	static function of(first Element, single Element) returns Self where Element implements Copyable
 		var xs = ElementArray.create(0)
-		xs.push(first)
-		return Self{items: xs, single: single}
+		xs.push(first.clone())
+		return Self{items: xs, single: single.clone()}
 	end 'of'
 
 	function count() returns Count
@@ -2665,9 +2665,9 @@ type Container uses Element
 end 'Container'
 
 extension Container
-	function stashIf(mutates self, consumes item Element, keep bool)
+	function stashIf(mutates self, item Element, keep bool) where Element implements Copyable
 		if keep 'wanted'
-			items.push(item)
+			items.push(item.clone())
 		end 'wanted'
 	end 'stashIf'
 end 'Container'
@@ -2706,9 +2706,9 @@ sweep reaches first, reserves exactly what the same program written the other wa
 ```maxon
 // --- file: a_ext.maxon
 extension Vault
-	function stashIf(mutates self, consumes item Element, keep bool)
+	function stashIf(mutates self, item Element, keep bool) where Element implements Copyable
 		if keep 'wanted'
-			items.push(item)
+			items.push(item.clone())
 		end 'wanted'
 	end 'stashIf'
 end 'Vault'
@@ -2870,15 +2870,15 @@ type GHolder uses T
 		return Self{items: TArray.create(0), spare: TArray.create(0)}
 	end 'create'
 
-	function seed(s T)
-		items.push(s)
+	function seed(mutates self, s T) where T implements Copyable
+		items.push(s.clone())
 	end 'seed'
 
-	function stash(v T)
-		spare.push(v)
+	function stash(mutates self, v T) where T implements Copyable
+		spare.push(v.clone())
 	end 'stash'
 
-	function relay(i Idx)
+	function relay(mutates self, i Idx) where T implements Copyable
 		stash(try items.get(i) otherwise panic("out of range"))
 	end 'relay'
 
@@ -2890,7 +2890,7 @@ end 'GHolder'
 typealias StringHolder = GHolder with String
 
 function main() returns ExitCode
-	let h = StringHolder.create()
+	var h = StringHolder.create()
 	h.seed("a value long enough to force a heap allocation")
 	var n = 0 as Idx
 	while n < 100 'relayMany'
@@ -2926,11 +2926,11 @@ type Container uses Element
 end 'Container'
 
 extension Container
-	function stash(mutates self, consumes item Element)
-		items.push(item)
+	function stash(mutates self, item Element) where Element implements Copyable
+		items.push(item.clone())
 	end 'stash'
 
-	function add(mutates self, consumes item Element)
+	function add(mutates self, item Element) where Element implements Copyable
 		stash(item)
 	end 'add'
 end 'Container'
@@ -2970,8 +2970,8 @@ type Inner uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function stash(mutates self, consumes item T) returns Count
-		self.items.push(item)
+	function stash(mutates self, item T) returns Count where T implements Copyable
+		self.items.push(item.clone())
 		return self.items.count()
 	end 'stash'
 end 'Inner'
@@ -2984,11 +2984,11 @@ type Outer uses T
 		return Self{held: Held.create()}
 	end 'create'
 
-	function make() returns Held
-		return held
+	function make() returns Held where T implements Copyable
+		return held.clone()
 	end 'make'
 
-	function run(x T) returns Count
+	function run(x T) returns Count where T implements Copyable
 		let f = function(y T) gives self.make().stash(y)
 		_ = f(x)
 		return f(x)
@@ -3289,8 +3289,8 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
@@ -3329,8 +3329,8 @@ type Gauge uses T
 	typealias Held = Array with T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function width(n Level, held Held = Held.create(0)) returns Level
@@ -3370,8 +3370,8 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(f Transform, n Count) returns Count
@@ -3387,8 +3387,8 @@ type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3427,8 +3427,8 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(n Count, f Transform = triple) returns Count
@@ -3444,8 +3444,8 @@ type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3483,8 +3483,8 @@ end 'triple'
 type Late uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(n Count, f Transform = triple) returns Count
@@ -3501,8 +3501,8 @@ type Early uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3544,8 +3544,8 @@ end 'bump'
 type Plain uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Plain'
 
@@ -3560,8 +3560,8 @@ end 'Plain'
 type Leveled uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Leveled'
 
@@ -3607,16 +3607,16 @@ end 'bump'
 type Plain uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Plain'
 
 type Leveled uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Leveled'
 
@@ -3672,7 +3672,7 @@ type Pipe uses T
 		return f(x)
 	end 'through'
 
-	function chain(x T, g Step) returns T
+	function chain(x T, g Step) returns T where T implements Droppable
 		let f = self.step
 		return g(f(x))
 	end 'chain'
@@ -3724,8 +3724,8 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(n Count, f Transform = triple) returns Count
@@ -3742,8 +3742,8 @@ type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3780,8 +3780,8 @@ type Other uses U
 	typealias Transform = function(Count) returns Count
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(f Transform, n Count) returns Count
@@ -3797,8 +3797,8 @@ type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3827,8 +3827,8 @@ end 'triple'
 type Late uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function twice(n Count, f Transform = triple) returns Count
@@ -3845,8 +3845,8 @@ type Early uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3879,8 +3879,8 @@ end 'bump'
 type Plain uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Plain'
 
@@ -3895,8 +3895,8 @@ end 'Plain'
 type Leveled uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Leveled'
 
@@ -3950,8 +3950,8 @@ type Box uses T
 	typealias Transform = function(Level) returns Level
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function run(n Level, f Transform = bump) returns Level
@@ -3975,8 +3975,8 @@ end 'triple'
 type Plain uses U
 	var item as U
 
-	static function create(consumes item U) returns Self
-		return Self{item: item}
+	static function create(item U) returns Self where U implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Plain'
 
@@ -4017,8 +4017,8 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
@@ -4055,8 +4055,8 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function width(n Level, extra Level = try sizeof(T) as Level otherwise panic("out of range")) returns Level
@@ -4100,8 +4100,8 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 end 'Gauge'
 
@@ -4144,8 +4144,8 @@ typealias Level = int(0 to 125)
 type Gauge uses T
 	var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function fixed() returns Level
@@ -4296,8 +4296,8 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	static function make(consumes x T, n Count = sizeof(T)) returns Self
-		return Self{item: x, n: n}
+	static function make(x T, n Count = sizeof(T)) returns Self where T implements Copyable
+		return Self{item: x.clone(), n: n}
 	end 'make'
 end 'Box'
 
@@ -4321,16 +4321,16 @@ type Box uses T
 	var item as T
 	export var n as Count
 
-	static function make(consumes x T, n Count = sizeof(T)) returns Self
-		return Self{item: x, n: n}
+	static function make(x T, n Count = sizeof(T)) returns Self where T implements Copyable
+		return Self{item: x.clone(), n: n}
 	end 'make'
 end 'Box'
 
 type Outer uses U
 	var tag as U
 
-	static function create(consumes tag U) returns Self
-		return Self{tag: tag}
+	static function create(tag U) returns Self where U implements Copyable
+		return Self{tag: tag.clone()}
 	end 'create'
 
 	function build() returns Count
@@ -4442,17 +4442,17 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Self
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{v: v})
+	static function peers(v T) returns Peers where T implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 
-	static function firstOf(bs Peers) returns T
+	static function firstOf(bs Peers) returns T where T implements Copyable
 		let first = try bs.get(0) otherwise panic("has one")
 		return first.v
 	end 'firstOf'
@@ -4463,7 +4463,7 @@ typealias IntBox = Box with Integer
 function main() returns ExitCode
 	let boxes = IntBox.peers(5)
 	let p = IntBox.firstOf(boxes)
-	return p as ExitCode
+	return try p as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4479,17 +4479,17 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Self
 
-	static function create(v T) returns Self
-		return Self{v: v}
+	static function create(v T) returns Self where T implements Copyable
+		return Self{v: v.clone()}
 	end 'create'
 
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{v: v})
+	static function peers(v T) returns Peers where T implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 
-	static function firstOf(bs Peers) returns T
+	static function firstOf(bs Peers) returns T where T implements Copyable
 		let first = try bs.get(0) otherwise panic("has one")
 		return first.v
 	end 'firstOf'
@@ -4505,7 +4505,7 @@ function main() returns ExitCode
 	let n = IntBox.firstOf(ints)
 	let s = TextBox.firstOf(texts)
 	print("{n} {s}\n")
-	return n as ExitCode
+	return try n as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -4522,9 +4522,9 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Self
 
-	static function peers(consumes v T) returns Peers
+	static function peers(v T) returns Peers where T implements Copyable
 		var out = Peers.create(0)
-		out.push(Self{v: v})
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 end 'Box'
@@ -4580,19 +4580,19 @@ type Box uses T
 	var v as T
 	typealias Peers = Array with Self
 
-	static function peers(v T) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{v: v})
-		out.push(Self{v: v})
+	static function peers(v T) returns Peers where T implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{v: v.clone()})
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 
-	static function top(bs Peers) returns Self
+	static function top(bs Peers) returns Self where T implements Copyable
 		return try bs.get(0) otherwise panic("has one")
 	end 'top'
 
-	function held() returns T
-		return self.v
+	function held() returns T where T implements Copyable
+		return self.v.clone()
 	end 'held'
 end 'Box'
 
@@ -4685,18 +4685,18 @@ type Holder uses E
 	typealias Items = Array with E
 	var items as Items
 
-	static function of(e E) returns Self
-		let items = Items.create(0)
-		items.push(e)
+	static function of(e E) returns Self where E implements Copyable
+		var items = Items.create(0)
+		items.push(e.clone())
 		return Self{items: items}
 	end 'of'
 
-	function take() returns E
+	function take() returns E where E implements Copyable
 		return try self.items.get(self.items.count() - 1) otherwise panic("has")
 	end 'take'
 
-	function put(e E)
-		self.items.push(e)
+	function put(mutates self, e E) where E implements Copyable
+		self.items.push(e.clone())
 	end 'put'
 end 'Holder'
 
@@ -4704,18 +4704,18 @@ type Box uses T
 	var v as T
 	typealias Slot = Holder with Self
 
-	static function replaced(v T, w T) returns T
-		let s = Slot.of(Self{v: v})
-		s.put(Self{v: w})
+	static function replaced(v T, w T) returns T where T implements Copyable
+		var s = Slot.of(Self{v: v.clone()})
+		s.put(Self{v: w.clone()})
 		let b = s.take()
 		return b.v
 	end 'replaced'
 
-	static function wrap(v T) returns Slot
-		return Slot.of(Self{v: v})
+	static function wrap(v T) returns Slot where T implements Droppable and Copyable
+		return Slot.of(Self{v: v.clone()})
 	end 'wrap'
 
-	static function unwrap(h Slot) returns T
+	static function unwrap(h Slot) returns T where T implements Copyable
 		let b = h.take()
 		return b.v
 	end 'unwrap'
@@ -4785,12 +4785,12 @@ type Node uses T
 	typealias Kids = Array with Self
 	var kids as Kids
 
-	static function leaf(consumes v T) returns Self
-		return Self{v: v, kids: Kids.create(0)}
+	static function leaf(v T) returns Self where T implements Copyable
+		return Self{v: v.clone(), kids: Kids.create(0)}
 	end 'leaf'
 
-	function add(mutates self, consumes k Self)
-		self.kids.push(k)
+	function add(mutates self, k Self) where T implements Copyable
+		self.kids.push(k.clone())
 	end 'add'
 
 	function size() returns Integer
@@ -4829,15 +4829,15 @@ type Box uses T
 	typealias Row = Array with Self
 	typealias Grid = Array with (Array with Self)
 
-	static function grid(v T) returns Grid
-		let row = Row.create(0)
-		row.push(Self{v: v})
-		let out = Grid.create(0)
+	static function grid(v T) returns Grid where T implements Copyable
+		var row = Row.create(0)
+		row.push(Self{v: v.clone()})
+		var out = Grid.create(0)
 		out.push(row)
 		return out
 	end 'grid'
 
-	static function corner(g Grid) returns T
+	static function corner(g Grid) returns T where T implements Copyable
 		let row = try g.get(0) otherwise panic("row")
 		let b = try row.get(0) otherwise panic("col")
 		return b.v
@@ -4872,9 +4872,9 @@ end 'Box'
 extension Box
 	typealias Peers = Array with Self
 
-	static function peers(consumes v T) returns Peers
+	static function peers(v T) returns Peers where T implements Copyable
 		var out = Peers.create(0)
-		out.push(Self{v: v})
+		out.push(Self{v: v.clone()})
 		return out
 	end 'peers'
 end 'Box'
@@ -4944,18 +4944,18 @@ type Pair uses K, V
 	var v as V
 	typealias Peers = Array with Self
 
-	static function peers(k K, v V) returns Peers
-		let out = Peers.create(0)
-		out.push(Self{k: k, v: v})
+	static function peers(k K, v V) returns Peers where K implements Copyable, V implements Copyable
+		var out = Peers.create(0)
+		out.push(Self{k: k.clone(), v: v.clone()})
 		return out
 	end 'peers'
 
-	static function keyOf(ps Peers) returns K
+	static function keyOf(ps Peers) returns K where K implements Copyable, V implements Copyable
 		let first = try ps.get(0) otherwise panic("has one")
 		return first.k
 	end 'keyOf'
 
-	static function valueOf(ps Peers) returns V
+	static function valueOf(ps Peers) returns V where K implements Copyable, V implements Copyable
 		let first = try ps.get(0) otherwise panic("has one")
 		return first.v
 	end 'valueOf'

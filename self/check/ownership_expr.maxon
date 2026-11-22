@@ -123,12 +123,18 @@ function changesProjection(mutates o Ownership, p ast.Project, ms ast.ModuleStat
 	return true
 end 'changesProjection'
 
-// borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, and otherwise,
-// for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
+// borrowedMoveFix is the change that lets a borrowed value be stored: a copy when its type can be copied, the bound that
+// lets it be copied when only a type parameter's lack of one stops it, which keeps maxon's copy and the caller's value, and
+// otherwise, for a parameter given whole, taking it with consumes, which is the move of the whole value the message asks for.
 function borrowedMoveFix(mutates o Ownership, p ast.Project, mutates ms ast.ModuleState, e ast.NodeID, t ast.TypeID, path AccessPath) returns diag.Fix
-	if canCopy(o, p: p, ms: ms, t: t) 'copy'
+	let lacking = lacksCap(o.c, p: p, ms: ms, wantCopy: true, t: t)
+	if not lacking.missing 'copy'
 		return cloneFix(ms.tree(), e: e)
 	end 'copy'
+	let bound = lackBoundFix(p, ms: ms, fn: o.fn, info: lacking, capName: "Copyable")
+	if bound.isSome() 'bound'
+		return bound
+	end 'bound'
 	let root = o.c.typing.locals[path.root as Count].clone()
 	if root.isParam and not root.isSelf and root.conv == ast.Convention.convLet and path.steps.count() == 0 'whole'
 		return conventionFix(ms.tree(), param: root.definedAt, keyword: fixKindConsumes)

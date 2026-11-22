@@ -145,7 +145,6 @@ error E3005: <fragment>:3:24: Value 0 is outside the range of 'RandomBound' (int
 ```
 
 <!-- test: random.fill-random-fills-a-buffer-longer-than-one-request -->
-<!-- skip: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view -->
 <!-- tier: stdlib -->
 A thousand bytes are filled in requests of at most 256, and the last request's bytes are filled too: the last
 request is bytes 768 to 999, and 232 bytes drawn at random are all zero with probability 2^-1856.
@@ -159,9 +158,8 @@ function main() returns ExitCode
 		return 1
 	end 'refused'
 	var nonZeroInTheLastPiece = 0 as ByteTally
-	// TODO: for loops over the characters of a string, its grapheme clusters, pieces or lines, and withIterator() are not supported in minimaxon; loop over an array or a view
-	for (iter, byte) in bytes.withIterator() 'eachByte'
-		if iter.index() >= 768 and byte != 0 'filled'
+	for (iter, byte) in bytes.enumerated() 'eachByte'
+		if iter >= 768 and byte != 0 'filled'
 			nonZeroInTheLastPiece = nonZeroInTheLastPiece + 1
 		end 'filled'
 	end 'eachByte'

@@ -425,6 +425,7 @@ end 'main'
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-get -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A proven `get` cannot fail, so a `try` on it has nothing to catch and is refused.
 ```maxon
@@ -443,6 +444,7 @@ error E3055: <fragment>:7:10: try requires a throwing function: this `get` canno
 ```
 
 <!-- test: error.try-on-a-proven-fixed-array-set -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 The same refusal for a proven `set`.
 ```maxon

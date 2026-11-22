@@ -163,6 +163,7 @@ error E2051: specs/reserved-double-underscore/enum-case.maxon:4:2: identifier '_
 ```
 
 <!-- test: closure-parameter -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ```maxon
 typealias Integer = int(i64.min to i64.max)
 

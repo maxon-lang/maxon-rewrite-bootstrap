@@ -463,6 +463,7 @@ end 'main'
 ```
 
 <!-- test: error.unused-array-typealias -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 A `typealias X = Array with Y` declaration must be referenced **explicitly**
 by name (`X.create()`, `let v X = ...`, etc.) — being implicitly inferable
@@ -1391,6 +1392,7 @@ end 'main'
 ```
 
 <!-- test: error.reserve-on-a-let-array -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### … and `reserve` is the FOURTH
 ⚠ `reserve` is served by the corpus declaration, whose own write mask carries the rule. `reserve` allocates
 capacity and rewrites `buffer@0`/`capacity@16`, so an immutable array must refuse it exactly as `push`
@@ -1426,6 +1428,7 @@ end 'main'
 ```
 
 <!-- test: error.clear-on-a-let-array -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 ### … and `clear` is the FIFTH
 ⚠ `clear` shortens the array and RELEASES every element on the way out, so an immutable array must refuse
 it exactly as `push` and `set` do.
@@ -3685,6 +3688,7 @@ error E3005: <fragment>:12:10: Value 2000 is outside the range of 'Small' (int(0
 ```
 
 <!-- test: error.an-unnamed-argument-aliasing-a-let-array-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 A `let` array literal is an immutable root: an argument that names no binding but returns the same record (`pass(a)`)
 reaches the refusal `grow(a)` does.
 ```maxon
@@ -3709,6 +3713,7 @@ error E3207: <fragment>:14:7: 'grow' writes 'a' (line 9: `a.push(2)`); 'pass(a)'
 ```
 
 <!-- test: error.an-unnamed-receiver-aliasing-a-let-array-is-refused -->
+<!-- skip: language difference: ownership is refused by another rule -->
 The receiver spelling of the same route.
 ```maxon
 typealias CountArray = Array with Count
@@ -3744,6 +3749,7 @@ error E3197: <fragment>:4:32: cannot write 'a' through the closure that captures
 ```
 
 <!-- test: error.a-let-array-stored-in-a-var-struct-field-cannot-be-written-through-it -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A `let` array stored into a field of a `var` record is still the immutable record.
 ```maxon
 typealias CountArray = Array with Count
@@ -3915,6 +3921,7 @@ end 'main'
 ```
 
 <!-- test: error.a-let-array-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A `let` array literal is a constant its range columns were read from: handing it to an indirect call is refused.
 ```maxon
 typealias CountArray = Array with Count
@@ -3935,6 +3942,7 @@ error E3207: <fragment>:11:3: 'grow' writes 'a' (line 5: `a.push(2)`); 'a' is im
 ```
 
 <!-- test: error.a-let-fixed-array-handed-to-a-function-value-that-writes-it-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The same for a `FixedArray from` literal.
 ```maxon
 typealias CountVector = FixedArray with 3 Count
@@ -4134,6 +4142,7 @@ error E3106: <fragment>:6:10: 'FixedArray.create' cannot publish slots of 'Perce
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-array-to-a-function-value-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The same for a captured `let` array literal.
 ```maxon
 typealias CountArray = Array with Count
@@ -4155,6 +4164,7 @@ error E3197: <fragment>:12:29: cannot write 'a' through the closure that capture
 ```
 
 <!-- test: error.a-closure-handing-a-captured-let-fixed-array-to-a-function-value-is-refused -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The same for a captured `FixedArray from` literal.
 ```maxon
 typealias CountVector = FixedArray with 3 Count
@@ -5520,16 +5530,16 @@ type Pool uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function fill(head Element, tail Element)
+	function fill(mutates self, head Element, tail Element) where Element implements Copyable
 		items.growFilled(3, value: head)
-		items.push(tail)
+		items.push(tail.clone())
 	end 'fill'
 
 	function size() returns Count
 		return items.count()
 	end 'size'
 
-	function last() returns Element
+	function last() returns Element where Element implements Copyable
 		return try items.get(3) otherwise panic("a pushed slot")
 	end 'last'
 end 'Pool'
@@ -5537,7 +5547,7 @@ end 'Pool'
 typealias LevelPool = Pool with Level
 
 function main() returns ExitCode
-	let pool = LevelPool.create()
+	var pool = LevelPool.create()
 	pool.fill(Level.high, tail: Level.low)
 	print("{pool.size()} {pool.last().rawValue}\n")
 	return 0

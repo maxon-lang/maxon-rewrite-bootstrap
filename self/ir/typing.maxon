@@ -102,6 +102,14 @@ export function localOfNode(p ast.Project, module diag.ModuleID, node ast.NodeID
 	end 'hit'
 end 'localOfNode'
 
+// indexLocalOf is the variable that a `for (i, x) in xs.enumerated()` gives each element's index to, or none for any other for.
+export function indexLocalOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.LocalID
+	return match p.typings[ast.modIndex(module)].indexes.get(node as Count) 'hit'
+		some(id) gives id
+		none gives ast.noLocal
+	end 'hit'
+end 'indexLocalOf'
+
 // jumpTargetOf is the loop or match that a break or a continue leaves or repeats.
 export function jumpTargetOf(p ast.Project, module diag.ModuleID, node ast.NodeID) returns ast.NodeID
 	return match p.typings[ast.modIndex(module)].jumps.get(node as Count) 'hit'

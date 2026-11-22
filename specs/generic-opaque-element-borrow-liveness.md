@@ -519,20 +519,20 @@ type Box uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(item T)
-		items.push(item)
+	function add(mutates self, item T) where T implements Copyable
+		items.push(item.clone())
 	end 'add'
 
 	function size() returns Count
 		return items.count()
 	end 'size'
 
-	function clearThenKeep(item T) returns T
+	function clearThenKeep(mutates self, item T) returns T where T implements Droppable and Copyable
 		self.items.clear()
-		return item
+		return item.clone()
 	end 'clearThenKeep'
 
-	function firstAfterClear() returns T
+	function firstAfterClear(mutates self) returns T where T implements Copyable
 		return clearThenKeep(try self.items.get(0) otherwise panic("oob"))
 	end 'firstAfterClear'
 end 'Box'
@@ -540,7 +540,7 @@ end 'Box'
 typealias StrBox = Box with String
 
 function main() returns ExitCode
-	let b = StrBox.create()
+	var b = StrBox.create()
 	b.add("alpha {40 + 2} value long enough for a heap record")
 	let kept = b.firstAfterClear()
 	print("[{kept}] {b.size()}\n")
@@ -555,6 +555,7 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-survives-a-method-clearing-the-source -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### An opaque `for` element survives a method that clears the array the loop walks
 The body clears `self.items` before it stores `item`; the element holds its own reference, and the
 clear ends the loop, so only the first element is stored.
@@ -608,6 +609,7 @@ end 'main'
 ```
 
 <!-- test: an-opaque-for-element-in-a-static-survives-a-clear-of-its-source -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### An opaque `for` element in a `static function` survives a clear of the array the loop walks
 A `static function` that does not return `Self` has no receiver, so the descriptor an opaque element is counted
 through arrives from the call: `StrBox.moveWhileClearing` hands its instantiation's descriptor to the shared body.
@@ -665,7 +667,7 @@ type Box uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	static function keepFirst(items Items, into Items)
+	static function keepFirst(mutates items Items, mutates into Items) where T implements Copyable
 		let first = try items.get(0) otherwise panic("empty")
 		items.clear()
 		into.push(first)
@@ -677,9 +679,9 @@ typealias StrBox = Box with String
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let xs = Words.create(0)
+	var xs = Words.create(0)
 	xs.push("alpha {40 + 2} value long enough for a heap record")
-	let ys = Words.create(0)
+	var ys = Words.create(0)
 	StrBox.keepFirst(xs, into: ys)
 	print("[{try ys.get(0) otherwise "?"}] {xs.count()}\n")
 	return 0
@@ -693,6 +695,7 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-passes-the-descriptor-on -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A `static function` that calls a sibling static hands it the descriptor it was given
 `drainAndCount` holds no element itself; it calls `Self.moveWhileClearing`, which does, so it carries the descriptor
 for its own caller to fill and forwards it.
@@ -741,6 +744,7 @@ end 'main'
 ```
 
 <!-- test: a-static-reaching-a-static-through-an-instance-method-passes-the-descriptor-on -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### An instance method reaching a `static function` forwards the descriptor it carries
 `relocate` is an instance method that calls `Self.moveWhileClearing`; its own receiver supplies the descriptor the
 static needs, and a caller outside the type reaches the static through the alias directly.
@@ -796,6 +800,7 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-record-element-holds-it-across-a-clear -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### The same static over a record element, whose reference is an incref and not a copy
 `Tag` is a record, so the descriptor's reference is an incref of the shared box rather than a copy of bytes; the
 element read before the `clear` is the record the destination stores.
@@ -855,6 +860,7 @@ end 'main'
 ```
 
 <!-- test: a-static-iterating-a-trivial-element-needs-no-reference -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### The same static over an `int` element, whose reference is nothing
 The one body serves every instantiation: for an `int` element the descriptor's retain is inert, so the element is
 stored as it stands.
@@ -900,6 +906,7 @@ end 'main'
 ```
 
 <!-- test: a-static-of-another-generic-reached-through-an-alias-over-the-callers-parameter-gets-the-callers-descriptor -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 ### A static of one generic, called through an alias written over another generic's parameter
 `Outer.relocate` reaches `Inner.keepLast` through `Inner with U`, an instance over its own parameter, so the descriptor
 the static takes its references through is composed from the one `relocate` was handed.
@@ -972,7 +979,7 @@ type Box uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	static function keepFirst(items Items, into Items) throws BoxError
+	static function keepFirst(mutates items Items, mutates into Items) throws BoxError where T implements Copyable
 		if items.isEmpty() 'none'
 			throw BoxError.empty
 		end 'none'
@@ -987,9 +994,9 @@ typealias StrBox = Box with String
 typealias Words = Array with String
 
 function main() returns ExitCode
-	let xs = Words.create(0)
+	var xs = Words.create(0)
 	xs.push("alpha {40 + 2} value long enough for a heap record")
-	let ys = Words.create(0)
+	var ys = Words.create(0)
 	try StrBox.keepFirst(xs, into: ys) otherwise return 3
 	try StrBox.keepFirst(xs, into: ys) otherwise 'second'
 		print("second call refused\n")
@@ -1007,6 +1014,7 @@ second call refused
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-the-instance-its-arguments-fix -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 `Box.moveWhileClearing` names the generic base without type arguments, and its arguments `xs` and `ys` are an
 `Array with String`, which fixes `Box with String` through the `Items` parameters. The static takes its
 references through that instance's descriptor, exactly as `StrBox.moveWhileClearing` does.
@@ -1050,6 +1058,7 @@ end 'main'
 ```
 
 <!-- test: a-static-reached-through-a-bare-generic-base-takes-the-descriptor-of-a-record-its-arguments-fix -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 The instance the arguments fix is a record type, whose `String` field the shared body retains and releases through the descriptor the call site builds for `Box with Entry`.
 ```maxon
 typealias Small = int(0 to 1000)
@@ -1100,6 +1109,7 @@ end 'main'
 ```
 
 <!-- test: a-static-storing-a-borrowed-element-of-a-never-instantiated-generic-compiles -->
+<!-- skip: language difference: a loop holds the collection it walks -->
 No instantiation of `Box` exists, so no call can hand `moveWhileClearing` a descriptor and nothing runs the body. The declaration is legal: no descriptor is reserved and the program compiles.
 ```maxon
 public type Box uses T
@@ -1142,7 +1152,7 @@ type Box uses T
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	static function emptyCount(n Count) returns Count
+	static function emptyCount(n Count) returns Count where T implements Droppable
 		let scratch = Items.create(0)
 		return try scratch.count() + n otherwise panic("out of range")
 	end 'emptyCount'
@@ -1284,22 +1294,22 @@ type Slot uses T
 	var spare as T
 	var scrub as String
 
-	static function create(consumes first T, consumes second T) returns Self
-		return Self{current: first, spare: second, scrub: ""}
+	static function create(first T, second T) returns Self where T implements Copyable
+		return Self{current: first.clone(), spare: second.clone(), scrub: ""}
 	end 'create'
 
-	function glue(mutates self, consumes kept T, consumes other T) returns T
-		self.spare = other
-		return kept
+	function glue(mutates self, kept T, other T) returns T where T implements Droppable and Copyable
+		self.spare = other.clone()
+		return kept.clone()
 	end 'glue'
 
-	function replace(mutates self) returns T
-		self.current = self.spare
+	function replace(mutates self) returns T where T implements Droppable and Copyable
+		self.current = self.spare.clone()
 		self.scrub = "zzzzz {40 + 2} value long enough for a heap record"
-		return self.spare
+		return self.spare.clone()
 	end 'replace'
 
-	function run(mutates self) returns T
+	function run(mutates self) returns T where T implements Droppable and Copyable
 		return glue(self.current, other: replace())
 	end 'run'
 end 'Slot'

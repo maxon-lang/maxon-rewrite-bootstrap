@@ -636,11 +636,11 @@ end 'Holder'
 type Box uses T implements Holder with T
 	let value as T
 
-	function held() returns T
+	function held() returns T where T implements Copyable
 		return value
 	end 'held'
 
-	static function create(consumes value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{value: value}
 	end 'create'
 end 'Box'
@@ -1064,6 +1064,7 @@ says whether they name the same TYPE, and a conformance compares the brands (`no
 `take(xs IntArray)`, and the diagnostic prints the two spellings rather than the instance mint.
 
 <!-- test: error.two-alias-spellings-of-one-generic-instance-do-not-conform -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 ```maxon
 
@@ -1437,11 +1438,11 @@ end 'Holder'
 type Box uses T implements Holder with (T)
 	let value as T
 
-	function held() returns T
+	function held() returns T where T implements Copyable
 		return value
 	end 'held'
 
-	static function create(consumes value T) returns Self
+	static function create(value T) returns Self where T implements Copyable
 		return Self{value: value}
 	end 'create'
 end 'Box'
@@ -2635,8 +2636,8 @@ end 'Gauge'
 type W uses S where S implements Cursor with Level
 	var s as S
 
-	static function create(consumes s S) returns Self
-		return Self{s: s}
+	static function create(s S) returns Self where S implements Copyable
+		return Self{s: s.clone()}
 	end 'create'
 
 	function read() returns Level
@@ -3434,8 +3435,8 @@ type Holder uses E implements Taker with E
 		return self.base
 	end 'label'
 
-	static function create(base Integer, consumes seed E) returns Self
-		return Self{base: base, seed: seed}
+	static function create(base Integer, seed E) returns Self where E implements Copyable
+		return Self{base: base, seed: seed.clone()}
 	end 'create'
 end 'Holder'
 
@@ -4419,7 +4420,7 @@ public type Bag uses Element implements Holder with Element, Maker
 		return Self{}
 	end 'spawn'
 
-	function absorb(value ElementArray)
+	function absorb(value ElementArray) where Element implements Copyable
 		items = value.clone()
 	end 'absorb'
 

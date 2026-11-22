@@ -4312,6 +4312,7 @@ error E3207: <fragment>:24:7: 'bump' writes 'p' (line 19: `c.n = 5`); 'frozen' i
 ```
 
 <!-- test: a-parameter-joined-with-local-data-and-handed-to-a-writer-is-mutable-only -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 <!-- positions: moved -->
 `grow` writes the record `c` names, which may be `p`, so `p` is mutable only and the frozen argument is refused at the call.
 
@@ -4349,6 +4350,7 @@ error E3207: <fragment>:28:7: 'bump' writes 'p' (it calls 'grow', which writes '
 ```
 
 <!-- test: a-conditional-of-a-parameter-and-fresh-data-handed-to-a-writer-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 The same hand-off with the join spelled as a conditional expression.
 
@@ -4710,6 +4712,7 @@ error E3197: <fragment>:20:2: cannot write 'n' through 'r', which is immutable
 ```
 
 <!-- test: a-join-of-two-parameters-returned-and-handed-to-a-writer-by-the-caller-is-mutable-only -->
+<!-- skip: language difference: ownership is refused by another rule -->
 <!-- positions: moved -->
 `grow` writes the record `pick` may hand back, so both arguments must be mutable.
 

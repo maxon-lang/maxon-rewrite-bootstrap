@@ -16,6 +16,8 @@ export let fixKindMutatesSelf = "mutates self"
 
 export let fixKindVar = "var"
 
+export let fixKindBound = "bound"
+
 // fixPanicText is what the panic of a try that a fix writes says: the failure it stands for, which the program never
 // expected.
 let fixPanicText = "out of range"
@@ -147,3 +149,27 @@ export function mutatesSelfFix(t ast.Tree, method ast.NodeID) returns diag.Fix
 	edits.push(diag.FixEdit.insert(t.module, at: at32(inside), text: text))
 	return fixOf(fixKindMutatesSelf, edits: edits)
 end 'mutatesSelfFix'
+
+// boundFix gives the type parameter named param the bound in the where clause of the function declared at decl, a type
+// parameter of its own or of the type it is a method of: what "add the bound 'where T implements Copyable'" asks for.
+export function boundFix(t ast.Tree, decl ast.NodeID, param String, bound String) returns diag.Fix
+	if decl == 0 or t.kindOf(decl) != ast.NodeKind.funcDecl 'notFunction'
+		return diag.Fix.none()
+	end 'notFunction'
+	match consumes ast.boundPlace(t.text, at: t.startOf(decl) as Count, param: param) 'place'
+		some(place) then return fixOf(fixKindBound, edits: boundEdits(t, place: place, param: param, bound: bound))
+		none then return diag.Fix.none()
+	end 'place'
+end 'boundFix'
+
+function boundEdits(t ast.Tree, place ast.BoundPlace, param String, bound String) returns diag.FixEdits
+	var text = ""
+	match place.form 'form'
+		newClause then text = " where {param} implements {bound}"
+		newConstraint then text = ", {param} implements {bound}"
+		moreBounds then text = " and {bound}"
+	end 'form'
+	var edits = diag.FixEdits.create(0)
+	edits.push(diag.FixEdit.insert(t.module, at: at32(place.at), text: text))
+	return edits
+end 'boundEdits'

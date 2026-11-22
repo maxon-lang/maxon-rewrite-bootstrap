@@ -225,11 +225,11 @@ type Bag uses Element
 		items.push(value)
 	end 'add'
 
-	function put(i Idx, value Element)
+	function put(i Idx, value Element) where Element implements Droppable
 		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'

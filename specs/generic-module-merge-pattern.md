@@ -183,8 +183,8 @@ type GenContainer uses Op
 		return Self{ops: OpArray.create(0)}
 	end 'create'
 
-	function push(mutates self, consumes op Op)
-		self.ops.push(op)
+	function push(mutates self, op Op) where Op implements Copyable
+		self.ops.push(op.clone())
 	end 'push'
 
 	function count() returns Count

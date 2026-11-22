@@ -41,7 +41,7 @@ end 'closingOffset'
 // placeOffset is where maxon points for an assignment to a place: a field at its name, any other place at its start.
 function placeOffset(c Checker, p ast.Project, ms ast.ModuleState, place ast.NodeID) returns diag.U32
 	if ms.tree().kindOf(place) == ast.NodeKind.memberExpr 'field'
-		return ms.tree().memberNameStart(place)
+		return offsetOf(c, p: p, ms: ms, node: place)
 	end 'field'
 	return exprOffset(c, p: p, ms: ms, node: place)
 end 'placeOffset'

@@ -23,8 +23,13 @@ What the conversion changes:
   runs the others. The line is the conversion's only addition to the prose; the source keeps the `// TODO: kind`
   comments that say where.
 - A test that expects a compiler error and whose block was laid out differently (blank lines, indentation or bracket
-  lines moved) gets a `<!-- positions: moved -->` line after its marker, and the runner then compares the codes and the
-  messages of the errors and not their `<fragment>:line:column`.
+  lines moved) gets a `<!-- positions: moved -->` line after its marker, and the runner then compares the codes of the
+  errors and not their `<fragment>:line:column`.
+
+The runner compares the errors of a compile-error test one for one by code and place (`<fragment>:line:column`), never
+by message: minimaxon words its diagnostics in its own way (the repository's README, "Where it differs from Maxon"), so
+the notes and the lines that continue a message are left out too, and an error that maxon reports at no place matches
+its code wherever minimaxon reports it.
 - A multi-file test whose `main` is in a subdirectory only is skipped as `language difference: main is not declared in the
   project's root directory, which minimaxon requires`: maxon finds it there.
 - Files with no test (maxon's `AGENTS.md`) are left out.
@@ -34,7 +39,8 @@ What the fix changes: `fix specs` checks the program of every test that is not s
 `try ... otherwise panic(...)` around arithmetic or a cast that may fail, `as T` where an integer of another alias is
 needed, `.clone()` where a borrowed value would be moved, `consumes` on a parameter that is stored whole and cannot be
 copied, `mutates` on a parameter that is written, `mutates self` on a method that writes its receiver, `var` for a `let`
-that is changed), formats the block and checks again, until it is clean or what is left names no change. These are
+that is changed, and the bound `where T implements Copyable` or `Droppable` in the header of a function whose body copies or
+drops a value of the type parameter `T`), formats the block and checks again, until it is clean or what is left names no change. These are
 minimaxon's language differences (the repository's README, "Where it differs from Maxon"). A test that would need a
 `try` and expects a panic on stderr, maxon's run-time trap, is not rewritten: it gets a `<!-- skip: language difference:
 ... -->` line instead. A test that expects a compile error (and is not skipped) is compiled as the runner does, and when
@@ -46,8 +52,10 @@ code: operand types` (E2004 expected, E3005 reported). Any other test that
 expects a compile error and whose first reported error carries a fix gets the fixes of the errors whose code is not the
 expected one, in rounds as a run test does, until the first reported code is the expected one; it then gets one
 `<!-- positions: moved -->` line, since the fixes moved the text the expected positions name, and the runner compares the
-diagnostics without them. A test whose first error has no fix, or whose fixes never make the expected code first, is left
-as it was. A test that runs a program but whose `for` loop changes the array it walks (minimaxon's loop holds its
+diagnostics without them. A test whose first error has no fix, or whose fixes never make the expected code first, gets a
+skip line when the code left after the fixes makes a pair of `codeSkipTable` with the expected one, or when the code it was
+first refused under is one of the table's `first` rows (`language difference: arithmetic that can fail needs a proof or a
+try, which minimaxon asks for before what maxon reports`, for E3057), and is otherwise left as it was. A test that runs a program but whose `for` loop changes the array it walks (minimaxon's loop holds its
 collection, E3186) gets `<!-- skip: language difference: a loop holds the collection it walks -->`. Prose and expectation
 blocks are not touched.
 

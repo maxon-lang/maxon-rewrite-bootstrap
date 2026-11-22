@@ -243,7 +243,7 @@ function memberOfTypeParam(mutates c Checker, p ast.Project, ms ast.ModuleState,
 	let req = boundRequirement(p, ms: ms, boundedFn: c.boundedFn, param: param, name: member)
 	if req.sig != ast.noFunc 'requirement'
 		let ifaceName = ast.typeEntry(ms.types, reads: p.types, t: req.iface).name.clone()
-		checkFail(c.modID, off: ms.tree().memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
+		checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errMethodAsFunctionValue, msg: diag.requirementAsFunctionValue("{paramName}.{member}", interfaceName: ifaceName), errs: errs)
 		return ast.noType
 	end 'requirement'
 	checkFail(c.modID, off: offsetOf(c, p: p, ms: ms, node: e), code: diag.errUnknownStaticMember, msg: "'{paramName}' is a type parameter, which has no member '{member}': a type parameter has only the methods of its bounds, called on a value", errs: errs)
@@ -286,11 +286,11 @@ function checkTypeMember(mutates c Checker, p ast.Project, mutates ms ast.Module
 	if method != ast.noFunc 'method'
 		let spelled = "{writtenType(c, p: p, ms: ms, obj: obj)}.{member}"
 		let words = diag.methodAsFunctionValue(spelled) if ast.funcEntry(ms.funcs, funcReads: p.funcs, f: method).isStatic else diag.instanceMethodAsFunctionValue(spelled, method: member)
-		checkFail(c.modID, off: ms.tree().memberNameStart(e), code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
+		checkFail(c.modID, off: off, code: diag.errMethodAsFunctionValue, msg: words, errs: errs)
 		return ast.noType
 	end 'method'
 	if k == ast.TypeKind.record 'noMember'
-		checkFail(c.modID, off: try off + 1 otherwise off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, ms: ms, t: named), member: member), errs: errs)
+		checkFail(c.modID, off: off, code: diag.errUnknownStaticMember, msg: diag.noStaticMember(nameOfType(p, ms: ms, t: named), member: member), errs: errs)
 		return ast.noType
 	end 'noMember'
 	checkFail(c.modID, off: off, code: diag.errUnknownField, msg: "'{nameOfType(p, ms: ms, t: named)}.{member}' is not a value", errs: errs)

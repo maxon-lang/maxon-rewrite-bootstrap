@@ -486,6 +486,8 @@ export type Typing
 	export var jumps as NodeJumpMap
 	export var locals as LocalEntryList
 	export var nodeLocals as NodeLocalMap
+	// indexes are the variables that the `for (i, x) in xs.enumerated()` loops bind the index of each element to, by loop.
+	export var indexes as NodeLocalMap
 	export var expansions as NodeExpansionMap
 	export var funcLocals as NodeLocalListMap
 	export var funcUses as NodeUsesMap
@@ -514,13 +516,14 @@ export type Typing
 		let im = NodeIterationMap.new()
 		let jm = NodeJumpMap.new()
 		let nlm = NodeLocalMap.new()
+		let ixm = NodeLocalMap.new()
 		let exm = NodeExpansionMap.new()
 		let flm = NodeLocalListMap.new()
 		let fum = NodeUsesMap.new()
 		let fdum = NodeUsesMap.new()
 		let con = NodeBoolMap.new()
 		let bx = NodeBoxMap.new()
-		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, boxes: bx, declared: false}
+		return Typing{module: module, types: tm, arith: am, names: nm, members: mm, calls: cm, structLits: sm, patterns: pm, arms: ak, whens: wm, closures: clm, iterations: im, jumps: jm, locals: ls, nodeLocals: nlm, indexes: ixm, expansions: exm, funcLocals: flm, funcUses: fum, fieldUses: fdum, consumed: con, boxes: bx, declared: false}
 	end 'new'
 
 	export function allocLocal(mutates self, consumes entry LocalEntry) returns LocalID

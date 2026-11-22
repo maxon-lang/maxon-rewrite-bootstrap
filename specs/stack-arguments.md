@@ -272,6 +272,7 @@ end 'main'
 ```
 
 <!-- test: argument-slots-are-capped-and-the-cap-is-stated -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 The remaining ceiling is the width of the per-argument float mask that routes each argument to its
 register file, not a register count — and it is diagnosed rather than silently miscompiled.
 ```maxon

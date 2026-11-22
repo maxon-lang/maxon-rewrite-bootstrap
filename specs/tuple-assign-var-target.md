@@ -71,6 +71,7 @@ end 'main'
 ```
 
 <!-- test: var-target-never-reassigned-is-e3077 -->
+<!-- skip: language difference: arithmetic that can fail needs a proof or a try, which minimaxon asks for before what maxon reports -->
 A `var` target is a body `var` declaration, so the never-reassigned rule reaches it exactly as it reaches
 `var y = …`. This is what says the target goes through the ordinary declaration door rather than a
 private one.

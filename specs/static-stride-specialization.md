@@ -284,15 +284,15 @@ type Bag uses Element
 		return Self{items: Items.create(0)}
 	end 'create'
 
-	function add(value Element)
-		items.push(value)
+	function add(mutates self, value Element) where Element implements Copyable
+		items.push(value.clone())
 	end 'add'
 
-	function put(i Idx, value Element)
-		try items.set(i, value: value) otherwise panic("Bag.put: index out of range")
+	function put(mutates self, i Idx, value Element) where Element implements Droppable and Copyable
+		try items.set(i, value: value.clone()) otherwise panic("Bag.put: index out of range")
 	end 'put'
 
-	function at(i Idx) returns Element throws ArrayError
+	function at(i Idx) returns Element throws ArrayError where Element implements Copyable
 		return try items.get(i)
 	end 'at'
 end 'Bag'
@@ -304,7 +304,7 @@ typealias ByteBag = Bag with Byte
 typealias WordArray = Array with Word
 
 function main() returns ExitCode
-	let w = WordBag.create()
+	var w = WordBag.create()
 	w.add(1000000)
 	w.add(2000000)
 	w.put(1, value: 3000000)
@@ -314,7 +314,7 @@ function main() returns ExitCode
 	if (try w.at(1) otherwise return 1) != 3000000 'wordSecond'
 		return 3
 	end 'wordSecond'
-	let b = ByteBag.create()
+	var b = ByteBag.create()
 	b.add(200)
 	b.add(7)
 	b.put(1, value: 255)
@@ -325,7 +325,7 @@ function main() returns ExitCode
 		return 5
 	end 'byteSecond'
 	// The same element width reached DIRECTLY, where the stride is known and the fork is gone.
-	let direct = WordArray.create(0)
+	var direct = WordArray.create(0)
 	direct.push(9)
 	if (try direct.get(0) otherwise return 1) != 9 'directWord'
 		return 6

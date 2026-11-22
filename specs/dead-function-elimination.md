@@ -145,8 +145,8 @@ end 'Point'
 type Box uses T where T implements Digest
 	export var item as T
 
-	static function create(consumes item T) returns Self
-		return Self{item: item}
+	static function create(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'create'
 
 	function itemDigest() returns Code
@@ -188,8 +188,8 @@ type Container uses Element
 		return self.items.count()
 	end 'count'
 
-	function push(mutates self, consumes item Element)
-		self.items.push(item)
+	function push(mutates self, item Element) where Element implements Copyable
+		self.items.push(item.clone())
 	end 'push'
 end 'Container'
 

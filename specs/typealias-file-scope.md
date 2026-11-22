@@ -937,12 +937,12 @@ program's, and the run exits clean.
 export type Box uses T
 	export var value as T
 
-	export static function create(consumes v T) returns Self
-		return Self{value: v}
+	export static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	export function swap(mutates self, consumes v T)
-		self.value = v
+	export function swap(mutates self, v T) where T implements Droppable and Copyable
+		self.value = v.clone()
 	end 'swap'
 end 'Box'
 
@@ -1090,12 +1090,12 @@ end 'S1'
 export type Box uses T
 	export var value as T
 
-	export static function create(consumes v T) returns Self
-		return Self{value: v}
+	export static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	export function swap(mutates self, consumes v T)
-		self.value = v
+	export function swap(mutates self, v T) where T implements Droppable and Copyable
+		self.value = v.clone()
 	end 'swap'
 end 'Box'
 
@@ -1153,12 +1153,12 @@ end 'S1'
 export type Box uses T
 	export var value as T
 
-	export static function create(consumes v T) returns Self
-		return Self{value: v}
+	export static function create(v T) returns Self where T implements Copyable
+		return Self{value: v.clone()}
 	end 'create'
 
-	export function swap(mutates self, consumes v T)
-		self.value = v
+	export function swap(mutates self, v T) where T implements Droppable and Copyable
+		self.value = v.clone()
 	end 'swap'
 end 'Box'
 
@@ -2303,8 +2303,8 @@ end 'IntCell'
 type IntRunner uses T where T implements IntScaled
 	let item as T
 
-	static function of(consumes item T) returns Self
-		return Self{item: item}
+	static function of(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'of'
 
 	function run() returns Measure
@@ -2340,8 +2340,8 @@ end 'FloatCell'
 type FloatRunner uses T where T implements FloatScaled
 	let item as T
 
-	static function of(consumes item T) returns Self
-		return Self{item: item}
+	static function of(item T) returns Self where T implements Copyable
+		return Self{item: item.clone()}
 	end 'of'
 
 	function run() returns Measure
@@ -3095,8 +3095,8 @@ export type Pair uses A, B
 	export var first as A
 	export var second as B
 
-	export static function create(consumes first A, consumes second B) returns Self
-		return Self{first: first, second: second}
+	export static function create(first A, second B) returns Self where A implements Copyable, B implements Copyable
+		return Self{first: first.clone(), second: second.clone()}
 	end 'create'
 end 'Pair'
 
