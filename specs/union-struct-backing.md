@@ -43,7 +43,6 @@ All cases must use the same struct type. Struct field values must be compile-tim
 ### Basic union with struct backing and associated values
 
 <!-- test: union-backing-basic -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -58,19 +57,16 @@ type OpMeta
 end 'OpMeta'
 
 union TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest ID, src ID) = OpMeta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul(dest ID, src ID) = OpMeta.create(3)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = OpMeta.create(0)
 end 'TestOp'
 
 function main() returns ExitCode
 	let op = TestOp.add(10, src: 20)
 	match op 'handle'
-		add(d, s) then return d + s
-		mul(d, s) then return d * s
+		add(d, s) then return try d + s otherwise panic("out of range")
+		mul(d, s) then return try d * s otherwise panic("out of range")
 		nop then return 0
 	end 'handle'
 end 'main'
@@ -82,7 +78,6 @@ end 'main'
 ### Compile-time metadata access on union cases
 
 <!-- test: union-backing-metadata -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -97,11 +92,8 @@ type OpMeta
 end 'OpMeta'
 
 union TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest ID, src ID) = OpMeta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul(dest ID, src ID) = OpMeta.create(3)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = OpMeta.create(0)
 end 'TestOp'
 
@@ -116,7 +108,6 @@ end 'main'
 ### Match with mixed cases (some with associated values, some without)
 
 <!-- test: union-backing-mixed-cases -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Cost = int(0 to 100)
 
@@ -131,19 +122,16 @@ type CostMeta
 end 'CostMeta'
 
 union Action
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest ID) = CostMeta.create(4)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	store(src ID) = CostMeta.create(3)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = CostMeta.create(0)
 end 'Action'
 
 function main() returns ExitCode
 	let op = Action.nop
 	match op 'handle'
-		load(d) then return d
-		store(s) then return s
+		load(d) then return try d as ExitCode otherwise panic("out of range")
+		store(s) then return try s as ExitCode otherwise panic("out of range")
 		nop then return 1
 	end 'handle'
 end 'main'
@@ -155,7 +143,6 @@ end 'main'
 ### Union backing with multiple struct fields
 
 <!-- test: union-backing-multi-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Flag = int(0 to 1)
 
@@ -173,11 +160,8 @@ type DetailMeta
 end 'DetailMeta'
 
 union MemOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest ID, offset ID) = DetailMeta.create(4, isMemory: 1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	store(src ID, offset ID) = DetailMeta.create(3, isMemory: 1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest ID, src ID) = DetailMeta.create(1, isMemory: 0)
 end 'MemOp'
 
@@ -194,7 +178,6 @@ end 'main'
 ### Struct-backing metadata read on a runtime union value
 
 <!-- test: union-backing-runtime-rawvalue -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -209,11 +192,8 @@ type OpMeta
 end 'OpMeta'
 
 union TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest ID, src ID) = OpMeta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul(dest ID, src ID) = OpMeta.create(3)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = OpMeta.create(0)
 end 'TestOp'
 
@@ -250,7 +230,6 @@ those three is written by the cases above. Pinned here because the door is one r
 would leave the cases above green while silently dropping the rest of the surface.
 
 <!-- test: union-backing-type-qualified-surface -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -261,11 +240,8 @@ type OpMeta
 end 'OpMeta'
 
 union TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest ID, src ID) = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul(dest ID, src ID) = OpMeta{latency: 3}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = OpMeta{latency: 0}
 end 'TestOp'
 

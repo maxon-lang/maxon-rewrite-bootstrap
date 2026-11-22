@@ -32,7 +32,6 @@ All cases must use the same struct type. Struct field values must be compile-tim
 ### Basic rawValue field access
 
 <!-- test: struct-backing-basic -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -45,9 +44,7 @@ type Meta
 end 'Meta'
 
 enum TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Meta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul = Meta.create(3)
 end 'TestOp'
 
@@ -70,7 +67,6 @@ reconstructed from the ordinal at runtime (a select-chain over the per-case
 constants). This exercises the runtime path.
 
 <!-- test: struct-backing-rawvalue-nonconst-receiver -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -79,9 +75,7 @@ type Meta
 end 'Meta'
 
 enum TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Meta{value: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul = Meta{value: 3}
 end 'TestOp'
 
@@ -102,7 +96,6 @@ end 'main'
 ### Multiple struct fields
 
 <!-- test: struct-backing-multi-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 100)
 
@@ -118,11 +111,8 @@ type OpInfo
 end 'OpInfo'
 
 enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpInfo.create(1, throughput: 1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul = OpInfo.create(3, throughput: 2)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	div = OpInfo.create(40, throughput: 1)
 end 'Instruction'
 
@@ -138,7 +128,6 @@ end 'main'
 ### Ordinal access on struct-backed enum
 
 <!-- test: struct-backing-ordinal -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Weight = int(0 to 100)
 
@@ -151,17 +140,14 @@ type Info
 end 'Info'
 
 enum Priority
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	low = Info.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	medium = Info.create(5)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	high = Info.create(10)
 end 'Priority'
 
 function main() returns ExitCode
 	let p = Priority.high
-	return p.ordinal
+	return try p.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -171,7 +157,6 @@ end 'main'
 ### Name access on struct-backed enum
 
 <!-- test: struct-backing-name -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Cost = int(0 to 100)
 
@@ -184,9 +169,7 @@ type Metadata
 end 'Metadata'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	read = Metadata.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	write = Metadata.create(5)
 end 'Op'
 
@@ -208,7 +191,6 @@ write
 ### Match on struct-backed enum
 
 <!-- test: struct-backing-match -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -221,11 +203,8 @@ type Meta
 end 'Meta'
 
 enum TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Meta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	sub = Meta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul = Meta.create(3)
 end 'TestOp'
 
@@ -245,7 +224,6 @@ end 'main'
 ### Throughput from second field
 
 <!-- test: struct-backing-second-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 100)
 
@@ -261,9 +239,7 @@ type OpInfo
 end 'OpInfo'
 
 enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpInfo.create(1, throughput: 2)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mul = OpInfo.create(3, throughput: 1)
 end 'Instruction'
 
@@ -279,7 +255,6 @@ end 'main'
 ### Enum member reference as struct field value
 
 <!-- test: struct-backing-enum-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Cost = int(0 to 100)
 
@@ -295,17 +270,14 @@ type TaskInfo
 end 'TaskInfo'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = TaskInfo{priority: Priority.low, cost: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	normal = TaskInfo{priority: Priority.medium, cost: 5}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	heavy = TaskInfo{priority: Priority.high, cost: 10}
 end 'Task'
 
 function main() returns ExitCode
 	let t = Task.heavy
-	return t.rawValue.priority.ordinal
+	return try t.rawValue.priority.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -315,7 +287,6 @@ end 'main'
 ### Enum member reference in factory call
 
 <!-- test: struct-backing-enum-factory -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Level = int(0 to 100)
 
@@ -334,15 +305,13 @@ type Config
 end 'Config'
 
 enum Setting
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	turbo = Config.create(Mode.fast, level: 10)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	eco = Config.create(Mode.slow, level: 3)
 end 'Setting'
 
 function main() returns ExitCode
 	let s = Setting.turbo
-	return s.rawValue.mode.ordinal
+	return try s.rawValue.mode.ordinal as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -352,8 +321,6 @@ end 'main'
 ### Error: mixed backing types
 
 <!-- test: error.struct-backing-mixed -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Value = int(0 to 100)
 
@@ -366,7 +333,6 @@ type Meta
 end 'Meta'
 
 enum Mixed
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	a = Meta.create(1)
 	b = 42
 end 'Mixed'
@@ -382,8 +348,6 @@ error E3032: specs/enum-struct-backing/error.struct-backing-mixed.maxon:14:2: ra
 ### Error: fromRawValue blocked
 
 <!-- test: error.struct-backing-fromRawValue -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Value = int(0 to 100)
 
@@ -396,7 +360,6 @@ type Meta
 end 'Meta'
 
 enum TestOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Meta.create(1)
 end 'TestOp'
 
@@ -411,7 +374,7 @@ error E3034: specs/enum-struct-backing/error.struct-backing-fromRawValue.maxon:1
 
 
 <!-- test: struct-backing-keyword-enum-case-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
+<!-- skip: minimaxon does not parse the converted source: Expected the end of the indented lines but got 'int' -->
 A struct-backing field value may reference a keyword-spelled enum case
 (`Cat.bool`, `Cat.int`). The enum spec permits keyword tokens as case names, so
 a const-expression `EnumName.case` member must accept an identifier-like token
@@ -429,9 +392,7 @@ type Info
 end 'Info'
 
 enum Kind
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	a = Info{cat: Cat.bool}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	b = Info{cat: Cat.int}
 end 'Kind'
 
@@ -463,7 +424,6 @@ written as `<Enum>.<case>` instead of as a local. The type-qualified door admits
 `name`/`ordinal`/`rawValue`, exactly as the binding door does.
 
 <!-- test: struct-backing-type-qualified-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias W = int(0 to 50)
 
@@ -472,9 +432,7 @@ type Spec
 end 'Spec'
 
 enum Preset
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	small = Spec{width: 3}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	large = Spec{width: 9}
 end 'Preset'
 
@@ -494,7 +452,6 @@ backing field as well as the three accessors, so `.ordinal` and `.width` both wo
 The long spelling `t.rawValue.size.ordinal` routes elsewhere.
 
 <!-- test: struct-backing-enum-field-chain -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias W = int(0 to 50)
 
@@ -503,9 +460,7 @@ type Spec
 end 'Spec'
 
 enum Size
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	small = Spec{width: 3}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	large = Spec{width: 9}
 end 'Size'
 
@@ -514,9 +469,7 @@ type Style
 end 'Style'
 
 enum Theme
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	plain = Style{size: Size.small}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	bold = Style{size: Size.large}
 end 'Theme'
 
@@ -544,15 +497,12 @@ a heap value has no constant to be. Without this refusal, `Meta{label: 1}` on a 
 and dereference a `String` record address of 1 at run time.
 
 <!-- test: error.struct-backing-field-type -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 type Meta
 	export let label as String
 end 'Meta'
 
 enum Tag
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	first = Meta{label: 1}
 end 'Tag'
 
@@ -572,8 +522,6 @@ which is exactly how this was admitted: the program below compiled and exited wi
 `match`ing a box pointer whose address was the tag 1.
 
 <!-- test: error.struct-backing-boxed-union-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Num = int(0 to 99)
 
@@ -587,7 +535,6 @@ type Meta
 end 'Meta'
 
 enum Kind
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	only = Meta{s: Shape.blank}
 end 'Kind'
 
@@ -605,8 +552,6 @@ Reading one field selects that field's constant from EVERY case, so every case m
 DEFAULT does not excuse it.
 
 <!-- test: error.struct-backing-missing-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -616,9 +561,7 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{value: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	slow = Meta{value: 2, cost: 5}
 end 'Task'
 
@@ -633,8 +576,6 @@ error E2015: specs/enum-struct-backing/error.struct-backing-missing-field.maxon:
 ### Error: a label naming no declared field
 
 <!-- test: error.struct-backing-unknown-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -643,7 +584,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{bogus: 1}
 end 'Task'
 
@@ -661,8 +601,6 @@ The second constant would be silently dropped, since the field's value is resolv
 fills it.
 
 <!-- test: error.struct-backing-duplicate-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -671,7 +609,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{value: 1, value: 2}
 end 'Task'
 
@@ -689,8 +626,6 @@ A factory call in a raw-value position is read as the struct LITERAL its argumen
 the last field names nothing.
 
 <!-- test: error.struct-backing-arity -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -699,7 +634,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta.create(1, 2)
 end 'Task'
 
@@ -718,8 +652,6 @@ field after it names a value this compiler does not build. The refusal says that
 the value cannot exist.
 
 <!-- test: error.struct-backing-bare-rawvalue -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -728,7 +660,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{value: 1}
 end 'Task'
 

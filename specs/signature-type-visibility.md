@@ -2511,8 +2511,6 @@ error E3167: api/<fragment>:6:11: exported function 'api.Sized.size' names unexp
 ```
 
 <!-- test: error.an-exported-enum-backed-by-a-file-private-record-is-refused -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 A struct-backed enum hands out its record through `rawValue`, so the record is part of the enum's surface and
 is held to the enum's tier. The refusal sits at the enum NAME.
 ```maxon
@@ -2522,9 +2520,7 @@ type OpMeta
 end 'OpMeta'
 
 export enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 
@@ -2542,7 +2538,6 @@ error E3167: api/<fragment>:7:13: exported enum 'api.Instruction' names unexport
 ```
 
 <!-- test: an-exported-enum-backed-by-an-exported-record-is-legal -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Equal tiers, and `OpMeta` is named by the enum's backing alone.
 ```maxon
 // --- file: api/lib.maxon
@@ -2551,9 +2546,7 @@ export type OpMeta
 end 'OpMeta'
 
 export enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 
@@ -2563,7 +2556,7 @@ end 'latency'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return latency(Instruction.load)
+	return api.latency(api.Instruction.load)
 end 'main'
 ```
 ```exitcode

@@ -1724,7 +1724,6 @@ FAIL
 ```
 
 <!-- test: closure-capture.a-captured-enum-value-answers-its-name-ordinal-and-record -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A captured enum value answers `name`, `ordinal` and a struct-backed record's fields inside the closure.
 ```maxon
 typealias Latency = int(0 to 50)
@@ -1737,9 +1736,7 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1, isMemory: false}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4, isMemory: true}
 end 'Instruction'
 
@@ -1911,7 +1908,6 @@ beta b-
 ```
 
 <!-- test: closure-capture.a-captured-self-answers-its-record-and-a-union-self-its-name -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 `self` in a struct-backed enum's method answers its record's fields, and `self` in a union's method answers
 `name` and `ordinal`, directly and captured.
 ```maxon
@@ -1924,9 +1920,7 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 
 	function cost() returns String
@@ -1967,7 +1961,6 @@ fail 1 fail
 ```
 
 <!-- test: closure-capture.self-in-a-struct-backed-union-reads-its-backing-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 `self` in a struct-backed union's method reads a backing field by its short name, as a binding does, directly
 and captured.
 ```maxon
@@ -1982,9 +1975,7 @@ type OpMeta
 end 'OpMeta'
 
 union Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest Slot) = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest Slot) = OpMeta{latency: 4}
 
 	function cost() returns Latency
@@ -2007,7 +1998,6 @@ end 'main'
 ```
 
 <!-- test: closure-capture.error.self-in-a-struct-backed-union-still-reads-no-payload -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A payload name stays unreadable through `self`, backing or not.
 ```maxon
@@ -2020,9 +2010,7 @@ type OpMeta
 end 'OpMeta'
 
 union Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add(dest Slot) = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load(dest Slot) = OpMeta{latency: 4}
 
 	function target() returns Slot
@@ -2071,7 +2059,6 @@ fail 1
 ```
 
 <!-- test: closure-capture.a-bare-struct-backed-enum-field-reads-its-record -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -2080,9 +2067,7 @@ type OpMeta
 end 'OpMeta'
 
 enum Instruction
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = OpMeta{latency: 1}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = OpMeta{latency: 4}
 end 'Instruction'
 

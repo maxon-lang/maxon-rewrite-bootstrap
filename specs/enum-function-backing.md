@@ -33,29 +33,26 @@ end 'Op'
 ## Tests
 
 <!-- test: function-backing.basic-dispatch -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function doubleFn(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 function tripleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'tripleFn'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
 function main() returns ExitCode
 	let f = Op.doubleOp.rawValue
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -63,30 +60,27 @@ end 'main'
 ```
 
 <!-- test: function-backing.multi-case-dispatch -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function doubleFn(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 function tripleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'tripleFn'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
 function main() returns ExitCode
 	let dFn = Op.doubleOp.rawValue
 	let tFn = Op.tripleOp.rawValue
-	return dFn(5) + tFn(10)
+	return try dFn(5) + tFn(10) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -94,23 +88,20 @@ end 'main'
 ```
 
 <!-- test: function-backing.through-variable -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function doubleFn(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 function tripleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'tripleFn'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
@@ -120,7 +111,7 @@ function apply(op Op, x Integer) returns Integer
 end 'apply'
 
 function main() returns ExitCode
-	return apply(Op.tripleOp, x: 14)
+	return try apply(Op.tripleOp, x: 14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -128,30 +119,27 @@ end 'main'
 ```
 
 <!-- test: function-backing.two-args -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 
 typealias Integer = int(i64.min to i64.max)
 
 function addFn(a Integer, b Integer) returns Integer
-	return a + b
+	return try a + b otherwise panic("out of range")
 end 'addFn'
 
 function subFn(a Integer, b Integer) returns Integer
-	return a - b
+	return try a - b otherwise panic("out of range")
 end 'subFn'
 
 enum BinOp
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = addFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	sub = subFn
 end 'BinOp'
 
 function main() returns ExitCode
 	let addF = BinOp.add.rawValue
 	let subF = BinOp.sub.rawValue
-	return addF(30, 15) - subF(5, 2)
+	return try addF(30, 15) - subF(5, 2) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -159,7 +147,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.forward-reference -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Function-backed enum cases may name functions declared later in the same file.
 The case binding is deferred until all top-level declarations are scanned.
 
@@ -168,23 +155,21 @@ The case binding is deferred until all top-level declarations are scanned.
 typealias Integer = int(i64.min to i64.max)
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
 function doubleFn(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 function tripleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'tripleFn'
 
 function main() returns ExitCode
 	let f = Op.doubleOp.rawValue
-	return f(21)
+	return try f(21) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -192,7 +177,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.cross-file -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 Function-backed enums may reference functions defined in other files.
 
 ```maxon
@@ -200,25 +184,23 @@ Function-backed enums may reference functions defined in other files.
 typealias Integer = int(i64.min to i64.max)
 
 function doubleFn(x Integer) returns Integer
-	return x * 2
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 function tripleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'tripleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = tripleFn
 end 'Op'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let f = Op.tripleOp.rawValue
-	return f(14)
+	let f = api.Op.tripleOp.rawValue
+	return try f(14) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -226,7 +208,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.contested-name-resolves-at-the-declaring-file -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A case's function name is resolved where the ENUM is declared, under the bare-call rule: `doubleFn` is
 declared in `alpha/` (unmarked) and in `beta/` (exported), so from `api/dispatch.maxon` it means
 beta's. The read happens inside `alpha/a.maxon`, where alpha's own `doubleFn` is visible — so a name
@@ -241,24 +222,23 @@ function doubleFn(x Integer) returns Integer
 end 'doubleFn'
 
 export function viaEnum() returns Integer
-	let f = Op.doubleOp.rawValue
+	let f = api.Op.doubleOp.rawValue
 	return f(10) + doubleFn(1)
 end 'viaEnum'
 
 // --- file: beta/ops.maxon
-export function doubleFn(x Integer) returns Integer
+export function doubleFn(x alpha.Integer) returns alpha.Integer
 	return x * 2
 end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
-	doubleOp = doubleFn
+	doubleOp = beta.doubleFn
 end 'Op'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	return viaEnum() as ExitCode
+	return alpha.viaEnum() as ExitCode
 end 'main'
 ```
 ```exitcode
@@ -266,8 +246,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.error.contested-name-with-two-visible-candidates -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 Two visible declarations of the case's function name are an ambiguity at the enum's declaration, and
 the case is refused rather than bound to either.
 
@@ -286,7 +264,6 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -301,8 +278,6 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 ```
 
 <!-- test: function-backing.error.contested-name-with-different-results-is-called-from-another-file -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 When the candidates disagree about the result, calling the refused case's value from another file reports
 the ambiguity alone — the call's result is not typed from either candidate.
 
@@ -321,7 +296,6 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = doubleFn
 end 'Op'
 
@@ -336,8 +310,6 @@ error E3095: api/<fragment>:16:13: Ambiguous bare function name 'doubleFn' backi
 ```
 
 <!-- test: function-backing.error.undeclared-name-is-called-from-another-file -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 A case backed by a function no file declares is refused where it is declared, and calling its value from
 another file adds nothing to that refusal.
 
@@ -346,7 +318,6 @@ another file adds nothing to that refusal.
 export typealias Integer = int(i64.min to i64.max)
 
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = nosuchFn
 end 'Op'
 
@@ -361,7 +332,6 @@ error E2004: api/<fragment>:6:2: Undefined variable 'nosuchFn'
 ```
 
 <!-- test: function-backing.contested-name-qualified-by-its-directory -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 The remedy E3095 names is writable in the declaration: a directory-qualified function name backs the case with
 the declaration that directory holds.
 
@@ -370,27 +340,25 @@ the declaration that directory holds.
 export typealias Integer = int(i64.min to i64.max)
 
 export function doubleFn(x Integer) returns Integer
-	return x * 3
+	return try x * 3 otherwise panic("out of range")
 end 'doubleFn'
 
 // --- file: beta/ops.maxon
-export function doubleFn(x Integer) returns Integer
-	return x * 2
+export function doubleFn(x alpha.Integer) returns alpha.Integer
+	return try x * 2 otherwise panic("out of range")
 end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = beta.doubleFn
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = alpha.doubleFn
 end 'Op'
 
 // --- file: app/main.maxon
 function main() returns ExitCode
-	let f = Op.doubleOp.rawValue
-	let g = Op.tripleOp.rawValue
-	return (f(10) + g(1)) as ExitCode
+	let f = api.Op.doubleOp.rawValue
+	let g = api.Op.tripleOp.rawValue
+	return try (f(10) + g(1)) as ExitCode otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -398,7 +366,6 @@ end 'main'
 ```
 
 <!-- test: function-backing.error.a-throwing-backing-function-is-refused-by-the-name-it-was-written-as -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 The case's refusal quotes the function name the declaration wrote, though it resolves to beta's declaration.
 
@@ -419,7 +386,7 @@ export enum OpError implements Error
 	overflow
 end 'OpError'
 
-export function doubleFn(x Integer) returns Integer throws OpError
+export function doubleFn(x alpha.Integer) returns alpha.Integer throws OpError
 	if x > 1000 'tooBig'
 		throw OpError.overflow
 	end 'tooBig'
@@ -428,8 +395,7 @@ end 'doubleFn'
 
 // --- file: api/dispatch.maxon
 export enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
-	doubleOp = doubleFn
+	doubleOp = beta.doubleFn
 end 'Op'
 
 // --- file: app/main.maxon
@@ -443,7 +409,6 @@ error E3101: api/<fragment>:28:2: Cannot use throwing function 'doubleFn' as a v
 ```
 
 <!-- test: function-backing.error.a-type-method-does-not-back-a-case -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 A dotted name backs a case only where it would read as a function value: `beta.doubleFn` names a function in a
 directory, and `Box.make` names a type's method, which `let f = Box.make` does not read as one either.
@@ -458,7 +423,6 @@ type Box
 end 'Box'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	double = Box.make
 end 'Op'
 

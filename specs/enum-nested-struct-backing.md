@@ -36,7 +36,6 @@ let f = op.rawValue.flag         // true
 ### Basic nested struct field access
 
 <!-- test: nested-struct-backing-basic -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -53,14 +52,12 @@ type X64OpMeta
 	export let setsFlags as bool
 
 	static function create(meta OpMeta, setsFlags bool) returns Self
-		return Self{meta: meta, setsFlags: setsFlags}
+		return Self{meta: meta.clone(), setsFlags: setsFlags}
 	end 'create'
 end 'X64OpMeta'
 
 enum X64Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = X64OpMeta.create(OpMeta.create(1), setsFlags: true)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mov = X64OpMeta.create(OpMeta.create(3), setsFlags: false)
 end 'X64Op'
 
@@ -76,7 +73,6 @@ end 'main'
 ### Access outer field alongside nested struct
 
 <!-- test: nested-struct-backing-outer-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -93,14 +89,12 @@ type TargetMeta
 	export let setsFlags as bool
 
 	static function create(meta OpMeta, setsFlags bool) returns Self
-		return Self{meta: meta, setsFlags: setsFlags}
+		return Self{meta: meta.clone(), setsFlags: setsFlags}
 	end 'create'
 end 'TargetMeta'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = TargetMeta.create(OpMeta.create(1), setsFlags: true)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	mov = TargetMeta.create(OpMeta.create(2), setsFlags: false)
 end 'Op'
 
@@ -119,7 +113,6 @@ end 'main'
 ### Multiple fields in nested struct
 
 <!-- test: nested-struct-backing-multi -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -138,16 +131,13 @@ type X64OpMeta
 	export let setsFlags as bool
 
 	static function create(meta OpMeta, setsFlags bool) returns Self
-		return Self{meta: meta, setsFlags: setsFlags}
+		return Self{meta: meta.clone(), setsFlags: setsFlags}
 	end 'create'
 end 'X64OpMeta'
 
 enum X64Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	load = X64OpMeta.create(OpMeta.create(4, isMemory: true, isCall: false), setsFlags: false)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = X64OpMeta.create(OpMeta.create(1, isMemory: false, isCall: false), setsFlags: true)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	call = X64OpMeta.create(OpMeta.create(5, isMemory: true, isCall: true), setsFlags: false)
 end 'X64Op'
 
@@ -166,7 +156,6 @@ end 'main'
 ### Match on nested struct-backed enum
 
 <!-- test: nested-struct-backing-match -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -183,14 +172,12 @@ type Outer
 	export let fast as bool
 
 	static function create(inner Inner, fast bool) returns Self
-		return Self{inner: inner, fast: fast}
+		return Self{inner: inner.clone(), fast: fast}
 	end 'create'
 end 'Outer'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Outer.create(Inner.create(1), fast: true)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	div = Outer.create(Inner.create(40), fast: false)
 end 'Op'
 
@@ -212,7 +199,6 @@ The spelling the Documentation section above writes — `Outer{inner: Inner{valu
 exactly what the factory form means and is read by the same reader.
 
 <!-- test: nested-struct-backing-literal-form -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -226,9 +212,7 @@ type Outer
 end 'Outer'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = Outer{inner: Inner{value: 1}, flag: true}
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	nop = Outer{inner: Inner{value: 0}, flag: false}
 end 'Op'
 
@@ -250,7 +234,6 @@ Composition is not limited to one level, the two spellings mix freely at every l
 not be a constant: the chain selects one scalar leaf out of the per-case constants whichever case it holds.
 
 <!-- test: nested-struct-backing-three-levels -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 ```maxon
 typealias Latency = int(0 to 50)
 
@@ -267,7 +250,7 @@ type OpMeta
 	export let isCall as bool
 
 	static function create(cost Cost, isCall bool) returns Self
-		return Self{cost: cost, isCall: isCall}
+		return Self{cost: cost.clone(), isCall: isCall}
 	end 'create'
 end 'OpMeta'
 
@@ -275,14 +258,12 @@ type X64OpMeta
 	export let meta as OpMeta
 
 	static function create(meta OpMeta) returns Self
-		return Self{meta: meta}
+		return Self{meta: meta.clone()}
 	end 'create'
 end 'X64OpMeta'
 
 enum X64Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	add = X64OpMeta.create(OpMeta.create(Cost.create(4), isCall: false))
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	call = X64OpMeta.create(OpMeta{cost: Cost.create(9), isCall: true})
 end 'X64Op'
 
@@ -291,7 +272,7 @@ function cyclesOf(op X64Op) returns Latency
 end 'cyclesOf'
 
 function main() returns ExitCode
-	return cyclesOf(X64Op.call) - cyclesOf(X64Op.add)
+	return try cyclesOf(X64Op.call) - cyclesOf(X64Op.add) otherwise panic("out of range")
 end 'main'
 ```
 ```exitcode
@@ -304,8 +285,6 @@ A nested field is descended THROUGH, never selected: handing back the record its
 value inside an expression, which is the refusal bare `.rawValue` on a struct-backed enum already carries.
 
 <!-- test: error.nested-struct-backing-whole-record -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -318,7 +297,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: Inner{n: 1}}
 end 'Task'
 
@@ -337,8 +315,6 @@ The field-type rule reaches EVERY leaf, not just the outermost fields: a `String
 exactly as a `String` at the top level is, and the diagnostic names the struct that declares it.
 
 <!-- test: error.nested-struct-backing-leaf-type -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -352,7 +328,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: Inner{n: 1, label: 2}}
 end 'Task'
 
@@ -369,8 +344,6 @@ error E2015: specs/enum-nested-struct-backing/error.nested-struct-backing-leaf-t
 Every rule the outermost group is checked by applies at every depth.
 
 <!-- test: error.nested-struct-backing-missing-nested-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -384,7 +357,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: Inner{n: 1}}
 end 'Task'
 
@@ -399,8 +371,6 @@ error E2015: specs/enum-nested-struct-backing/error.nested-struct-backing-missin
 ### Error: a nested constant of a type the field does not declare
 
 <!-- test: error.nested-struct-backing-wrong-nested-type -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -417,7 +387,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: Other{n: 1}}
 end 'Task'
 
@@ -432,8 +401,6 @@ error E2015: specs/enum-nested-struct-backing/error.nested-struct-backing-wrong-
 ### Error: a scalar written for a field declared as a record
 
 <!-- test: error.nested-struct-backing-scalar-for-record -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -446,7 +413,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: 4}
 end 'Task'
 
@@ -465,8 +431,6 @@ that declares it, so the read's own walk must report rather than assert. Here th
 declared above the `enum`, which is what puts the read first.
 
 <!-- test: error.nested-struct-backing-record-for-scalar -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -483,7 +447,6 @@ function readIt(t Task) returns Wide
 end 'readIt'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{count: Inner{n: 1}}
 end 'Task'
 
@@ -499,8 +462,6 @@ error E2015: <fragment>:17:2: Unsupported: the constant written for field 'count
 ### Error: a label naming no field of the NESTED struct
 
 <!-- test: error.nested-struct-backing-unknown-nested-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -513,7 +474,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{inner: Inner{count: 1}}
 end 'Task'
 
@@ -531,8 +491,6 @@ The count in the sentence is the group's, not the position of the first argument
 three-argument call on a one-field struct says three.
 
 <!-- test: error.nested-struct-backing-nested-arity -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -553,7 +511,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta.create(Inner.create(1, 2, 3))
 end 'Task'
 
@@ -572,7 +529,6 @@ identity check rather than by the domain — the constant written for it can nev
 compiler-minted type.
 
 <!-- test: error.nested-struct-backing-tuple-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 <!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
@@ -585,7 +541,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{pair: 1, n: 2}
 end 'Task'
 
@@ -605,8 +560,6 @@ further before refusing — landing on exactly the sentence its `Array` sibling 
 line:column. A type the stdlib declares has no second rule.
 
 <!-- test: error.nested-struct-backing-characterset-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -616,7 +569,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{chars: CharacterSet.create(), n: 2}
 end 'Task'
 
@@ -637,8 +589,6 @@ case is refused there. Nothing is ever selected at the nested-record domain, so 
 be had.
 
 <!-- test: error.nested-struct-backing-bare-generic-field -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
-<!-- positions: moved -->
 ```maxon
 typealias Wide = int(0 to 100)
 
@@ -648,7 +598,6 @@ type Meta
 end 'Meta'
 
 enum Task
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	quick = Meta{items: Array.create(), n: 2}
 end 'Task'
 

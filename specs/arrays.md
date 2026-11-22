@@ -5116,7 +5116,6 @@ error E3106: <fragment>:46:11: 'create(n)' cannot publish zeroed slots of 'Mark'
 
 <!-- test: create-with-capacity-zeroed-holds-an-enum-with-a-zero-tag-at-any-backing -->
 <!-- skip: character literals are not supported in minimaxon -->
-<!-- skip: struct-backed and function-backed raw values are not supported in minimaxon -->
 A tag of 0 is a case whichever way it arrives: an auto-increment that lands on 0, a float `0.0`, a character `'\0'`, and a struct or function backing, whose tags are declaration indices. A zeroed slot reads as the case that owns 0.
 ```maxon
 typealias Integer = int(i64.min to i64.max)
@@ -5156,16 +5155,12 @@ enum Mark
 end 'Mark'
 
 enum Timing
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	fast = Meta.create(1)
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	slow = Meta.create(5)
 end 'Timing'
 
 enum Op
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	doubleOp = double
-	// TODO: struct-backed and function-backed raw values are not supported in minimaxon
 	tripleOp = triple
 end 'Op'
 
