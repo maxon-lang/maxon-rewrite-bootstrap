@@ -97,13 +97,12 @@ end 'FixOutcome'
 function checkFixing(prog FixProgram) returns diag.ErrorList
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
-	var ready = backend.UnitList.create(0)
 	if prog.single 'single'
 		project.loadSourceInto(p, path: prog.files[0].path, text: prog.files[0].text, errs: errs)
 	end 'single' else 'project'
 		project.loadFilesInto(p, rootPath: prog.root, files: prog.files, errs: errs)
 	end 'project'
-	compileLoaded(p, first: 0, ready: ready, output: "", options: Options.new(), errs: errs)
+	compileLoaded(p, first: 0, ready: noReadyUnits(), output: "", options: Options.new(), errs: errs)
 	diag.sortErrors(errs)
 	return errs
 end 'checkFixing'
@@ -550,7 +549,7 @@ end 'CodeMismatch'
 
 // codeMismatchOf is the mismatch of a test that the runner would run, that expects a compile error, and whose first error
 // minimaxon reports under another code; nothing for any other test.
-function codeMismatchOf(mutates shared SharedRuntime, mutates scratch Scratch, test SpecTest, text String) returns table.Option with CodeMismatch
+function codeMismatchOf(shared SharedRuntime, mutates scratch Scratch, test SpecTest, text String) returns table.Option with CodeMismatch
 	if not test.hasSource or skipReason(test, text: text).isSome() 'unrun'
 		return table.Option.none
 	end 'unrun'
@@ -573,7 +572,7 @@ function codeMismatchOf(mutates shared SharedRuntime, mutates scratch Scratch, t
 end 'codeMismatchOf'
 
 // fixSpecFile fixes the tests of one spec file and writes the file, or with check names the tests it would change.
-function fixSpecFile(mutates shared SharedRuntime, mutates scratch Scratch, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
+function fixSpecFile(shared SharedRuntime, mutates scratch Scratch, skips CodeSkips, file String, checkOnly bool, mutates tally FixTally)
 	let text = readText(file)
 	let display = project.lastComponent(file)
 	let tests = parseSpec(text)

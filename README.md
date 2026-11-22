@@ -38,8 +38,8 @@ generator.
 | `minimaxon build <file\|dir> [-o out.exe]` | compile; the path given is the project's root, and a directory is a project, one module per directory (see "Modules") |
 | `minimaxon run <file\|dir>` | compile to the temporary directory, as `minimaxon-run-<process id>-<name>.exe`, and run; exits with the program's code |
 | `minimaxon check <file\|dir>` | diagnostics only, exit code 1 when there are any; `check runtime` checks the runtime's source and holds it to the functions the compiler calls (see "The runtime") |
-| `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
-| `minimaxon test <specs-dir\|file.md> [--verbose] [--skip-passed] [--record-passed]` | run maxon's spec tests (see "Tests") |
+| `minimaxon test [--update-positions] [--behaviours] [--repeat=N] [--executables=N] [dir]` | run the corpus (default: the nearest `tests` directory from the executable upward; see "Tests") |
+| `minimaxon test <specs-dir\|file.md> [--verbose] [--skip-passed] [--record-passed] [--executables=N]` | run maxon's spec tests (see "Tests") |
 | `minimaxon selftest` | run the compiler's own tests (`self/*_test.maxon`) |
 | `minimaxon rewrite --keyword=old=new <path>...` | rename a keyword by token in the `.maxon` files and the Markdown code under the paths (see "Changing the language") |
 | `minimaxon qualify <dir>...` | write the module's path before each bare name of another module's declaration in the projects (see "Changing the language") |
@@ -54,7 +54,8 @@ The compiler has no build cache and no `cache` command, and no `--trace=`, `--jo
 `--with=` (parallel compilation and the build cache are planned: see "The modules phase" and "Build cache (planned)"): it says
 so, prints its usage and exits 2, as it does for a command it does not know. `run` and the test
 runner (the corpus and the specs) build their executables in the temporary directory under names that hold the process id
-(and, for the runners, a count), so two compilers running at once never write the same file. A runner deletes each test's
+(and, for the runners, the test's number in the run), so two tests and two compilers running at once never write the same
+file. A runner deletes each test's
 executable when it can, tries again for the others when the run ends, and says in one line on standard error how many it could
 not, which never changes the exit code.
 
@@ -120,8 +121,16 @@ instruction table against the bytes in its `testdata`) and `cmd/convert`.
 Each `tests/**/*.maxon` is one program, except under `tests/modules/`, where each directory is a project and its files,
 at any depth, carry the directives. The runner (`self/driver/test.maxon`) compiles every program to an executable, a program that
 must fail included, because some errors come after type checking (lowering refuses what has no native code yet), in
-the same process, one after another; the runtime is loaded, checked and compiled once per run, and each test is added
-to a copy of that project (`SharedRuntime` in `self/driver/compile.maxon`). A program under `tests/check/` is only
+the same process; the runtime is loaded, checked and compiled once per run and frozen, and each test is added to a copy of
+that project and linked with its code, which every compile only reads (`SharedRuntime` in `self/driver/compile.maxon`; the
+link lays the frozen units out between the program's own, `backend.LinkUnits`). The corpus and the spec tests run as
+behaviours, on every core (`self/driver/runner.maxon`): each test is compiled on a cown of its own, one execute of the task
+graph per test, and runs its executable there; the board, a cown, keeps a slot for each test's result, starts tests while
+fewer than twice the workers are under way, lets at most a cap of executables run at once (half the workers, at least 1 and
+at most 8, or `--executables=N`; a worker waits while the executable it started runs, so the cap keeps the others
+compiling, and the machine's load bounded, since each executable may start a worker per processor), and takes the results in, in the
+order of the tests, as soon as every one before them is in: the lines print as the run goes and are, with the summary, the
+same at any number of workers (`MAXON_MAX_PROCS`, which the executables inherit). A program under `tests/check/` is only
 compiled: one that expects no error must compile clean (a program that only the interpreter can run counts as clean),
 and none is run. Any other program that compiles is run twice, as the executable and under the tracking interpreter
 (see "The interpreter"), from the IR that the native build lowered, and both must give the stdout and the exit code the
@@ -157,9 +166,9 @@ compiled as one more file of the runtime's module (`compileRuntimeTest`), so it 
 `__Raw` intrinsics, and holds `main`; it is run natively only, since the interpreter does not run the runtime's source.
 `tests/runtime/scheduler.maxon` tests the scheduler alone: it builds behaviour records by hand. A test executable runs under a 10 second deadline, and a program
 that outlives it fails the test with `timed out`. The summary is `N passed, M failed, K not yet supported`, the
-failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes before each test, so a crash of the compiler, which ends the run, names the test it was compiling.
+failures are listed, and the exit code is 0 when nothing failed. With `--verbose` a `RUN` line comes when a test starts, so a crash of the compiler, which ends the run, names the tests that were under way; those lines fall between the others as the timing does.
 
-`minimaxon test <specs-dir|file.md> [--verbose] [--skip-passed] [--record-passed]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once, from an executable of its own in the temporary directory. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line before it and its result after, so a crash names its test) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. `--skip-passed` leaves out, without compiling them, the tests that `specs/passed.txt` lists (one `file.md: test name` per line, sorted; skipped under the reason `passed before (specs/passed.txt)`), runs the others, and prints `NEW file.md: test` for one that passes and is not listed; a missing list is an error. `--record-passed` writes the list: with `--skip-passed` as the old list plus the tests that passed in the run, and alone (the full run that starts a list, a usage error when the list exists) as the tests that passed. Until Phase 3 makes the full run fast, `check.ps1` runs `--skip-passed` and `specs.ps1` runs both flags, so a test that has passed is not run again and a regression in one shows only when the full run (`test specs` alone, which reads and writes nothing) is used again. The compiled program inherits the runner's standard input.
+`minimaxon test <specs-dir|file.md> [--verbose] [--skip-passed] [--record-passed]` runs maxon's spec tests of `specs/` (`self/driver/spec.maxon`; the format is that of maxon's `docs/SPECS.md`, see `specs/README.md`) in the same process, as behaviours, as the corpus runs. A test is compiled from memory (a multi-file test as a project of files held in memory, `project.loadFilesInto`) and run once, from an executable of its own in the temporary directory. A compile-error test compares the whole diagnostics text after the fragment's path is made `<fragment>` (and, for a multi-file test, its lines the merged block's), and compares the positions only when the test has no `<!-- positions: moved -->` line; a run test compares the exit code when a block gives one and always stdout and stderr, trimmed (a block that is not there asserts the stream is empty), as maxon's runner does. It prints one line for each failed test (`FAIL file: test: what differed`), the counts, and the skipped tests by reason, the most first; `--verbose` also prints a line for each test (a `RUN` line when it starts and its result in order, so a crash names the tests under way) and every reason. A test is skipped, with a reason it counts, when its source has a `<!-- skip: kind -->` line (the conversion's), when a directive needs what the runner or the compiler lacks (`tier`, `procs`, `preempt`, `process`, `runs`, `network`, `stdin`, `Args`, `env`, the trace and debug directives, `unsupported-targets` naming `x64-windows`), when a result block is a trace or is for another target, when its source stages an overlay of maxon's stdlib or runtime, and when only the interpreter runs the program. `--skip-passed` leaves out, without compiling them, the tests that `specs/passed.txt` lists (one `file.md: test name` per line, sorted; skipped under the reason `passed before (specs/passed.txt)`), runs the others, and prints `NEW file.md: test` for one that passes and is not listed; a missing list is an error. `--record-passed` writes the list: with `--skip-passed` as the old list plus the tests that passed in the run, and alone (the full run that starts a list, a usage error when the list exists) as the tests that passed. Until Phase 3 makes the full run fast, `check.ps1` runs `--skip-passed` and `specs.ps1` runs both flags, so a test that has passed is not run again and a regression in one shows only when the full run (`test specs` alone, which reads and writes nothing) is used again. The compiled program inherits the runner's standard input.
 
 `tests/bench/` holds the benchmarks: a counted loop, nested loops over an array, string building, records and unions, and a
 recursive function, each deterministic and ending in the checksum it prints (its `//>` line). The corpus runner leaves
@@ -483,13 +492,14 @@ selector's function, its own register for every IR register (`vregOf`) and a new
 `self/driver/compile.maxon` runs the pipeline for `build`, `run`, `check`, the interpreter and the test runner as the task graph
 of "The modules phase" (`self/driver/graph.maxon`): the `build` and `check` commands as behaviours, on every core
 (`buildPath`, `self/driver/executor.maxon`), and `run`, the interpreter, the test runner and the tools that read the compile's
-result on one thread (`execute`); both make the same executable and the same diagnostics, whatever the number of workers. The
+result on one thread (`execute`; the test runner runs many such compiles at once, one per test, as behaviours: see "Tests");
+both make the same executable and the same diagnostics, whatever the number of workers. The
 errors reported are those of the first stage that has any, from every module. A `check` stops short of code generation but
 runs the stages that can report an error.
 
 | Step | Module | Work |
 |---|---|---|
-| runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below on one thread and emitted once (`prepareRuntime`); a test run keeps it and adds each program to a copy of the project (`SharedRuntime`) |
+| runtime | `driver`, `project` | for a `build`, `run` or test, the runtime (`runtime/`, see "The runtime") is loaded as module 0, run through the steps below on one thread and emitted once (`prepareRuntime`); a test run keeps it frozen and adds each program to a copy of the project (`SharedRuntime`) |
 | discover | `project` | `discoverProjectInto` scans the directory tree (names in sorted order; `E3182` for a directory that is no module name) and makes a `Module` for each directory; a single file is one root module. Its errors count as the parse's |
 | parse | `syntax`, `project` | `parseModule` reads a module's files into one buffer, lexes it and parses it into the module's `Tree` and `decls`; a lexical error ends the module's lexing, a syntax error abandons the rest of its file. Then `buildModuleTable` gives the module's declarations their names (a duplicate is `E3006`) and a shell type (a `TypeID` with no members yet) for each type declaration |
 | resolve | `resolve` | `resolveModule` binds every name, struct literal and type reference to its declaration, and each `where` constraint to the type parameter it names (`E3916`), into the module's `Resolution`; it records the modules the module depends on, checks visibility (`E3008`) and that no signature names a less visible type (`E3167`), and rewrites a qualified name in place (see "The AST"). It reads only the module's own declarations, the standard library and the declarations of the modules the module names |
@@ -634,8 +644,9 @@ copy routines make their shapes in a segment of slot 0 of their own.
 
 Two executors run the graph. `execute` (`self/driver/graph.maxon`) runs the tasks on one thread, one at a time, in the order
 they were added: stage by stage, and within a stage in the module order (the dependency order from the check on, module order
-for parse, resolve and emit), so every task's inputs have run when it starts; the interpreter, `run`, the test runner and the
-tools that read what a compile made (`frontEnd`, `lowerLoaded`) use it, since they go on from the compile's result. The `build`
+for parse, resolve and emit), so every task's inputs have run when it starts; the interpreter, `run`, the test runner (whose
+tests run at once, each its own execute) and the tools that read what a compile made (`frontEnd`, `lowerLoaded`) use it, since
+they go on from the compile's result. The `build`
 and `check` commands run the tasks as behaviours (`startCompile`, `self/driver/executor.maxon`), on every core: each module
 the compile compiles has a cown that holds its work and the gate of each of its tasks (`Station`), and the project has one
 that holds the project, the gates of the tasks of the project and what became of every task (`ProjectStation`). A task that

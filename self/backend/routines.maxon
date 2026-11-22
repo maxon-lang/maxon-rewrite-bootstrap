@@ -197,11 +197,11 @@ end 'addNew'
 // those routines reach. A routine asks for the routines of the parts of its type, so they are made in waves: the ones the
 // modules ask for, then the ones those ask for that are not made yet, and so on, each wave in the order the routines were
 // first asked for.
-export function emitTypeRoutines(p ast.Project, mutates ms ast.ModuleState, units UnitList) returns UnitList
+export function emitTypeRoutines(p ast.Project, mutates ms ast.ModuleState, units LinkUnits) returns UnitList
 	var known = StringOffsets.new()
 	var pending = TypeRoutineList.create(0)
 	for i in 0 upto units.count() 'units'
-		pending = addNew(known, list: pending, routines: units[i].needed.list)
+		pending = addNew(known, list: pending, routines: units.at(i).needed.list)
 	end 'units'
 	var made = UnitList.create(0)
 	while pending.count() > 0 'waves'

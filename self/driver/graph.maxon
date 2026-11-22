@@ -315,10 +315,12 @@ type Run
 	var generates as bool
 	// timings holds the time of each stage and module when --timings asks for it.
 	var timings as Timings
+	// made are the modules' units of a compile whose goal is the units, which programs are then linked with.
+	var made as backend.UnitList
 
 	static function make(consumes compile Compile, modules Count) returns Run
 		let plan = check.EntryPlan.none(compile.makesProgram)
-		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off()}
+		return Run{compile: compile, graph: TaskGraph.new(modules), work: Array.create(0), homesOut: false, outcomes: Array.create(0), started: Outcome.none(), states: TaskStates.create(0), errors: ErrorLists.create(0), earlierErrors: 0, entryPlan: plan, checksStarted: false, checked: check.Checked.none(), generates: false, timings: Timings.off(), made: backend.UnitList.create(0)}
 	end 'make'
 
 	// generated is what the generate stage lowered, which is nothing when the check did not end without errors: the IR as
@@ -384,7 +386,7 @@ end 'startGraph'
 // parsed already) as far as goal, one task after another (execute). memory holds the files that parse reads from memory
 // rather than disk. The errors are those of the earliest phase that has any, which the error list also holds when it is
 // not empty at the start.
-function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, mutates ready backend.UnitList, mutates errs diag.ErrorList) returns Run
+function runStages(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, ready frozen with backend.UnitList, mutates errs diag.ErrorList) returns Run
 	var run = Run.make(compileOf(p, from: from, first: first, goal: goal, makesProgram: makesProgram, output: output, options: options), modules: p.modules.count())
 	takeHomes(run, p: p)
 	run.started = Outcome.start(startedKnown(run.compile, works: run.work), failed: errs.count() > 0)
@@ -455,7 +457,7 @@ end 'chargeTask'
 
 // execute runs the tasks in order, the ones that a task adds as well, each when every task it waits on has run: a task is
 // skipped when its inputs say it must be (Outcome.mustSkip).
-function execute(mutates run Run, mutates p ast.Project, memory project.SourceFiles, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+function execute(mutates run Run, mutates p ast.Project, memory project.SourceFiles, ready frozen with backend.UnitList, mutates errs diag.ErrorList)
 	var t = 0 as Count
 	while t < run.graph.tasks.count() 'tasks'
 		var outcome = outcomeBefore(run, task: t)
@@ -502,7 +504,7 @@ function outcomeBefore(run Run, task Count) returns Outcome
 end 'outcomeBefore'
 
 // runTask runs one task, whose inputs gave it outcome, which a task of a module adds its product to.
-function runTask(mutates run Run, mutates p ast.Project, task Count, mutates outcome Outcome, memory project.SourceFiles, mutates timing TaskTiming, mutates ready backend.UnitList, mutates errs diag.ErrorList)
+function runTask(mutates run Run, mutates p ast.Project, task Count, mutates outcome Outcome, memory project.SourceFiles, mutates timing TaskTiming, ready frozen with backend.UnitList, mutates errs diag.ErrorList)
 	let stage = run.graph.tasks[task].stage
 	let m = run.graph.tasks[task].module
 	if isModuleStage(stage) 'ofModule'
@@ -559,13 +561,18 @@ function programTask(mutates run Run, mutates p ast.Project, known Known, mutate
 	end 'emits'
 end 'programTask'
 
-// linkTask is linkUnits on the project, which holds the modules' homes from then on, with each module's unit.
-function linkTask(mutates run Run, mutates p ast.Project, known Known, mutates ready backend.UnitList)
+// linkTask is linkUnits on the project, which holds the modules' homes from then on, with each module's unit; a compile whose
+// goal is the units keeps them instead (made).
+function linkTask(mutates run Run, mutates p ast.Project, known Known, ready frozen with backend.UnitList)
 	putHomes(run, p: p)
 	var units = backend.UnitList.create(0)
 	for slot in 0 upto run.work.count() 'modules'
 		units.push(exchange(run.work[slot].unit, value: backend.CodeUnit.new()))
 	end 'modules'
+	if run.compile.goal == Goal.units 'units'
+		run.made = units
+		return
+	end 'units'
 	linkUnits(run.compile, p: p, units: units, ready: ready, entry: entryOf(known))
 end 'linkTask'
 

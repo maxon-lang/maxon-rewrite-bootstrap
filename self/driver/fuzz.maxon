@@ -267,7 +267,7 @@ end 'NativeCheck'
 // the same under every schedule. One that was runs several times, and a run that ends in a trap may have printed more or
 // less of main's output first than the interpreter did, since a behaviour runs beside main: one output must be the start
 // of the other.
-function compareNative(mutates shared SharedRuntime, source String, outcome GeneratedRun, scheduleIndependent bool) returns NativeCheck
+function compareNative(shared SharedRuntime, source String, outcome GeneratedRun, scheduleIndependent bool) returns NativeCheck
 	if outcome.behaviours > 0 and not scheduleIndependent 'scheduleDependent'
 		return NativeCheck.agreed(false)
 	end 'scheduleDependent'

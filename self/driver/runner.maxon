@@ -1,0 +1,543 @@
+// The runner of a run of tests, of the corpus or of the spec files: each test is compiled, and run when it makes an executable,
+// as behaviours, so that the run uses every core. What every behaviour of the run reads is frozen (Bench): the runtime that
+// every compile shares, the tests, and how the run goes. The board, a cown, holds a slot for the result of each test, starts
+// tests while fewer than the window are under way, lets at most the cap of executables run at once, and takes each result in
+// once every test before it was taken in: it prints the tests' lines and counts them in test order, as a run of one test after
+// another does, so that the output is the same at any number of workers. The last result taken in ends the run, which prints
+// the summary and sets the code the process exits with.
+
+// testsPerWorker is how many tests the run has under way for each worker: enough that a worker that waits on no executable
+// always has a compile to do, and few enough that the compiled tests that wait for their run stay few.
+let testsPerWorker = 2 as Count
+
+// mostExecutables is the most test executables that run at once unless --executables says: each may start as many workers
+// as the machine has processors, and more of them at once load the machine past what it holds up under.
+let mostExecutables = 8 as Count
+
+// workersPerExecutable is how many of the run's workers there are for each executable that runs at once, unless
+// --executables says: a worker waits while the executable it started runs, and the others go on compiling.
+let workersPerExecutable = 2 as Count
+
+let executablesFlag = "--executables="
+
+// The environment variable that names the machine's processors, where MAXON_MAX_PROCS names no worker count.
+let processorsVariable = "NUMBER_OF_PROCESSORS"
+
+// RunWidth is how wide a run of tests goes: how many tests are under way at once, and how many of their executables run at
+// once.
+type RunWidth
+	var window as Count
+	var executables as Count
+
+	// of is the width of a run whose behaviours run on workers workers, with at most executables of the tests' executables
+	// running at once, or the default for the workers when that is 0.
+	static function of(workers Count, executables Count) returns RunWidth
+		var cap = executables
+		if cap == 0 'default'
+			cap = defaultExecutables(workers)
+		end 'default'
+		var window = 0 as Count
+		window = try workers * testsPerWorker otherwise panic("test: more workers than memory")
+		if window < cap 'wider'
+			window = cap
+		end 'wider'
+		return RunWidth{window: window, executables: cap}
+	end 'of'
+end 'RunWidth'
+
+// defaultExecutables is how many test executables run at once on workers workers: half of them, at least 1 and at most
+// mostExecutables.
+function defaultExecutables(workers Count) returns Count
+	let half = workers / workersPerExecutable
+	if half < 1 'one'
+		return 1
+	end 'one'
+	if half > mostExecutables 'most'
+		return mostExecutables
+	end 'most'
+	return half
+end 'defaultExecutables'
+
+// runWorkers is how many workers the runtime runs the run's behaviours on, as it counts them: the count MAXON_MAX_PROCS gives,
+// else the machine's processors.
+function runWorkers() returns Count
+	let requested = countVariable(workerCountVariable)
+	if requested > 0 'requested'
+		return requested
+	end 'requested'
+	let processors = countVariable(processorsVariable)
+	if processors > 0 'processors'
+		return processors
+	end 'processors'
+	return 1
+end 'runWorkers'
+
+// countVariable is the count the environment variable name holds, or 0 when it is unset or holds no count.
+function countVariable(name String) returns Count
+	let text = try Process.environmentVariable(name) otherwise return 0
+	return match consumes parseCount(trimSpace(text)) 'count'
+		some(n) gives n
+		none gives 0
+	end 'count'
+end 'countVariable'
+
+// Job is one test of a run: a program or project of the corpus, or a test of a spec file.
+union Job
+	corpus(value CorpusJob)
+	spec(value SpecJob)
+end 'Job'
+
+typealias Jobs = Array with Job
+
+// CorpusJob is a program or project of the corpus: its path, its name in the output, and what its directives say. A run of
+// the behaviours alone leaves out a test that cannot schedule any without compiling it.
+type CorpusJob
+	var file as String
+	var name as String
+	var expect as Expectation
+	var leftOut as bool
+
+	static function make(consumes file String, consumes name String, consumes expect Expectation, leftOut bool) returns CorpusJob
+		return CorpusJob{file: file, name: name, expect: expect, leftOut: leftOut}
+	end 'make'
+end 'CorpusJob'
+
+// SpecJob is a test of a spec file: the file, by its place among the run's, the test's key in the output and in the list of
+// the tests that passed, the test, and whether that list has it, which leaves the test out of a run that skips them.
+type SpecJob
+	var file as Count
+	var key as String
+	var test as SpecTest
+	var listed as bool
+
+	static function make(file Count, consumes key String, consumes test SpecTest, listed bool) returns SpecJob
+		return SpecJob{file: file, key: key, test: test, listed: listed}
+	end 'make'
+end 'SpecJob'
+
+// SpecFile is a spec file whose tests a run runs: its text, which the tests are ranges of, and its name without its
+// directory and extension.
+type SpecFile
+	var text as String
+	var stem as String
+
+	static function make(consumes text String, consumes stem String) returns SpecFile
+		return SpecFile{text: text, stem: stem}
+	end 'make'
+end 'SpecFile'
+
+typealias SpecFiles = Array with SpecFile
+
+// Bench is what every behaviour of a run of tests reads, frozen: the runtime that every compile shares, the tests, the spec
+// files they are tests of, how the run goes, where the executables are made, and the board.
+type Bench
+	var shared as SharedRuntime
+	var jobs as Jobs
+	var files as SpecFiles
+	var corpus as CorpusOptions
+	var verbose as bool
+	var scratch as Scratch
+	var width as RunWidth
+	var board as cown with Board
+
+	static function make(consumes shared SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes board cown with Board) returns Bench
+		return Bench{shared: shared, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width.clone(), board: board}
+	end 'make'
+end 'Bench'
+
+// LeftExecutable is the executable of a test that the system kept from being deleted.
+typealias LeftExecutable = table.Option with String
+
+// Finished is what became of a test: its result, and its executable when the system kept it from being deleted.
+type Finished
+	var result as TestResult
+	var left as LeftExecutable
+
+	static function make(consumes result TestResult) returns Finished
+		return Finished{result: result, left: table.Option.none}
+	end 'make'
+end 'Finished'
+
+// Staged is what the compile of a test gave: what became of it, or the run of its executable that it waits for.
+union Staged
+	done(value Finished)
+	needsRun(value PendingRun)
+end 'Staged'
+
+// PendingRun is a test whose executable is to run, which it waits on the board for.
+union PendingRun
+	corpus(value CorpusPending)
+	spec(value SpecPending)
+
+	// index is the place of the test among the run's.
+	function index() returns Count
+		return match self 'pending'
+			corpus(value) gives value.index
+			spec(value) gives value.index
+		end 'pending'
+	end 'index'
+end 'PendingRun'
+
+typealias PendingRuns = Array with PendingRun
+
+// CorpusPending is a program of the corpus that compiled: its executable is run runs times, and then, unless it says it is
+// too heavy for that or the run is of the behaviours alone, what it lowered runs under the interpreter.
+type CorpusPending
+	var index as Count
+	var exe as String
+	var expect as Expectation
+	var compiled as CompiledProgram
+	var runs as Count
+	var interprets as bool
+
+	static function make(index Count, consumes exe String, consumes expect Expectation, consumes compiled CompiledProgram, runs Count, interprets bool) returns CorpusPending
+		return CorpusPending{index: index, exe: exe, expect: expect, compiled: compiled, runs: runs, interprets: interprets}
+	end 'make'
+end 'CorpusPending'
+
+// SpecPending is a test of a spec file that compiled, whose executable is run once.
+type SpecPending
+	var index as Count
+	var exe as String
+	var test as SpecTest
+	var file as Count
+
+	static function make(index Count, consumes exe String, consumes test SpecTest, file Count) returns SpecPending
+		return SpecPending{index: index, exe: exe, test: test, file: file}
+	end 'make'
+end 'SpecPending'
+
+// Lane is what the behaviours of one test run on: a cown of the test's own, which nothing else waits on, so that the test
+// runs beside every other.
+type Lane
+	var index as Count
+
+	static function make(index Count) returns Lane
+		return Lane{index: index}
+	end 'make'
+end 'Lane'
+
+// Tally is what the results of a run add up to, which the board keeps while it takes them in.
+union Tally
+	none
+	corpus(value CorpusTally)
+	spec(value SpecRun)
+end 'Tally'
+
+// CorpusTally is the tally of a run of the corpus: the failures, to list at the end, and the tests not yet supported and
+// left out, which do not count as passed.
+type CorpusTally
+	var tests as Count
+	var failures as ast.StringList
+	var unsupported as Count
+	var leftOut as Count
+
+	static function make(tests Count) returns CorpusTally
+		return CorpusTally{tests: tests, failures: ast.StringList.create(0), unsupported: 0, leftOut: 0}
+	end 'make'
+
+	// take counts the result of the test called name and prints its line, unless the run left it out.
+	function take(mutates self, name String, result TestResult)
+		if result.outcome == TestOutcome.testLeftOut 'leftOut'
+			leftOut = offsetBy(leftOut, by: 1)
+			return
+		end 'leftOut'
+		var status = "PASS"
+		if result.outcome == TestOutcome.testFailed 'failed'
+			status = "FAIL"
+			failures.push("{name}: {result.detail}")
+		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
+			status = "SKIP"
+			unsupported = offsetBy(unsupported, by: 1)
+		end 'unsupported'
+		print("{status}  {name}\n")
+	end 'take'
+
+	// finish prints the failures and the counts, and gives the code the run exits with.
+	function finish() returns ExitCode
+		print("\n")
+		for i in 0 upto failures.count() 'failures'
+			print("{failures[i]}\n")
+		end 'failures'
+		let passed = try tests - failures.count() - unsupported - leftOut otherwise panic("test: more failures than tests")
+		print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported\n")
+		if failures.count() == 0 'clean'
+			return 0
+		end 'clean'
+		return diagnosticsExitCode
+	end 'finish'
+end 'CorpusTally'
+
+// ResultSlot is the result of a test, once it is in and until it is taken in.
+typealias ResultSlot = table.Option with TestResult
+
+typealias ResultSlots = Array with ResultSlot
+
+// Board is what the cown of a run of tests holds: the slot of each test's result, the next test to start, how many are under
+// way and how many of their executables run, the compiled tests that wait for their run, how many results were taken in, the
+// tally, and the executables that could not be deleted.
+type Board
+	var results as ResultSlots
+	var next as Count
+	var underWay as Count
+	var running as Count
+	var waiting as PendingRuns
+	var taken as Count
+	var ended as bool
+	var tally as Tally
+	var scratch as Scratch
+
+	static function make(tests Count, consumes tally Tally, consumes scratch Scratch) returns Board
+		var results = ResultSlots.create(0)
+		for _ in 0 upto tests 'slots'
+			results.push(table.Option.none)
+		end 'slots'
+		return Board{results: results, next: 0, underWay: 0, running: 0, waiting: PendingRuns.create(0), taken: 0, ended: false, tally: tally, scratch: scratch}
+	end 'make'
+
+	// fill starts the tests after the last one started while fewer than the window are under way. A test that the run leaves
+	// out without compiling it is done as it is reached.
+	function fill(mutates self, bench frozen with Bench)
+		while next < results.count() and underWay < bench.width.window 'start'
+			let index = next
+			next = offsetBy(next, by: 1)
+			if bench.verbose 'say'
+				print(startLine(bench.jobs[index]))
+			end 'say'
+			if isLeftOut(bench.jobs[index]) 'leftOut'
+				results[index] = table.Option.some(TestResult.leftOut())
+			end 'leftOut' else 'run'
+				underWay = offsetBy(underWay, by: 1)
+				startJob(bench, index: index)
+			end 'run'
+		end 'start'
+		takeReady(bench)
+	end 'fill'
+
+	// staged takes in what the compile of the test at index gave.
+	function staged(mutates self, bench frozen with Bench, index Count, consumes staged Staged)
+		match consumes staged 'staged'
+			done(value) then settle(bench, index: index, finished: value)
+			needsRun(value) then queueRun(bench, pending: value)
+		end 'staged'
+	end 'staged'
+
+	function queueRun(mutates self, bench frozen with Bench, consumes pending PendingRun)
+		waiting.push(pending)
+		startRuns(bench)
+	end 'queueRun'
+
+	// startRuns starts the runs of the compiled tests that wait, the earliest first, while fewer executables than the cap run.
+	function startRuns(mutates self, bench frozen with Bench)
+		while running < bench.width.executables and waiting.count() > 0 'start'
+			let at = earliestWaiting(waiting)
+			running = offsetBy(running, by: 1)
+			let last = try waiting.pop() otherwise panic("test: no test waits for its run")
+			if at < waiting.count() 'inside'
+				startRun(bench, pending: exchange(waiting[at], value: last))
+			end 'inside' else 'last'
+				startRun(bench, pending: last)
+			end 'last'
+		end 'start'
+	end 'startRuns'
+
+	// released counts the end of an executable's run, which lets another start.
+	function released(mutates self, bench frozen with Bench)
+		running = try running - 1 otherwise panic("test: an executable ends that never started")
+		startRuns(bench)
+	end 'released'
+
+	// settle takes in what became of the test at index, and starts the next.
+	function settle(mutates self, bench frozen with Bench, index Count, consumes finished Finished)
+		var held = finished
+		match consumes exchange(held.left, value: LeftExecutable.none) 'left'
+			some(path) then scratch.left.push(path)
+			none then _ = 0
+		end 'left'
+		results[index] = table.Option.some(exchange(held.result, value: TestResult.passed()))
+		underWay = try underWay - 1 otherwise panic("test: a test ends that never started")
+		fill(bench)
+	end 'settle'
+
+	// takeReady takes in, in test order, the results that every result before them was taken in before, and ends the run
+	// with the last.
+	function takeReady(mutates self, bench frozen with Bench)
+		while taken < results.count() and results[taken].isSome() 'ready'
+			let index = taken
+			let result = exchange(results[index], value: ResultSlot.none).unwrap()
+			taken = offsetBy(taken, by: 1)
+			takeResult(bench, index: index, result: result)
+		end 'ready'
+		if taken == results.count() and not ended 'last'
+			ended = true
+			finishRun()
+		end 'last'
+	end 'takeReady'
+
+	function takeResult(mutates self, bench frozen with Bench, index Count, consumes result TestResult)
+		match consumes exchange(tally, value: Tally.none) 'tally'
+			none then panic("test: a result is taken in while the tally is out")
+			corpus(value) then tally = Tally.corpus(takenByCorpus(value, job: bench.jobs[index], result: result))
+			spec(value) then tally = Tally.spec(takenBySpecs(value, job: bench.jobs[index], result: result))
+		end 'tally'
+	end 'takeResult'
+
+	// finishRun prints the summary, deletes what executables it can that the tests could not, and sets the code the process
+	// exits with.
+	function finishRun(mutates self)
+		var code = 0 as ExitCode
+		match consumes exchange(tally, value: Tally.none) 'tally'
+			none then panic("test: the run ends with its tally out")
+			corpus(value) then code = value.finish()
+			spec(value) then code = finishSpecs(value)
+		end 'tally'
+		scratch.finish()
+		Process.setExitCode(code)
+	end 'finishRun'
+end 'Board'
+
+// earliestWaiting is the place in waiting of the test that comes first in the run.
+function earliestWaiting(waiting PendingRuns) returns Count
+	var at = 0 as Count
+	for i in 1 upto waiting.count() 'each'
+		if waiting[i].index() < waiting[at].index() 'earlier'
+			at = i
+		end 'earlier'
+	end 'each'
+	return at
+end 'earliestWaiting'
+
+function takenByCorpus(consumes tally CorpusTally, job Job, result TestResult) returns CorpusTally
+	var held = tally
+	match job 'job'
+		corpus(value) then held.take(value.name, result: result)
+		spec(_) then panic("test: a spec test in a run of the corpus")
+	end 'job'
+	return held
+end 'takenByCorpus'
+
+function takenBySpecs(consumes tally SpecRun, job Job, result TestResult) returns SpecRun
+	var held = tally
+	match job 'job'
+		corpus(_) then panic("test: a program of the corpus in a run of the spec files")
+		spec(value) then held.take(value, result: result)
+	end 'job'
+	return held
+end 'takenBySpecs'
+
+// startLine is the line a verbose run prints when it reaches a test, so that a crash of the compiler, which ends the run,
+// names the tests that were under way.
+function startLine(job Job) returns String
+	return match job 'job'
+		corpus(value) gives "RUN   {value.name}\n"
+		spec(value) gives "RUN  {value.key}\n"
+	end 'job'
+end 'startLine'
+
+// isLeftOut is whether the run leaves the test out without compiling it.
+function isLeftOut(job Job) returns bool
+	return match job 'job'
+		corpus(value) gives value.leftOut
+		spec(value) gives value.listed
+	end 'job'
+end 'isLeftOut'
+
+// startTests runs the jobs as behaviours, files being the spec files they are tests of, and ends the run in the last of
+// them, which sets the code the process exits with.
+function startTests(consumes shared SharedRuntime, consumes jobs Jobs, consumes files SpecFiles, consumes corpus CorpusOptions, verbose bool, consumes scratch Scratch, width RunWidth, consumes tally Tally)
+	let board = cown(Board.make(jobs.count(), tally: tally, scratch: scratch.clone()))
+	let bench = freeze(Bench.make(shared, jobs: jobs, files: files, corpus: corpus, verbose: verbose, scratch: scratch, width: width, board: share(board)))
+	when board as b 'start'
+		b.fill(bench)
+	end 'start'
+end 'startTests'
+
+// startJob compiles the test at index on a lane of its own, and gives the board what the compile gave.
+function startJob(bench frozen with Bench, index Count)
+	let k = share(bench)
+	let lane = cown(Lane.make(index))
+	when lane as l 'compile'
+		let staged = stageJob(k, index: l.index)
+		reportStaged(k, index: l.index, staged: staged)
+	end 'compile'
+end 'startJob'
+
+function reportStaged(bench frozen with Bench, index Count, consumes staged Staged)
+	let k = share(bench)
+	let board = share(bench.board)
+	when board as b 'staged'
+		b.staged(k, index: index, staged: staged)
+	end 'staged'
+end 'reportStaged'
+
+// startRun runs the executable of a compiled test on a lane of its own, tells the board when it ended, and then what became of
+// the test.
+function startRun(bench frozen with Bench, consumes pending PendingRun)
+	let k = share(bench)
+	let lane = cown(Lane.make(pending.index()))
+	when lane as l 'run'
+		runPending(k, pending: pending)
+	end 'run'
+end 'startRun'
+
+function releaseExecutable(bench frozen with Bench)
+	let k = share(bench)
+	let board = share(bench.board)
+	when board as b 'released'
+		b.released(k)
+	end 'released'
+end 'releaseExecutable'
+
+function settleJob(bench frozen with Bench, index Count, consumes finished Finished)
+	let k = share(bench)
+	let board = share(bench.board)
+	when board as b 'settle'
+		b.settle(k, index: index, finished: finished)
+	end 'settle'
+end 'settleJob'
+
+// stageJob compiles the test at index, and checks what can be checked before its executable runs.
+function stageJob(bench frozen with Bench, index Count) returns Staged
+	let exe = bench.scratch.executableAt(index)
+	return match bench.jobs[index] 'job'
+		corpus(value) gives stageProgram(bench.shared, job: value, index: index, exe: exe, options: bench.corpus)
+		spec(value) gives stageSpecTest(bench.shared, job: value, file: bench.files[value.file], index: index, exe: exe)
+	end 'job'
+end 'stageJob'
+
+function runPending(bench frozen with Bench, consumes pending PendingRun)
+	match consumes pending 'pending'
+		corpus(value) then runCompiledProgram(bench, pending: value)
+		spec(value) then runSpecPending(bench, pending: value)
+	end 'pending'
+end 'runPending'
+
+// runCompiledProgram runs the executable of a program of the corpus, lets another executable run, and then runs the program under the
+// interpreter when it is to.
+function runCompiledProgram(bench frozen with Bench, consumes pending CorpusPending)
+	var result = runNativeRuns(pending.exe, expect: pending.expect, runs: pending.runs)
+	releaseExecutable(bench)
+	if result.outcome != TestOutcome.testFailed and pending.interprets 'interpreted'
+		result = runInterpreted(pending.compiled, expect: pending.expect)
+	end 'interpreted'
+	var finished = Finished.make(result)
+	finished.left = discarded(pending.exe)
+	settleJob(bench, index: pending.index, finished: finished)
+end 'runCompiledProgram'
+
+function runSpecPending(bench frozen with Bench, consumes pending SpecPending)
+	let result = checkSpecRun(pending.test, text: bench.files[pending.file].text, exe: pending.exe)
+	releaseExecutable(bench)
+	var finished = Finished.make(result)
+	finished.left = discarded(pending.exe)
+	settleJob(bench, index: pending.index, finished: finished)
+end 'runSpecPending'
+
+// doneBuilt is a test that is done once compiled, whose executable at exe is deleted where the compile made it (built).
+function doneBuilt(consumes result TestResult, exe String, built bool) returns Staged
+	var finished = Finished.make(result)
+	if built 'built'
+		finished.left = discarded(exe)
+	end 'built'
+	return Staged.done(finished)
+end 'doneBuilt'

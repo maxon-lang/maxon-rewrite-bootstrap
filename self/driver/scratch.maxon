@@ -15,13 +15,20 @@ type Scratch
 	// nextExecutable is the path of an executable that no other test of this run, and no other run, builds to.
 	function nextExecutable(mutates self) returns String
 		made = offsetBy(made, by: 1)
-		return "{prefix}{made}{executableExtension}"
+		return executableAt(made)
 	end 'nextExecutable'
+
+	// executableAt is the path of the executable of the test numbered n, which no other test of this run, and no other run,
+	// builds to.
+	function executableAt(n Count) returns String
+		return "{prefix}{n}{executableExtension}"
+	end 'executableAt'
 
 	// discard deletes the executable of a finished test if the system lets it, and leaves it for finish if not.
 	function discard(mutates self, exe String)
-		if not deleteFile(exe) 'kept'
-			left.push(exe.clone())
+		match consumes discarded(exe) 'kept'
+			some(path) then left.push(path)
+			none then return
 		end 'kept'
 	end 'discard'
 
@@ -43,6 +50,14 @@ type Scratch
 		end 'report'
 	end 'finish'
 end 'Scratch'
+
+// discarded deletes the executable at exe if the system lets it, and is the path when it does not.
+function discarded(exe String) returns table.Option with String
+	if deleteFile(exe) 'deleted'
+		return table.Option.none
+	end 'deleted'
+	return table.Option.some(exe.clone())
+end 'discarded'
 
 // deleteFile is whether the file at path is gone after trying to delete it.
 function deleteFile(path String) returns bool

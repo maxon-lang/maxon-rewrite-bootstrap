@@ -21,10 +21,7 @@ end 'goalOf'
 function buildPath(path String, output String, options Options) returns ExitCode
 	var errs = diag.ErrorList.create(0)
 	var p = ast.Project.new("")
-	var ready = backend.UnitList.create(0)
-	if output != "" and not project.isRuntimeDirectory(path) 'runtime'
-		prepareRuntime(p, ready: ready, options: options, errs: errs)
-	end 'runtime'
+	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return report(errs)
 	end 'broken'
@@ -43,10 +40,7 @@ let compiledByBehaviours = 0 as ExitCode
 // compileProject is compilePath's compile, which leaves the diagnostics in errs for the caller to report.
 function compileProject(path String, output String, options Options, mutates errs diag.ErrorList)
 	var p = ast.Project.new("")
-	var ready = backend.UnitList.create(0)
-	if output != "" and not project.isRuntimeDirectory(path) 'runtime'
-		prepareRuntime(p, ready: ready, options: options, errs: errs)
-	end 'runtime'
+	let ready = runtimeFor(p, path: path, output: output, options: options, errs: errs)
 	if errs.count() > 0 'broken'
 		return
 	end 'broken'
@@ -57,33 +51,50 @@ function compileProject(path String, output String, options Options, mutates err
 	end 'found'
 end 'compileProject'
 
-// SharedRuntime is the runtime of a run of many compiles: its project alone, checked, and its code, made once. Each compile
-// adds its program to a copy of the project and links it with the code.
+// runtimeFor puts the runtime in p and gives its code, checked and compiled, for a compile of the project at path that makes an
+// executable at output; a compile that makes none, or that is of the runtime's own directory, has nothing to link with.
+function runtimeFor(mutates p ast.Project, path String, output String, options Options, mutates errs diag.ErrorList) returns frozen with backend.UnitList
+	if output != "" and not project.isRuntimeDirectory(path) 'runtime'
+		return freeze(prepareRuntime(p, options: options, errs: errs))
+	end 'runtime'
+	return noReadyUnits()
+end 'runtimeFor'
+
+// noReadyUnits is what a compile that links with nothing made before is given to link with.
+function noReadyUnits() returns frozen with backend.UnitList
+	return freeze(backend.UnitList.create(0))
+end 'noReadyUnits'
+
+// SharedRuntime is the runtime of a run of many compiles: its project alone, checked, and its code, made once and frozen, so
+// that compiles at once read them and none waits for another. Each compile adds its program to a copy of the project and
+// links it with the code. The runtime module is in the project by its place and its flags only: its source and its check
+// are what no program reads, and are the most of the project.
 type SharedRuntime
-	var p as ast.Project
-	var ready as backend.UnitList
+	var p as frozen with ast.Project
+	var ready as frozen with backend.UnitList
 
 	static function prepare(mutates errs diag.ErrorList) returns SharedRuntime
 		var p = ast.Project.new("")
-		var ready = backend.UnitList.create(0)
-		prepareRuntime(p, ready: ready, options: Options.new(), errs: errs)
-		return SharedRuntime{p: p, ready: ready}
+		let ready = prepareRuntime(p, options: Options.new(), errs: errs)
+		_ = ast.takeBody(p, module: runtimeModule)
+		return SharedRuntime{p: freeze(p), ready: freeze(ready)}
 	end 'prepare'
 
 	// none is the runtime of a run that compiles no executable: nothing is loaded or checked.
 	static function none() returns SharedRuntime
-		return SharedRuntime{p: ast.Project.new(""), ready: backend.UnitList.create(0)}
+		return SharedRuntime{p: freeze(ast.Project.new("")), ready: noReadyUnits()}
 	end 'none'
 
-	// projectForProgram is a copy of the project for one program to be added to. The runtime module is in it by its place
-	// and its flags only: its source and its check are what no program reads, and are the most of the project.
-	function projectForProgram(mutates self) returns ast.Project
-		let body = ast.takeBody(p, module: runtimeModule)
-		let copy = p.clone()
-		ast.putBody(p, module: runtimeModule, body: body)
-		return copy
+	// projectForProgram is a copy of the project for one program to be added to.
+	function projectForProgram() returns ast.Project
+		return copyOfProject(p)
 	end 'projectForProgram'
 end 'SharedRuntime'
+
+// copyOfProject is a copy of p, which a frozen project's contents are copied by.
+function copyOfProject(p ast.Project) returns ast.Project
+	return p.clone()
+end 'copyOfProject'
 
 // runtimeModule is the module of the runtime in a project that prepareRuntime made: the first.
 let runtimeModule = 0 as diag.ModuleID
@@ -116,7 +127,7 @@ end 'CompiledProgram'
 
 // compileProjectWith is compileProject for a compile that makes an executable of the project at path, on the runtime that
 // the run shares, and keeps what it lowered.
-function compileProjectWith(mutates shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
+function compileProjectWith(shared SharedRuntime, path String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
 	var generated = Generated.nothing()
@@ -128,7 +139,7 @@ function compileProjectWith(mutates shared SharedRuntime, path String, output St
 end 'compileProjectWith'
 
 // compileFilesWith is compileProjectWith for a project whose files are held in memory, as the directory at path holds them.
-function compileFilesWith(mutates shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList)
+function compileFilesWith(shared SharedRuntime, path String, files project.SourceFiles, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
 	project.discoverFilesInto(p, rootPath: path, files: files, errs: errs)
@@ -136,7 +147,7 @@ function compileFilesWith(mutates shared SharedRuntime, path String, files proje
 end 'compileFilesWith'
 
 // compileSourceWith is compileProjectWith for a program that is the one file text, named path in the diagnostics.
-function compileSourceWith(mutates shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
+function compileSourceWith(shared SharedRuntime, path String, text String, output String, options Options, mutates errs diag.ErrorList)
 	var p = shared.projectForProgram()
 	let first = p.modules.count()
 	let memory = project.discoverSourceInto(p, path: path, text: text)
@@ -147,42 +158,42 @@ end 'compileSourceWith'
 // whose main it holds, so that it may call the runtime's functions and the __Raw intrinsics, as a program may not.
 function compileRuntimeTest(file String, output String, options Options, mutates errs diag.ErrorList) returns CompiledProgram
 	var p = ast.Project.new("")
-	var ready = backend.UnitList.create(0)
 	project.discoverRuntime(p)
 	p.modules[ast.modIndex(p.rootModule)].filePaths.push(file.clone())
-	let generated = compileDiscovered(p, memory: project.SourceFiles.create(0), first: 0, ready: ready, output: output, options: options, errs: errs)
+	let generated = compileDiscovered(p, memory: project.SourceFiles.create(0), first: 0, ready: noReadyUnits(), output: output, options: options, errs: errs)
 	return CompiledProgram.make(p, generated: generated)
 end 'compileRuntimeTest'
 
-// prepareRuntime makes p the project of the runtime alone, checked, and ready the runtime's code, so that a program is
-// compiled by adding it to a copy of p and linking it with ready, which is the same for every program: the runtime's own
+// prepareRuntime makes p the project of the runtime alone, checked, and gives the runtime's code, so that a program is
+// compiled by adding it to a copy of p and linking it with that code, which is the same for every program: the runtime's own
 // source is then loaded, checked and lowered once however many programs are compiled.
-function prepareRuntime(mutates p ast.Project, mutates ready backend.UnitList, options Options, mutates errs diag.ErrorList)
+function prepareRuntime(mutates p ast.Project, options Options, mutates errs diag.ErrorList) returns backend.UnitList
 	let first = p.modules.count()
 	project.discoverRuntime(p)
 	var runtimeOptions = Options.new()
 	runtimeOptions.timings = options.timings
-	_ = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: ready, errs: errs)
+	var run = runStages(p, from: Stage.parse, memory: project.SourceFiles.create(0), first: first, goal: Goal.units, makesProgram: false, output: "", options: runtimeOptions, ready: noReadyUnits(), errs: errs)
 	if errs.count() > 0 'failed'
 		ast.locateAllErrors(p.modules, errs: errs)
 	end 'failed'
+	return exchange(run.made, value: backend.UnitList.create(0))
 end 'prepareRuntime'
 
 // compileDiscovered compiles the modules of p from the one at index first on, which a project discovered after the modules
 // that p started with, from their parse, and gives back what the generate stage lowered. memory holds the files that the
 // parse reads from memory rather than disk; ready are the units the program is linked with.
-function compileDiscovered(mutates p ast.Project, memory project.SourceFiles, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+function compileDiscovered(mutates p ast.Project, memory project.SourceFiles, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
 	return compileFrom(p, from: Stage.parse, memory: memory, first: first, ready: ready, output: output, options: options, errs: errs)
 end 'compileDiscovered'
 
 // compileLoaded is compileDiscovered for modules that are parsed already.
-function compileLoaded(mutates p ast.Project, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList)
+function compileLoaded(mutates p ast.Project, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList)
 	_ = compileFrom(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: first, ready: ready, output: output, options: options, errs: errs)
 end 'compileLoaded'
 
 // compileFrom is the compile of compileDiscovered and compileLoaded: with an output, to the executable there, and without one
 // as far as the diagnostics, which it locates.
-function compileFrom(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, mutates ready backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
+function compileFrom(mutates p ast.Project, from Stage, memory project.SourceFiles, first Count, ready frozen with backend.UnitList, output String, options Options, mutates errs diag.ErrorList) returns Generated
 	var run = runStages(p, from: from, memory: memory, first: first, goal: goalOf(output), makesProgram: output != "", output: output, options: options, ready: ready, errs: errs)
 	let generated = run.generated()
 	ast.locateAllErrors(p.modules, errs: errs)
@@ -201,16 +212,14 @@ export function declareFront(mutates p ast.Project, mutates errs diag.ErrorList)
 end 'declareFront'
 
 function checkLoaded(mutates p ast.Project, goal Goal, makesProgram bool, mutates errs diag.ErrorList) returns check.Checked
-	var ready = backend.UnitList.create(0)
-	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: goal, makesProgram: makesProgram, output: "", options: Options.new(), ready: ready, errs: errs)
+	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: goal, makesProgram: makesProgram, output: "", options: Options.new(), ready: noReadyUnits(), errs: errs)
 	return exchange(run.checked, value: check.Checked.none())
 end 'checkLoaded'
 
 // lowerLoaded checks the modules of p, which are parsed, and lowers their functions, which is nothing when an error stopped
 // the check.
 function lowerLoaded(mutates p ast.Project, mutates errs diag.ErrorList) returns Generated
-	var ready = backend.UnitList.create(0)
-	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: Goal.lowered, makesProgram: true, output: "", options: Options.new(), ready: ready, errs: errs)
+	var run = runStages(p, from: Stage.resolve, memory: project.SourceFiles.create(0), first: 0, goal: Goal.lowered, makesProgram: true, output: "", options: Options.new(), ready: noReadyUnits(), errs: errs)
 	return run.generated()
 end 'lowerLoaded'
 

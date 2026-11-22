@@ -102,7 +102,7 @@ end 'Station'
 // what became of every task and the errors it found.
 type ProjectStation
 	var p as ast.Project
-	var ready as backend.UnitList
+	var ready as frozen with backend.UnitList
 	// errs are the errors found before the compile began (earlier of them), and the compile's when it ends.
 	var errs as diag.ErrorList
 	var earlier as Count
@@ -116,7 +116,7 @@ type ProjectStation
 	var homes as Count
 	var timings as Timings
 
-	static function make(consumes p ast.Project, consumes ready backend.UnitList, consumes errs diag.ErrorList, makesProgram bool, modules Count, consumes timings Timings) returns ProjectStation
+	static function make(consumes p ast.Project, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList, makesProgram bool, modules Count, consumes timings Timings) returns ProjectStation
 		var units = backend.UnitList.create(0)
 		for _ in 0 upto modules 'modules'
 			units.push(backend.CodeUnit.new())
@@ -197,7 +197,7 @@ end 'Context'
 // ends the compile in the last of them (finishCompile), which sets the code the process exits with. memory holds the files
 // that the parse reads from memory rather than disk; ready are the units the program is linked with, and errs the errors
 // found before.
-function startCompile(consumes p ast.Project, consumes memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, consumes ready backend.UnitList, consumes errs diag.ErrorList)
+function startCompile(consumes p ast.Project, consumes memory project.SourceFiles, first Count, goal Goal, makesProgram bool, output String, options Options, consumes ready frozen with backend.UnitList, consumes errs diag.ErrorList)
 	if goal != Goal.instances and goal != Goal.executable 'goal'
 		panic("driver: a compile of behaviours ends in a task of the project, which the goal {goal} has none of at its end")
 	end 'goal'

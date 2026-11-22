@@ -250,7 +250,7 @@ function linkAndRun(mutates p ast.Project, fns backend.MirFunctionList, entry as
 	units.push(u)
 	var ready = backend.UnitList.create(0)
 	ready.push(runtimeUnit(false))
-	let linked = backend.linkProgram(p, modules: units, ready: ready, entry: entry, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
+	let linked = backend.linkProgram(p, modules: units, ready: freeze(ready), entry: entry, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
 	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: "")
 end 'linkAndRun'
 

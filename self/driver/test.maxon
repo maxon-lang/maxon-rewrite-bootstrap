@@ -383,23 +383,33 @@ type CorpusOptions
 	end 'new'
 end 'CorpusOptions'
 
-// testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--skip-passed]
-// [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or else the
-// nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its code at
-// another place has the directive rewritten to that place, as after a change that only moves code, such as renaming a
-// keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
-// such program N times. The last two flags are for the spec files: one writes the list of the tests that pass, the other
-// leaves out the tests that the list has.
+// testCommand is `test [dir|file.md] [--verbose] [--update-positions] [--behaviours] [--repeat=N] [--executables=N]
+// [--skip-passed] [--record-passed]`: the corpus is the given directory of programs, or the spec files at the given path, or
+// else the nearest tests directory from the executable's upward. With --update-positions a test whose expect-error got its
+// code at another place has the directive rewritten to that place, as after a change that only moves code, such as renaming
+// a keyword. --behaviours runs only the programs that schedule behaviours, natively, and --repeat runs the executable of each
+// such program N times. --executables lets at most N test executables run at once. The last two flags are for the spec
+// files: one writes the list of the tests that pass, the other leaves out the tests that the list has.
 function testCommand(rest CommandNames) returns ExitCode
 	var verbose = false
 	var record = false
 	var skipPassed = false
 	var corpus = CorpusOptions.new()
 	var corpusFlags = false
+	var executables = 0 as Count
 	var path = ""
 	var hasPath = false
 	for i in 1 upto rest.count() 'arguments'
-		if rest[i] == verboseFlag 'verbose'
+		if hasPrefix(rest[i], prefix: executablesFlag) 'executables'
+			executables = match consumes parseCount(afterPrefix(rest[i], prefix: executablesFlag)) 'cap'
+				some(n) gives n
+				none gives 0
+			end 'cap'
+			if executables < 1 'malformed'
+				printError("test: {executablesFlag} takes a number of executables from 1\n")
+				return usageExitCode
+			end 'malformed'
+		end 'executables' else if rest[i] == verboseFlag 'verbose'
 			verbose = true
 		end 'verbose' else if rest[i] == updatePositionsFlag 'positions'
 			corpus.updatePositions = true
@@ -431,19 +441,20 @@ function testCommand(rest CommandNames) returns ExitCode
 		printError("test: {recordPassedFlag} and {skipPassedFlag} are for the spec files: name the specs directory\n")
 		return usageExitCode
 	end 'listFlags'
+	let width = RunWidth.of(runWorkers(), executables: executables)
 	if hasPath and isSpecPath(path) 'specs'
 		if corpusFlags 'corpusFlags'
 			printError("test: {behavioursFlag} and {repeatFlag}N are for the corpus, not the spec files\n")
 			return usageExitCode
 		end 'corpusFlags'
-		return runSpecs(path, options: options)
+		return runSpecs(path, options: options, width: width)
 	end 'specs'
 	corpus.verbose = verbose
 	if hasPath 'given'
-		return runTests(path, options: corpus)
+		return runTests(path, options: corpus, width: width)
 	end 'given'
 	return match consumes project.nearestDirectory(testsDirName) 'nearest'
-		some(dir) gives runTests(dir, options: corpus)
+		some(dir) gives runTests(dir, options: corpus, width: width)
 		none gives usageError()
 	end 'nearest'
 end 'testCommand'
@@ -453,9 +464,9 @@ function usageError() returns ExitCode
 	return usageExitCode
 end 'usageError'
 
-// runTests runs every program and project of the corpus in dir, one after another, printing a line for each and the
-// failures and the counts at the end.
-function runTests(dir String, options CorpusOptions) returns ExitCode
+// runTests runs every program and project of the corpus in dir, as behaviours (startTests), which print a line for each in
+// the order of the files and the failures and the counts at the end, and set the code the process exits with.
+function runTests(dir String, options CorpusOptions, width RunWidth) returns ExitCode
 	let root = project.absolutePath(dir)
 	if not project.isDirectoryPath(root) 'missing'
 		panic("test: cannot read {root}")
@@ -465,56 +476,25 @@ function runTests(dir String, options CorpusOptions) returns ExitCode
 	collectPrograms(root, modulesRoot: modulesRoot, benchRoot: project.joinPath(root, name: benchDir), files: files)
 	collectProjects(modulesRoot, files: files)
 	project.sortStrings(files)
-	var failures = ast.StringList.create(0)
-	var unsupported = 0 as Count
-	var leftOut = 0 as Count
-	var shared = prepareSharedRuntime()
-	var scratch = Scratch.make("test")
 	let checkOnlyPrefix = project.joinPath(project.joinPath(root, name: checkOnlyDir), name: "")
 	let runtimeTierPrefix = project.joinPath(project.joinPath(root, name: runtimeTierDir), name: "")
+	var jobs = Jobs.create(0)
 	for i in 0 upto files.count() 'tests'
 		let file = files[i].clone()
 		let nameStart = try root.byteLength() + 1 otherwise panic("test: {root} is too long")
 		let name = file.sliceBytes(nameStart, endPos: file.byteLength())
-		// A compile runs in this process, so a crash in it ends the run: the line before it names the test.
-		if options.verbose 'start'
-			print("RUN   {name}\n")
-		end 'start'
 		var expect = readExpectation(file)
 		expect.checkOnly = hasPrefix(file, prefix: checkOnlyPrefix)
 		if hasPrefix(file, prefix: runtimeTierPrefix) 'runtimeTier'
 			expect.runtimeTier = true
 			expect.nativeOnly = true
 		end 'runtimeTier'
-		if options.behavioursOnly and not mayScheduleBehaviours(expect, file: file) 'unscheduled'
-			leftOut = try leftOut + 1 otherwise panic("test: more tests than memory")
-			continue 'tests'
-		end 'unscheduled'
-		let result = runTest(shared, scratch: scratch, file: file, expect: expect, options: options)
-		var status = "PASS"
-		if result.outcome == TestOutcome.testFailed 'failed'
-			status = "FAIL"
-			failures.push("{name}: {result.detail}")
-		end 'failed' else if result.outcome == TestOutcome.testUnsupported 'unsupported'
-			status = "SKIP"
-			unsupported = unsupported + 1
-		end 'unsupported' else if result.outcome == TestOutcome.testLeftOut 'leftOut'
-			leftOut = try leftOut + 1 otherwise panic("test: more tests than memory")
-			continue 'tests'
-		end 'leftOut'
-		print("{status}  {name}\n")
+		let leftOut = options.behavioursOnly and not mayScheduleBehaviours(expect, file: file)
+		jobs.push(Job.corpus(CorpusJob.make(file, name: name, expect: expect, leftOut: leftOut)))
 	end 'tests'
-	print("\n")
-	for i in 0 upto failures.count() 'failures'
-		print("{failures[i]}\n")
-	end 'failures'
-	let passed = try files.count() - failures.count() - unsupported - leftOut otherwise panic("test: more failures than tests")
-	print("{passed} passed, {failures.count()} failed, {unsupported} not yet supported\n")
-	scratch.finish()
-	if failures.count() == 0 'clean'
-		return 0
-	end 'clean'
-	return diagnosticsExitCode
+	let tests = jobs.count()
+	startTests(prepareSharedRuntime(), jobs: jobs, files: SpecFiles.create(0), corpus: options.clone(), verbose: options.verbose, scratch: Scratch.make("test"), width: width, tally: Tally.corpus(CorpusTally.make(tests)))
+	return compiledByBehaviours
 end 'runTests'
 
 // prepareSharedRuntime is the runtime that every compile of a run of tests links with, checked and compiled once. It
@@ -546,7 +526,7 @@ end 'interpretedTestOptions'
 // compileForTest makes the executable of file at output, as the driver does for every test, so that a test that expects
 // an error the generate stage raises gets it. What it lowered is kept for the interpreter, which runs it as the executable
 // is made from it.
-function compileForTest(mutates shared SharedRuntime, file String, output String, mutates errs diag.ErrorList) returns CompiledProgram
+function compileForTest(shared SharedRuntime, file String, output String, mutates errs diag.ErrorList) returns CompiledProgram
 	let compiled = compileProjectWith(shared, path: file, output: output, options: interpretedTestOptions(), errs: errs)
 	diag.sortErrors(errs)
 	return compiled
@@ -587,63 +567,57 @@ function mayScheduleBehaviours(expect Expectation, file String) returns bool
 	return expect.runtimeTier or expect.mentionsWhen
 end 'mayScheduleBehaviours'
 
-// runTest compiles a test program and checks the result against what its directives say. The executable lives only as
-// long as the test.
-function runTest(mutates shared SharedRuntime, mutates scratch Scratch, file String, expect Expectation, options CorpusOptions) returns TestResult
-	if endsWithText(file, suffix: fixCaseExtension) 'fix'
-		let stem = file.sliceBytes(0, endPos: try file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
-		return runFixTest(file, expected: "{stem}{fixedExtension}")
+// stageProgram compiles the test program of job, which is test index of the run, to the executable at exe, and checks what
+// it can against what its directives say before the executable runs. The executable lives only as long as the test.
+function stageProgram(shared SharedRuntime, job CorpusJob, index Count, exe String, options CorpusOptions) returns Staged
+	if endsWithText(job.file, suffix: fixCaseExtension) 'fix'
+		let stem = job.file.sliceBytes(0, endPos: try job.file.byteLength() - fixCaseExtension.byteLength() otherwise 0 as Count)
+		return Staged.done(Finished.make(runFixTest(job.file, expected: "{stem}{fixedExtension}")))
 	end 'fix'
-	let exe = scratch.nextExecutable()
 	var errs = diag.ErrorList.create(0)
 	var compiled as CompiledProgram
-	if expect.runtimeTier 'runtimeTier'
-		compiled = compileRuntimeTest(file, output: exe, options: interpretedTestOptions(), errs: errs)
+	if job.expect.runtimeTier 'runtimeTier'
+		compiled = compileRuntimeTest(job.file, output: exe, options: interpretedTestOptions(), errs: errs)
 		diag.sortErrors(errs)
 	end 'runtimeTier' else 'program'
-		compiled = compileForTest(shared, file: file, output: exe, errs: errs)
+		compiled = compileForTest(shared, file: job.file, output: exe, errs: errs)
 	end 'program'
-	let result = checkTest(expect, file: file, compiled: compiled, errs: errs, exe: exe, options: options)
-	if errs.count() == 0 'built'
-		scratch.discard(exe)
-	end 'built'
-	return result
-end 'runTest'
+	return checkTest(job.expect, file: job.file, compiled: compiled, errs: errs, index: index, exe: exe, options: options)
+end 'stageProgram'
 
-// checkTest is whether a compile that gave errs, and the executable at exe when it gave none, is what expect says. A program
-// that only the interpreter runs is run under it alone; any other is run natively and then under it too, unless it says it
-// is too heavy for that. A program that schedules behaviours runs natively several times, each under another schedule.
-function checkTest(expect Expectation, file String, compiled CompiledProgram, errs diag.ErrorList, exe String, options CorpusOptions) returns TestResult
+// checkTest is whether a compile that gave errs is what expect says, or, when it made the executable at exe, the run of the
+// executable that is to say it. A program that only the interpreter runs is run under it alone; any other is run natively
+// and then under it too, unless it says it is too heavy for that. A program that schedules behaviours runs natively several
+// times, each under another schedule.
+function checkTest(expect Expectation, file String, consumes compiled CompiledProgram, errs diag.ErrorList, index Count, exe String, options CorpusOptions) returns Staged
+	let built = errs.count() == 0
 	if expect.errors.count() > 0 'expected'
-		return checkExpectedErrors(expect, file: file, errs: errs, updatePositions: options.updatePositions)
+		return doneBuilt(checkExpectedErrors(expect, file: file, errs: errs, updatePositions: options.updatePositions), exe: exe, built: built)
 	end 'expected'
 	let interpreterOnly = onlyInterpreterErrors(errs)
 	if errs.count() > 0 and not interpreterOnly 'failed'
-		return TestResult.failed(joinErrors(errs))
+		return doneBuilt(TestResult.failed(joinErrors(errs)), exe: exe, built: built)
 	end 'failed'
 	if expect.checkOnly 'checked'
-		return TestResult.passed()
+		return doneBuilt(TestResult.passed(), exe: exe, built: built)
 	end 'checked'
 	if interpreterOnly 'interpreted'
 		if options.behavioursOnly 'noExecutable'
-			return TestResult.leftOut()
+			return doneBuilt(TestResult.leftOut(), exe: exe, built: built)
 		end 'noExecutable'
-		return runInterpreted(compiled, expect: expect)
+		return doneBuilt(runInterpreted(compiled, expect: expect), exe: exe, built: built)
 	end 'interpreted'
 	// A test of the runtime may run the scheduler without a when.
 	let scheduling = expect.runtimeTier or schedulesBehaviours(compiled.generated.modules)
 	if options.behavioursOnly and not scheduling 'unscheduled'
-		return TestResult.leftOut()
+		return doneBuilt(TestResult.leftOut(), exe: exe, built: built)
 	end 'unscheduled'
 	var runs = 1 as Count
 	if scheduling 'repeated'
 		runs = options.repeats
 	end 'repeated'
-	let native = runNativeRuns(exe, expect: expect, runs: runs)
-	if native.outcome == TestOutcome.testFailed or expect.nativeOnly or options.behavioursOnly 'done'
-		return native
-	end 'done'
-	return runInterpreted(compiled, expect: expect)
+	let interprets = not (expect.nativeOnly or options.behavioursOnly)
+	return Staged.needsRun(PendingRun.corpus(CorpusPending.make(index, exe: exe.clone(), expect: expect.clone(), compiled: compiled, runs: runs, interprets: interprets)))
 end 'checkTest'
 
 // schedulesBehaviours is whether a function that was lowered, or a body in one, has a when.

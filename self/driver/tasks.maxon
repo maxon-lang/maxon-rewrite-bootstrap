@@ -574,22 +574,18 @@ function holdProgram(c Compile, p ast.Project, known Known, mutates errs diag.Er
 	refusals(p, lowered: lowered, errs: errs)
 end 'holdProgram'
 
-// linkUnits links the modules' units with the ready ones into the executable at the compile's output, or, for the runtime's
-// own compile, makes them the ready ones. It reads the project whole, which holds the modules' homes.
-function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, mutates ready backend.UnitList, entry ast.FuncID)
-	var made = units
-	if c.goal == Goal.units 'units'
-		for i in 0 upto made.count() 'each'
-			ready.push(exchange(made[i], value: backend.CodeUnit.new()))
-		end 'each'
-		return
-	end 'units'
+// linkUnits links the modules' units with the ready ones into the executable at the compile's output. It reads the project
+// whole, which holds the modules' homes.
+function linkUnits(c Compile, mutates p ast.Project, consumes units backend.UnitList, ready frozen with backend.UnitList, entry ast.FuncID)
+	if c.goal != Goal.executable 'goal'
+		panic("driver: a compile whose goal is {c.goal} links no executable")
+	end 'goal'
 	let out = try FilePath.from(c.output) otherwise panic("driver: the output {c.output} is not a path")
 	var symbolMap = ""
 	if c.options.emitMap 'emitMap'
 		symbolMap = "{c.output}{mapExtension}"
 	end 'emitMap'
-	try backend.compileProgram(p, modules: made, ready: ready, entry: entry, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
+	try backend.compileProgram(p, modules: units, ready: ready, entry: entry, options: backend.RuntimeOptions.make(c.options.countAllocations), out: out, symbolMap: symbolMap) otherwise panic("driver: cannot write {c.output}")
 end 'linkUnits'
 
 typealias ErrorLists = Array with diag.ErrorList

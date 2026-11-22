@@ -272,7 +272,7 @@ function runIr(mutates p ast.Project, fns ir.IrFunctionList, entry ast.FuncID, c
 	modules.push(fns.clone())
 	var ready = backend.UnitList.create(0)
 	ready.push(runtimeUnit(count))
-	let linked = backend.buildProgram(p, modules: modules, ready: ready, entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
+	let linked = backend.buildProgram(p, modules: modules, ready: freeze(ready), entry: entry, options: backend.RuntimeOptions.make(count), mapsSymbols: false)
 	runPeImage(linked.image, name: name, expectedCode: expectedCode, expectedOutput: expectedOutput)
 end 'runIr'
 
@@ -295,7 +295,7 @@ function testStackOverflow(mutates p ast.Project)
 	modules.push(oneFunction(overflowMain(id)))
 	var ready = backend.UnitList.create(0)
 	ready.push(runtimeUnit(false))
-	let linked = backend.buildProgram(p, modules: modules, ready: ready, entry: id, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
+	let linked = backend.buildProgram(p, modules: modules, ready: freeze(ready), entry: id, options: backend.RuntimeOptions.make(false), mapsSymbols: false)
 	let out = runPeImageOutput(linked.image, name: name, expectedCode: testPanicExitCode)
 	var shown = out.stderr.byteLength()
 	if shown > faultPanicPrefix.byteLength() 'longer'
